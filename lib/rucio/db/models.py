@@ -922,7 +922,8 @@ class Config(BASE, ModelBase, Versioned):
 class Heartbeats(BASE, ModelBase):
     """Represents the status and heartbeat of the running daemons and services"""
     __tablename__ = 'heartbeats'
-    executable = Column(String(767))  # mysql max length
+    executable = Column(String(64))  # SHA-2
+    readable = Column(String(4000))
     hostname = Column(String(128))
     pid = Column(Integer, autoincrement=False)
     thread_id = Column(BigInteger, autoincrement=False)

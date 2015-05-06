@@ -157,26 +157,30 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
 
 
 @read_session
-def list_bad_replicas_history(limit=10000, worker_number=None, total_workers=None, session=None):
+def list_bad_replicas_history(limit=10000, thread=None, total_threads=None, session=None):
     """
     List the bad file replicas history. Method only used by necromancer
 
     :param limit: The maximum number of replicas returned.
-    :param worker_number: The worker_number for the necromancer.
-    :param total_workers: The total_workers for the necromancer.
+    :param thread: The assigned thread for this necromancer.
+    :param total_threads: The total number of threads of all necromancers.
     :param session: The database session in use.
     """
+
     query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
         filter(models.BadReplicas.state == BadFilesStatus.BAD)
-    if worker_number and total_workers and total_workers - 1 > 0:
+
+    if total_threads and (total_threads-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+
     query = query.limit(limit)
+
     bad_replicas = {}
     for scope, name, rse_id in query.yield_per(1000):
         if rse_id not in bad_replicas:
@@ -348,16 +352,18 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
 
 
 @read_session
-def list_bad_replicas(limit=10000, worker_number=None, total_workers=None, session=None):
+def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None):
     """
     List RSE File replicas with no locks.
 
-    :param rse: the rse name.
-    :param bytes: the amount of needed bytes.
+    :param limit: The maximum number of replicas returned.
+    :param thread: The assigned thread for this necromancer.
+    :param total_threads: The total number of threads of all necromancers.
     :param session: The database session in use.
 
     :returns: a list of dictionary {'scope' scope, 'name': name, 'rse_id': rse_id, 'rse': rse}.
     """
+
     if session.bind.dialect.name == 'oracle':
         # The filter(text...)) is needed otherwise, SQLA uses bind variables and the index is not used.
         query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
@@ -369,14 +375,14 @@ def list_bad_replicas(limit=10000, worker_number=None, total_workers=None, sessi
         query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
-    if worker_number and total_workers and total_workers - 1 > 0:
+    if total_threads and (total_threads-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
 
     query = query.limit(limit)
     rows = []

@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2015
 
 """
 Judge-Cleaner is a daemon to clean expired replication rules.
@@ -111,7 +111,7 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
             record_gauge('rule.judge.cleaner.threads.%d' % (process*threads_per_process+thread), 0)
             logging.critical(traceback.format_exc())
         if once:
-            return
+            break
 
     die(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
 

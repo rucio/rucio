@@ -7,6 +7,7 @@
 
   Authors:
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 '''
 
 import logging
@@ -117,33 +118,42 @@ def is_matching_subscription(subscription, did, metadata):
     return True
 
 
-def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
+def transmogrifier(thread=0, bulk=5, once=False):
     """
-    Creates a Transmogrifier Worker that gets a list of new DIDs for a given hash, identifies the subscriptions matching the DIDs and submit a replication rule for each DID matching a subscription.
+    Creates a Transmogrifier Worker that gets a list of new DIDs for a given hash,
+    identifies the subscriptions matching the DIDs and
+    submit a replication rule for each DID matching a subscription.
 
-    param worker_number: The number of the worker (thread).
-    param total_number: The total number of workers (threads).
-    chunk_size: The chunk of the size to process.
-    once: To run only once
+    :param thread: Thread number at startup.
+    :param bulk: The number of requests to process.
+    :param once: Run only once.
     """
 
     executable = ' '.join(argv)
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
+    heartbeat.sanity_check(executable=executable, hostname=hostname)
 
     while not graceful_stop.is_set():
-        heartbeat.live(executable, hostname, pid, hb_thread)
+
+        hb = heartbeat.live(executable, hostname, pid, hb_thread)
+
         dids, subscriptions = [], []
         tottime = 0
+
         try:
-            for did in list_new_dids(worker_number=worker_number, total_workers=total_workers, chunk_size=chunk_size):
+            for did in list_new_dids(thread=hb['assign_thread'], total_threads=hb['nr_threads'], chunk_size=bulk):
                 dids.append({'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']})
+
             for sub in list_subscriptions(None, None):
                 if sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
                     subscriptions.append(sub)
         except Exception, error:
-            logging.error('Thread %i : Failed to get list of new DIDs or subsscriptions : %s' % (worker_number, str(error)))
+            logging.error('Thread [%i/%i] : Failed to get list of new DIDs or subscriptions: %s' % (hb['assign_thread'],
+                                                                                                    hb['nr_threads'],
+                                                                                                    str(error)))
+
             if once:
                 break
             else:
@@ -152,7 +162,8 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
         try:
             results = {}
             start_time = time.time()
-            logging.debug('Thread %i : In transmogrifier worker' % (worker_number))
+            logging.debug('Thread [%i/%i] : In transmogrifier worker' % (hb['assign_thread'],
+                                                                         hb['nr_threads']))
             identifiers = []
             for did in dids:
                 if did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER):
@@ -163,7 +174,10 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                             if is_matching_subscription(subscription, did, metadata) is True:
                                 stime = time.time()
                                 results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
-                                logging.info('Thread %i : %s:%s matches subscription %s' % (worker_number, did['scope'], did['name'], subscription['name']))
+                                logging.info('Thread [%i/%i] : %s:%s matches subscription %s' % (hb['assign_thread'],
+                                                                                                 hb['nr_threads'],
+                                                                                                 did['scope'], did['name'],
+                                                                                                 subscription['name']))
                                 for rule in loads(subscription['replication_rules']):
                                     grouping = rule.get('grouping', 'DATASET')
                                     lifetime = rule.get('lifetime', None)
@@ -206,29 +220,45 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                             break
                                         except (InvalidReplicationRule, InvalidRuleWeight, InvalidRSEExpression, StagingAreaRuleRequiresLifetime, InsufficientTargetRSEs, DuplicateRule) as excep:
                                             # These errors shouldn't be retried
-                                            logging.error('Thread %i : %s' % (worker_number, str(excep)))
+                                            logging.error('Thread [%i/%i] : %s' % (hb['assign_thread'],
+                                                                                   hb['nr_threads'],
+                                                                                   str(excep)))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(excep)), delta=1)
                                             break
                                         except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit) as excep:
-                                            # These errors should be retried
-                                            logging.error('Thread %i : %s' % (worker_number, str(excep)))
+                                            logging.error('Thread [%i/%i] : %s' % (hb['assign_thread'],
+                                                                                   hb['nr_threads'],
+                                                                                   str(excep)))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(excep)), delta=1)
                                             break
-                                        except DatabaseException, excep:
-                                            logging.error('Thread %i : %s' % (worker_number, str(excep)))
-                                            logging.error('Thread %i : Will perform an other attempt %i/%i' % (worker_number, attempt + 1, nattempt))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(excep)), delta=1)
+                                        except DatabaseException, e:
+                                            logging.error('Thread [%i/%i] : %s' % (hb['assign_thread'],
+                                                                                   hb['nr_threads'],
+                                                                                   str(e)))
+                                            logging.error('Thread [%i/%i] : Will perform an other attempt %i/%i' % (hb['assign_thread'],
+                                                                                                                    hb['nr_threads'],
+                                                                                                                    attempt + 1,
+                                                                                                                    nattempt))
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(e)), delta=1)
                                             success = False
                                         except Exception, excep:
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
                                             exc_type, exc_value, exc_traceback = exc_info()
                                             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+
                                     if (attemptnr + 1) == nattempt and not success:
-                                        logging.critical('Thread %i : Rule for %s:%s on %s cannot be inserted' % (worker_number, did['scope'], did['name'], rse_expression))
+                                        logging.critical('Thread [%i/%i] : Rule for %s:%s on %s cannot be inserted' % (hb['assign_thread'],
+                                                                                                                       hb['nr_threads'],
+                                                                                                                       did['scope'],
+                                                                                                                       did['name'],
+                                                                                                                       rse_expression))
                                     else:
-                                        logging.info('Thread %i :Rule inserted in %f seconds' % (worker_number, time.time()-stime))
+                                        logging.info('Thread [%i/%i] :Rule inserted in %f seconds' % (hb['assign_thread'],
+                                                                                                      hb['nr_threads'],
+                                                                                                      time.time()-stime))
                     except DataIdentifierNotFound, error:
                         logging.warning(error)
+
                 if did['did_type'] == str(DIDType.FILE):
                     monitor.record_counter(counters='transmogrifier.did.file.processed', delta=1)
                 elif did['did_type'] == str(DIDType.DATASET):
@@ -237,13 +267,22 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                     monitor.record_counter(counters='transmogrifier.did.container.processed', delta=1)
                 monitor.record_counter(counters='transmogrifier.did.processed', delta=1)
                 identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
+
             time1 = time.time()
+
             for identifier in chunks(identifiers, 100):
                 _retrial(set_new_dids, identifier, None)
-            logging.info('Thread %i : Time to set the new flag : %f' % (worker_number, time.time() - time1))
+
+            logging.info('Thread [%i/%i] : Time to set the new flag : %f' % (hb['assign_thread'],
+                                                                             hb['nr_threads'],
+                                                                             time.time() - time1))
             tottime = time.time() - start_time
-            logging.info('Thread %i : It took %f seconds to process %i DIDs' % (worker_number, tottime, len(dids)))
-            logging.debug('Thread %i : DIDs processed : %s' % (worker_number, str(dids)))
+            logging.info('Thread [%i/%i] : It took %f seconds to process %i DIDs' % (hb['assign_thread'],
+                                                                                     hb['nr_threads'],
+                                                                                     tottime, len(dids)))
+            logging.debug('Thread [%i/%i] : DIDs processed : %s' % (hb['assign_thread'],
+                                                                    hb['nr_threads'],
+                                                                    str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)
             monitor.record_timer(stat='transmogrifier.job.duration', time=1000*tottime)
         except Exception:
@@ -257,26 +296,28 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
         if tottime < 10:
             time.sleep(10-tottime)
     heartbeat.die(executable, hostname, pid, hb_thread)
-    logging.info('Thread %i : Graceful stop requested' % (worker_number))
-    logging.info('Thread %i : Graceful stop done' % (worker_number))
+    logging.info('Thread [%i/%i] : Graceful stop requested' % (hb['assign_thread'],
+                                                               hb['nr_threads']))
+    logging.info('Thread [%i/%i] : Graceful stop done' % (hb['assign_thread'],
+                                                          hb['nr_threads']))
 
 
-def run(total_workers=1, chunk_size=100, once=False):
+def run(threads=1, bulk=100, once=False):
     """
     Starts up the transmogrifier threads.
     """
 
-    threads = list()
-    for worker_number in xrange(0, total_workers):
-        kwargs = {'worker_number': worker_number + 1,
-                  'total_workers': total_workers,
-                  'once': once,
-                  'chunk_size': chunk_size}
-        threads.append(threading.Thread(target=transmogrifier, kwargs=kwargs))
-    [t.start() for t in threads]
-    while threads[0].is_alive():
-        logging.info('Still %i active threads' % len(threads))
-        [t.join(timeout=3.14) for t in threads]
+    logging.info('starting transmogrifier threads')
+    thread_list = [threading.Thread(target=transmogrifier, kwargs={'once': once,
+                                                                   'thread': i,
+                                                                   'bulk': bulk}) for i in xrange(0, threads)]
+    [t.start() for t in thread_list]
+
+    logging.info('waiting for interrupts')
+
+    # Interruptible joins require a timeout.
+    while len(thread_list) > 0:
+        [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
 
 
 def stop(signum=None, frame=None):

@@ -10,11 +10,12 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 
 import datetime
+import hashlib
 
 from sqlalchemy.sql import distinct
 
 from rucio.db.models import Heartbeats
-from rucio.db.session import transactional_session
+from rucio.db.session import read_session, transactional_session
 from rucio.common.utils import pid_exists
 
 
@@ -26,6 +27,9 @@ def sanity_check(executable, hostname, session=None):
     :param executable: Executable name as a string, e.g., conveyor-submitter
     :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch
     """
+
+    executable = hashlib.sha256(executable).hexdigest()
+
     for pid, in session.query(distinct(Heartbeats.pid)).filter_by(executable=executable, hostname=hostname):
         if not pid_exists(pid):
             session.query(Heartbeats).filter_by(executable=executable, hostname=hostname, pid=pid).delete()
@@ -49,15 +53,18 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
     :returns heartbeats: Dictionary {assign_thread, nr_threads}
     """
 
+    hash_executable = hashlib.sha256(executable).hexdigest()
+
     # upsert the heartbeat
     rowcount = session.query(Heartbeats)\
-        .filter_by(executable=executable,
+        .filter_by(executable=hash_executable,
                    hostname=hostname,
                    pid=pid,
                    thread_id=thread.ident)\
         .update({'updated_at': datetime.datetime.utcnow()})
     if not rowcount:
-        Heartbeats(executable=executable,
+        Heartbeats(executable=hash_executable,
+                   readable=executable,
                    hostname=hostname,
                    pid=pid,
                    thread_id=thread.ident,
@@ -68,14 +75,12 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
                           Heartbeats.pid,
                           Heartbeats.thread_id)\
                    .with_hint(Heartbeats, "index(HEARTBEATS HEARTBEATS_PK)", 'oracle')\
-                   .filter(Heartbeats.executable.like('%s%%' % executable.split()[0]))\
+                   .filter(Heartbeats.executable == hash_executable)\
                    .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
-                   .group_by(Heartbeats.executable,
-                             Heartbeats.hostname,
+                   .group_by(Heartbeats.hostname,
                              Heartbeats.pid,
                              Heartbeats.thread_id)\
-                   .order_by(Heartbeats.executable,
-                             Heartbeats.hostname,
+                   .order_by(Heartbeats.hostname,
                              Heartbeats.pid,
                              Heartbeats.thread_id)
     result = query.all()
@@ -106,6 +111,8 @@ def die(executable, hostname, pid, thread, older_than=None, session=None):
     :returns heartbeats: Dictionary {assign_thread, nr_threads}
     """
 
+    executable = hashlib.sha256(executable).hexdigest()
+
     query = session.query(Heartbeats).filter_by(executable=executable,
                                                 hostname=hostname,
                                                 pid=pid,
@@ -131,3 +138,23 @@ def cardiac_arrest(older_than=None, session=None):
         query = query.filter(Heartbeats.updated_at < datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than))
 
     query.delete()
+
+
+@read_session
+def list_heartbeats(session=None):
+    """
+    List all heartbeats.
+
+    :returns: List of tuples
+    """
+
+    query = session.query(Heartbeats.readable,
+                          Heartbeats.hostname,
+                          Heartbeats.pid,
+                          Heartbeats.thread_name,
+                          Heartbeats.updated_at,
+                          Heartbeats.created_at).order_by(Heartbeats.readable,
+                                                          Heartbeats.hostname,
+                                                          Heartbeats.thread_name)
+
+    return query.all()
