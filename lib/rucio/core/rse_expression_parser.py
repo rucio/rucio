@@ -1,15 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+'''
 
 import abc
 import re
@@ -25,8 +26,8 @@ from rucio.core.rse import list_rses
 from rucio.db.session import transactional_session
 
 
-DEFAULT_RSE_ATTRIBUTE = schema.default_rse_attribute['pattern']
-RSE_ATTRIBUTE = schema.rse_attribute['pattern']
+DEFAULT_RSE_ATTRIBUTE = schema.DEFAULT_RSE_ATTRIBUTE['pattern']
+RSE_ATTRIBUTE = schema.RSE_ATTRIBUTE['pattern']
 PRIMITIVE = r'(\(*(%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE)
 
 UNION = r'(\|%s)' % (PRIMITIVE)
@@ -36,7 +37,7 @@ COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
 PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
 
-region = make_region().configure('dogpile.cache.memcached',
+REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
                                  arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
 
@@ -52,7 +53,7 @@ def parse_expression(expression, filter=None, session=None):
     :returns:             A list of rse dictionaries.
     :raises:              InvalidRSEExpression, RSENotFound, RSEBlacklisted
     """
-    result = region.get(sha256(expression).hexdigest())
+    result = REGION.get(sha256(expression).hexdigest())
     if type(result) is NoValue:
         # Evaluate the correctness of the parentheses
         parantheses_open_count = 0
@@ -78,7 +79,7 @@ def parse_expression(expression, filter=None, session=None):
         result = []
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
-        region.set(sha256(expression).hexdigest(), result)
+        REGION.set(sha256(expression).hexdigest(), result)
 
     if not result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')

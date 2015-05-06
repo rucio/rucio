@@ -127,8 +127,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
             for rse in sort_rses(rses):
                 try:
                     if checkpoint_time + datetime.timedelta(minutes=1) < datetime.datetime.now():
-                        # heartbeat
-                        live(executable=executable, hostname=hostname, pid=pid, thread=thread)
+                        heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread)
+                        logging.info('Reaper({0[worker_number]}/{0[child_number]}): Live gives {0[heartbeat]}'.format(locals()))
                         checkpoint_time = datetime.datetime.now()
 
                     deleting_rate = 0
