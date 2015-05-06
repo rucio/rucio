@@ -57,6 +57,7 @@ DEFAULT_PORT = 80
 
 
 logger = logging.getLogger("user")
+tablefmt = 'psql'
 
 
 def setup_logger(logger):
@@ -153,6 +154,8 @@ def exception_handler(function):
             logger.error(e)
             logger.debug('This means the rule you specified does not exist.')
             return FAILURE
+        except IOError, e:
+            return SUCCESS
         except Exception, e:
             logger.error(e)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
@@ -242,35 +245,41 @@ def list_dataset_replicas(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
-    List file replicas
+    List dataset replicas
     """
     client = get_client(args)
-    scope, name = extract_scope(args.did)
-    dids = client.scope_list(scope=scope, name=name, recursive=True)
     datasets = {}
     result = {}
-    for d in dids:
-        if d['type'] == 'FILE':
-            dsn = '%s:%s' % (d['parent']['scope'], d['parent']['name'])
-            if dsn not in datasets:
-                datasets[dsn] = 0
-            datasets[dsn] += 1
+    scope, name = extract_scope(args.did)
+    meta = client.get_metadata(scope, name)
+    if meta['did_type'] != 'DATASET' or args.deep:
+        dids = client.scope_list(scope=scope, name=name, recursive=True)
+        for did in dids:
+            if did['type'] == 'FILE':
+                dsn = '%s:%s' % (did['parent']['scope'], did['parent']['name'])
+                if dsn not in datasets:
+                    datasets[dsn] = 0
+                datasets[dsn] += 1
+    else:
+        datasets['%s:%s' % (scope, name)] = 0
     for dsn in datasets:
         scope, name = extract_scope(dsn)
-        replicas = client.list_replicas([{'scope': scope, 'name': name}])
         result[dsn] = {}
-        for replica in replicas:
-            for rse in replica['rses']:
-                if rse not in result[dsn]:
-                    result[dsn][rse] = 0
-                if replica['rses'][rse] != []:
-                    result[dsn][rse] += 1
+        if args.deep:
+            replicas = client.list_replicas([{'scope': scope, 'name': name}])
+            for replica in replicas:
+                for rse in replica['rses']:
+                    if rse not in result[dsn]:
+                        result[dsn][rse] = [rse, 0, datasets[dsn]]
+                    if replica['rses'][rse] != []:
+                        result[dsn][rse][1] += 1
+        else:
+            for rep in client.list_dataset_replicas(scope, name):
+                result[dsn][rep['rse']] = [rep['rse'], rep['available_length'], rep['length']]
+
     for dsn in result:
         print '\nDATASET: %s' % (dsn)
-        print '{0:40} {1:7} {2:7}'.format('RSE', 'FOUND', 'TOTAL')
-        print '{0:-<60}'.format('')
-        for rse in result[dsn]:
-            print '{0:40} {1:6d} {2:6d}'.format(rse, result[dsn][rse], datasets[dsn])
+        print tabulate.tabulate(result[dsn].values(), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL'])
     return SUCCESS
 
 
@@ -326,7 +335,7 @@ def list_file_replicas(args):
                             line = len(line.expandtabs()) * ' '
                             str = len(str.expandtabs()) * ' '
         elif not args.list_collections:
-            str = '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format(replica['scope'], replica['name'], '???', '???', 'Unavalaible')
+            str = '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format(replica['scope'], replica['name'], '???', '???', 'Unavailable')
             print str.expandtabs()
     if args.list_collections:
         nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
@@ -412,6 +421,7 @@ def list_dids(args):
     client = get_client(args)
     filters = {}
     type = 'collection'
+    table = []
     if args.filter:
         if args.recursive:
             logger.error('Option recursive and filter cannot be used together')
@@ -440,8 +450,6 @@ def list_dids(args):
     if scope not in client.list_scopes():
         logger.error('Scope not found')
         return FAILURE
-    print '{0:^100}{1:^10}'.format('SCOPE:NAME', '[DID TYPE]')
-    print '{0:-<110}'.format('')
     if name.find('*') > -1:
         if args.recursive:
             logger.error('Option recursive cannot be used with wildcards')
@@ -451,18 +459,17 @@ def list_dids(args):
             return FAILURE
         filters['name'] = name
         for did in client.list_dids(scope, filters=filters, type=type):
-            print '{0:}:{1:90}[{2:^10}]'.format(scope, did, type.upper())
+            table.append(['%s:%s' % (scope, did), type.upper()])
     else:
         dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
         no_result = True
-        for d in dids:
-            if d['level'] == 0:
-                print '{0:}:{1:90}[{2:^10}]'.format(d['scope'], d['name'], d['type'].upper())
-            else:
-                print '{0:}:{1:90}[{2:^10}]'.format(d['scope'], d['name'], d['type'].upper())
+        for did in dids:
+            table.append(['%s:%s' % (did['scope'], did['name']), did['type'].upper()])
         if no_result:
             did_info = client.get_did(scope=scope, name=name)
-            print '{0:}:{1:90}[{2:^10}]'.format(did_info['scope'], did_info['name'], did_info['type'].upper())
+            table.append(['%s:%s' % (did_info['scope'], did_info['name']), did_info['type'].upper()])
+
+    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
     return SUCCESS
 
 
@@ -489,8 +496,7 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
-    print '{0:^105}{1:^40}{2:12}{3:14}{4:10}'.format('SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS')
-    print '{0:-<181}'.format('')
+    table = []
     for did in args.dids:
         totfiles = 0
         totsize = 0
@@ -503,8 +509,8 @@ def list_files(args):
                 totevents += int(file.get('events', 0))
             guid = file['guid']
             guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
-            print '{0:105}{1:>38}{2:>12}{3:>14}{4:>10}'.format('%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], int(file['bytes']), file['events'])
-        print '{0:-<181}'.format('')
+            table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], int(file['bytes']), file['events']])
+        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'])
         print 'Total files : %s' % totfiles
         print 'Total size : %s' % totsize
         if totevents:
@@ -520,12 +526,12 @@ def list_content(args):
     List data identifier contents.
     """
     client = get_client(args)
-    print '{0:^20}{1:^80}{2:^10}'.format('SCOPE', 'NAME', '[DID TYPE]')
-    print '{0:-<110}'.format('')
+    table = []
     for did in args.dids:
         scope, name = extract_scope(did)
         for content in client.list_content(scope=scope, name=name):
-            print '{0:}:{1:80}[{2:^10}]'.format(content['scope'], content['name'], content['type'].upper())
+            table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
+    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
     return SUCCESS
 
 
@@ -537,11 +543,11 @@ def list_parent_dids(args):
     List parent data identifier.
     """
     client = get_client(args)
+    table = []
     scope, name = extract_scope(args.did)
-    print '{0:^20}{1:^80}{2:^10}'.format('SCOPE', 'NAME', '[DID TYPE]')
-    print '{0:-<110}'.format('')
     for dataset in client.list_parent_dids(scope=scope, name=name):
-        print '{0:}:{1:80} [{2:^10}]'.format(dataset['scope'], dataset['name'], dataset['type'])
+        table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
+    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
     return SUCCESS
 
 
@@ -1048,7 +1054,6 @@ def get_metadata(args):
 
     Get data identifier metadata
     """
-    # For the moment..
     client = get_client(args)
     for did in args.dids:
         scope, name = extract_scope(did)
@@ -1065,7 +1070,6 @@ def set_metadata(args):
 
     Set data identifier metadata
     """
-    # For the moment..
     client = get_client(args)
     scope, name = extract_scope(args.did)
     client.set_metadata(scope=scope, name=name, key=args.key, value=args.value)
@@ -1294,14 +1298,15 @@ def list_account_limits(args):
 
     """
     client = get_client(args)
+    table = []
     if args.rse:
         limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
     else:
         limits = client.get_account_limits(account=args.limit_account)
-    print "RSE:             LIMIT (TB)"
-    print "------------------"
     for limit in limits.items():
-        print "{0:20} {1:.4f}".format(limit[0], float(limit[1])/1000000000000.0)
+        table.append([limit[0], float(limit[1])/1000000000000.0])
+    table.sort()
+    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT (TB)'])
     return SUCCESS
 
 
@@ -1314,15 +1319,15 @@ def list_account_usage(args):
 
     """
     client = get_client(args)
+    table = []
     if args.rse:
         usage = client.get_account_usage(account=args.usage_account, rse=args.rse)
     else:
         usage = client.get_account_usage(account=args.usage_account)
-    print "RSE                                USAGE (TB), LIMIT (TB), QUOTA LEFT (TB)"
-    print '{0:-<130}'.format('')
     for item in usage:
-        print "{0:30} {1:>10.4f} {2:>10.4f} {3:>10.4f}".format(item['rse'], float(item['bytes'])/1000000000000.0,
-                                                               float(item['bytes_limit'])/1000000000000.0, float(item['bytes_remaining'])/1000000000000.0)
+        table.append([item['rse'], float(item['bytes'])/1000000000000.0, float(item['bytes_limit'])/1000000000000.0, float(item['bytes_remaining'])/1000000000000.0])
+    table.sort()
+    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE (TB)', 'LIMIT (TB)', 'QUOTA LEFT (TB)'])
     return SUCCESS
 
 
@@ -1408,6 +1413,7 @@ Commands:
     list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas')
     list_dataset_replicas_parser.set_defaults(which='list_dataset_replicas')
     list_dataset_replicas_parser.add_argument(dest='did', action='store', help='Data IDentifier to search')
+    list_dataset_replicas_parser.add_argument('--deep', action='store_true', help='Make a deep check.')
 
     # The add-dataset command
     add_dataset_parser = subparsers.add_parser('add-dataset', help='Add dataset')
