@@ -29,6 +29,7 @@ import os
 import pprint
 import signal
 import sys
+import tabulate
 import time
 import traceback
 
@@ -38,7 +39,7 @@ from functools import wraps
 
 from rucio.client import Client
 from rucio.common.config import config_get
-from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
+from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
                                     RSENotFound, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate)
 from rucio.common.utils import chunks
 from rucio import version
@@ -61,6 +62,8 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 logger = logging.getLogger("user")
+
+tablefmt = 'psql'
 
 
 def setup_logger(logger):
@@ -107,47 +110,51 @@ def exception_handler(function):
     def new_funct(*args, **kwargs):
         try:
             return function(*args, **kwargs)
-        except InvalidObject, e:
-            logger.error(e)
+        except InvalidObject, excep:
+            logger.error(excep)
             return FAILURE
-        except DataIdentifierNotFound, e:
-            logger.error(e)
+        except DataIdentifierNotFound, excep:
+            logger.error(excep)
             logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
             return FAILURE
-        except AccessDenied, e:
-            logger.error(e)
+        except AccessDenied, excep:
+            logger.error(excep)
             logger.debug('This error is a permission issue. You cannot run this command with your account.')
             return FAILURE
-        except DataIdentifierAlreadyExists, e:
-            logger.error(e)
+        except DataIdentifierAlreadyExists, excep:
+            logger.error(excep)
             logger.debug('This means that the data IDentifier you try to add is already registered in Rucio.')
             return FAILURE
-        except RSENotFound, e:
-            logger.error(e)
+        except RSENotFound, excep:
+            logger.error(excep)
             logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
             return FAILURE
-        except InvalidRSEExpression, e:
-            logger.error(e)
+        except InvalidRSEExpression, excep:
+            logger.error(excep)
             logger.debug('This means the RSE expression you provided is not syntactically correct.')
             return FAILURE
-        except DuplicateContent, e:
-            logger.error(e)
+        except DuplicateContent, excep:
+            logger.error(excep)
             logger.debug('This means that the DID you want to attach is already in the target DID.')
             return FAILURE
-        except TypeError, e:
-            logger.error(e)
+        except TypeError, excep:
+            logger.error(excep)
             logger.debug('This means the parameter you passed has a wrong type.')
             return FAILURE
-        except RuleNotFound, e:
-            logger.error(e)
+        except RuleNotFound, excep:
+            logger.error(excep)
             logger.debug('This means the rule you specified does not exist.')
             return FAILURE
-        except NotImplementedError, e:
-            logger.error(e)
+        except AccountNotFound, excep:
+            logger.error(excep)
+            logger.debug('This means that the specified account cannot be found.')
+            return FAILURE
+        except NotImplementedError, excep:
+            logger.error(excep)
             logger.debug('This means that the method is not implemented yet.')
             return FAILURE
-        except Exception, e:
-            logger.error(e)
+        except Exception, excep:
+            logger.error(excep)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
             logger.debug(traceback.format_exc())
             return FAILURE
@@ -630,9 +637,12 @@ def list_account_attributes(args):
 
     """
     client = get_client(args)
-    attributes = client.list_account_attributes(account=args.account).next()
+    account = args.account or client.account
+    attributes = client.list_account_attributes(account).next()
+    table = []
     for attr in attributes:
-        print "{0}: {1}".format(attr['key'], attr['value'])
+        table.append([attr['key'], attr['value']])
+    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['Key', 'Value'])
     return SUCCESS
 
 
@@ -730,7 +740,7 @@ Commands:
 
     # The list_account_attributes command
     list_attr_parser = account_subparser.add_parser('list-attributes', help='List attributes for an account')
-    list_attr_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    list_attr_parser.add_argument('--account', dest='account', action='store', help='Account name')
     list_attr_parser.set_defaults(which='list_account_attributes')
 
     # The add_account_attribute command
