@@ -48,8 +48,11 @@ logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 brokers_resolved = []
 for broker in brokers_alias:
-    brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
-    brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+    try:
+        brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
+        brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+    except:
+        pass
 
 conns = []
 

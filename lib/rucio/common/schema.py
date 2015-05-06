@@ -1,30 +1,32 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+'''
 
 from jsonschema import validate, ValidationError
 
 from rucio.common.exception import InvalidObject
 
 
-account = {"description": "Account name",
+ACCOUNT = {"description": "Account name",
            "type": "string",
            "pattern": "^[a-z0-9-_]{1,30}$"}
 
-account_type = {"description": "Account type",
+ACCOUNT_TYPE = {"description": "Account type",
                 "type": "string",
                 "enum": ["USER", "GROUP", "SERVICE"]}
 
-activity = {"description": "Activity name",
+ACTIVITY = {"description": "Activity name",
             "type": "string",
             "enum": ["default", "Data Brokering", "Data Consolidation", "Debug", "Express",
                      "Functional Test", "Group Subscriptions", "Staging",
@@ -32,215 +34,215 @@ activity = {"description": "Activity name",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions"]}
 
-scope = {"description": "Scope name",
+SCOPE = {"description": "Scope name",
          "type": "string",
          "pattern": "^[a-zA-Z'_'-.0-9]{1,30}$"}
 
-r_scope = {"description": "Scope name",
+R_SCOPE = {"description": "Scope name",
            "type": "string",
-           "pattern": "\w"}
+           "pattern": "\\w"}
 
-name = {"description": "Data Identifier name",
+NAME = {"description": "Data Identifier name",
         "type": "string",
-        "pattern": "^[A-Za-z0-9][A-Za-z0-9\.\-\_]{1,255}$"}
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9\\.\\-\\_]{1,255}$"}
 
-r_name = {"description": "Data Identifier name",
+R_NAME = {"description": "Data Identifier name",
           "type": "string",
-          "pattern": "\w"}
+          "pattern": "\\w"}
 
-locked = {"description": "Rule locked status",
+LOCKED = {"description": "Rule locked status",
           "type": ["boolean", "null"]}
 
-purge_replicas = {"description": "Rule purge replica status",
+PURGE_REPLICAS = {"description": "Rule purge replica status",
                   "type": "boolean"}
 
-ignore_availability = {"description": "Rule ignore availability status",
+IGNORE_AVAILABILITY = {"description": "Rule ignore availability status",
                        "type": "boolean"}
 
-rse = {"description": "RSE name",
+RSE = {"description": "RSE name",
        "type": "string",
        "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"}
 
-rse_attribute = {"description": "RSE attribute",
+RSE_ATTRIBUTE = {"description": "RSE attribute",
                  "type": "string",
                  "pattern": r'([A-Za-z0-9\._-]+=[A-Za-z0-9_-]+)'}
 
-default_rse_attribute = {"description": "Default RSE attribute",
+DEFAULT_RSE_ATTRIBUTE = {"description": "Default RSE attribute",
                          "type": "string",
                          "pattern": r'([A-Z0-9]+([_-][A-Z0-9]+)*)'}
 
-replica_state = {"description": "Replica state",
+REPLICA_STATE = {"description": "Replica state",
                  "type": "string",
                  "enum": ["AVAILABLE", "UNAVAILABLE", "COPYING", "BEING_DELETED", "BAD", "SOURCE", "A", "U", "C", "B", "D", "S"]}
 
-date = {"description": "Date",
+DATE = {"description": "Date",
         "type": "string",
         "pattern": r'((Mon)|(Tue)|(Wed)|(Thu)|(Fri)|(Sat)|(Sun))[,]\s\d{2}\s(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4}\s(0\d|1\d|2[0-3])(\:)(0\d|1\d|2\d|3\d|4\d|5\d)(\:)(0\d|1\d|2\d|3\d|4\d|5\d)\s(UTC)'}
 
-did_type = {"description": "DID type",
+DID_TYPE = {"description": "DID type",
             "type": "string",
             "enum": ["DATASET", "CONTAINER", "FILE", "F"]}
 
-grouping = {"description": "Rule grouping",
+GROUPING = {"description": "Rule grouping",
             "type": ["string", "null"],
             "enum": ["DATASET", "NONE", "ALL", None]}
 
-notify = {"description": "Rule notification setting",
+NOTIFY = {"description": "Rule notification setting",
           "type": ["string", "null"],
           "enum": ["Y", "C", "N", None]}
 
-comment = {"description": "Rule comment",
+COMMENT = {"description": "Rule comment",
            "type": ["string", "null"]}
 
-bytes = {"description": "Size in bytes",
+BYTES = {"description": "Size in bytes",
          "type": "integer"}
 
-adler32 = {"description": "adler32",
+ADLER32 = {"description": "adler32",
            "type": "string",
-           "pattern": "^[a-fA-F\d]{8}$"}
+           "pattern": "^[a-fA-F\\d]{8}$"}
 
-weight = {"description": "Rule weight",
+WEIGHT = {"description": "Rule weight",
           "type": ["string", "null"]}
 
-md5 = {"description": "md5",
+MD5 = {"description": "md5",
        "type": "string",
-       "pattern": "^[a-fA-F\d]{32}$"}
+       "pattern": "^[a-fA-F\\d]{32}$"}
 
-uuid = {"description": "Universally Unique Identifier (UUID)",
+UUID = {"description": "Universally Unique Identifier (UUID)",
         "type": "string",
-        "pattern": '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$'}
+        "pattern": '^(\\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\\}){0,1}$'}
 
-meta = {"description": "Data Identifier(DID) metadata",
+META = {"description": "Data Identifier(DID) metadata",
         "type": "object",
-        "properties": {"guid": uuid},
+        "properties": {"guid": UUID},
         "additionalProperties": True}
 
-pfn = {"description": "Physical File Name", "type": "string"}
+PFN = {"description": "Physical File Name", "type": "string"}
 
-copies = {"description": "Number of replica copies", "type": "integer"}
+COPIES = {"description": "Number of replica copies", "type": "integer"}
 
-rse_expression = {"description": "RSE expression", "type": "string"}
+RSE_EXPRESSION = {"description": "RSE expression", "type": "string"}
 
-source_replica_expression = {"description": "RSE expression", "type": ["string", "null"]}
+SOURCE_REPLICA_EXPRESSION = {"description": "RSE expression", "type": ["string", "null"]}
 
-lifetime = {"description": "Lifetime", "type": "number"}
+LIFETIME = {"description": "Lifetime", "type": "number"}
 
-rule_lifetime = {"description": "Rule lifetime", "type": ["number", "null"]}
+RULE_LIFETIME = {"description": "Rule lifetime", "type": ["number", "null"]}
 
-subscription_id = {"description": "Rule Subscription id", "type": ["string", "null"]}
+SUBSCRIPTION_ID = {"description": "Rule Subscription id", "type": ["string", "null"]}
 
-rule = {"description": "Replication rule",
+RULE = {"description": "Replication rule",
         "type": "object",
         "properties": {"dids": {"type": "array"},
-                       "account": account,
-                       "copies": copies,
-                       "rse_expression": rse_expression,
-                       "grouping": grouping,
-                       "weight": weight,
-                       "lifetime": rule_lifetime,
-                       "locked": locked,
-                       "subscription_id": subscription_id,
-                       "source_replica_expression": source_replica_expression,
-                       "activity": activity,
-                       "notify": notify,
-                       "purge_replicas": purge_replicas,
-                       "ignore_availability": ignore_availability,
-                       "comment": comment},
+                       "account": ACCOUNT,
+                       "copies": COPIES,
+                       "rse_expression": RSE_EXPRESSION,
+                       "grouping": GROUPING,
+                       "weight": WEIGHT,
+                       "lifetime": RULE_LIFETIME,
+                       "locked": LOCKED,
+                       "subscription_id": SUBSCRIPTION_ID,
+                       "source_replica_expression": SOURCE_REPLICA_EXPRESSION,
+                       "activity": ACTIVITY,
+                       "notify": NOTIFY,
+                       "purge_replicas": PURGE_REPLICAS,
+                       "ignore_availability": IGNORE_AVAILABILITY,
+                       "comment": COMMENT},
         "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 
-rules = {"description": "Array of replication rules",
+RULES = {"description": "Array of replication rules",
          "type": "array",
-         "items": rule,
+         "items": RULE,
          "minItems": 1,
          "maxItems": 1000}
 
-collection_type = {"description": "Dataset or container type",
+COLLECTION_TYPE = {"description": "Dataset or container type",
                    "type": "string",
                    "enum": ["DATASET", "CONTAINER"]}
 
-collection = {"description": "Dataset or container",
+COLLECTION = {"description": "Dataset or container",
               "type": "object",
-              "properties": {"scope": scope,
-                             "name": name,
-                             "type": collection_type,
-                             "meta": meta,
-                             "rules": rules},
+              "properties": {"scope": SCOPE,
+                             "name": NAME,
+                             "type": COLLECTION_TYPE,
+                             "meta": META,
+                             "rules": RULES},
               "required": ["scope", "name", "type"],
               "additionalProperties": False}
 
-collections = {"description": "Array of datasets or containers",
+COLLECTIONS = {"description": "Array of datasets or containers",
                "type": "array",
-               "items": collection,
+               "items": COLLECTION,
                "minItems": 1,
                "maxItems": 1000}
 
-did = {"description": "Data Identifier(DID)",
+DID = {"description": "Data Identifier(DID)",
        "type": "object",
-       "properties": {"scope": scope,
-                      "name": name,
-                      "type": did_type,
-                      "meta": meta,
-                      "rules": rules,
-                      "bytes": bytes,
-                      "adler32": adler32,
-                      "md5": md5,
-                      "state": replica_state,
-                      "pfn": pfn},
+       "properties": {"scope": SCOPE,
+                      "name": NAME,
+                      "type": DID_TYPE,
+                      "meta": META,
+                      "rules": RULES,
+                      "bytes": BYTES,
+                      "adler32": ADLER32,
+                      "md5": MD5,
+                      "state": REPLICA_STATE,
+                      "pfn": PFN},
        "required": ["scope", "name"],
        "additionalProperties": False}
 
-did_filters = {"description": "Filters dictionary to list DIDs",
+DID_FILTERS = {"description": "Filters dictionary to list DIDs",
                "type": "object",
-               "properties": {"created_before": date,
-                              "created_afted": date},
+               "properties": {"created_before": DATE,
+                              "created_afted": DATE},
                "additionalProperties": True}
 
-r_did = {"description": "Data Identifier(DID)",
+R_DID = {"description": "Data Identifier(DID)",
          "type": "object",
-         "properties": {"scope": r_scope,
-                        "name": r_name,
-                        "type": did_type,
-                        "meta": meta,
-                        "rules": rules,
-                        "bytes": bytes,
-                        "adler32": adler32,
-                        "md5": md5,
-                        "state": replica_state,
-                        "pfn": pfn},
+         "properties": {"scope": R_SCOPE,
+                        "name": R_NAME,
+                        "type": DID_TYPE,
+                        "meta": META,
+                        "rules": RULES,
+                        "bytes": BYTES,
+                        "adler32": ADLER32,
+                        "md5": MD5,
+                        "state": REPLICA_STATE,
+                        "pfn": PFN},
          "required": ["scope", "name"],
          "additionalProperties": False}
 
-dids = {"description": "Array of Data Identifiers(DIDs)",
+DIDS = {"description": "Array of Data Identifiers(DIDs)",
         "type": "array",
-        "items": did,
+        "items": DID,
         "minItems": 1,
         "maxItems": 1000}
 
-r_dids = {"description": "Array of Data Identifiers(DIDs)",
+R_DIDS = {"description": "Array of Data Identifiers(DIDs)",
           "type": "array",
-          "items": r_did,
+          "items": R_DID,
           "minItems": 1,
           "maxItems": 1000}
 
-attachment = {"description": "Attachement",
+ATTACHMENT = {"description": "Attachement",
               "type": "object",
-              "properties": {"scope": scope,
-                             "name": name,
+              "properties": {"scope": SCOPE,
+                             "name": NAME,
                              "rse": {"description": "RSE name",
                                      "type": ["string", "null"],
                                      "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"},
-                             "dids": dids},
+                             "dids": DIDS},
               "required": ["dids"],
               "additionalProperties": False}
 
-attachments = {"description": "Array of attachments",
+ATTACHMENTS = {"description": "Array of attachments",
                "type": "array",
-               "items": attachment,
+               "items": ATTACHMENT,
                "minItems": 1,
                "maxItems": 1000}
 
-subscription_filter = {"type": "object",
+SUBSCRIPTION_FILTER = {"type": "object",
                        "properties": {"datatype": {"type": "array"},
                                       "prod_step": {"type": "array"},
                                       "stream_name": {"type": "array"},
@@ -253,77 +255,77 @@ subscription_filter = {"type": "object",
                                       "account": {"type": "string", "pattern": "^[a-z0-9-]{1,30}$"},
                                       "grouping": {"type": "string"}}}
 
-add_replica_file = {"description": "add replica file",
+ADD_REPLICA_FILE = {"description": "add replica file",
                     "type": "object",
-                    "properties": {"scope": scope,
-                                   "name": name,
-                                   "bytes": bytes,
-                                   "adler32": adler32},
+                    "properties": {"scope": SCOPE,
+                                   "name": NAME,
+                                   "bytes": BYTES,
+                                   "adler32": ADLER32},
                     "required": ["scope", "name", "bytes", "adler32"]}
 
-add_replica_files = {"description": "add replica files",
+ADD_REPLICA_FILES = {"description": "add replica files",
                      "type": "array",
-                     "items": add_replica_file,
+                     "items": ADD_REPLICA_FILE,
                      "minItems": 1,
                      "maxItems": 1000}
 
-cache_add_replicas = {"description": "rucio cache add replicas",
+CACHE_ADD_REPLICAS = {"description": "rucio cache add replicas",
                       "type": "object",
-                      "properties": {"files": add_replica_files,
-                                     "rse": rse,
-                                     "lifetime": lifetime,
+                      "properties": {"files": ADD_REPLICA_FILES,
+                                     "rse": RSE,
+                                     "lifetime": LIFETIME,
                                      "operation": {"enum": ["add_replicas"]}},
                       "required": ['files', 'rse', 'lifetime', 'operation']}
 
-delete_replica_file = {"description": "delete replica file",
+DELETE_REPLICA_FILE = {"description": "delete replica file",
                        "type": "object",
-                       "properties": {"scope": scope,
-                                      "name": name},
+                       "properties": {"scope": SCOPE,
+                                      "name": NAME},
                        "required": ["scope", "name"]}
 
-delete_replica_files = {"description": "delete replica files",
+DELETE_REPLICA_FILES = {"description": "delete replica files",
                         "type": "array",
-                        "items": delete_replica_file,
+                        "items": DELETE_REPLICA_FILE,
                         "minItems": 1,
                         "maxItems": 1000}
 
-cache_delete_replicas = {"description": "rucio cache delete replicas",
+CACHE_DELETE_REPLICAS = {"description": "rucio cache delete replicas",
                          "type": "object",
-                         "properties": {"files": delete_replica_files,
-                                        "rse": rse,
+                         "properties": {"files": DELETE_REPLICA_FILES,
+                                        "rse": RSE,
                                         "operation": {"enum": ["delete_replicas"]}},
                          "required": ['files', 'rse', 'operation']}
 
-message_operation = {"type": "object",
+MESSAGE_OPERATION = {"type": "object",
                      "properties": {'operation': {"enum": ["add_replicas", "delete_replicas"]}}}
 
-account_attribute = {"description": "Account attribute",
+ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
                      "pattern": r'^[a-z0-9-_]{1,30}$'}
 
-schemas = {'account': account,
-           'account_type': account_type,
-           'activity': activity,
-           'name': name,
-           'r_name': r_name,
-           'rse': rse,
-           'rse_attribute': rse_attribute,
-           'scope': scope,
-           'r_scope': r_scope,
-           'did': did,
-           'did_filters': did_filters,
-           'r_did': r_did,
-           'dids': dids,
-           'rule': rule,
-           'r_dids': r_dids,
-           'collection': collection,
-           'collections': collections,
-           'attachment': attachment,
-           'attachments': attachments,
-           'subscription_filter': subscription_filter,
-           'cache_add_replicas': cache_add_replicas,
-           'cache_delete_replicas': cache_delete_replicas,
-           'account_attribute': account_attribute}
+SCHEMAS = {'account': ACCOUNT,
+           'account_type': ACCOUNT_TYPE,
+           'activity': ACTIVITY,
+           'name': NAME,
+           'r_name': R_NAME,
+           'rse': RSE,
+           'rse_attribute': RSE_ATTRIBUTE,
+           'scope': SCOPE,
+           'r_scope': R_SCOPE,
+           'did': DID,
+           'did_filters': DID_FILTERS,
+           'r_did': R_DID,
+           'dids': DIDS,
+           'rule': RULE,
+           'r_dids': R_DIDS,
+           'collection': COLLECTION,
+           'collections': COLLECTIONS,
+           'attachment': ATTACHMENT,
+           'attachments': ATTACHMENTS,
+           'subscription_filter': SUBSCRIPTION_FILTER,
+           'cache_add_replicas': CACHE_ADD_REPLICAS,
+           'cache_delete_replicas': CACHE_DELETE_REPLICAS,
+           'account_attribute': ACCOUNT_ATTRIBUTE}
 
 
 def validate_schema(name, obj):
@@ -335,6 +337,6 @@ def validate_schema(name, obj):
     """
     try:
         if obj:
-            validate(obj, schemas.get(name, {}))
-    except ValidationError, e:  # NOQA
-        raise InvalidObject("Problem validating %(name)s : %(e)s" % locals())
+            validate(obj, SCHEMAS.get(name, {}))
+    except ValidationError as error:  #  NOQA, pylint: disable=W0612
+        raise InvalidObject("Problem validating %(name)s : %(error)s" % locals())
