@@ -1388,21 +1388,14 @@ def __evaluate_did_detach(eval_did, session=None):
         for did in parent_dids:
             rules.extend(session.query(models.ReplicationRule).filter_by(scope=did['scope'], name=did['name']).with_for_update(nowait=True).all())
 
-        # Get all the files of eval_did
-        files = {}
-        for file in rucio.core.did.list_files(scope=eval_did.scope, name=eval_did.name, session=session):
-            files[(file['scope'], file['name'])] = True
-
-        # Get all datasets of eval_did
-        child_datasets = {}
-        if eval_did.did_type == DIDType.CONTAINER:
-            for ds in rucio.core.did.list_child_datasets(scope=eval_did.scope, name=eval_did.name, session=session):
-                child_datasets[(ds['scope'], ds['name'])] = True
-
         # Iterate rules and delete locks
         transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
         account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
         for rule in rules:
+            # Get all the files covering this rule
+            files = {}
+            for file in rucio.core.did.list_files(scope=rule.scope, name=rule.name, session=session):
+                files[(file['scope'], file['name'])] = True
             logging.debug("Removing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
             rule_locks_ok_cnt_before = rule.locks_ok_cnt
             query = session.query(models.ReplicaLock).filter_by(rule_id=rule.id)
@@ -1422,6 +1415,10 @@ def __evaluate_did_detach(eval_did, session=None):
             logging.debug("Finished removing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
             if eval_did.did_type == DIDType.CONTAINER:
+                # Get all datasets of eval_did
+                child_datasets = {}
+                for ds in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session):
+                    child_datasets[(ds['scope'], ds['name'])] = True
                 logging.debug("Removing dataset_locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
                 query = session.query(models.DatasetLock).filter_by(rule_id=rule.id)
                 for ds_lock in query:

@@ -15,7 +15,7 @@ from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids, detach_dids
 from rucio.core.lock import get_replica_locks, get_dataset_locks
 from rucio.core.rse import add_rse_attribute, get_rse
-from rucio.core.rule import add_rule
+from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.abacus.account import account_update
 from rucio.db.constants import DIDType
@@ -189,3 +189,47 @@ class TestJudgeEvaluator():
 
         locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=dataset)]
         assert(len(locks) == 0)
+
+    def test_judge_evaluate_detach(self):
+        """ JUDGE EVALUATOR: Test if the detach is done correctly"""
+        re_evaluator(once=True)
+
+        scope = 'mock'
+        container = 'container_' + str(uuid())
+        add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
+
+        # Add a first rule to the Container
+        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        # Fake judge
+        re_evaluator(once=True)
+
+        assert(9 == get_rule(rule_id)['locks_ok_cnt'])
+
+        detach_dids(scope, dataset, [files[0]])
+
+        # Fake judge
+        re_evaluator(once=True)
+
+        assert(8 == get_rule(rule_id)['locks_ok_cnt'])
