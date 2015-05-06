@@ -125,14 +125,15 @@ def poller(once=False,
                                 elif isinstance(transf_resp, Exception):
                                     logging.warning("Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
                                     record_counter('daemons.conveyor.poller.query_transfer_exception')
-                                    common.touch_transfer(external_host, transfer_id)
                                 else:
-                                    # should touch transfers. Otherwise the updated_at is not renewed if the request is not terminated.
-                                    common.touch_transfer(external_host, transfer_id)
                                     for request_id in transf_resp:
                                         ret = common.update_request_state(transf_resp[request_id])
                                         # if True, really update request content; if False, only touch request
                                         record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
+
+                                # should touch transfers.
+                                # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
+                                common.touch_transfer(external_host, transfer_id)
                             except (DatabaseException, DatabaseError), e:
                                 if isinstance(e.args[0], tuple) and (re.match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
                                     logging.warn("Lock detected when handling request %s - skipping" % request_id)
