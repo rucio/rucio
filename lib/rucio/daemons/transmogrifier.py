@@ -46,11 +46,11 @@ def _retrial(func, *args, **kwargs):
     while True:
         try:
             return apply(func, args, kwargs)
-        except DataIdentifierNotFound, e:
-            logging.warning(e)
+        except DataIdentifierNotFound, excep:
+            logging.warning(excep)
             return 1
-        except DatabaseException, e:
-            logging.error(e)
+        except DatabaseException, excep:
+            logging.error(excep)
             if exp(delay) > 600:
                 logging.error('Cannot execute %s after %i attempt. Failing the job.' % (func.__name__, delay))
                 raise
@@ -73,11 +73,10 @@ def is_matching_subscription(subscription, did, metadata):
     param metadata: The metadata dictionnary for the DID
     return: True/False
     """
-    # filter = subscription['filter']
     try:
         filter = loads(subscription['filter'])
-    except ValueError, e:
-        logging.error('%s : Subscription will be skipped' % e)
+    except ValueError, excep:
+        logging.error('%s : Subscription will be skipped' % excep)
         return False
     # Loop over the keys of filter for subscription
     for key in filter:
@@ -86,19 +85,28 @@ def is_matching_subscription(subscription, did, metadata):
             if not re.match(values, did['name']):
                 return False
         elif key == 'scope':
+            match_scope = False
             for scope in values:
-                if not re.match(scope, did['scope']):
-                    return False
+                if re.match(scope, did['scope']):
+                    match_scope = True
+                    break
+            if not match_scope:
+                return False
         else:
             if type(values) is str or type(values) is unicode:
                 values = [values, ]
-            has_metadata = 0
+            has_metadata = False
             for meta in metadata:
                 if str(meta) == str(key):
-                    has_metadata = 1
-                    if metadata[meta] not in values:
+                    has_metadata = True
+                    match_meta = False
+                    for value in values:
+                        if re.match(value, str(metadata[meta])):
+                            match_meta = True
+                            break
+                    if not match_meta:
                         return False
-            if has_metadata == 0:
+            if not has_metadata:
                 return False
     return True
 
@@ -124,8 +132,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
         tottime = 0
         try:
             for did in list_new_dids(worker_number=worker_number, total_workers=total_workers, chunk_size=chunk_size):
-                d = {'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']}
-                dids.append(d)
+                dids.append({'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']})
             for sub in list_subscriptions(None, None):
                 if sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
                     subscriptions.append(sub)
@@ -162,8 +169,8 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                     activity = rule.get('activity', None)
                                     try:
                                         validate_schema(name='activity', obj=activity)
-                                    except InputValidationError, e:
-                                        logging.error('Error validating the activity %s' % (str(e)))
+                                    except InputValidationError, excep:
+                                        logging.error('Error validating the activity %s' % (str(excep)))
                                         activity = 'default'
 
                                     locked = rule.get('locked', None)
@@ -191,22 +198,22 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                             else:
                                                 monitor.record_counter(counters='transmogrifier.addnewrule.activity.other', delta=1)
                                             break
-                                        except (InvalidReplicationRule, InvalidRuleWeight, InvalidRSEExpression, StagingAreaRuleRequiresLifetime, InsufficientTargetRSEs, DuplicateRule) as e:
+                                        except (InvalidReplicationRule, InvalidRuleWeight, InvalidRSEExpression, StagingAreaRuleRequiresLifetime, InsufficientTargetRSEs, DuplicateRule) as excep:
                                             # These errors shouldn't be retried
-                                            logging.error('Thread %i : %s' % (worker_number, str(e)))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(e)), delta=1)
+                                            logging.error('Thread %i : %s' % (worker_number, str(excep)))
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(excep)), delta=1)
                                             break
-                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
+                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit) as excep:
                                             # These errors should be retried
-                                            logging.error('Thread %i : %s' % (worker_number, str(e)))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(e)), delta=1)
+                                            logging.error('Thread %i : %s' % (worker_number, str(excep)))
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(excep)), delta=1)
                                             break
-                                        except DatabaseException, e:
-                                            logging.error('Thread %i : %s' % (worker_number, str(e)))
+                                        except DatabaseException, excep:
+                                            logging.error('Thread %i : %s' % (worker_number, str(excep)))
                                             logging.error('Thread %i : Will perform an other attempt %i/%i' % (worker_number, attempt + 1, nattempt))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(e)), delta=1)
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(excep)), delta=1)
                                             success = False
-                                        except Exception, e:
+                                        except Exception, excep:
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
                                             exc_type, exc_value, exc_traceback = exc_info()
                                             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
@@ -225,8 +232,8 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                 monitor.record_counter(counters='transmogrifier.did.processed',  delta=1)
                 identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
             time1 = time.time()
-            for id in chunks(identifiers, 100):
-                _retrial(set_new_dids, id, None)
+            for identifier in chunks(identifiers, 100):
+                _retrial(set_new_dids, identifier, None)
             logging.info('Thread %i : Time to set the new flag : %f' % (worker_number, time.time() - time1))
             tottime = time.time() - start_time
             logging.info('Thread %i : It took %f seconds to process %i DIDs' % (worker_number, tottime, len(dids)))
