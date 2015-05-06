@@ -844,7 +844,8 @@ class Request(BASE, ModelBase, Versioned):
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
                    CheckConstraint('dest_rse_id IS NOT NULL', name='REQUESTS_RSE_ID_NN'),
                    Index('REQUESTS_SCOPE_NAME_RSE_IDX', 'scope', 'name', 'dest_rse_id', 'request_type'),
-                   Index('REQUESTS_TYP_STA_UPD_IDX', 'request_type', 'state', 'updated_at'),
+                   Index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'request_type', 'state', 'updated_at'),
+                   Index('REQUESTS_TYP_STA_UPD_IDX', 'request_type', 'state', 'activity'),
                    Index('REQUESTS_RULEID_IDX', 'rule_id'),
                    Index('REQUESTS_EXTERNALID_UQ', 'external_id')
                    )
