@@ -29,7 +29,7 @@ class TestHeartbeat:
         cardiac_arrest()
 
     def test_heartbeat_0(self):
-        """ HEARTBEAT (CORE): Single instace """
+        """ HEARTBEAT (CORE): Single instance """
 
         p = self.__pid()
         t = self.__thread()
@@ -68,3 +68,6 @@ class TestHeartbeat:
         assert_equal(live('test0', 'host2', p[2], t[2]), {'assign_thread': 1, 'nr_threads': 3})
         die('test0', 'host2', p[2], t[2])
         assert_equal(live('test0', 'host3', p[3], t[3]), {'assign_thread': 1, 'nr_threads': 2})
+
+    def tearDown(self):
+        cardiac_arrest()

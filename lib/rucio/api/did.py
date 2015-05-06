@@ -8,7 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013,2015
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
   - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
@@ -142,13 +142,13 @@ def detach_dids(scope, name, dids, issuer):
     return did.detach_dids(scope=scope, name=name, dids=dids)
 
 
-def list_new_dids(type=None, worker_number=None, total_workers=None, chunk_size=1000):
+def list_new_dids(type=None, thread=None, total_threads=None, chunk_size=1000):
     """
     List recent identifiers.
 
     :param type : The DID type.
     """
-    return did.list_new_dids(did_type=type and DIDType.from_sym(type), worker_number=worker_number, total_workers=total_workers, chunk_size=chunk_size)
+    return did.list_new_dids(did_type=type and DIDType.from_sym(type), thread=thread, total_threads=total_threads, chunk_size=chunk_size)
 
 
 def set_new_dids(dids, new_flag=True):
