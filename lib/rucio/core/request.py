@@ -31,6 +31,21 @@ from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
 
 
+def should_retry_request(req):
+    """
+    Whether should retry this request.
+
+    :param request: Request as a dictionary.
+    :returns: True if should retry it; False if no more retry.
+    """
+    if req['state'] == RequestState.SUBMITTING:
+        return True
+    # hardcoded for now - only requeue a couple of times
+    if req['retry_count'] is None or req['retry_count'] < 3:
+        return True
+    return False
+
+
 @transactional_session
 def requeue_and_archive(request_id, session=None):
     """
@@ -47,15 +62,15 @@ def requeue_and_archive(request_id, session=None):
     if new_req:
         new_req['sources'] = get_sources(request_id, session=session)
         archive_request(request_id, session=session)
-        new_req['request_id'] = generate_uuid()
-        new_req['previous_attempt_id'] = request_id
-        if new_req['retry_count'] is None:
-            new_req['retry_count'] = 1
-        elif new_req['state'] != RequestState.SUBMITTING:
-            new_req['retry_count'] += 1
 
-        # hardcoded for now - only requeue a couple of times
-        if new_req['retry_count'] < 4:
+        if should_retry_request(new_req):
+            new_req['request_id'] = generate_uuid()
+            new_req['previous_attempt_id'] = request_id
+            if new_req['retry_count'] is None:
+                new_req['retry_count'] = 1
+            elif new_req['state'] != RequestState.SUBMITTING:
+                new_req['retry_count'] += 1
+
             queue_requests([new_req], session=session)
             return new_req
 
