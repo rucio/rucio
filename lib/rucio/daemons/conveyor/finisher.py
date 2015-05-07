@@ -65,7 +65,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
 
             logging.debug('%i:%i - start to update %s finished requests' % (process, thread, bulk))
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                    state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST],
+                                    state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING],
                                     limit=bulk,
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
