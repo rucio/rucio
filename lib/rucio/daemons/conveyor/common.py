@@ -212,22 +212,35 @@ def handle_requests(reqs):
                     path = protocols[dest_rse_id_scheme].parse_pfns([pfn])[pfn]['path']
                     replica['path'] = os.path.join(path, os.path.basename(pfn))
             elif req['state'] == RequestState.FAILED or req['state'] == RequestState.LOST:
-                tss = time.time()
-                new_req = request_core.requeue_and_archive(req['request_id'])
-                record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
-
-                tss = time.time()
-                if new_req is None:
-                    logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
-                    replica['state'] = ReplicaState.UNAVAILABLE
-                    replica['archived'] = True
-                    replicas[req['request_type']][req['rule_id']].append(replica)
-                else:
+                if request_core.should_retry_request(req):
+                    tss = time.time()
+                    new_req = request_core.requeue_and_archive(req['request_id'])
+                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
                     logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                  req['name'],
                                                                                  req['request_id'],
                                                                                  new_req['request_id'],
                                                                                  new_req['retry_count']))
+                else:
+                    logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
+                    replica['state'] = ReplicaState.UNAVAILABLE
+                    replica['archived'] = False
+                    replicas[req['request_type']][req['rule_id']].append(replica)
+            elif req['state'] == RequestState.SUBMITTING:
+                if req['updated_at'] < (datetime.datetime.utcnow()-datetime.timedelta(seconds=1800)) and request_core.should_retry_request(req):
+                    tss = time.time()
+                    new_req = request_core.requeue_and_archive(req['request_id'])
+                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
+                    logging.warn('REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
+                                                                                            req['name'],
+                                                                                            req['request_id'],
+                                                                                            new_req['request_id'],
+                                                                                            new_req['retry_count']))
+                else:
+                    logging.warn('EXCEEDED SUBMITTING DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
+                    replica['state'] = ReplicaState.UNAVAILABLE
+                    replica['archived'] = False
+                    replicas[req['request_type']][req['rule_id']].append(replica)
         except:
             logging.error("Something unexpected happened when handling request %s(%s:%s) at %s: %s" % (req['request_id'],
                                                                                                        req['scope'],
@@ -324,7 +337,7 @@ def handle_one_replica(replica, req_type, rule_id, session=None):
         try:
             if replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
                 logging.info("Replica cannot be found. Adding a replica %s:%s AT RSE %s with tombstone=utcnow" % (replica['scope'], replica['name'], replica['rse_id']))
-                rse = rse_core.get_rse(rse=None, rse_id=replica['rse_id'])
+                rse = rse_core.get_rse(rse=None, rse_id=replica['rse_id'], session=session)
                 replica_core.add_replica(rse['rse'],
                                          replica['scope'],
                                          replica['name'],
