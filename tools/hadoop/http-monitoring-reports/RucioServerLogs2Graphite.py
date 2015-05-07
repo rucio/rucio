@@ -122,8 +122,8 @@ for line in sys.stdin:
 
     # Update stats entry
     e = events[(attr[keys.index('host')], attr[keys.index('account')], attr[keys.index('http_verb')])]
+    e['count'] += 1
     for metric in ['request_size', 'response_size', 'response_time_in_micros']:
-        e['count'] += 1
         e[metric + '.sum'] += int(attr[keys.index(metric)])
         e[metric + '.lower'] = int(attr[keys.index(metric)]) if (e[metric + '.lower'] > attr[keys.index(metric)]) or (e[metric + '.lower'] is None) else e[metric + '.lower']
         e[metric + '.upper'] = int(attr[keys.index(metric)]) if (e[metric + '.upper'] < attr[keys.index(metric)]) else e[metric + '.upper']  # In case of None, True. Thus no None check
