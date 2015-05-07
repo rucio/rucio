@@ -114,11 +114,10 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     hostname = socket.gethostname()
     pid = os.getpid()
     thread = threading.current_thread()
-    executable = ' '.join(sys.argv)
+    executable = 'rucio-reaper' + ' '.join(sys.argv)
     sanity_check(executable=executable, hostname=hostname)
     while not graceful_stop.is_set():
         try:
-
             # heartbeat
             live(executable=executable, hostname=hostname, pid=pid, thread=thread)
             checkpoint_time = datetime.datetime.now()
@@ -299,6 +298,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     die(executable=executable, hostname=hostname, pid=pid, thread=thread)
     logging.info('Graceful stop requested')
     logging.info('Graceful stop done')
+    return
 
 
 def stop(signum=None, frame=None):
@@ -341,17 +341,21 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     logging.info('Reaper: This instance will work on RSEs: ' + ', '.join([rse['rse'] for rse in rses]))
 
     threads = []
-    nb_rses_per_worker = int(math.floor(len(rses) / float(total_workers))) or 1.0
+    nb_rses_per_worker = int(math.floor(len(rses) / float(total_workers))) or 1
     rses = random.sample(rses, len(rses))
     for worker in xrange(total_workers):
         for child in xrange(threads_per_worker or 1):
+            rses_list = rses[worker * nb_rses_per_worker: worker * nb_rses_per_worker + nb_rses_per_worker]
+            if not rses_list:
+                logging.warning('Reaper: Empty RSEs list for worker %(worker)s' % locals())
+                continue
             kwargs = {'worker_number': worker,
                       'child_number': child + 1,
                       'total_children': threads_per_worker or 1,
                       'once': once,
                       'chunk_size': chunk_size,
                       'greedy': greedy,
-                      'rses': rses[worker * nb_rses_per_worker: worker * nb_rses_per_worker + nb_rses_per_worker],
+                      'rses': rses_list,
                       'delay_seconds': delay_seconds,
                       'scheme': scheme}
             threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, child: %s' % (worker, child + 1)))
