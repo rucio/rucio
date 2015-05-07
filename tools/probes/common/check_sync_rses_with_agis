@@ -72,7 +72,7 @@ if __name__ == '__main__':
                 extended_attributes = None
                 if o.scheme == 'srm':
                     extended_attributes = {"web_service_path": o.path + '?SFN=', "space_token": space_token}
-                    impl = 'rucio.rse.protocols.srm.Default'
+                    impl = 'rucio.rse.protocols.gfal.Default'
                 elif o.scheme == 'https' or o.scheme == 'http':
                     extended_attributes = None
                     impl = 'rucio.rse.protocols.webdav.Default'
