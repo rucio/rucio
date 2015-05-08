@@ -617,7 +617,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
 
 @read_session
 def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                              activity=None, older_than=None, rses=None, session=None):
+                                              activity=None, older_than=None, rses=None, schemes=None, session=None):
     req_sources = request.list_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                      activity=activity, older_than=older_than, rses=rses, session=session)
 
@@ -665,7 +665,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
                 # Get protocol
                 if dest_rse_id not in protocols:
-                    protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write')
+                    protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', schemes)
 
                 # get dest space token
                 dest_spacetoken = None
@@ -706,12 +706,12 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values()[0]
 
                 # get allowed source scheme
-                schemes = []
+                src_schemes = []
                 dest_scheme = dest_url.split("://")[0]
                 if dest_scheme in ['srm', 'gsiftp']:
-                    schemes = ['srm', 'gsiftp']
+                    src_schemes = ['srm', 'gsiftp']
                 else:
-                    schemes = [dest_scheme]
+                    src_schemes = [dest_scheme]
 
                 # Compute the sources: urls, etc
                 if source_rse_id not in rses_info:
@@ -720,12 +720,12 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
 
                 # Get protocol
-                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(schemes))
+                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(src_schemes))
                 if source_rse_id_key not in protocols:
                     try:
-                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', schemes)
+                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', src_schemes)
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], schemes))
+                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], src_schemes))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -746,7 +746,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if not fts_hosts:
                     logging.error('Source RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse, id))
                     continue
-                if not retry_count:
+                if retry_count is None:
                     retry_count = 0
                 fts_list = fts_hosts.split(",")
                 external_host = fts_list[retry_count % len(fts_list)]
@@ -769,7 +769,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
                 transfers[id] = {'request_id': id,
-                                 'schemes': schemes,
+                                 'schemes': src_schemes,
                                  # 'src_urls': [source_url],
                                  'sources': [(rse, source_url, source_rse_id, ranking)],
                                  'dest_urls': [dest_url],
@@ -1008,10 +1008,18 @@ def handle_requests_with_scheme_mismatch(transfers=None, reqs_scheme_mismatch=No
     return transfers
 
 
+def mock_sources(sources):
+    tmp_sources = []
+    for s in sources:
+        tmp_sources.append((s[0], ':'.join(['mock']+s[1].split(':')[1:]), s[2], s[3]))
+    sources = tmp_sources
+    return tmp_sources
+
+
 def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                           activity=None, older_than=None, rses=None, mock=False, max_sources=4, session=None):
+                           activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, session=None):
     transfers, reqs_no_source, reqs_scheme_mismatch = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                                                activity=activity, older_than=older_than, rses=rses, session=session)
+                                                                                                activity=activity, older_than=older_than, rses=rses, schemes=schemes, session=session)
     request.set_requests_state(reqs_no_source, RequestState.LOST)
     transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch)
 
@@ -1020,7 +1028,10 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
         sources = sort_sources(sources, transfers[request_id]['file_metadata']['dst_rse'])
         if len(sources) > max_sources:
             sources = sources[:max_sources]
-        transfers[request_id]['sources'] = sources
+        if not mock:
+            transfers[request_id]['sources'] = sources
+        else:
+            transfers[request_id]['sources'] = mock_sources(sources)
     return transfers
 
 

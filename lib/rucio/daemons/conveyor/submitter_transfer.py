@@ -24,6 +24,7 @@ import time
 import traceback
 
 from collections import defaultdict
+from ConfigParser import NoOptionError
 
 from rucio.common.config import config_get
 from rucio.core import heartbeat, request
@@ -51,6 +52,11 @@ def submitter(once=False, rses=[], mock=False,
                                                                                    total_processes,
                                                                                    thread,
                                                                                    total_threads))
+
+    try:
+        scheme = config_get('conveyor', 'scheme')
+    except NoOptionError:
+        scheme = None
 
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
@@ -84,7 +90,7 @@ def submitter(once=False, rses=[], mock=False,
                 logging.info("%s:%s Starting to get transfer transfers" % (process, thread))
                 ts = time.time()
                 transfers = get_transfer_transfers(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                   activity=activity, rses=rse_ids, mock=mock, max_sources=max_sources)
+                                                   activity=activity, rses=rse_ids, schemes=scheme, mock=mock, max_sources=max_sources)
                 record_timer('daemons.conveyor.transfer_submitter.get_stagein_transfers', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_stagein_transfers', len(transfers))
                 record_gauge('daemons.conveyor.transfer_submitter.get_stagein_transfers.gauge', len(transfers))
