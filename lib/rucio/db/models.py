@@ -135,16 +135,19 @@ class ModelBase(object):
     @declared_attr
     def __table_args__(cls):
         # exception for CERN Oracle identifier length limitations
+        # pylint: disable=maybe-no-member
         if cls.__tablename__.upper() == 'UPDATED_ACCOUNT_COUNTERS':
             return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'UPDATED_ACCNT_CNTRS_CREATED_NN'),
                                       CheckConstraint('UPDATED_AT IS NOT NULL', 'UPDATED_ACCNT_CNTRS_UPDATED_NN'),
                                       {'mysql_engine': 'InnoDB'})
+        # pylint: disable=maybe-no-member
         elif cls.__tablename__.upper() == 'UPDATED_RSE_COUNTERS':
             return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_CREATED_NN'),
                                       CheckConstraint('UPDATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_UPDATED_NN'),
                                       {'mysql_engine': 'InnoDB'})
 
         # otherwise, proceed normally
+        # pylint: disable=maybe-no-member
         return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
                                   CheckConstraint('UPDATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
                                   {'mysql_engine': 'InnoDB'})
@@ -209,6 +212,7 @@ class SoftModelBase(ModelBase):
 
     @declared_attr
     def __table_args__(cls):
+        # pylint: disable=maybe-no-member
         return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
                                   CheckConstraint('UPDATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
                                   CheckConstraint('DELETED IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),
@@ -982,7 +986,7 @@ def register_models(engine):
               UpdatedCollectionReplica)
 
     for model in models:
-        model.metadata.create_all(engine)
+        model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
 
 
 def unregister_models(engine):
@@ -1030,4 +1034,4 @@ def unregister_models(engine):
               UpdatedCollectionReplica)
 
     for model in models:
-        model.metadata.drop_all(engine)
+        model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member
