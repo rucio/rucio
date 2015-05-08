@@ -18,7 +18,7 @@
 Compatibility Wrapper for DQ2 and Rucio.
      http://svnweb.cern.ch/world/wsvn/dq2/trunk/dq2.clients/lib/dq2/clientapi/DQ2.py
 '''
-#pylint: skip-file
+# pylint: skip-file
 
 import copy
 import hashlib
