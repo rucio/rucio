@@ -88,8 +88,7 @@ def has_permission(issuer, action, kwargs):
             'config_remove_option': perm_config,
             'get_account_usage': perm_get_account_usage,
             'add_attribute': perm_add_account_attribute,
-            'del_attribute': perm_del_account_attribute
-            }
+            'del_attribute': perm_del_account_attribute}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 

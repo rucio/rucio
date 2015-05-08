@@ -232,8 +232,7 @@ class Account(BASE, ModelBase):
     deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
                    CheckConstraint('ACCOUNT_TYPE IS NOT NULL', name='ACCOUNTS_TYPE_NN'),
-                   CheckConstraint('STATUS IS NOT NULL', name='ACCOUNTS_STATUS_NN')
-                   )
+                   CheckConstraint('STATUS IS NOT NULL', name='ACCOUNTS_STATUS_NN'))
 
 
 class AccountAttrAssociation(BASE, ModelBase):
@@ -258,8 +257,7 @@ class Identity(BASE, SoftModelBase):
     email = Column(String(255))
     _table_args = (PrimaryKeyConstraint('identity', 'identity_type', name='IDENTITIES_PK'),
                    CheckConstraint('IDENTITY_TYPE IS NOT NULL', name='IDENTITIES_TYPE_NN'),
-                   CheckConstraint('EMAIL IS NOT NULL', name='IDENTITIES_EMAIL_NN'),
-                   )
+                   CheckConstraint('EMAIL IS NOT NULL', name='IDENTITIES_EMAIL_NN'))
 
 
 class IdentityAccountAssociation(BASE, ModelBase):
@@ -273,8 +271,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
                    ForeignKeyConstraint(['identity', 'identity_type'], ['identities.identity', 'identities.identity_type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
                    CheckConstraint('is_default IS NOT NULL', name='ACCOUNT_MAP_IS_DEFAULT_NN'),
-                   CheckConstraint('IDENTITY_TYPE IS NOT NULL', name='ACCOUNT_MAP_ID_TYPE_NN'),
-                   )
+                   CheckConstraint('IDENTITY_TYPE IS NOT NULL', name='ACCOUNT_MAP_ID_TYPE_NN'))
 
 
 class Scope(BASE, ModelBase):
@@ -290,8 +287,7 @@ class Scope(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
                    CheckConstraint('is_default IS NOT NULL', name='SCOPES_IS_DEFAULT_NN'),
                    CheckConstraint('STATUS IS NOT NULL', name='SCOPES_STATUS_NN'),
-                   CheckConstraint('ACCOUNT IS NOT NULL', name='SCOPES_ACCOUNT_NN')
-                   )
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='SCOPES_ACCOUNT_NN'))
 
 
 class DataIdentifier(BASE, ModelBase):
@@ -342,8 +338,7 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_ACCOUNT_NN'),
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
-                   Index('DIDS_EXPIRED_AT_IDX', 'expired_at'),
-                   )
+                   Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
 
 
 class UpdatedDID(BASE, ModelBase):
@@ -356,8 +351,7 @@ class UpdatedDID(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_DIDS_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='UPDATED_DIDS_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='UPDATED_DIDS_NAME_NN'),
-                   Index('UPDATED_DIDS_SCOPERULENAME_IDX', 'scope', 'rule_evaluation_action', 'name')
-                   )
+                   Index('UPDATED_DIDS_SCOPERULENAME_IDX', 'scope', 'rule_evaluation_action', 'name'))
 
 
 class BadReplicas(BASE, ModelBase):
@@ -374,8 +368,7 @@ class BadReplicas(BASE, ModelBase):
                    CheckConstraint('NAME IS NOT NULL', name='BAD_REPLICAS_NAME_NN'),
                    CheckConstraint('RSE_ID IS NOT NULL', name='BAD_REPLICAS_RSE_ID_NN'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_REPLICAS_ACCOUNT_FK'),
-                   Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state')
-                   )
+                   Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state'))
 
 
 class DIDKey(BASE, ModelBase):
@@ -388,8 +381,7 @@ class DIDKey(BASE, ModelBase):
     value_regexp = Column(String(255))
     _table_args = (PrimaryKeyConstraint('key', name='DID_KEYS_PK'),
                    CheckConstraint('key_type IS NOT NULL', name='DID_KEYS_TYPE_NN'),
-                   CheckConstraint('is_enum IS NOT NULL', name='DID_KEYS_IS_ENUM_NN'),
-                   )
+                   CheckConstraint('is_enum IS NOT NULL', name='DID_KEYS_IS_ENUM_NN'))
 
 
 class DIDKeyValueAssociation(BASE, ModelBase):
@@ -398,7 +390,7 @@ class DIDKeyValueAssociation(BASE, ModelBase):
     key = Column(String(255))
     value = Column(String(255))
     _table_args = (PrimaryKeyConstraint('key', 'value', name='DID_KEY_MAP_PK'),
-                   ForeignKeyConstraint(['key'], ['did_keys.key'], name='DID_MAP_KEYS_FK'),)
+                   ForeignKeyConstraint(['key'], ['did_keys.key'], name='DID_MAP_KEYS_FK'))
 
 
 class DataIdentifierAssociation(BASE, ModelBase):
@@ -493,8 +485,7 @@ class UpdatedRSECounter(BASE, ModelBase):
     bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_RSE_CNTRS_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='UPDATED_RSE_CNTRS_RSE_ID_FK'),
-                   Index('UPDATED_RSE_CNTRS_RSE_ID_IDX', 'rse_id'),
-                   )
+                   Index('UPDATED_RSE_CNTRS_RSE_ID_IDX', 'rse_id'))
 
 
 class RSEAttrAssociation(BASE, ModelBase):
@@ -528,8 +519,7 @@ class RSEProtocols(BASE, ModelBase):
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_PROTOCOL_RSE_ID_FK'),
-                   CheckConstraint('IMPL IS NOT NULL', name='RSE_PROTOCOLS_IMPL_NN'),
-                   )
+                   CheckConstraint('IMPL IS NOT NULL', name='RSE_PROTOCOLS_IMPL_NN'))
 
 
 class AccountLimit(BASE, ModelBase):
@@ -577,8 +567,7 @@ class RSEFileAssociation(BASE, ModelBase):
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
-                   Index('REPLICAS_PATH_IDX', 'path', mysql_length=255),
-                   )
+                   Index('REPLICAS_PATH_IDX', 'path', mysql_length=255))
 
 
 class CollectionReplica(BASE, ModelBase):
@@ -599,8 +588,7 @@ class CollectionReplica(BASE, ModelBase):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='COLLECTION_REPLICAS_RSE_ID_FK'),
                    CheckConstraint('STATE IS NOT NULL', name='COLLECTION_REPLICAS_STATE_NN'),
                    CheckConstraint('bytes IS NOT NULL', name='COLLECTION_REPLICAS_SIZE_NN'),
-                   Index('COLLECTION_REPLICAS_RSE_ID_IDX', 'rse_id'),
-                   )
+                   Index('COLLECTION_REPLICAS_RSE_ID_IDX', 'rse_id'))
 
 
 class UpdatedCollectionReplica(BASE, ModelBase):
@@ -614,8 +602,7 @@ class UpdatedCollectionReplica(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_COL_REP_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='UPDATED_COL_REP_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='UPDATED_COL_REP_NAME_NN'),
-                   Index('UPDATED_COL_REP_SNR_IDX', 'scope', 'name', 'rse_id')
-                   )
+                   Index('UPDATED_COL_REP_SNR_IDX', 'scope', 'name', 'rse_id'))
 
 
 class RSEFileAssociationHistory(BASE, ModelBase):
@@ -760,8 +747,7 @@ class ReplicaLock(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LOCKS_ACCOUNT_FK'),
                    CheckConstraint('STATE IS NOT NULL', name='LOCKS_STATE_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='LOCKS_ACCOUNT_NN'),
-                   Index('LOCKS_RULE_ID_IDX', 'rule_id')
-                   )
+                   Index('LOCKS_RULE_ID_IDX', 'rule_id'))
 
 
 class DatasetLock(BASE, ModelBase):
@@ -783,8 +769,7 @@ class DatasetLock(BASE, ModelBase):
                    CheckConstraint('STATE IS NOT NULL', name='DATASET_LOCKS_STATE_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='DATASET_LOCKS_ACCOUNT_NN'),
                    Index('DATASET_LOCKS_RULE_ID_IDX', 'rule_id'),
-                   Index('DATASET_LOCKS_RSE_ID_IDX', 'rse_id')
-                   )
+                   Index('DATASET_LOCKS_RSE_ID_IDX', 'rse_id'))
 
 
 class AccountCounter(BASE, ModelBase):
@@ -796,8 +781,7 @@ class AccountCounter(BASE, ModelBase):
     bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_COUNTERS_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_COUNTERS_ID_FK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_COUNTERS_ACCOUNT_FK')
-                   )
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_COUNTERS_ACCOUNT_FK'))
 
 
 class UpdatedAccountCounter(BASE, ModelBase):
@@ -811,8 +795,7 @@ class UpdatedAccountCounter(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_ACCNT_CNTRS_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='UPDATED_ACCNT_CNTRS_RSE_ID_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='UPDATED_ACCNT_CNTRS_ACCOUNT_FK'),
-                   Index('UPDATED_ACCNT_CNTRS_RSE_ID_IDX', 'account', 'rse_id'),
-                   )
+                   Index('UPDATED_ACCNT_CNTRS_RSE_ID_IDX', 'account', 'rse_id'))
 
 
 class Request(BASE, ModelBase, Versioned):
@@ -847,8 +830,7 @@ class Request(BASE, ModelBase, Versioned):
                    Index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'request_type', 'state', 'updated_at'),
                    Index('REQUESTS_TYP_STA_UPD_IDX', 'request_type', 'state', 'activity'),
                    Index('REQUESTS_RULEID_IDX', 'rule_id'),
-                   Index('REQUESTS_EXTERNALID_UQ', 'external_id')
-                   )
+                   Index('REQUESTS_EXTERNALID_UQ', 'external_id'))
 
 
 class Source(BASE, ModelBase):
@@ -891,8 +873,7 @@ class Subscription(BASE, ModelBase, Versioned):
                    UniqueConstraint('name', 'account', name='SUBSCRIPTIONS_NAME_ACCOUNT_UQ'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SUBSCRIPTIONS_ACCOUNT_FK'),
                    CheckConstraint('RETROACTIVE IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),
-                   CheckConstraint('ACCOUNT IS NOT NULL', name='SUBSCRIPTIONS_ACCOUNT_NN')
-                   )
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='SUBSCRIPTIONS_ACCOUNT_NN'))
 
 
 class Token(BASE, ModelBase):
@@ -905,8 +886,7 @@ class Token(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),  # not supported for primary key constraint mysql_length=255
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),
-                   Index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at')
-                   )
+                   Index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at'))
 
 
 class Message(BASE, ModelBase):

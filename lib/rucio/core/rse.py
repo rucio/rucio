@@ -230,9 +230,9 @@ def list_rses(filters={}, session=None):
 
         condition1, condition2 = [], []
         for i in xrange(0, 8):
-            if (i | availability_mask1 == i):
+            if i | availability_mask1 == i:
                 condition1.append(models.RSE.availability == i)
-            if (i & availability_mask2 == i):
+            if i & availability_mask2 == i:
                 condition2.append(models.RSE.availability == i)
 
         if 'availability' not in filters:
@@ -478,15 +478,15 @@ def add_protocol(rse, parameter, session=None):
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
                 op_name = ''.join([op, '_', s]).lower()
-                no = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                                                               getattr(models.RSEProtocols, op_name) > 0,
-                                                                               )).count()
+                no = session.query(models.RSEProtocols).\
+                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid, getattr(models.RSEProtocols, op_name) > 0)).\
+                    count()
                 if parameter['domains'][s][op] > (no + 1):
                     parameter['domains'][s][op] = (no + 1)
-                if not(0 <= parameter['domains'][s][op] <= (no + 1)):
+                if not 0 <= parameter['domains'][s][op] <= (no + 1):
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
                 parameter[op_name] = parameter['domains'][s][op]
-        del(parameter['domains'])
+        del parameter['domains']
 
     if ('extended_attributes' in parameter) and parameter['extended_attributes']:
         try:
@@ -504,9 +504,10 @@ def add_protocol(rse, parameter, session=None):
             for op in utils.rse_supported_protocol_operations():
                 op_name = ''.join([op, '_', domain])
                 if (op_name in parameter) and parameter[op_name]:
-                    prots = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                                                                      getattr(models.RSEProtocols, op_name) >= parameter[op_name],
-                                                                                      )).order_by(getattr(models.RSEProtocols, op_name).asc())
+                    prots = session.query(models.RSEProtocols).\
+                        filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                               getattr(models.RSEProtocols, op_name) >= parameter[op_name])).\
+                        order_by(getattr(models.RSEProtocols, op_name).asc())
                     val = parameter[op_name] + 1
                     for p in prots:
                         p.update({op_name: val})
@@ -559,8 +560,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
             'rse_type': str(_rse.rse_type),
             'credentials': None,
             'volatile': _rse.volatile,
-            'staging_area': _rse.staging_area
-            }
+            'staging_area': _rse.staging_area}
 
     for op in utils.rse_supported_protocol_operations():
         info['%s_protocol' % op] = 1  # 1 indicates the default protocol
@@ -590,15 +590,12 @@ def get_rse_protocols(rse, schemes=None, session=None):
              'domains': {
                  'lan': {'read': row.read_lan,
                          'write': row.write_lan,
-                         'delete': row.delete_lan
-                         },
+                         'delete': row.delete_lan},
                  'wan': {'read': row.read_wan,
                          'write': row.write_wan,
-                         'delete': row.delete_wan
-                         }
+                         'delete': row.delete_wan}
              },
-             'extended_attributes': row.extended_attributes
-             }
+             'extended_attributes': row.extended_attributes}
 
         try:
             p['extended_attributes'] = json.load(StringIO(p['extended_attributes']))
@@ -644,13 +641,14 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
                 op_name = ''.join([op, '_', s])
-                no = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                                                               getattr(models.RSEProtocols, op_name) > 0,
-                                                                               )).count()
-                if not(0 <= data['domains'][s][op] <= no):
+                no = session.query(models.RSEProtocols).\
+                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                           getattr(models.RSEProtocols, op_name) > 0)).\
+                    count()
+                if not 0 <= data['domains'][s][op] <= no:
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (data['domains'][s][op], op, s))
                 data[op_name] = data['domains'][s][op]
-        del(data['domains'])
+        del data['domains']
 
     if 'extended_attributes' in data:
         try:
@@ -664,8 +662,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
     terms = [models.RSEProtocols.rse_id == rid,
              models.RSEProtocols.scheme == scheme,
              models.RSEProtocols.hostname == hostname,
-             models.RSEProtocols.port == port
-             ]
+             models.RSEProtocols.port == port]
 
     try:
         up = session.query(models.RSEProtocols).filter(*terms).first()
@@ -680,26 +677,30 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
                 if op_name in data:
                     prots = []
                     if (not getattr(up, op_name)) and data[op_name]:  # reactivate protocol e.g. from 0 to 1
-                        prots = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                                                                          getattr(models.RSEProtocols, op_name) >= data[op_name]
-                                                                                          )).order_by(getattr(models.RSEProtocols, op_name).asc())
+                        prots = session.query(models.RSEProtocols).\
+                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                                   getattr(models.RSEProtocols, op_name) >= data[op_name])).\
+                            order_by(getattr(models.RSEProtocols, op_name).asc())
                         val = data[op_name] + 1
                     elif getattr(up, op_name) and (not data[op_name]):  # deactivate protocol e.g. from 1 to 0
-                        prots = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                                                                          getattr(models.RSEProtocols, op_name) > getattr(up, op_name)
-                                                                                          )).order_by(getattr(models.RSEProtocols, op_name).asc())
+                        prots = session.query(models.RSEProtocols).\
+                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                                   getattr(models.RSEProtocols, op_name) > getattr(up, op_name))).\
+                            order_by(getattr(models.RSEProtocols, op_name).asc())
                         val = getattr(up, op_name)
                     elif getattr(up, op_name) > data[op_name]:  # shift forward e.g. from 5 to 2
-                        prots = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                                                                          getattr(models.RSEProtocols, op_name) >= data[op_name],
-                                                                                          getattr(models.RSEProtocols, op_name) < getattr(up, op_name)
-                                                                                          )).order_by(getattr(models.RSEProtocols, op_name).asc())
+                        prots = session.query(models.RSEProtocols).\
+                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                                   getattr(models.RSEProtocols, op_name) >= data[op_name],
+                                                   getattr(models.RSEProtocols, op_name) < getattr(up, op_name))).\
+                            order_by(getattr(models.RSEProtocols, op_name).asc())
                         val = data[op_name] + 1
                     elif getattr(up, op_name) < data[op_name]:  # shift backward e.g. from 1 to 3
-                        prots = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                                                                          getattr(models.RSEProtocols, op_name) <= data[op_name],
-                                                                                          getattr(models.RSEProtocols, op_name) > getattr(up, op_name)
-                                                                                          )).order_by(getattr(models.RSEProtocols, op_name).asc())
+                        prots = session.query(models.RSEProtocols).\
+                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                                   getattr(models.RSEProtocols, op_name) <= data[op_name],
+                                                   getattr(models.RSEProtocols, op_name) > getattr(up, op_name))).\
+                            order_by(getattr(models.RSEProtocols, op_name).asc())
                         val = getattr(up, op_name)
 
                     for p in prots:
@@ -759,9 +760,10 @@ def del_protocols(rse, scheme, hostname=None, port=None, session=None):
     for domain in utils.rse_supported_protocol_domains():
         for op in utils.rse_supported_protocol_operations():
             op_name = ''.join([op, '_', domain])
-            prots = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                                                              getattr(models.RSEProtocols, op_name) > 0
-                                                                              )).order_by(getattr(models.RSEProtocols, op_name).asc())
+            prots = session.query(models.RSEProtocols).\
+                filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                       getattr(models.RSEProtocols, op_name) > 0)).\
+                order_by(getattr(models.RSEProtocols, op_name).asc())
             i = 1
             for p in prots:
                 p.update({op_name: i})

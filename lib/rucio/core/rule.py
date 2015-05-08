@@ -1085,8 +1085,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
             add_message('LOST', {'scope': scope,
                                  'name': name,
                                  'dataset_name': dts['name'],
-                                 'dataset_scope': dts['scope']
-                                 },
+                                 'dataset_scope': dts['scope']},
                         session=session)
     else:
         # This should never happen

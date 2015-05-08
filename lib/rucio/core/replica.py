@@ -35,7 +35,7 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.db import models
 from rucio.db.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability, BadFilesStatus
 from rucio.db.session import (read_session, stream_session, transactional_session,
-                              default_schema_name)
+                              DEFAULT_SCHEMA_NAME)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -362,8 +362,8 @@ def list_bad_replicas(limit=10000, worker_number=None, total_workers=None, sessi
         # The filter(text...)) is needed otherwise, SQLA uses bind variables and the index is not used.
         query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_STATE_IDX)", 'oracle').\
-            filter(text("CASE WHEN (%s.replicas.state != 'A') THEN %s.replicas.rse_id END IS NOT NULL" % (default_schema_name,
-                                                                                                          default_schema_name))).\
+            filter(text("CASE WHEN (%s.replicas.state != 'A') THEN %s.replicas.rse_id END IS NOT NULL" % (DEFAULT_SCHEMA_NAME,
+                                                                                                          DEFAULT_SCHEMA_NAME))).\
             filter(models.RSEFileAssociation.state == ReplicaState.BAD)
     else:
         query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\

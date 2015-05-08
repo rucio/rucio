@@ -1,13 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+'''
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
@@ -32,7 +35,7 @@ def get_rse_account_usage(rse, session=None):
     query = query.join(models.AccountLimit, and_(models.AccountUsage.account == models.AccountLimit.account, models.AccountUsage.rse_id == models.AccountLimit.rse_id)).filter(models.AccountUsage.rse_id == rse_id)
     account_limits_tmp = query.all()
     for row in account_limits_tmp:
-        result.append({'rse': rse, 'account': row[0], 'used_files': row[1], 'used_bytes': row[2],  'quota_bytes': row[3]})
+        result.append({'rse': rse, 'account': row[0], 'used_files': row[1], 'used_bytes': row[2], 'quota_bytes': row[3]})
     return result
 
 
