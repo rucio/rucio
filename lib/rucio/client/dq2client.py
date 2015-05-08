@@ -1,4 +1,3 @@
-
 '''
   Copyright European Organization for Nuclear Research (CERN)
 
@@ -569,7 +568,8 @@ class DQ2Client:
             vuid = hashlib.md5(scope+':'+dsn).hexdigest()
             vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
             return {vuid: replicas}
-        else:
+        elif False:
+            # The old way
             for f in self.client.list_replicas(dids=[{'scope': scope, 'name': dsn}], schemes=['srm']):
                 rses = f['rses'].keys()
                 if not f['name'] in files:
@@ -587,7 +587,17 @@ class DQ2Client:
                 result[rse][-1]['total'] = len(files)
                 if rse in replicating_rses:
                     result[rse][-1]['transferState'] = 0
-
+        else:
+            for rep in self.client.list_dataset_replicas(scope, dsn):
+                result[rep['rse']] = [copy.deepcopy(dq2attrs)]
+                result[rep['rse']][-1]['found'] = rep['available_length']
+                result[rep['rse']][-1]['total'] = rep['length']
+                try:
+                    result[rep['rse']][-1]['archived'] = dict_rses[rse]
+                except KeyError:
+                    result[rep['rse']][-1]['archived'] = 'secondary'
+                if rep['state'] != 'AVAILABLE':
+                    result[rep['rse']][-1]['transferState'] = 0
         return result
 
     def listDatasetReplicasInContainer(self, cn, scope=None):
