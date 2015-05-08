@@ -138,33 +138,6 @@ class DatabaseException(RucioException):
         self._message = "Database exception."
 
 
-class DatasetAccessDenied(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(DatasetAccessDenied, self).__init__(args, kwargs)
-        self._message = "Access to Referenced dataset denied."
-
-
-class DatasetAlreadyExists(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(DatasetAlreadyExists, self).__init__(args, kwargs)
-        self._message = "Dataset name in specified scope already exists"
-
-
-class DatabaseMigrationError(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(DatabaseMigrationError, self).__init__(args, kwargs)
-        self._message = "Error when migrating the database."
-
-
 class DataIdentifierAlreadyExists(RucioException):
     """
     RucioException
@@ -181,33 +154,6 @@ class DataIdentifierNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(DataIdentifierNotFound, self).__init__(args, kwargs)
         self._message = "Data identifier not found."
-
-
-class DatasetIsMonotonic(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(DatasetIsMonotonic, self).__init__(args, kwargs)
-        self._message = "Dataset is monotonic"
-
-
-class DatasetNotFound(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(DatasetNotFound, self).__init__(args, kwargs)
-        self._message = "Dataset not found in scope"
-
-
-class DatasetObsolete(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(DatasetObsolete, self).__init__(args, kwargs)
-        self._message = "Dataset is obsolete"
 
 
 class DestinationNotAccessible(RucioException):
@@ -264,15 +210,6 @@ class FileAlreadyExists(RucioException):
         self._message = "The file already exists."
 
 
-class FileAssociationsRemain(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(FileAssociationsRemain, self).__init__(args, kwargs)
-        self._message = "Dataset has file associations"
-
-
 class FileConsistencyMismatch(RucioException):
     """
     RucioException
@@ -280,24 +217,6 @@ class FileConsistencyMismatch(RucioException):
     def __init__(self, *args, **kwargs):
         super(FileConsistencyMismatch, self).__init__(args, kwargs)
         self._message = "Error related to file consistency."
-
-
-class FileNotFound(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(FileNotFound, self).__init__(args, kwargs)
-        self._message = "File not found in scope"
-
-
-class FileObsolete(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(FileObsolete, self).__init__(args, kwargs)
-        self._message = "File is obsolete"
 
 
 class FileReplicaAlreadyExists(RucioException):
@@ -325,15 +244,6 @@ class ReplicaUnAvailable(RucioException):
     def __init__(self, *args, **kwargs):
         super(ReplicaUnAvailable, self).__init__(args, kwargs)
         self._message = "Replica unavailable"
-
-
-class ForbiddenSearch(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(ForbiddenSearch, self).__init__(args, kwargs)
-        self._message = "Wildcard search too broad"
 
 
 class FullStorage(RucioException):
@@ -397,15 +307,6 @@ class InvalidObject(RucioException):
     def __init__(self, *args, **kwargs):
         super(InvalidObject, self).__init__(args, kwargs)
         self._message = "Provided object does not match schema."
-
-
-class InvalidReplicaLock(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(InvalidReplicaLock, self).__init__(args, kwargs)
-        self._message = "Provided replica lock is considered invalid."
 
 
 class InvalidReplicationRule(RucioException):
@@ -489,15 +390,6 @@ class MissingClientParameter(RucioException):
         self._message = "Client parameters are missing."
 
 
-class MissingFileParameter(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(MissingFileParameter, self).__init__(args, kwargs)
-        self._message = "File parameter is missing."
-
-
 class MissingSourceReplica(RucioException):
     """
     RucioException
@@ -523,33 +415,6 @@ class NoAuthInformation(RucioException):
     def __init__(self, *args, **kwargs):
         super(NoAuthInformation, self).__init__(args, kwargs)
         self._message = "No authentication information passed."
-
-
-class NoPermissions(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(NoPermissions, self).__init__(args, kwargs)
-        self._message = "User does not have necessary permissions to perform operation."
-
-
-class NotADataset(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(NotADataset, self).__init__(args, kwargs)
-        self._message = 'Specified name is not a dataset'
-
-
-class NotAFile(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(NotAFile, self).__init__(args, kwargs)
-        self._message = 'Specified name is not a file'
 
 
 class ReplicationRuleCreationTemporaryFailed(RucioException):
@@ -655,15 +520,6 @@ class RSEOverQuota(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEOverQuota, self).__init__(args, kwargs)
         self._message = "Quota of Referenced RSE is exceeded."
-
-
-class RSETagNotFound(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(RSETagNotFound, self).__init__(args, kwargs)
-        self._message = "RSE Tag does not exist."
 
 
 class ResourceTemporaryUnavailable(RucioException):

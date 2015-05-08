@@ -48,7 +48,7 @@ logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-graceful_stop = threading.Event()
+GRACEFUL_STOP = threading.Event()
 
 
 def __check_rse_usage(rse, rse_id):
@@ -75,8 +75,8 @@ def __check_rse_usage(rse, rse_id):
     if not usage:
         return max_being_deleted_files, needed_free_space, used, free
 
-    for u in usage:
-        total = u['total']
+    for var in usage:
+        total = var['total']
         break
 
     # Get current used space
@@ -95,7 +95,7 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100, once=False, greedy=False, scheme=None, exclude_rses=None, delay_seconds=0):
+def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100, once=False, greedy=False, scheme=None, delay_seconds=0):
     """
     Main loop to select and delete files.
 
@@ -116,7 +116,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     thread = threading.current_thread()
     executable = 'rucio-reaper' + ' '.join(sys.argv)
     sanity_check(executable=executable, hostname=hostname)
-    while not graceful_stop.is_set():
+    while not GRACEFUL_STOP.is_set():
         try:
             # heartbeat
             live(executable=executable, hostname=hostname, pid=pid, thread=thread)
@@ -135,7 +135,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                     rse_protocol = rse_core.get_rse_protocols(rse['rse'])
 
                     if not rse_protocol['availability_delete']:
-                        logging.info('Reaper %s-%s: RSE %s is not available for deletion' % (worker_number, child_number, rse_info['rse']))
+                        logging.info('Reaper %s-%s: RSE %s is not available for deletion', worker_number, child_number, rse_info['rse'])
                         continue
 
                     # Temporary hack to force gfal for deletion
@@ -143,7 +143,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                         if protocol['impl'] == 'rucio.rse.protocols.srm.Default' or protocol['impl'] == 'rucio.rse.protocols.gsiftp.Default':
                             protocol['impl'] = 'rucio.rse.protocols.gfal.Default'
 
-                    logging.info('Reaper %s-%s: Running on RSE %s' % (worker_number, child_number, rse_info['rse']))
+                    logging.info('Reaper %s-%s: Running on RSE %s', worker_number, child_number, rse_info['rse'])
 
                     needed_free_space, max_being_deleted_files = None, 100
                     needed_free_space_per_child = None
@@ -152,12 +152,12 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                         logging.info('Reaper %(worker_number)s-%(child_number)s: Space usage for RSE %(rse)s - max_being_deleted_files: %(max_being_deleted_files)s, needed_free_space: %(needed_free_space)s, used: %(used)s, free: %(free)s' % locals())
                         if needed_free_space <= 0:
                             needed_free_space, needed_free_space_per_child = 0, 0
-                            logging.info('Reaper %s-%s: free space is above minimum limit for %s' % (worker_number, child_number, rse['rse']))
+                            logging.info('Reaper %s-%s: free space is above minimum limit for %s', worker_number, child_number, rse['rse'])
                         else:
                             if total_children and total_children > 0:
                                 needed_free_space_per_child = needed_free_space/float(total_children)
 
-                    s = time.time()
+                    start = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
                         replicas = list_unlocked_replicas(rse=rse['rse'], rse_id=rse['id'],
                                                           bytes=needed_free_space_per_child,
@@ -165,26 +165,26 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                           worker_number=child_number,
                                                           total_workers=total_children,
                                                           delay_seconds=delay_seconds)
-                    logging.debug('Reaper %s-%s: list_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas' % (worker_number, child_number, rse['rse'], needed_free_space_per_child, time.time() - s, len(replicas)))
+                    logging.debug('Reaper %s-%s: list_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', worker_number, child_number, rse['rse'], needed_free_space_per_child, time.time() - start, len(replicas))
 
                     if not replicas:
-                        logging.info('Reaper %s-%s: nothing to do for %s' % (worker_number, child_number, rse['rse']))
+                        logging.info('Reaper %s-%s: nothing to do for %s', worker_number, child_number, rse['rse'])
                         continue
                     nothing_to_do = False
 
-                    p = rsemgr.create_protocol(rse_info, 'delete', scheme=None)
+                    prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
                     for files in chunks(replicas, chunk_size):
-                        logging.debug('Reaper %s-%s: Running on : %s' % (worker_number, child_number, str(files)))
+                        logging.debug('Reaper %s-%s: Running on : %s', worker_number, child_number, str(files))
                         try:
-                            s = time.time()
                             update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files], nowait=True)
-
                             for replica in files:
                                 try:
-                                    replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}, ], operation='delete').values()[0])
-                                except ReplicaUnAvailable as e:
-                                    err_msg = 'Failed to get pfn UNAVAILABLE replica %s:%s on %s with error %s' % (replica['scope'], replica['name'], rse['rse'], str(e))
-                                    logging.warning('Reaper %s-%s: %s' % (worker_number, child_number, err_msg))
+                                    replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                                                          lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
+                                                                          operation='delete', scheme=scheme).values()[0])
+                                except ReplicaUnAvailable as error:
+                                    err_msg = 'Failed to get pfn UNAVAILABLE replica %s:%s on %s with error %s' % (replica['scope'], replica['name'], rse['rse'], str(error))
+                                    logging.warning('Reaper %s-%s: %s', worker_number, child_number, err_msg)
                                     replica['pfn'] = None
 
                                 add_message('deletion-planned', {'scope': replica['scope'],
@@ -193,88 +193,83 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                  'url': replica['pfn'],
                                                                  'rse': rse_info['rse']})
 
-                            monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=len(files))
+                            monitor.record_counter(counters='reaper.deletion.being_deleted', delta=len(files))
 
-                            if not scheme:
-                                try:
-                                    deleted_files = []
-                                    p.connect()
-                                    for replica in files:
-                                        try:
-                                            logging.info('Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse']))
-                                            s = time.time()
-                                            if rse['staging_area'] or rse['rse'].endswith("STAGING"):
-                                                logging.warning('Reaper %s-%s: Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion' % (worker_number,
-                                                                                                                                                                                    child_number,
-                                                                                                                                                                                    replica['scope'],
-                                                                                                                                                                                    replica['name'],
-                                                                                                                                                                                    replica['pfn'],
-                                                                                                                                                                                    rse['rse']))
+                            try:
+                                deleted_files = []
+                                prot.connect()
+                                for replica in files:
+                                    try:
+                                        logging.info('Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
+                                        start = time.time()
+                                        if rse['staging_area'] or rse['rse'].endswith("STAGING"):
+                                            logging.warning('Reaper %s-%s: Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion',
+                                                            worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
+                                        else:
+                                            if replica['pfn']:
+                                                prot.delete(replica['pfn'])
                                             else:
-                                                if replica['pfn']:
-                                                    p.delete(replica['pfn'])
-                                                else:
-                                                    logging.warning('Reaper %s-%s: Deletion UNAVAILABLE of %s:%s as %s on %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse']))
-                                            monitor.record_timer('daemons.reaper.delete.%s.%s' % (p.attributes['scheme'], rse['rse']), (time.time()-s)*1000)
-                                            duration = time.time() - s
+                                                logging.warning('Reaper %s-%s: Deletion UNAVAILABLE of %s:%s as %s on %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
+                                        monitor.record_timer('daemons.reaper.delete.%s.%s' % (prot.attributes['scheme'], rse['rse']), (time.time()-start)*1000)
+                                        duration = time.time() - start
 
-                                            deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
+                                        deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
-                                            add_message('deletion-done', {'scope': replica['scope'],
-                                                                          'name': replica['name'],
-                                                                          'rse': rse_info['rse'],
-                                                                          'file-size': replica['bytes'],
-                                                                          'url': replica['pfn'],
-                                                                          'duration': duration})
-                                            logging.info('Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], duration))
-                                        except SourceNotFound:
-                                            err_msg = 'Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
-                                            logging.warning(err_msg)
-                                            deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
-                                            add_message('deletion-failed', {'scope': replica['scope'],
-                                                                            'name': replica['name'],
-                                                                            'rse': rse_info['rse'],
-                                                                            'file-size': replica['bytes'],
-                                                                            'url': replica['pfn'],
-                                                                            'reason': str(err_msg)})
-                                        except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as e:
-                                            logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(e)))
-                                            add_message('deletion-failed', {'scope': replica['scope'],
-                                                                            'name': replica['name'],
-                                                                            'rse': rse_info['rse'],
-                                                                            'file-size': replica['bytes'],
-                                                                            'url': replica['pfn'],
-                                                                            'reason': str(e)})
-                                        except Exception as e:
-                                            logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc())))
-                                            add_message('deletion-failed', {'scope': replica['scope'],
-                                                                            'name': replica['name'],
-                                                                            'rse': rse_info['rse'],
-                                                                            'file-size': replica['bytes'],
-                                                                            'url': replica['pfn'],
-                                                                            'reason': str(e)})
-                                        except:
-                                            logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc())))
-                                except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as e:
-                                    for replica in files:
-                                        logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(e)))
+                                        add_message('deletion-done', {'scope': replica['scope'],
+                                                                      'name': replica['name'],
+                                                                      'rse': rse_info['rse'],
+                                                                      'file-size': replica['bytes'],
+                                                                      'url': replica['pfn'],
+                                                                      'duration': duration})
+                                        logging.info('Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], duration)
+                                    except SourceNotFound:
+                                        err_msg = 'Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
+                                        logging.warning(err_msg)
+                                        deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                                         add_message('deletion-failed', {'scope': replica['scope'],
                                                                         'name': replica['name'],
                                                                         'rse': rse_info['rse'],
                                                                         'file-size': replica['bytes'],
                                                                         'url': replica['pfn'],
-                                                                        'reason': str(e)})
-                                finally:
-                                    p.close()
-                            s = time.time()
+                                                                        'reason': str(err_msg)})
+                                    except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
+                                        logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(error))
+                                        add_message('deletion-failed', {'scope': replica['scope'],
+                                                                        'name': replica['name'],
+                                                                        'rse': rse_info['rse'],
+                                                                        'file-size': replica['bytes'],
+                                                                        'url': replica['pfn'],
+                                                                        'reason': str(error)})
+                                    except Exception as error:
+                                        logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc()))
+                                        add_message('deletion-failed', {'scope': replica['scope'],
+                                                                        'name': replica['name'],
+                                                                        'rse': rse_info['rse'],
+                                                                        'file-size': replica['bytes'],
+                                                                        'url': replica['pfn'],
+                                                                        'reason': str(error)})
+                                    except:
+                                        logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc()))
+                            except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
+                                for replica in files:
+                                    logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(error))
+                                    add_message('deletion-failed', {'scope': replica['scope'],
+                                                                    'name': replica['name'],
+                                                                    'rse': rse_info['rse'],
+                                                                    'file-size': replica['bytes'],
+                                                                    'url': replica['pfn'],
+                                                                    'reason': str(error)})
+                            finally:
+                                prot.close()
+                            start = time.time()
                             with monitor.record_timer_block('reaper.delete_replicas'):
                                 delete_replicas(rse=rse['rse'], files=deleted_files)
-                            logging.debug('Reaper %s-%s: delete_replicas successes %s %s %s' % (worker_number, child_number, rse['rse'], len(deleted_files), time.time() - s))
-                            monitor.record_counter(counters='reaper.deletion.done',  delta=len(deleted_files))
+                            logging.debug('Reaper %s-%s: delete_replicas successes %s %s %s', worker_number, child_number, rse['rse'], len(deleted_files), time.time() - start)
+                            monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
                             deleting_rate += len(deleted_files)
 
-                        except DatabaseException, e:
-                            logging.warning('Reaper %s-%s: DatabaseException %s' % (worker_number, child_number, str(e)))
+                        except DatabaseException as error:
+                            logging.warning('Reaper %s-%s: DatabaseException %s', worker_number, child_number, str(error))
                         except:
                             logging.critical(traceback.format_exc())
 
@@ -285,13 +280,12 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                 except:
                     logging.critical(traceback.format_exc())
 
-            if nothing_to_do:
-                logging.info('Reaper %s-%s: Nothing to do. I will sleep for 60s' % (worker_number, child_number))
-                time.sleep(60)
-
             if once:
                 break
 
+            if nothing_to_do:
+                logging.info('Reaper %s-%s: Nothing to do. I will sleep for 60s', worker_number, child_number)
+                time.sleep(60)
         except:
             logging.critical(traceback.format_exc())
 
@@ -305,7 +299,7 @@ def stop(signum=None, frame=None):
     """
     Graceful exit.
     """
-    graceful_stop.set()
+    GRACEFUL_STOP.set()
 
 
 def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, greedy=False, rses=[], scheme=None, exclude_rses=None, include_rses=None, delay_seconds=0):

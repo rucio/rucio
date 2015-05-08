@@ -1,18 +1,20 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
-# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+  - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
+  - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+  - Martin Barisits, <martin.barisits@cern.ch>, 2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+'''
 
 from os import remove, unlink, listdir, rmdir
 
@@ -488,7 +490,7 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
-        nose.tools.assert_equal(3, len(out.splitlines()))
+        nose.tools.assert_equal(5, len(out.splitlines()))
 
     def test_add_file_twice(self):
         """CLIENT(USER): Add file twice"""
