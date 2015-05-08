@@ -160,8 +160,6 @@ def wrap_db_error(f):
     def _wrap(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except DatabaseError, error:
-            raise RucioException(error.args[0])
         except OperationalError, error:
             if not is_db_connection_error(error.args[0]):
                 raise
@@ -179,6 +177,8 @@ def wrap_db_error(f):
                         raise
                 except DBAPIError:
                     raise
+        except DatabaseError, error:
+            raise RucioException(error.args[0])
         except DBAPIError:
             raise
     _wrap.func_name = f.func_name
@@ -186,8 +186,10 @@ def wrap_db_error(f):
 
 
 def get_maker():
-    """Return a SQLAlchemy sessionmaker."""
-    """May assign __MAKER if not already assigned"""
+    """
+        Return a SQLAlchemy sessionmaker.
+        May assign __MAKER if not already assigned.
+    """
     global _MAKER, _ENGINE
     assert _ENGINE
     if not _MAKER:
@@ -233,13 +235,13 @@ def read_session(function):
                 kwargs['session'] = session
                 return function(*args, **kwargs)
             except TimeoutError, error:
-                session.rollback()
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except DatabaseError, error:
-                session.rollback()
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
-                session.rollback()
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise
             finally:
                 session.remove()
@@ -272,14 +274,14 @@ def stream_session(function):
                     yield row
             except TimeoutError, error:
                 print error
-                session.rollback()
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except DatabaseError, error:
                 print error
-                session.rollback()
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
-                session.rollback()
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise
             finally:
                 session.remove()
@@ -304,20 +306,20 @@ def transactional_session(function):
             try:
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
-                session.commit()
+                session.commit()  # pylint: disable=maybe-no-member
             except TimeoutError, error:
                 print error
-                session.rollback()
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except DatabaseError, error:
                 print error
-                session.rollback()
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
-                session.rollback()
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise
             finally:
-                session.remove()
+                session.remove()  # pylint: disable=maybe-no-member
         else:
             result = function(*args, **kwargs)
         return result
