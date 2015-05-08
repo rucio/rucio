@@ -15,13 +15,13 @@ import os
 import re
 import urlparse
 
+from rucio.common import exception
+from rucio.rse.protocols import protocol
+
 try:
     import gfal2
 except:
-    pass
-
-from rucio.common import exception
-from rucio.rse.protocols import protocol
+    raise exception.MissingDependency('Missing dependency : gfal2')
 
 
 class Default(protocol.RSEProtocol):
@@ -56,13 +56,17 @@ class Default(protocol.RSEProtocol):
         if self.attributes['port'] == 0:
             for lfn in lfns:
                 scope, name = lfn['scope'], lfn['name']
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix,
-                                                         lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)])
+                path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
+                if path.startswith('/'):
+                    path = path[1:]
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix, path])
         else:
             for lfn in lfns:
                 scope, name = lfn['scope'], lfn['name']
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix,
-                                                         lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)])
+                path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
+                if path.startswith('/'):
+                    path = path[1:]
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, path])
 
         return pfns
 
@@ -174,12 +178,12 @@ class Default(protocol.RSEProtocol):
             status = self.__gfal2_copy(path, dest, space_token)
             if status:
                 raise exception.RucioException()
-        except exception.DestinationNotAccessible as e:
-            raise exception.DestinationNotAccessible(str(e))
-        except exception.SourceNotFound as e:
-            raise exception.SourceNotFound(str(e))
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except exception.DestinationNotAccessible as error:
+            raise exception.DestinationNotAccessible(str(error))
+        except exception.SourceNotFound as error:
+            raise exception.SourceNotFound(str(error))
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def put(self, source, target, source_dir):
         """
@@ -209,12 +213,12 @@ class Default(protocol.RSEProtocol):
             status = self.__gfal2_copy(str(source_url), str(target), None, space_token)
             if status:
                 raise exception.RucioException()
-        except exception.DestinationNotAccessible as e:
-            raise exception.DestinationNotAccessible(str(e))
-        except exception.SourceNotFound as e:
-            raise exception.DestinationNotAccessible(str(e))
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except exception.DestinationNotAccessible as error:
+            raise exception.DestinationNotAccessible(str(error))
+        except exception.SourceNotFound as error:
+            raise exception.DestinationNotAccessible(str(error))
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def delete(self, path):
         """
@@ -232,10 +236,10 @@ class Default(protocol.RSEProtocol):
             status = self.__gfal2_rm(pfns)
             if status:
                 raise exception.RucioException()
-        except exception.SourceNotFound as e:
-            raise exception.SourceNotFound(str(e))
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except exception.SourceNotFound as error:
+            raise exception.SourceNotFound(str(error))
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def rename(self, path, new_path):
         """
@@ -253,12 +257,12 @@ class Default(protocol.RSEProtocol):
             status = self.__gfal2_rename(path, new_path)
             if status:
                 raise exception.RucioException()
-        except exception.DestinationNotAccessible as e:
-            raise exception.DestinationNotAccessible(str(e))
-        except exception.SourceNotFound as e:
-            raise exception.SourceNotFound(str(e))
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except exception.DestinationNotAccessible as error:
+            raise exception.DestinationNotAccessible(str(error))
+        except exception.SourceNotFound as error:
+            raise exception.SourceNotFound(str(error))
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def exists(self, path):
         """
@@ -276,10 +280,10 @@ class Default(protocol.RSEProtocol):
             if status:
                 return False
             return True
-        except exception.SourceNotFound as e:
+        except exception.SourceNotFound as error:
             return False
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def close(self):
         """
@@ -322,10 +326,10 @@ class Default(protocol.RSEProtocol):
         try:
             ret = ctx.filecopy(params, str(src), str(dest))
             return ret
-        except gfal2.GError as e:
-            if e.code == errno.ENOENT or 'No such file' in e.message:
-                raise exception.SourceNotFound(e)
-            raise exception.RucioException(e)
+        except gfal2.GError as error:
+            if error.code == errno.ENOENT or 'No such file' in error.message:
+                raise exception.SourceNotFound(error)
+            raise exception.RucioException(error)
 
     def __gfal2_rm(self, paths):
         """
@@ -347,10 +351,10 @@ class Default(protocol.RSEProtocol):
                 if ret:
                     return ret
             return ret
-        except gfal2.GError as e:
-            if e.code == errno.ENOENT or 'No such file' in e.message:
-                raise exception.SourceNotFound(e)
-            raise exception.RucioException(e)
+        except gfal2.GError as error:
+            if error.code == errno.ENOENT or 'No such file' in error.message:
+                raise exception.SourceNotFound(error)
+            raise exception.RucioException(error)
 
     def __gfal2_exist(self, path):
         """
@@ -369,10 +373,10 @@ class Default(protocol.RSEProtocol):
             if ctx.stat(str(path)):
                 return 0
             return -1
-        except gfal2.GError as e:
-            if e.code == errno.ENOENT or 'No such file' in e.message:
+        except gfal2.GError as error:
+            if error.code == errno.ENOENT or 'No such file' in error.message:
                 return -1
-            raise exception.RucioException(e)
+            raise exception.RucioException(error)
 
     def __gfal2_rename(self, path, new_path):
         """
@@ -393,14 +397,14 @@ class Default(protocol.RSEProtocol):
             # This function will be removed soon. gfal2 will create parent dir automatically.
             try:
                 ctx.mkdir(str(dir_name), 0775)
-            except:
+            except Exception:
                 pass
             ret = ctx.rename(str(path), str(new_path))
             return ret
-        except gfal2.GError as e:
-            if e.code == errno.ENOENT or 'No such file' in e.message:
-                raise exception.SourceNotFound(e)
-            raise exception.RucioException(e)
+        except gfal2.GError as error:
+            if error.code == errno.ENOENT or 'No such file' in error.message:
+                raise exception.SourceNotFound(error)
+            raise exception.RucioException(error)
 
     def get_space_usage(self):
         """
@@ -421,8 +425,8 @@ class Default(protocol.RSEProtocol):
         try:
             totalsize, unusedsize = self.__gfal2_get_space_usage(endpoint_basepath, space_token)
             return totalsize, unusedsize
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def __gfal2_get_space_usage(self, path, space_token):
         """
@@ -444,5 +448,5 @@ class Default(protocol.RSEProtocol):
             totalsize = usage[0]["totalsize"]
             unusedsize = usage[0]["unusedsize"]
             return totalsize, unusedsize
-        except gfal2.GError as e:
-            raise Exception(str(e))
+        except gfal2.GError as error:
+            raise Exception(str(error))
