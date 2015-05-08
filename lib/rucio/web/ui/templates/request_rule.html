@@ -14,6 +14,11 @@ $var title: Request Rule
 $var script: <script src="/static/request_rule.js"></script>
 
 <div id="main">
+  <div id="info_panel" class="content active">
+  <div class="row">
+    <p>Your input will be saved until you submit it. If you want to clear the form please click <a id="clear_data">here</a><p>
+  </div>
+  </div>
   <dl class="accordion" data-accordion>
     <dd class="accordion-navigation large-8">
       <a href="#did_panel">Select DIDs</a>
@@ -35,9 +40,9 @@ $var script: <script src="/static/request_rule.js"></script>
                   <a class="button postfix" id="search_did_button">Search</a>
                 </div>
                 <div class="large-3 columns inline" style="padding-left: 15px;">
-                  <input type="radio" name="didtype" value="container" id="container_type" checked>
+                  <input type="radio" name="didtype" value="container" id="container_type">
                   <label for="grouping_all">Container</label>
-                  <input type="radio" name="didtype" value="dataset" id="dataset_type">
+                  <input type="radio" name="didtype" value="dataset" id="dataset_type" checked>
                   <label for="grouping_dataset">Dataset</label>
                 </div>
               </div>
@@ -110,7 +115,7 @@ $var script: <script src="/static/request_rule.js"></script>
         <div class="row">
           <div class="large-5 columns">
             <label>Lifetime (in days). Leave empty for infinite lifetime.
-              <input type="text" id="lifetime" ></input>
+              <input type="text" id="lifetime" value="15"></input>
             </label>
           </div>
         </div>
@@ -131,7 +136,7 @@ $var script: <script src="/static/request_rule.js"></script>
         <div class="row">
           <div class="large-2 columns">
             <label style="visibility: hidden;">.</label>
-            <div class="button postfix" id="options_submit">Submit Rule Request</div>
+            <div class="button postfix" id="options_continue">Continue</div>
           </div>
           <div class="large-6 columns">
             <label style="visibility: hidden;">.</label>
@@ -140,6 +145,11 @@ $var script: <script src="/static/request_rule.js"></script>
           <div class="large-4 columns">
           </div>
         </div>
+    </dd>
+    <dd class="accordion-navigation large-8">
+      <a href="#summary_panel">Summary</a>
+      <div id="summary_panel" class="content">
+      </div>
     </dd>
   </dl>
 </div>
