@@ -390,6 +390,15 @@ class MissingClientParameter(RucioException):
         self._message = "Client parameters are missing."
 
 
+class MissingDependency(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(MissingDependency, self).__init__(args, kwargs)
+        self._message = "One dependency is missing."
+
+
 class MissingSourceReplica(RucioException):
     """
     RucioException

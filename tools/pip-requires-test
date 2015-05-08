@@ -26,7 +26,7 @@ pep8==1.5.7 # checks for PEP8 code style compliance
 pyflakes==0.8.1 # Passive checker of Python programs
 flake8==2.4.0 # Wrapper around PyFlakes&pep8
 mccabe==0.3 # McCabe checker, plugin for flake8
-pylint==1.3.1 # static code analysis
+pylint==1.3.1 # static code analysis. Last release compatible with python 2.6
 virtualenv==12.1.1 # Virtual Python Environment builder
 tox==1.9.2 # Automate and standardize testing in Python
 pytest==2.7.0 # Full-featured Python testing tool
