@@ -1,12 +1,13 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+'''
+  Copyright European Organization for Nuclear Research (CERN)
 
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+'''
 
 import logging
 import os
@@ -149,7 +150,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
             logging.debug('Thread %i : In transmogrifier worker' % (worker_number))
             identifiers = []
             for did in dids:
-                if (did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER)):
+                if did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER):
                     results['%s:%s' % (did['scope'], did['name'])] = []
                     try:
                         metadata = get_metadata(did['scope'], did['name'])
@@ -186,7 +187,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                             add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rse_expression,
                                                      grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription['id'], source_replica_expression=source_replica_expression, activity=activity,
                                                      purge_replicas=purge_replicas, ignore_availability=ignore_availability, comment=comment)
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.done', delta=1)
                                             if subscription['name'].find('test') > -1:
                                                 monitor.record_counter(counters='transmogrifier.addnewrule.activity.test', delta=1)
                                             elif subscription['name'].startswith('group'):
@@ -217,19 +218,19 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
                                             exc_type, exc_value, exc_traceback = exc_info()
                                             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
-                                    if ((attemptnr + 1) == nattempt and not success):
+                                    if (attemptnr + 1) == nattempt and not success:
                                         logging.critical('Thread %i : Rule for %s:%s on %s cannot be inserted' % (worker_number, did['scope'], did['name'], rse_expression))
                                     else:
                                         logging.info('Thread %i :Rule inserted in %f seconds' % (worker_number, time.time()-stime))
                     except DataIdentifierNotFound, e:
                         logging.warning(e)
                 if did['did_type'] == str(DIDType.FILE):
-                    monitor.record_counter(counters='transmogrifier.did.file.processed',  delta=1)
+                    monitor.record_counter(counters='transmogrifier.did.file.processed', delta=1)
                 elif did['did_type'] == str(DIDType.DATASET):
-                    monitor.record_counter(counters='transmogrifier.did.dataset.processed',  delta=1)
+                    monitor.record_counter(counters='transmogrifier.did.dataset.processed', delta=1)
                 elif did['did_type'] == str(DIDType.CONTAINER):
-                    monitor.record_counter(counters='transmogrifier.did.container.processed',  delta=1)
-                monitor.record_counter(counters='transmogrifier.did.processed',  delta=1)
+                    monitor.record_counter(counters='transmogrifier.did.container.processed', delta=1)
+                monitor.record_counter(counters='transmogrifier.did.processed', delta=1)
                 identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
             time1 = time.time()
             for identifier in chunks(identifiers, 100):
@@ -238,13 +239,13 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
             tottime = time.time() - start_time
             logging.info('Thread %i : It took %f seconds to process %i DIDs' % (worker_number, tottime, len(dids)))
             logging.debug('Thread %i : DIDs processed : %s' % (worker_number, str(dids)))
-            monitor.record_counter(counters='transmogrifier.job.done',  delta=1)
-            monitor.record_timer(stat='transmogrifier.job.duration',  time=1000*tottime)
+            monitor.record_counter(counters='transmogrifier.job.done', delta=1)
+            monitor.record_timer(stat='transmogrifier.job.duration', time=1000*tottime)
         except:
             exc_type, exc_value, exc_traceback = exc_info()
             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
-            monitor.record_counter(counters='transmogrifier.job.error',  delta=1)
-            monitor.record_counter(counters='transmogrifier.addnewrule.error',  delta=1)
+            monitor.record_counter(counters='transmogrifier.job.error', delta=1)
+            monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
         logging.info(once)
         if once is True:
             break

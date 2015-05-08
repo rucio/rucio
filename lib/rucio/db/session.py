@@ -1,14 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+  - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+'''
 
 import sys
 
@@ -30,10 +32,10 @@ from rucio.common.exception import RucioException, DatabaseException
 
 BASE = declarative_base()
 try:
-    default_schema_name = config_get('database', 'schema')
-    BASE.metadata.schema = default_schema_name
+    DEFAULT_SCHEMA_NAME = config_get('database', 'schema')
+    BASE.metadata.schema = DEFAULT_SCHEMA_NAME
 except NoOptionError:
-    default_schema_name = None
+    DEFAULT_SCHEMA_NAME = None
 
 _MAKER, _ENGINE, _LOCK = None, None, Lock()
 
@@ -107,7 +109,7 @@ def get_engine(echo=True):
         # To have auto_reconnect (will come in next sqlalchemy releases)
         _ENGINE.connect = wrap_db_error(_ENGINE.connect)
         # _ENGINE.connect()
-    assert(_ENGINE)
+    assert _ENGINE
     return _ENGINE
 
 
@@ -139,15 +141,13 @@ def get_dump_engine(echo=False):
 
 def is_db_connection_error(args):
     """Return True if error in connecting to db."""
-    conn_err_codes = (  # MySQL
-                        '2002', '2003', '2006',
-                        # Oracle
-                        'ORA-00028',  # session has been killed
-                        'ORA-01012',  # not logged on
-                        'ORA-03113',  # end-of-file on communication channel
-                        'ORA-03114',  # not connected to ORACLE
-                        'ORA-03135',  # connection lost contact
-                        'ORA-25408',)  # can not safely replay call
+    conn_err_codes = ('2002', '2003', '2006',  # MySQL
+                      'ORA-00028',  # Oracle session has been killed
+                      'ORA-01012',  # not logged on
+                      'ORA-03113',  # end-of-file on communication channel
+                      'ORA-03114',  # not connected to ORACLE
+                      'ORA-03135',  # connection lost contact
+                      'ORA-25408',)  # can not safely replay call
 
     for err_code in conn_err_codes:
         if args.find(err_code) != -1:
@@ -160,10 +160,10 @@ def wrap_db_error(f):
     def _wrap(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except DatabaseError, e:
-            raise RucioException(e.args[0])
-        except OperationalError, e:
-            if not is_db_connection_error(e.args[0]):
+        except DatabaseError, error:
+            raise RucioException(error.args[0])
+        except OperationalError, error:
+            if not is_db_connection_error(error.args[0]):
                 raise
             # To Do: Should come from the configuration
             remaining_attempts = 10
@@ -174,8 +174,8 @@ def wrap_db_error(f):
                 sleep(retry_interval)
                 try:
                     return f(*args, **kwargs)
-                except OperationalError, e:
-                    if (remaining_attempts == 0 or not is_db_connection_error(e.args[0])):
+                except OperationalError, error:
+                    if remaining_attempts == 0 or not is_db_connection_error(error.args[0]):
                         raise
                 except DBAPIError:
                     raise
@@ -207,7 +207,7 @@ def get_session():
             get_maker()
         finally:
             _LOCK.release()
-    assert(_MAKER)
+    assert _MAKER
     session = scoped_session(_MAKER)
     return session
 
@@ -232,12 +232,12 @@ def read_session(function):
             try:
                 kwargs['session'] = session
                 return function(*args, **kwargs)
-            except TimeoutError, e:
+            except TimeoutError, error:
                 session.rollback()
-                raise DatabaseException(str(e))
-            except DatabaseError, e:
+                raise DatabaseException(str(error))
+            except DatabaseError, error:
                 session.rollback()
-                raise DatabaseException(str(e))
+                raise DatabaseException(str(error))
             except:
                 session.rollback()
                 raise
@@ -270,14 +270,14 @@ def stream_session(function):
                 # print isgeneratorfunction(function)
                 for row in function(*args, **kwargs):
                     yield row
-            except TimeoutError, e:
-                print e
+            except TimeoutError, error:
+                print error
                 session.rollback()
-                raise DatabaseException(str(e))
-            except DatabaseError, e:
-                print e
+                raise DatabaseException(str(error))
+            except DatabaseError, error:
+                print error
                 session.rollback()
-                raise DatabaseException(str(e))
+                raise DatabaseException(str(error))
             except:
                 session.rollback()
                 raise
@@ -305,14 +305,14 @@ def transactional_session(function):
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
                 session.commit()
-            except TimeoutError, e:
-                print e
+            except TimeoutError, error:
+                print error
                 session.rollback()
-                raise DatabaseException(str(e))
-            except DatabaseError, e:
-                print e
+                raise DatabaseException(str(error))
+            except DatabaseError, error:
+                print error
                 session.rollback()
-                raise DatabaseException(str(e))
+                raise DatabaseException(str(error))
             except:
                 session.rollback()
                 raise
