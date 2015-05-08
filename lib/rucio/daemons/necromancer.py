@@ -1,11 +1,13 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+'''
 
 
 import logging
@@ -63,14 +65,14 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
                     logging.info('Thread [%i/%i] : File %s:%s has no other replicas, it will be marked as lost' % (worker_number, total_workers, scope, name))
                     try:
                         update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id)
-                        monitor.record_counter(counters='necromancer.badfiles.lostfile',  delta=1)
+                        monitor.record_counter(counters='necromancer.badfiles.lostfile', delta=1)
                     except DatabaseException, e:
                         logging.info('Thread [%i/%i] : %s' % (worker_number, total_workers, str(e)))
                 else:
                     logging.info('Thread [%i/%i] : File %s:%s can be recovered. Available sources : %s' % (worker_number, total_workers, scope, name, str(rep[0]['rses'])))
                     try:
                         update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id)
-                        monitor.record_counter(counters='necromancer.badfiles.recovering',  delta=1)
+                        monitor.record_counter(counters='necromancer.badfiles.recovering', delta=1)
                     except DatabaseException, e:
                         logging.info('Thread [%i/%i] : %s' % (worker_number, total_workers, str(e)))
             logging.info('Thread [%i/%i] : It took %s seconds to process %s replicas' % (worker_number, total_workers, str(time.time() - stime), str(len(replicas))))
