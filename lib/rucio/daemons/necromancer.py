@@ -66,17 +66,17 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
                     try:
                         update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id)
                         monitor.record_counter(counters='necromancer.badfiles.lostfile', delta=1)
-                    except DatabaseException, e:
-                        logging.info('Thread [%i/%i] : %s' % (worker_number, total_workers, str(e)))
+                    except DatabaseException, error:
+                        logging.info('Thread [%i/%i] : %s' % (worker_number, total_workers, str(error)))
                 else:
                     logging.info('Thread [%i/%i] : File %s:%s can be recovered. Available sources : %s' % (worker_number, total_workers, scope, name, str(rep[0]['rses'])))
                     try:
                         update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id)
                         monitor.record_counter(counters='necromancer.badfiles.recovering', delta=1)
-                    except DatabaseException, e:
-                        logging.info('Thread [%i/%i] : %s' % (worker_number, total_workers, str(e)))
+                    except DatabaseException, error:
+                        logging.info('Thread [%i/%i] : %s' % (worker_number, total_workers, str(error)))
             logging.info('Thread [%i/%i] : It took %s seconds to process %s replicas' % (worker_number, total_workers, str(time.time() - stime), str(len(replicas))))
-        except:
+        except Exception:
             exc_type, exc_value, exc_traceback = exc_info()
             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
         if once:

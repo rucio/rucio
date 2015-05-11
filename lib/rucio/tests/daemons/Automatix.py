@@ -22,7 +22,6 @@ import random
 import tempfile
 import threading
 
-from datetime import datetime
 from json import load
 from math import exp
 from os import remove, rmdir, stat
@@ -74,15 +73,15 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
     rse_info = rsemgr.get_rse_info(rse)
     try:
         success_upload = True
-        for i in xrange(0, 3):
-            gs, ret = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
-            logging.info('Returned global status : %s, Returned : %s' % (str(gs), str(ret)))
-            if not gs:
-                for x in ret:
-                    if (not isinstance(ret[x], FileReplicaAlreadyExists)) and ret[x] is not True:
-                        sleep(exp(i))
+        for cnt in xrange(0, 3):
+            global_status, ret = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
+            logging.info('Returned global status : %s, Returned : %s' % (str(global_status), str(ret)))
+            if not global_status:
+                for item in ret:
+                    if (not isinstance(ret[item], FileReplicaAlreadyExists)) and ret[item] is not True:
+                        sleep(exp(cnt))
                         success_upload = False
-                        logging.error('Problem to upload file %s with error %s' % (x, str(ret[x])))
+                        logging.error('Problem to upload file %s with error %s' % (item, str(ret[item])))
                         break
             else:
                 break
@@ -90,7 +89,7 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
             logging.error('Thread [%i/%i] : Upload operation to %s failed, removing leftovers' % (worker_number, total_workers, rse))
             rsemgr.delete(rse_info, lfns=lfns)
             return False
-    except Exception, e:
+    except Exception, error:
         return False
     logging.info('Thread [%i/%i] : Files successfully copied on %s' % (worker_number, total_workers, rse))
 
@@ -101,9 +100,9 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
             client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}], meta=metadata, lifetime=dataset_lifetime)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
             logging.info('Thread [%i/%i] : Upload operation for %s:%s done' % (worker_number, total_workers, dsn['scope'], dsn['name']))
-        except Exception, e:
+        except Exception, error:
             logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload %(files)s' % locals())
-            logging.error('Thread [%i/%i] : %s' % (worker_number, total_workers, str(e)))
+            logging.error('Thread [%i/%i] : %s' % (worker_number, total_workers, str(error)))
             logging.error('Removing files from the Storage')
             rsemgr.delete(rse_info, lfns=lfns)
             return False
@@ -113,9 +112,9 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
             client.add_replicas(files=list_files, rse=rse)
             client.add_replication_rule(list_files, copies=1, rse_expression=rse)
             logging.info('Thread [%i/%i] : Upload operation for %s done' % (worker_number, total_workers, str(list_files)))
-        except Exception, e:
+        except Exception, error:
             logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload %(files)s' % locals())
-            logging.error('Thread [%i/%i] : %s' % (worker_number, total_workers, str(e)))
+            logging.error('Thread [%i/%i] : %s' % (worker_number, total_workers, str(error)))
             logging.error('Removing files from the Storage')
             rsemgr.delete(rse_info, lfns=lfns)
             return False
@@ -136,11 +135,11 @@ def get_data_distribution(inputfile):
 
 
 def choose_element(probabilities, data):
-    r = random.uniform(0, 1)
+    rnd = random.uniform(0, 1)
     prob = 0
     for key in probabilities:
         prob = probabilities[key]
-        if prob >= r:
+        if prob >= rnd:
             return data[key]
     return data[key]
 
@@ -169,36 +168,33 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
         logging.debug('Thread [%i/%i] : Probabilities %s' % (worker_number, total_workers, probabilities))
         account = 'root'
         scope = 'tests'
-        now = datetime.now()
-        dsn_extension = '%s.%s.%s.%s' % (now.year, now.month, now.day, generate_uuid())
         totretries = 3
         status = False
         for site in sites:
             for retry in xrange(0, totretries):
-                ts = time()
+                start_time = time()
                 tmpdir = tempfile.mkdtemp()
                 logging.info('Thread [%i/%i] : Running on site %s' % (worker_number, total_workers, site))
-                d = choose_element(probabilities, data)
-                metadata = d['metadata']
+                dic = choose_element(probabilities, data)
+                metadata = dic['metadata']
                 metadata['version'] = str(random.randint(0, 1000))
                 metadata['run_number'] = str(random.randint(0, 100000))
-                uuid = generate_uuid()
                 metadata['stream_name'] = 'automatix_stream'
                 metadata['campaign'] = 'automatix_campaign'
                 try:
-                    nbfiles = d['nbfiles']
+                    nbfiles = dic['nbfiles']
                 except KeyError:
                     nbfiles = 2
                     logging.warning('Thread [%i/%i] : No nbfiles defined in the configuration, will use 2' % (worker_number, total_workers))
                 try:
-                    filesize = d['filesize']
+                    filesize = dic['filesize']
                 except KeyError:
                     filesize = 1000000
                     logging.warning('Thread [%i/%i] : No filesize defined in the configuration, will use 1M files' % (worker_number, total_workers))
                 dsn = 'tests:%s.%s.%s.%s.%s.%s' % (metadata['project'], metadata['run_number'], metadata['stream_name'], metadata['prod_step'], metadata['datatype'], metadata['version'])
                 fnames = []
                 lfns = []
-                for nb in xrange(nbfiles):
+                for dummy_nbfile in xrange(nbfiles):
                     fname = '%s.%s' % (metadata['datatype'], generate_uuid())
                     lfns.append(fname)
                     fname = '%s/%s' % (tmpdir, fname)
@@ -211,9 +207,9 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                     remove(fname)
                 rmdir(tmpdir)
                 if status:
-                    monitor.record_counter(counters='automatix.addnewdataset.done',  delta=1)
-                    monitor.record_counter(counters='automatix.addnewfile.done',  delta=nbfiles)
-                    monitor.record_timer('automatix.datasetinjection', (time() - ts) * 1000)
+                    monitor.record_counter(counters='automatix.addnewdataset.done', delta=1)
+                    monitor.record_counter(counters='automatix.addnewfile.done', delta=nbfiles)
+                    monitor.record_timer('automatix.datasetinjection', (time() - start_time) * 1000)
                     break
                 else:
                     logging.info('Thread [%i/%i] : Failed to upload files. Will retry another time (attempt %s/%s)' % (worker_number, total_workers, str(retry + 1), str(totretries)))

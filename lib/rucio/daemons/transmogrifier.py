@@ -43,6 +43,9 @@ graceful_stop = threading.Event()
 
 
 def _retrial(func, *args, **kwargs):
+    """
+    Retrial method
+    """
     delay = 0
     while True:
         try:
@@ -74,6 +77,8 @@ def is_matching_subscription(subscription, did, metadata):
     param metadata: The metadata dictionnary for the DID
     return: True/False
     """
+    if metadata['hidden']:
+        return False
     try:
         filter = loads(subscription['filter'])
     except ValueError, excep:
@@ -137,8 +142,8 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
             for sub in list_subscriptions(None, None):
                 if sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
                     subscriptions.append(sub)
-        except:
-            logging.error('Thread %i : Failed to get list of new DIDs or subsscriptions' % (worker_number))
+        except Exception, error:
+            logging.error('Thread %i : Failed to get list of new DIDs or subsscriptions : %s' % (worker_number, str(error)))
             if once:
                 break
             else:
@@ -222,8 +227,8 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                         logging.critical('Thread %i : Rule for %s:%s on %s cannot be inserted' % (worker_number, did['scope'], did['name'], rse_expression))
                                     else:
                                         logging.info('Thread %i :Rule inserted in %f seconds' % (worker_number, time.time()-stime))
-                    except DataIdentifierNotFound, e:
-                        logging.warning(e)
+                    except DataIdentifierNotFound, error:
+                        logging.warning(error)
                 if did['did_type'] == str(DIDType.FILE):
                     monitor.record_counter(counters='transmogrifier.did.file.processed', delta=1)
                 elif did['did_type'] == str(DIDType.DATASET):
@@ -241,7 +246,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
             logging.debug('Thread %i : DIDs processed : %s' % (worker_number, str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)
             monitor.record_timer(stat='transmogrifier.job.duration', time=1000*tottime)
-        except:
+        except Exception:
             exc_type, exc_value, exc_traceback = exc_info()
             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
             monitor.record_counter(counters='transmogrifier.job.error', delta=1)
