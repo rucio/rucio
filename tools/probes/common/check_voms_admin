@@ -58,7 +58,8 @@ def add_country_attributes(dns, country, role):
                     if key in attrs and attrs[key] == role:
                         print 'Account %s already has the role %s' % (account, role)
                         continue
-                    else:
+                    elif key in attrs:
+                        print 'Removing attribute %s:%s from account %s' % (key, role, account)
                         del_account_attribute(key, account, 'root')
                     add_account_attribute(key, role, account, 'root')
                 except Duplicate:
