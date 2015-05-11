@@ -105,7 +105,7 @@ def set_group_quotas(quotas):
                 account_used = 0
             print "Set quota for %s on RSE %s to %dTB (used RSE %dTB, used account %dTB)" % \
                 (physgroup, name, 'inf ' if size == -1 else size / 1000**4, usage[0]['used'] / 1000**4, account_used / 1000**4)
-            set_account_limit(physgroup, name, size, 'root')
+            #set_account_limit(physgroup, name, size, 'root')
         except AccountNotFound:
             print "Account %s does not exist" % physgroup
         except RucioException as e:
@@ -117,8 +117,9 @@ def set_group_quotas(quotas):
             result = CRITICAL
 
 
-def set_user_quotas(name, accs):
-    ''' Set quota for all accounts on RSE if space changed, or for new acconuts '''
+def set_user_quotas(name, accs, fraction):
+    ''' Set quota of fraction of total capacity for all accounts on RSE if
+        space changed, or for new accounts '''
 
     global result
     # Check space compared to cache value
@@ -142,8 +143,8 @@ def set_user_quotas(name, accs):
     rse_capacity[name] = srmtotal
     for account in accounts:
         try:
-            print "Set quota of %dTB on %s for %s" % (srmtotal/2 / 1000**4, name, account)
-            set_account_limit(account, name, srmtotal/2, 'root')
+            print "Set quota of %dTB on %s for %s" % (srmtotal * fraction / 1000**4, name, account)
+            #set_account_limit(account, name, srmtotal * fraction, 'root')
         except RucioException as e:
             print 'WARNING: %s' % str(e)
             result = WARNING
@@ -242,10 +243,10 @@ if __name__ == '__main__':
                 if country not in country_accounts:
                     print "No accounts in country %s" % country
                 else:
-                    set_user_quotas(name, country_accounts[country])
+                    set_user_quotas(name, country_accounts[country], 0.95)
 
             if name.endswith('_SCRATCHDISK') or name.endswith('_USERDISK'):
-                set_user_quotas(name, all_accounts)
+                set_user_quotas(name, all_accounts, 0.5)
 
         # Write back cache files
         try:
