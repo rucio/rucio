@@ -19,21 +19,18 @@ import datetime
 import json
 import logging
 import os
-import re
 import socket
 import sys
 import threading
 import time
 import traceback
 
-from requests.exceptions import RequestException
-from sqlalchemy.exc import DatabaseError
+from threadpool import ThreadPool, makeRequests
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException
 from rucio.common.utils import chunks
 from rucio.core import request, heartbeat
-from rucio.core.monitor import record_timer, record_counter
+from rucio.core.monitor import record_timer
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, RequestType
 
@@ -68,6 +65,7 @@ def poller(once=False,
                                                                                 thread, total_threads,
                                                                                 db_bulk))
 
+    threadPool = ThreadPool(total_threads)
     while not graceful_stop.is_set():
 
         try:
@@ -103,44 +101,12 @@ def poller(once=False,
 
             for external_host in xfers_ids:
                 for xfers in chunks(xfers_ids[external_host], fts_bulk):
-                    try:
-                        try:
-                            ts = time.time()
-                            logging.debug('%i:%i - polling %i transfers against %s' % (process, thread, len(xfers), external_host))
-                            resps = request.bulk_query_transfers(external_host, xfers, 'fts3')
-                            record_timer('daemons.conveyor.poller.001-bulk_query_requests', (time.time()-ts)*1000/len(xfers))
-                        except RequestException, e:
-                            logging.error("Failed to contact FTS server: %s" % (str(e)))
+                    # poll transfers
+                    # xfer_requests = makeRequests(common.poll_transfers, args_list=[((external_host, xfers, process, thread), {})])
+                    xfer_requests = makeRequests(common.poll_transfers, args_list=[((), {'external_host': external_host, 'xfers': xfers, 'process': process, 'thread': thread})])
+                    [threadPool.putRequest(xfer_req) for xfer_req in xfer_requests]
+            threadPool.wait()
 
-                        for transfer_id in resps:
-                            try:
-                                transf_resp = resps[transfer_id]
-                                # transf_resp is None: Lost.
-                                #             is Exception: Failed to get fts job status.
-                                #             is {}: No terminated jobs.
-                                #             is {request_id: {file_status}}: terminated jobs.
-                                if transf_resp is None:
-                                    common.set_transfer_state(external_host, transfer_id, RequestState.LOST)
-                                    record_counter('daemons.conveyor.poller.transfer_lost')
-                                elif isinstance(transf_resp, Exception):
-                                    logging.warning("Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
-                                    record_counter('daemons.conveyor.poller.query_transfer_exception')
-                                else:
-                                    for request_id in transf_resp:
-                                        ret = common.update_request_state(transf_resp[request_id])
-                                        # if True, really update request content; if False, only touch request
-                                        record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
-
-                                # should touch transfers.
-                                # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
-                                common.touch_transfer(external_host, transfer_id)
-                            except (DatabaseException, DatabaseError), e:
-                                if isinstance(e.args[0], tuple) and (re.match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
-                                    logging.warn("Lock detected when handling request %s - skipping" % request_id)
-                                else:
-                                    logging.critical(traceback.format_exc())
-                    except:
-                        logging.critical(traceback.format_exc())
         except:
             logging.critical(traceback.format_exc())
 
@@ -198,12 +164,12 @@ def run(once=False,
 
         threads = [threading.Thread(target=poller, kwargs={'process': process,
                                                            'total_processes': total_processes,
-                                                           'thread': i,
+                                                           'thread': 0,
                                                            'total_threads': total_threads,
                                                            'older_than': older_than,
                                                            'fts_bulk': fts_bulk,
                                                            'db_bulk': db_bulk,
-                                                           'activity_shares': activity_shares}) for i in xrange(0, total_threads)]
+                                                           'activity_shares': activity_shares})]
 
         [t.start() for t in threads]
 
