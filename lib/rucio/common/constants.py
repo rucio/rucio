@@ -6,13 +6,14 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 """
 Constants.
 
 """
 
-reserved_keys = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic', 'hidden', 'obsolete', 'complete',
+reserved_keys = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic', 'obsolete', 'complete',
                  'is_new', 'availability', 'suppressed', 'bytes', 'length', 'md5', 'adler32', 'rule_evaluation_action',
                  'rule_evaluation_required', 'expired_at', 'deleted_at', 'created_at', 'updated_at']
 # collection_keys =
