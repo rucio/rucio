@@ -45,8 +45,8 @@ from rucio import version
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
-                                    RuleNotFound, CannotAuthenticate, MissingDependency)
-from rucio.common.utils import adler32, generate_uuid, execute
+                                    RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported)
+from rucio.common.utils import adler32, generate_uuid, execute, construct_surl
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -586,8 +586,8 @@ def stat(args):
     for did in args.dids:
         scope, name = extract_scope(did)
         info = client.get_did(scope=scope, name=name)
-        for k, v in info.iteritems():
-            print '%(k)s: %(v)s' % locals()
+        for key, val in info.iteritems():
+            print '%(key)s: %(val)s' % locals()
     return SUCCESS
 
 
@@ -604,23 +604,23 @@ def __get_dataset(args):
     '''Parse helper for upload'''
     dsscope = None
     dsname = None
-    for a in args:
-        if a.count(':') == 1:
+    for item in args:
+        if item.count(':') == 1:
             if dsscope:
                 raise Exception("Only one dataset should be given")
             else:
-                dsscope, dsname = a.split(':')
+                dsscope, dsname = item.split(':')
     return dsscope, dsname
 
 
 def __get_files(args):
     '''Parse helper for upload'''
     files = []
-    for a in args:
-        if os.path.isfile(a):
-            files.append(a)
-        if os.path.isdir(a):
-            dname, subdirs, fnames = os.walk(a).next()
+    for item in args:
+        if os.path.isfile(item):
+            files.append(item)
+        if os.path.isdir(item):
+            dname, subdirs, fnames = os.walk(item).next()
             for f in fnames:
                 files.append(os.path.join(dname, f))
     return files
@@ -664,7 +664,7 @@ def upload(args):
             logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, os.path.basename(name)))
             files_to_list.append({'scope': fscope, 'name': os.path.basename(name)})
             if 'pool.root' in name.lower():  # is a root file, getting the GUID
-                status, output, error = execute('pool_extractFileIdentifier {0}'.format(name))
+                status, output, err = execute('pool_extractFileIdentifier {0}'.format(name))
                 if status != 0:
                     logger.error('Trying to upload ROOT files but pool_extractFileIdentifier tool can not be found.')
                     logger.error('Setup your ATHENA environment and try again.')
@@ -750,9 +750,9 @@ def upload(args):
                 else:
                     raise DataIdentifierAlreadyExists
         except NotImplementedError, error:
-            for p in rse_settings['protocols']:
-                if p['domains']['wan']['read'] == 1:
-                    prot = p['scheme']
+            for proto in rse_settings['protocols']:
+                if proto['domains']['wan']['read'] == 1:
+                    prot = proto['scheme']
             logger.error('Protocol {0} for RSE {1} not supported!'.format(prot, args.rse))
             return FAILURE
         except DataIdentifierNotFound:
@@ -821,7 +821,7 @@ def upload(args):
     return SUCCESS
 
 
-def _downloader(worker_number, total_number, scope, name, files, tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client):
+def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client):
     for file in files:
         logger.info('Starting the download of %s:%s' % (file['scope'], file['name']))
         stime = time.time()
@@ -928,7 +928,7 @@ def _file_exists(type, scope, name, dir, dsn=None):
     file_exists = False
     dest_dir = None
     if type != 'FILE':
-        dest_dir = '%s/%s' % (args.dir, dsn)
+        dest_dir = '%s/%s' % (dir, dsn)
         if os.path.isfile('%s/%s' % (dest_dir, name)):
             file_exists = True
     else:
@@ -946,7 +946,6 @@ def download(args):
     client = get_client(args)
     rse_dict = {}
     summary = {}
-    protocol = None
     trace = {}
     trace_uuid = generate_uuid()
     trace['hostname'] = socket.getfqdn()
@@ -1003,16 +1002,16 @@ def download(args):
                 else:
                     if not os.path.isdir(dest_dir):
                         os.mkdir(dest_dir)
-                    m = hashlib.md5()
-                    m.update('%s:%s' % (file['scope'], file['name']))
-                    worker_number = int(m.hexdigest(), 16) % total_workers
+                    hash_md5 = hashlib.md5()
+                    hash_md5.update('%s:%s' % (file['scope'], file['name']))
+                    worker_number = int(hash_md5.hexdigest(), 16) % total_workers
                     dict_files_to_download[worker_number].append(file)
 
             pool_list = []
             for worker_number in dict_files_to_download:
-                p = Process(target=_downloader, args=(worker_number, total_workers, scope, name, dict_files_to_download[worker_number], tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client))
-                p.start()
-                pool_list.append(p)
+                proc = Process(target=_downloader, args=(total_workers, scope, name, dict_files_to_download[worker_number], tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client))
+                proc.start()
+                pool_list.append(proc)
             active_workers = pool_list
             while active_workers:
                 time.sleep(2)
@@ -1038,7 +1037,6 @@ def download(args):
     for did in summary:
         print '-' * 40
         print 'DID %s' % (did)
-        total_files = len(summary[did])
         downloaded_files = 0
         not_downloaded_files = 0
         local_files = 0
@@ -1358,6 +1356,54 @@ def list_datasets_rse(args):
     return SUCCESS
 
 
+@exception_handler
+def list_pfns(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List the possible PFN for a file at a site.
+
+    """
+    client = get_client(args)
+    dids = args.dids.split(',')
+    rse = args.rse
+    protocol = args.protocol
+    for input_did in dids:
+        scope, name = extract_scope(input_did)
+        replicas = [rep for rep in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[protocol, ])]
+        if rse in replicas[0]['rses']:
+            print replicas[0]['rses'][rse][0]
+        logger.warning('The file has no replica on the specified RSE')
+        rse_info = rsemgr.get_rse_info(rse)
+        proto = rsemgr.create_protocol(rse_info, 'read', scheme=protocol)
+        pfn = proto.lfns2pfns(lfns={'scope': scope, 'name': name})
+        result = pfn.values()[0]
+        if isinstance(result, RSEOperationNotSupported):
+            if not rse_info['deterministic']:
+                logger.warning('This is a non-deterministic site, so the real PFN might be different from the on suggested')
+                rse_attr = client.list_rse_attributes(rse)
+                naming_convention = rse_attr.get('naming_convention', None)
+                parents = [did for did in client.list_parent_dids(scope, name)]
+                if len(parents) > 1:
+                    logger.warning('The file has multiple parents')
+                for did in parents:
+                    if did['type'] == 'DATASET':
+                        path = construct_surl(did['name'], name, naming_convention=naming_convention)
+                        pfn = ''.join([proto.attributes['scheme'],
+                                       '://',
+                                       proto.attributes['hostname'],
+                                       ':',
+                                       str(proto.attributes['port']),
+                                       proto.attributes['prefix'],
+                                       path if not path.startswith('/') else path[1:]])
+                        print pfn
+            else:
+                logger.error('Unexpected error')
+                return FAILURE
+        print result
+    return SUCCESS
+
+
 def test_server(args):
     """"
     %(prog)s test-server [options] <field1=value1 field2=value2 ...>
@@ -1520,6 +1566,13 @@ Commands:
     get_metadata_parser.set_defaults(which='get_metadata')
     get_metadata_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
+    # The list-pfns subparser
+    list_pfns_parser = subparsers.add_parser('list-pfns', help='Get the expected PFNs for a list of files')
+    list_pfns_parser.set_defaults(which='list-pfns')
+    list_pfns_parser.add_argument(dest='dids', action='store', help='List of DIDs (coma separated)')
+    list_pfns_parser.add_argument(dest='rse', action='store', help='RSE')
+    list_pfns_parser.add_argument(dest='protocol', action='store', default='srm', help='Protocol')
+
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
     set_metadata_parser.set_defaults(which='set_metadata')
@@ -1633,6 +1686,7 @@ Commands:
                 'detach': detach,
                 'download': download,
                 'get_metadata': get_metadata,
+                'list-pfns': list_pfns,
                 'info_rule': info_rule,
                 'list_account_limits': list_account_limits,
                 'list_account_usage': list_account_usage,
