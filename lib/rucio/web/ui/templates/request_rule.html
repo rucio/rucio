@@ -69,14 +69,11 @@ $var script: <script src="/static/request_rule.js"></script>
               <div class="small-2 columns">
                 <label for="rse-label" class="left inline">RSE (expression)</label>
               </div>
-              <div class="small-6 columns">
+              <div class="small-8 columns">
                 <input type="text" id="rse_input" placeholder="RSE">
               </div>
               <div class="small-2 columns">
-                  <a class="button postfix" id="check_quota_button">Check Quota</a>
-              </div>
-              <div class="small-2 columns">
-                <a class="button postfix" id="search_rse_button">Search</a>
+                <a class="button postfix" id="search_rse_button">Check Quota</a>
               </div>
             </div>
           </div>
@@ -101,7 +98,7 @@ $var script: <script src="/static/request_rule.js"></script>
         </div>
         <div class="row">
             <div class="large-5 columns">
-              <label><span data-tooltip aria-haspopup="true" class="has-tip" title="If you selected multiple DIDs this specifies if you want to replicate all of them to the same RSE (All), ">Grouping</span></label>
+              <label><span data-tooltip aria-haspopup="true" class="has-tip" title="If you select None the files of a DID can spread over multiple RSEs. 'Dataset' makes sure that all files of a dataset are replicated to the same RSE. With 'All' everything will be replicated to the same RSE.">Grouping</span></label>
               <form id="grouping_form">
               <input type="radio" name="grouping" value="ALL" id="grouping_all">
               <label for="grouping_all">All</label>
