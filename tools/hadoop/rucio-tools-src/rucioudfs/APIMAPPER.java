@@ -58,6 +58,8 @@ public class APIMAPPER extends EvalFunc<String> {
         return "replicas.ListReplicas";
       } else if (uri.matches(".*?/replicas(/[\\w.-]+){0,2}?(/?\\?.*)?$")) {
         return "replicas.Replicas";
+      } else if (uri.matches(".*?/replicas/(.*)?datasets$")) {
+        return "replicas.ListDatasetReplicas";
       } else if (uri.matches(".*?/replicas/bad(/?\\?.*)?$")) {
         return "replicas.BadReplicas";
       } else if (uri.matches(".*?/replicas/suspicious(/?\\?.*)?$")) {
