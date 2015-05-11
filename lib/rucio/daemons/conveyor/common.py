@@ -26,6 +26,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
 from re import match
+from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
 from urlparse import urlparse
 
@@ -33,7 +34,7 @@ from rucio.common import exception
 from rucio.common.exception import DatabaseException, UnsupportedOperation, ReplicaNotFound
 from rucio.core import replica as replica_core, request as request_core, rse as rse_core
 from rucio.core.message import add_message
-from rucio.core.monitor import record_timer
+from rucio.core.monitor import record_timer, record_counter
 from rucio.db.constants import DIDType, RequestState, ReplicaState, RequestType
 from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
@@ -461,3 +462,44 @@ def add_monitor_message(response, session=None):
                                   'transfer-link': transfer_link,
                                   'tool-id': 'rucio-conveyor'},
                 session=session)
+
+
+def poll_transfers(external_host, xfers, process=0, thread=0):
+    try:
+        try:
+            ts = time.time()
+            logging.debug('%i:%i - polling %i transfers against %s' % (process, thread, len(xfers), external_host))
+            resps = request_core.bulk_query_transfers(external_host, xfers, 'fts3')
+            record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time()-ts)*1000/len(xfers))
+        except RequestException, e:
+            logging.error("Failed to contact FTS server: %s" % (str(e)))
+
+        for transfer_id in resps:
+            try:
+                transf_resp = resps[transfer_id]
+                # transf_resp is None: Lost.
+                #             is Exception: Failed to get fts job status.
+                #             is {}: No terminated jobs.
+                #             is {request_id: {file_status}}: terminated jobs.
+                if transf_resp is None:
+                    set_transfer_state(external_host, transfer_id, RequestState.LOST)
+                    record_counter('daemons.conveyor.poller.transfer_lost')
+                elif isinstance(transf_resp, Exception):
+                    logging.warning("Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
+                    record_counter('daemons.conveyor.poller.query_transfer_exception')
+                else:
+                    for request_id in transf_resp:
+                        ret = update_request_state(transf_resp[request_id])
+                        # if True, really update request content; if False, only touch request
+                        record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
+
+                # should touch transfers.
+                # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
+                touch_transfer(external_host, transfer_id)
+            except (DatabaseException, DatabaseError), e:
+                if isinstance(e.args[0], tuple) and (match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
+                    logging.warn("Lock detected when handling request %s - skipping" % request_id)
+                else:
+                    logging.critical(traceback.format_exc())
+    except:
+        logging.critical(traceback.format_exc())
