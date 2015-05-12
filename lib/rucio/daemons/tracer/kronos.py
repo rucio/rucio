@@ -371,8 +371,8 @@ def run(once=False, threads=1):
         thread_list.append(Thread(target=kronos_file, kwargs={'thread': i,
                                                               'brokers_resolved': brokers_resolved,
                                                               'dataset_queue': dataset_queue}))
-        threads.append(Thread(target=kronos_dataset, kwargs={'thread': i,
-                                                             'dataset_queue': dataset_queue}))
+        thread_list.append(Thread(target=kronos_dataset, kwargs={'thread': i,
+                                                                 'dataset_queue': dataset_queue}))
 
     [t.start() for t in thread_list]
 
