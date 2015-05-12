@@ -13,11 +13,11 @@ Constants.
 
 """
 
-reserved_keys = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic', 'obsolete', 'complete',
+RESERVED_KEYS = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic', 'obsolete', 'complete',
                  'is_new', 'availability', 'suppressed', 'bytes', 'length', 'md5', 'adler32', 'rule_evaluation_action',
                  'rule_evaluation_required', 'expired_at', 'deleted_at', 'created_at', 'updated_at']
 # collection_keys =
 # file_keys =
 
-key_types = ['ALL', 'COLLECTION', 'FILE', 'DERIVED']
+KEY_TYPES = ['ALL', 'COLLECTION', 'FILE', 'DERIVED']
 # all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection)
