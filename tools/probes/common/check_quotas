@@ -25,7 +25,7 @@ import traceback
 
 from rucio.api import rse
 from rucio.api.account import list_accounts, list_account_attributes
-from rucio.api.account_limit import get_account_usage
+from rucio.api.account_limit import get_account_usage, set_account_limit
 from rucio.common.exception import RucioException, RSENotFound, AccountNotFound
 
 UNKNOWN = 3
@@ -105,7 +105,7 @@ def set_group_quotas(quotas):
                 account_used = 0
             print "Set quota for %s on RSE %s to %dTB (used RSE %dTB, used account %dTB)" % \
                 (physgroup, name, 'inf ' if size == -1 else size / 1000**4, usage[0]['used'] / 1000**4, account_used / 1000**4)
-            # set_account_limit(physgroup, name, size, 'root')
+            set_account_limit(physgroup, name, size, 'root')
         except AccountNotFound:
             print "Account %s does not exist" % physgroup
         except RucioException as e:
@@ -144,7 +144,7 @@ def set_user_quotas(name, accs, fraction):
     for account in accounts:
         try:
             print "Set quota of %dTB on %s for %s" % (srmtotal * fraction / 1000**4, name, account)
-            # set_account_limit(account, name, srmtotal * fraction, 'root')
+            set_account_limit(account, name, srmtotal * fraction, 'root')
         except RucioException as e:
             print 'WARNING: %s' % str(e)
             result = WARNING
