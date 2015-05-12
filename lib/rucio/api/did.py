@@ -17,7 +17,7 @@
 import rucio.api.permission
 
 from rucio.core import did, naming_convention, meta as meta_core
-from rucio.common.constants import reserved_keys
+from rucio.common.constants import RESERVED_KEYS
 from rucio.common.schema import validate_schema
 from rucio.db.constants import DIDType
 
@@ -221,7 +221,7 @@ def set_metadata(scope, name, key, value, issuer):
 
     kwargs = {'scope': scope, 'name': name, 'key': key, 'value': value, 'issuer': issuer}
 
-    if key in reserved_keys:
+    if key in RESERVED_KEYS:
         raise rucio.common.exception.AccessDenied('Account %s can not change this metadata value to data identifier %s:%s' % (issuer, scope, name))
 
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_metadata', kwargs=kwargs):
