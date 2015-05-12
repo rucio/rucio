@@ -15,47 +15,83 @@ $var script: <script src="/static/request_rule.js"></script>
 
 <div id="main">
   <div id="info_panel" class="content active">
-  <div class="row">
-    <p>Your input will be saved until you submit it. If you want to clear the form please click <a id="clear_data">here</a><p>
-  </div>
+    <div class="row">
+      <p>Your input will be saved until you submit it. If you want to clear the form please click <a id="clear_data">here</a><p>
+    </div>
   </div>
   <dl class="accordion" data-accordion>
     <dd class="accordion-navigation large-8">
       <a href="#did_panel">Select DIDs</a>
       <div id="did_panel" class="content active">
-        <div class="row">
-          <p>Please start by entering a DID or DID wildcard and search for either containers or datasets. Then select the requested DIDs. Please do not use a trailing '/' for containers</p>
-        </div>
-        <div class="row">
-          <div class="large-12 columns">
-            <form id="did_form">
-              <div class="row collapse">
-                <div class="large-2 columns">
-                  <label for="pattern-label" class="left inline">Data pattern</label>
-                </div>
-                <div class="large-5 columns">
-                  <input type="text" id="pattern_input" placeholder="scope:name...">
-                </div>
-                <div class="large-2 columns">
-                  <a class="button postfix" id="search_did_button">Search</a>
-                </div>
-                <div class="large-3 columns inline" style="padding-left: 15px;">
-                  <input type="radio" name="didtype" value="container" id="container_type">
-                  <label for="grouping_all">Container</label>
-                  <input type="radio" name="didtype" value="dataset" id="dataset_type" checked>
-                  <label for="grouping_dataset">Dataset</label>
-                </div>
+        <ul class="tabs" data-tab>
+          <li class="tab-title active"><a href="#panel1">DID Pattern Search</a></li>
+          <li class="tab-title"><a href="#panel2">List of DIDs</a></li>
+        </ul>
+        <div class="tabs-content">
+          <div class="content active" id="panel1">
+            <div class="row">
+              <p>Please start by entering a DID or DID wildcard and search for either containers or datasets. Then select the requested DIDs. Please do not use a trailing '/' for containers</p>
+            </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <form id="did_form">
+                  <div class="row collapse">
+                    <div class="large-2 columns">
+                      <label for="pattern-label" class="left inline">Data pattern</label>
+                    </div>
+                    <div class="large-5 columns">
+                      <input type="text" id="pattern_input" placeholder="scope:name...">
+                    </div>
+                    <div class="large-2 columns">
+                      <a class="button postfix" id="search_did_button">Search</a>
+                    </div>
+                    <div class="large-3 columns inline" style="padding-left: 15px;">
+                      <input type="radio" name="didtype" value="container" id="container_type">
+                      <label for="grouping_all">Container</label>
+                      <input type="radio" name="didtype" value="dataset" id="dataset_type" checked>
+                      <label for="grouping_dataset">Dataset</label>
+                    </div>
+                  </div>
+                </form>
               </div>
-              <form>
+            </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <div id="did_message"></div>
+              </div>
+            </div>
+            <div id="did_search">
+            </div>
+          </div>
+          <div class="content" id="panel2">
+            <div class="row">
+              <p>If you want to create a rule for several DIDs without a pattern, here you can enter them, one DID per line:</p>
+            </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <textarea rows="10" id="multi_did_input"></textarea>
+              </div>
+            </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <form id="multi_did_form">
+                  <div class="row collapse">
+                    <div class="large-2 columns">
+                      <a class="button postfix" id="search_multi_did_button">Search</a>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <div id="multi_did_message"></div>
+              </div>
+            </div>
+            <div id="did_multi_search">
+            </div>
           </div>
         </div>
-        <div class="row">
-          <div class="large-12 columns">
-            <div id="did_message"></div>
-          </div>
-        </div>
-        <div id="did_search">
-        </div>
+      </div>
     </dd>
     <dd class="accordion-navigation large-8">
       <a href="#rse_panel">Selects RSEs</a>
