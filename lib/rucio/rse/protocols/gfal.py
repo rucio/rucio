@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wguan@cern.ch>, 2014
+# - Wen Guan, <wguan@cern.ch>, 2014-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 import errno
@@ -172,7 +172,7 @@ class Default(protocol.RSEProtocol):
         if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
             space_token = self.attributes['extended_attributes']['space_token']
 
-        if dest.startswith("/") or dest.startswith("./"):
+        if ':' not in dest:
             dest = "file:" + dest
 
         try:
@@ -203,7 +203,7 @@ class Default(protocol.RSEProtocol):
 
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
-        if source_url.startswith("/") or source_url.startswith("./"):
+        if ':' not in source_url:
             source_url = "file:" + source_url
 
         space_token = None
