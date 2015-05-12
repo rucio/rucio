@@ -15,13 +15,14 @@ import os
 import re
 import urlparse
 
-from rucio.common import exception
+from rucio.common import exception, config
 from rucio.rse.protocols import protocol
 
 try:
     import gfal2
 except:
-    raise exception.MissingDependency('Missing dependency : gfal2')
+    if not config.config_has_section('database'):
+        raise exception.MissingDependency('Missing dependency : gfal2')
 
 
 class Default(protocol.RSEProtocol):
