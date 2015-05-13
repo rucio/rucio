@@ -103,8 +103,9 @@ def queue_requests(requests, session=None):
                                        rse_id=req['dest_rse_id'],
                                        request_type=RequestType.TRANSFER,
                                        session=session)
-                except:
                     continue
+                except:
+                    pass
 
             new_request = models.Request(request_type=req['request_type'],
                                          scope=req['scope'],
