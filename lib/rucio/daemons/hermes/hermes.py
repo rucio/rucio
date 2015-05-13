@@ -1,29 +1,35 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
 
-"""
-Hermes is a daemon to deliver messages to an asynchronous broker.
-"""
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
+   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+   - Wen Guan, <wen.guan@cern.ch>, 2014
+'''
+
+'''
+Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
+'''
 
 import json
 import logging
 import os
 import random
+import smtplib
 import socket
 import ssl
 import sys
 import threading
 import time
 import traceback
+
+from email.mime.text import MIMEText
 
 import dns.resolver
 import stomp
@@ -34,14 +40,79 @@ from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
 from rucio.db.session import get_session
 
-logging.getLogger("requests").setLevel(logging.CRITICAL)
-logging.getLogger("stomp").setLevel(logging.CRITICAL)
+logging.getLogger('requests').setLevel(logging.CRITICAL)
+logging.getLogger('stomp').setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
+
+
+def deliver_emails(once=False, send_email=True, thread=0, bulk=1000):
+    '''
+    Main loop to deliver emails via SMTP.
+    '''
+
+    logging.info('[email] starting - threads (%i) bulk (%i)' % (thread, bulk))
+
+    executable = '[email] %s' % ' '.join(sys.argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+    sanity_check(executable=executable, hostname=hostname)
+
+    email_from = config_get('hermes', 'email_from')
+
+    while not graceful_stop.is_set():
+
+        hb = live(executable, hostname, pid, hb_thread)
+        logging.debug('[email] %i/%i - bulk %i' % (hb['assign_thread'],
+                                                   hb['nr_threads'],
+                                                   bulk))
+
+        tmp = retrieve_messages(bulk=bulk,
+                                thread=hb['assign_thread'],
+                                total_threads=hb['nr_threads'],
+                                event_type='email')
+
+        if tmp == []:
+            time.sleep(1)
+        else:
+            to_delete = []
+            for t in tmp:
+                logging.debug('[email] %i/%i - submitting: %s' % (hb['assign_thread'],
+                                                                  hb['nr_threads'],
+                                                                  str(t)))
+
+                msg = MIMEText(t['payload']['body'])
+
+                msg['From'] = email_from
+                msg['To'] = ', '.join(t['payload']['to'])
+                msg['Subject'] = '[RUCIO] %s' % t['payload']['subject']
+
+                if send_email:
+                    s = smtplib.SMTP()
+                    s.connect()
+                    s.sendmail(msg['From'], t['payload']['to'], msg.as_string())
+                    s.quit()
+
+                to_delete.append(t['id'])
+                logging.debug('[email] %i/%i - submitting done: %s' % (hb['assign_thread'],
+                                                                       hb['nr_threads'],
+                                                                       str(t['id'])))
+
+            delete_messages(to_delete)
+
+        if once:
+            break
+
+    logging.debug('[email] %i:%i - graceful stop requested' % (hb['assign_thread'], hb['nr_threads']))
+
+    die(executable, hostname, pid, hb_thread)
+
+    logging.debug('[email] %i:%i - graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
 
 
 class Deliver(object):
@@ -52,11 +123,16 @@ class Deliver(object):
 
 
 def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
-    """
+    '''
     Main loop to deliver messages to a broker.
-    """
+    '''
 
-    logging.info('hermes starting - threads (%i) bulk (%i)' % (thread, bulk))
+    logging.info('[broker] starting - threads (%i) bulk (%i)' % (thread, bulk))
+
+    if not brokers_resolved:
+        logging.fatal('No brokers resolved.')
+        return
+
     conns = []
     for broker in brokers_resolved:
         conns.append(stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
@@ -67,7 +143,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
                                       reconnect_attempts_max=9999))
     destination = config_get('messaging-hermes', 'destination')
 
-    executable = ' '.join(sys.argv)
+    executable = '[broker] %s' % ' '.join(sys.argv)
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
@@ -76,9 +152,9 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
     while not graceful_stop.is_set():
 
         hb = live(executable, hostname, pid, hb_thread)
-        logging.debug('hermes - thread (%i/%i) bulk (%i)' % (hb['assign_thread'],
-                                                             hb['nr_threads'],
-                                                             bulk))
+        logging.debug('[broker] %i/%i - bulk %i' % (hb['assign_thread'],
+                                                    hb['nr_threads'],
+                                                    bulk))
 
         try:
             for conn in conns:
@@ -93,11 +169,13 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
             tmp = retrieve_messages(bulk=bulk,
                                     thread=hb['assign_thread'],
                                     total_threads=hb['nr_threads'])
+
             if tmp == []:
                 time.sleep(1)
             else:
                 to_delete = []
                 for t in tmp:
+
                     try:
                         random.sample(conns, 1)[0].send(body=json.dumps({'event_type': str(t['event_type']).lower(),
                                                                          'payload': t['payload'],
@@ -113,45 +191,49 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
 
                     to_delete.append(t['id'])
 
-                    if str(t['event_type']).lower().startswith("transfer"):
-                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s' % (hb['assign_thread'],
-                                                                                                                                                 hb['nr_threads'],
-                                                                                                                                                 str(t['event_type']).lower(),
-                                                                                                                                                 t['payload']['scope'],
-                                                                                                                                                 t['payload']['name'],
-                                                                                                                                                 t['payload']['dst-rse'],
-                                                                                                                                                 t['payload']['request-id'],
-                                                                                                                                                 t['payload']['transfer-id'],
-                                                                                                                                                 str(t['created_at'])))
-                    elif str(t['event_type']).lower().startswith("dataset"):
-                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)' % (hb['assign_thread'],
-                                                                                                                              hb['nr_threads'],
-                                                                                                                              str(t['event_type']).lower(),
-                                                                                                                              t['payload']['scope'],
-                                                                                                                              t['payload']['name'],
-                                                                                                                              t['payload']['rse'],
-                                                                                                                              t['payload']['rule_id'],
-                                                                                                                              str(t['created_at'])))
-                    elif str(t['event_type']).lower().startswith("deletion"):
+                    if str(t['event_type']).lower().startswith('transfer'):
+                        logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s' % (hb['assign_thread'],
+                                                                                                                                                          hb['nr_threads'],
+                                                                                                                                                          str(t['event_type']).lower(),
+                                                                                                                                                          t['payload']['scope'],
+                                                                                                                                                          t['payload']['name'],
+                                                                                                                                                          t['payload']['dst-rse'],
+                                                                                                                                                          t['payload']['request-id'],
+                                                                                                                                                          t['payload']['transfer-id'],
+                                                                                                                                                          str(t['created_at'])))
+                    elif str(t['event_type']).lower().startswith('dataset'):
+                        logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)' % (hb['assign_thread'],
+                                                                                                                                       hb['nr_threads'],
+                                                                                                                                       str(t['event_type']).lower(),
+                                                                                                                                       t['payload']['scope'],
+                                                                                                                                       t['payload']['name'],
+                                                                                                                                       t['payload']['rse'],
+                                                                                                                                       t['payload']['rule_id'],
+                                                                                                                                       str(t['created_at'])))
+                    elif str(t['event_type']).lower().startswith('deletion'):
                         if 'url' not in t['payload']:
                             t['payload']['url'] = 'unknown'
-                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)' % (hb['assign_thread'],
-                                                                                                                          hb['nr_threads'],
-                                                                                                                          str(t['event_type']).lower(),
-                                                                                                                          t['payload']['scope'],
-                                                                                                                          t['payload']['name'],
-                                                                                                                          t['payload']['rse'],
-                                                                                                                          t['payload']['url'],
-                                                                                                                          str(t['created_at'])))
+                        logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)' % (hb['assign_thread'],
+                                                                                                                                   hb['nr_threads'],
+                                                                                                                                   str(t['event_type']).lower(),
+                                                                                                                                   t['payload']['scope'],
+                                                                                                                                   t['payload']['name'],
+                                                                                                                                   t['payload']['rse'],
+                                                                                                                                   t['payload']['url'],
+                                                                                                                                   str(t['created_at'])))
 
                     else:
-                        logging.debug('%i:%i -other message: %s' % (hb['assign_thread'], hb['nr_threads'], t))
+                        logging.debug('[broker] %i:%i - other message: %s' % (hb['assign_thread'], hb['nr_threads'], t))
 
                 delete_messages(to_delete)
+
+                if once:
+                    break
+
         except:
             logging.critical(traceback.format_exc())
 
-    logging.debug('%i:%i - graceful stop requests' % (hb['assign_thread'], hb['nr_threads']))
+    logging.debug('[broker] %i:%i - graceful stop requested' % (hb['assign_thread'], hb['nr_threads']))
 
     for conn in conns:
         try:
@@ -161,50 +243,54 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
 
     die(executable, hostname, pid, hb_thread)
 
-    logging.debug('%i:%i - graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
+    logging.debug('[broker] %i:%i - graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
 
 
 def stop(signum=None, frame=None):
-    """
+    '''
     Graceful exit.
-    """
+    '''
 
     graceful_stop.set()
 
 
-def run(once=False, threads=1, bulk=1000):
-    """
+def run(once=False, send_email=True, threads=1, bulk=1000):
+    '''
     Starts up the hermes threads.
-    """
+    '''
+
+    logging.info('resolving brokers')
+
+    brokers_alias = []
+    brokers_resolved = []
+    try:
+        brokers_alias = [b.strip() for b in config_get('messaging-hermes', 'brokers').split(',')]
+    except:
+        raise Exception('Could not load brokers from configuration')
+
+    logging.info('resolving broker dns alias: %s' % brokers_alias)
+
+    brokers_resolved = []
+    for broker in brokers_alias:
+        brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
+    brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+
+    logging.debug('brokers resolved to %s', brokers_resolved)
 
     if once:
         logging.info('executing one hermes iteration only')
-        deliver_messages(once=once, bulk=bulk)
+        deliver_messages(once=once, brokers_resolved=brokers_resolved, bulk=bulk)
+        deliver_emails(once=once, send_email=send_email, bulk=bulk)
 
     else:
-
-        logging.info('resolving brokers')
-
-        brokers_alias = []
-        brokers_resolved = []
-        try:
-            brokers_alias = [b.strip() for b in config_get('messaging-hermes', 'brokers').split(',')]
-        except:
-            raise Exception('Could not load brokers from configuration')
-
-        logging.info('resolving broker dns alias: %s' % brokers_alias)
-
-        brokers_resolved = []
-        for broker in brokers_alias:
-            brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
-        brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
-
-        logging.debug('brokers resolved to %s', brokers_resolved)
-
         logging.info('starting hermes threads')
         thread_list = [threading.Thread(target=deliver_messages, kwargs={'brokers_resolved': brokers_resolved,
                                                                          'thread': i,
                                                                          'bulk': bulk}) for i in xrange(0, threads)]
+
+        for i in xrange(0, threads):
+            thread_list.append(threading.Thread(target=deliver_messages, kwargs={'thread': i,
+                                                                                 'bulk': bulk}))
 
         [t.start() for t in thread_list]
 
