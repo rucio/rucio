@@ -141,3 +141,7 @@ usercert = /opt/rucio/etc/web/usercert.pem
 
 [nagios]
 proxy = /opt/rucio/etc/ddmadmin.proxy.nagios
+
+[hermes]
+email_from = Rucio <atlas-adc-ddm-support@cern.ch>
+email_test = spamspamspam@cern.ch
