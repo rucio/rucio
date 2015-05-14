@@ -26,7 +26,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db import models
-from rucio.db.constants import RequestState, RequestType, FTSState
+from rucio.db.constants import RequestState, RequestType, FTSState, ReplicaState
 from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
 
@@ -1061,6 +1061,7 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
         .filter(models.Request.request_type == RequestType.TRANSFER)\
         .outerjoin(models.RSEFileAssociation, and_(models.Request.scope == models.RSEFileAssociation.scope,
                                                    models.Request.name == models.RSEFileAssociation.name,
+                                                   models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
                                                    models.Request.dest_rse_id != models.RSEFileAssociation.rse_id))\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
                                     models.RSE.staging_area == is_false))\
@@ -1144,6 +1145,7 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
         .filter(models.Request.request_type == RequestType.STAGEIN)\
         .outerjoin(models.RSEFileAssociation, and_(models.Request.scope == models.RSEFileAssociation.scope,
                                                    models.Request.name == models.RSEFileAssociation.name,
+                                                   models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
                                                    models.Request.dest_rse_id != models.RSEFileAssociation.rse_id))\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
                                     models.RSE.staging_area == is_false))\
