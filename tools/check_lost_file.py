@@ -68,7 +68,11 @@ def check_file_path(scope, name, rse_id, dest_url):
     status, output = commands.getstatusoutput(command)
     if status == 0:
         return True
-    print "LOST: scope %s, name %s, rse_id %s, url: %s" % (scope, name, rse_id, dest_url)
+    else:
+        if "No such file or directory" in output:
+            print "LOST: scope %s, name %s, rse_id %s, url: %s" % (scope, name, rse_id, dest_url)
+        else:
+            print "UNKNOWN: scope %s, name %s, rse_id %s, url: %s, error: %s" % (scope, name, rse_id, dest_url, output)
     return False
 
 
@@ -96,12 +100,14 @@ for scope, name, rse_name in lost_requests:
         rse_ids[rse_name] = rse_id
     else:
         rse_id = rse_ids[rse_name]
+
     try:
         replica = replica_core.get_replica(rse=rse_name, scope=scope, name=name, rse_id=rse_id, session=session)
     except NoResultFound:
         continue
     if replica['state'] != ReplicaState.AVAILABLE:
         continue
+
     if rse_name not in protocols:
         rse_info = rsemgr.get_rse_info(rse_name, session=session)
         protocols[rse_name] = rsemgr.create_protocol(rse_info, 'write', 'srm')
@@ -112,7 +118,10 @@ for scope, name, rse_name in lost_requests:
     except ReplicaNotFound:
         # for stagin rses, it's undeterminstric, but the path is not set. here protocol.lfns2pfns will throw an exception
         print "ReplicaNotFound: scope %s, name %s, rse_id %s, rse %s" % (scope, name, rse_id, rse_name)
+        continue
     except:
         print "Unknow: scope %s, name %s, rse_id %s, rse %s" % (scope, name, rse_id, rse_name)
+        continue
+
     threadPool.add_task(check_file_path, scope, name, rse_id, pfn)
 threadPool.wait_completion()
