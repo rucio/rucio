@@ -665,7 +665,15 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
                 # Get protocol
                 if dest_rse_id not in protocols:
-                    protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', schemes)
+                    try:
+                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', schemes)
+                    except RSEProtocolNotSupported:
+                        logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], schemes))
+                        if id in reqs_no_source:
+                            reqs_no_source.remove(id)
+                        if id not in reqs_scheme_mismatch:
+                            reqs_scheme_mismatch.append(id)
+                        continue
 
                 # get dest space token
                 dest_spacetoken = None
@@ -759,7 +767,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'name': name,
                                  'activity': activity,
                                  'src_rse': rse,
-                                 'dst_rse': dest_rse,
+                                 'dst_rse': rses_info[dest_rse_id]['rse'],
                                  'dest_rse_id': dest_rse_id,
                                  'filesize': bytes,
                                  'md5': md5,
@@ -950,7 +958,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                  'name': name,
                                  'activity': activity,
                                  'src_rse': rse,
-                                 'dst_rse': dest_rse,
+                                 'dst_rse': rses_info[dest_rse_id]['rse'],
                                  'dest_rse_id': dest_rse_id,
                                  'filesize': bytes,
                                  'md5': md5,
@@ -971,6 +979,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                  'selection_strategy': 'auto',
                                  'rule_id': rule_id,
                                  'file_metadata': file_metadata}
+                logging.debug("Transfer for request(%s): %s" % (id, transfers[id]))
         except:
             logging.error("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
             break
@@ -1032,6 +1041,7 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
             transfers[request_id]['sources'] = sources
         else:
             transfers[request_id]['sources'] = mock_sources(sources)
+        logging.debug("Transfer for request(%s): %s" % (request_id, transfers[request_id]))
     return transfers
 
 
