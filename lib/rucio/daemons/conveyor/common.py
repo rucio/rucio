@@ -473,6 +473,7 @@ def poll_transfers(external_host, xfers, process=0, thread=0):
             record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time()-ts)*1000/len(xfers))
         except RequestException, e:
             logging.error("Failed to contact FTS server: %s" % (str(e)))
+            return
 
         for transfer_id in resps:
             try:
