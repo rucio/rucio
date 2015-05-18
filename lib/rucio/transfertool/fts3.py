@@ -516,9 +516,12 @@ def bulk_query(transfer_ids, transfer_host):
         for transfer_id in transfer_ids:
             responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % jobs)
     elif jobs.status_code == 200 or jobs.status_code == 207:
-        record_counter('transfertool.fts3.%s.bulk_query.success' % __extract_host(transfer_host))
-        jobs_response = jobs.json()
-        responses = bulk_query_responses(jobs_response, transfer_host)
+        try:
+            record_counter('transfertool.fts3.%s.bulk_query.success' % __extract_host(transfer_host))
+            jobs_response = jobs.json()
+            responses = bulk_query_responses(jobs_response, transfer_host)
+        except Exception as error:
+            raise Exception("Failed to parse the job response: %s, error: %s" % (str(jobs), str(error)))
     else:
         record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))
         for transfer_id in transfer_ids:
