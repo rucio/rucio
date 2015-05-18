@@ -474,6 +474,9 @@ def poll_transfers(external_host, xfers, process=0, thread=0):
         except RequestException, e:
             logging.error("Failed to contact FTS server: %s" % (str(e)))
             return
+        except Exception, e:
+            logging.error("Failed to query FTS info: %s" % (str(e)))
+            return
 
         for transfer_id in resps:
             try:
@@ -498,9 +501,9 @@ def poll_transfers(external_host, xfers, process=0, thread=0):
                 # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
                 touch_transfer(external_host, transfer_id)
             except (DatabaseException, DatabaseError), e:
-                if isinstance(e.args[0], tuple) and (match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
+                if isinstance(e.args[0], tuple) and (match('.*ORA-00054.*', e.args[0][0]) or match('.*ORA-00060.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
                     logging.warn("Lock detected when handling request %s - skipping" % request_id)
                 else:
                     logging.critical(traceback.format_exc())
     except:
-        logging.critical(traceback.format_exc())
+        logging.error(traceback.format_exc())
