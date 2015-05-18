@@ -97,7 +97,10 @@ def signal_handler(sig, frame):
     child_processes = subprocess.Popen('ps -o pid --ppid %s --noheaders' % os.getpid(), shell=True, stdout=subprocess.PIPE)
     child_processes = child_processes.stdout.read()
     for pid in child_processes.split("\n")[:-1]:
-        os.kill(int(pid), signal.SIGTERM)
+        try:
+            os.kill(int(pid), signal.SIGTERM)
+        except Exception:
+            print 'Cannot kill child process'
     sys.exit(1)
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -322,7 +325,7 @@ def list_file_replicas(args):
         print '{0:-<130}'.format('')
     for replica in replicas:
         if 'bytes' in replica:
-            str = '{0:}:{1:70} {2:10}  {3:10}'.format(replica['scope'], replica['name'], int(replica['bytes']), replica['adler32'])
+            str_output = '{0:}:{1:70} {2:10}  {3:10}'.format(replica['scope'], replica['name'], int(replica['bytes']), replica['adler32'])
             for rse in replica['rses']:
                 if args.list_collections:
                     if rse not in rse_dict:
@@ -330,22 +333,22 @@ def list_file_replicas(args):
                     if replica['rses'][rse] != []:
                         rse_dict[rse] += 1
                 else:
-                    line = '{0}{1}'.format(str, rse)
+                    line = '{0}{1}'.format(str_output, rse)
                     for pfn in replica['rses'][rse]:
                         if args.selected_rse:
                             if rse == args.selected_rse:
                                 output = '%s: %s' % (line, pfn)
                                 print output.expandtabs()
                                 line = len(line.expandtabs()) * ' '
-                                str = len(str.expandtabs()) * ' '
+                                str_output = len(str_output.expandtabs()) * ' '
                         else:
                             output = '%s: %s' % (line, pfn)
                             print output.expandtabs()
                             line = len(line.expandtabs()) * ' '
-                            str = len(str.expandtabs()) * ' '
+                            str_output = len(str_output.expandtabs()) * ' '
         elif not args.list_collections:
-            str = '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format(replica['scope'], replica['name'], '???', '???', 'Unavailable')
-            print str.expandtabs()
+            str_output = '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format(replica['scope'], replica['name'], '???', '???', 'Unavailable')
+            print str_output.expandtabs()
     if args.list_collections:
         nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
         print '{0:40} {1:6} {2:6}'.format('RSE', 'Found', 'Total')
@@ -478,7 +481,11 @@ def list_dids(args):
             did_info = client.get_did(scope=scope, name=name)
             table.append(['%s:%s' % (did_info['scope'], did_info['name']), did_info['type'].upper()])
 
-    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    if args.short:
+        for did, did_type in table:
+            print did
+    else:
+        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
     return SUCCESS
 
 
@@ -621,8 +628,8 @@ def __get_files(args):
             files.append(item)
         if os.path.isdir(item):
             dname, subdirs, fnames = os.walk(item).next()
-            for f in fnames:
-                files.append(os.path.join(dname, f))
+            for fname in fnames:
+                files.append(os.path.join(dname, fname))
     return files
 
 
@@ -741,7 +748,7 @@ def upload(args):
                     trace['clientState'] = 'DONE'
                     logger.info('File %s:%s successfully uploaded on the storage' % (f['scope'], f['name']))
                     retries = 2
-                    for i in xrange(retries):
+                    for dummy in xrange(retries):
                         try:
                             requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
                             break
@@ -774,7 +781,7 @@ def upload(args):
                 trace['clientState'] = 'DONE'
                 logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
                 retries = 2
-                for i in xrange(retries):
+                for dummy in xrange(retries):
                     try:
                         requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
                         break
@@ -895,7 +902,7 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
                     try:
                         trace['transferEnd'] = time.time()
                         trace['clientState'] = 'DONE'
-                        for i in xrange(retries):
+                        for dummy in xrange(retries):
                             try:
                                 requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
                                 break
@@ -906,7 +913,7 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
                         trace['transferEnd'] = time.time()
                         trace['clientState'] = str(type(error).__name__)
                         retries = 2
-                        for i in xrange(retries):
+                        for dummy in xrange(retries):
                             try:
                                 requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
                                 break
@@ -953,20 +960,34 @@ def download(args):
     trace['uuid'] = trace_uuid
     nbfiles_to_download = {}
     try:
-        tape_endpoints = [str(i['rse']) for i in client.list_rses('istape=True')]
+        tape_endpoints = [str(rse['rse']) for rse in client.list_rses('istape=True')]
     except InvalidRSEExpression, error:
         logger.warning(error)
         tape_endpoints = []
-    account_attributes = [i for i in client.list_account_attributes(client.account)]
+    account_attributes = [acc for acc in client.list_account_attributes(client.account)]
     is_admin = False
     for attr in account_attributes[0]:
         logger.debug(attr)
         if attr['key'] == 'admin' and attr['value'] is True:
             is_admin = True
             break
+
+    dids = []
     for did in args.dids:
         try:
             scope, name = extract_scope(did)
+            if name.find('*') > -1:
+                for dsn in client.list_dids(scope, filters={'name': name}):
+                    dids.append((scope, dsn))
+            else:
+                dids.append((scope, name))
+        except ValueError, error:
+            logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, error))
+            return FAILURE
+
+
+    for scope, name in dids:
+        try:
             did_info = client.get_did(scope, name)
             files_to_download = [f for f in client.list_files(scope=scope, name=name)]
             if args.nrandom:
@@ -984,6 +1005,7 @@ def download(args):
                 files_to_download = files
             last_chosen_rse = None
             dict_files_to_download = {}
+            dict_files_to_download[0] = []
             total_workers = 1
             if args.ndownloader:
                 total_workers = args.ndownloader
@@ -1000,6 +1022,7 @@ def download(args):
                     logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
                 else:
+                    logger.debug('Will start downloading file %s:%s' % (file['scope'], file['name']))
                     if not os.path.isdir(dest_dir):
                         os.mkdir(dest_dir)
                     hash_md5 = hashlib.md5()
@@ -1021,9 +1044,6 @@ def download(args):
                         if file_exists:
                             summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
                 active_workers = [worker for worker in pool_list if worker.is_alive()]
-        except ValueError, error:
-            logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, error))
-            return FAILURE
         except DataIdentifierAlreadyExists, error:
             logger.error(error)
             return FAILURE
@@ -1505,6 +1525,7 @@ Commands:
     list_parser.set_defaults(which='list_dids')
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively')
     list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
+    list_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     list_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 
     # The list parent-dids command
