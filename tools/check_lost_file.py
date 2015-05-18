@@ -94,6 +94,7 @@ session = get_session()
 
 lost_requests = get_lost_requests(input_file_name)
 for scope, name, rse_name in lost_requests:
+
     # print rse_name, scope, name
     if rse_name not in rse_ids:
         rse_id = rse_core.get_rse_id(rse_name, session=session)
@@ -110,7 +111,7 @@ for scope, name, rse_name in lost_requests:
 
     if rse_name not in protocols:
         rse_info = rsemgr.get_rse_info(rse_name, session=session)
-        protocols[rse_name] = rsemgr.create_protocol(rse_info, 'write', 'srm')
+        protocols[rse_name] = rsemgr.create_protocol(rse_info, 'write', 'srm,gsiftp')
     lfn = {'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}
 
     try:
