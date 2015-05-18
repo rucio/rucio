@@ -14,7 +14,7 @@
 
 from json import dumps
 
-from rucio.common.exception import InvalidMetadata, InvalidObject
+from rucio.common.exception import InvalidObject
 from rucio.common.schema import validate_schema
 from rucio.core import subscription
 
@@ -43,15 +43,10 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     :returns: subscription_id
     :rtype:   String
     """
-    accepted_keys = ['datatype', 'prod_step', 'stream_name', 'project', 'scope', 'pattern', 'type', 'account', 'excluded_pattern', 'grouping', 'group', 'provenance']
     try:
         if filter:
             if type(filter) != dict:
                 raise TypeError('filter should be a dict')
-            else:
-                for key in filter:
-                    if key not in accepted_keys:
-                        raise InvalidMetadata('Invalid metadata <%s>' % (key))
             validate_schema(name='subscription_filter', obj=filter)
         if replication_rules:
             if type(replication_rules) != list:
@@ -90,15 +85,10 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
     :type dry_run:  Boolean
     :raises: exception.NotFound if subscription is not found
     """
-    accepted_keys = ['datatype', 'prod_step', 'stream_name', 'project', 'scope', 'pattern', 'type', 'account', 'excluded_pattern', 'grouping', 'group', 'provenance']
     try:
         if filter:
             if type(filter) != dict:
                 raise TypeError('filter should be a dict')
-            else:
-                for key in filter:
-                    if key not in accepted_keys:
-                        raise InvalidMetadata('Invalid metadata <%s>' % (key))
             validate_schema(name='subscription_filter', obj=filter)
         if replication_rules:
             if type(replication_rules) != list:
