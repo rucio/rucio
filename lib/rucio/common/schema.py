@@ -253,7 +253,8 @@ SUBSCRIPTION_FILTER = {"type": "object",
                                       "group": {"type": "string"},
                                       "provenance": {"type": "string"},
                                       "account": {"type": "string", "pattern": "^[a-z0-9-]{1,30}$"},
-                                      "grouping": {"type": "string"}}}
+                                      "grouping": {"type": "string"},
+                                      "split_rule": {"type": "boolean"}}}
 
 ADD_REPLICA_FILE = {"description": "add replica file",
                     "type": "object",
