@@ -103,8 +103,8 @@ def set_group_quotas(quotas):
                 account_used = account_usage[0]['bytes']
             except:
                 account_used = 0
-            print "Set quota for %s on RSE %s to %dTB (used RSE %dTB, used account %dTB)" % \
-                (physgroup, name, 'inf ' if size == -1 else size / 1000**4, usage[0]['used'] / 1000**4, account_used / 1000**4)
+            print "Set quota for %s on RSE %s to %sTB (used RSE %dTB, used account %dTB)" % \
+                (physgroup, name, 'inf ' if size == -1 else str(size / 1000**4), usage[0]['used'] / 1000**4, account_used / 1000**4)
             set_account_limit(physgroup, name, size, 'root')
         except AccountNotFound:
             print "Account %s does not exist" % physgroup
