@@ -31,7 +31,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed)
+                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound)
 from rucio.common.schema import validate_schema
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account
@@ -1081,7 +1081,8 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
         replica.state = ReplicaState.UNAVAILABLE
         session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
         for dts in datasets:
-            logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST' % (scope, name, rse, dts['scope'], dts['name']))
+            logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached' % (scope, name, rse, dts['scope'], dts['name']))
+            rucio.core.did.detach_dids(scope=dts['scope'], name=dts['name'], dids=[{'scope': scope, 'name': name}], session=session)
             add_message('LOST', {'scope': scope,
                                  'name': name,
                                  'dataset_name': dts['name'],
@@ -1126,7 +1127,9 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         elif lock.state == LockState.STUCK:
             rule.locks_stuck_cnt -= 1
         rule.locks_replicating_cnt += 1
-        if not get_request_by_did(scope, name, rse, session=session):
+        try:
+            get_request_by_did(scope, name, rse, session=session)
+        except RequestNotFound:
             bytes = replica.bytes
             md5 = replica.md5
             adler32 = replica.adler32
