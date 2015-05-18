@@ -26,7 +26,6 @@ import argparse
 import json
 import logging
 import os
-import pprint
 import signal
 import sys
 import tabulate
@@ -47,9 +46,7 @@ from rucio import version
 
 # If ../lib/rucio/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
-possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
-                                   os.pardir,
-                                   os.pardir))
+possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]), os.pardir, os.pardir))
 if os.path.exists(os.path.join(possible_topdir, 'lib/rucio', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
@@ -57,8 +54,6 @@ if os.path.exists(os.path.join(possible_topdir, 'lib/rucio', '__init__.py')):
 SUCCESS = 0
 FAILURE = 1
 DEFAULT_PORT = 443
-
-pp = pprint.PrettyPrinter(indent=4)
 
 
 logger = logging.getLogger("user")
@@ -70,27 +65,27 @@ def setup_logger(logger):
     logger.setLevel(logging.DEBUG)
     hdlr = logging.StreamHandler()
 
-    def emit_decorator(fn):
+    def emit_decorator(fcn):
         def func(*args):
             if True:
                 formatter = logging.Formatter("%(message)s")
             else:
                 levelno = args[0].levelno
-                if(levelno >= logging.CRITICAL):
+                if levelno >= logging.CRITICAL:
                     color = '\033[31;1m'
-                elif(levelno >= logging.ERROR):
+                elif levelno >= logging.ERROR:
                     color = '\033[31;1m'
-                elif(levelno >= logging.WARNING):
+                elif levelno >= logging.WARNING:
                     color = '\033[33;1m'
-                elif(levelno >= logging.INFO):
+                elif levelno >= logging.INFO:
                     color = '\033[32;1m'
-                elif(levelno >= logging.DEBUG):
+                elif levelno >= logging.DEBUG:
                     color = '\033[36;1m'
                 else:
                     color = '\033[0m'
                 formatter = logging.Formatter('{0}%(asctime)s %(levelname)s [%(message)s]\033[0m'.format(color))
             hdlr.setFormatter(formatter)
-            return fn(*args)
+            return fcn(*args)
         return func
     hdlr.emit = emit_decorator(hdlr.emit)
     logger.addHandler(hdlr)
@@ -110,51 +105,51 @@ def exception_handler(function):
     def new_funct(*args, **kwargs):
         try:
             return function(*args, **kwargs)
-        except InvalidObject, excep:
-            logger.error(excep)
+        except InvalidObject, error:
+            logger.error(error)
             return FAILURE
-        except DataIdentifierNotFound, excep:
-            logger.error(excep)
+        except DataIdentifierNotFound, error:
+            logger.error(error)
             logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
             return FAILURE
-        except AccessDenied, excep:
-            logger.error(excep)
+        except AccessDenied, error:
+            logger.error(error)
             logger.debug('This error is a permission issue. You cannot run this command with your account.')
             return FAILURE
-        except DataIdentifierAlreadyExists, excep:
-            logger.error(excep)
+        except DataIdentifierAlreadyExists, error:
+            logger.error(error)
             logger.debug('This means that the data IDentifier you try to add is already registered in Rucio.')
             return FAILURE
-        except RSENotFound, excep:
-            logger.error(excep)
+        except RSENotFound, error:
+            logger.error(error)
             logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
             return FAILURE
-        except InvalidRSEExpression, excep:
-            logger.error(excep)
+        except InvalidRSEExpression, error:
+            logger.error(error)
             logger.debug('This means the RSE expression you provided is not syntactically correct.')
             return FAILURE
-        except DuplicateContent, excep:
-            logger.error(excep)
+        except DuplicateContent, error:
+            logger.error(error)
             logger.debug('This means that the DID you want to attach is already in the target DID.')
             return FAILURE
-        except TypeError, excep:
-            logger.error(excep)
+        except TypeError, error:
+            logger.error(error)
             logger.debug('This means the parameter you passed has a wrong type.')
             return FAILURE
-        except RuleNotFound, excep:
-            logger.error(excep)
+        except RuleNotFound, error:
+            logger.error(error)
             logger.debug('This means the rule you specified does not exist.')
             return FAILURE
-        except AccountNotFound, excep:
-            logger.error(excep)
+        except AccountNotFound, error:
+            logger.error(error)
             logger.debug('This means that the specified account cannot be found.')
             return FAILURE
-        except NotImplementedError, excep:
-            logger.error(excep)
+        except NotImplementedError, error:
+            logger.error(error)
             logger.debug('This means that the method is not implemented yet.')
             return FAILURE
-        except Exception, excep:
-            logger.error(excep)
+        except Exception, error:
+            logger.error(error)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
             logger.debug(traceback.format_exc())
             return FAILURE
@@ -175,8 +170,8 @@ def get_client(args):
                         account=args.issuer,
                         auth_type=args.auth_strategy, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout)
-    except CannotAuthenticate, e:
-        logger.error(e)
+    except CannotAuthenticate, error:
+        logger.error(error)
         if not args.auth_strategy:
             if 'RUCIO_AUTH_TYPE' in os.environ:
                 auth_type = os.environ['RUCIO_AUTH_TYPE']
@@ -425,8 +420,8 @@ def info_rse(args):
             print '  ' + key + ': ' + str(rseinfo[key])
     print 'Attributes:'
     print '==========='
-    for k in attributes:
-        print '  ' + k + ': ' + str(attributes[k])
+    for attribute in attributes:
+        print '  ' + attribute + ': ' + str(attributes[attribute])
     print 'Protocols:'
     print '=========='
     for protocol in rseinfo['protocols']:
@@ -437,8 +432,8 @@ def info_rse(args):
     print '======'
     for elem in usage:
         print '  ' + elem['source']
-        for e in elem:
-            print '    ' + e + ': ' + str(elem[e])
+        for item in elem:
+            print '    ' + item + ': ' + str(elem[item])
 
     return SUCCESS
 
@@ -583,8 +578,10 @@ def add_subscription(args):
     client = get_client(args)
     if args.subs_account:
         account = args.subs_account
-    else:
+    elif args.issuer:
         account = args.issuer
+    else:
+        account = client.account
     subscription_id = client.add_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
                                               comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
     print 'Subscription added %s' % (subscription_id)
@@ -602,7 +599,7 @@ def list_subscriptions(args):
     client = get_client(args)
     subs = client.list_subscriptions(name=args.name, account=args.subs_account)
     for sub in subs:
-        if (args.long):
+        if args.long:
             print '\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in sub.items())
             print
         else:
@@ -619,6 +616,12 @@ def update_subscription(args):
 
     """
     client = get_client(args)
+    if args.subs_account:
+        account = args.subs_account
+    elif args.issuer:
+        account = args.issuer
+    else:
+        account = client.account
     if args.subs_account:
         account = args.subs_account
     else:
@@ -972,15 +975,13 @@ Commands:
                 'add_scope': add_scope,
                 'list_scopes': list_scopes,
                 'info_rse': info_rse,
-                'info_rse': info_rse,
                 'get_config': get_config,
                 'set_config_option': set_config_option,
                 'delete_config_option': delete_config_option,
                 'add_subscription': add_subscription,
                 'list_subscriptions': list_subscriptions,
                 'update_subscription': update_subscription,
-                'declare_bad_file_replicas': declare_bad_file_replicas
-                }
+                'declare_bad_file_replicas': declare_bad_file_replicas}
 
     argcomplete.autocomplete(oparser)
 
@@ -998,6 +999,6 @@ Commands:
         if args.verbose:
             print "Completed in %-0.4f sec." % (end_time - start_time)
         sys.exit(result)
-    except (RuntimeError, NotImplementedError), e:
-        print >> sys.stderr, "ERROR: ", e
+    except (RuntimeError, NotImplementedError), error:
+        print >> sys.stderr, "ERROR: ", error
         sys.exit(FAILURE)

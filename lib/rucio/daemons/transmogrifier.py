@@ -33,7 +33,10 @@ from rucio.common.config import config_get
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
 from rucio.core import monitor, heartbeat
-from rucio.core.rule import add_rule
+from rucio.core.rse_expression_parser import parse_expression
+from rucio.core.rse_selector import RSESelector
+from rucio.core.rule import add_rule, list_rules
+
 
 logging.getLogger("transmogrifier").setLevel(logging.CRITICAL)
 
@@ -51,11 +54,11 @@ def _retrial(func, *args, **kwargs):
     while True:
         try:
             return apply(func, args, kwargs)
-        except DataIdentifierNotFound, excep:
-            logging.warning(excep)
+        except DataIdentifierNotFound, error:
+            logging.warning(error)
             return 1
-        except DatabaseException, excep:
-            logging.error(excep)
+        except DatabaseException, error:
+            logging.error(error)
             if exp(delay) > 600:
                 logging.error('Cannot execute %s after %i attempt. Failing the job.' % (func.__name__, delay))
                 raise
@@ -82,8 +85,8 @@ def is_matching_subscription(subscription, did, metadata):
         return False
     try:
         filter = loads(subscription['filter'])
-    except ValueError, excep:
-        logging.error('%s : Subscription will be skipped' % excep)
+    except ValueError, error:
+        logging.error('%s : Subscription will be skipped' % error)
         return False
     # Loop over the keys of filter for subscription
     for key in filter:
@@ -91,6 +94,8 @@ def is_matching_subscription(subscription, did, metadata):
         if key == 'pattern':
             if not re.match(values, did['name']):
                 return False
+        elif key == 'split_rule':
+            pass
         elif key == 'scope':
             match_scope = False
             for scope in values:
@@ -118,7 +123,7 @@ def is_matching_subscription(subscription, did, metadata):
     return True
 
 
-def transmogrifier(thread=0, bulk=5, once=False):
+def transmogrifier(bulk=5, once=False):
     """
     Creates a Transmogrifier Worker that gets a list of new DIDs for a given hash,
     identifies the subscriptions matching the DIDs and
@@ -137,21 +142,21 @@ def transmogrifier(thread=0, bulk=5, once=False):
 
     while not graceful_stop.is_set():
 
-        hb = heartbeat.live(executable, hostname, pid, hb_thread)
+        heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
 
         dids, subscriptions = [], []
         tottime = 0
 
         try:
-            for did in list_new_dids(thread=hb['assign_thread'], total_threads=hb['nr_threads'], chunk_size=bulk):
+            for did in list_new_dids(thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'], chunk_size=bulk):
                 dids.append({'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']})
 
             for sub in list_subscriptions(None, None):
                 if sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
                     subscriptions.append(sub)
         except Exception, error:
-            logging.error('Thread [%i/%i] : Failed to get list of new DIDs or subscriptions: %s' % (hb['assign_thread'],
-                                                                                                    hb['nr_threads'],
+            logging.error('Thread [%i/%i] : Failed to get list of new DIDs or subscriptions: %s' % (heart_beat['assign_thread'],
+                                                                                                    heart_beat['nr_threads'],
                                                                                                     str(error)))
 
             if once:
@@ -162,8 +167,8 @@ def transmogrifier(thread=0, bulk=5, once=False):
         try:
             results = {}
             start_time = time.time()
-            logging.debug('Thread [%i/%i] : In transmogrifier worker' % (hb['assign_thread'],
-                                                                         hb['nr_threads']))
+            logging.debug('Thread [%i/%i] : In transmogrifier worker' % (heart_beat['assign_thread'],
+                                                                         heart_beat['nr_threads']))
             identifiers = []
             for did in dids:
                 if did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER):
@@ -172,90 +177,125 @@ def transmogrifier(thread=0, bulk=5, once=False):
                         metadata = get_metadata(did['scope'], did['name'])
                         for subscription in subscriptions:
                             if is_matching_subscription(subscription, did, metadata) is True:
+                                filter = loads(subscription['filter'])
+                                split_rule = filter.get('split_rule', False)
+                                if split_rule == 'true':
+                                    split_rule = True
+                                elif split_rule == 'false':
+                                    split_rule = False
                                 stime = time.time()
                                 results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
-                                logging.info('Thread [%i/%i] : %s:%s matches subscription %s' % (hb['assign_thread'],
-                                                                                                 hb['nr_threads'],
+                                logging.info('Thread [%i/%i] : %s:%s matches subscription %s' % (heart_beat['assign_thread'],
+                                                                                                 heart_beat['nr_threads'],
                                                                                                  did['scope'], did['name'],
                                                                                                  subscription['name']))
                                 for rule in loads(subscription['replication_rules']):
+                                    # Get all the rule and subscription parameters
                                     grouping = rule.get('grouping', 'DATASET')
                                     lifetime = rule.get('lifetime', None)
                                     ignore_availability = rule.get('ignore_availability', None)
-                                    if lifetime:
-                                        lifetime = int(lifetime)
                                     weight = rule.get('weight', None)
                                     source_replica_expression = rule.get('source_replica_expression', None)
+                                    locked = rule.get('locked', None)
+                                    purge_replicas = rule.get('purge_replicas', False)
+                                    if purge_replicas == 'True':
+                                        purge_replicas = True
+                                    else:
+                                        purge_replicas = False
+                                    rse_expression = str(rule['rse_expression'])
+                                    comment = str(subscription['comments'])
+                                    subscription_id = str(subscription['id'])
+                                    account = subscription['account']
+                                    copies = int(rule['copies'])
                                     activity = rule.get('activity', None)
                                     try:
                                         validate_schema(name='activity', obj=activity)
-                                    except InputValidationError, excep:
-                                        logging.error('Error validating the activity %s' % (str(excep)))
+                                    except InputValidationError, error:
+                                        logging.error('Error validating the activity %s' % (str(error)))
                                         activity = 'default'
+                                    if lifetime:
+                                        lifetime = int(lifetime)
 
-                                    locked = rule.get('locked', None)
-                                    purge_replicas = rule.get('purge_replicas', False)
+                                    str_activity = "".join(activity.split())
                                     success = True
                                     nattempt = 5
                                     attemptnr = 0
+                                    skip_rule_creation = False
+
+                                    if split_rule:
+                                        rses = parse_expression(rse_expression)
+                                        list_of_rses = [rse['rse'] for rse in rses]
+                                        # Check that some rule doesn't already exist for this DID and subscription
+                                        preferred_rse_ids = []
+                                        for rule in list_rules(filters={'subscription_id': subscription_id, 'scope': did['scope'], 'name': did['name']}):
+                                            already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'])]
+                                            for rse, rse_id in already_existing_rses:
+                                                if (rse in list_of_rses) and (rse_id not in preferred_rse_ids):
+                                                    preferred_rse_ids.append(rse_id)
+                                        if len(preferred_rse_ids) >= copies:
+                                            skip_rule_creation = True
+
+                                        rse_id_dict = {}
+                                        for rse in rses:
+                                            rse_id_dict[rse['id']] = rse['rse']
+                                        rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
+                                        selected_rses = [rse_id_dict[rse_id] for rse_id, status in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies)]
                                     for attempt in xrange(0, nattempt):
                                         attemptnr = attempt
+                                        nb_rule = 0
                                         try:
-                                            rse_expression = str(rule['rse_expression']).encode('string-escape')
-                                            comment = str(subscription['comments'])
-                                            add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rse_expression,
-                                                     grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription['id'], source_replica_expression=source_replica_expression, activity=activity,
-                                                     purge_replicas=purge_replicas, ignore_availability=ignore_availability, comment=comment)
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.done', delta=1)
-                                            if subscription['name'].find('test') > -1:
-                                                monitor.record_counter(counters='transmogrifier.addnewrule.activity.test', delta=1)
-                                            elif subscription['name'].startswith('group'):
-                                                monitor.record_counter(counters='transmogrifier.addnewrule.activity.group', delta=1)
-                                            elif subscription['name'].startswith('tier0export'):
-                                                monitor.record_counter(counters='transmogrifier.addnewrule.activity.tier0export', delta=1)
-                                            elif subscription['name'].endswith('export'):
-                                                monitor.record_counter(counters='transmogrifier.addnewrule.activity.dataconsolidation', delta=1)
+                                            if split_rule:
+                                                if not skip_rule_creation:
+                                                    for rse in selected_rses:
+                                                        logging.info('Thread [%i/%i] : Will insert one rule for %s:%s on %s' %
+                                                                     (heart_beat['assign_thread'], heart_beat['nr_threads'], did['scope'], did['name'], rse))
+                                                        add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=account, copies=1,
+                                                                 rse_expression=rse, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked,
+                                                                 subscription_id=subscription_id, source_replica_expression=source_replica_expression, activity=activity,
+                                                                 purge_replicas=purge_replicas, ignore_availability=ignore_availability, comment=comment)
+
+                                                        nb_rule += 1
+                                                        if nb_rule == copies:
+                                                            break
                                             else:
-                                                monitor.record_counter(counters='transmogrifier.addnewrule.activity.other', delta=1)
+                                                add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=account, copies=copies,
+                                                         rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked,
+                                                         subscription_id=subscription['id'], source_replica_expression=source_replica_expression, activity=activity,
+                                                         purge_replicas=purge_replicas, ignore_availability=ignore_availability, comment=comment)
+                                                nb_rule += 1
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.done', delta=nb_rule)
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.activity.%s' % str_activity, delta=nb_rule)
                                             break
-                                        except (InvalidReplicationRule, InvalidRuleWeight, InvalidRSEExpression, StagingAreaRuleRequiresLifetime, InsufficientTargetRSEs, DuplicateRule) as excep:
-                                            # These errors shouldn't be retried
-                                            logging.error('Thread [%i/%i] : %s' % (hb['assign_thread'],
-                                                                                   hb['nr_threads'],
-                                                                                   str(excep)))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(excep)), delta=1)
+                                        except (InvalidReplicationRule, InvalidRuleWeight, InvalidRSEExpression, StagingAreaRuleRequiresLifetime, DuplicateRule) as error:
+                                            # Errors that won't be retried
+                                            logging.error('Thread [%i/%i] : %s' % (heart_beat['assign_thread'], heart_beat['nr_threads'], str(error)))
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error)), delta=1)
                                             break
-                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit) as excep:
-                                            logging.error('Thread [%i/%i] : %s' % (hb['assign_thread'],
-                                                                                   hb['nr_threads'],
-                                                                                   str(excep)))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(excep)), delta=1)
-                                            break
-                                        except DatabaseException, e:
-                                            logging.error('Thread [%i/%i] : %s' % (hb['assign_thread'],
-                                                                                   hb['nr_threads'],
-                                                                                   str(e)))
-                                            logging.error('Thread [%i/%i] : Will perform an other attempt %i/%i' % (hb['assign_thread'],
-                                                                                                                    hb['nr_threads'],
-                                                                                                                    attempt + 1,
-                                                                                                                    nattempt))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(e)), delta=1)
+                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit, DatabaseException) as error:
+                                            # Errors to be retried
+                                            logging.error('Thread [%i/%i] : %s Will perform an other attempt %i/%i' % (heart_beat['assign_thread'],
+                                                                                                                       heart_beat['nr_threads'],
+                                                                                                                       str(error),
+                                                                                                                       attempt + 1,
+                                                                                                                       nattempt))
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error)), delta=1)
                                             success = False
-                                        except Exception, excep:
+                                        except Exception, error:
+                                            # Unexpected errors
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
                                             exc_type, exc_value, exc_traceback = exc_info()
                                             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
 
                                     if (attemptnr + 1) == nattempt and not success:
-                                        logging.critical('Thread [%i/%i] : Rule for %s:%s on %s cannot be inserted' % (hb['assign_thread'],
-                                                                                                                       hb['nr_threads'],
+                                        logging.critical('Thread [%i/%i] : Rule for %s:%s on %s cannot be inserted' % (heart_beat['assign_thread'],
+                                                                                                                       heart_beat['nr_threads'],
                                                                                                                        did['scope'],
                                                                                                                        did['name'],
                                                                                                                        rse_expression))
                                     else:
-                                        logging.info('Thread [%i/%i] :Rule inserted in %f seconds' % (hb['assign_thread'],
-                                                                                                      hb['nr_threads'],
-                                                                                                      time.time()-stime))
+                                        logging.info('Thread [%i/%i] : %s Rule inserted in %f seconds' % (heart_beat['assign_thread'],
+                                                                                                          heart_beat['nr_threads'], str(nb_rule),
+                                                                                                          time.time()-stime))
                     except DataIdentifierNotFound, error:
                         logging.warning(error)
 
@@ -273,15 +313,15 @@ def transmogrifier(thread=0, bulk=5, once=False):
             for identifier in chunks(identifiers, 100):
                 _retrial(set_new_dids, identifier, None)
 
-            logging.info('Thread [%i/%i] : Time to set the new flag : %f' % (hb['assign_thread'],
-                                                                             hb['nr_threads'],
+            logging.info('Thread [%i/%i] : Time to set the new flag : %f' % (heart_beat['assign_thread'],
+                                                                             heart_beat['nr_threads'],
                                                                              time.time() - time1))
             tottime = time.time() - start_time
-            logging.info('Thread [%i/%i] : It took %f seconds to process %i DIDs' % (hb['assign_thread'],
-                                                                                     hb['nr_threads'],
+            logging.info('Thread [%i/%i] : It took %f seconds to process %i DIDs' % (heart_beat['assign_thread'],
+                                                                                     heart_beat['nr_threads'],
                                                                                      tottime, len(dids)))
-            logging.debug('Thread [%i/%i] : DIDs processed : %s' % (hb['assign_thread'],
-                                                                    hb['nr_threads'],
+            logging.debug('Thread [%i/%i] : DIDs processed : %s' % (heart_beat['assign_thread'],
+                                                                    heart_beat['nr_threads'],
                                                                     str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)
             monitor.record_timer(stat='transmogrifier.job.duration', time=1000*tottime)
@@ -296,10 +336,10 @@ def transmogrifier(thread=0, bulk=5, once=False):
         if tottime < 10:
             time.sleep(10-tottime)
     heartbeat.die(executable, hostname, pid, hb_thread)
-    logging.info('Thread [%i/%i] : Graceful stop requested' % (hb['assign_thread'],
-                                                               hb['nr_threads']))
-    logging.info('Thread [%i/%i] : Graceful stop done' % (hb['assign_thread'],
-                                                          hb['nr_threads']))
+    logging.info('Thread [%i/%i] : Graceful stop requested' % (heart_beat['assign_thread'],
+                                                               heart_beat['nr_threads']))
+    logging.info('Thread [%i/%i] : Graceful stop done' % (heart_beat['assign_thread'],
+                                                          heart_beat['nr_threads']))
 
 
 def run(threads=1, bulk=100, once=False):
@@ -307,17 +347,18 @@ def run(threads=1, bulk=100, once=False):
     Starts up the transmogrifier threads.
     """
 
-    logging.info('starting transmogrifier threads')
-    thread_list = [threading.Thread(target=transmogrifier, kwargs={'once': once,
-                                                                   'thread': i,
-                                                                   'bulk': bulk}) for i in xrange(0, threads)]
-    [t.start() for t in thread_list]
-
-    logging.info('waiting for interrupts')
-
-    # Interruptible joins require a timeout.
-    while len(thread_list) > 0:
-        [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
+    if once:
+        logging.info('Will run only one iteration in a single threaded mode')
+        transmogrifier(bulk=bulk, once=once)
+    else:
+        logging.info('starting transmogrifier threads')
+        thread_list = [threading.Thread(target=transmogrifier, kwargs={'once': once,
+                                                                       'bulk': bulk}) for i in xrange(0, threads)]
+        [t.start() for t in thread_list]
+        logging.info('waiting for interrupts')
+        # Interruptible joins require a timeout.
+        while len(thread_list) > 0:
+            [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
 
 
 def stop(signum=None, frame=None):

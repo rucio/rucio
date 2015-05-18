@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015
 
@@ -17,13 +17,15 @@ from paste.fixture import TestApp
 
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
 from rucio.client.subscriptionclient import SubscriptionClient
+from rucio.client.didclient import DIDClient
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_account_limit
-from rucio.core.did import add_did
+from rucio.core.did import add_did, set_new_dids
 from rucio.core.rse import add_rse, get_rse_id
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
+from rucio.daemons.transmogrifier import run
 from rucio.db.constants import DIDType
 from rucio.web.rest.authentication import app as auth_app
 from rucio.web.rest.subscription import app as subs_app
@@ -46,12 +48,12 @@ class TestSubscriptionCoreApi():
             result = add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                                       '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                                       \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                                      replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
+                                      replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
 
         result = add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                                   '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                                   \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
+                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
         with assert_raises(TypeError):
             result = update_subscription(name=subscription_name, account='root', filter='toto')
         with assert_raises(InvalidObject):
@@ -71,7 +73,7 @@ class TestSubscriptionCoreApi():
         subscription_id = add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                                                                                            '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                                                                                            \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                                           replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
+                                           replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
         subscription_info = get_subscription_by_id(subscription_id)
         assert_equal(loads(subscription_info['filter'])['project'], ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'])
 
@@ -82,11 +84,11 @@ class TestSubscriptionCoreApi():
         add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                          '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                          \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
+                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
         add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                          '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                          \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
+                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
 
     @raises(SubscriptionNotFound)
     def test_update_nonexisting_subscription(self):
@@ -114,18 +116,18 @@ class TestSubscriptionCoreApi():
                 type=DIDType.DATASET, account='root')
 
         subscription_name = uuid()
-        id = add_subscription(name=subscription_name, account='root', filter={'account': 'root'},
-                              replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
+        subid = add_subscription(name=subscription_name, account='root', filter={'account': 'root', 'scope': [tmp_scope, ]},
+                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
 
         subscriptions = list_subscriptions(name=subscription_name, account='root')
         # workaround until add_subscription returns the id
-        id = None
+        subid = None
         for s in subscriptions:
-            id = s['id']
+            subid = s['id']
 
         # Add two rules
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
 
         for r in list_subscription_rule_states(account='root', name=subscription_name):
             assert_equal(r[3], 2)
@@ -156,7 +158,7 @@ class TestSubscriptionRestApi():
         data = dumps({'name': subscription_name, 'filter': {'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                      '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                      \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'})
+                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'})
         r2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -183,7 +185,7 @@ class TestSubscriptionRestApi():
         data = dumps({'name': subscription_name, 'filter': {'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                      '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                      \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'})
+                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'})
         r2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -207,7 +209,7 @@ class TestSubscriptionRestApi():
         data = dumps({'name': subscription_name, 'filter': {'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                      '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).*\
                      \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'We are the knights who say Ni !'})
+                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'We are the knights who say Ni !'})
         r2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/' + subscription_name, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -254,19 +256,19 @@ class TestSubscriptionRestApi():
                 type=DIDType.DATASET, account='root')
 
         subscription_name = uuid()
-        id = add_subscription(name=subscription_name, account='root', filter={'account': 'root'},
-                              replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='We want a shrubbery')
+        subid = add_subscription(name=subscription_name, account='root', filter={'account': 'root', 'scope': [tmp_scope, ]},
+                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='We want a shrubbery')
 
         subscriptions = list_subscriptions(name=subscription_name, account='root')
 
         # workaround until add_subscription returns the id
-        id = None
+        subid = None
         for s in subscriptions:
-            id = s['id']
+            subid = s['id']
 
         # Add two rules
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
@@ -296,25 +298,26 @@ class TestSubscriptionClient():
         pass
 
     def setup(self):
-        self.client = SubscriptionClient()
+        self.sub_client = SubscriptionClient()
+        self.did_client = DIDClient()
 
     def test_create_and_update_and_list_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the creation of a new subscription, update it, list it """
         subscription_name = uuid()
         with assert_raises(InvalidObject):
-            subid = self.client.add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
+            subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
+                                                     '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                                                     \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
+                                                     replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                                                  '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                                                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
-        subid = self.client.add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
-                                             '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
-                                             \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                                             replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         result = [sub['id'] for sub in list_subscriptions(name=subscription_name, account='root')]
         assert_equal(subid, result[0])
         with assert_raises(TypeError):
-            result = self.client.update_subscription(name=subscription_name, account='root', filter='toto')
-        result = self.client.update_subscription(name=subscription_name, account='root', filter={'project': ['toto', ]})
+            result = self.sub_client.update_subscription(name=subscription_name, account='root', filter='toto')
+        result = self.sub_client.update_subscription(name=subscription_name, account='root', filter={'project': ['toto', ]})
         assert_true(result)
         result = list_subscriptions(name=subscription_name, account='root')
         sub = []
@@ -327,18 +330,37 @@ class TestSubscriptionClient():
     def test_create_existing_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the creation of a existing subscription """
         subscription_name = uuid()
-        result = self.client.add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
-                                              '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
-                                              \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                                              replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+        result = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
+                                                  '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                                                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
+                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         assert_true(result)
-        result = self.client.add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
-                                              '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
-                                              \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
-                                              replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+        result = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
+                                                  '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                                                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
+                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
 
     @raises(SubscriptionNotFound)
     def test_update_nonexisting_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the update of a non-existing subscription """
         subscription_name = uuid()
-        self.client.update_subscription(name=subscription_name, filter={'project': ['toto', ]})
+        self.sub_client.update_subscription(name=subscription_name, filter={'project': ['toto', ]})
+
+    def test_run_transmogrifier(self):
+        """ SUBSCRIPTION (DAEMON): Test the transmogrifier and the split_rule mode """
+        tmp_scope = 'mock_' + uuid()[:8]
+        add_scope(tmp_scope, 'root')
+        subscription_name = uuid()
+        dsn = 'dataset-%s' % uuid()
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account='root')
+
+        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope, ], 'pattern': 'dataset-.*', 'split_rule': True},
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'default'}],
+                                                 lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+        run(threads=1, bulk=1000000, once=True)
+        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        assert_equal(len(rules), 2)
+        set_new_dids([{'scope': tmp_scope, 'name': dsn}, ], 1)
+        run(threads=1, bulk=1000000, once=True)
+        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        assert_equal(len(rules), 2)
