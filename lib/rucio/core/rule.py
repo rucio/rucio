@@ -583,7 +583,7 @@ def repair_rule(rule_id, session=None):
         # Resolve the did to its contents
         datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
                                                                             nowait=True,
-                                                                            restrict_rses=[],  # [rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
+                                                                            restrict_rses=[rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
                                                                             session=session)
 
         if session.bind.dialect.name != 'sqlite':
