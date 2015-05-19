@@ -196,7 +196,7 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
                 .filter(models.DataIdentifierAssociation.scope == scope,
                         models.DataIdentifierAssociation.name == name)
 
-    query = query.with_for_update(nowait=nowait)
+    query = query.with_for_update(nowait=nowait, of=models.ReplicaLock.state)
 
     locks = {}
 
