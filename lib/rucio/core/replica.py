@@ -1245,7 +1245,7 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                .filter(models.DataIdentifierAssociation.scope == scope,
                                        models.DataIdentifierAssociation.name == name)
 
-        query = query.with_for_update(nowait=nowait)
+        query = query.with_for_update(nowait=nowait, of=models.RSEFileAssociation.lock_cnt)
 
     files = {}
     replicas = {}
