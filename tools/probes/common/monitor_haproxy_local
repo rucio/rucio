@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 def monitor_haproxy(socket_name):
     data = {}
     INCLUDE_INFO = ['Process_num', 'Idle_pct']
-    INCLUDE_STAT = ['scur', 'qcur', 'chkfail', 'status', 'hrsp_1xx', 'hrsp_2xx', 'hrsp_3xx', 'hrsp_4xx', 'hrsp_5xx', 'req_rate', 'qtime', 'ctime', 'rtime', 'ttime']
+    INCLUDE_STAT = ['scur', 'qcur', 'chkfail', 'status', 'weight', 'rate', 'hrsp_1xx', 'hrsp_2xx', 'hrsp_3xx', 'hrsp_4xx', 'hrsp_5xx', 'req_rate', 'qtime', 'ctime', 'rtime', 'ttime']
 
     # Request data from socket
     logger.debug('Connecting to socket: %s' % socket_name)
