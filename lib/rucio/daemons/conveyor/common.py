@@ -217,11 +217,14 @@ def handle_requests(reqs):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
                     record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
-                    logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
-                                                                                 req['name'],
-                                                                                 req['request_id'],
-                                                                                 new_req['request_id'],
-                                                                                 new_req['retry_count']))
+                    if new_req:
+                        # should_retry_request and requeue_and_archive are not in one session,
+                        # another process can requeue_and_archive and this one will return None.
+                        logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
+                                                                                     req['name'],
+                                                                                     req['request_id'],
+                                                                                     new_req['request_id'],
+                                                                                     new_req['retry_count']))
                 else:
                     logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE
@@ -232,11 +235,12 @@ def handle_requests(reqs):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
                     record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
-                    logging.warn('REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
-                                                                                            req['name'],
-                                                                                            req['request_id'],
-                                                                                            new_req['request_id'],
-                                                                                            new_req['retry_count']))
+                    if new_req:
+                        logging.warn('REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
+                                                                                                req['name'],
+                                                                                                req['request_id'],
+                                                                                                new_req['request_id'],
+                                                                                                new_req['retry_count']))
                 else:
                     logging.warn('EXCEEDED SUBMITTING DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE
