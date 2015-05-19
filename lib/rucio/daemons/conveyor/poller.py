@@ -25,6 +25,7 @@ import threading
 import time
 import traceback
 
+from collections import defaultdict
 from threadpool import ThreadPool, makeRequests
 
 from rucio.common.config import config_get
@@ -46,7 +47,7 @@ datetime.datetime.strptime('', '')
 
 
 def poller(once=False,
-           process=0, total_processes=1, thread=0, total_threads=1,
+           process=0, total_processes=1, thread=0, total_threads=1, activities=None, sleep_time=60,
            fts_bulk=100, db_bulk=1000, older_than=60, activity_shares=None):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
@@ -60,64 +61,77 @@ def poller(once=False,
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
+    heartbeat.sanity_check(executable=executable, hostname=hostname)
+    hb = heartbeat.live(executable, hostname, pid, hb_thread)
 
     logging.info('poller started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
-                                                                                thread, total_threads,
+                                                                                hb['assign_thread'], hb['nr_threads'],
                                                                                 db_bulk))
 
+    activity_next_exe_time = defaultdict(time.time)
     threadPool = ThreadPool(total_threads)
+    sleeping = False
+
     while not graceful_stop.is_set():
 
         try:
-            heartbeat.live(executable, hostname, pid, hb_thread)
+            if not sleeping:
+                sleeping = True
+                hb = heartbeat.live(executable, hostname, pid, hb_thread)
+                logging.info('poller - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
 
-            ts = time.time()
+            if activities is None:
+                activities = [None]
+            for activity in activities:
+                if activity_next_exe_time[activity] > time.time():
+                    time.sleep(1)
+                    continue
+                sleeping = False
 
-            logging.debug('%i:%i - start to poll transfers older than %i seconds' % (process, thread, older_than))
-            transfs = request.get_next_transfers(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                                 state=RequestState.SUBMITTED,
-                                                 limit=db_bulk,
-                                                 older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
-                                                 process=process, total_processes=total_processes,
-                                                 thread=thread, total_threads=total_threads,
-                                                 activity_shares=activity_shares)
-            record_timer('daemons.conveyor.poller.000-get_next_transfers', (time.time()-ts)*1000)
+                ts = time.time()
+                logging.debug('%i:%i - start to poll transfers older than %i seconds for activity %s' % (process, hb['assign_thread'], older_than, activity))
+                transfs = request.get_next_transfers(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                                     state=RequestState.SUBMITTED,
+                                                     limit=db_bulk,
+                                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
+                                                     process=process, total_processes=total_processes,
+                                                     thread=hb['assign_thread'], total_threads=hb['nr_threads'],
+                                                     activity=activity,
+                                                     activity_shares=activity_shares)
+                record_timer('daemons.conveyor.poller.000-get_next_transfers', (time.time()-ts)*1000)
 
-            if transfs:
-                logging.debug('%i:%i - polling %i transfers' % (process, thread, len(transfs)))
+                if transfs:
+                    logging.debug('%i:%i - polling %i transfers for activity %s' % (process, hb['assign_thread'], len(transfs), activity))
 
-            if not transfs or transfs == []:
-                if once:
-                    break
-                logging.debug("%i:%i - no transfers found. will sleep 60 second" % (process, thread))
-                time.sleep(60)  # Only sleep if there is nothing to do
-                continue
+                xfers_ids = {}
+                for transf in transfs:
+                    if not transf['external_host'] in xfers_ids:
+                        xfers_ids[transf['external_host']] = []
+                    xfers_ids[transf['external_host']].append(transf['external_id'])
 
-            xfers_ids = {}
-            for transf in transfs:
-                if not transf['external_host'] in xfers_ids:
-                    xfers_ids[transf['external_host']] = []
-                xfers_ids[transf['external_host']].append(transf['external_id'])
+                for external_host in xfers_ids:
+                    for xfers in chunks(xfers_ids[external_host], fts_bulk):
+                        # poll transfers
+                        # xfer_requests = makeRequests(common.poll_transfers, args_list=[((external_host, xfers, process, thread), {})])
+                        xfer_requests = makeRequests(common.poll_transfers, args_list=[((), {'external_host': external_host, 'xfers': xfers, 'process': process, 'thread': hb['assign_thread']})])
+                        [threadPool.putRequest(xfer_req) for xfer_req in xfer_requests]
+                threadPool.wait()
 
-            for external_host in xfers_ids:
-                for xfers in chunks(xfers_ids[external_host], fts_bulk):
-                    # poll transfers
-                    # xfer_requests = makeRequests(common.poll_transfers, args_list=[((external_host, xfers, process, thread), {})])
-                    xfer_requests = makeRequests(common.poll_transfers, args_list=[((), {'external_host': external_host, 'xfers': xfers, 'process': process, 'thread': thread})])
-                    [threadPool.putRequest(xfer_req) for xfer_req in xfer_requests]
-            threadPool.wait()
-
+                if len(transfs) < db_bulk / 2:
+                    logging.info("%i:%i - only %s transfers for activity %s, which is less than half of the bulk %s, will sleep % seconds" % (process, hb['assign_thread'], len(transfs), activity, db_bulk, sleep_time))
+                    if activity_next_exe_time[activity] < time.time():
+                        activity_next_exe_time[activity] = time.time() + sleep_time
         except:
-            logging.critical(traceback.format_exc())
+            logging.critical("%i:%i - %s" % (process, hb['assign_thread'], traceback.format_exc()))
 
         if once:
             return
 
-    logging.debug('%i:%i - graceful stop requests' % (process, thread))
+    logging.debug('%i:%i - graceful stop requests' % (process, hb['assign_thread']))
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.debug('%i:%i - graceful stop done' % (process, thread))
+    logging.debug('%i:%i - graceful stop done' % (process, hb['assign_thread']))
 
 
 def stop(signum=None, frame=None):
@@ -129,7 +143,7 @@ def stop(signum=None, frame=None):
 
 
 def run(once=False,
-        process=0, total_processes=1, total_threads=1,
+        process=0, total_processes=1, total_threads=1, sleep_time=60, activities=None,
         fts_bulk=100, db_bulk=1000, older_than=60, activity_shares=None):
     """
     Starts up the conveyer threads.
@@ -156,7 +170,7 @@ def run(once=False,
 
     if once:
         logging.info('executing one poller iteration only')
-        poller(once=once, fts_bulk=fts_bulk, db_bulk=db_bulk, older_than=older_than, activity_shares=activity_shares)
+        poller(once=once, fts_bulk=fts_bulk, db_bulk=db_bulk, older_than=older_than, activities=activities, activity_shares=activity_shares)
 
     else:
 
@@ -169,6 +183,8 @@ def run(once=False,
                                                            'older_than': older_than,
                                                            'fts_bulk': fts_bulk,
                                                            'db_bulk': db_bulk,
+                                                           'sleep_time': sleep_time,
+                                                           'activities': activities,
                                                            'activity_shares': activity_shares})]
 
         [t.start() for t in threads]

@@ -23,6 +23,7 @@ import threading
 import time
 import traceback
 
+from collections import defaultdict
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
@@ -40,7 +41,7 @@ logging.basicConfig(stream=sys.stdout,
 graceful_stop = threading.Event()
 
 
-def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1, bulk=1000):
+def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1, sleep_time=60, activities=None, bulk=1000):
     """
     Main loop to update the replicas and rules based on finished requests.
     """
@@ -52,61 +53,71 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
+    heartbeat.sanity_check(executable=executable, hostname=hostname)
+    hb = heartbeat.live(executable, hostname, pid, hb_thread)
 
     logging.info('finisher started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
-                                                                                  thread, total_threads,
+                                                                                  hb['assign_thread'], hb['nr_threads'],
                                                                                   bulk))
 
+    activity_next_exe_time = defaultdict(time.time)
+    sleeping = False
     while not graceful_stop.is_set():
 
         try:
-            heartbeat.live(executable, hostname, pid, hb_thread)
+            if not sleeping:
+                sleeping = True
+                hb = heartbeat.live(executable, hostname, pid, hb_thread)
+                logging.info('finisher - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
 
-            ts = time.time()
+            if activities is None:
+                activities = [None]
+            for activity in activities:
+                if activity_next_exe_time[activity] > time.time():
+                    time.sleep(1)
+                    continue
+                sleeping = False
 
-            logging.debug('%i:%i - start to update %s finished requests' % (process, thread, bulk))
-            reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                    state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING],
-                                    limit=bulk,
-                                    older_than=datetime.datetime.utcnow(),
-                                    process=process, total_processes=total_processes,
-                                    thread=thread, total_threads=total_threads)
-            record_timer('daemons.conveyor.finisher.000-get_next', (time.time()-ts)*1000)
+                ts = time.time()
+                logging.debug('%i:%i - start to update %s finished requests for activity %s' % (process, hb['assign_thread'], bulk, activity))
+                reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                        state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING],
+                                        limit=bulk,
+                                        older_than=datetime.datetime.utcnow(),
+                                        activity=activity,
+                                        process=process, total_processes=total_processes,
+                                        thread=hb['assign_thread'], total_threads=hb['nr_threads'])
+                record_timer('daemons.conveyor.finisher.000-get_next', (time.time()-ts)*1000)
 
-            if reqs:
-                logging.debug('%i:%i - updating %i requests' % (process, thread, len(reqs)))
+                if reqs:
+                    logging.debug('%i:%i - updating %i requests for activity %s' % (process, hb['assign_thread'], len(reqs), activity))
 
-            if not reqs or reqs == []:
-                if once:
-                    break
-                logging.debug("no requests found. will sleep 60 seconds")
-                time.sleep(60)  # Only sleep if there is nothing to do
-                continue
+                ts = time.time()
+                common.handle_requests(reqs)
+                record_timer('daemons.conveyor.finisher.handle_requests', (time.time()-ts)*1000/(len(reqs) if len(reqs) else 1))
+                record_counter('daemons.conveyor.finisher.handle_requests', len(reqs))
 
-            ts = time.time()
-            common.handle_requests(reqs)
-            record_timer('daemons.conveyor.finisher.handle_requests', (time.time()-ts)*1000/len(reqs))
-            record_counter('daemons.conveyor.finisher.handle_requests', len(reqs))
+                if len(reqs) < bulk / 2:
+                    logging.info("%i:%i - only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (process, hb['assign_thread'], len(reqs), activity, bulk, sleep_time))
+                    if activity_next_exe_time[activity] < time.time():
+                        activity_next_exe_time[activity] = time.time() + sleep_time
 
-            if len(reqs) < 100:
-                logging.debug("not enough requests found. will sleep 60 seconds")
-                time.sleep(60)
         except (DatabaseException, DatabaseError), e:
             if isinstance(e.args[0], tuple) and (re.match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
-                logging.warn("Lock detected when handling request - skipping: %s" % str(e))
+                logging.warn("%i:%i - Lock detected when handling request - skipping: %s" % (process, hb['assign_thread'], str(e)))
             else:
-                logging.error(traceback.format_exc())
+                logging.error("%i:%i - %s" % (process, hb['assign_thread'], traceback.format_exc()))
         except:
-            logging.critical(traceback.format_exc())
+            logging.critical("%i:%i - %s" % (process, hb['assign_thread'], traceback.format_exc()))
 
         if once:
             return
 
-    logging.debug('%i:%i - graceful stop requests' % (process, thread))
+    logging.debug('%i:%i - graceful stop requests' % (process, hb['assign_thread']))
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.debug('%i:%i - graceful stop done' % (process, thread))
+    logging.debug('%i:%i - graceful stop done' % (process, hb['assign_thread']))
 
 
 def stop(signum=None, frame=None):
@@ -117,14 +128,14 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000):
+def run(once=False, process=0, total_processes=1, total_threads=1, sleep_time=60, activities=None, bulk=1000):
     """
     Starts up the conveyer threads.
     """
 
     if once:
         logging.info('executing one finisher iteration only')
-        finisher(once=once, bulk=bulk)
+        finisher(once=once, activities=activities, bulk=bulk)
 
     else:
 
@@ -133,6 +144,8 @@ def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000):
                                                              'total_processes': total_processes,
                                                              'thread': i,
                                                              'total_threads': total_threads,
+                                                             'sleep_time': sleep_time,
+                                                             'activities': activities,
                                                              'bulk': bulk}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
