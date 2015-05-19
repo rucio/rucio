@@ -985,7 +985,6 @@ def download(args):
             logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, error))
             return FAILURE
 
-
     for scope, name in dids:
         try:
             did_info = client.get_did(scope, name)
