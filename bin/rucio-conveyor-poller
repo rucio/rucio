@@ -38,6 +38,10 @@ if __name__ == "__main__":
                         help='Bulk control: number of transfers per db query')
     parser.add_argument("--older-than", action="store", default=60, type=int,
                         help='Poll control: older request more than this value to poll')
+    parser.add_argument('--sleep-time', action="store", default=300, type=int,
+                        help='Seconds to sleep if few requests')
+    parser.add_argument('--activities', nargs='+', type=str,
+                        help='Explicit list of activities to include')
     parser.add_argument('--activity-shares', action='store', default=None, type=str,
                         help='JSON-encoded string of an activity shares dictionary {"act_1": 0.2, "act_2": 0.4, ...}')
     args = parser.parse_args()
@@ -50,6 +54,8 @@ if __name__ == "__main__":
             fts_bulk=args.fts_bulk,
             db_bulk=args.db_bulk,
             older_than=args.older_than,
+            sleep_time=args.sleep_time,
+            activities=args.activities,
             activity_shares=args.activity_shares)
     except KeyboardInterrupt:
         stop()
