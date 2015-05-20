@@ -181,21 +181,17 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
-        space_token = ''
-        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
-            space_token = '--sst %s' % self.attributes['extended_attributes']['space_token']
-
         try:
-            cmd = 'lcg-cp $LCGVO -v -b --srm-timeout 3600 -D srmv2 %s %s file:%s' % (space_token, path, dest)
+            cmd = 'lcg-cp $LCGVO -v -b --srm-timeout 3600 -D srmv2 %s file:%s' % (path, dest)
             status, out, err = execute(cmd)
             if status:
                 if self.__parse_srm_error__("SRM_INVALID_PATH", out, err):
                     raise exception.SourceNotFound(err)
                 raise exception.RucioException(err)
-        except exception.SourceNotFound as e:
-            raise exception.SourceNotFound(str(e))
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except exception.SourceNotFound as error:
+            raise exception.SourceNotFound(str(error))
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def put(self, source, target, source_dir):
         """
@@ -223,8 +219,8 @@ class Default(protocol.RSEProtocol):
             status, out, err = execute(cmd)
             if status:
                 raise exception.RucioException(err)
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def delete(self, path):
         """
@@ -248,10 +244,10 @@ class Default(protocol.RSEProtocol):
                     if self.__parse_srm_error__("SRM_INVALID_PATH", out, err):
                         raise exception.SourceNotFound(err)
                     raise exception.RucioException(err)
-        except exception.SourceNotFound as e:
-            raise exception.SourceNotFound(str(e))
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except exception.SourceNotFound as error:
+            raise exception.SourceNotFound(str(error))
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def rename(self, path, new_path):
         """
@@ -274,8 +270,8 @@ class Default(protocol.RSEProtocol):
             status, out, err = execute(cmd)
             if status:
                 raise exception.RucioException(err)
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def exists(self, path):
         """
@@ -292,8 +288,8 @@ class Default(protocol.RSEProtocol):
             if status:
                 return False
             return True
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+        except Exception as error:
+            raise exception.ServiceUnavailable(error)
 
     def __parse_srm_error__(self, err_code, out, err):
         """Parse the error message to return error code."""

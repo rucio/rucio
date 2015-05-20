@@ -1329,11 +1329,9 @@ class DQ2Client:
             name = name[:-1]
         self.client.add_container(scope=scope, name=name)
         if datasets:
-            # self.client.add_datasets_to_container(scope=scope, name=name, datasets=datasets)
-            # is the parameter name change from datasets to dsn?
             self.client.add_datasets_to_container(scope=scope, name=name, dsn=datasets)
 
-    def registerDatasetLocation(self, dsn, location, version=0, complete=0, group=None, archived=None, acl_alias=None, lifetime=None, pin_lifetime=None, scope=None):
+    def registerDatasetLocation(self, dsn, location, version=0, complete=0, group=None, archived=None, acl_alias=None, lifetime=None, pin_lifetime=None, activity=None, scope=None):
         """
         Register new replica of a dataset(which must already defined in the repository)
 
@@ -1348,6 +1346,7 @@ class DQ2Client:
         @param archived: Obsolete argument (still here to maintain backward compatibility).
         @param lifetime: Dataset replica lifetime. Acceptable formats are: "X days" or "X days, HH:MM:SS" or "HH:MM:SS".
         @param pin_lifetime: Pin replica lifetime. Acceptable formats are: "X days" or "X days, HH:MM:SS" or "HH:MM:SS".
+        @param activity: is the activity.
         @param scope: is the dataset scope.
 
         B{Exceptions:}
@@ -1381,7 +1380,9 @@ class DQ2Client:
                 else:
                     lifetime = 14 * 86400
             ignore_availability = (self.client.account == 'panda')
-            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N', ignore_availability=ignore_availability)
+            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime,
+                                             grouping='DATASET', account=self.client.account, locked=False, notify='N',
+                                             ignore_availability=ignore_availability, activity=activity)
         except Duplicate:
             return True
         return True
@@ -1646,7 +1647,7 @@ class DQ2Client:
         elif errorlist != []:
             raise Exception
 
-    def registerNewDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None, provenance=None, group=None, hidden=False, scope=None, rse=None, pfns=[], events=[], lumiblocknrs=[]):
+    def registerNewDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None, provenance=None, group=None, hidden=False, scope=None, rse=None, pfns=[], events=[], lumiblocknrs=[], activity=None):
         """
         Register a brand new dataset and associated files (lists of lfns and guids).
         @since: 0.2.0
@@ -1669,6 +1670,7 @@ class DQ2Client:
         @param pfns: is a list of PFN.
         @param events: is a list of number of events.
         @param lumiblocknrs: is a list of lumiblocks.
+        @param activity: is the activity
 
 
         B{Exceptions:}
@@ -1722,8 +1724,9 @@ class DQ2Client:
                     else:
                         lifetime = 14 * 86400
                 ignore_availability = (self.client.account == 'panda')
-                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False,
-                                                 notify='N', ignore_availability=ignore_availability)
+                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=lifetime,
+                                                 grouping='DATASET', account=self.client.account, locked=False,
+                                                 notify='N', ignore_availability=ignore_availability, activity=activity)
             except Duplicate:
                 pass
         return {'duid': duid, 'version': 1, 'vuid': vuid}
