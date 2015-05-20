@@ -64,7 +64,7 @@ def setup_logger(logger):
     logger.setLevel(logging.INFO)
     hdlr = logging.StreamHandler()
 
-    def emit_decorator(fn):
+    def emit_decorator(fnc):
         def func(*args):
             if 'RUCIO_LOGGING_FORMAT' not in os.environ:
                 levelno = args[0].levelno
@@ -84,7 +84,7 @@ def setup_logger(logger):
             else:
                 formatter = logging.Formatter(os.environ['RUCIO_LOGGING_FORMAT'])
             hdlr.setFormatter(formatter)
-            return fn(*args)
+            return fnc(*args)
         return func
     hdlr.emit = emit_decorator(hdlr.emit)
     logger.addHandler(hdlr)
@@ -482,7 +482,7 @@ def list_dids(args):
             table.append(['%s:%s' % (did_info['scope'], did_info['name']), did_info['type'].upper()])
 
     if args.short:
-        for did, did_type in table:
+        for did, dummy in table:
             print did
     else:
         print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
@@ -843,33 +843,33 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
         trace['filesize'] = file['bytes']
         trace['eventType'] = 'download'
         trace['eventVersion'] = version.RUCIO_VERSION[0]
-        list_rses = file['rses'].keys()
-        if list_rses == []:
+        rses = file['rses'].keys()
+        if rses == []:
             logger.warning('File %s:%s has no available replicas. Cannot be downloaded.' % (file['scope'], file['name']))
         rse_to_remove = []
-        for rse in list_rses:
+        for rse in rses:
             if str(rse) in tape_endpoints:
                 rse_to_remove.append(rse)
-        if len(list_rses) == len(rse_to_remove):
+        if len(rses) == len(rse_to_remove):
             if not is_admin:
                 logger.warning('File %s:%s has no replicas available on disk endpoints and cannot be downloaded. Please ask for a replication' % (file['scope'], file['name']))
                 sys.exit(1)
             else:
                 logger.warning('File %s:%s has no replicas available on disk endpoints. Will be downloaded from TAPE.' % (file['scope'], file['name']))
-        if last_chosen_rse and last_chosen_rse in list_rses:
-            idx = list_rses.index(last_chosen_rse)
-            list_rses[idx], list_rses[0] = list_rses[0], list_rses[idx]
+        if last_chosen_rse and last_chosen_rse in rses:
+            idx = rses.index(last_chosen_rse)
+            rses[idx], rses[0] = rses[0], rses[idx]
         else:
-            random.shuffle(list_rses)
+            random.shuffle(rses)
         logger.debug('Choosing RSE')
         index = 0
         download_ok = 0
         if args.rse:
-            if args.rse in list_rses:
-                list_rses = [args.rse]
+            if args.rse in rses:
+                rses = [args.rse]
             else:
-                list_rses = []
-        for rse in list_rses:
+                rses = []
+        for rse in rses:
             if rse not in rse_dict:
                 rse_dict[rse] = rsemgr.get_rse_info(rse)
             if args.protocol:
@@ -922,7 +922,7 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
                         logger.warning(error)
                         break
                 index += 1
-                if index != len(list_rses):
+                if index != len(rses):
                     logger.debug('Will retry download on an other RSE')
         if not download_ok:
             logger.error('Cannot download file %s:%s' % (file['scope'], file['name']))
@@ -931,15 +931,16 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
     sys.exit(0)
 
 
-def _file_exists(type, scope, name, dir, dsn=None):
+def _file_exists(type, scope, name, directory, dsn=None):
     file_exists = False
     dest_dir = None
     if type != 'FILE':
-        dest_dir = '%s/%s' % (dir, dsn)
+        dest_dir = '%s/%s' % (directory, dsn)
         if os.path.isfile('%s/%s' % (dest_dir, name)):
             file_exists = True
     else:
-        if os.path.isfile('%s/%s' % (scope, name)):
+        dest_dir = '%s/%s' % (directory, scope)
+        if os.path.isfile('%s/%s' % (dest_dir, name)):
             file_exists = True
     return file_exists, dest_dir
 
