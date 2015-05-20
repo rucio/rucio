@@ -68,7 +68,8 @@ if __name__ == '__main__':
             r.add_rse_attribute(name, 'cloud', str(rse['cloud']), 'root')
             r.add_rse_attribute(name, 'spacetoken', str(rse['token']), 'root')
             r.add_rse_attribute(name, 'site', str(rse['site']), 'root')
-            if name.endswith('_LOCALGROUPDISK') or name.endswith('_USERDISK'):
+            r.add_rse_attribute(name, 'type', str(rse['type']), 'root')
+            if rse['type'] == 'LOCALGROUPDISK' or rse['type'] == 'USERDISK':
                 country = countrycodes[str(rse['country'])]
                 if name.startswith('CERN'):
                     country = 'cern'
