@@ -958,17 +958,18 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
 
-    return query.yield_per(limit).limit(limit).all()
+    return query.limit(limit).all()
 
 
 @read_session
-def get_stuck_rules(total_workers, worker_number, delta=600, session=None):
+def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=None):
     """
     Get stuck rules.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param delta:              Delta in seconds to select rules in.
+    :param limit:              Maximum number of rules to select.
     :param session:            Database session in use.
     """
 
@@ -995,7 +996,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, session=None):
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
 
-    return query.all()
+    return query.limit(limit).all()
 
 
 @transactional_session
