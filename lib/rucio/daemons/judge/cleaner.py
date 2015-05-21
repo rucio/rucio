@@ -30,9 +30,9 @@ from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, AccessDenied, RuleNotFound
-from rucio.core.heartbeat import live, die
+from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rule import delete_rule, get_expired_rules
-from rucio.core.monitor import record_gauge, record_counter
+from rucio.core.monitor import record_counter
 
 graceful_stop = threading.Event()
 
@@ -41,7 +41,7 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per_process=1):
+def rule_cleaner(once=False):
     """
     Main loop to check for expired replication rules
     """
@@ -56,16 +56,20 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
 
     paused_rules = {}  # {rule_id: datetime}
 
+    # Make an initial heartbeat so that all judge-cleaners have the correct worker number on the next try
+    live(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
+    graceful_stop.wait(1)
+
     while not graceful_stop.is_set():
         try:
             # heartbeat
-            live(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
+            heartbeat = live(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
 
             start = time.time()
-            rules = get_expired_rules(total_workers=total_processes*threads_per_process-1,
-                                      worker_number=process*threads_per_process+thread,
-                                      limit=1000)
-            logging.debug('rule_cleaner index query time %f fetch size is %d' % (time.time() - start, len(rules)))
+            rules = get_expired_rules(total_workers=heartbeat['nr_threads']-1,
+                                      worker_number=heartbeat['assign_thread'],
+                                      limit=200)
+            logging.debug('rule_cleaner[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, time.time() - start, len(rules)))
 
             # Refresh paused rules
             iter_paused_rules = deepcopy(paused_rules)
@@ -77,26 +81,25 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
             rules = [rule for rule in rules if rule[0] not in paused_rules]
 
             if not rules and not once:
-                logging.info('rule_cleaner[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1))
-                graceful_stop.wait(10)
+                logging.info('rule_cleaner[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
+                graceful_stop.wait(60)
             else:
-                record_gauge('rule.judge.cleaner.threads.%d' % (process*threads_per_process+thread), 1)
                 for rule in rules:
                     rule_id = rule[0]
                     rule_expression = rule[1]
-                    logging.info('rule_cleaner[%s/%s]: Deleting rule %s with expression %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id, rule_expression))
+                    logging.info('rule_cleaner[%s/%s]: Deleting rule %s with expression %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id, rule_expression))
                     if graceful_stop.is_set():
                         break
                     try:
                         start = time.time()
                         delete_rule(rule_id=rule_id, nowait=True)
-                        logging.debug('rule_cleaner[%s/%s]: deletion of %s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id, time.time() - start))
+                        logging.debug('rule_cleaner[%s/%s]: deletion of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id, time.time() - start))
                     except (DatabaseException, DatabaseError, AccessDenied), e:
                         if isinstance(e.args[0], tuple):
                             if match('.*ORA-00054.*', e.args[0][0]):
                                 paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                                 record_counter('rule.judge.exceptions.LocksDetected')
-                                logging.warning('rule_cleaner[%s/%s]: Locks detected for %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
+                                logging.warning('rule_cleaner[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
                             else:
                                 logging.error(traceback.format_exc())
                                 record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
@@ -105,10 +108,8 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                     except RuleNotFound, e:
                         pass
-                record_gauge('rule.judge.cleaner.threads.%d' % (process*threads_per_process+thread), 0)
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-            record_gauge('rule.judge.cleaner.threads.%d' % (process*threads_per_process+thread), 0)
             logging.critical(traceback.format_exc())
         if once:
             break
@@ -116,7 +117,6 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
     die(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
 
     logging.info('rule_cleaner: graceful stop requested')
-    record_gauge('rule.judge.cleaner.threads.%d' % (process*threads_per_process+thread), 0)
     logging.info('rule_cleaner: graceful stop done')
 
 
@@ -128,7 +128,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, threads_per_process=1):
+def run(once=False, threads=1):
     """
     Starts up the Judge-Clean threads.
     """
@@ -142,15 +142,15 @@ def run(once=False, process=0, total_processes=1, threads_per_process=1):
     except:
         return
 
-    for i in xrange(process * threads_per_process, max(0, process * threads_per_process + threads_per_process - 1)):
-        record_gauge('rule.judge.cleaner.threads.%d' % i, 0)
+    hostname = socket.gethostname()
+    sanity_check(executable='rucio-judge-cleaner', hostname=hostname)
 
     if once:
         logging.info('main: executing one iteration only')
         rule_cleaner(once)
     else:
         logging.info('main: starting threads')
-        threads = [threading.Thread(target=rule_cleaner, kwargs={'process': process, 'total_processes': total_processes, 'once': once, 'thread': i, 'threads_per_process': threads_per_process}) for i in xrange(0, threads_per_process)]
+        threads = [threading.Thread(target=rule_cleaner, kwargs={'once': once}) for i in xrange(0, threads)]
         [t.start() for t in threads]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
