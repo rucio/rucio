@@ -11,6 +11,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2015
 
 """
 SQLAlchemy models for rucio data
@@ -856,6 +857,20 @@ class Source(BASE, ModelBase):
                    Index('SOURCES_SRC_DST_IDX', 'rse_id', 'dest_rse_id'),
                    Index('SOURCES_SC_NM_DST_IDX', 'scope', 'rse_id', 'name'),
                    Index('SOURCES_DEST_RSEID_IDX', 'dest_rse_id'))
+
+
+class Distance(BASE, ModelBase):
+    """Represents distance between rses"""
+    __tablename__ = 'distances'
+    src_rse_id = Column(GUID())
+    dest_rse_id = Column(GUID())
+    ranking = Column(Integer())
+    agis_distance = Column(Integer())
+    geoip_distance = Column(Integer())
+    _table_args = (PrimaryKeyConstraint('src_rse_id', 'dest_rse_id', name='DISTANCES_PK'),
+                   ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='DISTANCES_SRC_RSES_FK'),
+                   ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='DISTANCES_DEST_RSES_FK'),
+                   Index('DISTANCES_DEST_RSEID_IDX', 'dest_rse_id'))
 
 
 class Subscription(BASE, ModelBase, Versioned):

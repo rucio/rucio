@@ -1049,6 +1049,33 @@ CREATE INDEX ATLAS_RUCIO."SOURCES_SC_NM_DST_IDX" ON ATLAS_RUCIO.SOURCES (scope, 
 
 CREATE INDEX ATLAS_RUCIO."SOURCES_DEST_RSEID_IDX" ON ATLAS_RUCIO.SOURCES (dest_rse_id) COMPRESS 1 ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
 
+
+
+-- ========================================= DISTANCE =========================================
+-- Description: Table to store distance between rses
+-- Estimated volume: 400k
+-- Access patterns:
+--  by src_rse_id, dest_rse_id (to get distance between rses)
+--  by dest_rse_id (to get all source rses distance)
+
+CREATE TABLE ATLAS_RUCIO.DISTANCES (
+        SRC_RSE_ID RAW(16) NOT NULL,
+        DEST_RSE_ID RAW(16) NOT NULL,
+        RANKING INTEGER,
+        AGIS_DISTANCE INTEGER,
+        GEOIP_DISTANCE INTEGER,
+        UPDATED_AT DATE,
+        CREATED_AT DATE,
+        CONSTRAINT "DISTANCES_PK" PRIMARY KEY (SRC_RSE_ID, DEST_RSE_ID) USING INDEX COMPRESS 1,
+        CONSTRAINT "DISTANCES_SRC_RSES_FK" FOREIGN KEY(SRC_RSE_ID) REFERENCES ATLAS_RUCIO.RSES (ID),
+        CONSTRAINT "DISTANCES_DEST_RSES_FK" FOREIGN KEY(DEST_RSE_ID) REFERENCES ATLAS_RUCIO.RSES (ID),
+        CONSTRAINT "DISTANCES_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
+        CONSTRAINT "DISTANCES_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
+CREATE INDEX ATLAS_RUCIO."DISTANCES_DEST_RSEID_IDX" ON ATLAS_RUCIO.DISTANCES (dest_rse_id) COMPRESS 1 ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
+
+
 -- ========================================= MESSAGES =========================================
 -- Previously called: CALLBACKS
 -- Description: Table to store messages before sending them to a broker
