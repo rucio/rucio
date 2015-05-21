@@ -117,10 +117,14 @@ if __name__ == '__main__':
                         ca = user._CA
                         email = user._mail
                         result = admin.call_method('list-user-attributes', dn, ca)
+                        if result is None:
+                            print "Failed to list-user-attributes for dn: %(dn)" % locals()
+                            continue
                         nickname = None
                         try:
                             nickname = result[0]._value
                         except TypeError, e:
+                            print 'Failed to process DN: %s' % dn
                             print e
                             pass
                         if nickname:
@@ -132,11 +136,19 @@ if __name__ == '__main__':
                                         print 'Account %(account)s added' % locals()
                                     except Duplicate:
                                         pass
-                                try:
-                                    c.add_identity(account=account, identity=dn, authtype='X509', email=email, default=True)
-                                    print 'Identity %(dn)s added' % locals()
-                                except Duplicate:
-                                    pass
+                                # Get all certificates associated to this account
+                                certs_result = admin.call_method('get-certificates', dn, ca)
+                                for cert in certs_result:
+                                    try:
+                                        account_dn = cert.get_element_subject()
+                                    except:
+                                        print "Warning: cert.get_element_subject() failed for dn: %(account_dn)s" % locals()
+                                    else:
+                                        try:
+                                            c.add_identity(account=account, identity=account_dn, authtype='X509', email=email, default=True)
+                                            print 'Identity %(account_dn)s added' % locals()
+                                        except Duplicate:
+                                            pass
                                 scope = 'user.' + account
                                 if scope not in scopes:
                                     try:
