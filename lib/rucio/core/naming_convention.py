@@ -118,6 +118,11 @@ def validate_name(scope, name, did_type, session=None):
 
     :returns: a dictionary with metadata.
     """
+    if scope.startswith('user'):
+        return {'project': 'user'}
+    elif scope.startswith('group'):
+        return {'project': 'group'}
+
     # Check if naming convention can be found in cache region
     regexp = REGION.get(str(scope))
     if regexp is NO_VALUE:  # no cached entry found
