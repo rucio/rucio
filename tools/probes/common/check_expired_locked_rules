@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+
+'''
+Probe to check the locked expired rules
+'''
+
+import sys
+from rucio.db.session import get_session
+
+# Exit statuses
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
+
+
+def main():
+    '''
+    Probe to check the locked expired rules
+    '''
+    try:
+        status = OK
+        session = get_session()
+        query = "select rawtohex(id), scope, name, rse_expression from atlas_rucio.rules where locked=1 and expires_at<sysdate"
+        for row in session.execute(query):
+            status = CRITICAL
+            print row[0], row[1], row[2], row[3]
+    except Exception as error:
+        print error
+        status = UNKNOWN
+        sys.exit(status)
+    sys.exit(status)
+
+
+
+if __name__ == "__main__":
+    main()
