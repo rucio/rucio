@@ -32,6 +32,7 @@ from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
 from rucio.core.account import add_account_attribute
 from rucio.core.account_limit import set_account_limit, delete_account_limit
+from rucio.core.request import get_request_by_did
 from rucio.core.replica import add_replica, get_replica
 from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse, get_rse_id
 from rucio.core.rse_counter import get_counter as get_rse_counter
@@ -280,7 +281,7 @@ class TestReplicationRuleCore():
             assert(len(t1.intersection(rse_locks)) == 2)
             assert(len(first_locks.intersection(rse_locks)) == 2)
 
-    def test_add_rule_dataset_dataset(self):
+    def test_add_rule_requests(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, DATASET Grouping"""
         scope = 'mock'
         files = create_files(3, scope, self.rse1)
@@ -304,6 +305,19 @@ class TestReplicationRuleCore():
         dataset_locks = [lock for lock in get_dataset_locks(scope=scope, name=dataset)]
         assert(len(t1.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
         assert(len(first_locks.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
+
+    def test_add_rule_dataset_dataset(self):
+        """ REPLICATION RULE (CORE): Add a replication rule on a dataset and check if requests are created"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        for file in files:
+            get_request_by_did(scope=file['scope'], name=file['name'], rse=self.rse5)
 
     def test_add_rule_container_dataset(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, DATASET Grouping"""
