@@ -20,23 +20,24 @@ from rucio.common.utils import pid_exists
 
 
 @transactional_session
-def sanity_check(executable, hostname, session=None):
+def sanity_check(executable, hostname, hash_executable=None, session=None):
     """
     Check if processes on the host are still running.
 
-    :param executable: Executable name as a string, e.g., conveyor-submitter
-    :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch
+    :param executable: Executable name as a string, e.g., conveyor-submitter.
+    :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch.
+    :param hash_executable: Hash of the executable.
     """
+    if not hash_executable:
+        hash_executable = hashlib.sha256(executable).hexdigest()
 
-    executable = hashlib.sha256(executable).hexdigest()
-
-    for pid, in session.query(distinct(Heartbeats.pid)).filter_by(executable=executable, hostname=hostname):
+    for pid, in session.query(distinct(Heartbeats.pid)).filter_by(executable=hash_executable, hostname=hostname):
         if not pid_exists(pid):
-            session.query(Heartbeats).filter_by(executable=executable, hostname=hostname, pid=pid).delete()
+            session.query(Heartbeats).filter_by(executable=hash_executable, hostname=hostname, pid=pid).delete()
 
 
 @transactional_session
-def live(executable, hostname, pid, thread, older_than=600, session=None):
+def live(executable, hostname, pid, thread, older_than=600, hash_executable=None, session=None):
     """
     Register a heartbeat for a process/thread on a given node.
     The executable name is used for the calculation of thread assignments.
@@ -44,16 +45,17 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
 
     TODO: Returns an assignment dictionary for the given executable.
 
-    :param executable: Executable name as a string, e.g., conveyor-submitter
-    :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch
-    :param pid: UNIX Process ID as a number, e.g., 1234
-    :param thread: Python Thread Object
-    :param older_than: Ignore specified heartbeats older than specified nr of seconds
+    :param executable: Executable name as a string, e.g., conveyor-submitter.
+    :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch.
+    :param pid: UNIX Process ID as a number, e.g., 1234.
+    :param thread: Python Thread Object.
+    :param older_than: Ignore specified heartbeats older than specified nr of seconds.
+    :param hash_executable: Hash of the executable.
 
     :returns heartbeats: Dictionary {assign_thread, nr_threads}
     """
-
-    hash_executable = hashlib.sha256(executable).hexdigest()
+    if not hash_executable:
+        hash_executable = hashlib.sha256(executable).hexdigest()
 
     # upsert the heartbeat
     rowcount = session.query(Heartbeats)\
@@ -98,7 +100,7 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
 
 
 @transactional_session
-def die(executable, hostname, pid, thread, older_than=None, session=None):
+def die(executable, hostname, pid, thread, older_than=None, hash_executable=None, session=None):
     """
     Remove a single heartbeat older than specified.
 
@@ -107,13 +109,14 @@ def die(executable, hostname, pid, thread, older_than=None, session=None):
     :param pid: UNIX Process ID as a number, e.g., 1234
     :param thread: Python Thread Object
     :param older_than: Removes specified heartbeats older than specified nr of seconds
+    :param hash_executable: Hash of the executable.
 
     :returns heartbeats: Dictionary {assign_thread, nr_threads}
     """
+    if not hash_executable:
+        hash_executable = hashlib.sha256(executable).hexdigest()
 
-    executable = hashlib.sha256(executable).hexdigest()
-
-    query = session.query(Heartbeats).filter_by(executable=executable,
+    query = session.query(Heartbeats).filter_by(executable=hash_executable,
                                                 hostname=hostname,
                                                 pid=pid,
                                                 thread_id=thread.ident)

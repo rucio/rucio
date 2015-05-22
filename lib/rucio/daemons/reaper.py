@@ -15,6 +15,7 @@ Reaper is a daemon to manage file deletion.
 '''
 
 import datetime
+import hashlib
 import logging
 import math
 import os
@@ -111,22 +112,27 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     """
     logging.info('Starting Reaper: Worker %(worker_number)s, child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
 
-    hostname = socket.gethostname()
     pid = os.getpid()
     thread = threading.current_thread()
-    executable = 'rucio-reaper' + ' '.join(sys.argv)
-    sanity_check(executable=executable, hostname=hostname)
+    hostname = socket.gethostname()
+    executable = ' '.join(sys.argv)
+    # Generate a hash just for the subset of RSEs
+    rse_names = [rse['rse'] for rse in rses]
+    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rse_names)).hexdigest()
+    sanity_check(executable=executable, hostname=hostname, hash_executable=hash_executable)
+
     while not GRACEFUL_STOP.is_set():
         try:
             # heartbeat
-            live(executable=executable, hostname=hostname, pid=pid, thread=thread)
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
             checkpoint_time = datetime.datetime.now()
+            logging.info('Reaper({0[worker_number]}/{0[child_number]}): Live gives {0[heartbeat]}'.format(locals()))
 
             max_deleting_rate, nothing_to_do = 0, True
             for rse in sort_rses(rses):
                 try:
                     if checkpoint_time + datetime.timedelta(minutes=1) < datetime.datetime.now():
-                        heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread)
+                        heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
                         logging.info('Reaper({0[worker_number]}/{0[child_number]}): Live gives {0[heartbeat]}'.format(locals()))
                         checkpoint_time = datetime.datetime.now()
 
@@ -289,7 +295,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
         except:
             logging.critical(traceback.format_exc())
 
-    die(executable=executable, hostname=hostname, pid=pid, thread=thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
     logging.info('Graceful stop requested')
     logging.info('Graceful stop done')
     return
