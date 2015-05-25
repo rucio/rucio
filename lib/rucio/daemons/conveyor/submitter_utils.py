@@ -853,7 +853,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
 @read_session
 def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                             activity=None, older_than=None, rses=None, mock=False, session=None):
+                                             activity=None, older_than=None, rses=None, mock=False, schemes=None, session=None):
     req_sources = request.list_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                     activity=activity, older_than=older_than, rses=rses, session=session)
 
@@ -909,7 +909,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                         rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
                     if source_rse_id not in protocols:
-                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write')
+                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', schemes)
 
                     # we need to set the spacetoken if we use SRM
                     dest_spacetoken = None
@@ -930,7 +930,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                         rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
                     if source_rse_id not in protocols:
-                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write')
+                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', schemes)
 
                     # we need to set the spacetoken if we use SRM
                     dest_spacetoken = None
@@ -988,9 +988,9 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
 
 
 def get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                          activity=None, older_than=None, rses=None, mock=False, session=None):
+                          activity=None, older_than=None, rses=None, mock=False, schemes=None, session=None):
     transfers, reqs_no_source = get_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                         activity=activity, older_than=older_than, rses=rses, mock=mock, session=session)
+                                                                         activity=activity, older_than=older_than, rses=rses, mock=mock, schemes=schemes, session=session)
     request.set_requests_state(reqs_no_source, RequestState.LOST)
     return transfers
 
