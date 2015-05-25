@@ -24,13 +24,13 @@ import time
 import traceback
 
 from collections import defaultdict
+from ConfigParser import NoOptionError
+from threadpool import ThreadPool, makeRequests
 
 from rucio.common.config import config_get
-from rucio.core import heartbeat, request
-from rucio.core.monitor import record_counter, record_gauge, record_timer
-from rucio.db.constants import RequestState
-
-from rucio.daemons.conveyor.submitter_utils import get_rses, get_stagein_transfers, bulk_group_transfer
+from rucio.core import heartbeat
+from rucio.core.monitor import record_counter, record_timer
+from rucio.daemons.conveyor.submitter_utils import get_rses, get_stagein_transfers, bulk_group_transfer, submit_transfer
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -47,27 +47,36 @@ def submitter(once=False, rses=[], mock=False,
     Main loop to submit a new transfer primitive to a transfertool.
     """
 
-    logging.info('Stager starting - process (%i/%i) thread (%i/%i)' % (process,
-                                                                       total_processes,
-                                                                       thread,
-                                                                       total_threads))
+    logging.info('Stager starting - process (%i/%i) thread (%i)' % (process,
+                                                                    total_processes,
+                                                                    total_threads))
+
+    try:
+        scheme = config_get('conveyor', 'scheme')
+    except NoOptionError:
+        scheme = None
 
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
+    heartbeat.sanity_check(executable=executable, hostname=hostname)
+    hb = heartbeat.live(executable, hostname, pid, hb_thread)
 
-    logging.info('Stager started - process (%i/%i) thread (%i/%i)' % (process,
-                                                                      total_processes,
-                                                                      thread,
-                                                                      total_threads))
+    logging.info('Stager started - process (%i/%i) thread (%i/%i)' % (process, total_processes,
+                                                                      hb['assign_thread'], hb['nr_threads']))
 
+    threadPool = ThreadPool(total_threads)
     activity_next_exe_time = defaultdict(time.time)
+    sleeping = False
+
     while not graceful_stop.is_set():
 
-        heartbeat.live(executable, hostname, pid, hb_thread)
-
         try:
+            if not sleeping:
+                sleeping = True
+                hb = heartbeat.live(executable, hostname, pid, hb_thread)
+                logging.info('Transfer submitter - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
 
             if activities is None:
                 activities = [None]
@@ -80,79 +89,47 @@ def submitter(once=False, rses=[], mock=False,
                 if activity_next_exe_time[activity] > time.time():
                     time.sleep(1)
                     continue
+                sleeping = False
 
-                logging.info("%s:%s Starting to get stagein transfers" % (process, thread))
+                logging.info("%s:%s Starting to get stagein transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
-                transfers = get_stagein_transfers(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                  activity=activity, rses=rse_ids, mock=mock)
-                record_timer('daemons.conveyor.stager.get_stagein_transfers', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
+                transfers = get_stagein_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'],
+                                                  activity=activity, rses=rse_ids, mock=mock, schemes=scheme)
+                record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.stager.get_stagein_transfers', len(transfers))
-                record_gauge('daemons.conveyor.stager.get_stagein_transfers.gauge', len(transfers))
+                record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', len(transfers))
 
                 # group transfers
-                logging.info("%s:%s Starting to group transfers" % (process, thread))
+                logging.info("%s:%s Starting to group transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy)
                 record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
 
-                logging.info("%s:%s Starting to submit transfers" % (process, thread))
+                logging.info("%s:%s Starting to submit transfers for %s" % (process, hb['assign_thread'], activity))
                 # submit transfers
                 for external_host in grouped_jobs:
                     for job in grouped_jobs[external_host]:
                         # submit transfers
-                        eid = None
-                        try:
-                            ts = time.time()
-                            eid = request.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'])
-                            logging.debug("%s:%s Submit job %s to %s" % (process, thread, eid, external_host))
-                            record_timer('daemons.conveyor.stager.submit_bulk_transfer', (time.time() - ts) * 1000/len(job['files']))
-                            record_counter('daemons.conveyor.stager.submit_bulk_transfer', len(job['files']))
-                            record_gauge('daemons.conveyor.stager.submit_bulk_transfer.gauge', len(job['files']))
-                        except Exception, ex:
-                            logging.error("%s:%s Failed to submit a job with error %s: %s" % (process, thread, str(ex), traceback.format_exc()))
-
-                        # register transfer returns
-                        try:
-                            xfers_ret = {}
-                            for file in job['files']:
-                                file_metadata = file['metadata']
-                                request_id = file_metadata['request_id']
-                                log_str = '%s:%s COPYING REQUEST %s DID %s:%s PREVIOUS %s FROM %s TO %s USING %s ' % (process, thread,
-                                                                                                                      file_metadata['request_id'],
-                                                                                                                      file_metadata['scope'],
-                                                                                                                      file_metadata['name'],
-                                                                                                                      file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
-                                                                                                                      file['sources'],
-                                                                                                                      file['destinations'],
-                                                                                                                      external_host)
-                                if eid:
-                                    xfers_ret[request_id] = {'state': RequestState.SUBMITTED, 'external_host': external_host, 'external_id': eid, 'dest_url':  file['destinations'][0]}
-                                    log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
-                                    logging.info("%s:%s %s" % (process, thread, log_str))
-                                else:
-                                    xfers_ret[request_id] = {'state': RequestState.LOST, 'external_host': external_host, 'external_id': None, 'dest_url': None}
-                                    log_str += 'with state(%s) with eid(%s)' % (RequestState.LOST, None)
-                                    logging.warn("%s:%s %s" % (process, thread, log_str))
-                                xfers_ret[request_id]['file'] = file
-                            request.set_request_transfers(xfers_ret)
-                        except Exception, ex:
-                            logging.error("%s:%s Failed to register transfer state with error %s: %s" % (process, thread, str(ex), traceback.format_exc()))
+                        # job_requests = makeRequests(submit_transfer, args_list=[((external_host, job, 'transfer_submitter', process, thread), {})])
+                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host, 'job': job, 'submitter': 'transfer_submitter', 'process': process, 'thread': hb['assign_thread']})])
+                        [threadPool.putRequest(job_req) for job_req in job_requests]
+                threadPool.wait()
 
                 if len(transfers) < group_bulk:
-                    logging.info('%i:%i - only %s transfers which is less than group bulk %s, sleep %s seconds' % (process, thread, len(transfers), group_bulk, sleep_time))
+                    logging.info('%i:%i - only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (process, hb['assign_thread'], len(transfers), activity, group_bulk, sleep_time))
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
         except:
-            logging.critical('%s:%s %s' % (process, thread, traceback.format_exc()))
+            logging.critical('%s:%s %s' % (process, hb['assign_thread'], traceback.format_exc()))
 
         if once:
             return
 
-    logging.info('graceful stop requested')
+    logging.info('%s:%s graceful stop requested' % (process, hb['assign_thread']))
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info('graceful stop done')
+    logging.info('%s:%s graceful stop done' % (process, hb['assign_thread']))
 
 
 def stop(signum=None, frame=None):
@@ -198,7 +175,6 @@ def run(once=False,
         logging.info('starting submitter threads')
         threads = [threading.Thread(target=submitter, kwargs={'process': process,
                                                               'total_processes': total_processes,
-                                                              'thread': i,
                                                               'total_threads': total_threads,
                                                               'rses': working_rses,
                                                               'bulk': bulk,
@@ -207,7 +183,7 @@ def run(once=False,
                                                               'activities': activities,
                                                               'mock': mock,
                                                               'sleep_time': sleep_time,
-                                                              'fts_source_strategy': fts_source_strategy}) for i in xrange(0, total_threads)]
+                                                              'fts_source_strategy': fts_source_strategy})]
 
         [t.start() for t in threads]
 

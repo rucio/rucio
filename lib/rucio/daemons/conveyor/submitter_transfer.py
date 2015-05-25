@@ -65,15 +65,13 @@ def submitter(once=False, rses=[], mock=False,
     hb = heartbeat.live(executable, hostname, pid, hb_thread)
 
     logging.info('Transfer submitter started - process (%i/%i) threads (%i/%i)' % (process, total_processes,
-                                                                                   hb['assign_thread'], hb['nr_threads'],))
+                                                                                   hb['assign_thread'], hb['nr_threads']))
 
     threadPool = ThreadPool(total_threads)
     activity_next_exe_time = defaultdict(time.time)
     sleeping = False
 
     while not graceful_stop.is_set():
-
-        heartbeat.live(executable, hostname, pid, hb_thread)
 
         try:
             if not sleeping:
