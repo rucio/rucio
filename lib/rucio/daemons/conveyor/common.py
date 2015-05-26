@@ -231,7 +231,10 @@ def handle_requests(reqs):
                     replica['archived'] = False
                     replicas[req['request_type']][req['rule_id']].append(replica)
             elif req['state'] == RequestState.SUBMITTING:
-                if req['updated_at'] < (datetime.datetime.utcnow()-datetime.timedelta(seconds=1800)) and request_core.should_retry_request(req):
+                if req['updated_at'] > (datetime.datetime.utcnow()-datetime.timedelta(seconds=1800)):
+                    continue
+
+                if request_core.should_retry_request(req):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
                     record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
