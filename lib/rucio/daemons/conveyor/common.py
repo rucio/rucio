@@ -288,7 +288,7 @@ def handle_terminated_replicas(replicas):
                     try:
                         request_core.touch_requests_by_rule(rule_id)
                     except (DatabaseException, DatabaseError), e:
-                        logging.error("Failed to touch requests by rule(%s): %" % (rule_id, traceback.format_exc()))
+                        logging.error("Failed to touch requests by rule(%s): %s" % (rule_id, traceback.format_exc()))
                 else:
                     logging.error("Could not finish handling replicas on %s rule %s: %s" % (req_type, rule_id, traceback.format_exc()))
             except:
