@@ -241,8 +241,8 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
             else:
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
-            exists, scope, name = __exists_replicas(rse_id, scope, name, path=None, session=session)
-            if exists:
+            __exists, scope, name = __exists_replicas(rse_id, scope, name, path=None, session=session)
+            if __exists:
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
                 new_bad_replica.save(session=session, flush=False)
@@ -261,8 +261,8 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
         parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
-            exists, scope, name = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
-            if exists:
+            __exists, scope, name = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
+            if __exists:
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
                 new_bad_replica.save(session=session, flush=False)
@@ -281,12 +281,12 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                 raise exception.ReplicaNotFound("One or several replicas don't exist.")
     try:
         session.flush()
-    except IntegrityError, excep:
-        raise exception.RucioException(excep.args)
-    except DatabaseError, excep:
-        raise exception.RucioException(excep.args)
-    except FlushError, excep:
-        raise exception.RucioException(excep.args)
+    except IntegrityError, error:
+        raise exception.RucioException(error.args)
+    except DatabaseError, error:
+        raise exception.RucioException(error.args)
+    except FlushError, error:
+        raise exception.RucioException(error.args)
 
     return unknown_replicas
 
@@ -302,10 +302,26 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     :param status: The status of the file (SUSPICIOUS or BAD).
     :param session: The database session in use.
     """
+    scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, session=session)
+    for rse in files_to_declare:
+        notdeclared = __declare_bad_file_replicas(files_to_declare[rse], rse, reason, issuer, status=status, scheme=scheme, session=session)
+        if notdeclared != []:
+            unknown_replicas[rse] = notdeclared
+    return unknown_replicas
+
+
+@read_session
+def get_pfn_to_rse(pfns, session=None):
+    """
+    Get the RSE associated to a list of PFNs.
+
+    :param pfns: The list of pfn.
+    :param session: The database session in use.
+    """
     unknown_replicas = {}
     storage_elements = []
     se_condition = []
-    files_to_declare = {}
+    dict_rse = {}
     surls = clean_surls(pfns)
     scheme = surls[0].split(':')[0]
     for surl in surls:
@@ -326,29 +342,24 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     hint = None
     for surl in surls:
         if hint and (surl.find(protocols[hint][0]) > -1 or surl.find(protocols[hint][1]) > -1):
-            files_to_declare[hint].append(surl)
+            dict_rse[hint].append(surl)
         else:
             mult_rse_match = 0
             for rse in protocols:
-                if (surl.find(protocols[rse][0]) > -1 or surl.find(protocols[rse][1]) > -1):
+                if surl.find(protocols[rse][0]) > -1 or surl.find(protocols[rse][1]) > -1:
                     mult_rse_match += 1
                     if mult_rse_match > 1:
                         print 'ERROR, multiple matches : %s at %s' % (surl, rse)
                         raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, rse))
                     hint = rse
-                    if hint not in files_to_declare:
-                        files_to_declare[hint] = []
-                    files_to_declare[hint].append(surl)
+                    if hint not in dict_rse:
+                        dict_rse[hint] = []
+                    dict_rse[hint].append(surl)
             if mult_rse_match == 0:
                 if 'unknown' not in unknown_replicas:
                     unknown_replicas['unknown'] = []
                 unknown_replicas['unknown'].append(surl)
-
-    for rse in files_to_declare:
-        notdeclared = __declare_bad_file_replicas(files_to_declare[rse], rse, reason, issuer, status=status, scheme=scheme, session=None)
-        if notdeclared != []:
-            unknown_replicas[rse] = notdeclared
-    return unknown_replicas
+    return scheme, dict_rse, unknown_replicas
 
 
 @read_session
@@ -395,7 +406,7 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
 
 
 @stream_session
-def get_did_from_pfns(pfns, rse, session=None):
+def get_did_from_pfns(pfns, rse=None, session=None):
     """
     Get the DIDs associated to a PFN on one given RSE
 
@@ -404,30 +415,40 @@ def get_did_from_pfns(pfns, rse, session=None):
     :param session: The database session in use.
     :returns: A dictionary {pfn: {'scope': scope, 'name': name}}
     """
-    rse_info = rsemgr.get_rse_info(rse, session=session)
-    rse_id = rse_info['id']
-    pfndict = {}
-    proto = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
-    if rse_info['deterministic']:
-        parsed_pfn = proto.parse_pfns(pfns=pfns)
-        for pfn in parsed_pfn:
-            path = parsed_pfn[pfn]['path']
-            if path.startswith('user') or path.startswith('group'):
-                scope = '%s.%s' % (path.split('/')[0], path.split('/')[1])
-                name = parsed_pfn[pfn]['name']
-            else:
-                scope = path.split('/')[0]
-                name = parsed_pfn[pfn]['name']
-            yield {pfn: {'scope': scope, 'name': name}}
+    dict_rse = {}
+    if not rse:
+        scheme, dict_rse, unknown_replicas = get_pfn_to_rse(pfns, session=session)
+        if unknown_replicas:
+            raise Exception
     else:
-        condition = []
-        parsed_pfn = proto.parse_pfns(pfns=pfns)
-        for pfn in parsed_pfn:
-            path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
-            pfndict[path] = pfn
-            condition.append(and_(models.RSEFileAssociation.path == path, models.RSEFileAssociation.rse_id == rse_id))
-        for scope, name, pfn in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path).filter(or_(*condition)):
-            yield {pfndict[pfn]: {'scope': scope, 'name': name}}
+        scheme = 'srm'
+        dict_rse[rse] = pfns
+    for rse in dict_rse:
+        pfns = dict_rse[rse]
+        rse_info = rsemgr.get_rse_info(rse, session=session)
+        rse_id = rse_info['id']
+        pfndict = {}
+        proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
+        if rse_info['deterministic']:
+            parsed_pfn = proto.parse_pfns(pfns=pfns)
+            for pfn in parsed_pfn:
+                path = parsed_pfn[pfn]['path']
+                if path.startswith('user') or path.startswith('group'):
+                    scope = '%s.%s' % (path.split('/')[0], path.split('/')[1])
+                    name = parsed_pfn[pfn]['name']
+                else:
+                    scope = path.split('/')[0]
+                    name = parsed_pfn[pfn]['name']
+                yield {pfn: {'scope': scope, 'name': name}}
+        else:
+            condition = []
+            parsed_pfn = proto.parse_pfns(pfns=pfns)
+            for pfn in parsed_pfn:
+                path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
+                pfndict[path] = pfn
+                condition.append(and_(models.RSEFileAssociation.path == path, models.RSEFileAssociation.rse_id == rse_id))
+            for scope, name, pfn in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path).filter(or_(*condition)):
+                yield {pfndict[pfn]: {'scope': scope, 'name': name}}
 
 
 @stream_session
@@ -641,14 +662,14 @@ def __bulk_add_new_file_dids(files, account, session=None):
         new_did.save(session=session, flush=False)
     try:
         session.flush()
-    except IntegrityError, e:
-        raise exception.RucioException(e.args)
-    except DatabaseError, e:
-        raise exception.RucioException(e.args)
-    except FlushError, e:
-        if match('New instance .* with identity key .* conflicts with persistent instance', e.args[0]):
+    except IntegrityError, error:
+        raise exception.RucioException(error.args)
+    except DatabaseError, error:
+        raise exception.RucioException(error.args)
+    except FlushError, error:
+        if match('New instance .* with identity key .* conflicts with persistent instance', error.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
-        raise exception.RucioException(e.args)
+        raise exception.RucioException(error.args)
     return True
 
 
@@ -702,10 +723,10 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
     for f in files:
         condition.append(and_(models.RSEFileAssociation.scope == f['scope'], models.RSEFileAssociation.name == f['name'], models.RSEFileAssociation.rse_id == rse_id))
 
-    q = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
         with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
         filter(condition)
-    available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
+    available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in query]
 
     for file in files:
         found = False
@@ -724,15 +745,15 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
     try:
         session.flush()
         return nbfiles, bytes
-    except IntegrityError, e:
-        if match('.*IntegrityError.*ORA-00001: unique constraint .*REPLICAS_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \
-           or e.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique' \
-           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
+    except IntegrityError, error:
+        if match('.*IntegrityError.*ORA-00001: unique constraint .*REPLICAS_PK.*violated.*', error.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*', error.args[0]) \
+           or error.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique' \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.Duplicate("File replica already exists!")
-        raise exception.RucioException(e.args)
-    except DatabaseError, e:
-        raise exception.RucioException(e.args)
+        raise exception.RucioException(error.args)
+    except DatabaseError, error:
+        raise exception.RucioException(error.args)
 
 
 @transactional_session
@@ -754,7 +775,7 @@ def add_replicas(rse, files, account, rse_id=None, ignore_availability=True, ses
     else:
         replica_rse = get_rse(rse=None, rse_id=rse_id, session=session)
 
-    if (not (replica_rse.availability & 2)) and not ignore_availability:
+    if not (replica_rse.availability & 2) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % rse)
 
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
@@ -828,7 +849,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     """
     replica_rse = get_rse(rse=rse, session=session)
 
-    if (not (replica_rse.availability & 1)) and not ignore_availability:
+    if not (replica_rse.availability & 1) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for deleting' % rse)
 
     replica_condition, parent_condition, did_condition, dst_replica_condition = [], [], [], []
@@ -848,16 +869,16 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                   ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
     delta, bytes, rowcount = 0, 0, 0
-    for c in chunks(replica_condition, 10):
+    for chunk in chunks(replica_condition, 10):
         for (scope, name, rse_id, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
-                with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)):
+                with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*chunk)):
             # deleted_replica = models.RSEFileAssociationHistory(rse_id=rse_id, scope=scope, name=name, bytes=replica_bytes)
             # deleted_replica.save(session=session, flush=False)
 
             bytes += replica_bytes
             delta += 1
 
-        rowcount += session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)).delete(synchronize_session=False)
+        rowcount += session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*chunk)).delete(synchronize_session=False)
 
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
@@ -888,12 +909,12 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     # Delete did from the content for the last did
     while parent_condition:
         child_did_condition, tmp_parent_condition = [], []
-        for c in chunks(parent_condition, 10):
+        for chunk in chunks(parent_condition, 10):
 
             query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
                                   models.DataIdentifierAssociation.did_type,
                                   models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).\
-                filter(or_(*c))
+                filter(or_(*chunk))
             for parent_scope, parent_name, did_type, child_scope, child_name in query:
                 child_did_condition.append(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name,
                                                 models.DataIdentifierAssociation.child_scope == child_scope, models.DataIdentifierAssociation.child_name == child_name))
@@ -905,23 +926,23 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
 
         if child_did_condition:
-            for c in chunks(child_did_condition, 10):
+            for chunk in chunks(child_did_condition, 10):
                 rowcount = session.query(models.DataIdentifierAssociation).\
-                    filter(or_(*c)).\
+                    filter(or_(*chunk)).\
                     delete(synchronize_session=False)
             # update parent counters
 
         parent_condition = tmp_parent_condition
 
-    for c in chunks(latest_dataset_replica_condition, 10):
+    for chunk in chunks(latest_dataset_replica_condition, 10):
         rowcount = session.query(models.CollectionReplica).\
-            filter(or_(*c)).\
+            filter(or_(*chunk)).\
             delete(synchronize_session=False)
 
-    for c in chunks(did_condition, 10):
+    for chunk in chunks(did_condition, 10):
         rowcount = session.query(models.DataIdentifier).\
             with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-            filter(or_(*c)).\
+            filter(or_(*chunk)).\
             delete(synchronize_session=False)
 
     # Decrease RSE counter

@@ -407,6 +407,7 @@ class ReplicasDIDs(RucioController):
         json_data = data()
         rse, pfns = None, []
         header('Content-Type', 'application/x-json-stream')
+        rse = None
         try:
             params = parse_response(json_data)
             if 'pfns' in params:

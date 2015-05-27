@@ -35,6 +35,7 @@ import sys
 import tabulate
 import time
 import traceback
+import uuid
 
 from ConfigParser import NoOptionError, NoSectionError
 from functools import wraps
@@ -1424,6 +1425,51 @@ def list_pfns(args):
     return SUCCESS
 
 
+@exception_handler
+def list_parent_datasets(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List the possible PFN for a file at a site.
+
+    """
+    client = get_client(args)
+    inputs = args.inputs.split(',')
+    guids = []
+    pfns = []
+    for input in inputs:
+        try:
+            uuid.UUID(input)
+            guids.append(input)
+        except ValueError:
+            pfns.append(input)
+
+
+    print pfns, guids
+    dict_datasets = {}
+    if pfns:
+        for res in client.get_did_from_pfns(pfns):
+            for key in res:
+                if key not in dict_datasets:
+                    dict_datasets[key] = []
+                for rule in client.list_associated_rules_for_file(res[key]['scope'], res[key]['name']):
+                    if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[key]:
+                        dict_datasets[key].append('%s:%s' % (rule['scope'], rule['name']))
+    for guid in guids:
+        for did in client.get_dataset_by_guid(guid):
+            if guid not in dict_datasets:
+                dict_datasets[guid] = []
+            for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
+                if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
+                    dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
+
+
+    for pfn in dict_datasets:
+        print 'PFN or GUID : ', pfn
+        print 'Parents : ', ','.join(dict_datasets[pfn])
+    return SUCCESS
+
+
 def test_server(args):
     """"
     %(prog)s test-server [options] <field1=value1 field2=value2 ...>
@@ -1483,6 +1529,11 @@ Commands:
     list_file_replicas_parser.add_argument('--list_collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site', required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Target RSE', required=False)
+
+    # The list_parent_datasets command
+    list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List the datasets associated to a PFN')
+    list_parent_datasets_parser.set_defaults(which='list_parent_datasets')
+    list_parent_datasets_parser.add_argument(dest='inputs', action='store', help='SURLs or GUID')
 
     # The list-dataset-replicas command
     list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas')
@@ -1718,6 +1769,7 @@ Commands:
                 'list_dids': list_dids,
                 'list_dataset_replicas': list_dataset_replicas,
                 'list_file_replicas': list_file_replicas,
+                'list_parent_datasets': list_parent_datasets,
                 'list_rses': list_rses,
                 'list_rse-attributes': list_rse_attributes,
                 'list_rse_usage': list_rse_usage,
