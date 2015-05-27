@@ -59,7 +59,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
         raise exc_cls(exc_msg)
 
-    def get_did_from_pfns(self, pfns, rse):
+    def get_did_from_pfns(self, pfns, rse=None):
         """
         Get the DIDs associated to a PFN on one given RSE
 
