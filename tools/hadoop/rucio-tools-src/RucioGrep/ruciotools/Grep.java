@@ -68,6 +68,7 @@ public class Grep {
     TYPES.put("server", new ArrayList<String>(Arrays.asList("server")));
     TYPES.put("transmogrifier", new ArrayList<String>(Arrays.asList("transmogrifier")));
     TYPES.put("undertaker", new ArrayList<String>(Arrays.asList("undertaker")));
+    TYPES.put("lb", new ArrayList<String>(Arrays.asList("lb")));
   }
 
   public static String printJobSummary(Map<String, Object> settings) {
@@ -290,7 +291,7 @@ public class Grep {
   public static String printUsage() {
     String usageString = "Usage: Grep -type <type> -regex <regex> -search <substring>-fromDate <fromDate> -toDate <toDate> -excludeTmpFiles\n"
                        + "<type>: The following values are supported. Can be provided multiple times.\n"
-                       + "  ALL automatix conveyor  hermes  judge kronos\n"
+                       + "  ALL automatix conveyor  hermes  judge kronos lb\n"
                        + "  necromancer reaper  server  transmogrifier  undertaker\n"
                        + "<regex>: supports Java regular expressions (alternating with search)\n"
                        + "<search>: performs a substring search, no addtioional functionality supported (alternating with regex)\n"
@@ -321,18 +322,9 @@ public class Grep {
 */ 
     public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
       String line = value.toString();
-      String[] split = line.split("\\s+");
-      try {
-      String date = split[0];
-      if (split.length < 2) { return; }
-      String tmp = "";
-      for(int i = 2; i < split.length; i++) { tmp = (i < 4) ? tmp+split[i]+"\t" : tmp+split[i]+" ";} 
       String regex = context.getConfiguration().get("regex");
-        if (line.matches(regex)) {
-          context.write(new Text("date\t"), new Text(tmp));
-        }
-      } catch(java.lang.ArrayIndexOutOfBoundsException e) {
-        context.write(new Text("[--------unknown-------- "+serviceName+"@"+nodeName+"]\t"), new Text(line));
+      if (line.matches(regex)) {
+        context.write(new Text(line), new Text(""));
       }
     }
   }
