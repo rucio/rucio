@@ -9,7 +9,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 '''
-Probe to check the locked expired rules
+Probe to check the locked expired rules or datasets with locked rules
 '''
 
 import sys
@@ -21,12 +21,27 @@ OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 def main():
     '''
-    Probe to check the locked expired rules
+    Probe to check the locked expired rules or datasets with locked rules
     '''
+    status = OK
+    session = get_session()
     try:
-        status = OK
-        session = get_session()
         query = "select rawtohex(id), scope, name, rse_expression from atlas_rucio.rules where locked=1 and expires_at<sysdate"
+        print 'Locked expired rules'
+        for row in session.execute(query):
+            status = CRITICAL
+            print row[0], row[1], row[2]
+    except Exception as error:
+        print error
+        status = UNKNOWN
+        sys.exit(status)
+    try:
+        query = """select rawtohex(c.id), c.scope, c.name, c.rse_expression from atlas_rucio.rules c,
+                   (select a.scope, a.name from atlas_rucio.dids a
+                   where a.expired_at is not null and a.expired_at < sys_extract_utc(localtimestamp)
+                   and exists (select 1 from atlas_rucio.rules b where a.scope=b.scope and a.name=b.name and locked=1)) d
+                   where c.scope=d.scope and c.name=d.name and locked=1"""
+        print 'Datasets expired with locked rules'
         for row in session.execute(query):
             status = CRITICAL
             print row[0], row[1], row[2], row[3]
