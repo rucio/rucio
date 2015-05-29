@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015
+
+'''
+Probe to repair rule heatlh
+'''
+
+import sys
+from rucio.db.session import get_session
+
+# Exit statuses
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
+
+def main():
+    '''
+    Probe to repair rule health
+    '''
+    try:
+        session = get_session()
+        query = '''DECLARE
+content_cnt NUMBER;
+lock_cnt NUMBER;
+tmp NUMBER;
+expires DATE;
+BEGIN
+    for r in (SELECT /*+ FULL(rules) parallel(4) */ ru.scope, ru.name, ru.id, ru.copies, ru.rse_expression FROM ATLAS_RUCIO.rules@ADCR_ADG.CERN.CH ru, ATLAS_RUCIO.dids@ADCR_ADG.CERN.CH di WHERE ru.did_type='D' and
+        ru.state='O' and
+        ru.updated_at < sys_extract_utc(localtimestamp)-8/24 and
+        (ru.expires_at = NULL or ru.expires_at > sys_extract_utc(localtimestamp)+6/24) and
+        di.scope = ru.scope and
+        di.name = ru.name and
+        (di.expired_at = NULL or di.expired_at > sys_extract_utc(localtimestamp)+6/24)
+        ORDER by ru.created_at ASC)
+    loop
+        SELECT count(*) INTO content_cnt FROM ATLAS_RUCIO.contents@ADCR_ADG.CERN.CH c, ATLAS_RUCIO.dids@ADCR_ADG.CERN.CH d WHERE c.scope=r.scope and c.name=r.name and c.child_name=d.name and c.child_scope=d.scope and (d.availability=\'A\' or d.availability is NULL);
+        SELECT count(*) INTO lock_cnt FROM ATLAS_RUCIO.locks@ADCR_ADG.CERN.CH WHERE rule_id=r.id;
+        IF content_cnt * r.copies != lock_cnt THEN
+            SELECT expired_at INTO expires FROM ATLAS_RUCIO.dids@ADCR_ADG.CERN.CH WHERE scope=r.scope and name=r.name;
+            IF expires=NULL or expires > sys_extract_utc(localtimestamp)+1/24 THEN
+                tmp := content_cnt - lock_cnt;
+                UPDATE ATLAS_RUCIO.rules SET state = 'S' WHERE id = r.id;
+                COMMIT;
+            END IF;
+        END IF;
+    end loop;
+END;'''
+        session.execute(query)
+    except Exception, e:
+        sys.exit(UNKNOWN)
+    sys.exit(OK)
+
+if __name__ == "__main__":
+    main()
