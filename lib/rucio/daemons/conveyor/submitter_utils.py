@@ -363,7 +363,7 @@ def get_transfer(rse, req, scheme, mock, max_sources=4):
                 attr = json.loads(str(req['attributes']))
             copy_pin_lifetime = attr.get('lifetime')
         overwrite = False
-        bring_online = 21000
+        bring_online = 172800
     else:
         # for normal transfer, get the destination at first, then use the destination scheme to get sources
 
@@ -420,7 +420,7 @@ def get_transfer(rse, req, scheme, mock, max_sources=4):
         # Extend the metadata dictionary with request attributes
         copy_pin_lifetime, overwrite, bring_online = -1, True, None
         if rse_core.get_rse(sources[0][0]).rse_type == RSEType.TAPE:
-            bring_online = 21000
+            bring_online = 172800
         if rse_core.get_rse(None, rse_id=req['dest_rse_id']).rse_type == RSEType.TAPE:
             overwrite = False
         # make sure we only use one source when bring_online is needed
@@ -793,6 +793,11 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
             else:
                 schemes = transfers[id]['schemes']
 
+                # source_rse_id will be None if no source replicas
+                # rse will be None if rse is staging area
+                if source_rse_id is None or rse is None:
+                    continue
+
                 # Compute the sources: urls, etc
                 if source_rse_id not in rses_info:
                     # source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
@@ -921,6 +926,12 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
 
                     source_url = protocols[source_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
                 else:
+                    # source_rse_id will be None if no source replicas
+                    # rse will be None if rse is staging area
+                    # staging_buffer will be None if rse has no key 'staging_buffer'
+                    if source_rse_id is None or rse is None or staging_buffer is None:
+                        continue
+
                     # to get space token and fts attribute
                     if source_rse_id not in rses_info:
                         # source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
