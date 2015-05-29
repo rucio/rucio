@@ -23,9 +23,9 @@ OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 if __name__ == "__main__":
     try:
         session = get_session()
-        result = session.execute('select count(1) from atlas_rucio.rules where expires_at < sysdate - 2/24').fetchone()[0]
+        result = session.execute('select count(1) from atlas_rucio.rules where expires_at < sys_extract_utc(localtimestamp)').fetchone()[0]
         monitor.record_gauge(stat='judge.expired_rules', value=result)
-        result = session.execute('select count(1) from atlas_rucio.rules where expires_at > sysdate - 2/24').fetchone()[0]
+        result = session.execute('select count(1) from atlas_rucio.rules where expires_at > sys_extract_utc(localtimestamp)').fetchone()[0]
         monitor.record_gauge(stat='judge.lifetimed_rules', value=result)
         print result
     except:
