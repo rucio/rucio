@@ -296,7 +296,10 @@ def failed_transfer(scope, name, rse_id, nowait=True, session=None):
         # Update the rule counters
         rule = session.query(models.ReplicationRule).with_for_update(nowait=nowait).filter_by(id=lock.rule_id).one()
         logging.debug('Updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
-        rule.locks_replicating_cnt -= 1
+        if lock.state == LockState.REPLICATING:
+            rule.locks_replicating_cnt -= 1
+        elif lock.state == LockState.OK:
+            rule.locks_ok_cnt -= 1
         rule.locks_stuck_cnt += 1
         logging.debug('Finished updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
