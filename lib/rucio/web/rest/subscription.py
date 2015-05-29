@@ -192,8 +192,12 @@ class Rules:
                     state = RuleState.REPLICATING
                 if state == 'Stuck':
                     state = RuleState.STUCK
-                for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}):
-                    yield dumps(rule, cls=APIEncoder) + '\n'
+                if state:
+                    for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}):
+                        yield dumps(rule, cls=APIEncoder) + '\n'
+                else:
+                    for rule in list_replication_rules({'subscription_id': subscriptions[0]}):
+                        yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
         except SubscriptionNotFound, e:
