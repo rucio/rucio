@@ -197,6 +197,10 @@ def transmogrifier(bulk=5, once=False):
                                     weight = rule.get('weight', None)
                                     source_replica_expression = rule.get('source_replica_expression', None)
                                     locked = rule.get('locked', None)
+                                    if locked == 'True':
+                                        locked = True
+                                    else:
+                                        locked = False
                                     purge_replicas = rule.get('purge_replicas', False)
                                     if purge_replicas == 'True':
                                         purge_replicas = True
