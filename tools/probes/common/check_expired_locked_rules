@@ -26,7 +26,7 @@ def main():
     status = OK
     session = get_session()
     try:
-        query = "select rawtohex(id), scope, name, rse_expression from atlas_rucio.rules where locked=1 and expires_at<sysdate"
+        query = "select rawtohex(id), scope, name, rse_expression from atlas_rucio.rules where locked=1 and expires_at<sys_extract_utc(localtimestamp)"
         print 'Locked expired rules'
         for row in session.execute(query):
             status = CRITICAL
