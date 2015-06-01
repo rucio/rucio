@@ -919,6 +919,15 @@ class Message(BASE, ModelBase):
                    CheckConstraint('PAYLOAD IS NOT NULL', name='MESSAGES_PAYLOAD_NN'),)
 
 
+class MessageHistory(BASE, ModelBase):
+    """Represents the history of event messages"""
+    __tablename__ = 'messages_history'
+    id = Column(GUID())
+    event_type = Column(String(1024))
+    payload = Column(String(4000))
+    _table_args = (PrimaryKeyConstraint('id', name='MESSAGES_HIST_ID_PK'),)  # PK needed for SQLA only
+
+
 class AlembicVersion(BASE):
     """Table used to pinpoint actual database schema release."""
     __tablename__ = "alembic_version"
@@ -976,6 +985,7 @@ def register_models(engine):
               Identity,
               IdentityAccountAssociation,
               Message,
+              MessageHistory,
               NamingConvention,
               RSE,
               RSEAttrAssociation,
@@ -1024,6 +1034,7 @@ def unregister_models(engine):
               Identity,
               IdentityAccountAssociation,
               Message,
+              MessageHistory,
               NamingConvention,
               RSE,
               RSEAttrAssociation,

@@ -17,7 +17,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, text
 
 from rucio.common.exception import InvalidObject, RucioException
-from rucio.db.models import Message
+from rucio.db.models import Message, MessageHistory
 from rucio.db.session import transactional_session
 
 
@@ -95,16 +95,21 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
 @transactional_session
 def delete_messages(ids, session=None):
     """
-    Delete all messages with the given IDs.
+    Delete all messages with the given IDs, and archive them to the history.
 
     :param ids: The message IDs, as a list of strings.
     """
 
     try:
         for id in ids:
-            session.query(Message).\
-                filter_by(id=id).\
-                delete(synchronize_session=False)
+            m = session.query(Message).filter_by(id=id).one()
+            m_prime = MessageHistory(id=m['id'],
+                                     created_at=m['created_at'],
+                                     updated_at=m['updated_at'],
+                                     payload=m['payload'],
+                                     event_type=m['event_type'])
+            m_prime.save(session=session)
+            session.query(Message).filter_by(id=id).delete(synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 
