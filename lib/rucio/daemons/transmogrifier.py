@@ -26,7 +26,7 @@ from traceback import format_exception
 from rucio.api.did import list_new_dids, set_new_dids, get_metadata
 from rucio.api.subscription import list_subscriptions
 from rucio.db.constants import DIDType, SubscriptionState
-from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule,
+from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule, RSEBlacklisted,
                                     InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.common.config import config_get
@@ -171,6 +171,7 @@ def transmogrifier(bulk=5, once=False):
                                                                          heart_beat['nr_threads']))
             identifiers = []
             for did in dids:
+                did_success = True
                 if did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER):
                     results['%s:%s' % (did['scope'], did['name'])] = []
                     try:
@@ -221,7 +222,7 @@ def transmogrifier(bulk=5, once=False):
                                         lifetime = int(lifetime)
 
                                     str_activity = "".join(activity.split())
-                                    success = True
+                                    success = False
                                     nattempt = 5
                                     attemptnr = 0
                                     skip_rule_creation = False
@@ -260,6 +261,7 @@ def transmogrifier(bulk=5, once=False):
 
                                                         nb_rule += 1
                                                         if nb_rule == copies:
+                                                            success = True
                                                             break
                                             else:
                                                 add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=account, copies=copies,
@@ -269,33 +271,35 @@ def transmogrifier(bulk=5, once=False):
                                                 nb_rule += 1
                                             monitor.record_counter(counters='transmogrifier.addnewrule.done', delta=nb_rule)
                                             monitor.record_counter(counters='transmogrifier.addnewrule.activity.%s' % str_activity, delta=nb_rule)
+                                            success = True
                                             break
                                         except (InvalidReplicationRule, InvalidRuleWeight, InvalidRSEExpression, StagingAreaRuleRequiresLifetime, DuplicateRule) as error:
                                             # Errors that won't be retried
+                                            success = True
                                             logging.error('Thread [%i/%i] : %s' % (heart_beat['assign_thread'], heart_beat['nr_threads'], str(error)))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error)), delta=1)
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                             break
-                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit, DatabaseException) as error:
+                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit, DatabaseException, RSEBlacklisted) as error:
                                             # Errors to be retried
                                             logging.error('Thread [%i/%i] : %s Will perform an other attempt %i/%i' % (heart_beat['assign_thread'],
                                                                                                                        heart_beat['nr_threads'],
                                                                                                                        str(error),
                                                                                                                        attempt + 1,
                                                                                                                        nattempt))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error)), delta=1)
-                                            success = False
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                         except Exception, error:
                                             # Unexpected errors
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
                                             exc_type, exc_value, exc_traceback = exc_info()
                                             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
 
+                                    did_success = (did_success and success)
                                     if (attemptnr + 1) == nattempt and not success:
-                                        logging.critical('Thread [%i/%i] : Rule for %s:%s on %s cannot be inserted' % (heart_beat['assign_thread'],
-                                                                                                                       heart_beat['nr_threads'],
-                                                                                                                       did['scope'],
-                                                                                                                       did['name'],
-                                                                                                                       rse_expression))
+                                        logging.error('Thread [%i/%i] : Rule for %s:%s on %s cannot be inserted' % (heart_beat['assign_thread'],
+                                                                                                                    heart_beat['nr_threads'],
+                                                                                                                    did['scope'],
+                                                                                                                    did['name'],
+                                                                                                                    rse_expression))
                                     else:
                                         logging.info('Thread [%i/%i] : %s Rule inserted in %f seconds' % (heart_beat['assign_thread'],
                                                                                                           heart_beat['nr_threads'], str(nb_rule),
@@ -303,14 +307,15 @@ def transmogrifier(bulk=5, once=False):
                     except DataIdentifierNotFound, error:
                         logging.warning(error)
 
-                if did['did_type'] == str(DIDType.FILE):
-                    monitor.record_counter(counters='transmogrifier.did.file.processed', delta=1)
-                elif did['did_type'] == str(DIDType.DATASET):
-                    monitor.record_counter(counters='transmogrifier.did.dataset.processed', delta=1)
-                elif did['did_type'] == str(DIDType.CONTAINER):
-                    monitor.record_counter(counters='transmogrifier.did.container.processed', delta=1)
-                monitor.record_counter(counters='transmogrifier.did.processed', delta=1)
-                identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
+                if did_success:
+                    if did['did_type'] == str(DIDType.FILE):
+                        monitor.record_counter(counters='transmogrifier.did.file.processed', delta=1)
+                    elif did['did_type'] == str(DIDType.DATASET):
+                        monitor.record_counter(counters='transmogrifier.did.dataset.processed', delta=1)
+                    elif did['did_type'] == str(DIDType.CONTAINER):
+                        monitor.record_counter(counters='transmogrifier.did.container.processed', delta=1)
+                    monitor.record_counter(counters='transmogrifier.did.processed', delta=1)
+                    identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
 
             time1 = time.time()
 
