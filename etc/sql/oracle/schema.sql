@@ -1591,3 +1591,23 @@ CREATE TABLE atlas_rucio.naming_conventions (
    CONSTRAINT "NAMING_CONVENTIONS_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL),
    CONSTRAINT "CVT_TYPE_CHK" CHECK (convention_type IN ('ALL', 'DATASET', 'CONTAINER', 'COLLECTION', 'FILE'))
 ) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
+
+
+
+-- ============================= MESSAGES_HISTORY =========================================
+-- Description: Table to store history of messages sent to broker
+-- Estimated volume: 20,000 rows per 10. min.
+-- Access pattern: high throughput write, rare reads with search by created_at & event_type (low cardinality)
+
+CREATE TABLE messages_history (
+    id RAW(16),
+    updated_at TIMESTAMP(6),
+    created_at TIMESTAMP(6),
+    event_type VARCHAR2(1024 CHAR),
+    payload VARCHAR2(4000 CHAR),
+)  PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01
+PARTITION BY RANGE(CREATED_AT)
+INTERVAL ( NUMTODSINTERVAL(1,'DAY') )
+(
+PARTITION "DATA_BEFORE_01062015" VALUES LESS THAN (TO_DATE('01-06-2015', 'DD-MM-YYYY'))
+);
