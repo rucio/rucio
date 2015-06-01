@@ -1032,7 +1032,6 @@ def update_replicas_states(replicas, nowait=False, session=None):
             replica['rse_id'] = rse_ids[replica['rse']]
 
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
-
         try:
             if nowait:
                 query.with_for_update(nowait=True).one()
@@ -1056,7 +1055,9 @@ def update_replicas_states(replicas, nowait=False, session=None):
             values['path'] = replica['path']
 
         if not query.update(values, synchronize_session=False):
-            raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s cannot be updated' % replica)
+            if 'rse' not in replica:
+                replica['rse'] = get_rse_name(rse_id=replica['rse_id'], session=session)
+            raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s on %(rse)s cannot be updated' % replica)
     return True
 
 

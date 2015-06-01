@@ -83,3 +83,8 @@ if __name__ == '__main__':
         cmd = "git push origin %(new_version)s" % locals()
         print cmd
         # status, output = getstatusoutput(cmd)
+        print '\n# To undo the release'
+        cmd = "git push --delete origin %(new_version)s" % locals()
+        print cmd
+        cmd = "git tag -d %(new_version)s" % locals()
+        print cmd
