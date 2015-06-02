@@ -831,9 +831,13 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     if (not (replica_rse.availability & 1)) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for deleting' % rse)
 
-    replica_condition, parent_condition, did_condition = list(), list(), list()
+    replica_condition, parent_condition, did_condition, dst_replica_condition = [], [], [], []
     for file in files:
         replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))
+
+        dst_replica_condition.append(and_(models.DataIdentifierAssociation.child_scope == file['scope'],
+                                          models.DataIdentifierAssociation.child_name == file['name']))
+
         parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == file['scope'],
                                      models.DataIdentifierAssociation.child_name == file['name'],
                                      ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == file['scope'],
@@ -858,10 +862,30 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
+    # Get all collection_replicas, delete them
+    collection_replica_condition, latest_dataset_replica_condition = [], []
+    query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
+        filter(or_(*dst_replica_condition)).\
+        distinct()
+    for parent_scope, parent_name in query:
+        collection_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope,
+                                                 models.CollectionReplica.name == parent_name,
+                                                 models.CollectionReplica.rse_id == replica_rse.id))
+
+        latest_dataset_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope,
+                                                     models.CollectionReplica.name == parent_name,
+                                                     exists([1]).where(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False)),  # NOQA
+                                                     ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
+                                                     ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
+
+    if collection_replica_condition:
+        rowcount = session.query(models.CollectionReplica).\
+            filter(or_(*collection_replica_condition)).\
+            delete(synchronize_session=False)
+
     # Delete did from the content for the last did
-    latest_dataset_replica_condition = []
     while parent_condition:
-        child_did_condition, tmp_parent_condition, collection_replica_condition = [], [], []
+        child_did_condition, tmp_parent_condition = [], []
         for c in chunks(parent_condition, 10):
 
             query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
@@ -869,11 +893,6 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                   models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).\
                 filter(or_(*c))
             for parent_scope, parent_name, did_type, child_scope, child_name in query:
-                if did_type == DIDType.DATASET:
-                    collection_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope,
-                                                             models.CollectionReplica.name == parent_name,
-                                                             models.CollectionReplica.rse_id == replica_rse.id))
-
                 child_did_condition.append(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name,
                                                 models.DataIdentifierAssociation.child_scope == child_scope, models.DataIdentifierAssociation.child_name == child_name))
                 tmp_parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name,
@@ -883,27 +902,25 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
 
-                latest_dataset_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope,
-                                                             models.CollectionReplica.name == parent_name,
-                                                             exists([1]).where(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False)),  # NOQA
-                                                             ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
-                                                             ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
-
-        if collection_replica_condition:
-            rowcount = session.query(models.CollectionReplica).filter(or_(*collection_replica_condition)).delete(synchronize_session=False)
-
         if child_did_condition:
             for c in chunks(child_did_condition, 10):
-                rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*c)).delete(synchronize_session=False)
+                rowcount = session.query(models.DataIdentifierAssociation).\
+                    filter(or_(*c)).\
+                    delete(synchronize_session=False)
             # update parent counters
 
         parent_condition = tmp_parent_condition
 
     for c in chunks(latest_dataset_replica_condition, 10):
-        rowcount = session.query(models.CollectionReplica).filter(or_(*c)).delete(synchronize_session=False)
+        rowcount = session.query(models.CollectionReplica).\
+            filter(or_(*c)).\
+            delete(synchronize_session=False)
 
     for c in chunks(did_condition, 10):
-        rowcount = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*c)).delete(synchronize_session=False)
+        rowcount = session.query(models.DataIdentifier).\
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+            filter(or_(*c)).\
+            delete(synchronize_session=False)
 
     # Decrease RSE counter
     decrease(rse_id=replica_rse.id, files=delta, bytes=bytes, session=session)
