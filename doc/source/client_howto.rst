@@ -9,9 +9,13 @@
 Rucio Client How To
 ===================
 
+.. attention::
+
+   ATLAS users should refer to https://twiki.cern.ch/twiki/bin/viewauth/AtlasComputing/RucioClientsHowTo instead of this page. This twiki is the entry point for ATLAS users learning the Rucio client. The ATLAS-specific information on this page will be removed.
+
+
 ``General concepts``
 --------------------
-
 
 ``Introduction``
 ----------------
