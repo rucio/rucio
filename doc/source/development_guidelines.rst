@@ -83,11 +83,4 @@ You can selectively run test cases by giving directories or files as parameters 
 Executing unit tests the correct way
 ------------------------------------
 
-    1. Open two terminals A and B, and go to ``/opt/rucio``
-    2. Use terminal A to reset the database and restart Apache
-
-        ``sudo rm -rf /tmp/rucio.db; python tools/reset_database.py; chmod 777 /tmp/rucio.db; sudo apachectl restart; tail -f /var/log/apache2/*_log /var/log/rucio/httpd_*``
-
-    3. Use terminal B to clean the development and client environment and execute the unit tests
-
-       ``rm -rf /tmp/.rucio_root/; find lib -iname *.pyc | xargs rm; nosetests -d -v --logging-filter=-sqlalchemy,-migrate,-rucio.client.baseclient; nosetests -d -v --logging-filter=-sqlalchemy,-migrate,-rucio.client.baseclient``
+    1. Run ``tools/run_tests -1qa``
