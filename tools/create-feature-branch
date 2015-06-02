@@ -1,0 +1,20 @@
+#!/bin/bash
+
+if [[ $# -ne 2 ]] ; then
+    echo 'usage: tools/create-feature-branch <ticketnumber> <branchname>'
+    echo
+    echo 'examples: tools/create-feature-branch 1234 fancyfeature'
+    echo '          tools/create-feature-branch 1234 "my fancy feature"'
+    exit 1
+fi
+
+echo "Switching to next"
+git checkout next
+
+echo "Updating next"
+git pull --all --prune --progress
+
+echo "Creating feature branch"
+git checkout -b feature-$1-${2//[^a-zA-Z0-9]/_} next
+
+echo "Done"
