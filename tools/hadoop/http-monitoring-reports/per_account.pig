@@ -13,7 +13,7 @@ REGISTER /usr/lib/pig/piggybank.jar;
 REGISTER /usr/lib/pig/pig.jar;
 
 
-logs = LOAD '/user/rucio01/logs/server/access*$date*' USING rucioudfs.RucioServerLogs20150211 AS (
+logs = LOAD '/user/rucio01/logs/server/access*$date*' USING rucioudfs.RucioServerLogs20150603 AS (
   timestamp,
   backendname,
   loadbalancer,
