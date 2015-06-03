@@ -245,20 +245,20 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
 
     try:
         session.flush()
-    except IntegrityError, e:
-        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', e.args[0]) \
-                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
-                or e.args[0] == "(IntegrityError) foreign key constraint failed" \
-                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
+    except IntegrityError, error:
+        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
+                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
+                or error.args[0] == "(IntegrityError) foreign key constraint failed" \
+                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', error.args[0]):
             raise exception.DataIdentifierNotFound("Data identifier not found")
-        elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', e.args[0]) \
-                or match('.*IntegrityError.*UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', e.args[0])\
-                or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', e.args[0]) \
-                or match('.*duplicate entry.*key.*PRIMARY.*', e.args[0]) \
-                or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
-            raise exception.FileAlreadyExists(e.args)
+        elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', error.args[0]) \
+                or match('.*IntegrityError.*UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', error.args[0])\
+                or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
+                or match('.*duplicate entry.*key.*PRIMARY.*', error.args[0]) \
+                or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
+            raise exception.FileAlreadyExists(error.args)
         else:
-            raise exception.RucioException(e.args)
+            raise exception.RucioException(error.args)
 
 
 @transactional_session
@@ -317,17 +317,17 @@ def __add_collections_to_container(scope, name, collections, account, session):
                     session=session)
     try:
         session.flush()
-    except IntegrityError, e:
-        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', e.args[0]) \
-           or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
-           or e.args[0] == "(IntegrityError) foreign key constraint failed" \
-           or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
+    except IntegrityError, error:
+        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
+           or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
+           or error.args[0] == "(IntegrityError) foreign key constraint failed" \
+           or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', error.args[0]):
             raise exception.DataIdentifierNotFound("Data identifier not found")
-        elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', e.args[0]) \
-                or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', e.args[0]) \
-                or match('.*columns scope, name, child_scope, child_name are not unique.*', e.args[0]):
-            raise exception.DuplicateContent(e.args)
-        raise exception.RucioException(e.args)
+        elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', error.args[0]) \
+                or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
+                or match('.*columns scope, name, child_scope, child_name are not unique.*', error.args[0]):
+            raise exception.DuplicateContent(error.args)
+        raise exception.RucioException(error.args)
 
 
 @transactional_session
@@ -493,7 +493,7 @@ def detach_dids(scope, name, dids, session=None):
             raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
         child_type = associ_did.did_type
         associ_did.delete(session=session)
-        # Send message for AMI
+        # Send message for AMI. To be removed in the future when they use the DETACH messages
         if did.did_type == DIDType.CONTAINER:
             if child_type == DIDType.CONTAINER:
                 chld_type = 'CONTAINER'
@@ -507,6 +507,13 @@ def detach_dids(scope, name, dids, session=None):
                                       'childname': source['name'],
                                       'childtype': chld_type},
                         session=session)
+        add_message('DETACH', {'scope': scope,
+                               'name': name,
+                               'did_type': str(did.did_type),
+                               'child_scope': str(source['scope']),
+                               'child_name': str(source['name']),
+                               'child_type': str(child_type)},
+                    session=session)
 
 
 @stream_session
@@ -523,7 +530,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
     query = session.query(models.DataIdentifier).filter_by(is_new=True).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
 
     if did_type:
-        if (isinstance(did_type, str) or isinstance(did_type, unicode)):
+        if isinstance(did_type, str) or isinstance(did_type, unicode):
             query = query.filter_by(did_type=DIDType.from_sym(did_type))
         elif isinstance(did_type, EnumSymbol):
             query = query.filter_by(did_type=did_type)
@@ -760,14 +767,14 @@ def get_did(scope, name, session=None):
     :param session: The database session in use.
     """
     try:
-        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
+        result = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
             with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
-        if r.did_type == DIDType.FILE:
-            did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type, 'account': r.account}
+        if result.did_type == DIDType.FILE:
+            did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type, 'account': result.account}
         else:
-            did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type,
-                     'account': r.account, 'open': r.is_open, 'monotonic': r.monotonic, 'expired_at': r.expired_at,
-                     'length': r.length, 'bytes': r.bytes}
+            did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type,
+                     'account': result.account, 'open': result.is_open, 'monotonic': result.monotonic, 'expired_at': result.expired_at,
+                     'length': result.length, 'bytes': result.bytes}
         return did_r
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
