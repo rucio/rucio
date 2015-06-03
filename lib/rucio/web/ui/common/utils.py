@@ -13,7 +13,8 @@ from web import template, ctx, cookies, setcookie
 
 from rucio import version
 from rucio.api import authentication, identity
-from rucio.common.exception import IdentityError
+from rucio.api.account import get_account_info
+from rucio.db.constants import AccountType
 
 
 def __to_js(var, value):
@@ -66,14 +67,16 @@ def check_token(rendered_tpl):
         # get all accounts for an identity. Needed for account switcher in UI.
         accounts = identity.list_accounts_for_identity(dn, 'x509')
         cookie_accounts = accounts
-        try:
-            try:
-                # try to get the default account for the identity.
-                def_account = identity.get_default_account(dn, 'x509')
-            except IdentityError:
-                # if there is no default account used the first from the list off accounts.
-                def_account = accounts[0]
 
+        # try to set the default account to the user account, if not available take the first account.
+        def_account = accounts[0]
+        for account in accounts:
+            account_info = get_account_info(account)
+            if account_info.account_type == AccountType.USER:
+                def_account = account
+                break
+
+        try:
             token = authentication.get_auth_token_x509(def_account,
                                                        dn,
                                                        'webui',
