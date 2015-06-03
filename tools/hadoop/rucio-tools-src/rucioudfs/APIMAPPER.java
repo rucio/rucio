@@ -26,27 +26,27 @@ public class APIMAPPER extends EvalFunc<String> {
       String uri = (String)input.get(0);
 
       // DIDs
-      if (uri.matches(".*?/dids/([\\w.-]+)(/?\\?.*)?$")) {
+      if (uri.matches(".*?/dids/(.+?)(/?\\?.*)?$")) {
         return "dids.Scope";
-      } else if (uri.matches(".*?/dids/([\\w.-]+)/guid$")) {
+      } else if (uri.matches(".*?/dids/(.+?)/guid$")) {
         return "dids.GUIDLookup";
-      } else if (uri.matches(".*?/dids/([\\w.-]+)/dids/search(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/dids/(.+?)/dids/search(/?\\?.*)?$")) {
         return "dids.Search";
-      } else if (uri.matches(".*?/dids/([\\w.-]+)/([\\w.-]+)//?files(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/dids/(.+?)/(.+?)//?files(/?\\?.*)?$")) {
         return "dids.Files";
-      } else if (uri.matches(".*?/dids/([\\w.-]+)/([\\w.-]+)//?dids(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/dids/(.+?)/(.+?)//?dids(/?\\?.*)?$")) {
         return "dids.Attachement";
       } else if (uri.matches(".*?/dids/attachments$")) {
         return "dids.Attachement";
-      } else if (uri.matches(".*?/dids/([\\w.-]+)/([\\w.-]+)//?meta(/[\\w.-]+)?(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/dids/(.+?)/(.+?)//?meta(/.+?)?(/?\\?.*)?$")) {
         return "dids.Meta";
-      } else if (uri.matches(".*?/dids/([\\w.-]+?)/([\\w.-]+?)(/status)?(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/dids/(.+?)/(.+?)(/status)?(/?\\?.*)?$")) {
         return "dids.DIDs";
-      } else if (uri.matches(".*?/dids/([\\w.-]+)/([\\w.-]+)//?rules(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/dids/(.+?)/(.+?)//?rules(/?\\?.*)?$")) {
         return "dids.Rules";
-      } else if (uri.matches(".*?/dids/([\\w.-]+)/([\\w.-]+)/parents(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/dids/(.+?)/(.+?)/parents(/?\\?.*)?$")) {
         return "dids.Parents";
-      } else if (uri.matches(".*?/dids/([\\w.-]+)/([\\w.-]+)/associated_rules$(/?\\?.*)?")) {
+      } else if (uri.matches(".*?/dids/(.+?)/(.+?)/associated_rules$(/?\\?.*)?")) {
         return "dids.AssociatedRules";
       } else if (uri.matches(".*?/dids(/?\\?.*)?$")) {
         return "dids.BulkDIDS";
@@ -56,7 +56,7 @@ public class APIMAPPER extends EvalFunc<String> {
       // replicas
       if (uri.matches(".*?/replicas/list(/?\\?.*)?$")) {
         return "replicas.ListReplicas";
-      } else if (uri.matches(".*?/replicas(/[\\w.-]+){0,2}?(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/replicas(/.+?){0,2}?(/?\\?.*)?$")) {
         return "replicas.Replicas";
       } else if (uri.matches(".*?/replicas/(.*)?datasets$")) {
         return "replicas.ListDatasetReplicas";
@@ -68,28 +68,28 @@ public class APIMAPPER extends EvalFunc<String> {
         return "replicas.ReplicasDIDs";
       }
       // accounts:
-      if (uri.matches(".*?/accounts/([\\w.-]+)/attr([\\w.-]+)?(/?\\?.*)?$")) {
+      if (uri.matches(".*?/accounts/(.+?)/attr(.+?)?(/?\\?.*)?$")) {
         return "account.Attributes";
-      } else if (uri.matches(".*?/accounts/([\\w.-]+)/scopes(/[\\w.-]+)?(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/accounts/(.+?)/scopes(/.+?)?(/?\\?.*)?$")) {
         return "account.Scopes";
-      } else if (uri.matches(".*?/accounts/([\\w.-]+)/identities(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/accounts/(.+?)/identities(/?\\?.*)?$")) {
         return "account.Identities";
-      } else if (uri.matches(".*?/accounts/([\\w.-]+)/limits(/[\\w.-]+)?(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/accounts/(.+?)/limits(/.+?)?(/?\\?.*)?$")) {
         return "account.AccountLimits";
-      } else if (uri.matches(".*?/accounts/rules(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/accounts/(.+?)/rules(/?\\?.*)?$")) {
         return "account.Rules";
-      } else if (uri.matches(".*?/accounts/usage(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/accounts/(.+?)/usage(/?\\?.*)?$")) {
         return "account.Usage1";
-      } else if (uri.matches(".*?/accounts/usage/([\\w.-]+)(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/accounts/(.+?)/usage/(.+?)(/?\\?.*)?$")) {
         return "account.Usage2";
-      } else if (uri.matches(".*?/accounts/([\\w.-]+)(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/accounts/(.+?)(/?\\?.*)?$")) {
         return "account.AccountParameter";
       } else if (uri.matches(".*?/accounts(/?\\?.*)?$")) {
         return "account.Account";
       }
 
       // account_limits:
-      if (uri.matches(".*?/accountlimits/([\\w.-]+)/([\\w.-]+)(/?\\?.*)?$")) {
+      if (uri.matches(".*?/accountlimits/(.+?)/(.+?)(/?\\?.*)?$")) {
         return "account_limits.AccountLimits";
       }
 
@@ -105,36 +105,36 @@ public class APIMAPPER extends EvalFunc<String> {
       }
 
       // config
-      if (uri.matches(".*?/config/([\\w.-]+)/([\\w.-]+)/([\\w.-]+)(/?\\?.*)?$")) {
+      if (uri.matches(".*?/config/(.+?)/(.+?)/(.+?)(/?\\?.*)?$")) {
         return "config.OptionSet";
-      } else if (uri.matches(".*?/config/([\\w.-]+)/([\\w.-]+)(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/config/(.+?)/(.+?)(/?\\?.*)?$")) {
         return "config.OptionGetDel";
-      } else if (uri.matches(".*?/config/([\\w.-]+)(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/config/(.+?)(/?\\?.*)?$")) {
         return "config.Selection";
       } else if (uri.matches(".*?/config$")) {
         return "config.Config";
       }
 
       // identity
-      if (uri.matches(".*?/identities/([\\w.-]+)/userpass(/?\\?.*)?")) {
+      if (uri.matches(".*?/identities/(.+?)/userpass(/?\\?.*)?")) {
         return "identity.UserPass";
-      } else if (uri.matches(".*?/identities/([\\w.-]+)/x509(/?\\?.*)?")) {
+      } else if (uri.matches(".*?/identities/(.+?)/x509(/?\\?.*)?")) {
         return "identity.x509";
-      } else if (uri.matches(".*?/identities/([\\w.-]+)/gss(/?\\?.*)?")) {
+      } else if (uri.matches(".*?/identities/(.+?)/gss(/?\\?.*)?")) {
         return "identity.GSS";
       }
 
       // lock
-      if (uri.matches(".*?/locks/([\\w.-]+)/([\\w.-]+)(/?\\?.*)?$")) {
+      if (uri.matches(".*?/locks/(.+?)/(.+?)(/?\\?.*)?$")) {
         return "lock.LockByScopeName";
-      } else if (uri.matches(".*?/locks/([\\w.-]+)(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/locks/(.+?)(/?\\?.*)?$")) {
         return "lock.LockByRSE";
       }
 
       // meta
-      if (uri.matches(".*?/meta/([\\w.-]+)/([\\w.-]+)?(/?\\?.*)?$")) {
+      if (uri.matches(".*?/meta/(.+?)/(.+?)?(/?\\?.*)?$")) {
         return "meta.Values";
-      } else if (uri.matches(".*?/meta/([\\w.-]+)?(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/meta/(.+?)?(/?\\?.*)?$")) {
         return "meta.Meta";
       }
 
@@ -144,60 +144,60 @@ public class APIMAPPER extends EvalFunc<String> {
       }
 
       // redirect
-      if (uri.matches(".*?/redirect/([\\w.-]+)/([\\w.-]+)(/?\\?.*)?$")) {
+      if (uri.matches(".*?/redirect/(.+?)/(.+?)(/?\\?.*)?$")) {
         return "redirect.Redirector";
       }
 
       // request
-      if (uri.matches(".*?/requests/([\\w.-]+)/([\\w.-]+)/([\\w.-]+)(/?\\?.*)?$")) {
+      if (uri.matches(".*?/requests/(.+?)/(.+?)/(.+?)(/?\\?.*)?$")) {
         return "request.RequestGet";
       }
 
       // rse
-      if (uri.matches(".*?/rses/([\\w.-]+)/attr/([\\w.-]+)?(/?\\?.*)?$")) {
+      if (uri.matches(".*?/rses/(.+?)/attr/(.+?)?(/?\\?.*)?$")) {
         return "rse.Attributes";
-      } else if (uri.matches(".*?/rses/([\\w.-]+)/protocol(/[\\w.-]+){0,3}(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/rses/(.+?)/protocol(/.+?){0,3}(/?\\?.*)?$")) {
         return "rse.Protocol";
-      } else if (uri.matches(".*?/rses/([\\w.-]+)/protocols(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/rses/(.+?)/protocols(/?\\?.*)?$")) {
         return "rse.Protocols";
-      } else if (uri.matches(".*?/rses/([\\w.-]+)/usage(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/rses/(.+?)/usage(/?\\?.*)?$")) {
         return "rse.Usage ";
-      } else if (uri.matches(".*?/rses/([\\w.-]+)/usage/history(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/rses/(.+?)/usage/history(/?\\?.*)?$")) {
         return "rse.UsageHistory";
-      } else if (uri.matches(".*?/rses/([\\w.-]+)/limits(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/rses/(.+?)/limits(/?\\?.*)?$")) {
         return "rse.Limits";
-      } else if (uri.matches(".*?/rses/([\\w.-]+)(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/rses/(.+?)(/?\\?.*)?$")) {
         return "rse.RSE";
       } else if (uri.matches(".*?/rses/?(/?\\?.*)?$")) {
         return "rse.RSEs";
       }
 
       // rule
-      if (uri.matches(".*?/rules/([\\w.-]+)/locks(/?\\?.*)?$")) {
+      if (uri.matches(".*?/rules/(.+?)/locks(/?\\?.*)?$")) {
         return "rule.ReplicaLocks";
-      } else if (uri.matches(".*?/rules/([\\w.-]+)/reduce(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/rules/(.+?)/reduce(/?\\?.*)?$")) {
         return "rule.ReduceRule";
-      } else if (uri.matches(".*?/rules/([\\w.-]+)?(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/rules/(.+?)?(/?\\?.*)?$")) {
         return "rule.Rule";
       }
 
       // scope
-      if (uri.matches(".*?/scopes/(([\\w.-]+)/scopes)?(/?\\?.*)?$")) {
+      if (uri.matches(".*?/scopes/((.+?)/scopes)?(/?\\?.*)?$")) {
         return "scopes.Scopes";
-      } else if (uri.matches(".*?/scopes/([\\w.-]+)/limits(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/scopes/(.+?)/limits(/?\\?.*)?$")) {
         return "scopes.AccountLimits";
-      } else if (uri.matches(".*?/scopes/([\\w.-]+)(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/scopes/(.+?)(/?\\?.*)?$")) {
         return "scopes.AccountParameter";
       }
 
       // subscription
-      if (uri.matches(".*?/subscriptions/Id/([\\w.-]+)(/?\\?.*)?")) {
+      if (uri.matches(".*?/subscriptions/Id/(.+?)(/?\\?.*)?")) {
         return "subscription.SubscriptionId";
-      } else if (uri.matches(".*?/subscriptions/([\\w.-]+){1,2}/Rules/States(/?\\?.*)?")) {
+      } else if (uri.matches(".*?/subscriptions/(.+?/){1,2}rules/states(/?\\?.*)?")) {
         return "subscription.States";
-      } else if (uri.matches(".*?/subscriptions/([\\w.-]+)/([\\w.-]+)/Rules(/?\\?.*)?")) {
+      } else if (uri.matches(".*?/subscriptions/(.+?)/(.+?)/rules(/?\\?.*)?")) {
         return "subscription.Rules";
-      } else if (uri.matches(".*?/subscriptions/([\\w.-]+)?(/[\\w.-]+)?(/?\\?.*)?$")) {
+      } else if (uri.matches(".*?/subscriptions/(.+?)(/.+?)?(/?\\?.*)?$")) {
         return "subscription.Subscription";
       }
 
@@ -207,7 +207,7 @@ public class APIMAPPER extends EvalFunc<String> {
       }
 
       // Unmacthed
-      return "error.MalformedRequest: " + uri;
+      return "error.UnknownRequest: " + uri;
     } catch(Exception e) {
       throw WrappedIOException.wrap("Caught exception processing input row: ", e);
     }
