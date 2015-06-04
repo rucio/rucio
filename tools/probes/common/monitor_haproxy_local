@@ -13,6 +13,7 @@ import argparse
 import socket
 import traceback
 import logging
+import logging.handlers
 import sys
 
 from pystatsd import Client
@@ -20,11 +21,15 @@ from sys import stdout
 
 # Define logger
 logging.basicConfig(stream=stdout,
-                    level=logging.ERROR,
+                    level=logging.INFO,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('rucio-haproxy-monitoring')
 
+# Adding syslog handler
+handler = logging.handlers.SysLogHandler('/dev/log')
+handler.setFormatter(logging.Formatter('%(name)s[%(process)d] %(message)s'))
+logger.addHandler(handler)
 
 def monitor_haproxy(socket_name):
     data = {}
@@ -48,7 +53,7 @@ def monitor_haproxy(socket_name):
         s.close()
     except Exception as e:
         logger.error('Failed requesting data from socket %s with execption %s' % (socket_name, e))
-        logger.debug(traceback.format_exc(e))
+        logger.error(traceback.format_exc(e))
         return None
     logger.debug('Successfully requested data from socket.')
 
@@ -61,7 +66,7 @@ def monitor_haproxy(socket_name):
                 data[tmp[0]] = float(tmp[1])
         except Exception as e:
             logger.error('Entry: %s failed with exception: %s' % (tmp, e))
-            logger.debug(traceback.format_exc(e))
+            logger.error(traceback.format_exc(e))
     logger.debug('Done parsing info response.')
 
     # Transforming stat response into dictonary
@@ -84,7 +89,7 @@ def monitor_haproxy(socket_name):
                     else:
                         data[prefix+'.'+headers[column]] = float(stat[column])
             except Exception as e:
-                logger.warning('Igonring data: %s -> %s' % (headers[column], stat[column]))
+                logger.debug('Igonring data: %s -> %s' % (headers[column], stat[column]))
     logger.debug('Done parsing stat response.')
     return data
 
@@ -128,11 +133,13 @@ if __name__ == "__main__":
         logger.critical('Can not unpack backend information: %s' % args['backend'][0])
         sys.exit(1)
 
+    logger.info('Cheking sockets: %s' % args['sockets'])
     for socket_name in args['sockets']:
         try:
             data = monitor_haproxy(socket_name)
             backend_graphite(url, data, prefix)
         except Exception as e:
             logger.error(e)
+            logger.error(traceback.format_exc(e))
             sys.exit(1)
     sys.exit(0)
