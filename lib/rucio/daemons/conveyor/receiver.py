@@ -127,11 +127,13 @@ class Receiver(object):
 
                 try:
                     if response['new_state']:
-                        logging.debug('RECEIVED DID %s:%s FROM %s TO %s STATE %s' % (response['scope'],
-                                                                                     response['name'],
-                                                                                     response['src_rse'],
-                                                                                     response['dst_rse'],
-                                                                                     response['new_state']))
+                        logging.debug('RECEIVED DID %s:%s FROM %s TO %s REQUEST %s TRANSFER_ID %s STATE %s' % (response['scope'],
+                                                                                                               response['name'],
+                                                                                                               response['src_rse'],
+                                                                                                               response['dst_rse'],
+                                                                                                               response['request_id'],
+                                                                                                               response['transfer_id'],
+                                                                                                               response['new_state']))
 
                         ret = common.update_request_state(response)
                         record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
