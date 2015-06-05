@@ -87,7 +87,7 @@ def check_token(rendered_tpl):
 
     # if there was no valid session token write the new token to a cookie.
     if token:
-        setcookie('x-rucio-auth-token', value=token, expires=3600, path='/')
+        setcookie('x-rucio-auth-token', value=token, path='/')
 
     if cookie_accounts:
         values = ""
