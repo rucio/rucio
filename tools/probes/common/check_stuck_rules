@@ -24,7 +24,7 @@ if __name__ == "__main__":
     try:
         session = get_session()
 
-        result = session.execute('SELECT COUNT(1) FROM ATLAS_RUCIO.RULES where state=\'S\' and error !=\'MissingSourceReplica\'').fetchone()[0]
+        result = session.execute('SELECT COUNT(1) FROM ATLAS_RUCIO.RULES where state=\'S\' and (error !=\'MissingSourceReplica\' or error IS NULL)').fetchone()[0]
         monitor.record_gauge(stat='judge.stuck_rules_without_missing_source_replica', value=result)
 
         result = session.execute('SELECT COUNT(1) FROM ATLAS_RUCIO.RULES where state=\'S\' and error =\'MissingSourceReplica\'').fetchone()[0]
