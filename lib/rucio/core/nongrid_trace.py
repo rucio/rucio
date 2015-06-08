@@ -6,8 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
 
 import json
 import logging
@@ -24,9 +23,9 @@ errlog = logging.getLogger('errlog')
 errlog.setLevel(logging.ERROR)
 
 logger = logging.getLogger('trace')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
-handler = logging.handlers.RotatingFileHandler(filename='%s/trace' % config_get('trace', 'tracedir'), maxBytes=1000000000, backupCount=10)
+handler = logging.handlers.RotatingFileHandler(filename='%s/trace' % config_get('nongrid_trace', 'tracedir'), maxBytes=1000000000, backupCount=10)
 
 logFormatter = logging.Formatter('%(message)s')
 handler.setFormatter(logFormatter)
@@ -36,13 +35,13 @@ logger.addHandler(handler)
 brokers_alias = []
 brokers_resolved = []
 try:
-    brokers_alias = [b.strip() for b in config_get('trace', 'brokers').split(',')]
+    brokers_alias = [b.strip() for b in config_get('nongrid_trace', 'brokers').split(',')]
 except:
     raise Exception('Could not load brokers from configuration')
-port = config_get_int('trace', 'port')
-topic = config_get('trace', 'topic')
-username = config_get('trace', 'username')
-password = config_get('trace', 'password')
+port = config_get_int('nongrid_trace', 'port')
+topic = config_get('nongrid_trace', 'topic')
+username = config_get('nongrid_trace', 'username')
+password = config_get('nongrid_trace', 'password')
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -71,7 +70,7 @@ def trace(payload):
     :param payload: Python dictionary with trace report.
     """
 
-    record_counter('trace.trace')
+    record_counter('nongrid_trace.trace')
     report = json.dumps(payload, default=date_handler)
     logger.debug(report)
 
