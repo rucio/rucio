@@ -71,6 +71,12 @@ def requeue_and_archive(request_id, session=None):
             elif new_req['state'] != RequestState.SUBMITTING:
                 new_req['retry_count'] += 1
 
+            if new_req['sources']:
+                for i in range(len(new_req['sources'])):
+                    if new_req['sources'][i]['ranking'] is None:
+                        new_req['sources'][i]['ranking'] = -1
+                    else:
+                        new_req['sources'][i]['ranking'] -= 1
             queue_requests([new_req], session=session)
             return new_req
 
@@ -211,8 +217,9 @@ def set_request_transfers(transfers, session=None):
                                       synchronize_session=False)
             if rowcount and 'file' in transfers[request_id]:
                 file = transfers[request_id]['file']
+                used_src_rse_ids = get_source_rse_ids(request_id, session=session)
                 for src_rse, src_url, src_rse_id, rank in file['sources']:
-                    if rank is None:
+                    if src_rse_id not in used_src_rse_ids:
                         models.Source(request_id=file['metadata']['request_id'],
                                       scope=file['metadata']['scope'],
                                       name=file['metadata']['name'],
@@ -1212,6 +1219,24 @@ def get_sources(request_id, session=None):
                 result.append(t2)
 
             return result
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@read_session
+def get_source_rse_ids(request_id, session=None):
+    """
+    Retrieve source RSE ids by its ID.
+
+    :param request_id: Request-ID as a 32 character hex string.
+    :param session: Database session to use.
+    :returns: Source RSE ids as a list.
+    """
+
+    try:
+        tmp = session.query(models.Source.rse_id).filter_by(request_id=request_id).all()
+        result = [t[0] for t in tmp]
+        return result
     except IntegrityError, e:
         raise RucioException(e.args)
 
