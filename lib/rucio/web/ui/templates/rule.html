@@ -7,7 +7,7 @@
  http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 -->
 
@@ -18,7 +18,12 @@ $var script: <script src="/static/rule.js"></script>
 
   <div id="metadata" class="columns panel">
     <h4>Rule metadata</h4>
-    <div id="loading">Loading, please wait...</div>
+    <div id="loading">
+      <div class="row"><div class="small-1 small-centered columns">
+          <img src="/media/spinner.gif">
+        </div>
+      </div>
+    </div>
     <table id="t_metadata" style="word-wrap: break-word;">
     </table>
   </div>
