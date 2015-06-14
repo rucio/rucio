@@ -54,23 +54,25 @@ rse_capacity_cache = '/var/cache/nagios/rucio_quotas_rse_capacity.json'
 country_accounts_cache = '/var/cache/nagios/rucio_quotas_country_accounts.json'
 
 
-def get_srm_total(name):
+def get_space_total(name):
     global result
     try:
-        capacity = rse.get_rse_usage(name, 'root', source='srm')
+        capacity = rse.get_rse_usage(name, 'root')
     except RucioException as e:
         print "WARNING: Could not get capacity of %s: %s" % (name, str(e))
         result = WARNING
         return None
 
-    try:
-        srmtotal = capacity[0]['total']
-    except:
-        print "WARNING: No srm info for %s" % name
-        result = WARNING
-        return None
+    # Check all sources for capacity numbers and chose the most recent one
+    spacetotal = None
+    updated_at = None
+    for record in capacity:
+        if record.has_key('total'):
+            if record['total'] is not None and ((updated_at is None) or updated_at<record['updated_at']):
+                spacetotal = record['total']
+                updated_at = record['updated_at']
 
-    return srmtotal
+    return spacetotal
 
 
 def set_group_quotas(quotas):
@@ -123,28 +125,28 @@ def set_user_quotas(name, accs, fraction):
 
     global result
     # Check space compared to cache value
-    srmtotal = get_srm_total(name)
-    if not srmtotal:
+    spacetotal = get_space_total(name)
+    if not spacetotal:
         return
 
     accounts = accs
 
     if name not in rse_capacity:
         print "%s: no cached info" % name
-    elif abs(rse_capacity[name] - srmtotal) > 1000**4:
+    elif abs(rse_capacity[name] - spacetotal) > 1000**4:
         # Changes of <1TB are not important enough to change all the quotas
-        print "%s capacity changed from %dTB to %dTB" % (name, rse_capacity[name]/1000**4, srmtotal/1000**4)
+        print "%s capacity changed from %dTB to %dTB" % (name, rse_capacity[name]/1000**4, spacetotal/1000**4)
     else:
         print "%s total capacity is unchanged since last run" % name
 
         # Just change new accounts
         accounts = [a for a in accounts if a not in done_accounts]
 
-    rse_capacity[name] = srmtotal
+    rse_capacity[name] = spacetotal
     for account in accounts:
         try:
-            print "Set quota of %dTB on %s for %s" % (srmtotal * fraction / 1000**4, name, account)
-            set_account_limit(account, name, srmtotal * fraction, 'root')
+            print "Set quota of %dTB on %s for %s" % (spacetotal * fraction / 1000**4, name, account)
+            set_account_limit(account, name, spacetotal * fraction, 'root')
         except RucioException as e:
             print 'WARNING: %s' % str(e)
             result = WARNING
@@ -232,7 +234,7 @@ if __name__ == '__main__':
             if ddmendpoint['phys_groups']:
                 set_group_quotas(ddmendpoint['quotas'])
 
-            if name.endswith('_LOCALGROUPDISK') or ddmendpoint['token'] == 'ATLASLOCALGROUPDISK':
+            if ddmendpoint['type']=='LOCALGROUPDISK':
                 try:
                     country = rse.list_rse_attributes(name)['country']
                 except:
