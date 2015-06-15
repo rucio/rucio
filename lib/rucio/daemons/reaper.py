@@ -136,7 +136,6 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                         logging.info('Reaper({0[worker_number]}/{0[child_number]}): Live gives {0[heartbeat]}'.format(locals()))
                         checkpoint_time = datetime.datetime.now()
 
-                    deleting_rate = 0
                     rse_info = rsemgr.get_rse_info(rse['rse'])
                     rse_protocol = rse_core.get_rse_protocols(rse['rse'])
 
@@ -272,16 +271,11 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                 delete_replicas(rse=rse['rse'], files=deleted_files)
                             logging.debug('Reaper %s-%s: delete_replicas successes %s %s %s', worker_number, child_number, rse['rse'], len(deleted_files), time.time() - start)
                             monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
-                            deleting_rate += len(deleted_files)
 
                         except DatabaseException as error:
                             logging.warning('Reaper %s-%s: DatabaseException %s', worker_number, child_number, str(error))
                         except:
                             logging.critical(traceback.format_exc())
-
-                    deleting_rate = deleting_rate * 1.0 / max_being_deleted_files
-                    if deleting_rate > max_deleting_rate:
-                        max_deleting_rate = deleting_rate
 
                 except:
                     logging.critical(traceback.format_exc())
