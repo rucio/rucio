@@ -90,6 +90,7 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
             rsemgr.delete(rse_info, lfns=lfns)
             return False
     except Exception, error:
+        logging.error('Thread [%i/%i] : %s' % (worker_number, total_workers, str(error)))
         return False
     logging.info('Thread [%i/%i] : Files successfully copied on %s' % (worker_number, total_workers, rse))
 
