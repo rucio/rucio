@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013,2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
@@ -23,7 +23,7 @@ from rucio.api.did import (add_did, add_dids, list_content, list_dids,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
-                           create_did_sample)
+                           create_did_sample, list_new_dids)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -51,6 +51,7 @@ urls = (
     '/(.*)/(.*)', 'DIDs',
     '', 'BulkDIDS',
     '/attachments', 'Attachments',
+    '/new', 'NewDIDs'
 )
 
 
@@ -687,6 +688,33 @@ class Sample(RucioController):
             raise InternalError(e)
         raise Created()
 
+
+class NewDIDs(RucioController):
+    def GET(self):
+        """
+        Returns list of recent identifiers.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param type: The DID type.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        params = parse_qs(ctx.query[1:])
+
+        type = None
+        if 'type' in params:
+            type = params['type'][0]
+        try:
+            for did in list_new_dids(type):
+                yield dumps(did, cls=APIEncoder) + '\n'
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            raise InternalError(e)
 
 """----------------------
    Web service startup
