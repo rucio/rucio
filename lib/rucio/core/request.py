@@ -1029,7 +1029,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
 
 @read_session
 def list_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                               activity=None, older_than=None, rses=None, session=None):
+                                               limit=None, activity=None, older_than=None, rses=None, session=None):
     """
     List requests with source replicas
 
@@ -1037,6 +1037,7 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
     :param total_processes: Maximum number of processes as an integer.
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
+    :param limit: Integer of requests to retrieve.
     :param activity: Activity to be selected.
     :param older_than: Only select requests older than this DateTime.
     :param rses: List of rse_id to select requests.
@@ -1044,60 +1045,80 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
     :returns: List.
     """
     is_false = False  # For PEP8
-    query = session.query(models.Request.id,
-                          models.Request.rule_id,
-                          models.Request.scope,
-                          models.Request.name,
-                          models.Request.md5,
-                          models.Request.adler32,
-                          models.Request.bytes,
-                          models.Request.activity,
-                          models.Request.attributes,
-                          models.Request.previous_attempt_id,
-                          models.Request.dest_rse_id,
+    sub_requests = session.query(models.Request.id,
+                                 models.Request.rule_id,
+                                 models.Request.scope,
+                                 models.Request.name,
+                                 models.Request.md5,
+                                 models.Request.adler32,
+                                 models.Request.bytes,
+                                 models.Request.activity,
+                                 models.Request.attributes,
+                                 models.Request.previous_attempt_id,
+                                 models.Request.dest_rse_id,
+                                 models.Request.retry_count)\
+        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+        .filter(models.Request.state == RequestState.QUEUED)\
+        .filter(models.Request.request_type == RequestType.TRANSFER)
+
+    if isinstance(older_than, datetime.datetime):
+        sub_requests = sub_requests.filter(models.Request.updated_at < older_than)
+
+    if activity:
+        sub_requests = sub_requests.filter(models.Request.activity == activity)
+
+    if (total_processes-1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+        elif session.bind.dialect.name == 'postgresql':
+            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+
+    if (total_threads-1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+        elif session.bind.dialect.name == 'postgresql':
+            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+
+    if limit:
+        sub_requests = sub_requests.limit(limit)
+
+    sub_requests = sub_requests.subquery()
+
+    query = session.query(sub_requests.c.id,
+                          sub_requests.c.rule_id,
+                          sub_requests.c.scope,
+                          sub_requests.c.name,
+                          sub_requests.c.md5,
+                          sub_requests.c.adler32,
+                          sub_requests.c.bytes,
+                          sub_requests.c.activity,
+                          sub_requests.c.attributes,
+                          sub_requests.c.previous_attempt_id,
+                          sub_requests.c.dest_rse_id,
                           models.RSEFileAssociation.rse_id,
                           models.RSE.rse,
                           models.RSE.deterministic,
                           models.RSE.rse_type,
                           models.RSEFileAssociation.path,
-                          models.Request.retry_count,
+                          sub_requests.c.retry_count,
                           models.Source.url,
                           models.Source.ranking)\
-        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-        .filter(models.Request.state == RequestState.QUEUED)\
-        .filter(models.Request.request_type == RequestType.TRANSFER)\
-        .outerjoin(models.RSEFileAssociation, and_(models.Request.scope == models.RSEFileAssociation.scope,
-                                                   models.Request.name == models.RSEFileAssociation.name,
+        .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
+                                                   sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                   models.Request.dest_rse_id != models.RSEFileAssociation.rse_id))\
+                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
+        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
                                     models.RSE.staging_area == is_false))\
-        .outerjoin(models.Source, and_(models.Request.id == models.Source.request_id,
-                                       models.RSE.id == models.Source.rse_id))
-
-    if isinstance(older_than, datetime.datetime):
-        query = query.filter(models.Request.updated_at < older_than)
-
-    if activity:
-        query = query.filter(models.Request.activity == activity)
-
-    if (total_processes-1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
-            query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
-
-    if (total_threads-1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
-            query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+        .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
+                                       models.RSE.id == models.Source.rse_id))\
+        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')
 
     if rses:
         result = []
@@ -1112,7 +1133,7 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
 
 @read_session
 def list_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                              activity=None, older_than=None, rses=None, session=None):
+                                              limit=None, activity=None, older_than=None, rses=None, session=None):
     """
     List stagein requests with source replicas
 
@@ -1120,6 +1141,7 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
     :param total_processes: Maximum number of processes as an integer.
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
+    :param limit: Integer of requests to retrieve.
     :param activity: Activity to be selected.
     :param older_than: Only select requests older than this DateTime.
     :param rses: List of rse_id to select requests.
@@ -1127,63 +1149,83 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
     :returns: List.
     """
     is_false = False  # For PEP8
-    query = session.query(models.Request.id,
-                          models.Request.rule_id,
-                          models.Request.scope,
-                          models.Request.name,
-                          models.Request.md5,
-                          models.Request.adler32,
-                          models.Request.bytes,
-                          models.Request.activity,
-                          models.Request.attributes,
-                          models.Request.dest_rse_id,
+    sub_requests = session.query(models.Request.id,
+                                 models.Request.rule_id,
+                                 models.Request.scope,
+                                 models.Request.name,
+                                 models.Request.md5,
+                                 models.Request.adler32,
+                                 models.Request.bytes,
+                                 models.Request.activity,
+                                 models.Request.attributes,
+                                 models.Request.previous_attempt_id,
+                                 models.Request.dest_rse_id,
+                                 models.Request.retry_count)\
+        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+        .filter(models.Request.state == RequestState.QUEUED)\
+        .filter(models.Request.request_type == RequestType.STAGEIN)
+
+    if isinstance(older_than, datetime.datetime):
+        sub_requests = sub_requests.filter(models.Request.updated_at < older_than)
+
+    if activity:
+        sub_requests = sub_requests.filter(models.Request.activity == activity)
+
+    if (total_processes-1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+        elif session.bind.dialect.name == 'postgresql':
+            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+
+    if (total_threads-1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+        elif session.bind.dialect.name == 'postgresql':
+            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+
+    if limit:
+        sub_requests = sub_requests.limit(limit)
+
+    sub_requests = sub_requests.subquery()
+
+    query = session.query(sub_requests.c.id,
+                          sub_requests.c.rule_id,
+                          sub_requests.c.scope,
+                          sub_requests.c.name,
+                          sub_requests.c.md5,
+                          sub_requests.c.adler32,
+                          sub_requests.c.bytes,
+                          sub_requests.c.activity,
+                          sub_requests.c.attributes,
+                          sub_requests.c.dest_rse_id,
                           models.RSEFileAssociation.rse_id,
                           models.RSE.rse,
                           models.RSE.deterministic,
                           models.RSE.rse_type,
                           models.RSEFileAssociation.path,
                           models.RSEAttrAssociation.value,
-                          models.Request.retry_count,
-                          models.Request.previous_attempt_id,
+                          sub_requests.c.retry_count,
+                          sub_requests.c.previous_attempt_id,
                           models.Source.url,
                           models.Source.ranking)\
-        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-        .filter(models.Request.state == RequestState.QUEUED)\
-        .filter(models.Request.request_type == RequestType.STAGEIN)\
-        .outerjoin(models.RSEFileAssociation, and_(models.Request.scope == models.RSEFileAssociation.scope,
-                                                   models.Request.name == models.RSEFileAssociation.name,
+        .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
+                                                   sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                   models.Request.dest_rse_id != models.RSEFileAssociation.rse_id))\
+                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
+        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
                                     models.RSE.staging_area == is_false))\
         .outerjoin(models.RSEAttrAssociation, and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
                                                    models.RSEAttrAssociation.key == 'staging_buffer'))\
-        .outerjoin(models.Source, and_(models.Request.id == models.Source.request_id,
-                                       models.RSE.id == models.Source.rse_id))
-
-    if isinstance(older_than, datetime.datetime):
-        query = query.filter(models.Request.updated_at < older_than)
-
-    if activity:
-        query = query.filter(models.Request.activity == activity)
-
-    if (total_processes-1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
-            query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
-
-    if (total_threads-1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
-            query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+        .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
+                                       models.RSE.id == models.Source.rse_id))\
+        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')
 
     if rses:
         result = []
