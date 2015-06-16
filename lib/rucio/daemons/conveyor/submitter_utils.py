@@ -702,7 +702,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     # DQ2 path always starts with /, but prefix might not end with /
                     naming_convention = rse_attrs[dest_rse_id].get('naming_convention', None)
                     dest_path = construct_surl(dsn, name, naming_convention)
-                    if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE:
+                    if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
                         if previous_attempt_id or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
@@ -744,9 +744,9 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
                 # Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
-                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE:
+                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
                     bring_online = 172800  # 48 hours
-                if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE:
+                if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
                     overwrite = False
 
                 # get external_host
@@ -806,7 +806,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
                 # TAPE should not mixed with Disk and should not use as first try
                 # If there is a source whose ranking is more than 0, Tape will not be used.
-                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE:
+                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
                     # current src_rse is Tape
                     if not transfers[id]['bring_online']:
                         # the founded sources are disks.
@@ -932,6 +932,13 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                     if source_rse_id is None or rse is None or staging_buffer is None:
                         continue
 
+                    attr = None
+                    if attributes:
+                        if type(attributes) is dict:
+                            attr = json.loads(json.dumps(attributes))
+                        else:
+                            attr = json.loads(str(attributes))
+
                     # to get space token and fts attribute
                     if source_rse_id not in rses_info:
                         # source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
@@ -969,7 +976,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                  'name': name,
                                  'activity': activity,
                                  'src_rse': rse,
-                                 'dst_rse': rses_info[dest_rse_id]['rse'],
+                                 'dst_rse': rse,
                                  'dest_rse_id': dest_rse_id,
                                  'filesize': bytes,
                                  'md5': md5,
@@ -985,7 +992,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                  'dest_spacetoken': dest_spacetoken,
                                  'overwrite': False,
                                  'bring_online': 172800,  # 48 hours
-                                 'copy_pin_lifetime': attr.get('lifetime', -1),
+                                 'copy_pin_lifetime': attr.get('lifetime', -1) if attr else -1,
                                  'external_host': external_host,
                                  'selection_strategy': 'auto',
                                  'rule_id': rule_id,
