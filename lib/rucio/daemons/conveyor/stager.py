@@ -76,7 +76,7 @@ def submitter(once=False, rses=[], mock=False,
             if not sleeping:
                 sleeping = True
                 hb = heartbeat.live(executable, hostname, pid, hb_thread)
-                logging.info('Transfer submitter - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
+                logging.info('Transfer submitter - thread (%i/%i) bulk (%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
 
             if activities is None:
                 activities = [None]
@@ -94,7 +94,7 @@ def submitter(once=False, rses=[], mock=False,
                 logging.info("%s:%s Starting to get stagein transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
                 transfers = get_stagein_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'],
-                                                  activity=activity, rses=rse_ids, mock=mock, schemes=scheme)
+                                                  limit=bulk, activity=activity, rses=rse_ids, mock=mock, schemes=scheme)
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.stager.get_stagein_transfers', len(transfers))
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', len(transfers))
