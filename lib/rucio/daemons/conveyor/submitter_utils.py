@@ -617,9 +617,9 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
 
 @read_session
 def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                              activity=None, older_than=None, rses=None, schemes=None, session=None):
+                                              limit=None, activity=None, older_than=None, rses=None, schemes=None, session=None):
     req_sources = request.list_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                     activity=activity, older_than=older_than, rses=rses, session=session)
+                                                                     limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
 
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], []
     for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking in req_sources:
@@ -858,9 +858,9 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
 @read_session
 def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                             activity=None, older_than=None, rses=None, mock=False, schemes=None, session=None):
+                                             limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, session=None):
     req_sources = request.list_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                    activity=activity, older_than=older_than, rses=rses, session=session)
+                                                                    limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
 
     transfers, rses_info, protocols, rse_attrs, reqs_no_source = {}, {}, {}, {}, []
     for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, staging_buffer, retry_count, previous_attempt_id, src_url, ranking in req_sources:
@@ -1006,9 +1006,9 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
 
 
 def get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                          activity=None, older_than=None, rses=None, mock=False, schemes=None, session=None):
+                          limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, session=None):
     transfers, reqs_no_source = get_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                         activity=activity, older_than=older_than, rses=rses, mock=mock, schemes=schemes, session=session)
+                                                                         limit=limit, activity=activity, older_than=older_than, rses=rses, mock=mock, schemes=schemes, session=session)
     request.set_requests_state(reqs_no_source, RequestState.LOST)
     return transfers
 
@@ -1044,9 +1044,9 @@ def mock_sources(sources):
 
 
 def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                           activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, session=None):
+                           limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, session=None):
     transfers, reqs_no_source, reqs_scheme_mismatch = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                                                activity=activity, older_than=older_than, rses=rses, schemes=schemes, session=session)
+                                                                                                limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes, session=session)
     request.set_requests_state(reqs_no_source, RequestState.LOST)
     transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch)
 
