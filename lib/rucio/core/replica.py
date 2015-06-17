@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from re import match
 from traceback import format_exc
 
-from sqlalchemy import func, and_, or_, exists
+from sqlalchemy import func, and_, or_, exists, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql.expression import case, bindparam, select, text
@@ -975,11 +975,10 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
 
     # do no delete files used as sources
-    # stmt = exists().where(and_(models.RSEFileAssociation.scope == models.Source.scope,
-    #                            models.RSEFileAssociation.name == models.Source.name,
-    #                            models.RSEFileAssociation.rse_id == models.Source.rse_id))
-    # to enable later
-    # query = query.filter(not_(stmt))
+    stmt = exists().where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                               models.RSEFileAssociation.name == models.Source.name,
+                               models.RSEFileAssociation.rse_id == models.Source.rse_id))
+    query = query.filter(not_(stmt))
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
