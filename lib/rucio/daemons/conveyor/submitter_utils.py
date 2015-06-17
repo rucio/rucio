@@ -314,7 +314,9 @@ def get_transfer(rse, req, scheme, mock, max_sources=4):
         if scheme is None:
             sources, metadata = get_sources(rse, None, req, max_sources=max_sources)
         else:
-            sources, metadata = get_sources(rse, [scheme], req, max_sources=max_sources)
+            if not isinstance(scheme, list):
+                scheme = scheme.split(',')
+            sources, metadata = get_sources(rse, scheme, req, max_sources=max_sources)
         record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
         logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
         if sources is None:
