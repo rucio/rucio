@@ -864,19 +864,21 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
     # Get all collection_replicas, delete them
     collection_replica_condition, latest_dataset_replica_condition = [], []
-    query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
-        filter(or_(*dst_replica_condition)).\
-        distinct()
-    for parent_scope, parent_name in query:
-        collection_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope,
-                                                 models.CollectionReplica.name == parent_name,
-                                                 models.CollectionReplica.rse_id == replica_rse.id))
+    if dst_replica_condition:
+        query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
+            filter(or_(*dst_replica_condition)).\
+            distinct()
 
-        latest_dataset_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope,
+        for parent_scope, parent_name in query:
+            collection_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope,
                                                      models.CollectionReplica.name == parent_name,
-                                                     exists([1]).where(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False)),  # NOQA
-                                                     ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
-                                                     ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
+                                                     models.CollectionReplica.rse_id == replica_rse.id))
+
+            latest_dataset_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope,
+                                                         models.CollectionReplica.name == parent_name,
+                                                         exists([1]).where(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False)),  # NOQA
+                                                         ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
+                                                         ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
 
     if collection_replica_condition:
         rowcount = session.query(models.CollectionReplica).\
@@ -975,9 +977,9 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
 
     # do no delete files used as sources
-    stmt = exists().where(and_(models.RSEFileAssociation.scope == models.Source.scope,
-                               models.RSEFileAssociation.name == models.Source.name,
-                               models.RSEFileAssociation.rse_id == models.Source.rse_id))
+    stmt = exists([1]).where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                                  models.RSEFileAssociation.name == models.Source.name,
+                                  models.RSEFileAssociation.rse_id == models.Source.rse_id))
     query = query.filter(not_(stmt))
 
     if worker_number and total_workers and total_workers - 1 > 0:
@@ -1061,6 +1063,11 @@ def update_replicas_states(replicas, nowait=False, session=None):
         values = {'state': replica['state']}
         if replica['state'] == ReplicaState.BEING_DELETED:
             query = query.filter_by(lock_cnt=0)
+            # Exclude replicas use as sources
+            stmt = exists([1]).where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                                          models.RSEFileAssociation.name == models.Source.name,
+                                          models.RSEFileAssociation.rse_id == models.Source.rse_id))
+            query = query.filter(not_(stmt))
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)

@@ -41,7 +41,7 @@ if __name__ == '__main__':
     c = Client()
     for rse in data:
         try:
-            deterministic = not rse['is_deterministic']
+            deterministic = rse['is_deterministic']
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
             # Set infinite quotas for admin accounts
