@@ -97,6 +97,8 @@ class RuleState(DeclEnum):
     OK = 'O', 'OK'
     STUCK = 'S', 'STUCK'
     SUSPENDED = 'U', 'SUSPENDED'
+    AWAITING_APPROVAL = 'A', 'AWAITING_APPROVAL'
+    INJECT = 'I', 'INJECT'
 
 
 class RuleGrouping(DeclEnum):
