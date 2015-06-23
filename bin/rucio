@@ -1444,7 +1444,6 @@ def list_parent_datasets(args):
         except ValueError:
             pfns.append(input)
 
-
     print pfns, guids
     dict_datasets = {}
     if pfns:
@@ -1462,7 +1461,6 @@ def list_parent_datasets(args):
             for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
                 if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
                     dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
-
 
     for pfn in dict_datasets:
         print 'PFN or GUID : ', pfn
