@@ -15,7 +15,7 @@ from rucio.common.schema import validate_schema
 from rucio.core import rule
 
 
-def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, comment, ask_approval, issuer):
+def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, issuer):
     """
     Adds a replication rule.
 
@@ -37,6 +37,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :param ignore_availability:        Option to ignore the availability of RSEs.
     :param comment:                    Comment about the rule.
     :param ask_approval:               Ask for approval of this rule.
+    :param asynchronous:               Create rule asynchronously by judge-injector.
     :param issuer:                     The issuing account of this operation.
     :returns:                          List of created replication rules.
     """
@@ -50,7 +51,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
               'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity,
               'purge_replicas': purge_replicas, 'ignore_availability': ignore_availability, 'comment': comment,
-              'ask_approval': ask_approval}
+              'ask_approval': ask_approval, 'asynchronous': asynchronous}
 
     validate_schema(name='rule', obj=kwargs)
 
@@ -71,7 +72,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                          purge_replicas=purge_replicas,
                          ignore_availability=ignore_availability,
                          comment=comment,
-                         ask_approval=ask_approval)
+                         ask_approval=ask_approval,
+                         asynchronous=asynchronous)
 
 
 def get_replication_rule(rule_id):
@@ -154,3 +156,33 @@ def reduce_replication_rule(rule_id, copies, exclude_expression, issuer):
     if not has_permission(issuer=issuer, action='reduce_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not reduce this replication rule.' % (issuer))
     rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression)
+
+
+def approve_replication_rule(rule_id, issuer):
+    """
+    Approve the replication rule.
+
+    :param rule_id:             Rule to be approved.
+    :param issuer:              The issuing account of this operation
+    :raises:                    RuleNotFound
+    """
+
+    kwargs = {'rule_id': rule_id}
+    if not has_permission(issuer=issuer, action='approve_rule', kwargs=kwargs):
+        raise AccessDenied('Account %s can not approve this replication rule.' % (issuer))
+    rule.approve_rule(rule_id=rule_id)
+
+
+def deny_replication_rule(rule_id, issuer):
+    """
+    Approve the replication rule.
+
+    :param rule_id:             Rule to be denied.
+    :param issuer:              The issuing account of this operation
+    :raises:                    RuleNotFound
+    """
+
+    kwargs = {'rule_id': rule_id}
+    if not has_permission(issuer=issuer, action='deny_rule', kwargs=kwargs):
+        raise AccessDenied('Account %s can not deny this replication rule.' % (issuer))
+    rule.deny_rule(rule_id=rule_id)

@@ -56,6 +56,9 @@ LOCKED = {"description": "Rule locked status",
 ASK_APPROVAL = {"description": "Rule approval request",
                 "type": ["boolean", "null"]}
 
+ASYNCHRONOUS = {"description": "Asynchronous rule creation",
+                "type": ["boolean", "null"]}
+
 PURGE_REPLICAS = {"description": "Rule purge replica status",
                   "type": "boolean"}
 
@@ -151,7 +154,8 @@ RULE = {"description": "Replication rule",
                        "purge_replicas": PURGE_REPLICAS,
                        "ignore_availability": IGNORE_AVAILABILITY,
                        "comment": COMMENT,
-                       "ask_approval": ASK_APPROVAL},
+                       "ask_approval": ASK_APPROVAL,
+                       "asynchronous": ASYNCHRONOUS},
         "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 
