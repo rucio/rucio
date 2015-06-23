@@ -22,6 +22,7 @@ from rucio.web.ui.common.utils import check_token, get_token
 
 urls = (
     '/', 'Index',
+    '/account_rse_usage', 'AccountRSEUsage',
     '/account_usage', 'AccountUsage',
     '/auth', 'Auth',
     '/accounting', 'Accounting',
@@ -58,6 +59,12 @@ class AccountUsage():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.account_usage())
+
+
+class AccountRSEUsage():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.account_rse_usage())
 
 
 class Auth():
