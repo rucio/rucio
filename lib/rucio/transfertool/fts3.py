@@ -493,11 +493,8 @@ def bulk_query(transfer_ids, transfer_host):
 
     jobs = None
 
-    # for FTS3, if only one transfer_id and failed, the return value will not be a json.
     if type(transfer_ids) is not list:
-        transfer_ids = [transfer_ids, transfer_ids]
-    if len(transfer_ids) == 1:
-        transfer_ids = [transfer_ids[0], transfer_ids[0]]
+        transfer_ids = [transfer_ids]
 
     responses = {}
     fts_session = requests.Session()
