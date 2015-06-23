@@ -16,7 +16,7 @@ from traceback import format_exc
 from web import application, ctx, data, header, Created, InternalError, OK, loadhook
 
 from rucio.api.lock import get_replica_locks_for_rule_id
-from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule, list_replication_rule_history
+from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule, list_replication_rule_history, approve_replication_rule, deny_replication_rule
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
@@ -32,6 +32,8 @@ logger.addHandler(sh)
 urls = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
         '/(.+)/history', 'RuleHistory',
+        '/(.+)/approve', 'RuleApprove',
+        '/(.+)/deny', 'RuleDeny',
         '/', 'Rule',
         '/(.+)', 'Rule',)
 
@@ -109,7 +111,10 @@ class Rule:
         """
         json_data = data()
         try:
-            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, comment, ask_approval = 'DATASET', None, None, False, None, None, None, None, False, False, None, False
+            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify,\
+                purge_replicas, ignore_availability, comment, ask_approval, asynchronous = 'DATASET', None, None,\
+                False, None, None, None, None, False, False, None, False, False
+
             params = loads(json_data)
             dids = params['dids']
             account = params['account']
@@ -139,6 +144,8 @@ class Rule:
                 comment = params['comment']
             if 'ask_approval' in params:
                 ask_approval = params['ask_approval']
+            if 'asynchronous' in params:
+                asynchronous = params['asynchronous']
 
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
@@ -160,6 +167,7 @@ class Rule:
                                             ignore_availability=ignore_availability,
                                             comment=comment,
                                             ask_approval=ask_approval,
+                                            asynchronous=asynchronous,
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule, e:
@@ -323,6 +331,72 @@ class RuleHistory:
 
         for hist in history:
             yield dumps(hist, cls=APIEncoder) + '\n'
+
+
+class RuleApprove:
+    """ REST APIs for approving rules. """
+
+    def PUT(self, rule_id):
+        """
+        Approve a replication rule.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+        """
+        try:
+            approve_replication_rule(rule_id=rule_id,
+                                     issuer=ctx.env.get('issuer'))
+        # TODO: Add all other error cases here
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print e
+            print format_exc()
+            raise InternalError(e)
+
+        raise OK()
+
+
+class RuleDeny:
+    """ REST APIs to deny rules. """
+
+    def PUT(self, rule_id):
+        """
+        Deny a replication rule.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+        """
+        try:
+            deny_replication_rule(rule_id=rule_id,
+                                  issuer=ctx.env.get('issuer'))
+        # TODO: Add all other error cases here
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print e
+            print format_exc()
+            raise InternalError(e)
+
+        raise OK()
 
 """----------------------
    Web service startup
