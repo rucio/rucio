@@ -811,29 +811,51 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
                     # current src_rse is Tape
                     if not transfers[id]['bring_online']:
-                        # the founded sources are disks.
-                        avail_disks = False
+                        # the sources already founded are disks.
+
+                        avail_top_ranking = None
                         founded_sources = transfers[id]['sources']
                         for founded_source in founded_sources:
-                            if founded_source[3] is None or founded_source[3] >= 0:
-                                avail_disks = True
-                                break
-                        if avail_disks:
+                            if avail_top_ranking is None:
+                                avail_top_ranking = founded_source[3]
+                                continue
+                            if founded_source[3] is not None and founded_source[3] > avail_top_ranking:
+                                avail_top_ranking = founded_source[3]
+
+                        if avail_top_ranking >= ranking:
+                            # current Tape source is not the highest ranking, will use disk sources
                             continue
                         else:
-                            # no available Disks with ranking more than 0, remove all founded sources to use this tape
+                            transfers[id]['sources'] = []
+                            transfers[id]['bring_online'] = 172800
+                    else:
+                        # the sources already founded is Tape too.
+                        # multiple Tape source replicas are not allowed in FTS3.
+                        if transfers[id]['sources'][0][3] >= ranking:
+                            continue
+                        else:
                             transfers[id]['sources'] = []
                             transfers[id]['bring_online'] = 172800
                 else:
                     # current src_rse is Disk
                     if transfers[id]['bring_online']:
                         # the founded sources are Tape
-                        if ranking is None or ranking >= 0:
+
+                        avail_top_ranking = None
+                        founded_sources = transfers[id]['sources']
+                        for founded_source in founded_sources:
+                            if avail_top_ranking is None:
+                                avail_top_ranking = founded_source[3]
+                                continue
+                            if founded_source[3] is not None and founded_source[3] > avail_top_ranking:
+                                avail_top_ranking = founded_source[3]
+
+                        if ranking >= avail_top_ranking:
+                            # current disk replica has higher ranking than founded sources
                             # remove founded Tape sources
                             transfers[id]['sources'] = []
                             transfers[id]['bring_online'] = None
                         else:
-                            # will not use current src_rse
                             continue
 
                 # Get protocol
