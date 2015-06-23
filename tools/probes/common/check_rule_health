@@ -18,6 +18,7 @@ from rucio.db.session import get_session
 # Exit statuses
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
+
 def main():
     '''
     Probe to repair rule health
@@ -50,9 +51,9 @@ BEGIN
             END IF;
         END IF;
     end loop;
-END;'''
+END;'''  # NOQA
         session.execute(query)
-    except Exception, e:
+    except Exception:
         sys.exit(UNKNOWN)
     sys.exit(OK)
 
