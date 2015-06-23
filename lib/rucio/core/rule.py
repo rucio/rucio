@@ -52,7 +52,9 @@ logging.basicConfig(stream=sys.stdout,
 
 
 @transactional_session
-def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity='default', notify=None, purge_replicas=False, ignore_availability=False, comment=None, session=None):
+def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
+             source_replica_expression=None, activity='default', notify=None, purge_replicas=False,
+             ignore_availability=False, comment=None, ask_approval=False, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -73,6 +75,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param purge_replicas:             Purge setting if a replica should be directly deleted after the rule is deleted.
     :param ignore_availability:        Option to ignore the availability of RSEs.
     :param comment:                    Comment about the rule.
+    :param ask_approval:               Ask for approval for this rule.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted
@@ -156,6 +159,12 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                         raise DuplicateRule()
                     raise InvalidReplicationRule(e.args[0])
                 rule_ids.append(new_rule.id)
+
+            if ask_approval:
+                new_rule.state = RuleState.AWAITING_APPROVAL
+                logging.debug("Created rule %s in waiting for approval" % (str(new_rule.id)))
+                # TODO: eMail notification?
+                continue
 
             # 5. Resolve the did to its contents
             with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
@@ -325,6 +334,12 @@ def add_rules(dids, rules, session=None):
                             raise InvalidReplicationRule(e.args[0])
 
                         rule_ids[(did.scope, did.name)].append(new_rule.id)
+
+                    if rule.get('ask_approval', False):
+                        new_rule.state = RuleState.AWAITING_APPROVAL
+                        logging.debug("Created rule %s in waiting for approval" % str(new_rule.id))
+                        # TODO: eMail notification?
+                        continue
 
                     # 5. Apply the replication rule to create locks, replicas and transfers
                     with record_timer_block('rule.add_rules.create_locks_replicas_transfers'):
@@ -1232,6 +1247,48 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
                                       activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
                                       ignore_availability=rule.ignore_availability, comments=rule.comments, created_at=rule.created_at,
                                       updated_at=rule.updated_at).save(session=session)
+
+
+@transactional_session
+def approve_rule(rule_id, session=None):
+    """
+    Approve a specific replication rule.
+
+    :param rule_id: The rule_id to approve.
+    :param session: The database session in use.
+    :raises:        RuleNotFound if no Rule can be found.
+    """
+
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        if rule.state == RuleState.AWAITNG_APPROVAL:
+            rule.state = RuleState.INJECT
+            return
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+
+
+@transactional_session
+def deny_rule(rule_id, session=None):
+    """
+    Deny a specific replication rule.
+
+    :param rule_id: The rule_id to approve.
+    :param session: The database session in use.
+    :raises:        RuleNotFound if no Rule can be found.
+    """
+
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        if rule.state == RuleState.AWAITNG_APPROVAL:
+            delete_rule(rule_id=rule_id, session=session)
+            return
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
 
 
 @transactional_session
