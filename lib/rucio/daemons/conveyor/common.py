@@ -485,6 +485,7 @@ def poll_transfers(external_host, xfers, process=0, thread=0):
             logging.error("Failed to query FTS info: %s" % (str(e)))
             return
 
+        logging.debug('%i:%i - updating %s requests status' % (process, thread, len(xfers)))
         for transfer_id in resps:
             try:
                 transf_resp = resps[transfer_id]
@@ -512,5 +513,6 @@ def poll_transfers(external_host, xfers, process=0, thread=0):
                     logging.warn("Lock detected when handling request %s - skipping" % request_id)
                 else:
                     logging.critical(traceback.format_exc())
+        logging.debug('%i:%i - finished updating %s requests status' % (process, thread, len(xfers)))
     except:
         logging.error(traceback.format_exc())
