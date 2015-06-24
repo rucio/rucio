@@ -123,7 +123,8 @@ def queue_requests(requests, session=None):
                                          activity=req['attributes']['activity'],
                                          bytes=req['attributes']['bytes'],
                                          md5=req['attributes']['md5'],
-                                         adler32=req['attributes']['adler32'])
+                                         adler32=req['attributes']['adler32'],
+                                         retry_count=req['retry_count'])
             if 'previous_attempt_id' in req and 'retry_count' in req:
                 new_request = models.Request(id=req['request_id'],
                                              request_type=req['request_type'],
