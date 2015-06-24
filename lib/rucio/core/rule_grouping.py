@@ -138,7 +138,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rs
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None):
+def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None, retry_count=None):
     """
     This method creates a transfer dictionary and returns it
 
@@ -170,7 +170,8 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=Non
             'name': name,
             'rule_id': rule.id,
             'attributes': attributes,
-            'request_type': request_type}
+            'request_type': request_type,
+            'retry_count': retry_count}
 
 
 @transactional_session
@@ -1002,7 +1003,7 @@ def __create_replica(rse_id, scope, name, bytes, state, md5, adler32):
 @transactional_session
 def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, transfers_to_create, session=None):
     """
-    This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
+    This method updates a lock and replica and fills the corresponding dictionaries.
 
     :param lock:                 The lock to update.
     :param replica:              The replica to update.
@@ -1043,4 +1044,5 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         adler32=replica.adler32,
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
-                                                        request_type=RequestType.TRANSFER))
+                                                        request_type=RequestType.TRANSFER,
+                                                        retry_count=1),)

@@ -705,7 +705,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     naming_convention = rse_attrs[dest_rse_id].get('naming_convention', None)
                     dest_path = construct_surl(dsn, name, naming_convention)
                     if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
-                        if previous_attempt_id or activity == 'Recovery':
+                        if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
                     # replica cannot be imported. finisher will do it
