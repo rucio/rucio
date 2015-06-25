@@ -31,6 +31,7 @@ handler = logging.handlers.SysLogHandler('/dev/log')
 handler.setFormatter(logging.Formatter('%(name)s[%(process)d] %(message)s'))
 logger.addHandler(handler)
 
+
 def monitor_haproxy(socket_name):
     data = {}
     INCLUDE_INFO = ['Process_num', 'Idle_pct']
