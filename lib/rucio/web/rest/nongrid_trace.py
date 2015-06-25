@@ -39,16 +39,12 @@ class Trace(RucioController):
             payload = json.loads(data())
 
             # generate entry timestamp
-            payload['traceTimeentry'] = datetime.datetime.utcnow()
-            payload['traceTimeentryUnix'] = time.mktime(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond/1e6
+            payload['timeentry'] = int(time.time())
 
             # guess client IP
-            payload['traceIp'] = ctx.env.get('HTTP_X_FORWARDED_FOR')
-            if payload['traceIp'] is None:
-                payload['traceIp'] = ctx.ip  # quand meme, cela peut etre None aussi
-
-            # generate unique ID
-            payload['traceId'] = str(uuid.uuid4()).replace('-', '').lower()
+            payload['ip'] = ctx.env.get('HTTP_X_FORWARDED_FOR')
+            if payload['ip'] is None:
+                payload['ip'] = ctx.ip  # quand meme, cela peut etre None aussi
 
             trace(payload=payload)
 
