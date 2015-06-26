@@ -71,6 +71,9 @@ def validate_nickname(nickname, email, dn, debug=False):
     is_service_Account = 'memberOf: CN=cern-accounts-service,OU=e-groups,OU=Workgroups,DC=cern,DC=ch' in output
 
     if is_service_Account:
+        reason = "The %(nickname)s is a service account" % locals()
+        if debug:
+            print reason
         return False
 
     if not is_service_Account and email.lower().replace('@mail.cern.ch', '@cern.ch') not in (ad_email.lower(), ad_name.lower(), nickname + '@cern.ch'):
@@ -104,7 +107,7 @@ if __name__ == '__main__':
     if isinstance(res, types.ListType):
         random.shuffle(res)
         for user in res:
-            if time.time() - starttime > 1800:
+            if time.time() - starttime > 3600:
                 print "Out of time, exiting"
                 break
             nbusers += 1
@@ -143,6 +146,7 @@ if __name__ == '__main__':
                                         account_dn = cert.get_element_subject()
                                     except:
                                         print "Warning: cert.get_element_subject() failed for dn: %(account_dn)s" % locals()
+                                        status = WARNING
                                     else:
                                         try:
                                             c.add_identity(account=account, identity=account_dn, authtype='X509', email=email, default=True)
