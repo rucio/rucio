@@ -945,7 +945,7 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
     :param session:            Database session in use.
     """
 
-    query = session.query(models.ReplicationRule.id, models.ReplicationRule.rse_expression).filter(models.ReplicationRule.expires_at < datetime.utcnow(), models.ReplicationRule.locked == False).\
+    query = session.query(models.ReplicationRule.id, models.ReplicationRule.rse_expression).filter(models.ReplicationRule.expires_at < datetime.utcnow(), models.ReplicationRule.locked == False, models.ReplicationRule.state != RuleState.SUSPENDED).\
         with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.ReplicationRule.expires_at)  # NOQA
 
@@ -979,12 +979,18 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
             filter(text("(CASE when rules.state='S' THEN rules.state ELSE null END)= 'S' ")).\
             filter(models.ReplicationRule.state == RuleState.STUCK).\
             filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
-            order_by(models.ReplicationRule.updated_at)
+            filter(or_(models.ReplicationRule.expires_at == None,
+                       models.ReplicationRule.expires_at > datetime.utcnow(),
+                       models.ReplicationRule.locked == True)).\
+            order_by(models.ReplicationRule.updated_at)  # NOQA
     else:
         query = session.query(models.ReplicationRule.id).\
             with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
             filter(models.ReplicationRule.state == RuleState.STUCK).\
             filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
+            filter(or_(models.ReplicationRule.expires_at == None,
+                       models.ReplicationRule.expires_at > datetime.utcnow(),
+                       models.ReplicationRule.locked == True)).\
             order_by(models.ReplicationRule.updated_at)
 
     if session.bind.dialect.name == 'oracle':

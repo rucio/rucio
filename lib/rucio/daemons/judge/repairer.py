@@ -67,7 +67,7 @@ def rule_repairer(once=False):
             start = time.time()
             rules = get_stuck_rules(total_workers=heartbeat['nr_threads']-1,
                                     worker_number=heartbeat['assign_thread'],
-                                    delta=-1 if once else 1200,
+                                    delta=-1 if once else 1800,
                                     limit=100)
             logging.debug('rule_repairer[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, time.time() - start, len(rules)))
 
@@ -95,7 +95,7 @@ def rule_repairer(once=False):
                         logging.debug('rule_repairer[%s/%s]: repairing of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id, time.time() - start))
                     except (DatabaseException, DatabaseError), e:
                         if match('.*ORA-00054.*', str(e.args[0])):
-                            paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
+                            paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
                             logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
                             record_counter('rule.judge.exceptions.LocksDetected')
                         else:
