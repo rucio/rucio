@@ -94,7 +94,7 @@ class BaseClient(object):
         self.user_agent = "%s/%s" % (user_agent, version.version_string())  # e.g. "rucio-clients/0.2.13"
         sys.argv[0] = sys.argv[0].split('/')[-1]
         self.script_id = '::'.join(sys.argv[0:2])
-        if (self.script_id == ''):  # Python interpreter used
+        if self.script_id == '':  # Python interpreter used
             self.script_id = 'python'
         try:
             if self.host is None:
@@ -144,10 +144,10 @@ class BaseClient(object):
         rucio_scheme = urlparse(self.host).scheme
         auth_scheme = urlparse(self.auth_host).scheme
 
-        if (rucio_scheme != 'http' and rucio_scheme != 'https'):
+        if rucio_scheme != 'http' and rucio_scheme != 'https':
             raise ClientProtocolNotSupported('\'%s\' not supported' % rucio_scheme)
 
-        if (auth_scheme != 'http' and auth_scheme != 'https'):
+        if auth_scheme != 'http' and auth_scheme != 'https':
             raise ClientProtocolNotSupported('\'%s\' not supported' % auth_scheme)
 
         if (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
@@ -333,6 +333,7 @@ class BaseClient(object):
             LOG.error('given client key (%s) doesn\'t exist' % client_key)
 
         retry = 0
+        result = None
 
         if client_key is None:
             cert = client_cert
@@ -358,7 +359,7 @@ class BaseClient(object):
             LOG.error('cannot get auth_token')
             return False
 
-        if result.status_code != codes.ok:   # pylint: disable-msg=E1101
+        if result and result.status_code != codes.ok:   # pylint: disable-msg=E1101
             exc_cls, exc_msg = self._get_exception(headers=result.headers,
                                                    status_code=result.status_code)
             raise exc_cls(exc_msg)
