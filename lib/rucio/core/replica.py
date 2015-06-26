@@ -235,8 +235,11 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
         parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = parsed_pfn[pfn]['path']
-            if path.startswith('user') or path.startswith('group'):
-                scope = '%s.%s' % (path.split('/')[0], path.split('/')[1])
+            if path.startswith('/user') or path.startswith('/group'):
+                scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
+                name = parsed_pfn[pfn]['name']
+            elif path.startswith('/'):
+                scope = path.split('/')[1]
                 name = parsed_pfn[pfn]['name']
             else:
                 scope = path.split('/')[0]
@@ -433,8 +436,11 @@ def get_did_from_pfns(pfns, rse=None, session=None):
             parsed_pfn = proto.parse_pfns(pfns=pfns)
             for pfn in parsed_pfn:
                 path = parsed_pfn[pfn]['path']
-                if path.startswith('user') or path.startswith('group'):
-                    scope = '%s.%s' % (path.split('/')[0], path.split('/')[1])
+                if path.startswith('/user') or path.startswith('/group'):
+                    scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
+                    name = parsed_pfn[pfn]['name']
+                elif path.startswith('/'):
+                    scope = path.split('/')[1]
                     name = parsed_pfn[pfn]['name']
                 else:
                     scope = path.split('/')[0]
