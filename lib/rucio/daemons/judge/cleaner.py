@@ -97,7 +97,7 @@ def rule_cleaner(once=False):
                     except (DatabaseException, DatabaseError, AccessDenied), e:
                         if isinstance(e.args[0], tuple):
                             if match('.*ORA-00054.*', e.args[0][0]):
-                                paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
+                                paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
                                 record_counter('rule.judge.exceptions.LocksDetected')
                                 logging.warning('rule_cleaner[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
                             else:
