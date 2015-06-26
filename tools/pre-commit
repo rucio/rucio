@@ -8,6 +8,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015
 
 from __future__ import with_statement
 import os
@@ -27,8 +28,8 @@ def system(*args, **kwargs):
 
 def main():
     currentbranch = system('git', 'rev-parse', '--abbrev-ref=strict', 'HEAD').rstrip('\n')
-    if currentbranch=='master':
-        print "You are trying to commit on your master, that's probably a mistake. Exiting..."
+    if currentbranch=='master' or currentbranch=='next':
+        print "You are trying to commit on your master/next, that's probably a mistake. Exiting..."
         sys.exit(1)
     modified = re.compile('^[AM]+\s+(?P<name>.*\.py)', re.MULTILINE)
     files = system('git', 'status', '--porcelain')
