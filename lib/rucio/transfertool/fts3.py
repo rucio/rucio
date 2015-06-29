@@ -16,6 +16,7 @@ import logging
 import sys
 import time
 import urlparse
+import traceback
 
 import requests
 
@@ -199,7 +200,7 @@ def submit_bulk_transfers(external_host, files, job_params):
                               headers={'Content-Type': 'application/json'})
             record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000/len(files))
         except:
-            logging.warn('Could not submit transfer to %s' % external_host)
+            logging.warn('Could not submit transfer to %s - %s' % (external_host, str(traceback.format_exc())))
     else:
         try:
             ts = time.time()
@@ -208,7 +209,7 @@ def submit_bulk_transfers(external_host, files, job_params):
                               headers={'Content-Type': 'application/json'})
             record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000/len(files))
         except:
-            logging.warn('Could not submit transfer to %s' % external_host)
+            logging.warn('Could not submit transfer to %s - %s' % (external_host, str(traceback.format_exc())))
 
     if r and r.status_code == 200:
         record_counter('transfertool.fts3.%s.submission.success' % __extract_host(external_host), len(files))
