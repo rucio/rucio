@@ -165,6 +165,10 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                                                     restrict_rses=[rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
                                                                                     session=session)
 
+            sumfiles = sum([len(x['files']) for x in datasetfiles])
+            if sumfiles > 30000:
+                logging.warning('Rule %s for %s:%s involves %d files' % (str(new_rule.id), new_rule.scope, new_rule.name, sumfiles))
+
             # 6. Apply the replication rule to create locks, replicas and transfers
             with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
                 try:
