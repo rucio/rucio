@@ -1185,3 +1185,4 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
                 update_transfer_file(eid, 'cancel', cachedir=cachedir, process=process, thread=thread)
         except:
             logging.error("%s:%s Failed to cancel transfers %s on %s with error: %s" % (process, thread, eid, external_host, traceback.format_exc()))
+            update_transfer_file(eid, 'cancelfailed', cachedir=cachedir, process=process, thread=thread)
