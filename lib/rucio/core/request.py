@@ -201,7 +201,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
 @transactional_session
 def set_request_transfers(transfers, session=None):
     """
-    Prepare the transfer info for requests.
+    Update the transfer info of a request.
 
     :param transfers: Dictionary containing request transfer info.
     :param session: Database session to use.
@@ -209,15 +209,13 @@ def set_request_transfers(transfers, session=None):
 
     try:
         for request_id in transfers:
-            rowcount = session.query(models.Request)\
-                              .filter_by(id=request_id)\
+            rowcount = session.query(models.Request).filter_by(id=request_id)\
                               .update({'state': transfers[request_id]['state'],
                                        'external_id': transfers[request_id]['external_id'],
                                        'external_host': transfers[request_id]['external_host'],
                                        'dest_url': transfers[request_id]['dest_url'],
                                        'submitted_at': datetime.datetime.utcnow()},
                                       synchronize_session=False)
-
             if rowcount and 'file' in transfers[request_id]:
                 file = transfers[request_id]['file']
                 used_src_rse_ids = get_source_rse_ids(request_id, session=session)
