@@ -201,7 +201,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
 @transactional_session
 def set_request_transfers(transfers, session=None):
     """
-    Update the transfer info of a request.
+    Prepare the transfer info for requests.
 
     :param transfers: Dictionary containing request transfer info.
     :param session: Database session to use.
@@ -209,13 +209,15 @@ def set_request_transfers(transfers, session=None):
 
     try:
         for request_id in transfers:
-            rowcount = session.query(models.Request).filter_by(id=request_id)\
+            rowcount = session.query(models.Request)\
+                              .filter_by(id=request_id)\
                               .update({'state': transfers[request_id]['state'],
                                        'external_id': transfers[request_id]['external_id'],
                                        'external_host': transfers[request_id]['external_host'],
                                        'dest_url': transfers[request_id]['dest_url'],
                                        'submitted_at': datetime.datetime.utcnow()},
                                       synchronize_session=False)
+
             if rowcount and 'file' in transfers[request_id]:
                 file = transfers[request_id]['file']
                 used_src_rse_ids = get_source_rse_ids(request_id, session=session)
@@ -231,6 +233,73 @@ def set_request_transfers(transfers, session=None):
                                       url=src_url).\
                             save(session=session, flush=False)
 
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@transactional_session
+def prepare_request_transfers(transfers, session=None):
+    """
+    Prepare the transfer info for requests.
+
+    :param transfers: Dictionary containing request transfer info.
+    :param session: Database session to use.
+    """
+
+    try:
+        for request_id in transfers:
+            rowcount = session.query(models.Request)\
+                              .filter_by(id=request_id)\
+                              .filter(models.Request.state == RequestState.QUEUED)\
+                              .update({'state': transfers[request_id]['state'],
+                                       'external_id': transfers[request_id]['external_id'],
+                                       'external_host': transfers[request_id]['external_host'],
+                                       'dest_url': transfers[request_id]['dest_url'],
+                                       'submitted_at': datetime.datetime.utcnow()},
+                                      synchronize_session=False)
+            if rowcount == 0:
+                raise RucioException("Failed to prepare transfer: request %s does not exist or is not in queued state" % (request_id))
+
+            if 'file' in transfers[request_id]:
+                file = transfers[request_id]['file']
+                used_src_rse_ids = get_source_rse_ids(request_id, session=session)
+                for src_rse, src_url, src_rse_id, rank in file['sources']:
+                    if src_rse_id not in used_src_rse_ids:
+                        models.Source(request_id=file['metadata']['request_id'],
+                                      scope=file['metadata']['scope'],
+                                      name=file['metadata']['name'],
+                                      rse_id=src_rse_id,
+                                      dest_rse_id=file['metadata']['dest_rse_id'],
+                                      ranking=rank if rank else 0,
+                                      bytes=file['metadata']['filesize'],
+                                      url=src_url).\
+                            save(session=session, flush=False)
+
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@transactional_session
+def set_request_transfers_state(transfers, session=None):
+    """
+    Update the transfer info of a request.
+
+    :param transfers: Dictionary containing request transfer info.
+    :param session: Database session to use.
+    """
+
+    try:
+        for request_id in transfers:
+            rowcount = session.query(models.Request)\
+                              .filter_by(id=request_id)\
+                              .filter(models.Request.state == RequestState.SUBMITTING)\
+                              .update({'state': transfers[request_id]['state'],
+                                       'external_id': transfers[request_id]['external_id'],
+                                       'external_host': transfers[request_id]['external_host'],
+                                       'submitted_at': datetime.datetime.utcnow()},
+                                      synchronize_session=False)
+            if rowcount == 0:
+                raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % (request_id, transfers[request_id]))
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -771,7 +840,9 @@ def touch_requests_by_rule(rule_id, session=None):
     try:
         session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_RULEID_IDX)", 'oracle')\
                                      .filter_by(rule_id=rule_id)\
-                                     .update({'updated_at': datetime.datetime.utcnow() + datetime.timedelta(minutes=5)}, synchronize_session=False)
+                                     .filter(models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST]))\
+                                     .filter(models.Request.updated_at < datetime.datetime.utcnow())\
+                                     .update({'updated_at': datetime.datetime.utcnow() + datetime.timedelta(minutes=20)}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -851,6 +922,7 @@ def touch_transfer(external_host, transfer_id, session=None):
         # don't touch it if it's already touched in 30 seconds
         session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_EXTERNALID_UQ)", 'oracle')\
                                      .filter_by(external_id=transfer_id)\
+                                     .filter(models.Request.state == RequestState.SUBMITTED)\
                                      .filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30))\
                                      .update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
     except IntegrityError, e:
@@ -1026,6 +1098,21 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
             except Exception, e:
                 logging.warn('Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(e)))
         archive_request(request_id=req[0], session=session)
+
+
+def cancel_request_external_id(transfer_id, transfer_host):
+    """
+    Cancel a request based on external transfer id.
+
+    :param transfer_id: External-ID as a 32 character hex string.
+    :param transfer_host: Name of the external host.
+    """
+
+    record_counter('core.request.cancel_request_external_id')
+    try:
+        fts3.cancel(transfer_id, transfer_host)
+    except:
+        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfer_host, traceback.format_exc()))
 
 
 @read_session
