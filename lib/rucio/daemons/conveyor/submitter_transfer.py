@@ -56,6 +56,10 @@ def submitter(once=False, rses=[], mock=False,
         scheme = config_get('conveyor', 'scheme')
     except NoOptionError:
         scheme = None
+    try:
+        cachedir = config_get('conveyor', 'cachedir')
+    except NoOptionError:
+        cachedir = None
 
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
@@ -111,7 +115,7 @@ def submitter(once=False, rses=[], mock=False,
                     for job in grouped_jobs[external_host]:
                         # submit transfers
                         # job_requests = makeRequests(submit_transfer, args_list=[((external_host, job, 'transfer_submitter', process, thread), {})])
-                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host, 'job': job, 'submitter': 'transfer_submitter', 'process': process, 'thread': hb['assign_thread']})])
+                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host, 'job': job, 'submitter': 'transfer_submitter', 'process': process, 'thread': hb['assign_thread'], 'cachedir': cachedir})])
                         [threadPool.putRequest(job_req) for job_req in job_requests]
                 threadPool.wait()
 
