@@ -1133,7 +1133,9 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
             xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': file['destinations'][0]}
             logging.debug("%s" % (log_str))
             xfers_ret[request_id]['file'] = file
+        logging.debug("%s:%s start to prepare transfer" % (process, thread))
         request.prepare_request_transfers(xfers_ret)
+        logging.debug("%s:%s finished to prepare transfer" % (process, thread))
     except:
         logging.error("%s:%s Failed to prepare requests %s state to SUBMITTING(Will not submit jobs but return directly) with error: %s" % (process, thread, xfers_ret.keys(), traceback.format_exc()))
         return
@@ -1169,7 +1171,9 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
                 xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None}
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTING, None)
                 logging.warn("%s" % (log_str))
+        logging.debug("%s:%s start to register transfer state" % (process, thread))
         request.set_request_transfers_state(xfers_ret)
+        logging.debug("%s:%s finished to register transfer state" % (process, thread))
         if eid:
             update_transfer_file(eid, 'delete', cachedir=cachedir, process=process, thread=thread)
     except:
