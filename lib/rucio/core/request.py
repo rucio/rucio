@@ -325,6 +325,9 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
 
     record_counter('core.request.get_next.%s-%s' % (request_type, state))
 
+    if total_processes > 1 and total_processes == total_threads:
+        raise RucioException("Total process %s is the same with total threads %s, will create potential same hash" % (total_processes, total_threads))
+
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
         request_type = [request_type, request_type]
@@ -413,6 +416,9 @@ def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None
     """
 
     record_counter('core.request.get_next_transfers.%s-%s' % (request_type, state))
+
+    if total_processes > 1 and total_processes == total_threads:
+        raise RucioException("Total process %s is the same with total threads %s, will create potential same hash" % (total_processes, total_threads))
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
@@ -1130,6 +1136,9 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
     :param session: Database session to use.
     :returns: List.
     """
+    if total_processes > 1 and total_processes == total_threads:
+        raise RucioException("Total process %s is the same with total threads %s, will create potential same hash" % (total_processes, total_threads))
+
     is_false = False  # For PEP8
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
