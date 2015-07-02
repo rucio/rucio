@@ -1109,8 +1109,8 @@ def update_transfer_file(transfer_id, state, cachedir=None,  process=0, thread=0
             file_name = os.path.join(cachedir, transfer_id)
             if state == 'delete':
                 os.remove(file_name)
-            if state == "cancel":
-                os.rename(file_name, file_name + ".cancel")
+            else:
+                os.rename(file_name, file_name + state)
     except:
         logging.warn("%s:%s Failed to update transfer in %s: %s" % (process, thread, cachedir, traceback.format_exc()))
 
