@@ -683,7 +683,13 @@ def perm_get_account_usage(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or kwargs.get('account') == issuer
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin') or kwargs.get('account') == issuer:
+        return True
+    # Check if user is a country admin
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            return True
+    return False
 
 
 def perm_add_account_attribute(issuer, kwargs):
