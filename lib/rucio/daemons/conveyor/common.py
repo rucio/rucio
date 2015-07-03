@@ -231,7 +231,7 @@ def handle_requests(reqs):
                     replica['archived'] = False
                     replicas[req['request_type']][req['rule_id']].append(replica)
             elif req['state'] == RequestState.SUBMITTING:
-                if req['updated_at'] > (datetime.datetime.utcnow()-datetime.timedelta(seconds=1800)):
+                if req['updated_at'] > (datetime.datetime.utcnow()-datetime.timedelta(minutes=120)):
                     continue
 
                 if request_core.should_retry_request(req):
