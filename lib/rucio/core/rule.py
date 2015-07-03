@@ -1004,7 +1004,6 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
         query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
-
     return query.limit(limit).all()
 
 
