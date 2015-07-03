@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 #
 import os
 import sys
@@ -65,14 +66,14 @@ if __name__ == "__main__":
             else:
                 print "Failed to get rse(%s) space information: %s" % (rsename, str(ret))
                 retvalue = WARNING
-                if 'tier' in attrs and attrs['tier']!='3' and 'type' in attrs and attrs['type']!='TEST':
+                if 'tier' in attrs and attrs['tier'] != '3' and 'type' in attrs and attrs['type'] != 'TEST':
                     cloudRetValue = WARNING
                 else:
                     print "The rse(%s) is T3 or TEST => not setting overall failure" % (rsename)
         except Exception as e:
             print "Failed to get rse(%s) space information: %s" % (rsename, str(e))
             retvalue = WARNING
-            if 'tier' in attrs and attrs['tier']!='3' and 'type' in attrs and attrs['type']!='TEST':
+            if 'tier' in attrs and attrs['tier'] != '3' and 'type' in attrs and attrs['type'] != 'TEST':
                 cloudRetValue = WARNING
             else:
                 print "The rse(%s) is T3 or TEST => not setting overall failure" % (rsename)
