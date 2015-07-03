@@ -16,6 +16,7 @@ Methods common to different conveyor submitter daemons.
 
 import json
 import logging
+import os
 import random
 import time
 import traceback
@@ -1088,7 +1089,59 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
     return transfers
 
 
-def submit_transfer(external_host, job, submitter='submitter', process=0, thread=0):
+def create_transfer_file(transfer_id, transfer_request, cachedir=None,  process=0, thread=0):
+    try:
+        if cachedir:
+            logging.debug("%s:%s Caching transfer %s in %s" % (process, thread, transfer_id, cachedir))
+            if not os.path.exists(cachedir):
+                os.makedirs(cachedir)
+            file_name = os.path.join(cachedir, transfer_id)
+            file_handle = open(file_name, 'w')
+            file_handle.write(str(transfer_request))
+            file_handle.close()
+    except:
+        logging.warn("%s:%s Failed to cache transfer in %s: %s" % (process, thread, cachedir, traceback.format_exc()))
+
+
+def update_transfer_file(transfer_id, state, cachedir=None,  process=0, thread=0):
+    try:
+        if cachedir:
+            logging.debug("%s:%s update transfer %s in %s to %s" % (process, thread, transfer_id, cachedir, state))
+            file_name = os.path.join(cachedir, transfer_id)
+            if state == 'delete':
+                os.remove(file_name)
+            else:
+                os.rename(file_name, file_name + state)
+    except:
+        logging.warn("%s:%s Failed to update transfer in %s: %s" % (process, thread, cachedir, traceback.format_exc()))
+
+
+def submit_transfer(external_host, job, submitter='submitter', cachedir=None, process=0, thread=0):
+    # prepare submitting
+    xfers_ret = {}
+    try:
+        for file in job['files']:
+            file_metadata = file['metadata']
+            request_id = file_metadata['request_id']
+            log_str = '%s:%s PREPARING REQUEST %s DID %s:%s TO SUBMITTING STATE PREVIOUS %s FROM %s TO %s USING %s ' % (process, thread,
+                                                                                                                        file_metadata['request_id'],
+                                                                                                                        file_metadata['scope'],
+                                                                                                                        file_metadata['name'],
+                                                                                                                        file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
+                                                                                                                        file['sources'],
+                                                                                                                        file['destinations'],
+                                                                                                                        external_host)
+            xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': file['destinations'][0]}
+            logging.debug("%s" % (log_str))
+            xfers_ret[request_id]['file'] = file
+        logging.debug("%s:%s start to prepare transfer" % (process, thread))
+        request.prepare_request_transfers(xfers_ret)
+        logging.debug("%s:%s finished to prepare transfer" % (process, thread))
+    except:
+        logging.error("%s:%s Failed to prepare requests %s state to SUBMITTING(Will not submit jobs but return directly) with error: %s" % (process, thread, xfers_ret.keys(), traceback.format_exc()))
+        return
+
+    # submit the job
     eid = None
     try:
         ts = time.time()
@@ -1100,29 +1153,37 @@ def submit_transfer(external_host, job, submitter='submitter', process=0, thread
     except Exception, ex:
         logging.error("Failed to submit a job with error %s: %s" % (str(ex), traceback.format_exc()))
 
-    # register transfer returns
+    if eid:
+        create_transfer_file(eid, xfers_ret, cachedir=cachedir, process=process, thread=thread)
+
+    # register transfer
+    xfers_ret = {}
     try:
-        xfers_ret = {}
         for file in job['files']:
             file_metadata = file['metadata']
             request_id = file_metadata['request_id']
-            log_str = '%s:%s COPYING REQUEST %s DID %s:%s PREVIOUS %s FROM %s TO %s USING %s ' % (process, thread,
-                                                                                                  file_metadata['request_id'],
-                                                                                                  file_metadata['scope'],
-                                                                                                  file_metadata['name'],
-                                                                                                  file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
-                                                                                                  file['sources'],
-                                                                                                  file['destinations'],
-                                                                                                  external_host)
+            log_str = '%s:%s COPYING REQUEST %s DID %s:%s USING %s' % (process, thread, file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host)
             if eid:
-                xfers_ret[request_id] = {'state': RequestState.SUBMITTED, 'external_host': external_host, 'external_id': eid, 'dest_url':  file['destinations'][0]}
+                xfers_ret[request_id] = {'state': RequestState.SUBMITTED, 'external_host': external_host, 'external_id': eid}
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
                 logging.info("%s" % (log_str))
             else:
-                xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': file['destinations'][0]}
+                # here the state should be submission failure. Will be updated after schema changed.
+                xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None}
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTING, None)
                 logging.warn("%s" % (log_str))
-            xfers_ret[request_id]['file'] = file
-        request.set_request_transfers(xfers_ret)
-    except Exception, ex:
-        logging.error("%s:%s Failed to register transfer state with error %s: %s" % (process, thread, str(ex), traceback.format_exc()))
+        logging.debug("%s:%s start to register transfer state" % (process, thread))
+        request.set_request_transfers_state(xfers_ret)
+        logging.debug("%s:%s finished to register transfer state" % (process, thread))
+        if eid:
+            update_transfer_file(eid, 'delete', cachedir=cachedir, process=process, thread=thread)
+    except:
+        logging.error("%s:%s Failed to register transfer state with error: %s" % (process, thread, traceback.format_exc()))
+        try:
+            if eid:
+                logging.info("%s:%s Cancel transfer %s on %s" % (process, thread, eid, external_host))
+                request.cancel_request_external_id(eid, external_host)
+                update_transfer_file(eid, 'cancel', cachedir=cachedir, process=process, thread=thread)
+        except:
+            logging.error("%s:%s Failed to cancel transfers %s on %s with error: %s" % (process, thread, eid, external_host, traceback.format_exc()))
+            update_transfer_file(eid, 'cancelfailed', cachedir=cachedir, process=process, thread=thread)
