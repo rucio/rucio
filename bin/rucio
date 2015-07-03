@@ -599,13 +599,17 @@ def stat(args):
     return SUCCESS
 
 
-def delete(args):
+def erase(args):
     """
-    %(prog)s delete [options] <field1=value1 field2=value2 ...>
+    %(prog)s erase [options] <field1=value1 field2=value2 ...>
 
     Delete data identifier.
     """
-    raise NotImplementedError('operation not implemented (delete).')
+    client = get_client(args)
+    for did in args.dids:
+        scope, name = extract_scope(did)
+        client.set_metadata(scope=scope, name=name, key='lifetime', value=0.0001)
+    return SUCCESS
 
 
 def __get_dataset(args):
@@ -1568,7 +1572,16 @@ Commands:
     detach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The list command
-    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata', description='List the Data IDentifiers matching certain pattern.\
+    ls_parser = subparsers.add_parser('ls', help='List the data identifiers matching some metadata (synomym for list-dids)', description='List the Data IDentifiers matching certain pattern.\
+                                         Only the collections (i.e. dataset or container) are returned by default.\
+                                         With the filter option, you can specify a list of metadata that the Data IDentifier should match.')
+    ls_parser.set_defaults(which='list_dids')
+    ls_parser.add_argument('-r', '--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively')
+    ls_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
+    ls_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
+    ls_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
+
+    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata (synomym for ls)', description='List the Data IDentifiers matching certain pattern.\
                                          Only the collections (i.e. dataset or container) are returned by default.\
                                          With the filter option, you can specify a list of metadata that the Data IDentifier should match.')
     list_parser.set_defaults(which='list_dids')
@@ -1596,11 +1609,10 @@ Commands:
     stat_parser.set_defaults(which='stat')
     stat_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
-    # The delete command
-    delete_parser = subparsers.add_parser('delete', help='Delete data identifier')
-    delete_parser.set_defaults(which='delete')
-    delete_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
-    delete_parser.add_argument('--from', dest='from', default=None, action='store', help='Target data identifier')
+    # The erase command
+    erase_parser = subparsers.add_parser('erase', help='Delete data identifier')
+    erase_parser.set_defaults(which='erase')
+    erase_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The list_files command
     list_files_parser = subparsers.add_parser('list-files', help='List data identifier contents', description='List all the files in a Data IDentifier (DID). The DID can be a container, dataset or a file.\
@@ -1622,7 +1634,16 @@ Commands:
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets')
 
     # The download subparser
-    download_parser = subparsers.add_parser('download', help='Download method')
+    get_parser = subparsers.add_parser('get', help='Download method (synonym for download)')
+    get_parser.set_defaults(which='download')
+    get_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
+    get_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
+    get_parser.add_argument('--rse', action='store', help='Force the RSE from where the DID is downloaded')
+    get_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
+    get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
+    get_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download')
+
+    download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
     download_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
     download_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
@@ -1651,8 +1672,8 @@ Commands:
     set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
     # The delete-metadata subparser
-    delete_metadata_parser = subparsers.add_parser('delete-metadata', help='Delete metadata')
-    delete_metadata_parser.set_defaults(which='delete_metadata')
+    # delete_metadata_parser = subparsers.add_parser('delete-metadata', help='Delete metadata')
+    # delete_metadata_parser.set_defaults(which='delete_metadata')
 
     # The list-rse-usage subparser
     list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='list-rse-usage method')
@@ -1750,8 +1771,8 @@ Commands:
                 'add_rule': add_rule,
                 'attach': attach,
                 'close': close,
-                'delete': delete,
-                'delete_metadata': delete_metadata,
+                'erase': erase,
+                # 'delete_metadata': delete_metadata,
                 'delete_rule': delete_rule,
                 'detach': detach,
                 'download': download,
