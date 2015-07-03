@@ -597,7 +597,13 @@ def list_subscriptions(args):
 
     """
     client = get_client(args)
-    subs = client.list_subscriptions(name=args.name, account=args.subs_account)
+    if args.subs_account:
+        account = args.subs_account
+    elif args.issuer:
+        account = args.issuer
+    else:
+        account = client.account
+    subs = client.list_subscriptions(name=args.name, account=account)
     for sub in subs:
         if args.long:
             print '\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in sub.items())
@@ -622,10 +628,6 @@ def update_subscription(args):
         account = args.issuer
     else:
         account = client.account
-    if args.subs_account:
-        account = args.subs_account
-    else:
-        account = args.issuer
     client.update_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
                                comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
     return SUCCESS
