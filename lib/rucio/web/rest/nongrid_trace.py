@@ -8,11 +8,9 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
 
-import datetime
 import json
 import time
 import traceback
-import uuid
 
 from web import application, ctx, data, header, InternalError, Created
 
