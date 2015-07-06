@@ -8,6 +8,8 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.
@@ -23,10 +25,10 @@ import threading
 import time
 import traceback
 
-from collections import defaultdict
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
+from rucio.common.utils import chunks
 from rucio.common.exception import DatabaseException
 from rucio.core import request, heartbeat
 from rucio.core.monitor import record_timer, record_counter
@@ -54,60 +56,58 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
     pid = os.getpid()
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
+    # Make an initial heartbeat so that all finishers have the correct worker number on the next try
     hb = heartbeat.live(executable, hostname, pid, hb_thread)
-
-    logging.info('finisher started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
-                                                                                  hb['assign_thread'], hb['nr_threads'],
-                                                                                  bulk))
-
-    activity_next_exe_time = defaultdict(time.time)
+    graceful_stop.wait(1)
     sleeping = False
     while not graceful_stop.is_set():
 
         try:
-            if not sleeping:
-                sleeping = True
-                hb = heartbeat.live(executable, hostname, pid, hb_thread)
-                logging.info('finisher - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
+            hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
+            logging.info('finisher - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
 
             if activities is None:
                 activities = [None]
-            for activity in activities:
-                if activity_next_exe_time[activity] > time.time():
-                    time.sleep(1)
-                    continue
-                sleeping = False
 
+            if sleeping:
+                logging.debug('%i:%i - nothing to do. will sleep 60s' % (process, hb['assign_thread']))
+                time.sleep(60)
+
+            sleeping = True
+            for activity in activities:
                 ts = time.time()
-                logging.debug('%i:%i - start to update %s finished requests for activity %s' % (process, hb['assign_thread'], bulk, activity))
                 reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                         state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING],
-                                        limit=bulk,
+                                        limit=100000,
                                         older_than=datetime.datetime.utcnow(),
                                         activity=activity,
                                         process=process, total_processes=total_processes,
                                         thread=hb['assign_thread'], total_threads=hb['nr_threads'])
                 record_timer('daemons.conveyor.finisher.000-get_next', (time.time()-ts)*1000)
-
                 if reqs:
+                    logging.debug('%i:%i - start to update %s finished requests for activity %s' % (process, hb['assign_thread'], len(reqs), activity))
                     logging.debug('%i:%i - updating %i requests for activity %s' % (process, hb['assign_thread'], len(reqs), activity))
+                    sleeping = False
 
-                ts = time.time()
-                common.handle_requests(reqs)
-                record_timer('daemons.conveyor.finisher.handle_requests', (time.time()-ts)*1000/(len(reqs) if len(reqs) else 1))
-                record_counter('daemons.conveyor.finisher.handle_requests', len(reqs))
+                for chunk in chunks(reqs, bulk):
+                    try:
+                        ts = time.time()
+                        common.handle_requests(chunk)
+                        record_timer('daemons.conveyor.finisher.handle_requests', (time.time()-ts)*1000/(len(chunk) if len(chunk) else 1))
+                        record_counter('daemons.conveyor.finisher.handle_requests', len(chunk))
+                    except:
+                        logging.warn(str(traceback.format_exc()))
+                if reqs:
+                    logging.debug('%i:%i - finish to update %s finished requests for activity %s' % (process, hb['assign_thread'], len(reqs), activity))
 
-                if len(reqs) < bulk / 2:
-                    logging.info("%i:%i - only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (process, hb['assign_thread'], len(reqs), activity, bulk, sleep_time))
-                    if activity_next_exe_time[activity] < time.time():
-                        activity_next_exe_time[activity] = time.time() + sleep_time
-
-        except (DatabaseException, DatabaseError), e:
-            if isinstance(e.args[0], tuple) and (re.match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
-                logging.warn("%i:%i - Lock detected when handling request - skipping: %s" % (process, hb['assign_thread'], str(e)))
+        except (DatabaseException, DatabaseError), error:
+            if isinstance(error.args[0], tuple) and (re.match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
+                logging.warn("%i:%i - Lock detected when handling request - skipping: %s" % (process, hb['assign_thread'], str(error)))
             else:
                 logging.error("%i:%i - %s" % (process, hb['assign_thread'], traceback.format_exc()))
+            sleeping = False
         except:
+            sleeping = False
             logging.critical("%i:%i - %s" % (process, hb['assign_thread'], traceback.format_exc()))
 
         if once:
