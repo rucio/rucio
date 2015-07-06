@@ -46,7 +46,7 @@ from rucio import version
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
-                                    RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported)
+                                    RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported, UnsupportedOperation)
 from rucio.common.utils import adler32, generate_uuid, execute, construct_surl
 from rucio.rse import rsemanager as rsemgr
 
@@ -162,6 +162,10 @@ def exception_handler(function):
         except RuleNotFound, error:
             logger.error(error)
             logger.debug('This means the rule you specified does not exist.')
+            return FAILURE
+        except UnsupportedOperation, error:
+            logger.error(error)
+            logger.debug('That means you cannot change the status of the DID.')
             return FAILURE
         except MissingDependency, error:
             logger.error(error)
@@ -573,13 +577,28 @@ def close(args):
     """
     %(prog)s close [options] <field1=value1 field2=value2 ...>
 
-    Close data identifier.
+    Close a dataset or container.
     """
     client = get_client(args)
     for did in args.dids:
         scope, name = extract_scope(did)
         client.set_status(scope=scope, name=name, open=False)
         print '%(scope)s:%(name)s has been closed.' % locals()
+    return SUCCESS
+
+
+@exception_handler
+def reopen(args):
+    """
+    %(prog)s reopen [options] <field1=value1 field2=value2 ...>
+
+    Reopen a dataset or container (only for privileged users).
+    """
+    client = get_client(args)
+    for did in args.dids:
+        scope, name = extract_scope(did)
+        client.set_status(scope=scope, name=name, open=True)
+        print '%(scope)s:%(name)s has been reopened.' % locals()
     return SUCCESS
 
 
@@ -1599,9 +1618,14 @@ Commands:
     scope_list_parser.set_defaults(which='list_scopes')
 
     # The close command
-    close_parser = subparsers.add_parser('close', help='Close data identifier')
+    close_parser = subparsers.add_parser('close', help='Close a dataset or container')
     close_parser.set_defaults(which='close')
     close_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
+
+    # The reopen command
+    reopen_parser = subparsers.add_parser('reopen', help='Reopen a dataset or container (only for privileged users)')
+    reopen_parser.set_defaults(which='reopen')
+    reopen_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The stat command
     stat_parser = subparsers.add_parser('stat', help='List attributes and statuses about data identifiers')
@@ -1609,7 +1633,7 @@ Commands:
     stat_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The erase command
-    erase_parser = subparsers.add_parser('erase', help='Delete data identifier')
+    erase_parser = subparsers.add_parser('erase', help='Delete a data identifier')
     erase_parser.set_defaults(which='erase')
     erase_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
@@ -1770,6 +1794,7 @@ Commands:
                 'add_rule': add_rule,
                 'attach': attach,
                 'close': close,
+                'reopen': reopen,
                 'erase': erase,
                 # 'delete_metadata': delete_metadata,
                 'delete_rule': delete_rule,
