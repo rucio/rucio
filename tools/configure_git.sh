@@ -6,7 +6,11 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+
+git branch --track next
+git remote add upstream https://gitlab.cern.ch/rucio01/rucio.git
+git remote set-url --push upstream xxx
 
 cp tools/commit-msg .git/hooks/commit-msg
 chmod +x .git/hooks/commit-msg
