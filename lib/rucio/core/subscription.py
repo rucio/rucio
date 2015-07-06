@@ -78,7 +78,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
 
 
 @transactional_session
-def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, session=None):
+def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, state=None, session=None):
     """
     Updates a subscription
 
@@ -102,6 +102,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
     :type retroactive:  Boolean
     :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
+    :param state: The state of the subscription
     :param session: The database session in use.
     :raises: exception.NotFound if subscription is not found
     """
@@ -118,6 +119,9 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
         values['dry_run'] = dry_run
     if comments:
         values['comments'] = comments
+    if state and state == SubscriptionState.INACTIVE:
+        values['state'] = SubscriptionState.INACTIVE
+        values['expired_at'] = datetime.datetime.utcnow()
 
     try:
         rowcount = session.query(models.Subscription).filter_by(account=account, name=name).update(values)
