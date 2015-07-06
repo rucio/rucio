@@ -126,6 +126,6 @@ fi
 echo '==============================='
 echo 'Running flake8                 '
 echo '==============================='
-flake8 bin/* lib/ tools/*.py tools/probes/common/*
+flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/*
 
 
