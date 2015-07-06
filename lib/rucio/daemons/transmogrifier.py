@@ -17,6 +17,7 @@ import socket
 import threading
 import time
 
+from datetime import datetime
 from json import loads
 from math import exp
 from sys import exc_info, stdout, argv
@@ -24,7 +25,7 @@ from traceback import format_exception
 
 
 from rucio.api.did import list_new_dids, set_new_dids, get_metadata
-from rucio.api.subscription import list_subscriptions
+from rucio.api.subscription import list_subscriptions, update_subscription
 from rucio.db.constants import DIDType, SubscriptionState
 from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule, RSEBlacklisted,
                                     InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, InputValidationError,
@@ -152,7 +153,10 @@ def transmogrifier(bulk=5, once=False):
                 dids.append({'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']})
 
             for sub in list_subscriptions(None, None):
-                if sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
+                if sub['state'] != SubscriptionState.INACTIVE and sub['lifetime'] and (datetime.now() > sub['lifetime']):
+                    update_subscription(name=sub['name'], account=sub['account'], state=SubscriptionState.INACTIVE)
+
+                elif sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
                     subscriptions.append(sub)
         except Exception, error:
             logging.error('Thread [%i/%i] : Failed to get list of new DIDs or subscriptions: %s' % (heart_beat['assign_thread'],
@@ -212,7 +216,7 @@ def transmogrifier(bulk=5, once=False):
                                     subscription_id = str(subscription['id'])
                                     account = subscription['account']
                                     copies = int(rule['copies'])
-                                    activity = rule.get('activity', None)
+                                    activity = rule.get('activity', 'default')
                                     try:
                                         validate_schema(name='activity', obj=activity)
                                     except InputValidationError, error:
