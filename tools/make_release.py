@@ -77,11 +77,22 @@ if __name__ == '__main__':
 
     answer = query_yes_no("Do you want to release %(new_version)s (current_version: %(current_version)s)?" % locals(), default="no")
     if answer:
+
+        cmd = "git remote set-url --push upstream https://gitlab.cern.ch/rucio01/rucio.git"
+        print cmd
+
         cmd = "git tag -a %(new_version)s -m 'Version %(new_version)s'" % locals()
         print cmd
         # status, output = getstatusoutput(cmd)
+
         cmd = "git push origin %(new_version)s" % locals()
         print cmd
+        cmd = "git push upstream %(new_version)s" % locals()
+        print cmd
+
+        cmd = "git remote set-url --push upstream xxx"
+        print cmd
+
         # status, output = getstatusoutput(cmd)
         print '\n# To undo the release'
         cmd = "git push --delete origin %(new_version)s" % locals()
