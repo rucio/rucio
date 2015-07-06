@@ -976,25 +976,25 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
     :param limit:              Maximum number of rules to select.
     :param session:            Database session in use.
     """
-
+    is_none, is_true = None, True
     if session.bind.dialect.name == 'oracle':
         query = session.query(models.ReplicationRule.id).\
             with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
             filter(text("(CASE when rules.state='S' THEN rules.state ELSE null END)= 'S' ")).\
             filter(models.ReplicationRule.state == RuleState.STUCK).\
             filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
-            filter(or_(models.ReplicationRule.expires_at == None,
+            filter(or_(models.ReplicationRule.expires_at == is_none,
                        models.ReplicationRule.expires_at > datetime.utcnow(),
-                       models.ReplicationRule.locked == True)).\
+                       models.ReplicationRule.locked == is_true)).\
             order_by(models.ReplicationRule.updated_at)  # NOQA
     else:
         query = session.query(models.ReplicationRule.id).\
             with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
             filter(models.ReplicationRule.state == RuleState.STUCK).\
             filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
-            filter(or_(models.ReplicationRule.expires_at == None,
+            filter(or_(models.ReplicationRule.expires_at == is_none,
                        models.ReplicationRule.expires_at > datetime.utcnow(),
-                       models.ReplicationRule.locked == True)).\
+                       models.ReplicationRule.locked == is_true)).\
             order_by(models.ReplicationRule.updated_at)
 
     if session.bind.dialect.name == 'oracle':
@@ -1005,7 +1005,6 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
         query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
-
     return query.limit(limit).all()
 
 
