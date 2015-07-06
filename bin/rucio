@@ -891,7 +891,7 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
                 trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
                 trace['transferStart'] = time.time()
                 success = False
-                retries = 2
+                retries = 5
                 for attempt in xrange(0, retries):
                     try:
                         rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=dest_dir, printstatements=True)
@@ -917,7 +917,7 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
                     except Exception, error:
                         trace['transferEnd'] = time.time()
                         trace['clientState'] = str(type(error).__name__)
-                        retries = 2
+                        retries = 5
                         for dummy in xrange(retries):
                             try:
                                 requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
@@ -1070,8 +1070,7 @@ def download(args):
                 downloaded_files += 1
             elif summary[did][file] == 2:
                 local_files += 1
-            elif summary[did][file] == 0:
-                not_downloaded_files += 1
+        not_downloaded_files = nbfiles_to_download[did] - downloaded_files - local_files
         print '{0:40} {1:6d}'.format('Total files : ', nbfiles_to_download[did])
         print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
         print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
