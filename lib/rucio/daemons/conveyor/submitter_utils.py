@@ -620,10 +620,11 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
 
 @read_session
 def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                              limit=None, activity=None, older_than=None, rses=None, schemes=None, session=None):
+                                              limit=None, activity=None, older_than=None, rses=None, schemes=None, bring_online=43200, session=None):
     req_sources = request.list_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                      limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
 
+    bring_online_local = bring_online
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], []
     for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking in req_sources:
         try:
@@ -748,7 +749,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
                 if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
-                    bring_online = 172800  # 48 hours
+                    bring_online = bring_online_local
                 if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
                     overwrite = False
 
@@ -836,7 +837,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             continue
                         else:
                             transfers[id]['sources'] = []
-                            transfers[id]['bring_online'] = 172800
+                            transfers[id]['bring_online'] = bring_online_local
                 else:
                     # current src_rse is Disk
                     if transfers[id]['bring_online']:
@@ -883,7 +884,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
 @read_session
 def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                             limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, session=None):
+                                             limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, bring_online=43200, session=None):
     req_sources = request.list_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                     limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
 
@@ -1016,7 +1017,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                  'src_spacetoken': None,
                                  'dest_spacetoken': dest_spacetoken,
                                  'overwrite': False,
-                                 'bring_online': 172800,  # 48 hours
+                                 'bring_online': bring_online,
                                  'copy_pin_lifetime': attr.get('lifetime', -1) if attr else -1,
                                  'external_host': external_host,
                                  'selection_strategy': 'auto',
@@ -1031,9 +1032,9 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
 
 
 def get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                          limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, session=None):
+                          limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, bring_online=43200, session=None):
     transfers, reqs_no_source = get_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                         limit=limit, activity=activity, older_than=older_than, rses=rses, mock=mock, schemes=schemes, session=session)
+                                                                         limit=limit, activity=activity, older_than=older_than, rses=rses, mock=mock, schemes=schemes, bring_online=bring_online, session=session)
     request.set_requests_state(reqs_no_source, RequestState.LOST)
     return transfers
 
@@ -1069,9 +1070,9 @@ def mock_sources(sources):
 
 
 def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                           limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, session=None):
+                           limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200, session=None):
     transfers, reqs_no_source, reqs_scheme_mismatch = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                                                limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes, session=session)
+                                                                                                limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes, bring_online=bring_online, session=session)
     request.set_requests_state(reqs_no_source, RequestState.LOST)
     transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch)
 
