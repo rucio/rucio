@@ -62,7 +62,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
 
 
-def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None):
+def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, state=None, dry_run=None):
     """
     Updates a subscription
 
@@ -83,6 +83,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
     :type retroactive:  Boolean
     :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
+    :param state: The state of the subscription
     :raises: exception.NotFound if subscription is not found
     """
     try:
@@ -98,7 +99,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
                     validate_schema(name='activity', obj=rule.get('activity', 'default'))
     except ValueError, e:
         raise TypeError(e)
-    return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+    return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, state=state)
 
 
 def list_subscriptions(name=None, account=None, state=None):
