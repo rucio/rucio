@@ -40,8 +40,8 @@ if __name__ == '__main__':
 
     # add your accounts here, if you test against CERN authed nodes
     additional_test_accounts = [('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=mlassnig/CN=663551/CN=Mario Lassnig', 'x509', 'mario.lassnig@cern.ch'),
-                                ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=eliotiri/CN=756407/CN=Evangelia Liotiri', 'x509', 'evangelia.liotiri@cern.ch'),
                                 ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=barisits/CN=692443/CN=Martin Barisits', 'x509', 'martin.barisits@cern.ch'),
+                                ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=ruciobuildbot/CN=692443/CN=Robot: Rucio build bot', 'x509', 'rucio.build.bot@cern.ch'),
                                 ('mlassnig@CERN.CH', 'GSS', 'mario.lassnig@cern.ch')]
 
     for i in additional_test_accounts:
