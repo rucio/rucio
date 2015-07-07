@@ -49,7 +49,7 @@ if current_branch == 'master' or current_branch == 'next':
     print 'ERROR'
     print 'You are currently on branch \'%s\'. Please change to a feature/patch branch.' % current_branch
     sys.exit(-1)
-if not current_branch.startswith('patch') and current_branch.startswith('feature'):
+if not current_branch.startswith('patch') and not current_branch.startswith('feature'):
     print 'ERROR'
     print 'You are currently on branch \'%s\'. This is not a feature/patch/branch.' % current_branch
     sys.exit(-1)
