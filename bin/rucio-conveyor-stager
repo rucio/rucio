@@ -53,6 +53,8 @@ if __name__ == "__main__":
                         help='Explicit list of activities to include')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,
                         help='Seconds to sleep if few requests')
+    parser.add_argument("--retry-other-fts", action="store_true", default=False,
+                        help='retry on a different FTS')
     args = parser.parse_args()
 
     try:
@@ -68,6 +70,7 @@ if __name__ == "__main__":
             rses=args.rses,
             fts_source_strategy=args.fts_source_strategy,
             activities=args.activities,
-            sleep_time=args.sleep_time)
+            sleep_time=args.sleep_time,
+            retry_other_fts=args.retry_other_fts)
     except KeyboardInterrupt:
         stop()
