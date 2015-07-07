@@ -16,7 +16,6 @@ import os
 import dateutil.parser
 import datetime
 import pytz
-import purge_bin
 
 requests.packages.urllib3.disable_warnings()
 
@@ -116,7 +115,9 @@ def start_test(mr):
     tools/bootstrap_tests.py;
     nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_dq2* > /tmp/rucio_nose.txt 2> /tmp/rucio_nose.txt;
     nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt;
-    flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt""" % (root_git_dir)  # NOQA
+    flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt;
+    python tools/purge_bin.py;
+    """ % (root_git_dir)  # NOQA
     # command = 'cd %s; source .venv/bin/activate; pip install -r tools/pip-requires; pip install -r tools/pip-requires-client; pip install -r tools/pip-requires-test; find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/; tools/reset_database.py; tools/sync_rses.py; tools/sync_meta.py; tools/bootstrap_tests.py; nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt; flake8 bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt' % (root_git_dir)  # NOQA
     print '  %s' % command
     process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
@@ -157,9 +158,6 @@ def start_test(mr):
         error_lines.insert(0, '#### BUILD-BOT TEST RESULT: FAIL\n\n')
 
     update_merg_request(mr=mr, test_result=tests_passed, comment=error_lines)
-
-    print "  Purging Oracle bin"
-    purge_bin.purge_bin()
 
     # Checkout original master
     print '  git checkout master'
