@@ -92,14 +92,14 @@ def start_test(mr):
         sys.exit(-1)
 
     # Restart apache and memcached
-    print '  service memcached restart'
-    if commands.getstatusoutput('service memcached restart')[0] != 0:
+    print '  /sbin/service memcached restart'
+    if commands.getstatusoutput('/sbin/service memcached restart')[0] != 0:
         print 'Error while restarting memcached'
         sys.exit(-1)
 
     # Restart apache and memcached
     print '  service httpd restart'
-    if commands.getstatusoutput('service httpd restart')[0] != 0:
+    if commands.getstatusoutput('/sbin/service httpd restart')[0] != 0:
         print 'Error while restarting httpd'
         sys.exit(-1)
 
@@ -116,7 +116,7 @@ def start_test(mr):
     nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_dq2* > /tmp/rucio_nose.txt 2> /tmp/rucio_nose.txt;
     nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt;
     flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt;
-    python tools/purge_bin.py;
+    python ../purge_bin.py;
     """ % (root_git_dir)  # NOQA
     # command = 'cd %s; source .venv/bin/activate; pip install -r tools/pip-requires; pip install -r tools/pip-requires-client; pip install -r tools/pip-requires-test; find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/; tools/reset_database.py; tools/sync_rses.py; tools/sync_meta.py; tools/bootstrap_tests.py; nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt; flake8 bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt' % (root_git_dir)  # NOQA
     print '  %s' % command
@@ -192,7 +192,6 @@ for mr in mr_list:
     if mr['target_branch'] == 'next' and needs_testing(mr_id=mr['id']):
         print 'YES'
         start_test(mr=mr)
-        break
     else:
         print 'NO'
 
