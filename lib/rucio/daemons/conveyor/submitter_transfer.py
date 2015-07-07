@@ -43,7 +43,7 @@ graceful_stop = threading.Event()
 def submitter(once=False, rses=[], mock=False,
               process=0, total_processes=1, total_threads=1,
               bulk=100, group_bulk=1, group_policy='rule', fts_source_strategy='auto',
-              activities=None, sleep_time=600, max_sources=4):
+              activities=None, sleep_time=600, max_sources=4, retry_other_fts=False):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -104,7 +104,7 @@ def submitter(once=False, rses=[], mock=False,
                 logging.info("%s:%s Starting to get transfer transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
                 transfers = get_transfer_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'],
-                                                   limit=bulk, activity=activity, rses=rse_ids, schemes=scheme, mock=mock, max_sources=max_sources, bring_online=bring_online)
+                                                   limit=bulk, activity=activity, rses=rse_ids, schemes=scheme, mock=mock, max_sources=max_sources, bring_online=bring_online, retry_other_fts=retry_other_fts)
                 record_timer('daemons.conveyor.transfer_submitter.get_transfer_transfers.per_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_transfer_transfers', len(transfers))
                 record_timer('daemons.conveyor.transfer_submitter.get_transfer_transfers.transfers', len(transfers))
@@ -152,7 +152,7 @@ def stop(signum=None, frame=None):
 def run(once=False,
         process=0, total_processes=1, total_threads=1, group_bulk=1, group_policy='rule',
         mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100, fts_source_strategy='auto',
-        activities=[], sleep_time=600, max_sources=4):
+        activities=[], sleep_time=600, max_sources=4, retry_other_fts=False):
     """
     Starts up the conveyer threads.
     """
@@ -179,7 +179,8 @@ def run(once=False,
                   group_policy=group_policy,
                   max_sources=max_sources,
                   fts_source_strategy=fts_source_strategy,
-                  activities=activities)
+                  activities=activities,
+                  retry_other_fts=retry_other_fts)
 
     else:
         logging.info('starting submitter threads')
@@ -194,7 +195,8 @@ def run(once=False,
                                                               'mock': mock,
                                                               'sleep_time': sleep_time,
                                                               'max_sources': max_sources,
-                                                              'fts_source_strategy': fts_source_strategy})]
+                                                              'fts_source_strategy': fts_source_strategy,
+                                                              'retry_other_fts': retry_other_fts})]
 
         [t.start() for t in threads]
 
