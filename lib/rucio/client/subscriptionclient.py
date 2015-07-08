@@ -25,7 +25,7 @@ class SubscriptionClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
         super(SubscriptionClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
-    def add_subscription(self, name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run):
+    def add_subscription(self, name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=3):
         """
         Adds a new subscription which will be verified against every new added file and dataset
 
@@ -46,6 +46,8 @@ class SubscriptionClient(BaseClient):
         :type retroactive:  Boolean
         :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
         :type dry_run:  Boolean
+        :param priority: The priority of the subscription (3 by default)
+        :type priority: Integer
         """
         path = self.SUB_BASEURL + '/' + account + '/' + name
         url = build_url(choice(self.list_hosts), path=path)
@@ -54,7 +56,7 @@ class SubscriptionClient(BaseClient):
         if replication_rules and type(replication_rules) != list:
             raise TypeError('replication_rules should be a list')
         data = dumps({'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
-                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run})
+                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return r.text
@@ -90,7 +92,7 @@ class SubscriptionClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def update_subscription(self, name, account=None, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None):
+    def update_subscription(self, name, account=None, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, priority=None):
         """
         Updates a subscription
 
@@ -111,6 +113,8 @@ class SubscriptionClient(BaseClient):
         :type retroactive:  Boolean
         :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
         :type dry_run:  Boolean
+        :param priority: The priority of the subscription
+        :type priority: Integer
         :raises: exception.NotFound if subscription is not found
         """
         if not account:
@@ -122,7 +126,7 @@ class SubscriptionClient(BaseClient):
         if replication_rules and type(replication_rules) != list:
             raise TypeError('replication_rules should be a list')
         data = dumps({'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
-                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run})
+                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority})
         r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.created:
             return True
