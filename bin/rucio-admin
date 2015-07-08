@@ -187,6 +187,22 @@ def get_client(args):
     return client
 
 
+def extract_scope(did):
+    # Try to extract the scope from the DSN
+    if did.find(':') > -1:
+        scope, name = did.split(':')[0], did.split(':')[1]
+        if name.endswith('/'):
+            name = name[:-1]
+        return scope, name
+    else:
+        scope = did.split('.')[0]
+        if did.startswith('user') or did.startswith('group'):
+            scope = ".".join(did.split('.')[0:2])
+        if did.endswith('/'):
+            did = did[:-1]
+        return scope, did
+
+
 @exception_handler
 def add_account(args):
     """
@@ -583,7 +599,7 @@ def add_subscription(args):
     else:
         account = client.account
     subscription_id = client.add_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
-                                              comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
+                                              comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False, priority=args.priority)
     print 'Subscription added %s' % (subscription_id)
     return SUCCESS
 
@@ -609,7 +625,7 @@ def list_subscriptions(args):
             print '\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in sub.items())
             print
         else:
-            print "%s: %s %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['filter'], sub['replication_rules'], sub.get('comments', ''))
+            print "%s: %s %s\n  priority: %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['policyid'], sub['filter'], sub['replication_rules'], sub.get('comments', ''))
     return SUCCESS
 
 
@@ -629,7 +645,22 @@ def update_subscription(args):
     else:
         account = client.account
     client.update_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
-                               comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
+                               comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False, priority=args.priority)
+    return SUCCESS
+
+
+@exception_handler
+def reevaluate_did_for_subscription(args):
+    """
+    %(prog)s reevaulate [options] dids
+
+    Reevaluate a list of DIDs against all active subscriptions.
+
+    """
+    client = get_client(args)
+    for did in args.dids.split(','):
+        scope, name = extract_scope(did)
+        client.set_metadata(scope, name, 'is_new', True)
     return SUCCESS
 
 
@@ -922,6 +953,7 @@ Commands:
     add_sub_parser.add_argument(dest='comments', action='store', help='Comments on subscription')
     add_sub_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Subscription lifetime (in days)')
     add_sub_parser.add_argument('--account', dest='subs_account', action='store', help='Account name')
+    add_sub_parser.add_argument('--priority', dest='priority', action='store', help='The priority of the subscription')
     # retroactive and dry_run hard-coded for now
 
     # The list-subscriptions command
@@ -940,7 +972,13 @@ Commands:
     update_sub_parser.add_argument(dest='comments', action='store', help='Comments on subscription')
     update_sub_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Subscription lifetime (in days)')
     update_sub_parser.add_argument('--account', dest='subs_account', action='store', help='Account name')
+    update_sub_parser.add_argument('--priority', dest='priority', action='store', help='The priority of the subscription')
     # subscription policy, retroactive and dry_run hard-coded for now
+
+    # The reevaluate command
+    reevaluate_did_for_subscription_parser = subs_subparser.add_parser('reevaluate', help='Reevaluate a list of DIDs against all active subscriptions')
+    reevaluate_did_for_subscription_parser.set_defaults(which='reevaluate_did_for_subscription')
+    reevaluate_did_for_subscription_parser.add_argument(dest='dids', action='store', help='List of DIDs (coma separated)')
 
     # The replica parser
     rep_parser = subparsers.add_parser('replicas', help='Replica methods')
@@ -983,6 +1021,7 @@ Commands:
                 'add_subscription': add_subscription,
                 'list_subscriptions': list_subscriptions,
                 'update_subscription': update_subscription,
+                'reevaluate_did_for_subscription': reevaluate_did_for_subscription,
                 'declare_bad_file_replicas': declare_bad_file_replicas}
 
     argcomplete.autocomplete(oparser)
