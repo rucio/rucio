@@ -356,7 +356,7 @@ class TestSubscriptionClient():
 
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope, ], 'pattern': 'dataset-.*', 'split_rule': True},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'default'}],
-                                                 lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                 lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)
         rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert_equal(len(rules), 2)

@@ -27,7 +27,7 @@ from rucio.db.session import transactional_session, stream_session, read_session
 
 
 @transactional_session
-def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, session=None):
+def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=3, session=None):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -48,13 +48,14 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     :type retroactive:  Boolean
     :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
+    :param priority: The priority of the subscription
+    :type priority: Integer
     :param session: The database session in use.
 
     :returns: The subscriptionid
     """
 
     retroactive = bool(retroactive)  # Force boolean type, necessary for strict SQL
-    policyid = None  # This is not used anymore
     state = SubscriptionState.ACTIVE
     lifetime = None
     if retroactive:
@@ -62,7 +63,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     if lifetime:
         lifetime = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
     new_subscription = models.Subscription(name=name, filter=filter, account=account, replication_rules=replication_rules, state=state, lifetime=lifetime,
-                                           retroactive=retroactive, policyid=policyid, comments=comments)
+                                           retroactive=retroactive, policyid=priority, comments=comments)
     try:
         new_subscription.save(session=session)
     except IntegrityError, e:
@@ -78,7 +79,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
 
 
 @transactional_session
-def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, state=None, session=None):
+def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, state=None, priority=None, session=None):
     """
     Updates a subscription
 
@@ -103,6 +104,8 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
     :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
     :param state: The state of the subscription
+    :param priority: The priority of the subscription
+    :type priority: Integer
     :param session: The database session in use.
     :raises: exception.NotFound if subscription is not found
     """
@@ -119,6 +122,8 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
         values['dry_run'] = dry_run
     if comments:
         values['comments'] = comments
+    if priority:
+        values['policyid'] = priority
     if state and state == SubscriptionState.INACTIVE:
         values['state'] = SubscriptionState.INACTIVE
         values['expired_at'] = datetime.datetime.utcnow()
