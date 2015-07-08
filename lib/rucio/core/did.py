@@ -491,8 +491,26 @@ def detach_dids(scope, name, dids, session=None):
         associ_did = query_all.filter_by(child_scope=child_scope, child_name=child_name).first()
         if associ_did is None:
             raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
+
         child_type = associ_did.child_type
         associ_did.delete(session=session)
+
+        # Archive contents
+        models.DataIdentifierAssociationHistory(scope=associ_did.scope,
+                                                name=associ_did.name,
+                                                child_scope=associ_did.child_scope,
+                                                child_name=associ_did.child_name,
+                                                did_type=associ_did.did_type,
+                                                child_type=associ_did.child_type,
+                                                bytes=associ_did.bytes,
+                                                adler32=associ_did.adler32,
+                                                md5=associ_did.md5,
+                                                guid=associ_did.guid,
+                                                events=associ_did.events,
+                                                rule_evaluation=associ_did.rule_evaluation,
+                                                did_created_at=did.created_at).\
+            save(session=session, flush=False)
+
         # Send message for AMI. To be removed in the future when they use the DETACH messages
         if did.did_type == DIDType.CONTAINER:
             if child_type == DIDType.CONTAINER:
