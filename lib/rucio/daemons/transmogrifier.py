@@ -95,6 +95,9 @@ def is_matching_subscription(subscription, did, metadata):
         if key == 'pattern':
             if not re.match(values, did['name']):
                 return False
+        elif key == 'excluded_pattern':
+            if re.match(values, did['name']):
+                return False
         elif key == 'split_rule':
             pass
         elif key == 'scope':
@@ -106,7 +109,7 @@ def is_matching_subscription(subscription, did, metadata):
             if not match_scope:
                 return False
         else:
-            if type(values) is str or type(values) is unicode:
+            if type(values) is not list:
                 values = [values, ]
             has_metadata = False
             for meta in metadata:
@@ -114,7 +117,7 @@ def is_matching_subscription(subscription, did, metadata):
                     has_metadata = True
                     match_meta = False
                     for value in values:
-                        if re.match(value, str(metadata[meta])):
+                        if re.match(str(value), str(metadata[meta])):
                             match_meta = True
                             break
                     if not match_meta:
@@ -152,12 +155,22 @@ def transmogrifier(bulk=5, once=False):
             for did in list_new_dids(thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'], chunk_size=bulk):
                 dids.append({'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']})
 
+            sub_dict = {3: []}
             for sub in list_subscriptions(None, None):
                 if sub['state'] != SubscriptionState.INACTIVE and sub['lifetime'] and (datetime.now() > sub['lifetime']):
                     update_subscription(name=sub['name'], account=sub['account'], state=SubscriptionState.INACTIVE)
 
                 elif sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
-                    subscriptions.append(sub)
+                    priority = 3
+                    if 'policyid' in sub:
+                        if int(sub['policyid']) not in sub_dict:
+                            sub_dict[int(sub['policyid'])] = []
+                        priority = int(sub['policyid'])
+                    sub_dict[priority].append(sub)
+            priorities = sub_dict.keys()
+            priorities.sort()
+            for priority in priorities:
+                subscriptions.extend(sub_dict[priority])
         except Exception, error:
             logging.error('Thread [%i/%i] : Failed to get list of new DIDs or subscriptions: %s' % (heart_beat['assign_thread'],
                                                                                                     heart_beat['nr_threads'],

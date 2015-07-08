@@ -14,7 +14,7 @@ Constants.
 """
 
 RESERVED_KEYS = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic', 'obsolete', 'complete',
-                 'is_new', 'availability', 'suppressed', 'bytes', 'length', 'md5', 'adler32', 'rule_evaluation_action',
+                 'availability', 'suppressed', 'bytes', 'length', 'md5', 'adler32', 'rule_evaluation_action',
                  'rule_evaluation_required', 'expired_at', 'deleted_at', 'created_at', 'updated_at']
 # collection_keys =
 # file_keys =
