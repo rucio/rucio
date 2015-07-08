@@ -421,6 +421,28 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
 
 
+class DataIdentifierAssociationHistory(BASE, ModelBase):
+    """Represents the map history between containers/datasets and files"""
+    __tablename__ = 'contents_history'
+    scope = Column(String(25))          # dataset scope
+    name = Column(String(255))          # dataset name
+    child_scope = Column(String(25))    # Provenance scope
+    child_name = Column(String(255))    # Provenance name
+    did_type = Column(DIDType.db_type(name='CONTENTS_HIST_DID_TYPE_CHK'))
+    child_type = Column(DIDType.db_type(name='CONTENTS_HIST_CHILD_TYPE_CHK'))
+    bytes = Column(BigInteger)
+    adler32 = Column(String(8))
+    md5 = Column(String(32))
+    guid = Column(GUID())
+    events = Column(BigInteger)
+    rule_evaluation = Column(Boolean(name='CONTENTS_HIST_RULE_EVALUATION_CHK'))
+    did_created_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_HIST_PK'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_HIST_DID_TYPE_NN'),
+                   CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_HIST_CHILD_TYPE_NN'),
+                   Index('CONTENTS_HISTORY_IDX', 'scope', 'name'))
+
+
 class RSE(BASE, SoftModelBase):
     """Represents a Rucio Location"""
     __tablename__ = 'rses'
@@ -970,6 +992,7 @@ def register_models(engine):
     """
     Creates database tables for all models with the given engine
     """
+
     models = (Account,
               AccountAttrAssociation,
               AccountCounter,
@@ -978,6 +1001,8 @@ def register_models(engine):
               AlembicVersion,
               BadReplicas,
               Config,
+              DataIdentifierAssociation,
+              DataIdentifierAssociationHistory,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
@@ -1027,6 +1052,8 @@ def unregister_models(engine):
               AlembicVersion,
               BadReplicas,
               Config,
+              DataIdentifierAssociation,
+              DataIdentifierAssociationHistory,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
