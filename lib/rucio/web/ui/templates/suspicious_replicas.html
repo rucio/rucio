@@ -1,0 +1,35 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+-->
+
+$var title: Suspiciousreplicas
+$var script: <script src="/static/suspicious_replicas.js"></script>
+
+<div id="result" class="row" data-equalizer>
+    <div id="State" class="columns panel">
+        <h4>Suspicious replicas</h4>
+        <table id="suspiciousreplicas" style="word-wrap: break-word;">
+            <thead>
+                <tr>
+                    <th>Scope</th>
+                    <th>Name</th>
+                    <th>RSE</th>
+                    <th>PFN</th>
+                    <th>Created_at</th>
+                    <th>Updated_at</th>
+                </tr>
+            </thead>
+        </table>
+        <div id="downloader"></div>
+    </div>
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
