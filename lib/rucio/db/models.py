@@ -435,7 +435,7 @@ class DataIdentifierAssociationHistory(BASE, ModelBase):
     md5 = Column(String(32))
     guid = Column(GUID())
     events = Column(BigInteger)
-    rule_evaluation = Column(Boolean(name='CONTENTS_HIST_RULE_EVALUATION_CHK'))
+    rule_evaluation = Column(Boolean(name='CONTENTS_HIST_RULE_EVAL_CHK'))
     did_created_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_HIST_PK'),
                    CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_HIST_DID_TYPE_NN'),
