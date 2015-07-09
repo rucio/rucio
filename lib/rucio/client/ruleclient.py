@@ -144,9 +144,10 @@ class RuleClient(BaseClient):
         :raises:                    RuleNotFound
         """
 
-        path = self.RULE_BASEURL + '/' + rule_id + '/approve'
+        path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='PUT')
+        data = dumps({'options': {'approve': True}})
+        r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.ok:
             return True
         else:
@@ -159,9 +160,10 @@ class RuleClient(BaseClient):
         :raises:                    RuleNotFound
         """
 
-        path = self.RULE_BASEURL + '/' + rule_id + '/deny'
+        path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='PUT')
+        data = dumps({'options': {'approve': False}})
+        r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.ok:
             return True
         else:

@@ -29,7 +29,7 @@ from sqlalchemy.exc import DatabaseError
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, RuleNotFound
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.rule import inject_rule, get_injection_rules
+from rucio.core.rule import inject_rule, get_injected_rules
 from rucio.core.monitor import record_counter
 
 graceful_stop = threading.Event()
@@ -64,9 +64,9 @@ def rule_injector(once=False):
             heartbeat = live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=60*60)
 
             start = time.time()
-            rules = get_injection_rules(total_workers=heartbeat['nr_threads']-1,
-                                        worker_number=heartbeat['assign_thread'],
-                                        limit=10)
+            rules = get_injected_rules(total_workers=heartbeat['nr_threads']-1,
+                                       worker_number=heartbeat['assign_thread'],
+                                       limit=10)
             logging.debug('rule_injector[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, time.time() - start, len(rules)))
 
             # Refresh paused rules
