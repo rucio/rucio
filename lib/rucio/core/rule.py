@@ -1082,7 +1082,7 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
 
 
 @read_session
-def get_injection_rules(total_workers, worker_number, limit=10, session=None):
+def get_injected_rules(total_workers, worker_number, limit=10, session=None):
     """
     Get rules to be injected.
 

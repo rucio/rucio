@@ -139,7 +139,13 @@ def update_replication_rule(rule_id, options, issuer):
     kwargs = {'rule_id': rule_id, 'options': options}
     if not has_permission(issuer=issuer, action='update_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
-    rule.update_rule(rule_id=rule_id, options=options)
+    if 'approve' in options:
+        if options['approve']:
+            rule.approve_rule(rule_id=rule_id)
+        else:
+            rule.deny_rule(rule_id=rule_id)
+    else:
+        rule.update_rule(rule_id=rule_id, options=options)
 
 
 def reduce_replication_rule(rule_id, copies, exclude_expression, issuer):
@@ -156,33 +162,3 @@ def reduce_replication_rule(rule_id, copies, exclude_expression, issuer):
     if not has_permission(issuer=issuer, action='reduce_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not reduce this replication rule.' % (issuer))
     rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression)
-
-
-def approve_replication_rule(rule_id, issuer):
-    """
-    Approve the replication rule.
-
-    :param rule_id:             Rule to be approved.
-    :param issuer:              The issuing account of this operation
-    :raises:                    RuleNotFound
-    """
-
-    kwargs = {'rule_id': rule_id}
-    if not has_permission(issuer=issuer, action='approve_rule', kwargs=kwargs):
-        raise AccessDenied('Account %s can not approve this replication rule.' % (issuer))
-    rule.approve_rule(rule_id=rule_id)
-
-
-def deny_replication_rule(rule_id, issuer):
-    """
-    Approve the replication rule.
-
-    :param rule_id:             Rule to be denied.
-    :param issuer:              The issuing account of this operation
-    :raises:                    RuleNotFound
-    """
-
-    kwargs = {'rule_id': rule_id}
-    if not has_permission(issuer=issuer, action='deny_rule', kwargs=kwargs):
-        raise AccessDenied('Account %s can not deny this replication rule.' % (issuer))
-    rule.deny_rule(rule_id=rule_id)
