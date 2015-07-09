@@ -584,6 +584,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 policy_key = '%s' % (file['metadata']['dst_rse'])
             if policy == 'src_dest':
                 policy_key = '%s,%s' % (file['metadata']['src_rse'], file['metadata']['dst_rse'])
+            if policy == 'rule_src_dest':
+                policy_key = '%s,%s,%s' % (transfer['rule_id'], file['metadata']['src_rse'], file['metadata']['dst_rse'])
             # maybe here we need to hash the key if it's too long
 
             if policy_key not in grouped_transfers[external_host][job_key]:
@@ -592,28 +594,14 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 grouped_transfers[external_host][job_key][policy_key]['files'].append(file)
 
     # for jobs with different job_key, we cannot put in one job.
-    # but for jobs with the same job_key, we can put them in one job if there are not many 'files' in one policy_key(rule, dest or scr_dest)
     for external_host in grouped_transfers:
         for job_key in grouped_transfers[external_host]:
             # for all policy groups in job_key, the job_params is the same.
-            current_job = {'files': []}
             for policy_key in grouped_transfers[external_host][job_key]:
                 job_params = grouped_transfers[external_host][job_key][policy_key]['job_params']
-                if len(grouped_transfers[external_host][job_key][policy_key]['files']) > group_bulk:
-                    for xfers_files in chunks(grouped_transfers[external_host][job_key][policy_key]['files'], group_bulk):
-                        # for the last small piece, just submit it.
-                        grouped_jobs[external_host].append({'files': xfers_files, 'job_params': job_params})
-                else:
-                    if len(current_job['files']) + len(grouped_transfers[external_host][job_key][policy_key]['files']) < group_bulk:
-                        current_job['files'] += grouped_transfers[external_host][job_key][policy_key]['files']
-                    else:
-                        if len(current_job['files']) > group_bulk / 2:
-                            grouped_jobs[external_host].append({'files': current_job['files'], 'job_params': job_params})
-                            current_job['files'] = grouped_transfers[external_host][job_key][policy_key]['files']
-                        else:
-                            grouped_jobs[external_host].append({'files': grouped_transfers[external_host][job_key][policy_key]['files'], 'job_params': job_params})
-            if len(current_job['files']) > 0:
-                grouped_jobs[external_host].append({'files': current_job['files'], 'job_params': job_params})
+                for xfers_files in chunks(grouped_transfers[external_host][job_key][policy_key]['files'], group_bulk):
+                    # for the last small piece, just submit it.
+                    grouped_jobs[external_host].append({'files': xfers_files, 'job_params': job_params})
 
     return grouped_jobs
 

@@ -162,6 +162,7 @@ class FTSCompleteState(DeclEnum):
 class BadFilesStatus(DeclEnum):
     BAD = 'B', 'BAD'
     DELETED = 'D', 'DELETED'
+    LOST = 'L', 'LOST'
     RECOVERED = 'R', 'RECOVERED'
     SUSPICIOUS = 'S', 'SUSPICIOUS'
 
