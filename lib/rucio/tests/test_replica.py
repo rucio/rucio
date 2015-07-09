@@ -365,7 +365,7 @@ class TestReplicaClients:
                 tot_bad_files.append(dumps(line))
         nb_tot_bad_files1 = len(tot_bad_files)
 
-        data = dumps({'state': 'S'})
+        data = dumps({'state': 'S', 'list_pfns': 'True'})
         r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 200)
         tot_suspicious_files = []
