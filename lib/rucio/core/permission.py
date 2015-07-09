@@ -89,9 +89,7 @@ def has_permission(issuer, action, kwargs):
             'get_account_usage': perm_get_account_usage,
             'add_attribute': perm_add_account_attribute,
             'del_attribute': perm_del_account_attribute,
-            'list_heartbeats': perm_list_heartbeats,
-            'approve_rule': perm_approve_rule,
-            'deny_rule': perm_deny_rule
+            'list_heartbeats': perm_list_heartbeats
             }
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
@@ -385,6 +383,8 @@ def perm_update_rule(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
+    if 'approve' in kwargs['options']:
+        return False  # Only priv accounts are allowed to approve/deny rules
     if 'account' in kwargs['options']:
         return False  # Only priv accounts are allowed to change owner
     if 'state' in kwargs['options']:
@@ -725,31 +725,3 @@ def perm_list_heartbeats(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return issuer == 'root'
-
-
-def perm_approve_rule(issuer, kwargs):
-    """
-    Checks if an account can approve a replication rule.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed, otherwise False
-    """
-    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
-        return True
-
-    return False
-
-
-def perm_deny_rule(issuer, kwargs):
-    """
-    Checks if an account can deny a replication rule.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed, otherwise False
-    """
-    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
-        return True
-
-    return False

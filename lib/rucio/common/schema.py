@@ -98,7 +98,8 @@ NOTIFY = {"description": "Rule notification setting",
           "enum": ["Y", "C", "N", None]}
 
 COMMENT = {"description": "Rule comment",
-           "type": ["string", "null"]}
+           "type": ["string", "null"],
+           "maxLength": 250}
 
 BYTES = {"description": "Size in bytes",
          "type": "integer"}
