@@ -25,7 +25,14 @@ def needs_testing(mr_id):
                         params={'private_token': private_token})
     comments = json.loads(resp.text)
     needs_testing = True
-    comparison_time = pytz.utc.localize(datetime.datetime.utcfromtimestamp(0))
+
+    global states
+
+    if mr_id in states:
+        comparison_time = states[str(mr_id)]
+        needs_testing = False
+    else:
+        comparison_time = pytz.utc.localize(datetime.datetime.utcfromtimestamp(0))
 
     for comment in comments:
         if comment['body'].startswith('#### BUILD-BOT TEST') and comment['author']['username'] == 'ruciobuildbot':
@@ -40,6 +47,8 @@ def needs_testing(mr_id):
             if dateutil.parser.parse(comment['created_at']) > comparison_time:
                 needs_testing = True
                 comparison_time = dateutil.parser.parse(comment['created_at'])
+
+    states[str(mr_id)] = comparison_time.isoformat()
     return needs_testing
 
 
@@ -108,11 +117,13 @@ def start_test(mr):
     pip install -r tools/pip-requires;
     pip install -r tools/pip-requires-client;
     pip install -r tools/pip-requires-test;
+    cp tools/patches/nose/tools.py .venv/lib/python2.6/site-packages/nose/tools.py
+    cp tools/patches/nose/trivial.py .venv/lib/python2.6/site-packages/nose/tools/trivial.py
     find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/;
     tools/reset_database.py;
     tools/sync_rses.py;
     tools/sync_meta.py;
-    tools/bootstrap_tests.py;
+    ../bootstrap_tests.py;
     nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_dq2* > /tmp/rucio_nose.txt 2> /tmp/rucio_nose.txt;
     tools/reset_database.py;
     nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt;
@@ -183,6 +194,14 @@ except:
     print 'No gitlab keyfile found at %s' % root_git_dir + '/.gitlabkey'
     sys.exit(-1)
 
+# Load state file
+print 'Loading state file ...'
+try:
+    with open('/tmp/ruciobuildbot.states') as data_file:
+        states = json.load(data_file)
+except:
+    states = {}
+
 # Get all open merge requests
 print 'Getting all open merge requests ...'
 resp = requests.get(url='https://gitlab.cern.ch/api/v3/projects/651/merge_requests',
@@ -195,5 +214,9 @@ for mr in mr_list:
         start_test(mr=mr)
     else:
         print 'NO'
+
+print 'Writing state file ...'
+with open('/tmp/ruciobuildbot.states', 'w') as outfile:
+    json.dump(states, outfile)
 
 os.remove('/tmp/rucio_test.pid')
