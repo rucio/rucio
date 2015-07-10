@@ -817,7 +817,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             continue
                         else:
                             transfers[id]['sources'] = []
-                            transfers[id]['bring_online'] = 172800
+                            transfers[id]['bring_online'] = bring_online_local
                     else:
                         # the sources already founded is Tape too.
                         # multiple Tape source replicas are not allowed in FTS3.
