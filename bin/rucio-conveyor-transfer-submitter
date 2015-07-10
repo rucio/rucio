@@ -55,6 +55,8 @@ if __name__ == "__main__":
                         help='Seconds to sleep if few requests')
     parser.add_argument('--max-sources', action="store", default=4, type=int,
                         help='Maximum source replicas per FTS job')
+    parser.add_argument("--retry-other-fts", action="store_true", default=False,
+                        help='retry on a different FTS')
     args = parser.parse_args()
 
     try:
@@ -71,6 +73,7 @@ if __name__ == "__main__":
             fts_source_strategy=args.fts_source_strategy,
             activities=args.activities,
             sleep_time=args.sleep_time,
-            max_sources=args.max_sources)
+            max_sources=args.max_sources,
+            retry_other_fts=args.retry_other_fts)
     except KeyboardInterrupt:
         stop()
