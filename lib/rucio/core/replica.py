@@ -121,6 +121,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
     :param session: The database session in use.
     """
     result = []
+    tmp_dict = {}
     rse_id = None
     if rse:
         rse_id = get_rse_id(rse, session=session)
@@ -139,19 +140,20 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
     for badfile in query.yield_per(1000):
         if list_pfns:
             result.append({'scope': badfile.scope, 'name': badfile.name, 'type': DIDType.FILE})
+            if (badfile.scope, badfile.name, badfile.rse) not in tmp_dict:
+                tmp_dict[(badfile.scope, badfile.name, badfile.rse)] = []
+            tmp_dict[(badfile.scope, badfile.name, badfile.rse)].append({'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
         else:
             result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': badfile.rse, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
     if list_pfns:
         reps = []
         for rep in list_replicas(result, schemes=['srm', ], unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
             pfn = None
-            if rse in rep['rses'] and rep['rses'][rse]:
-                pfn = rep['rses'][rse][0]
-                if pfn and pfn not in reps:
-                    reps.append(pfn)
-            else:
-                reps.extend([item for row in rep['rses'].values() for item in row])
-        list(set(reps))
+            for rse in rep['rses']:
+                if (rep['scope'], rep['name'], rse) in tmp_dict:
+                    pfn = rep['rses'][rse][0]
+                    for dict_state in tmp_dict[(rep['scope'], rep['name'], rse)]:
+                        reps.append({'scope': rep['scope'], 'name': rep['name'], 'rse': rse, 'state': dict_state['state'], 'created_at': dict_state['created_at'], 'updated_at': dict_state['updated_at'], 'pfn': pfn})
         result = reps
     return result
 
