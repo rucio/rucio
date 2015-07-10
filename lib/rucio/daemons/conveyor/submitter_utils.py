@@ -608,7 +608,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
 
 @read_session
 def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                              limit=None, activity=None, older_than=None, rses=None, schemes=None, bring_online=43200, session=None):
+                                              limit=None, activity=None, older_than=None, rses=None, schemes=None,
+                                              bring_online=43200, retry_other_fts=False, session=None):
     req_sources = request.list_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                      limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
 
@@ -749,7 +750,10 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if retry_count is None:
                     retry_count = 0
                 fts_list = fts_hosts.split(",")
-                external_host = fts_list[retry_count % len(fts_list)]
+
+                external_host = fts_list[0]
+                if retry_other_fts:
+                    external_host = fts_list[retry_count % len(fts_list)]
 
                 if id in reqs_no_source:
                     reqs_no_source.remove(id)
@@ -872,7 +876,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
 @read_session
 def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                             limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, bring_online=43200, session=None):
+                                             limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None,
+                                             bring_online=43200, retry_other_fts=False, session=None):
     req_sources = request.list_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                     limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
 
@@ -980,7 +985,10 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                 if not retry_count:
                     retry_count = 0
                 fts_list = fts_hosts.split(",")
-                external_host = fts_list[retry_count % len(fts_list)]
+
+                external_host = fts_list[0]
+                if retry_other_fts:
+                    external_host = fts_list[retry_count % len(fts_list)]
 
                 if id in reqs_no_source:
                     reqs_no_source.remove(id)
@@ -1020,9 +1028,10 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
 
 
 def get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                          limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, bring_online=43200, session=None):
+                          limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, session=None):
     transfers, reqs_no_source = get_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                         limit=limit, activity=activity, older_than=older_than, rses=rses, mock=mock, schemes=schemes, bring_online=bring_online, session=session)
+                                                                         limit=limit, activity=activity, older_than=older_than, rses=rses, mock=mock, schemes=schemes,
+                                                                         bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
     request.set_requests_state(reqs_no_source, RequestState.LOST)
     return transfers
 
@@ -1058,9 +1067,10 @@ def mock_sources(sources):
 
 
 def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                           limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200, session=None):
+                           limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200, retry_other_fts=False, session=None):
     transfers, reqs_no_source, reqs_scheme_mismatch = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                                                limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes, bring_online=bring_online, session=session)
+                                                                                                limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes,
+                                                                                                bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
     request.set_requests_state(reqs_no_source, RequestState.LOST)
     transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch)
 
