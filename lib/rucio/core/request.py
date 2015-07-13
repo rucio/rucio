@@ -18,6 +18,7 @@ import time
 import traceback
 
 from sqlalchemy import and_, func
+from sqlalchemy.orm import aliased
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
 
@@ -1403,3 +1404,23 @@ def get_heavy_load_rses(threshold, session=None):
         return result
     except IntegrityError, e:
         raise RucioException(e.args)
+
+
+@read_session
+def stats(session=None):
+    """
+    Retrieve statistics about src-destination traffic
+
+    :returns: A list of dictionaries.
+        [{'files': .., 'source': .., 'destination': .., 'bytes': ...},]
+    """
+    source, destination = aliased(models.RSE), aliased(models.RSE)
+    query = session.query(source.rse.label('source'),
+                          destination.rse.label('destination'),
+                          func.count(1).label('files'),
+                          func.sum(models.Source.bytes).label('bytes')).\
+        filter(models.Source.rse_id == source.id).\
+        filter(models.Source.dest_rse_id == destination.id).\
+        group_by(source.rse, destination.rse)
+
+    return [row._asdict() for row in query]
