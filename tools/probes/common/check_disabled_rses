@@ -10,11 +10,9 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 import json
-import os.path
 import requests
 import sys
 import traceback
-import urlparse
 
 from rucio.client import Client
 from rucio.common.exception import RSENotFound
@@ -44,5 +42,7 @@ if __name__ == '__main__':
                     # Site is already deleted. Skip
                     pass
         except:
+            trcbck = traceback.format_exc()
+            errno, errstr = sys.exc_info()[:2]
             print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
     sys.exit(retvalue)
