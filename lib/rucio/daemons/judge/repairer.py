@@ -44,10 +44,6 @@ def rule_repairer(once=False):
     Main loop to check for STUCK replication rules
     """
 
-    logging.info('rule_repairer: starting')
-
-    logging.info('rule_repairer: started')
-
     hostname = socket.gethostname()
     pid = os.getpid()
     current_thread = threading.current_thread()
@@ -81,7 +77,7 @@ def rule_repairer(once=False):
             rules = [rule for rule in rules if rule[0] not in paused_rules]
 
             if not rules and not once:
-                logging.info('rule_repairer[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
+                logging.debug('rule_repairer[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
                 graceful_stop.wait(60)
             else:
                 for rule_id in rules:
@@ -110,9 +106,6 @@ def rule_repairer(once=False):
 
     die(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread)
 
-    logging.info('rule_repairer: graceful stop requested')
-    logging.info('rule_repairer: graceful stop done')
-
 
 def stop(signum=None, frame=None):
     """
@@ -131,13 +124,11 @@ def run(once=False, threads=1):
     sanity_check(executable='rucio-judge-repairer', hostname=hostname)
 
     if once:
-        logging.info('main: executing one iteration only')
         rule_repairer(once)
     else:
-        logging.info('main: starting threads')
+        logging.info('Repairer starting %s threads' % str(threads))
         threads = [threading.Thread(target=rule_repairer, kwargs={'once': once}) for i in xrange(0, threads)]
         [t.start() for t in threads]
-        logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
         while threads[0].is_alive():
             [t.join(timeout=3.14) for t in threads]
