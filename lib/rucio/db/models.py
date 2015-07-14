@@ -746,6 +746,7 @@ class ReplicaLock(BASE, ModelBase):
     account = Column(String(25))
     bytes = Column(BigInteger)
     state = Column(LockState.db_type(name='LOCKS_STATE_CHK'), default=LockState.REPLICATING)
+    repair_cnt = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='LOCKS_PK'),
                    # ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replicas.rse_id', 'replicas.scope', 'replicas.name'], name='LOCKS_REPLICAS_FK'),
                    ForeignKeyConstraint(['rule_id'], ['rules.id'], name='LOCKS_RULE_ID_FK'),

@@ -1020,6 +1020,11 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
     rule.locks_replicating_cnt += 1
     replica.state = ReplicaState.COPYING
 
+    if not lock.repair_cnt:
+        lock.repair_cnt = 1
+    else:
+        lock.repair_cnt += 1
+
     if get_rse(rse=None, rse_id=lock.rse_id, session=session).staging_area:
         lifetime = rule.expires_at - datetime.utcnow()
         lifetime = lifetime.seconds + lifetime.days * 24 * 3600
