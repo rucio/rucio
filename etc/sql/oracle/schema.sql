@@ -689,6 +689,7 @@ CREATE TABLE locks (
     account VARCHAR2(25 CHAR),
     bytes NUMBER(19),
     state CHAR(1 CHAR),
+    repair_cnt NUMBER(19),
     updated_at DATE,
     created_at DATE,
     CONSTRAINT "LOCKS_PK" PRIMARY KEY (scope, name, rule_id, rse_id) USING INDEX LOCAL COMPRESS 1,
