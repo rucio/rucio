@@ -45,7 +45,7 @@ urls = (
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
-    '/webstats', 'HTTPMonitoringIndex',
+    '/api_usage', 'HTTPAPIUsage',
     '/webstats/accounts', 'HTTPMonitoringAccounts',
     '/webstats/accounts/(.*)', 'HTTPMonitoringAccountDetails',
     '/webstats/scriptids', 'HTTPMonitoringScriptIDs',
@@ -204,10 +204,10 @@ class Subscriptions():
         return check_token(render.subscriptions())
 
 
-class HTTPMonitoringIndex():
+class HTTPAPIUsage():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_monitoring_index())
+        return check_token(render.http_api_usage())
 
 
 class HTTPMonitoringAccounts():
