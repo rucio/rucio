@@ -13,6 +13,7 @@ from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import successful_transfer, failed_transfer, get_replica_locks
+from rucio.core.replica import get_replica
 from rucio.core.request import cancel_request_did
 from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import get_rule, add_rule
@@ -76,6 +77,10 @@ class TestJudgeRepairer():
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
+        failed_rse_id = get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id
+        assert(get_replica(rse=None, scope=files[2]['scope'], name=files[2]['name'], rse_id=failed_rse_id)['state'] == ReplicaState.COPYING)
+        assert(get_replica(rse=None, scope=files[2]['scope'], name=files[2]['name'], rse_id=failed_rse_id)['lock_cnt'] == 1)
+
         successful_transfer(scope=scope, name=files[0]['name'], rse_id=get_replica_locks(scope=files[0]['scope'], name=files[2]['name'])[0].rse_id, nowait=False)
         successful_transfer(scope=scope, name=files[1]['name'], rse_id=get_replica_locks(scope=files[1]['scope'], name=files[2]['name'])[0].rse_id, nowait=False)
         failed_transfer(scope=scope, name=files[2]['name'], rse_id=get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id)
@@ -84,6 +89,8 @@ class TestJudgeRepairer():
         assert(RuleState.STUCK == get_rule(rule_id)['state'])
         rule_repairer(once=True)
         assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
+        assert(get_replica(rse=None, scope=files[2]['scope'], name=files[2]['name'], rse_id=failed_rse_id)['state'] == ReplicaState.UNAVAILABLE)
+        assert(get_replica(rse=None, scope=files[2]['scope'], name=files[2]['name'], rse_id=failed_rse_id)['lock_cnt'] == 0)
 
     def test_to_repair_a_rule_with_ALL_grouping_whose_transfer_failed(self):
         """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer (lock)"""
