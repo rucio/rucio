@@ -25,7 +25,7 @@ from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replica
                                get_did_from_pfns, update_replicas_states,
                                declare_bad_file_replicas,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
-                               get_bad_replicas_summary)
+                               get_bad_replicas_summary, list_datasets_per_rse)
 from rucio.db.constants import BadFilesStatus
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
@@ -40,6 +40,7 @@ urls = ('/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
         '/bad/states/?$', 'BadReplicasStates',
         '/bad/summary/?$', 'BadReplicasSummary',
+        '/rse/(.*)/?$', 'ReplicasRSE',
         '/(.*)/(.*)/datasets$', 'DatasetReplicas',
         '/(.*)/(.*)/?$', 'Replicas',
         '/bad/?$', 'BadReplicas',
@@ -611,6 +612,32 @@ class DatasetReplicas(RucioController):
         header('Content-Type', 'application/x-json-stream')
         try:
             for row in list_dataset_replicas(scope=scope, name=name):
+                yield dumps(row, cls=APIEncoder) + '\n'
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+
+class ReplicasRSE(RucioController):
+
+    def GET(self, rse):
+        """
+        List dataset replicas replicas.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :returns: A dictionary containing all replicas on the RSE.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            for row in list_datasets_per_rse(rse=rse):
                 yield dumps(row, cls=APIEncoder) + '\n'
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
