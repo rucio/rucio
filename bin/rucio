@@ -1390,12 +1390,20 @@ def list_datasets_rse(args):
 
     """
     client = get_client(args)
-    dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.get_dataset_locks_by_rse(args.rse)]))
-    dsns.sort()
-    print "SCOPE:NAME"
-    print '----------'
-    for dsn in dsns:
-        print dsn
+    if args.long:
+        table = []
+        for dsn in client.list_datasets_per_rse(args.rse):
+            print dsn
+            table.append(['%s:%s' % (dsn['scope'], dsn['name']), '%s/%s' % (str(dsn['available_length']), str(dsn['length'])), '%s/%s' % (str(dsn['available_bytes']), str(dsn['bytes']))])
+        table.sort()
+        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'])
+    else:
+        dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.list_datasets_per_rse(args.rse)]))
+        dsns.sort()
+        print "SCOPE:NAME"
+        print '----------'
+        for dsn in dsns:
+            print dsn
     return SUCCESS
 
 
@@ -1776,6 +1784,7 @@ Commands:
     list_datasets_rse_parser = subparsers.add_parser('list-datasets-rse', help='List all the datasets at a Rucio Storage Element', description='This method allows to list all the datasets on a given Rucio Storage Element.')
     list_datasets_rse_parser.set_defaults(which='list_datasets_rse')
     list_datasets_rse_parser.add_argument(dest='rse', action='store', default=None, help='The RSE name')
+    list_datasets_rse_parser.add_argument('--long', dest='long', action='store_true', default=False, help='The long option')
 
     # The test-server command
     test_server_parser = subparsers.add_parser('test-server', help='Test Server')
