@@ -202,7 +202,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             # Add rule to History
             insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
 
-            logging.debug("Created rule %s [%d/%d/%d]" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt))
+            logging.info("Created rule %s [%d/%d/%d] in state %s" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, str(new_rule.state)))
 
     return rule_ids
 
@@ -359,7 +359,7 @@ def add_rules(dids, rules, session=None):
                     # Add rule to History
                     insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
 
-                    logging.debug("Created rule %s [%d/%d/%d]" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt))
+                    logging.info("Created rule %s [%d/%d/%d] in state %s" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, str(new_rule.state)))
 
     return rule_ids
 
@@ -1389,7 +1389,7 @@ def __evaluate_did_detach(eval_did, session=None):
     :param session:   The database session in use.
     """
 
-    logging.debug("Re-Evaluating did %s:%s for DETACH" % (eval_did.scope, eval_did.name))
+    logging.info("Re-Evaluating did %s:%s for DETACH" % (eval_did.scope, eval_did.name))
 
     with record_timer_block('rule.evaluate_did_detach'):
         # Get all parent DID's
@@ -1473,7 +1473,7 @@ def __evaluate_did_attach(eval_did, session=None):
     :raises:          ReplicationRuleCreationTemporaryFailed
     """
 
-    logging.debug("Re-Evaluating did %s:%s for ATTACH" % (eval_did.scope, eval_did.name))
+    logging.info("Re-Evaluating did %s:%s for ATTACH" % (eval_did.scope, eval_did.name))
 
     with record_timer_block('rule.evaluate_did_attach'):
         # Get all parent DID's
