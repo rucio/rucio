@@ -29,7 +29,7 @@ class RuleClient(BaseClient):
 
     def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None,
                              locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False,
-                             ignore_availability=False, comment=None):
+                             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False):
         """
         :param dids:                       The data identifier set.
         :param copies:                     The number of replicas.
@@ -46,6 +46,8 @@ class RuleClient(BaseClient):
         :param notify:                     Notification setting for the rule (Y, N, C).
         :param purge_replicas:             When the rule gets deleted purge the associated replicas immediately.
         :param ignore_availability:        Option to ignore the availability of RSEs.
+        :param ask_approval:               Ask for approval of this replication rule.
+        :param asynchronous:               Create rule asynchronously by judge-injector.
         :param comment:                    Comment about the rule.
         """
         path = self.RULE_BASEURL + '/'
@@ -55,7 +57,8 @@ class RuleClient(BaseClient):
                       'weight': weight, 'lifetime': lifetime, 'grouping': grouping,
                       'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression,
                       'activity': activity, 'notify': notify, 'purge_replicas': purge_replicas,
-                      'ignore_availability': ignore_availability, 'comment': comment})
+                      'ignore_availability': ignore_availability, 'comment': comment, 'ask_approval': ask_approval,
+                      'asynchronous': asynchronous})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)
@@ -122,7 +125,6 @@ class RuleClient(BaseClient):
         :param rule_id:             Rule to be reduced.
         :param copies:              Number of copies of the new rule.
         :param exclude_expression:  RSE Expression of RSEs to exclude.
-        :param issuer:              The issuing account of this operation
         :raises:                    RuleReplaceFailed, RuleNotFound
         """
 
@@ -132,6 +134,38 @@ class RuleClient(BaseClient):
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.ok:
             return loads(r.text)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def approve_replication_rule(self, rule_id):
+        """
+        :param rule_id:             Rule to be approved.
+        :raises:                    RuleNotFound
+        """
+
+        path = self.RULE_BASEURL + '/' + rule_id
+        url = build_url(choice(self.list_hosts), path=path)
+        data = dumps({'options': {'approve': True}})
+        r = self._send_request(url, type='PUT', data=data)
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def deny_replication_rule(self, rule_id):
+        """
+        :param rule_id:             Rule to be denied.
+        :raises:                    RuleNotFound
+        """
+
+        path = self.RULE_BASEURL + '/' + rule_id
+        url = build_url(choice(self.list_hosts), path=path)
+        data = dumps({'options': {'approve': False}})
+        r = self._send_request(url, type='PUT', data=data)
+        if r.status_code == codes.ok:
+            return True
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
