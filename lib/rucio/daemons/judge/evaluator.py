@@ -46,10 +46,6 @@ def re_evaluator(once=False):
     Main loop to check the re-evaluation of dids.
     """
 
-    logging.info('re_evaluator: starting')
-
-    logging.info('re_evaluator: started')
-
     hostname = socket.gethostname()
     pid = os.getpid()
     current_thread = threading.current_thread()
@@ -83,7 +79,7 @@ def re_evaluator(once=False):
 
             # If the list is empty, sent the worker to sleep
             if not dids and not once:
-                logging.info('re_evaluator[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
+                logging.debug('re_evaluator[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
                 graceful_stop.wait(30)
             else:
                 done_dids = {}
@@ -126,8 +122,7 @@ def re_evaluator(once=False):
                         logging.warning('re_evaluator[%s/%s]: Replica Creation temporary failed, retrying later for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, did.scope, did.name))
                     except FlushError, e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                        logging.critical('re_evaluator[%s/%s]: Flush error for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, did.scope, did.name))
-                        logging.critical(traceback.format_exc())
+                        logging.warning('re_evaluator[%s/%s]: Flush error for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, did.scope, did.name))
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
             logging.critical(traceback.format_exc())
@@ -135,10 +130,6 @@ def re_evaluator(once=False):
             break
 
     die(executable='rucio-judge-evaluator', hostname=hostname, pid=pid, thread=current_thread)
-
-    logging.info('re_evaluator: graceful stop requested')
-
-    logging.info('re_evaluator: graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -158,13 +149,11 @@ def run(once=False, threads=1):
     sanity_check(executable='rucio-judge-evaluator', hostname=hostname)
 
     if once:
-        logging.info('main: executing one iteration only')
         re_evaluator(once)
     else:
-        logging.info('main: starting threads')
+        logging.info('Evaluator starting %s threads' % str(threads))
         threads = [threading.Thread(target=re_evaluator, kwargs={'once': once}) for i in xrange(0, threads)]
         [t.start() for t in threads]
-        logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
         while threads[0].is_alive():
             [t.join(timeout=3.14) for t in threads]
