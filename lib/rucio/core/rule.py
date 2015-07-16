@@ -33,6 +33,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound)
 from rucio.common.schema import validate_schema
+from rucio.common.utils import str_to_date
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account
 from rucio.core.message import add_message
@@ -377,11 +378,23 @@ def list_rules(filters={}, session=None):
     query = session.query(models.ReplicationRule)
     if filters:
         for (k, v) in filters.items():
-            if k == 'state' and isinstance(v, basestring):
+            if k == 'created_before':
+                query = query.filter(models.ReplicationRule.created_at <= str_to_date(v))
+                continue
+            elif k == 'created_after':
+                query = query.filter(models.ReplicationRule.created_at >= str_to_date(v))
+                continue
+            elif k == 'updated_before':
+                query = query.filter(models.ReplicationRule.updated_at <= str_to_date(v))
+                continue
+            elif k == 'updated_after':
+                query = query.filter(models.ReplicationRule.updated_at >= str_to_date(v))
+                continue
+            elif k == 'state' and isinstance(v, basestring):
                 v = RuleState.from_string(v)
-            if k == 'did_type' and isinstance(v, basestring):
+            elif k == 'did_type' and isinstance(v, basestring):
                 v = DIDType.from_string(v)
-            if k == 'grouping' and isinstance(v, basestring):
+            elif k == 'grouping' and isinstance(v, basestring):
                 v = RuleGrouping.from_string(v)
             query = query.filter(getattr(models.ReplicationRule, k) == v)
 
