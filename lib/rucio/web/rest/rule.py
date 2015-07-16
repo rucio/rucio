@@ -32,6 +32,8 @@ logger.addHandler(sh)
 urls = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
         '/(.+)/history', 'RuleHistory',
+        '/(.+)/approve', 'RuleApprove',
+        '/(.+)/deny', 'RuleDeny',
         '/', 'Rule',
         '/(.+)', 'Rule',)
 
@@ -109,7 +111,10 @@ class Rule:
         """
         json_data = data()
         try:
-            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, comment = 'DATASET', None, None, False, None, None, None, None, False, False, None
+            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify,\
+                purge_replicas, ignore_availability, comment, ask_approval, asynchronous = 'DATASET', None, None,\
+                False, None, None, None, None, False, False, None, False, False
+
             params = loads(json_data)
             dids = params['dids']
             account = params['account']
@@ -137,6 +142,11 @@ class Rule:
                 ignore_availability = params['ignore_availability']
             if 'comment' in params:
                 comment = params['comment']
+            if 'ask_approval' in params:
+                ask_approval = params['ask_approval']
+            if 'asynchronous' in params:
+                asynchronous = params['asynchronous']
+
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -156,6 +166,8 @@ class Rule:
                                             purge_replicas=purge_replicas,
                                             ignore_availability=ignore_availability,
                                             comment=comment,
+                                            ask_approval=ask_approval,
+                                            asynchronous=asynchronous,
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule, e:
@@ -319,6 +331,7 @@ class RuleHistory:
 
         for hist in history:
             yield dumps(hist, cls=APIEncoder) + '\n'
+
 
 """----------------------
    Web service startup
