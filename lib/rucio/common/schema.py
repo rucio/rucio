@@ -53,6 +53,12 @@ R_NAME = {"description": "Data Identifier name",
 LOCKED = {"description": "Rule locked status",
           "type": ["boolean", "null"]}
 
+ASK_APPROVAL = {"description": "Rule approval request",
+                "type": ["boolean", "null"]}
+
+ASYNCHRONOUS = {"description": "Asynchronous rule creation",
+                "type": ["boolean", "null"]}
+
 PURGE_REPLICAS = {"description": "Rule purge replica status",
                   "type": "boolean"}
 
@@ -92,7 +98,8 @@ NOTIFY = {"description": "Rule notification setting",
           "enum": ["Y", "C", "N", None]}
 
 COMMENT = {"description": "Rule comment",
-           "type": ["string", "null"]}
+           "type": ["string", "null"],
+           "maxLength": 250}
 
 BYTES = {"description": "Size in bytes",
          "type": "integer"}
@@ -147,7 +154,9 @@ RULE = {"description": "Replication rule",
                        "notify": NOTIFY,
                        "purge_replicas": PURGE_REPLICAS,
                        "ignore_availability": IGNORE_AVAILABILITY,
-                       "comment": COMMENT},
+                       "comment": COMMENT,
+                       "ask_approval": ASK_APPROVAL,
+                       "asynchronous": ASYNCHRONOUS},
         "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 

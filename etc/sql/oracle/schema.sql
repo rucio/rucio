@@ -638,6 +638,7 @@ CREATE TABLE rules (
     stuck_at DATE,
     purge_replicas NUMBER(1) DEFAULT 0,
     ignore_availability NUMBER(1) DEFAULT 0,
+    ignore_account_limit NUMBER(1) DEFAULT 0,
     comments VARCHAR2(255 CHAR),
     CONSTRAINT "RULES_PK" PRIMARY KEY (id),   -- id, scope, name
     CONSTRAINT "RULES_SCOPE_NAME_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
@@ -657,10 +658,11 @@ CREATE TABLE rules (
     CONSTRAINT "RULES_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
     CONSTRAINT "RULES_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
     CONSTRAINT "RULES_DID_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
-    CONSTRAINT "RULES_STATE_CHK" CHECK (state IN ('S', 'R', 'U', 'O')),
+    CONSTRAINT "RULES_STATE_CHK" CHECK (state IN ('S', 'R', 'U', 'O', 'W', 'I')),
     CONSTRAINT "RULES_LOCKED_CHK" CHECK (locked IN (0, 1)),
     CONSTRAINT "RULES_PURGE_REPLICAS_CHK" CHECK (purge_replicas IN (0, 1)),
     CONSTRAINT "RULES_IGNORE_AVAILABILITY_CHK" CHECK (ignore_availability IN (0, 1)),
+    CONSTRAINT "RULES_IGNORE_ACCOUNT_LIMIT_CHK" CHECK (ignore_account_limit IN (0, 1)),
     CONSTRAINT "RULES_GROUPING_CHK" CHECK (grouping IN ('A', 'D', 'N')),
     CONSTRAINT "RULES_NOTIFICATION_CHK" CHECK (state IN('Y', 'N', 'C'))
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
@@ -672,6 +674,7 @@ CREATE INDEX RULES_EXPIRES_AT_IDX ON rules (expires_at, name) COMPRESS 1 TABLESP
 -- function based index for the "S" value of the STATE column
 CREATE INDEX RULES_STUCKSTATE_IDX ON rules (CASE when state='S' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE UNIQUE INDEX "RULES_SC_NA_AC_RS_CO_UQ_IDX" ON "RULES" ("SCOPE", "NAME", "ACCOUNT", "RSE_EXPRESSION", "COPIES") COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+CREATE INDEX RULES_INJECTSTATE_IDX ON rules (CASE when state='I' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
 
 -- ========================================= LOCKS (List partitioned table) =========================================
@@ -1453,6 +1456,7 @@ CREATE TABLE rules_hist_recent (
     stuck_at DATE,
     purge_replicas NUMBER(1) DEFAULT 0,
     ignore_availability NUMBER(1) DEFAULT 0,
+    ignore_account_limit NUMBER(1) DEFAULT 0,
     comments VARCHAR2(255 CHAR),
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
 PARTITION BY RANGE(updated_at)
@@ -1503,6 +1507,7 @@ CREATE TABLE rules_history (
     stuck_at DATE,
     purge_replicas NUMBER(1) DEFAULT 0,
     ignore_availability NUMBER(1) DEFAULT 0,
+    ignore_account_limit NUMBER(1) DEFAULT 0,
     comments VARCHAR2(255 CHAR),
 ) PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA01
 PARTITION BY RANGE(updated_at)
