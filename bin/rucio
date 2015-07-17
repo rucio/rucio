@@ -648,12 +648,14 @@ def __get_files(args):
     '''Parse helper for upload'''
     files = []
     for item in args:
-        if os.path.isfile(item):
-            files.append(item)
         if os.path.isdir(item):
             dname, subdirs, fnames = os.walk(item).next()
             for fname in fnames:
                 files.append(os.path.join(dname, fname))
+        elif os.path.isfile(item):
+            files.append(item)
+        else:
+            logger.warning('%s does not exist' % item)
     return files
 
 
@@ -672,6 +674,8 @@ def upload(args):
         logger.error('rucio upload only allows to upload files to one dataset, more than one provided.')
         return FAILURE
     files = __get_files(args.args)               # a list of file names (even if a directory is given)
+    if not files:
+        return FAILURE
     list_files = []
     files_to_list = []
     lfns = {}
