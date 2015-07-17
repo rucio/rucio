@@ -35,15 +35,13 @@ OK = 0
 
 def validate_nickname(nickname, email, dn, debug=False):
     # Check bad characters
-    badCharacters = ['.', ' ', '@', '#', ' ']
-    for c in badCharacters:
-        if c in nickname:
+    bad_characters = ['.', ' ', '@', '#', ' ']
+    for bad_char in bad_characters:
+        if bad_char in nickname:
             reason = 'Bad Characters in nickname %(nickname)s for %(dn)s' % locals()
             if debug:
                 print reason
             return False
-
-    # return True
 
     # Check lowercase
     if nickname.lower() != nickname:
@@ -68,18 +66,19 @@ def validate_nickname(nickname, email, dn, debug=False):
     # Check mail address
     ad_email = ad_email.groups()[0]
     ad_name = ad_name.groups()[0].replace(' ', '.')+'@cern.ch'
-    is_service_Account = 'memberOf: CN=cern-accounts-service,OU=e-groups,OU=Workgroups,DC=cern,DC=ch' in output
+    is_service_account = 'memberOf: CN=cern-accounts-service,OU=e-groups,OU=Workgroups,DC=cern,DC=ch' in output
 
-    if is_service_Account:
+    if is_service_account:
         reason = "The %(nickname)s is a service account" % locals()
         if debug:
             print reason
         return False
 
-    if not is_service_Account and email.lower().replace('@mail.cern.ch', '@cern.ch') not in (ad_email.lower(), ad_name.lower(), nickname + '@cern.ch'):
+    if not is_service_account and email.lower().replace('@mail.cern.ch', '@cern.ch') not in (ad_email.lower(), ad_name.lower(), nickname + '@cern.ch'):
         reason = "Mail mismatch for VOMS nickname %(nickname)s-%(dn)s: %(email)s vs. %(ad_email)s " % locals()
         if debug:
             print reason
+            print 'If you want to add manually the identity to the account : rucio-admin identity add --account %s --type X509 --id "%s" --email %s' % (nickname, dn, email)
         return False
 
     return True
@@ -89,21 +88,22 @@ if __name__ == '__main__':
         proxy = config_get('nagios', 'proxy')
         os.environ["X509_USER_PROXY"] = proxy
         cert, key = os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']
-    except Exception as e:
+    except Exception as error:
         print "Failed to get proxy from rucio.cfg"
         sys.exit(CRITICAL)
     # It can take longer than nagios allows to get all the voms info, so randomise
-    # the user list and force an exit after 30 mins until a better solution can be found.
+    # the user list and force an exit after 60 mins until a better solution can be found.
     starttime = time.time()
     status = OK
     nbusers = 0
     nonicknames = []
-    c = Client()
+    client = Client()
     admin = VOMSAdminProxy(vo='atlas', host='voms2.cern.ch', port=8443,
                            user_cert=cert, user_key=key)
     res = admin.call_method('list-users')
-    accounts = [i['account'] for i in c.list_accounts()]
-    scopes = [i for i in c.list_scopes()]
+    accounts = [i['account'] for i in client.list_accounts()]
+    scopes = [i for i in client.list_scopes()]
+    voms_identities = {}
     if isinstance(res, types.ListType):
         random.shuffle(res)
         for user in res:
@@ -114,7 +114,7 @@ if __name__ == '__main__':
             attempts = 0
             totattemps = 3
             for attempts in xrange(0, totattemps):
-                if (attempts < totattemps - 1):
+                if attempts < totattemps - 1:
                     try:
                         dn = user._DN
                         ca = user._CA
@@ -126,16 +126,27 @@ if __name__ == '__main__':
                         nickname = None
                         try:
                             nickname = result[0]._value
-                        except TypeError, e:
+                        except TypeError as error:
                             print 'Failed to process DN: %s' % dn
-                            print e
+                            print error
                             pass
                         if nickname:
-                            if validate_nickname(nickname=nickname, email=email, dn=dn, debug=True):
+                            if nickname in accounts:
+                                if nickname not in voms_identities:
+                                    voms_identities[nickname] = [identity['identity'] for identity in client.list_identities(account=nickname) if identity['type'] == 'X509']
+                                if dn not in voms_identities[nickname]:
+                                    try:
+                                        client.add_identity(account=nickname, identity=dn, authtype='X509', email=email, default=True)
+                                        print 'Identity %(account_dn)s added' % locals()
+                                    except Duplicate:
+                                        pass
+                                 # Since the account already exists, we don't try to create the scope
+
+                            elif validate_nickname(nickname=nickname, email=email, dn=dn, debug=True):
                                 account = nickname
                                 if account not in accounts:
                                     try:
-                                        c.add_account(account=account, type='USER')
+                                        client.add_account(account=account, type='USER')
                                         print 'Account %(account)s added' % locals()
                                     except Duplicate:
                                         pass
@@ -149,14 +160,14 @@ if __name__ == '__main__':
                                         status = WARNING
                                     else:
                                         try:
-                                            c.add_identity(account=account, identity=account_dn, authtype='X509', email=email, default=True)
+                                            client.add_identity(account=account, identity=account_dn, authtype='X509', email=email, default=True)
                                             print 'Identity %(account_dn)s added' % locals()
                                         except Duplicate:
                                             pass
                                 scope = 'user.' + account
                                 if scope not in scopes:
                                     try:
-                                        c.add_scope(account, scope)
+                                        client.add_scope(account, scope)
                                         print 'Scope %(scope)s added' % locals()
                                     except Duplicate:
                                         pass
