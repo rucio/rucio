@@ -47,7 +47,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported, UnsupportedOperation)
-from rucio.common.utils import adler32, generate_uuid, execute, construct_surl
+from rucio.common.utils import adler32, generate_uuid, execute, construct_surl, chunks
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -832,8 +832,9 @@ def upload(args):
 
     replicas = []
     replica_dictionary = {}
-    for rep in client.list_replicas(files_to_list):
-        replica_dictionary[rep['scope'], rep['name']] = rep['rses'].keys()
+    for chunk_files_to_list in chunks(files_to_list, 50):
+        for rep in client.list_replicas(chunk_files_to_list):
+            replica_dictionary[rep['scope'], rep['name']] = rep['rses'].keys()
     for file in list_files:
         if (file['scope'], file['name']) not in replica_dictionary:
             file['state'] = 'A'
@@ -843,11 +844,12 @@ def upload(args):
             replicas.append(file)
     if replicas != []:
         logger.info('Will update the file replicas states')
-        try:
-            client.update_replicas_states(rse=args.rse, files=replicas)
-        except AccessDenied, error:
-            logger.error(error)
-            return FAILURE
+        for chunk_replicas in chunks(replicas, 50):
+            try:
+                client.update_replicas_states(rse=args.rse, files=chunk_replicas)
+            except AccessDenied, error:
+                logger.error(error)
+                return FAILURE
         logger.info('File replicas states successfully updated')
     return SUCCESS
 
