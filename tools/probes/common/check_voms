@@ -140,7 +140,7 @@ if __name__ == '__main__':
                                         print 'Identity %(account_dn)s added' % locals()
                                     except Duplicate:
                                         pass
-                                 # Since the account already exists, we don't try to create the scope
+                                # Since the account already exists, we don't try to create the scope
 
                             elif validate_nickname(nickname=nickname, email=email, dn=dn, debug=True):
                                 account = nickname
