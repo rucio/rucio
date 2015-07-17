@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 from nose.tools import assert_equal
 
@@ -37,7 +38,6 @@ class TestDatasetReplicaCLient:
 
     def test_list_datasets_per_rse(self):
         """ REPLICA (CLIENT): List datasets in RSE."""
-        # replica_client = ReplicaClient()
         rule_client = RuleClient()
         did_client = DIDClient()
         scope = 'mock'
@@ -48,4 +48,4 @@ class TestDatasetReplicaCLient:
                                          account='root', copies=1, rse_expression='MOCK',
                                          grouping='DATASET')
         replicas = [r for r in list_datasets_per_rse(rse='MOCK', filters={'scope': 'mock', 'name': 'data*'})]
-        print replicas
+        assert(replicas != [])
