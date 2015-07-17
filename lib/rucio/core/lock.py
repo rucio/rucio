@@ -229,13 +229,16 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
         if lock.state == LockState.OK:
             continue
         logging.debug('Marking lock %s:%s for rule %s on rse %s as OK' % (lock.scope, lock.name, str(lock.rule_id), str(lock.rse_id)))
-        lock.state = LockState.OK
-
         # Update the rule counters
         rule = session.query(models.ReplicationRule).with_for_update(nowait=nowait).filter_by(id=lock.rule_id).one()
         logging.debug('Updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
-        rule.locks_replicating_cnt -= 1
+
+        if lock.state == LockState.REPLICATING:
+            rule.locks_replicating_cnt -= 1
+        elif lock.state == LockState.STUCK:
+            rule.locks_stuck_cnt -= 1
         rule.locks_ok_cnt += 1
+        lock.state = LockState.OK
         logging.debug('Finished updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
         # Insert UpdatedCollectionReplica
@@ -291,8 +294,6 @@ def failed_transfer(scope, name, rse_id, nowait=True, session=None):
         if lock.state == LockState.STUCK:
             continue
         logging.debug('Marking lock %s:%s for rule %s on rse %s as STUCK' % (lock.scope, lock.name, str(lock.rule_id), str(lock.rse_id)))
-        lock.state = LockState.STUCK
-
         # Update the rule counters
         rule = session.query(models.ReplicationRule).with_for_update(nowait=nowait).filter_by(id=lock.rule_id).one()
         logging.debug('Updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
@@ -301,6 +302,7 @@ def failed_transfer(scope, name, rse_id, nowait=True, session=None):
         elif lock.state == LockState.OK:
             rule.locks_ok_cnt -= 1
         rule.locks_stuck_cnt += 1
+        lock.state = LockState.STUCK
         logging.debug('Finished updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
         # Update the rule state
