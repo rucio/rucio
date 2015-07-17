@@ -216,11 +216,10 @@ class ReplicaClient(BaseClient):
 
         :returns: A list of dict dataset replicas
         """
-        raise NotImplementedError
-#        url = build_url(self.host, path='/'.join(['/rses/', rse, 'datasets']))
-#         r = self._send_request(url, type='GET')
-#         if r.status_code == codes.ok:
-#             return self._load_json_data(r)
-#
-#         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
-#         raise exc_cls(exc_msg)
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'rse', rse]))
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+        raise exc_cls(exc_msg)
