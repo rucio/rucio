@@ -136,6 +136,10 @@ class RequestState(DeclEnum):
     FAILED = 'F', 'FAILED'
     DONE = 'D', 'DONE'
     LOST = 'L', 'LOST'
+    NO_SOURCES = 'N', 'NO_SOURCES'
+    ONLY_TAPE_SOURCES = 'O', 'ONLY_TAPE_SOURCES'
+    SUBMISSION_FAILED = 'A', 'SUBMISSION_FAILED'
+    SUSPEND = 'U', 'SUSPEND'
 
 
 class RuleNotification(DeclEnum):
