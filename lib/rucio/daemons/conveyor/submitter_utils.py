@@ -612,6 +612,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
     req_sources = request.list_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                      limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
 
+    transfer_src_type = "DISK"
+    transfer_dst_type = "DISK"
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], []
     for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking in req_sources:
         try:
@@ -737,8 +739,10 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 overwrite, bring_online = True, None
                 if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
                     bring_online = 172800  # 48 hours
+                    transfer_src_type = "TAPE"
                 if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
                     overwrite = False
+                    transfer_dst_type = "TAPE"
 
                 # get external_host
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
@@ -757,6 +761,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'scope': scope,
                                  'name': name,
                                  'activity': activity,
+                                 'src_type': transfer_src_type,
+                                 'dst_type': transfer_dst_type,
                                  'src_rse': rse,
                                  'dst_rse': rses_info[dest_rse_id]['rse'],
                                  'dest_rse_id': dest_rse_id,
@@ -817,6 +823,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         else:
                             transfers[id]['sources'] = []
                             transfers[id]['bring_online'] = 172800
+                            transfer_src_type = "TAPE"
+                            transfers[id]['file_metadata']['src_type'] = transfer_src_type
                     else:
                         # the sources already founded is Tape too.
                         # multiple Tape source replicas are not allowed in FTS3.
@@ -844,6 +852,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             # remove founded Tape sources
                             transfers[id]['sources'] = []
                             transfers[id]['bring_online'] = None
+                            transfer_src_type = "DISK"
+                            transfers[id]['file_metadata']['src_type'] = transfer_src_type
                         else:
                             continue
 
@@ -988,6 +998,8 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                  'scope': scope,
                                  'name': name,
                                  'activity': activity,
+                                 'src_type': "TAPE",
+                                 'dst_type': "DISK",
                                  'src_rse': rse,
                                  'dst_rse': rse,
                                  'dest_rse_id': dest_rse_id,
