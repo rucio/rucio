@@ -106,6 +106,8 @@ class Receiver(object):
                                 'reason': msg.get('t__error_message', None),
                                 'scope': msg['file_metadata'].get('scope', None),
                                 'name': msg['file_metadata'].get('name', None),
+                                'src_type': msg['file_metadata'].get('src_type', None),
+                                'dst_type': msg['file_metadata'].get('dst_type', None),
                                 'src_rse': msg['file_metadata'].get('src_rse', None),
                                 'dst_rse': msg['file_metadata'].get('dst_rse', None),
                                 'request_id': msg['file_metadata'].get('request_id', None),
