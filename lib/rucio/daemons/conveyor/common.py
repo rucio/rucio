@@ -76,7 +76,7 @@ def update_request_state(response, session=None):
             if request and request['external_id'] == response['transfer_id'] and request['state'] != response['new_state']:
                 response['external_host'] = request['external_host']
                 transfer_id = response['transfer_id'] if 'transfer_id' in response else None
-                logging.debug('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
+                logging.info('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
                 request_core.set_request_state(response['request_id'], response['new_state'], transfer_id, transferred_at=response.get('transferred_at', None), session=session)
 
                 add_monitor_message(response, session=session)
@@ -85,7 +85,7 @@ def update_request_state(response, session=None):
                 logging.debug("Request %s doesn't exist, will not update" % (response['request_id']))
                 return False
             elif request['external_id'] != response['transfer_id']:
-                logging.debug("Reponse %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
+                logging.warning("Reponse %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
                 return False
             else:
                 logging.debug("Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
@@ -93,6 +93,8 @@ def update_request_state(response, session=None):
     except exception.UnsupportedOperation, e:
         logging.warning("Request %s doesn't exist - Error: %s" % (response['request_id'], str(e).replace('\n', '')))
         return False
+    except:
+        logging.critical(traceback.format_exc())
 
 
 def touch_transfer(external_host, transfer_id):
@@ -130,7 +132,7 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
         if state == RequestState.LOST:
             reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
             for req in reqs:
-                logging.debug('REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
+                logging.info('REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
                 response = {'new_state': state,
                             'transfer_id': transfer_id,
                             'job_state': state,
@@ -440,7 +442,7 @@ def add_monitor_message(response, session=None):
             rse_name = None
         if rse_name and rse_name != src_rse:
             src_rse = rse_name
-            logging.info('find RSE: %s for source surl: %s' % (src_rse, src_url))
+            logging.debug('find RSE: %s for source surl: %s' % (src_rse, src_url))
 
     if response['external_host']:
         transfer_link = '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'), response['transfer_id'])
@@ -475,14 +477,14 @@ def poll_transfers(external_host, xfers, process=0, thread=0):
     try:
         try:
             ts = time.time()
-            logging.debug('%i:%i - polling %i transfers against %s' % (process, thread, len(xfers), external_host))
+            logging.info('%i:%i - polling %i transfers against %s' % (process, thread, len(xfers), external_host))
             resps = request_core.bulk_query_transfers(external_host, xfers, 'fts3')
             record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time()-ts)*1000/len(xfers))
         except RequestException, e:
             logging.error("Failed to contact FTS server: %s" % (str(e)))
             return
-        except Exception, e:
-            logging.error("Failed to query FTS info: %s" % (str(e)))
+        except:
+            logging.error("Failed to query FTS info: %s" % (traceback.format_exc()))
             return
 
         logging.debug('%i:%i - updating %s requests status' % (process, thread, len(xfers)))
