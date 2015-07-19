@@ -18,7 +18,6 @@ Methods common to different conveyor daemons.
 import datetime
 import logging
 import os
-import sys
 import time
 import traceback
 
@@ -35,7 +34,7 @@ from rucio.common.exception import DatabaseException, UnsupportedOperation, Repl
 from rucio.core import replica as replica_core, request as request_core, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer, record_counter
-from rucio.db.constants import DIDType, RequestState, ReplicaState, RequestType
+from rucio.db.constants import RequestState, ReplicaState, RequestType
 from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
@@ -392,20 +391,23 @@ def handle_submitting_requests(older_than=1800, process=None, total_processes=No
 
 
 @read_session
-def get_source_rse(scope, name, src_url, session=None):
+def get_source_rse(request_id, scope, name, src_url, session=None):
     try:
-        scheme = src_url.split(":")[0]
-        replications = replica_core.list_replicas([{'scope': scope, 'name': name, 'type': DIDType.FILE}], schemes=[scheme], unavailable=True, session=session)
-        for source in replications:
-            for source_rse in source['rses']:
-                for pfn in source['rses'][source_rse]:
-                    if pfn == src_url:
-                        return source_rse
+        if not request_id:
+            return None
+
+        sources = request_core.get_sources(request_id, session=session)
+        for source in sources:
+            if source['url'] == src_url:
+                src_rse_id = source['rse_id']
+                src_rse_name = rse_core.get_rse_name(src_rse_id, session=session)
+                logging.debug("Find rse name %s for %s" % (src_rse_name, src_url))
+                return src_rse_name
         # cannot find matched surl
         logging.warn('Cannot get correct RSE for source url: %s' % (src_url))
         return None
     except:
-        logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, sys.exc_info()[1]))
+        logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
         return None
 
 
@@ -434,13 +436,13 @@ def add_monitor_message(response, session=None):
     job_m_replica = response.get('job_m_replica', None)
     if job_m_replica and str(job_m_replica) == str('true') and src_url:
         try:
-            rse_name = get_source_rse(scope, name, src_url, session=session)
+            rse_name = get_source_rse(response['request_id'], scope, name, src_url, session=session)
         except:
-            logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, sys.exc_info()[1]))
+            logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
             rse_name = None
         if rse_name and rse_name != src_rse:
             src_rse = rse_name
-            logging.info('find RSE: %s for source surl: %s' % (src_rse, src_url))
+            logging.debug('find RSE: %s for source surl: %s' % (src_rse, src_url))
 
     if response['external_host']:
         transfer_link = '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'), response['transfer_id'])
