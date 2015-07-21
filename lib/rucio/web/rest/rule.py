@@ -12,11 +12,12 @@
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
 from traceback import format_exc
+from urlparse import parse_qsl
 
 from web import application, ctx, data, header, Created, InternalError, OK, loadhook
 
 from rucio.api.lock import get_replica_locks_for_rule_id
-from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule, list_replication_rule_history
+from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule, list_replication_rule_history, list_replication_rules
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
@@ -34,7 +35,7 @@ urls = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/history', 'RuleHistory',
         '/(.+)/approve', 'RuleApprove',
         '/(.+)/deny', 'RuleDeny',
-        '/', 'Rule',
+        '/', 'AllRule',
         '/(.+)', 'Rule',)
 
 
@@ -94,6 +95,69 @@ class Rule:
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         raise OK()
+
+    def DELETE(self, rule_id):
+        """
+        Delete a new replication rule.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 Internal Error
+        """
+        json_data = data()
+        try:
+            purge_replicas = None
+            params = loads(json_data)
+            if 'purge_replicas' in params:
+                purge_replicas = params['purge_replicas']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=ctx.env.get('issuer'))
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+        raise OK()
+
+
+class AllRule:
+    """ REST APIs for all rules. """
+
+    def GET(self):
+        """
+        Return all rules of a given account.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param scope: The scope name.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        filters = {}
+        if ctx.query:
+            params = dict(parse_qsl(ctx.query[1:]))
+            filters.update(params)
+
+        try:
+            for rule in list_replication_rules(filters=filters):
+                yield dumps(rule, cls=APIEncoder) + '\n'
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
 
     def POST(self):
         """
@@ -198,37 +262,6 @@ class Rule:
             raise InternalError(e)
 
         raise Created(dumps(rule_ids))
-
-    def DELETE(self, rule_id):
-        """
-        Delete a new replication rule.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-            500 Internal Error
-        """
-        json_data = data()
-        try:
-            purge_replicas = None
-            params = loads(json_data)
-            if 'purge_replicas' in params:
-                purge_replicas = params['purge_replicas']
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
-            delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except RuleNotFound, e:
-            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
-        except Exception, e:
-            raise InternalError(e)
-        raise OK()
 
 
 class ReplicaLocks:
