@@ -25,16 +25,17 @@ class RSESelector():
     """
 
     @read_session
-    def __init__(self, account, rses, weight, copies, session=None):
+    def __init__(self, account, rses, weight, copies, ignore_account_limit=False, session=None):
         """
         Initialize the RSE Selector.
 
-        :param account:  Account owning the rule.
-        :param rses:     List of rse dictionaries.
-        :param weight:   Weighting to use.
-        :param copies:   Number of copies to create.
-        :param session:  DB Session in use.
-        :raises:         InvalidRuleWeight, InsufficientAccountLimit, InsufficientTargetRSEs
+        :param account:               Account owning the rule.
+        :param rses:                  List of rse dictionaries.
+        :param weight:                Weighting to use.
+        :param copies:                Number of copies to create.
+        :param ignore_account_limit:  Flag if the quota should be ignored.
+        :param session:               DB Session in use.
+        :raises:                      InvalidRuleWeight, InsufficientAccountLimit, InsufficientTargetRSEs
         """
         self.account = account
         self.rses = []  # [{'rse_id':, 'weight':, 'staging_area'}]
@@ -62,7 +63,7 @@ class RSESelector():
         if len(self.rses) < self.copies:
             raise InsufficientTargetRSEs('Target RSE set not sufficient for number of copies. (%s copies requested, RSE set size %s)' % (self.copies, len(self.rses)))
 
-        if has_account_attribute(account=account, key='admin', session=session):
+        if has_account_attribute(account=account, key='admin', session=session) or ignore_account_limit:
             for rse in self.rses:
                 rse['quota_left'] = float('inf')
         else:

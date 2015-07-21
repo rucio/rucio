@@ -5,15 +5,13 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015
 
 """
-Judge-Cleaner is a daemon to clean expired replication rules.
+Judge-Injector is a daemon to asynchronously create replication rules
 """
 
 import logging
-import ntplib
 import os
 import socket
 import sys
@@ -29,9 +27,9 @@ from random import randint
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException, AccessDenied, RuleNotFound
+from rucio.common.exception import DatabaseException, RuleNotFound
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.rule import delete_rule, get_expired_rules
+from rucio.core.rule import inject_rule, get_injected_rules
 from rucio.core.monitor import record_counter
 
 graceful_stop = threading.Event()
@@ -41,10 +39,14 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-def rule_cleaner(once=False):
+def rule_injector(once=False):
     """
-    Main loop to check for expired replication rules
+    Main loop to check for asynchronous creation of replication rules
     """
+
+    logging.info('rule_injector: starting')
+
+    logging.info('rule_injector: started')
 
     hostname = socket.gethostname()
     pid = os.getpid()
@@ -52,20 +54,20 @@ def rule_cleaner(once=False):
 
     paused_rules = {}  # {rule_id: datetime}
 
-    # Make an initial heartbeat so that all judge-cleaners have the correct worker number on the next try
-    live(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
+    # Make an initial heartbeat so that all judge-inectors have the correct worker number on the next try
+    live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=60*60)
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
+            heartbeat = live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=60*60)
 
             start = time.time()
-            rules = get_expired_rules(total_workers=heartbeat['nr_threads']-1,
-                                      worker_number=heartbeat['assign_thread'],
-                                      limit=200)
-            logging.debug('rule_cleaner[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, time.time() - start, len(rules)))
+            rules = get_injected_rules(total_workers=heartbeat['nr_threads']-1,
+                                       worker_number=heartbeat['assign_thread'],
+                                       limit=10)
+            logging.debug('rule_injector[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, time.time() - start, len(rules)))
 
             # Refresh paused rules
             iter_paused_rules = deepcopy(paused_rules)
@@ -77,24 +79,23 @@ def rule_cleaner(once=False):
             rules = [rule for rule in rules if rule[0] not in paused_rules]
 
             if not rules and not once:
-                logging.debug('rule_cleaner[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
+                logging.info('rule_injector[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
                 graceful_stop.wait(60)
             else:
                 for rule in rules:
                     rule_id = rule[0]
-                    rule_expression = rule[1]
-                    logging.info('rule_cleaner[%s/%s]: Deleting rule %s with expression %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id, rule_expression))
+                    logging.info('rule_injector[%s/%s]: Injecting rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
                     if graceful_stop.is_set():
                         break
                     try:
                         start = time.time()
-                        delete_rule(rule_id=rule_id, nowait=True)
-                        logging.debug('rule_cleaner[%s/%s]: deletion of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id, time.time() - start))
-                    except (DatabaseException, DatabaseError, AccessDenied), e:
+                        inject_rule(rule_id=rule_id)
+                        logging.debug('rule_injector[%s/%s]: injection of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id, time.time() - start))
+                    except (DatabaseException, DatabaseError), e:
                         if match('.*ORA-00054.*', str(e.args[0])):
-                            paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
+                            paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                             record_counter('rule.judge.exceptions.LocksDetected')
-                            logging.warning('rule_cleaner[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
+                            logging.warning('rule_injector[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
                         elif match('.*QueuePool.*', str(e.args[0])):
                             logging.warning(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
@@ -110,9 +111,13 @@ def rule_cleaner(once=False):
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
             logging.critical(traceback.format_exc())
         if once:
-            break
+            return
 
-    die(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
+    die(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread)
+
+    logging.info('rule_injector: graceful stop requested')
+
+    logging.info('rule_injector: graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -125,27 +130,20 @@ def stop(signum=None, frame=None):
 
 def run(once=False, threads=1):
     """
-    Starts up the Judge-Clean threads.
+    Starts up the Judge-Injector threads.
     """
 
-    try:
-        ntpc = ntplib.NTPClient()
-        response = ntpc.request('137.138.16.69', version=3)  # 137.138.16.69 CERN IP-TIME-1 NTP Server (Stratum 2)
-        if response.offset > 60*60+10:  # 1hour 10seconds
-            logging.critical('Offset between NTP server and system time too big. Stopping Cleaner')
-            return
-    except:
-        return
-
     hostname = socket.gethostname()
-    sanity_check(executable='rucio-judge-cleaner', hostname=hostname)
+    sanity_check(executable='rucio-judge-evaluator', hostname=hostname)
 
     if once:
-        rule_cleaner(once)
+        logging.info('main: executing one iteration only')
+        rule_injector(once)
     else:
-        logging.info('Cleaner starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_cleaner, kwargs={'once': once}) for i in xrange(0, threads)]
+        logging.info('main: starting threads')
+        threads = [threading.Thread(target=rule_injector, kwargs={'once': once}) for i in xrange(0, threads)]
         [t.start() for t in threads]
+        logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
         while threads[0].is_alive():
             [t.join(timeout=3.14) for t in threads]

@@ -19,7 +19,7 @@ from rucio.common.schema import validate_schema
 from rucio.core import subscription
 
 
-def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run):
+def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=None):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -40,6 +40,8 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     :type retroactive:  Boolean
     :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
+    :param priority: The priority of the subscription
+    :type priority: Integer
     :returns: subscription_id
     :rtype:   String
     """
@@ -59,10 +61,10 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     except ValueError, e:
         raise TypeError(e)
 
-    return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+    return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
 
 
-def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, state=None, dry_run=None):
+def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, state=None, dry_run=None, priority=None):
     """
     Updates a subscription
 
@@ -84,6 +86,8 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
     :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
     :param state: The state of the subscription
+    :param priority: The priority of the subscription
+    :type priority: Integer
     :raises: exception.NotFound if subscription is not found
     """
     try:
@@ -99,7 +103,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
                     validate_schema(name='activity', obj=rule.get('activity', 'default'))
     except ValueError, e:
         raise TypeError(e)
-    return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, state=state)
+    return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, state=state, priority=priority)
 
 
 def list_subscriptions(name=None, account=None, state=None):

@@ -108,9 +108,13 @@ class Subscription:
             dry_run = params['dry_run']
         except KeyError:
             dry_run = None
+        try:
+            priority = params['priority']
+        except KeyError:
+            priority = None
 
         try:
-            update_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+            update_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
         except SubscriptionNotFound, e:
             raise generate_http_error(404, 'SubscriptionNotFound', e[0][0])
         except InvalidObject, e:
@@ -142,11 +146,12 @@ class Subscription:
             lifetime = params['lifetime']
             retroactive = params['retroactive']
             dry_run = params['dry_run']
+            priority = params.get('priority', 3)
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            subscription_id = add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+            subscription_id = add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
         except SubscriptionDuplicate as e:
             raise generate_http_error(409, 'SubscriptionDuplicate', e.args[0][0])
         except RucioException, e:
