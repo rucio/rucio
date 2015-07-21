@@ -492,6 +492,14 @@ def detach_dids(scope, name, dids, session=None):
         if associ_did is None:
             raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
         child_type = associ_did.child_type
+        child_size = associ_did.bytes
+        child_events = associ_did.events
+        if did.length:
+            did.length -= 1
+        if did.bytes:
+            did.bytes -= child_size
+        if did.events and child_events:
+            did.events -= child_events
         associ_did.delete(session=session)
         # Send message for AMI. To be removed in the future when they use the DETACH messages
         if did.did_type == DIDType.CONTAINER:
