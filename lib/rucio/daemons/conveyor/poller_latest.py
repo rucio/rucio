@@ -65,7 +65,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
 
             start_time = time.time()
             for external_host in external_hosts:
-                logging.debug('polling latest %s hours on host: %s' % (last_nhours, external_host))
+                logging.info('polling latest %s hours on host: %s' % (last_nhours, external_host))
                 ts = time.time()
                 resps = None
                 state = [str(FTSState.FINISHED), str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY), str(FTSState.CANCELED)]
@@ -76,12 +76,12 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                 record_timer('daemons.conveyor.poller_latest.000-query_latest', (time.time()-ts)*1000)
 
                 if resps:
-                    logging.debug('poller_latest - polling %i requests' % (len(resps)))
+                    logging.info('poller_latest - polling %i requests' % (len(resps)))
 
                 if not resps or resps == []:
                     if once:
                         break
-                    logging.debug("no requests found. will sleep 60 seconds")
+                    logging.info("no requests found. will sleep 60 seconds")
                     time.sleep(60)
                     continue
 
@@ -107,11 +107,11 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
         if once:
             return
 
-    logging.debug('poller_latest - graceful stop requests')
+    logging.info('poller_latest - graceful stop requests')
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.debug('poller_latest - graceful stop done')
+    logging.info('poller_latest - graceful stop done')
 
 
 def stop(signum=None, frame=None):
