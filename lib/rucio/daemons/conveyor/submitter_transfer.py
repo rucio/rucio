@@ -103,6 +103,7 @@ def submitter(once=False, rses=[], mock=False,
                 record_timer('daemons.conveyor.transfer_submitter.get_transfer_transfers.per_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_transfer_transfers', len(transfers))
                 record_timer('daemons.conveyor.transfer_submitter.get_transfer_transfers.transfers', len(transfers))
+                logging.info("%s:%s Got %s transfers for %s" % (process, hb['assign_thread'], len(transfers), activity))
 
                 # group transfers
                 logging.info("%s:%s Starting to group transfers for %s" % (process, hb['assign_thread'], activity))
