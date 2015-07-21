@@ -106,14 +106,16 @@ def re_evaluator(once=False):
                     except DataIdentifierNotFound, e:
                         delete_updated_did(id=did.id)
                     except (DatabaseException, DatabaseError), e:
-                        if isinstance(e.args[0], tuple):
-                            if match('.*ORA-00054.*', e.args[0][0]):
-                                paused_dids[(did.scope, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
-                                logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, did.scope, did.name))
-                                record_counter('rule.judge.exceptions.LocksDetected')
-                            else:
-                                logging.error(traceback.format_exc())
-                                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        if match('.*ORA-00054.*', str(e.args[0])):
+                            paused_dids[(did.scope, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
+                            logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, did.scope, did.name))
+                            record_counter('rule.judge.exceptions.LocksDetected')
+                        elif match('.*QueuePool.*', str(e.args[0])):
+                            logging.warning(traceback.format_exc())
+                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        elif match('.*ORA-03135.*', str(e.args[0])):
+                            logging.warning(traceback.format_exc())
+                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
