@@ -22,7 +22,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
 from rucio.core.rse import get_rse
 from rucio.db import models
-from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType
+from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
 from rucio.db.session import transactional_session
 
 logging.basicConfig(stream=sys.stdout,
@@ -530,6 +530,8 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
                                                       replicas=replicas,
                                                       transfers_to_create=transfers_to_create)
                             rule.locks_stuck_cnt -= 1
+                            __set_replica_unavailable(replica=[replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0],
+                                                      session=session)
                             if lock.rse_id in locks_to_delete:
                                 locks_to_delete[lock.rse_id].append(lock)
                             else:
@@ -635,6 +637,8 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
                                                       replicas=replicas,
                                                       transfers_to_create=transfers_to_create)
                             rule.locks_stuck_cnt -= 1
+                            __set_replica_unavailable(replica=[replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0],
+                                                      session=session)
                             if lock.rse_id in locks_to_delete:
                                 locks_to_delete[lock.rse_id].append(lock)
                             else:
@@ -740,6 +744,8 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
                                                       replicas=replicas,
                                                       transfers_to_create=transfers_to_create)
                             rule.locks_stuck_cnt -= 1
+                            __set_replica_unavailable(replica=[replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0],
+                                                      session=session)
                             if lock.rse_id in locks_to_delete:
                                 locks_to_delete[lock.rse_id].append(lock)
                             else:
@@ -1051,3 +1057,18 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         ds_name=dataset['name'],
                                                         request_type=RequestType.TRANSFER,
                                                         retry_count=1),)
+
+
+@transactional_session
+def __set_replica_unavailable(replica, session=None):
+    """
+    This method updates a replica and sets it to UNAVAILABLE.
+
+    :param replica:              The replica to update.
+    :param session:              The db session in use.
+    """
+
+    replica.lock_cnt -= 1
+    if replica.lock_cnt == 0:
+        replica.tombstone = OBSOLETE
+        replica.state = ReplicaState.UNAVAILABLE
