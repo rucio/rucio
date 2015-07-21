@@ -1130,7 +1130,7 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
                                                                                                                         file['destinations'],
                                                                                                                         external_host)
             xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': file['destinations'][0]}
-            logging.debug("%s" % (log_str))
+            logging.info("%s" % (log_str))
             xfers_ret[request_id]['file'] = file
         logging.debug("%s:%s start to prepare transfer" % (process, thread))
         request.prepare_request_transfers(xfers_ret)
@@ -1144,7 +1144,7 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
     try:
         ts = time.time()
         eid = request.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'])
-        logging.debug("%s:%s Submit job %s to %s" % (process, thread, eid, external_host))
+        logging.info("%s:%s Submit job %s to %s" % (process, thread, eid, external_host))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - ts) * 1000/len(job['files']))
         record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
