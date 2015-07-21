@@ -1,0 +1,101 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+-->
+
+$var title: API Usage
+$var script: <script src="/static/http_api_usage.js"></script>
+
+<div id="results" class="row">
+
+    <form action="" id="timeframe">
+      <table width="90%">
+        <tr>
+          <td>
+            <input type="radio" name="period" value="(from:now-15m,mode:quick,to:now)" onChange="setDashboard();" style="margin-right: 0.5em"/>15 minutes
+          </td>
+          <td>
+            <input type="radio" name="period" value="(from:now-1h,mode:quick,to:now)" onChange="setDashboard();" style="margin-right: 0.5em"/>1 hour
+          </td>
+          <td>
+            <input type="radio" name="period" value="(from:now-12h,mode:quick,to:now)" onChange="setDashboard();" style="margin-right: 0.5em" checked/>12 hours
+          </td>
+          <td>
+            <input type="radio" name="period" value="(from:now-24h,mode:quick,to:now)" onChange="setDashboard();" style="margin-right: 0.5em"/>24 hours
+          </td>
+          <td>
+            <input type="radio" name="period" value="(from:now-1d/d,mode:quick,to:now-1d/d)" onChange="setDashboard();" style="margin-right: 0.5em"/>Yesterday
+          </td>
+          <td>
+            <input type="radio" name="period" value="(from:now-2d/d,mode:quick,to:now-2d/d)" onChange="setDashboard();" style="margin-right: 0.5em"/>DBY
+          </td>
+          <td>
+            <input type="radio" name="period" value="(from:now-4d,mode:quick,to:now)" onChange="setDashboard();" style="margin-right: 0.5em"/>Last 4 days
+          </td>
+          <td style="width: 30px; padding: 0px; ">
+            <a href="#" data-reveal-id="explanation">
+            <svg height="25px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><path d="M468.75 772.25l0 -348.75l-121.25 0l0 348.75l121.25 0zm-61.25 -410c40 0 71.25 -31.25 71.25 -72.5 0 -38.75 -31.25 -70 -71.25 -70s-71.25 31.25 -71.25 70c0 40 31.25 72.5 71.25 72.5zm-1.25 -268.75c223.75 0 406.25 181.25 406.25 406.25 0 223.75 -182.5 406.25 -406.25 406.25 -225 0 -406.25 -182.5 -406.25 -406.25 0 -225 181.25 -406.25 406.25 -406.25z"/></svg>
+            </a>
+          </td>
+        </tr>
+      </table>
+    </form>
+  <iframe id="db" src="" height="1003px" width="100%" frameborder="0"></iframe>
+</div>
+
+<div id="explanation"  class="reveal-modal" data-reveal >
+  <a class="close-reveal-modal" aria-label="Close">&#215;</a>
+
+  <h1>API Usage Dashboard</h1>
+
+  This dashboard presents all requests to the Rucio API that have been originated by the selected account (top of the page). Users can use this to conveniently debug their scripts or identify potential optimizations in terms of resource efficiency.
+
+  <h3>Activity Over Time</h3>
+
+  In this bar plot, the request rate and their response code are illustrated.
+
+  <h5>HTTP Status Codes</h5>
+
+  For those who are not familiar with HTTP status codes <a href="https://en.wikipedia.org/wiki/List_of_HTTP_status_codes">[1]</a>:
+
+  <ul>
+    <li><b>2xx:</b> Everything is fine.</li>
+    <li><b>4xx:</b> Your fault. Maybe you asked for something that doesn't exist?</li>
+    <li><b>5xx:</b> Our fault, sorry.</li>
+  </ul>
+
+  Detailed information about the HTTP status codes returned by the Rucio API can be found here <a href="http://rucio.cern.ch/REST_Intro.html">[2]</a>. If one is only interested in a certain HTTP code (e.g., 404 Not Found), clicking inside the plot (not the legend!) allows to filter only for matching data. To disable or reverse the filter use the bubbles at the top of the dashboard, or use the browser's back button.
+
+  <h5>Selecting Time Frames</h5>
+
+  For convenience, at the top of the page, a few predefined historical time frames are listed, starting from 15 minutes up to 4 days. If one is interested in a specific timeframe, just click-and-hold in the graph to zoom into the custom time frame. Use the browsers back button to zoom out again.
+
+  <h3>Over All Numbers</h3>
+
+  This provides some absolute numbers about the workload.
+
+  <ul>
+    <li><b>Count:</b> Absolute number of requests during the selected time frame.</li>
+    <li><b>Unique Client IPs:</b> In case your script is distributed, this shows on how many hosts it is executed. This can be especially useful to identify faulty hosts (e.g. 409 errors coming from the same IP).</li>
+    <li><b>Sum Bytes Input:</b> The sum of the network traffic caused by submitting requests to Rucio.</li>
+    <li><b>Sum Bytes Output:</b> The sum of the network traffic caused by receiving the response from Rucio.</li>
+    <li><b>Sum Duration:</b> Number of milliseconds Rucio was busy serving the requests. Each request is timed from the first character arriving till the both ends were closed again.</li>
+  </ul>
+
+  <h3>Resources</h3>
+
+  The actual resources that have been requested together with a counter, time in milliseconds, and input/output bytes. For details about the different URIs and how a client might call them see the Rucio REST-API documentation <a href="http://rucio.cern.ch/REST_Intro.html">[2]</a>.
+
+  It also provides a script name (scriptID). This is the name of the file with the first CLI argument appended. Especially useful to identify a rogue cronjob or similar.
+
+  <h3>Links</h3>
+  [1] <b>HTTP Status Codes:</b> <a href="https://en.wikipedia.org/wiki/List_of_HTTP_status_codes">https://en.wikipedia.org/wiki/List_of_HTTP_status_codes</a><br/>
+  [2] <b>Rucio REST-API Documentation:</b> <a href="http://rucio.cern.ch/REST_Intro.html">http://rucio.cern.ch/REST_Intro.html</a><br/>
+</div>
