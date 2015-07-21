@@ -91,14 +91,16 @@ def rule_cleaner(once=False):
                         delete_rule(rule_id=rule_id, nowait=True)
                         logging.debug('rule_cleaner[%s/%s]: deletion of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id, time.time() - start))
                     except (DatabaseException, DatabaseError, AccessDenied), e:
-                        if isinstance(e.args[0], tuple):
-                            if match('.*ORA-00054.*', e.args[0][0]):
-                                paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
-                                record_counter('rule.judge.exceptions.LocksDetected')
-                                logging.warning('rule_cleaner[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
-                            else:
-                                logging.error(traceback.format_exc())
-                                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        if match('.*ORA-00054.*', str(e.args[0])):
+                            paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
+                            record_counter('rule.judge.exceptions.LocksDetected')
+                            logging.warning('rule_cleaner[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
+                        elif match('.*QueuePool.*', str(e.args[0])):
+                            logging.warning(traceback.format_exc())
+                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        elif match('.*ORA-03135.*', str(e.args[0])):
+                            logging.warning(traceback.format_exc())
+                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
