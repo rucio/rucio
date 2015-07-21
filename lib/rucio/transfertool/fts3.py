@@ -435,6 +435,8 @@ def format_new_response(transfer_host, fts_job_response, fts_files_response):
                                  'reason': file_resp.get('reason', None),
                                  'scope': file_resp['file_metadata'].get('scope', None),
                                  'name': file_resp['file_metadata'].get('name', None),
+                                 'src_type': file_resp['file_metadata'].get('src_type', None),
+                                 'dst_type': file_resp['file_metadata'].get('dst_type', None),
                                  'src_rse': file_resp['file_metadata'].get('src_rse', None),
                                  'dst_rse': file_resp['file_metadata'].get('dst_rse', None),
                                  'request_id': file_resp['file_metadata'].get('request_id', None),
