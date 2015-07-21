@@ -53,7 +53,9 @@ logging.basicConfig(stream=sys.stdout,
 
 
 @transactional_session
-def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity='default', notify=None, purge_replicas=False, ignore_availability=False, comment=None, session=None):
+def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
+             source_replica_expression=None, activity='default', notify=None, purge_replicas=False,
+             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -74,6 +76,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param purge_replicas:             Purge setting if a replica should be directly deleted after the rule is deleted.
     :param ignore_availability:        Option to ignore the availability of RSEs.
     :param comment:                    Comment about the rule.
+    :param ask_approval:               Ask for approval for this rule.
+    :param asynchronous:               Create replication rule asynchronously by the judge-injector.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted
@@ -157,6 +161,18 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                         raise DuplicateRule()
                     raise InvalidReplicationRule(e.args[0])
                 rule_ids.append(new_rule.id)
+
+            if ask_approval:
+                new_rule.state = RuleState.WAITING_APPROVAL
+                logging.debug("Created rule %s in waiting for approval" % (str(new_rule.id)))
+                # TODO: eMail notification?
+                continue
+
+            if asynchronous:
+                # TODO: asynchronous mode only available for closed dids (on the whole tree?)
+                new_rule.state = RuleState.INJECT
+                logging.debug("Created rule %s for injection" % (str(new_rule.id)))
+                continue
 
             # 5. Resolve the did to its contents
             with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
@@ -327,6 +343,17 @@ def add_rules(dids, rules, session=None):
 
                         rule_ids[(did.scope, did.name)].append(new_rule.id)
 
+                    if rule.get('ask_approval', False):
+                        new_rule.state = RuleState.WAITING_APPROVAL
+                        logging.debug("Created rule %s in waiting for approval" % str(new_rule.id))
+                        # TODO: eMail notification?
+                        continue
+
+                    if rule.get('asynchronous', False):
+                        new_rule.state = RuleState.INJECT
+                        logging.debug("Created rule %s for injection" % str(new_rule.id))
+                        continue
+
                     # 5. Apply the replication rule to create locks, replicas and transfers
                     with record_timer_block('rule.add_rules.create_locks_replicas_transfers'):
                         try:
@@ -363,6 +390,95 @@ def add_rules(dids, rules, session=None):
                     logging.info("Created rule %s [%d/%d/%d] in state %s" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, str(new_rule.state)))
 
     return rule_ids
+
+
+@transactional_session
+def inject_rule(rule_id, session=None):
+    """
+    Inject a replication rule.
+
+    :param rule_id:    The id of the rule to inject.
+    :param new_owner:  The new owner of the rule.
+    :param session:    The database session in use.
+    :raises:           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataId
+    """
+    try:
+        rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+
+    # 1. Resolve the rse_expression into a list of RSE-ids
+    with record_timer_block('rule.add_rule.parse_rse_expression'):
+        if rule.ignore_availability:
+            rses = parse_expression(rule.rse_expression, session=session)
+        else:
+            rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+
+        if rule.expires_at is None:  # Check if one of the rses is a staging area
+            if [rse for rse in rses if rse.get('staging_area', False)]:
+                raise StagingAreaRuleRequiresLifetime()
+
+        if rule.source_replica_expression:
+            source_rses = parse_expression(rule.source_replica_expression, session=session)
+        else:
+            source_rses = []
+
+    # 2. Create the rse selector
+    with record_timer_block('rule.add_rule.create_rse_selector'):
+        rseselector = RSESelector(account=rule['account'], rses=rses, weight=rule.weight, copies=rule.copies, ignore_account_limit=rule.ignore_account_limit, session=session)
+
+    # 3. Get the did
+    with record_timer_block('rule.add_rule.get_did'):
+        try:
+            did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == rule.scope,
+                                                              models.DataIdentifier.name == rule.name).one()
+        except NoResultFound:
+            raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (rule.scope, rule.name))
+        except TypeError, e:
+            raise InvalidObject(e.args)
+
+    # 5. Resolve the did to its contents
+    with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
+        # Get all Replicas, not only the ones interesting for the rse_expression
+        datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
+                                                                            nowait=True,
+                                                                            restrict_rses=[rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
+                                                                            session=session)
+
+    # 6. Apply the replication rule to create locks, replicas and transfers
+    with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
+        try:
+            __create_locks_replicas_transfers(datasetfiles=datasetfiles,
+                                              locks=locks,
+                                              replicas=replicas,
+                                              rseselector=rseselector,
+                                              rule=rule,
+                                              preferred_rse_ids=[],
+                                              source_rses=[rse['id'] for rse in source_rses],
+                                              session=session)
+        except IntegrityError, e:
+            raise ReplicationRuleCreationTemporaryFailed(e.args[0])
+
+        if rule.locks_stuck_cnt > 0:
+            rule.state = RuleState.STUCK
+            rule.error = 'MissingSourceReplica'
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+        elif rule.locks_replicating_cnt == 0:
+            rule.state = RuleState.OK
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+                session.flush()
+                generate_message_for_dataset_ok_callback(rule=rule, session=session)
+        else:
+            rule.state = RuleState.REPLICATING
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
+
+        # Add rule to History
+        insert_rule_history(rule=rule, recent=True, longterm=True, session=session)
+
+        logging.debug("Created rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
 
 @stream_session
@@ -979,6 +1095,41 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
 
 
 @read_session
+def get_injected_rules(total_workers, worker_number, limit=10, session=None):
+    """
+    Get rules to be injected.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param limit:              Maximum number of rules to return.
+    :param session:            Database session in use.
+    """
+
+    if session.bind.dialect.name == 'oracle':
+        query = session.query(models.ReplicationRule.id).\
+            with_hint(models.ReplicationRule, "index(rules RULES_INJECTIONSTATE_IDX)", 'oracle').\
+            filter(text("(CASE when rules.state='I' THEN rules.state ELSE null END)= 'I' ")).\
+            filter(models.ReplicationRule.state == RuleState.INJECT).\
+            order_by(models.ReplicationRule.created_at)
+    else:
+        query = session.query(models.ReplicationRule.id).\
+            with_hint(models.ReplicationRule, "index(rules RULES_INJECTIONSTATE_IDX)", 'oracle').\
+            filter(models.ReplicationRule.state == RuleState.INJECT).\
+            order_by(models.ReplicationRule.created_at)
+
+    if session.bind.dialect.name == 'oracle':
+        bindparams = [bindparam('worker_number', worker_number),
+                      bindparam('total_workers', total_workers)]
+        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+    elif session.bind.dialect.name == 'mysql':
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
+    elif session.bind.dialect.name == 'postgresql':
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+
+    return query.limit(limit).all()
+
+
+@read_session
 def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=None):
     """
     Get stuck rules.
@@ -1235,7 +1386,7 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
                                             expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
                                             locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
                                             activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
-                                            ignore_availability=rule.ignore_availability, comments=rule.comments, created_at=rule.created_at,
+                                            ignore_availability=rule.ignore_availability, ignore_account_limit=rule.ignore_account_limit, comments=rule.comments, created_at=rule.created_at,
                                             updated_at=rule.updated_at).save(session=session)
     if longterm:
         models.ReplicationRuleHistory(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
@@ -1243,8 +1394,51 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
                                       expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
                                       locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
                                       activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
-                                      ignore_availability=rule.ignore_availability, comments=rule.comments, created_at=rule.created_at,
+                                      ignore_availability=rule.ignore_availability, ignore_account_limit=rule.ignore_account_limit, comments=rule.comments, created_at=rule.created_at,
                                       updated_at=rule.updated_at).save(session=session)
+
+
+@transactional_session
+def approve_rule(rule_id, session=None):
+    """
+    Approve a specific replication rule.
+
+    :param rule_id: The rule_id to approve.
+    :param session: The database session in use.
+    :raises:        RuleNotFound if no Rule can be found.
+    """
+
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        if rule.state == RuleState.WAITING_APPROVAL:
+            rule.ignore_account_limit = True
+            rule.state = RuleState.INJECT
+            return
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+
+
+@transactional_session
+def deny_rule(rule_id, session=None):
+    """
+    Deny a specific replication rule.
+
+    :param rule_id: The rule_id to approve.
+    :param session: The database session in use.
+    :raises:        RuleNotFound if no Rule can be found.
+    """
+
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        if rule.state == RuleState.WAITING_APPROVAL:
+            delete_rule(rule_id=rule_id, session=session)
+            return
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
 
 
 @transactional_session
@@ -1513,142 +1707,143 @@ def __evaluate_did_attach(eval_did, session=None):
                     or_(*rule_clauses),
                     models.ReplicationRule.state != RuleState.SUSPENDED).with_for_update(nowait=True).all()
 
-            # Resolve the new_child_dids to its locks
-            with record_timer_block('rule.evaluate_did_attach.resolve_did_to_locks_and_replicas'):
-                # Resolve the rules to possible target rses:
-                possible_rses = []
-                if session.bind.dialect.name != 'sqlite':
-                    session.begin_nested()
-                try:
-                    for rule in rules:
-                        if rule.ignore_availability:
-                            possible_rses.extend(parse_expression(rule.rse_expression, session=session))
-                        else:
-                            possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
-                    possible_rses = list(set([rse['id'] for rse in possible_rses]))
-                except Exception, e:
-                    logging.warning('Could not parse RSE expression for possible RSEs for rule %s' % (str(rule.id)))
-                    session.rollback()
+            if rules:
+                # Resolve the new_child_dids to its locks
+                with record_timer_block('rule.evaluate_did_attach.resolve_did_to_locks_and_replicas'):
+                    # Resolve the rules to possible target rses:
                     possible_rses = []
-                    session.begin_nested()
-                if session.bind.dialect.name != 'sqlite':
-                    session.commit()
-
-                datasetfiles, locks, replicas = __resolve_dids_to_locks_and_replicas(dids=new_child_dids,
-                                                                                     nowait=True,
-                                                                                     restrict_rses=possible_rses,
-                                                                                     session=session)
-
-            # Evaluate the replication rules
-            with record_timer_block('rule.evaluate_did_attach.evaluate_rules'):
-                for rule in rules:
-                    rule_locks_ok_cnt_before = rule.locks_ok_cnt
-
-                    # 1. Resolve the rse_expression into a list of RSE-ids
                     if session.bind.dialect.name != 'sqlite':
                         session.begin_nested()
                     try:
-                        if rule.ignore_availability:
-                            rses = parse_expression(rule.rse_expression, session=session)
-                        else:
-                            rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
-                        source_rses = []
-                        if rule.source_replica_expression:
-                            source_rses = parse_expression(rule.source_replica_expression, session=session)
-                    except (InvalidRSEExpression, RSEBlacklisted) as e:
+                        for rule in rules:
+                            if rule.ignore_availability:
+                                possible_rses.extend(parse_expression(rule.rse_expression, session=session))
+                            else:
+                                possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
+                        possible_rses = list(set([rse['id'] for rse in possible_rses]))
+                    except Exception, e:
+                        logging.warning('Could not parse RSE expression for possible RSEs for rule %s' % (str(rule.id)))
                         session.rollback()
-                        rule.state = RuleState.STUCK
-                        rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
-                        rule.save(session=session)
-                        # Insert rule history
-                        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
-                        # Try to update the DatasetLocks
-                        if rule.grouping != RuleGrouping.NONE:
-                            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-                        continue
-
-                    # 2. Create the RSE Selector
-                    try:
-                        rseselector = RSESelector(account=rule.account,
-                                                  rses=rses,
-                                                  weight=rule.weight,
-                                                  copies=rule.copies,
-                                                  session=session)
-                    except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
-                        session.rollback()
-                        rule.state = RuleState.STUCK
-                        rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
-                        rule.save(session=session)
-                        # Insert rule history
-                        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
-                        # Try to update the DatasetLocks
-                        if rule.grouping != RuleGrouping.NONE:
-                            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-                        continue
-
-                    # 3. Apply the Replication rule to the Files
-                    preferred_rse_ids = []
-                    # 3.1 Check if the dids in question are files added to a dataset with DATASET/ALL grouping
-                    if new_child_dids[0].child_type == DIDType.FILE and rule.grouping != RuleGrouping.NONE:
-                        # Are there any existing did's in this dataset
-                        brother_did = session.query(models.DataIdentifierAssociation).filter(
-                            models.DataIdentifierAssociation.scope == eval_did.scope,
-                            models.DataIdentifierAssociation.name == eval_did.name).order_by(models.DataIdentifierAssociation.created_at).first()
-                        if brother_did is not None:
-                            # There are other files in the dataset
-                            brother_locks = rucio.core.lock.get_replica_locks(scope=brother_did.child_scope,
-                                                                              name=brother_did.child_name,
-                                                                              nowait=True,
-                                                                              session=session)
-                            preferred_rse_ids = [lock['rse_id'] for lock in brother_locks if lock['rse_id'] in [rse['id'] for rse in rses] and lock['rule_id'] == rule.id]
-                    locks_stuck_before = rule.locks_stuck_cnt
-                    try:
-                        __create_locks_replicas_transfers(datasetfiles=datasetfiles,
-                                                          locks=locks,
-                                                          replicas=replicas,
-                                                          rseselector=rseselector,
-                                                          rule=rule,
-                                                          preferred_rse_ids=preferred_rse_ids,
-                                                          source_rses=[rse['id'] for rse in source_rses],
-                                                          session=session)
-                    except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
-                        if isinstance(e, IntegrityError):
-                            session.rollback()
-                        rule.state = RuleState.STUCK
-                        rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
-                        rule.save(session=session)
-                        # Insert rule history
-                        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
-                        # Try to update the DatasetLocks
-                        if rule.grouping != RuleGrouping.NONE:
-                            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-                        continue
-
-                    # 4. Update the Rule State
-                    if rule.state == RuleState.STUCK:
-                        pass
-                    elif rule.locks_stuck_cnt > 0:
-                        if locks_stuck_before != rule.locks_stuck_cnt:
-                            rule.state = RuleState.STUCK
-                            rule.error = 'MissingSourceReplica'
-                            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-                    elif rule.locks_replicating_cnt > 0:
-                        rule.state = RuleState.REPLICATING
-                        if rule.grouping != RuleGrouping.NONE:
-                            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
-                    elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
-                        rule.state = RuleState.OK
-                        if rule.grouping != RuleGrouping.NONE:
-                            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
-                            session.flush()
-                            if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
-                                generate_message_for_dataset_ok_callback(rule=rule, session=session)
-
-                    # Insert rule history
-                    insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
-
+                        possible_rses = []
+                        session.begin_nested()
                     if session.bind.dialect.name != 'sqlite':
                         session.commit()
+
+                    datasetfiles, locks, replicas = __resolve_dids_to_locks_and_replicas(dids=new_child_dids,
+                                                                                         nowait=True,
+                                                                                         restrict_rses=possible_rses,
+                                                                                         session=session)
+
+                # Evaluate the replication rules
+                with record_timer_block('rule.evaluate_did_attach.evaluate_rules'):
+                    for rule in rules:
+                        rule_locks_ok_cnt_before = rule.locks_ok_cnt
+
+                        # 1. Resolve the rse_expression into a list of RSE-ids
+                        if session.bind.dialect.name != 'sqlite':
+                            session.begin_nested()
+                        try:
+                            if rule.ignore_availability:
+                                rses = parse_expression(rule.rse_expression, session=session)
+                            else:
+                                rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+                            source_rses = []
+                            if rule.source_replica_expression:
+                                source_rses = parse_expression(rule.source_replica_expression, session=session)
+                        except (InvalidRSEExpression, RSEBlacklisted) as e:
+                            session.rollback()
+                            rule.state = RuleState.STUCK
+                            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+                            rule.save(session=session)
+                            # Insert rule history
+                            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+                            # Try to update the DatasetLocks
+                            if rule.grouping != RuleGrouping.NONE:
+                                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                            continue
+
+                        # 2. Create the RSE Selector
+                        try:
+                            rseselector = RSESelector(account=rule.account,
+                                                      rses=rses,
+                                                      weight=rule.weight,
+                                                      copies=rule.copies,
+                                                      session=session)
+                        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
+                            session.rollback()
+                            rule.state = RuleState.STUCK
+                            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+                            rule.save(session=session)
+                            # Insert rule history
+                            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+                            # Try to update the DatasetLocks
+                            if rule.grouping != RuleGrouping.NONE:
+                                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                            continue
+
+                        # 3. Apply the Replication rule to the Files
+                        preferred_rse_ids = []
+                        # 3.1 Check if the dids in question are files added to a dataset with DATASET/ALL grouping
+                        if new_child_dids[0].child_type == DIDType.FILE and rule.grouping != RuleGrouping.NONE:
+                            # Are there any existing did's in this dataset
+                            brother_did = session.query(models.DataIdentifierAssociation).filter(
+                                models.DataIdentifierAssociation.scope == eval_did.scope,
+                                models.DataIdentifierAssociation.name == eval_did.name).order_by(models.DataIdentifierAssociation.created_at).first()
+                            if brother_did is not None:
+                                # There are other files in the dataset
+                                brother_locks = rucio.core.lock.get_replica_locks(scope=brother_did.child_scope,
+                                                                                  name=brother_did.child_name,
+                                                                                  nowait=True,
+                                                                                  session=session)
+                                preferred_rse_ids = [lock['rse_id'] for lock in brother_locks if lock['rse_id'] in [rse['id'] for rse in rses] and lock['rule_id'] == rule.id]
+                        locks_stuck_before = rule.locks_stuck_cnt
+                        try:
+                            __create_locks_replicas_transfers(datasetfiles=datasetfiles,
+                                                              locks=locks,
+                                                              replicas=replicas,
+                                                              rseselector=rseselector,
+                                                              rule=rule,
+                                                              preferred_rse_ids=preferred_rse_ids,
+                                                              source_rses=[rse['id'] for rse in source_rses],
+                                                              session=session)
+                        except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
+                            if isinstance(e, IntegrityError):
+                                session.rollback()
+                            rule.state = RuleState.STUCK
+                            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+                            rule.save(session=session)
+                            # Insert rule history
+                            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+                            # Try to update the DatasetLocks
+                            if rule.grouping != RuleGrouping.NONE:
+                                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                            continue
+
+                        # 4. Update the Rule State
+                        if rule.state == RuleState.STUCK:
+                            pass
+                        elif rule.locks_stuck_cnt > 0:
+                            if locks_stuck_before != rule.locks_stuck_cnt:
+                                rule.state = RuleState.STUCK
+                                rule.error = 'MissingSourceReplica'
+                                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                        elif rule.locks_replicating_cnt > 0:
+                            rule.state = RuleState.REPLICATING
+                            if rule.grouping != RuleGrouping.NONE:
+                                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
+                        elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
+                            rule.state = RuleState.OK
+                            if rule.grouping != RuleGrouping.NONE:
+                                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+                                session.flush()
+                                if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
+                                    generate_message_for_dataset_ok_callback(rule=rule, session=session)
+
+                        # Insert rule history
+                        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+
+                        if session.bind.dialect.name != 'sqlite':
+                            session.commit()
 
             # Unflage the dids
             with record_timer_block('rule.evaluate_did_attach.update_did'):

@@ -3,8 +3,8 @@
 #cx_Oracle==5.1.2           # Oracle connector
 # MySQL-python==1.2.5      # MySQL connector
 # psycopg2==2.5.2          # PostgreSQL
-SQLAlchemy==1.0.3 # db backend
-alembic==0.7.5.post2 # Lightweight database migration tool for SQLAlchemy
+SQLAlchemy==1.0.6 # db backend
+alembic==0.7.6 # Lightweight database migration tool for SQLAlchemy
 Mako==1.0.1 # Templating language
 flup==1.0.3.dev-20110405 # Needed to deploy web.py in lighthttpd
 web.py==0.37 # Python web framework
@@ -24,7 +24,6 @@ meld3==1.0.2 # an HTML/XML templating system for Python 2.3+
 
 # This must be installed before matplotlib !!!
 # numpy==1.6.1             # Numerical Python libs
-
 pysftp==0.2.8 # forces installation of paramikoi and pycrypto
 paramiko==1.15.2 #
 pycrypto==2.6.1 #
@@ -35,7 +34,7 @@ stomp.py==4.0.16 # ActiveMQ Messaging Protocol
 dnspython==1.12.0 # To resolve ActiveMQ broker alias
 pystatsd==0.1.10 # Needed to log into graphite with more than 1 Hz
 pygeoip==0.3.2 # GeoIP API
-geoip2==2.1.0 # GeoIP2 API (for IPv6 support)
+geoip2==2.2.0 # GeoIP2 API (for IPv6 support)
 maxminddb==1.2.0 # extension for reading the MaxMind DB format
 # python-ldap==2.4.15        # needed for LDAP integration
-threadpool==1.2.7               # threadpool
+threadpool==1.2.7 # threadpool

@@ -12,11 +12,12 @@
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
 from traceback import format_exc
+from urlparse import parse_qsl
 
 from web import application, ctx, data, header, Created, InternalError, OK, loadhook
 
 from rucio.api.lock import get_replica_locks_for_rule_id
-from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule, list_replication_rule_history
+from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule, list_replication_rule_history, list_replication_rules
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
@@ -32,7 +33,9 @@ logger.addHandler(sh)
 urls = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
         '/(.+)/history', 'RuleHistory',
-        '/', 'Rule',
+        '/(.+)/approve', 'RuleApprove',
+        '/(.+)/deny', 'RuleDeny',
+        '/', 'AllRule',
         '/(.+)', 'Rule',)
 
 
@@ -93,100 +96,6 @@ class Rule:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         raise OK()
 
-    def POST(self):
-        """
-        Create a new replication rule.
-
-        HTTP Success:
-            201 Created
-
-        HTTP Error:
-            400 Bad Request
-            401 Unauthorized
-            404 Not Found
-            409 Conflict
-            500 Internal Error
-        """
-        json_data = data()
-        try:
-            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, comment = 'DATASET', None, None, False, None, None, None, None, False, False, None
-            params = loads(json_data)
-            dids = params['dids']
-            account = params['account']
-            copies = params['copies']
-            rse_expression = params['rse_expression']
-            if 'grouping' in params:
-                grouping = params['grouping']
-            if 'weight' in params:
-                weight = params['weight']
-            if 'lifetime' in params:
-                lifetime = params['lifetime']
-            if 'locked' in params:
-                locked = params['locked']
-            if 'subscription_id' in params:
-                subscription_id = params['subscription_id']
-            if 'source_replica_expression' in params:
-                source_replica_expression = params['source_replica_expression']
-            if 'activity' in params:
-                activity = params['activity']
-            if 'notify' in params:
-                notify = params['notify']
-            if 'purge_replicas' in params:
-                purge_replicas = params['purge_replicas']
-            if 'ignore_availability' in params:
-                ignore_availability = params['ignore_availability']
-            if 'comment' in params:
-                comment = params['comment']
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
-            rule_ids = add_replication_rule(dids=dids,
-                                            copies=copies,
-                                            rse_expression=rse_expression,
-                                            weight=weight,
-                                            lifetime=lifetime,
-                                            grouping=grouping,
-                                            account=account,
-                                            locked=locked,
-                                            subscription_id=subscription_id,
-                                            source_replica_expression=source_replica_expression,
-                                            activity=activity,
-                                            notify=notify,
-                                            purge_replicas=purge_replicas,
-                                            ignore_availability=ignore_availability,
-                                            comment=comment,
-                                            issuer=ctx.env.get('issuer'))
-        # TODO: Add all other error cases here
-        except InvalidReplicationRule, e:
-            raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
-        except DuplicateRule, e:
-            raise generate_http_error(409, 'DuplicateRule', e.args[0])
-        except InsufficientTargetRSEs, e:
-            raise generate_http_error(409, 'InsufficientTargetRSEs', e.args[0][0])
-        except InsufficientAccountLimit, e:
-            raise generate_http_error(409, 'InsufficientAccountLimit', e.args[0][0])
-        except InvalidRSEExpression, e:
-            raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except ReplicationRuleCreationTemporaryFailed, e:
-            raise generate_http_error(409, 'ReplicationRuleCreationTemporaryFailed', e.args[0][0])
-        except InvalidRuleWeight, e:
-            raise generate_http_error(409, 'InvalidRuleWeight', e.args[0][0])
-        except StagingAreaRuleRequiresLifetime, e:
-            raise generate_http_error(409, 'StagingAreaRuleRequiresLifetime', e.args[0])
-        except InvalidObject, e:
-            raise generate_http_error(409, 'InvalidObject', e.args[0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
-            print e
-            print format_exc()
-            raise InternalError(e)
-
-        raise Created(dumps(rule_ids))
-
     def DELETE(self, rule_id):
         """
         Delete a new replication rule.
@@ -217,6 +126,142 @@ class Rule:
         except Exception, e:
             raise InternalError(e)
         raise OK()
+
+
+class AllRule:
+    """ REST APIs for all rules. """
+
+    def GET(self):
+        """
+        Return all rules of a given account.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param scope: The scope name.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        filters = {}
+        if ctx.query:
+            params = dict(parse_qsl(ctx.query[1:]))
+            filters.update(params)
+
+        try:
+            for rule in list_replication_rules(filters=filters):
+                yield dumps(rule, cls=APIEncoder) + '\n'
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+    def POST(self):
+        """
+        Create a new replication rule.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+        """
+        json_data = data()
+        try:
+            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify,\
+                purge_replicas, ignore_availability, comment, ask_approval, asynchronous = 'DATASET', None, None,\
+                False, None, None, None, None, False, False, None, False, False
+
+            params = loads(json_data)
+            dids = params['dids']
+            account = params['account']
+            copies = params['copies']
+            rse_expression = params['rse_expression']
+            if 'grouping' in params:
+                grouping = params['grouping']
+            if 'weight' in params:
+                weight = params['weight']
+            if 'lifetime' in params:
+                lifetime = params['lifetime']
+            if 'locked' in params:
+                locked = params['locked']
+            if 'subscription_id' in params:
+                subscription_id = params['subscription_id']
+            if 'source_replica_expression' in params:
+                source_replica_expression = params['source_replica_expression']
+            if 'activity' in params:
+                activity = params['activity']
+            if 'notify' in params:
+                notify = params['notify']
+            if 'purge_replicas' in params:
+                purge_replicas = params['purge_replicas']
+            if 'ignore_availability' in params:
+                ignore_availability = params['ignore_availability']
+            if 'comment' in params:
+                comment = params['comment']
+            if 'ask_approval' in params:
+                ask_approval = params['ask_approval']
+            if 'asynchronous' in params:
+                asynchronous = params['asynchronous']
+
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            rule_ids = add_replication_rule(dids=dids,
+                                            copies=copies,
+                                            rse_expression=rse_expression,
+                                            weight=weight,
+                                            lifetime=lifetime,
+                                            grouping=grouping,
+                                            account=account,
+                                            locked=locked,
+                                            subscription_id=subscription_id,
+                                            source_replica_expression=source_replica_expression,
+                                            activity=activity,
+                                            notify=notify,
+                                            purge_replicas=purge_replicas,
+                                            ignore_availability=ignore_availability,
+                                            comment=comment,
+                                            ask_approval=ask_approval,
+                                            asynchronous=asynchronous,
+                                            issuer=ctx.env.get('issuer'))
+        # TODO: Add all other error cases here
+        except InvalidReplicationRule, e:
+            raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
+        except DuplicateRule, e:
+            raise generate_http_error(409, 'DuplicateRule', e.args[0])
+        except InsufficientTargetRSEs, e:
+            raise generate_http_error(409, 'InsufficientTargetRSEs', e.args[0][0])
+        except InsufficientAccountLimit, e:
+            raise generate_http_error(409, 'InsufficientAccountLimit', e.args[0][0])
+        except InvalidRSEExpression, e:
+            raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except ReplicationRuleCreationTemporaryFailed, e:
+            raise generate_http_error(409, 'ReplicationRuleCreationTemporaryFailed', e.args[0][0])
+        except InvalidRuleWeight, e:
+            raise generate_http_error(409, 'InvalidRuleWeight', e.args[0][0])
+        except StagingAreaRuleRequiresLifetime, e:
+            raise generate_http_error(409, 'StagingAreaRuleRequiresLifetime', e.args[0])
+        except InvalidObject, e:
+            raise generate_http_error(409, 'InvalidObject', e.args[0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print e
+            print format_exc()
+            raise InternalError(e)
+
+        raise Created(dumps(rule_ids))
 
 
 class ReplicaLocks:
@@ -319,6 +364,7 @@ class RuleHistory:
 
         for hist in history:
             yield dumps(hist, cls=APIEncoder) + '\n'
+
 
 """----------------------
    Web service startup

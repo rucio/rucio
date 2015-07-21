@@ -383,6 +383,8 @@ def perm_update_rule(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
+    if 'approve' in kwargs['options']:
+        return False  # Only priv accounts are allowed to approve/deny rules
     if 'account' in kwargs['options']:
         return False  # Only priv accounts are allowed to change owner
     if 'state' in kwargs['options']:
