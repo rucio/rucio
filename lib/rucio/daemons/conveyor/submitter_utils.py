@@ -615,7 +615,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
     bring_online_local = bring_online
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], []
-    for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking in req_sources:
+    for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
         try:
             if rses and dest_rse_id not in rses:
                 continue
@@ -628,6 +628,12 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # rse will be None if rse is staging area
                 if source_rse_id is None or rse is None:
                     continue
+
+                if link_ranking is None:
+                    logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
+                    continue
+                if ranking is None:
+                    ranking = link_ranking
 
                 # Get destination rse information and protocol
                 if dest_rse_id not in rses_info:
@@ -793,6 +799,12 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # rse will be None if rse is staging area
                 if source_rse_id is None or rse is None:
                     continue
+
+                if link_ranking is None:
+                    logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
+                    continue
+                if ranking is None:
+                    ranking = link_ranking
 
                 # Compute the sources: urls, etc
                 if source_rse_id not in rses_info:
@@ -1066,6 +1078,27 @@ def mock_sources(sources):
     return tmp_sources
 
 
+def sort_ranking(sources):
+    logging.debug("Sources before sorting: %s" % sources)
+    rank_sources = {}
+    ret_sources = []
+    for source in sources:
+        rse, source_url, source_rse_id, ranking = source
+        if ranking is None:
+            ranking = 0
+        if ranking not in rank_sources:
+            rank_sources[ranking] = []
+        rank_sources[ranking].append(source)
+    rank_keys = rank_sources.keys()
+    rank_keys.sort(reverse=True)
+    for rank_key in rank_keys:
+        sources_list = rank_sources[rank_key]
+        random.shuffle(sources_list)
+        ret_sources = ret_sources + sources_list
+    logging.debug("Sources after sorting: %s" % ret_sources)
+    return ret_sources
+
+
 def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None,
                            limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200, retry_other_fts=False, session=None):
     transfers, reqs_no_source, reqs_scheme_mismatch = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
@@ -1076,7 +1109,7 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
 
     for request_id in transfers:
         sources = transfers[request_id]['sources']
-        sources = sort_sources(sources, transfers[request_id]['file_metadata']['dst_rse'])
+        sources = sort_ranking(sources)
         if len(sources) > max_sources:
             sources = sources[:max_sources]
         if not mock:
