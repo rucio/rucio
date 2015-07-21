@@ -314,6 +314,9 @@ def list_file_replicas(args):
 
     dids = []
     rse_dict = {}
+    if args.missing and not args.selected_rse:
+        print 'Cannot use --missing without specifying a RSE'
+        return FAILURE
     if args.selected_rse and args.list_collections:
         print 'Cannot use --rse with --list_collections option'
         return FAILURE
@@ -325,43 +328,49 @@ def list_file_replicas(args):
         scope, name = extract_scope(did)
         dids.append({'scope': scope, 'name': name})
     replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
-    if not args.list_collections:
-        print '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format('SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA')
-        print '{0:-<130}'.format('')
-    for replica in replicas:
-        if 'bytes' in replica:
-            str_output = '{0:}:{1:70} {2:10}  {3:10}'.format(replica['scope'], replica['name'], int(replica['bytes']), replica['adler32'])
-            for rse in replica['rses']:
-                if args.list_collections:
-                    if rse not in rse_dict:
-                        rse_dict[rse] = 0
-                    if replica['rses'][rse] != []:
-                        rse_dict[rse] += 1
-                else:
-                    line = '{0}{1}'.format(str_output, rse)
-                    for pfn in replica['rses'][rse]:
-                        if args.selected_rse:
-                            if rse == args.selected_rse:
+    if args.missing:
+        for replica in replicas:
+            rses = replica['rses'].keys()
+            if args.selected_rse not in rses:
+                print '%s:%s' % (replica['scope'], replica['name'])
+    else:
+        if not args.list_collections:
+            print '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format('SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA')
+            print '{0:-<130}'.format('')
+        for replica in replicas:
+            if 'bytes' in replica:
+                str_output = '{0:}:{1:70} {2:10}  {3:10}'.format(replica['scope'], replica['name'], int(replica['bytes']), replica['adler32'])
+                for rse in replica['rses']:
+                    if args.list_collections:
+                        if rse not in rse_dict:
+                            rse_dict[rse] = 0
+                        if replica['rses'][rse] != []:
+                            rse_dict[rse] += 1
+                    else:
+                        line = '{0}{1}'.format(str_output, rse)
+                        for pfn in replica['rses'][rse]:
+                            if args.selected_rse:
+                                if rse == args.selected_rse:
+                                    output = '%s: %s' % (line, pfn)
+                                    print output.expandtabs()
+                                    line = len(line.expandtabs()) * ' '
+                                    str_output = len(str_output.expandtabs()) * ' '
+                            else:
                                 output = '%s: %s' % (line, pfn)
                                 print output.expandtabs()
                                 line = len(line.expandtabs()) * ' '
                                 str_output = len(str_output.expandtabs()) * ' '
-                        else:
-                            output = '%s: %s' % (line, pfn)
-                            print output.expandtabs()
-                            line = len(line.expandtabs()) * ' '
-                            str_output = len(str_output.expandtabs()) * ' '
-        elif not args.list_collections:
-            str_output = '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format(replica['scope'], replica['name'], '???', '???', 'Unavailable')
-            print str_output.expandtabs()
-    if args.list_collections:
-        nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
-        print '{0:40} {1:6} {2:6}'.format('RSE', 'Found', 'Total')
-        print '-'*54
-        sorted_key = rse_dict.keys()
-        sorted_key.sort()
-        for rse in sorted_key:
-            print '{0:40} {1:6d} {2:6d}'.format(rse, rse_dict[rse], nbfiles)
+            elif not args.list_collections:
+                str_output = '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format(replica['scope'], replica['name'], '???', '???', 'Unavailable')
+                print str_output.expandtabs()
+        if args.list_collections:
+            nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
+            print '{0:40} {1:6} {2:6}'.format('RSE', 'Found', 'Total')
+            print '-'*54
+            sorted_key = rse_dict.keys()
+            sorted_key.sort()
+            for rse in sorted_key:
+                print '{0:40} {1:6d} {2:6d}'.format(rse, rse_dict[rse], nbfiles)
     return SUCCESS
 
 
@@ -1566,6 +1575,7 @@ Commands:
     list_file_replicas_parser.add_argument('--list_collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site', required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Target RSE', required=False)
+    list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE', required=False)
 
     # The list_parent_datasets command
     list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List the datasets associated to a PFN')
