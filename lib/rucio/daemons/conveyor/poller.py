@@ -89,7 +89,7 @@ def poller(once=False,
                 sleeping = False
 
                 ts = time.time()
-                logging.debug('%i:%i - start to poll transfers older than %i seconds for activity %s' % (process, hb['assign_thread'], older_than, activity))
+                logging.info('%i:%i - start to poll transfers older than %i seconds for activity %s' % (process, hb['assign_thread'], older_than, activity))
                 transfs = request.get_next_transfers(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                                      state=RequestState.SUBMITTED,
                                                      limit=db_bulk,
@@ -101,7 +101,7 @@ def poller(once=False,
                 record_timer('daemons.conveyor.poller.000-get_next_transfers', (time.time()-ts)*1000)
 
                 if transfs:
-                    logging.debug('%i:%i - polling %i transfers for activity %s' % (process, hb['assign_thread'], len(transfs), activity))
+                    logging.info('%i:%i - polling %i transfers for activity %s' % (process, hb['assign_thread'], len(transfs), activity))
 
                 xfers_ids = {}
                 for transf in transfs:
@@ -127,11 +127,11 @@ def poller(once=False,
         if once:
             return
 
-    logging.debug('%i:%i - graceful stop requests' % (process, hb['assign_thread']))
+    logging.info('%i:%i - graceful stop requests' % (process, hb['assign_thread']))
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.debug('%i:%i - graceful stop done' % (process, hb['assign_thread']))
+    logging.info('%i:%i - graceful stop done' % (process, hb['assign_thread']))
 
 
 def stop(signum=None, frame=None):
