@@ -79,7 +79,7 @@ def update_request_state(response, session=None):
                 logging.info('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
                 request_core.set_request_state(response['request_id'], response['new_state'], transfer_id, transferred_at=response.get('transferred_at', None), session=session)
 
-                add_monitor_message(response, session=session)
+                add_monitor_message(request, response, session=session)
                 return True
             elif not request:
                 logging.debug("Request %s doesn't exist, will not update" % (response['request_id']))
@@ -155,7 +155,7 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
                             'job_m_replica': None,
                             'details': None}
 
-                add_monitor_message(response, session=session)
+                add_monitor_message(req, response, session=session)
         return True
     except exception.UnsupportedOperation, e:
         logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(e).replace('\n', '')))
@@ -412,17 +412,27 @@ def get_source_rse(scope, name, src_url, session=None):
 
 
 @read_session
-def add_monitor_message(response, session=None):
-    if response['new_state'] == RequestState.DONE:
-        transfer_status = 'transfer-done'
-    elif response['new_state'] == RequestState.FAILED:
-        transfer_status = 'transfer-failed'
-    elif response['new_state'] == RequestState.LOST:
-        transfer_status = 'transfer-lost'
+def add_monitor_message(request, response, session=None):
+    if request['request_type'] == RequestType.STAGEIN:
+        if response['new_state'] == RequestState.DONE:
+            transfer_status = 'stagein-done'
+        elif response['new_state'] == RequestState.FAILED:
+            transfer_status = 'stagein-failed'
+        elif response['new_state'] == RequestState.LOST:
+            transfer_status = 'stagein-lost'
+    else:
+        if response['new_state'] == RequestState.DONE:
+            transfer_status = 'transfer-done'
+        elif response['new_state'] == RequestState.FAILED:
+            transfer_status = 'transfer-failed'
+        elif response['new_state'] == RequestState.LOST:
+            transfer_status = 'transfer-lost'
 
     activity = response.get('activity', None)
+    src_type = response.get('src_type', None)
     src_rse = response.get('src_rse', None)
     src_url = response.get('src_url', None)
+    dst_type = response.get('dst_type', None)
     dst_rse = response.get('dst_rse', None)
     dst_url = response.get('dst_url', None)
     dst_protocol = dst_url.split(':')[0] if dst_url else None
@@ -461,8 +471,10 @@ def add_monitor_message(response, session=None):
                                   'protocol': dst_protocol,
                                   'scope': response['scope'],
                                   'name': response['name'],
+                                  'src-type': src_type,
                                   'src-rse': src_rse,
                                   'src-url': src_url,
+                                  'dst-type': dst_type,
                                   'dst-rse': dst_rse,
                                   'dst-url': dst_url,
                                   'reason': reason,
