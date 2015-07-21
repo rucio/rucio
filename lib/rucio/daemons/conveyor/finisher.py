@@ -64,13 +64,13 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
 
         try:
             hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            logging.info('finisher - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
+            logging.debug('finisher - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
 
             if activities is None:
                 activities = [None]
 
             if sleeping:
-                logging.debug('%i:%i - nothing to do. will sleep 60s' % (process, hb['assign_thread']))
+                logging.info('%i:%i - nothing to do. will sleep 60s' % (process, hb['assign_thread']))
                 time.sleep(60)
 
             sleeping = True
@@ -85,7 +85,6 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                                         thread=hb['assign_thread'], total_threads=hb['nr_threads'])
                 record_timer('daemons.conveyor.finisher.000-get_next', (time.time()-ts)*1000)
                 if reqs:
-                    logging.debug('%i:%i - start to update %s finished requests for activity %s' % (process, hb['assign_thread'], len(reqs), activity))
                     logging.debug('%i:%i - updating %i requests for activity %s' % (process, hb['assign_thread'], len(reqs), activity))
                     sleeping = False
 
@@ -113,11 +112,11 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
         if once:
             return
 
-    logging.debug('%i:%i - graceful stop requests' % (process, hb['assign_thread']))
+    logging.info('%i:%i - graceful stop requests' % (process, hb['assign_thread']))
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.debug('%i:%i - graceful stop done' % (process, hb['assign_thread']))
+    logging.info('%i:%i - graceful stop done' % (process, hb['assign_thread']))
 
 
 def stop(signum=None, frame=None):
