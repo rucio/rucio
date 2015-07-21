@@ -94,6 +94,12 @@ def rule_repairer(once=False):
                             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
                             logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
                             record_counter('rule.judge.exceptions.LocksDetected')
+                        elif match('.*QueuePool.*', str(e.args[0])):
+                            logging.warning(traceback.format_exc())
+                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        elif match('.*ORA-03135.*', str(e.args[0])):
+                            logging.warning(traceback.format_exc())
+                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
