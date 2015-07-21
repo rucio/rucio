@@ -480,19 +480,19 @@ class TestDIDClients:
         rse = 'MOCK'
         scope = scope_name_generator()
         file = ['file_%s' % generate_uuid() for i in range(10)]
-        dst = ['dst_%s' % generate_uuid() for i in range(4)]
+        dst = ['dst_%s' % generate_uuid() for i in range(5)]
         cnt = ['cnt_%s' % generate_uuid() for i in range(2)]
 
         self.scope_client.add_scope(account, scope)
 
         for i in range(10):
             self.replica_client.add_replica(rse, scope, file[i], 1L, '0cc737eb')
-        for i in range(4):
+        for i in range(5):
             self.did_client.add_dataset(scope, dst[i], statuses=None, meta=None, rules=None)
         for i in range(2):
             self.did_client.add_container(scope, cnt[i], statuses=None, meta=None, rules=None)
 
-        for i in range(4):
+        for i in range(5):
             self.did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file[2 * i], 'bytes': 1L, 'adler32': '0cc737eb'},
                                                                  {'scope': scope, 'name': file[2 * i + 1], 'bytes': 1L, 'adler32': '0cc737eb'}])
 
@@ -517,6 +517,19 @@ class TestDIDClients:
 
         with assert_raises(UnsupportedOperation):
             self.did_client.detach_dids(scope=scope, name=cnt[0], dids=[{'scope': scope, 'name': cnt[0]}])
+
+        self.did_client.close(scope, dst[4])
+        metadata = self.did_client.get_metadata(scope, dst[4])
+        i_bytes, i_length = metadata['bytes'], metadata['length']
+        metadata = self.did_client.get_metadata(scope, file[8])
+        file1_bytes = metadata['bytes']
+        metadata = self.did_client.get_metadata(scope, file[9])
+        file2_bytes = metadata['bytes']
+        self.did_client.detach_dids(scope, dst[4], [{'scope': scope, 'name': file[8]}, {'scope': scope, 'name': file[9]}])
+        metadata = self.did_client.get_metadata(scope, dst[4])
+        f_bytes, f_length = metadata['bytes'], metadata['length']
+        assert_equal(i_bytes, f_bytes + file1_bytes + file2_bytes)
+        assert_equal(i_length, f_length + 1 + 1)
 
     def test_scope_list(self):
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
