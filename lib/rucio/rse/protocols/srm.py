@@ -166,9 +166,12 @@ class Default(protocol.RSEProtocol):
         if status:
             raise exception.RSEAccessDenied('Cannot find lcg tools')
         endpoint_basepath = self.path2pfn(self.attributes['prefix'])
-        status, result = commands.getstatusoutput('%s $LCGVO -b --srm-timeout 60 -D srmv2 -l %s' % (lcglscommand, endpoint_basepath))
+        status, result = commands.getstatusoutput('%s -vv $LCGVO -b --srm-timeout 60 -D srmv2 -l %s' % (lcglscommand, endpoint_basepath))
         if status:
-            raise exception.RSEAccessDenied('Endpoint not reachable')
+            if result == '':
+                raise exception.RSEAccessDenied('Endpoint not reachable. lcg-ls failed with status code %s but no further details.' % (str(status)))
+            else:
+                raise exception.RSEAccessDenied('Endpoint not reachable : %s' % str(result))
 
     def get(self, path, dest):
         """
