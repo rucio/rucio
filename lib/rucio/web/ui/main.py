@@ -29,7 +29,9 @@ urls = (
     '/bad_replicas', 'BadReplicas',
     '/suspicious_replicas', 'SuspiciousReplicas',
     '/bad_replicas/summary', 'BadReplicasSummary',
+    '/conditions_summary', 'Cond',
     '/did', 'DID',
+    '/dbrelease_summary', 'DBRelease',
     '/dumps', 'Dumps',
     '/heartbeats', 'Heartbeats',
     '/infrastructure', 'Infrastructure',
@@ -109,10 +111,22 @@ class BacklogMon():
         return check_token(render.backlog_mon())
 
 
+class Cond():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.cond())
+
+
 class DID():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.did())
+
+
+class DBRelease():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.dbrelease())
 
 
 class Dumps():
