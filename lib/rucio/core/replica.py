@@ -1060,7 +1060,8 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
             if total_obsolete_files >= 10000:
                 break
         rows.append({'scope': scope, 'name': name, 'path': path,
-                     'bytes': bytes, 'tombstone': tombstone})
+                     'bytes': bytes, 'tombstone': tombstone,
+                     'state': state})
 
     return rows
 
