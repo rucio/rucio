@@ -112,13 +112,16 @@ BEGIN
                 AVAILABILITY, SUPPRESSED, BYTES, LENGTH, MD5, ADLER32,
                 EXPIRED_AT, DELETED_AT, UPDATED_AT, CREATED_AT, EVENTS, GUID, PROJECT,
                 DATATYPE, RUN_NUMBER, STREAM_NAME, PROD_STEP, VERSION, CAMPAIGN,
-                task_id, panda_id) VALUES
+                task_id, panda_id, lumiblocknr, provenance, phys_group,
+                transient, accessed_at, closed_at) VALUES
                 (:OLD.SCOPE, :OLD.NAME, :OLD.ACCOUNT, :OLD.DID_TYPE,
                  :OLD.IS_OPEN, :OLD.MONOTONIC, :OLD.HIDDEN, :OLD.OBSOLETE, :OLD.COMPLETE, :OLD.IS_NEW,
                  :OLD.AVAILABILITY, :OLD.SUPPRESSED, :OLD.BYTES, :OLD.LENGTH, :OLD.MD5, :OLD.ADLER32,
-                 :OLD.EXPIRED_AT, sys_extract_utc(systimestamp), :OLD.UPDATED_AT, :OLD.CREATED_AT, :OLD.EVENTS, :OLD.GUID, :OLD.PROJECT,
+                 :OLD.EXPIRED_AT, sys_extract_utc(systimestamp), :OLD.UPDATED_AT, :OLD.CREATED_AT, :OLD.EVENTS,
+                 :OLD.GUID, :OLD.PROJECT,
                  :OLD.DATATYPE, :OLD.RUN_NUMBER, :OLD.STREAM_NAME, :OLD.PROD_STEP, :OLD.VERSION, :OLD.CAMPAIGN,
-                 :OLD.task_id, :OLD.panda_id);
+                 :OLD.task_id, :OLD.panda_id, :OLD.lumiblocknr, :OLD.provenance, :OLD.phys_group,
+                 :OLD.transient, :OLD.accessed_at, :OLD.closed_at);
         END IF;
 END;
 /
