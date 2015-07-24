@@ -131,17 +131,21 @@ def run(threads=1, bulk=100, once=False):
     Starts up the necromancer threads.
     """
 
-    logging.info('starting necromancer threads')
-    thread_list = [threading.Thread(target=necromancer, kwargs={'once': once,
-                                                                'thread': i,
-                                                                'bulk': bulk}) for i in xrange(0, threads)]
-    [t.start() for t in thread_list]
+    if once:
+        logging.info('Will run only one iteration in a single threaded mode')
+        necromancer(bulk=bulk, once=once)
+    else:
+        logging.info('starting necromancer threads')
+        thread_list = [threading.Thread(target=necromancer, kwargs={'once': once,
+                                                                    'thread': i,
+                                                                    'bulk': bulk}) for i in xrange(0, threads)]
+        [t.start() for t in thread_list]
 
-    logging.info('waiting for interrupts')
+        logging.info('waiting for interrupts')
 
-    # Interruptible joins require a timeout.
-    while len(thread_list) > 0:
-        [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
+        # Interruptible joins require a timeout.
+        while len(thread_list) > 0:
+            [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
 
 
 def stop(signum=None, frame=None):
