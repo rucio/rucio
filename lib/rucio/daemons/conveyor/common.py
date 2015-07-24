@@ -446,7 +446,7 @@ def add_monitor_message(request, response, session=None):
     scope = response.get('scope', None)
     name = response.get('name', None)
     job_m_replica = response.get('job_m_replica', None)
-    if job_m_replica and str(job_m_replica) == str('true') and src_url:
+    if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
         try:
             rse_name = get_source_rse(response['request_id'], scope, name, src_url, session=session)
         except:
