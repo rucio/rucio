@@ -172,7 +172,8 @@ def exception_handler(function):
             logger.debug('This means one dependency is missing.')
             return FAILURE
         except IOError, error:
-            return SUCCESS
+            logger.error(error)
+            return FAILURE
         except Exception, error:
             logger.error(error)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
