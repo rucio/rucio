@@ -42,7 +42,7 @@ from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.db import models
-from rucio.db.constants import DIDType, DIDReEvaluation
+from rucio.db.constants import DIDType, DIDReEvaluation, DIDAvailability
 from rucio.db.enum import EnumSymbol
 from rucio.db.session import read_session, transactional_session, stream_session
 
@@ -816,7 +816,7 @@ def get_files(files, session=None):
     """
     files_query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
                                 models.DataIdentifier.bytes, models.DataIdentifier.guid,
-                                models.DataIdentifier.events,
+                                models.DataIdentifier.events, models.DataIdentifier.availability,
                                 models.DataIdentifier.adler32, models.DataIdentifier.md5).\
         filter(models.DataIdentifier.did_type == DIDType.FILE).\
         with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')
@@ -828,6 +828,8 @@ def get_files(files, session=None):
     for row in files_query.filter(or_(*file_condition)):
         file = row._asdict()
         rows.append(file)
+        if file['availability'] == DIDAvailability.LOST:
+            raise exception.UnsupportedOperation('File %s:%s is LOST and cannot be attached' % (file['scope'], file['name']))
         # Check meta-data, if provided
         for f in files:
             if f['name'] == file['name'] and f['scope'] == file['scope']:
