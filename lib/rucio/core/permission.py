@@ -332,7 +332,16 @@ def perm_attach_dids_to_dids(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+    else:
+        attachments = kwargs['attachments']
+        scopes = [did['scope'] for did in attachments]
+        scopes = list(set(scopes))
+        for scope in scopes:
+            if not rucio.core.scope.is_scope_owner(scope, issuer):
+                return False
+        return True
 
 
 def perm_create_did_sample(issuer, kwargs):
