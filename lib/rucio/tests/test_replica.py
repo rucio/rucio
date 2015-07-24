@@ -24,11 +24,12 @@ from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get
-from rucio.common.exception import DataIdentifierNotFound, AccessDenied
+from rucio.common.exception import DataIdentifierNotFound, AccessDenied, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter,\
     get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas, touch_replicas, update_replicas_paths, update_replica_state, get_replica_atime
+from rucio.daemons.necromancer import run
 from rucio.rse import rsemanager as rsemgr
 from rucio.web.rest.authentication import app as auth_app
 from rucio.web.rest.replica import app as rep_app
@@ -245,6 +246,7 @@ class TestReplicaClients:
 
     def setup(self):
         self.replica_client = ReplicaClient()
+        self.did_client = DIDClient()
 
     def test_add_list_bad_replicas(self):
         """ REPLICA (CLIENT): Add bad replicas"""
@@ -272,6 +274,15 @@ class TestReplicaClients:
                     if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
                         nbbadrep += 1
         assert_equal(len(replicas), nbbadrep)
+
+        # Run necromancer once
+        run(threads=1, bulk=10000, once=True)
+
+        # Try to attach a lost file
+        tmp_dsn = 'dataset_%s' % generate_uuid()
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn)
+        with assert_raises(UnsupportedOperation):
+            self.did_client.add_files_to_dataset(tmp_scope, name=tmp_dsn, files=files, rse='MOCK')
 
         # Adding replicas to non-deterministic RSE
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb',
