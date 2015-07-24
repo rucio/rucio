@@ -30,7 +30,7 @@ from rucio.db.constants import ReplicaState
 from rucio.common.config import config_get
 from rucio.common.exception import (SourceNotFound, ServiceUnavailable, RSEAccessDenied,
                                     ReplicaUnAvailable, ResourceTemporaryUnavailable,
-                                    DatabaseException)
+                                    DatabaseException, UnsupportedOperation)
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core import rse as rse_core
@@ -275,6 +275,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                         except DatabaseException as error:
                             logging.warning('Reaper %s-%s: DatabaseException %s', worker_number, child_number, str(error))
+                        except UnsupportedOperation as error:
+                            logging.warning('Reaper %s-%s: UnsupportedOperation %s', worker_number, child_number, str(error))
                         except:
                             logging.critical(traceback.format_exc())
 
