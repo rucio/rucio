@@ -1345,11 +1345,11 @@ def list_rse_usage(args):
     print 'USAGE:'
     for usage in usages:
         print '------'
-        skip_free = False
-        if usage['source'] in ['rucio', 'expired', 'obsolete', 'min_free_space']:
-            skip_free = True
+        print_free = False
+        if usage['source'] in ['srm']:
+            print_free = True
         for elem in usage:
-            if not ((elem == 'free' or elem == 'total') and skip_free):
+            if not (elem == 'free' or elem == 'total') or print_free:
                 if elem == 'free' or elem == 'total' or elem == 'used':
                     print '  {0}: {1:.4f} TB'.format(elem, int(usage[elem])/1000000000000.0)
                 else:
