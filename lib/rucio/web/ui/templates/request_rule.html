@@ -16,12 +16,11 @@ $var script: <script src="/static/request_rule.js"></script>
 <div id="main">
   <div class="row">
     <div class="column large-8 medium-6 small-4">
-      <div data-alert class="alert-box secondary radius">
+      <div data-alert id="tour_alert" class="alert-box secondary radius">
         If you are new to this interface you might want to take the <a id="start_tour">tour</a>.
-        <a href="#" class="close">&times;</a>
+        <a href="#" id="tour_alert_close" class="close">&times;</a>
       </div>
-
-      <div data-alert class="alert-box secondary radius">
+      <div data-alert id="jira_alert" class="alert-box secondary radius">
         If you find any errors or have suggestions for improvements for this interface please report it to <a href="https://its.cern.ch/jira/browse/RUCIO" target="_blank">Jira</a>.
         <a href="#" class="close">&times;</a>
       </div>
@@ -209,10 +208,10 @@ $var script: <script src="/static/request_rule.js"></script>
     <h4>Data Identifiers and Scope</h4>
     <text>
       <p>Files, datasets and containers share the same naming convention, which is composed of two strings: the scope and the name, separated by a colon. The combination of scope and name is called a data identifier (DID).</p>
-      <p>The scope is used to devide the name space into several, separate sub space for production and individual users. User scope always start with 'user.' followed by the account name.</p>
-      <p>By default users can read from all scopes but only write into their own one. Only priviliged accounts have the right to write into multiple scopes including production scopes like <text style="font-family:courier">mc15_13TeV<text></p>
+      <p>The scope is used to divide the name space into several, separate sub space for production and individual users. User scope always start with 'user.' followed by the account name.</p>
+      <p>By default users can read from all scopes but only write into their own one. Only privileged accounts have the right to write into multiple scopes including production scopes like <text style="font-family:courier">mc15_13TeV<text></p>
       <p>Examples:</br>
-        <p style="font-family:courier; font-size:100%">Official dataset:</br>data15_13TeV.01234567.physics_Main.merge.DAOD_SUSY.<wbr/>f123_m3456_p7890_tid01234567_00</p>
+        <p style="font-family:courier; font-size:100%">Official dataset:</br>data15_13TeV:data15_13TeV.01234567.<wbr>/physics_Main.merge.DAOD_SUSY.<wbr/>f123_m3456_p7890_tid01234567_00</p>
         <p style="font-family:courier; font-size:100%">User dataset:</br>user.jdoe:my.dataset.1</p>
       </p>
     </text>
@@ -220,7 +219,7 @@ $var script: <script src="/static/request_rule.js"></script>
   <div id="info_rse" class="column large-4 panel">
     <h4>Rucio Storage Elements</h4>
     <text>
-      <p>Rucio Storage Elements (RSEs) are storage endpoints at sites, where data is written to. They can have different types like DATADISK or LOCALGROUPDISK.</p>
+      <p>Rucio Storage Elements (RSEs) are storage endpoints at sites, where data is written to. They can have different types like DATADISK or LOCALGROUPDISK, which are subject to different permissions and policies.</p>
       <p>Accounts in Rucio have quota set per RSEs that specify where one account can write data and how much. A detailed explanation about permissions and quotas in Rucio can be found on this <a href="https://twiki.cern.ch/twiki/bin/viewauth/AtlasComputing/RucioClientsHowTo#Permissions_and_quotas">twiki</a> page.</p>
         <p>RSEs have a set of attributes assigned to them so that they can be grouped in different ways, e.g., all UK RSES or all Tier-1 RSEs. Those attributes can be used to compose RSE expressions. Those RSE expression can be applied if you don't care to have the data replicated to one specific RSE</p>
       <p>Examples:</br>
@@ -233,7 +232,7 @@ $var script: <script src="/static/request_rule.js"></script>
     <h4>Options</h4>
     <text>
       <ol>
-        <li>Grouping: The grouping only works if you use an RSE expression and specifies how the data is spread of the RSEs. ALL means that everything is written to only one RSE that matches the RSE expression. DATASET means that all files in one datasets are written to the same RSE and NONE means that all files can be spread over all possible RSEs.</li>
+        <li>Grouping: The grouping option defines how replicas are distributed, if the RSE Expression covers multiple RSEs. ALL means that all files are written to the same RSE (Picked from the RSE Expression). DATASET means that all files in the same dataset are written to the same RSE. NONE means that all files are spread over all possible RSEs of the RSE Expression (A new one is essential picked for each file).</li>
         <li>Lifetime: The lifetime is specified in days and defines when a rule will be deleted again. For SCRATCHDISK the maximum lifetime is 15 days and for everything else you can choose any number of days or leave it empty to set no lifetime at all.</li>
         <li>Copies: The copies also only work with RSE expression and it defines the number of replicas that should be created.</li>
         <li>Comment: The comment is optional unless you want to ask for approval. Then you have to give a justification here.</li>
