@@ -72,7 +72,7 @@ $def with (token, account, rucio_ui_version, content)
                 <li><a href="/rse_locks">RSE Locks Monitoring</a></li>
                 <li><a href="/rse_usage">Rucio Storage Elements (RSE)</a></li>
                 <li><a href="/account_usage">Account Usage</a></li>
-                <li><a href="/api_usage">API Usage</a></li>
+                <!--<li><a href="/api_usage">API Usage</a></li>-->
                 <li><a href="/rule_backlog_monitor">Rule Backlog Monitor</a></li>
                 <li><a href="/bad_replicas/summary">Bad file replicas Monitor</a></li>
                 <!--<li><a>TBD: Rucio Accounts</a></li>-->
@@ -80,7 +80,7 @@ $def with (token, account, rucio_ui_version, content)
             </li>
 
             <li class="has-dropdown">
-              <a>Rule Requests</a>
+              <a>Data Transfers</a>
               <ul class="dropdown">
                 <li><a id="list_rules_link" href="">My requests</a></li>
                 <li><a id="create_rules_link" href="/request_rule">New request</a></li>
@@ -115,7 +115,7 @@ $def with (token, account, rucio_ui_version, content)
           </ul>
 
           <ul class="right">
-            <li class="has-dropdown">
+            <li id="accountlist" class="has-dropdown">
               <a>Using account: <span id="current_account">[loading]</span></a>
               <ul id="accountselecter" class="dropdown">
               </ul>
