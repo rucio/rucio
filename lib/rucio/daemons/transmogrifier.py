@@ -34,6 +34,7 @@ from rucio.common.config import config_get
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
 from rucio.core import monitor, heartbeat
+from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule import add_rule, list_rules
@@ -184,6 +185,7 @@ def transmogrifier(bulk=5, once=False):
         try:
             results = {}
             start_time = time.time()
+            blacklisted_rse_id = [rse['id'] for rse in list_rses({'availability_write': False})]
             logging.debug('Thread [%i/%i] : In transmogrifier worker' % (heart_beat['assign_thread'],
                                                                          heart_beat['nr_threads']))
             identifiers = []
@@ -261,7 +263,7 @@ def transmogrifier(bulk=5, once=False):
                                         for rse in rses:
                                             rse_id_dict[rse['id']] = rse['rse']
                                         rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
-                                        selected_rses = [rse_id_dict[rse_id] for rse_id, status in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies)]
+                                        selected_rses = [rse_id_dict[rse_id] for rse_id, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=blacklisted_rse_id)]
                                     for attempt in xrange(0, nattempt):
                                         attemptnr = attempt
                                         nb_rule = 0
@@ -379,7 +381,7 @@ def run(threads=1, bulk=100, once=False):
     else:
         logging.info('starting transmogrifier threads')
         thread_list = [threading.Thread(target=transmogrifier, kwargs={'once': once,
-                                                                       'bulk': bulk}) for i in xrange(0, threads)]
+                                                                       'bulk': bulk}) for _ in xrange(0, threads)]
         [t.start() for t in thread_list]
         logging.info('waiting for interrupts')
         # Interruptible joins require a timeout.
