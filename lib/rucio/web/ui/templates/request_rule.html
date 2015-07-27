@@ -151,7 +151,7 @@ $var script: <script src="/static/request_rule.js"></script>
         </div>
         <div class="row">
             <div class="large-5 columns">
-              <label><span data-tooltip aria-haspopup="true" class="has-tip" title="If you select None the files of a DID can spread over multiple RSEs. 'Dataset' makes sure that all files of a dataset are replicated to the same RSE. With 'All' everything will be replicated to the same RSE.">Grouping</span></label>
+              <label>Grouping</label>
               <form id="grouping_form">
               <input type="radio" name="grouping" value="ALL" id="grouping_all">
               <label for="grouping_all">All</label>
@@ -208,10 +208,10 @@ $var script: <script src="/static/request_rule.js"></script>
     <h4>Data Identifiers and Scope</h4>
     <text>
       <p>Files, datasets and containers share the same naming convention, which is composed of two strings: the scope and the name, separated by a colon. The combination of scope and name is called a data identifier (DID).</p>
-      <p>The scope is used to divide the name space into several, separate sub space for production and individual users. User scope always start with 'user.' followed by the account name.</p>
-      <p>By default users can read from all scopes but only write into their own one. Only privileged accounts have the right to write into multiple scopes including production scopes like <text style="font-family:courier">mc15_13TeV<text></p>
+      <p>The scope is used to divide the name space into several, separate sub spaces for production and individual users. User scope always start with 'user.' followed by the account name.</p>
+      <p>By default users can read from all scopes but only write into their own one. Only privileged accounts have the right to write into multiple scopes including production scopes like <text style="font-family:courier">mc15_13TeV<text>.</p>
       <p>Examples:</br>
-        <p style="font-family:courier; font-size:100%">Official dataset:</br>data15_13TeV:data15_13TeV.01234567.<wbr>/physics_Main.merge.DAOD_SUSY.<wbr/>f123_m3456_p7890_tid01234567_00</p>
+        <p style="font-family:courier; font-size:100%">Official dataset:</br>data15_13TeV:data15_13TeV.01234567.<wbr>physics_Main.merge.DAOD_SUSY.<wbr/>f123_m3456_p7890_tid01234567_00</p>
         <p style="font-family:courier; font-size:100%">User dataset:</br>user.jdoe:my.dataset.1</p>
       </p>
     </text>
@@ -221,7 +221,7 @@ $var script: <script src="/static/request_rule.js"></script>
     <text>
       <p>Rucio Storage Elements (RSEs) are storage endpoints at sites, where data is written to. They can have different types like DATADISK or LOCALGROUPDISK, which are subject to different permissions and policies.</p>
       <p>Accounts in Rucio have quota set per RSEs that specify where one account can write data and how much. A detailed explanation about permissions and quotas in Rucio can be found on this <a href="https://twiki.cern.ch/twiki/bin/viewauth/AtlasComputing/RucioClientsHowTo#Permissions_and_quotas">twiki</a> page.</p>
-        <p>RSEs have a set of attributes assigned to them so that they can be grouped in different ways, e.g., all UK RSES or all Tier-1 RSEs. Those attributes can be used to compose RSE expressions. Those RSE expression can be applied if you don't care to have the data replicated to one specific RSE</p>
+        <p>RSEs have a set of attributes assigned to them so that they can be grouped in different ways, e.g., all UK RSEs or all Tier-1 RSEs. Those attributes can be used to compose RSE expressions, which can be applied if you don't explicitly want to have the data replicated to one specific RSE.</p>
       <p>Examples:</br>
         <p>Replicate to any LOCALGROUPDISK in the US cloud:<br/><text style="font-family:courier; font-size:100%">cloud=US&type=LOCALGROUPDISK</text></p>
         <p>Replicate to any Tier-1 SCRATCHDISK but not RAL-LCG2:<br/><text style="font-family:courier; font-size:100%">tier=1&type=SCRATCHDISK\site=RAL-LCG2</text></p>
@@ -242,7 +242,7 @@ $var script: <script src="/static/request_rule.js"></script>
 </div>
   <ol class="joyride-list" data-joyride data-options>
     <li data-id="accountlist" data-text="Next" data-options="tip_location: left; prev_button: false">
-      <p>First, please make sure you selected the correct account for your activity.</p>
+      <p>First, please make sure you selected the correct account for your activity. Some endpoints require special accounts to be able write to them. More about this can be found at the <a href="https://twiki.cern.ch/twiki/bin/viewauth/AtlasComputing/RucioClientsHowTo#Rucio_UI">twiki</a>.</p>
     </li>
     <li data-id="did_title" data-class="custom so-awesome" data-text="Next" data-prev-text="Prev">
       <h4>DIDs</h4>
@@ -266,9 +266,9 @@ $var script: <script src="/static/request_rule.js"></script>
     </li>
     <li data-id="options_title" data-class="custom so-awesome" data-text="Next" data-prev-text="Prev">
       <h4>Options</h4>
-      <p>Then you can to select the some options for the new rules.</p>
+      <p>Next, you can select some options for the new rules.</p>
     </li>
-    <li data-id="options_continue" data-class="custom so-awesome" data-text="Next" data-prev-text="Prev">
+    <li data-id="options_continue" data-class="custom so-awesome" data-text="Finish" data-prev-text="Prev">
       <h4>Continue to summary</h4>
       <p>The last step will bring you to the summary page with an overview of all the dids and their size and the selected RSEs and options for a last check before you create the new rule.</p>
     </li>
