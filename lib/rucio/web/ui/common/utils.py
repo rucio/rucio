@@ -54,7 +54,7 @@ def check_token(rendered_tpl):
 
     render = template.render(join(dirname(__file__), '../templates'))
     if ctx.env.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
-        return render.problem("No certificate provided. Please authenticate with a cerficate registered in Rucio.")
+        return render.problem("No certificate provided. Please authenticate with a certificate registered in Rucio.")
 
     dn = ctx.env.get('SSL_CLIENT_S_DN')
 
