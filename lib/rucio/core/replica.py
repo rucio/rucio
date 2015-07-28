@@ -211,7 +211,7 @@ def update_bad_replicas_history(dids, rse_id, session=None):
                 query.update({'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
         else:
             # If no, check if the did still exists
-            query = session.query(models.DataIdentifier.state).filter_by(scope=did['scope'], name=did['name'], did_type=DIDType.FILE)
+            query = session.query(models.DataIdentifier.availability).filter_by(scope=did['scope'], name=did['name'], did_type=DIDType.FILE)
             if not query.count():
                 # If no, the replica is marked as LOST in BadFilesStatus
                 query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
@@ -219,16 +219,17 @@ def update_bad_replicas_history(dids, rse_id, session=None):
             else:
                 # If yes, the state depends on DIDAvailability
                 result = query.first()
-                state = result.state
+                state = result.availability
                 final_state = None
                 if state == DIDAvailability.LOST:
                     final_state = BadFilesStatus.LOST
                 elif state == DIDAvailability.DELETED:
                     final_state = BadFilesStatus.DELETED
-                elif state == BadFilesStatus.AVAILABLE:
+                elif state == DIDAvailability.AVAILABLE:
                     final_state = BadFilesStatus.DELETED
                 else:
                     # For completness, it shouldn't happen.
+                    final_state = BadFilesStatus.DELETED
                     print 'Houston we have a problem.'
                 query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
                 query.update({'state': final_state, 'updated_at': datetime.utcnow()}, synchronize_session=False)
