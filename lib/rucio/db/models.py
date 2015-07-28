@@ -737,7 +737,7 @@ class ReplicationRuleHistory(BASE, ModelBase):
     ignore_account_limit = Column(Boolean())
     comments = Column(String(255))
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
-                   Index('RULES_HIST_SCOPE_NAME_IDX', 'scope', 'name'))
+                   Index('RULES_HISTORY_SCOPENAME_IDX', 'scope', 'name'))
 
 
 class ReplicaLock(BASE, ModelBase):
