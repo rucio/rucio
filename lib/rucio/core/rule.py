@@ -1288,12 +1288,22 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
     for lock in locks:
         nlock += 1
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == lock.rule_id).with_for_update(nowait=nowait).one()
+        # If source replica expression exists, we remove it
+        if rule.source_replica_expression:
+            rule.source_replica_expression = None
+        # Get the affected datasets
         ds_scope = rule.scope
         ds_name = rule.name
         dataset = '%s:%s' % (ds_scope, ds_name)
         if dataset not in datasets:
             datasets.append(dataset)
             logging.info('Recovering file %s:%s from dataset %s:%s at site %s' % (scope, name, ds_scope, ds_name, rse))
+        # Insert a new row in the UpdateCollectionReplica table
+        models.UpdatedCollectionReplica(scope=ds_scope,
+                                        name=ds_name,
+                                        did_type=rule.did_type,
+                                        rse_id=lock.rse_id).save(flush=False, session=session)
+        # Set the lock counters
         if lock.state == LockState.OK:
             rule.locks_ok_cnt -= 1
         elif lock.state == LockState.REPLICATING:
@@ -1301,6 +1311,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         elif lock.state == LockState.STUCK:
             rule.locks_stuck_cnt -= 1
         rule.locks_replicating_cnt += 1
+        # Generate the request
         try:
             get_request_by_did(scope, name, rse, session=session)
         except RequestNotFound:
