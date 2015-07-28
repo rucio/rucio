@@ -875,6 +875,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             transfers[id]['bring_online'] = bring_online_local
                             transfer_src_type = "TAPE"
                             transfers[id]['file_metadata']['src_type'] = transfer_src_type
+                            transfers[id]['file_metadata']['src_rse'] = rse
                     else:
                         # the sources already founded is Tape too.
                         # multiple Tape source replicas are not allowed in FTS3.
@@ -883,6 +884,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         else:
                             transfers[id]['sources'] = []
                             transfers[id]['bring_online'] = bring_online_local
+                            transfers[id]['file_metadata']['src_rse'] = rse
                 else:
                     # current src_rse is Disk
                     if transfers[id]['bring_online']:
@@ -904,6 +906,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             transfers[id]['bring_online'] = None
                             transfer_src_type = "DISK"
                             transfers[id]['file_metadata']['src_type'] = transfer_src_type
+                            transfers[id]['file_metadata']['src_rse'] = rse
                         else:
                             continue
 
@@ -1155,6 +1158,8 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
     for request_id in transfers:
         sources = transfers[request_id]['sources']
         sources = sort_ranking(sources)
+        sources = sort_sources(sources, transfers[request_id]['file_metadata']['dst_rse'])
+        transfers[request_id]['file_metadata']['src_rse'] = sources[0][0]
         if len(sources) > max_sources:
             sources = sources[:max_sources]
         if not mock:
