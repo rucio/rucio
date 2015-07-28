@@ -24,8 +24,8 @@ from alembic import op
 
 
 def upgrade():
-    op.create_index('RULES_HIST_SCOPE_NAME_IDX', 'rules_history', ['scope', 'name'])
+    op.create_index('RULES_HISTORY_SCOPENAME_IDX', 'rules_history', ['scope', 'name'])
 
 
 def downgrade():
-    op.drop_index('RULES_HIST_SCOPE_NAME_IDX', 'rules_history')
+    op.drop_index('RULES_HISTORY_SCOPENAME_IDX', 'rules_history')
