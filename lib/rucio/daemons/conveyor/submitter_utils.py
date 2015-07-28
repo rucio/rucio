@@ -21,6 +21,9 @@ import random
 import time
 import traceback
 
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
+
 from rucio.common.closeness_sorter import sort_sources
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, InvalidRSEExpression, InvalidRequest
 from rucio.common.rse_attributes import get_rse_attributes
@@ -31,6 +34,11 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import DIDType, RequestType, RequestState, RSEType
 from rucio.db.session import read_session
 from rucio.rse import rsemanager as rsemgr
+
+
+REGION_SHORT = make_region().configure('dogpile.cache.memcached',
+                                       expiration_time=600,
+                                       arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
 
 
 def get_rses(rses=None, include_rses=None, exclude_rses=None):
@@ -607,11 +615,30 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
 
 
 @read_session
+def get_unavailable_read_rse_ids(session=None):
+    key = 'unavailable_read_rse_ids'
+    result = REGION_SHORT.get(key)
+    if type(result) is NoValue:
+        try:
+            logging.debug("Refresh unavailable read rses")
+            unavailable_read_rses = rse_core.list_rses(filters={'availability_read': False}, session=session)
+            unavailable_read_rse_ids = [r['id'] for r in unavailable_read_rses]
+            REGION_SHORT.set(key, unavailable_read_rse_ids)
+            return unavailable_read_rse_ids
+        except:
+            logging.warning("Failed to refresh unavailable read rses, error: %s" % (traceback.format_exc()))
+            return []
+    return result
+
+
+@read_session
 def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
                                               limit=None, activity=None, older_than=None, rses=None, schemes=None,
                                               bring_online=43200, retry_other_fts=False, session=None):
     req_sources = request.list_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                      limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
+
+    unavailable_read_rse_ids = get_unavailable_read_rse_ids(session=session)
 
     bring_online_local = bring_online
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], []
@@ -636,6 +663,9 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     continue
                 if ranking is None:
                     ranking = link_ranking
+
+                if source_rse_id in unavailable_read_rse_ids:
+                    continue
 
                 # Get destination rse information and protocol
                 if dest_rse_id not in rses_info:
@@ -811,6 +841,9 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     continue
                 if ranking is None:
                     ranking = link_ranking
+
+                if source_rse_id in unavailable_read_rse_ids:
+                    continue
 
                 # Compute the sources: urls, etc
                 if source_rse_id not in rses_info:
