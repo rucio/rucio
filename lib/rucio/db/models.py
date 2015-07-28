@@ -853,6 +853,7 @@ class Request(BASE, ModelBase, Versioned):
     dest_url = Column(String(2048))
     submitted_at = Column(DateTime)
     transferred_at = Column(DateTime)
+    submitter_id = Column(Integer)
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
@@ -875,6 +876,7 @@ class Source(BASE, ModelBase):
     url = Column(String(2048))
     bytes = Column(BigInteger)
     ranking = Column(Integer())
+    is_using = Column(Boolean(), default=False)
     _table_args = (PrimaryKeyConstraint('request_id', 'rse_id', 'scope', 'name', name='SOURCES_PK'),
                    ForeignKeyConstraint(['request_id'], ['requests.id'], name='SOURCES_REQ_ID_FK'),
                    ForeignKeyConstraint(['scope', 'name', 'rse_id'], ['replicas.scope', 'replicas.name', 'replicas.rse_id'], name='SOURCES_REPLICA_FK'),
