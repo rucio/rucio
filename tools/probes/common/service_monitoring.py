@@ -75,7 +75,9 @@ for service in services:
     xml_str = '<serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">'
     xml_str += '<id>%s</id>' % service['id']
     xml_str += '<availability>%s</availability>' % availability
-    xml_str += '<availabilityinfo>%s</availabilityinfo>' % service['availability']['info']
+    xml_str += '<availabilitydesc>%s</availabilitydesc>' % service['availability']['info']
+    xml_str += '<webpage>' + service['webpage'] + '</webpage>'
+    xml_str += '<contact>rucio-admin@cern.ch</contact>'
     xml_str += '<timestamp>%s</timestamp>' % (datetime.datetime.now().isoformat().split('.')[0])
     xml_str += '<data><numericvalue name="xsls_availability">%s</numericvalue>' % availability
     for metric in data:
