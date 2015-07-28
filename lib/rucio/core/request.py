@@ -1204,7 +1204,8 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
                           models.RSEFileAssociation.path,
                           sub_requests.c.retry_count,
                           models.Source.url,
-                          models.Source.ranking)\
+                          models.Source.ranking,
+                          models.Distance.ranking)\
         .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
                                                    sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
@@ -1214,7 +1215,10 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
                                     models.RSE.staging_area == is_false))\
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
                                        models.RSE.id == models.Source.rse_id))\
-        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')
+        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')\
+        .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
+                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id))\
+        .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
 
     if rses:
         result = []
