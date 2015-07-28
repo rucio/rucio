@@ -30,6 +30,7 @@ import time
 import traceback
 
 from email.mime.text import MIMEText
+from sqlalchemy.orm.exc import NoResultFound
 
 import dns.resolver
 import stomp
@@ -230,6 +231,9 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
                 if once:
                     break
 
+        except NoResultFound:
+            # silence this error: https://its.cern.ch/jira/browse/RUCIO-1699
+            pass
         except:
             logging.critical(traceback.format_exc())
 
