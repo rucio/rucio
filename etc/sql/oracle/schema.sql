@@ -1474,6 +1474,9 @@ CREATE INDEX ATLAS_RUCIO.RULES_HIST_RECENT_SC_NA_IDX ON ATLAS_RUCIO.rules_hist_r
 COMMENT ON TABLE ATLAS_RUCIO.rules_hist_recent IS 'Recent history table (1 month) for rules';
 COMMENT ON COLUMN ATLAS_RUCIO.rules_hist_recent.history_id IS 'Fake id necessary for sqlalchemy';
 
+ALTER TABLE ATLAS_RUCIO.rules_hist_recent ADD ignore_account_limit NUMBER(1);
+
+
 -- ========================================= RULES_HISTORY ==============================================
 -- Description: Table of longterm rules (deleted)
 -- Estimated volume:  ?
@@ -1522,6 +1525,7 @@ COMMENT ON TABLE ATLAS_RUCIO.rules_history IS 'Full history table for rules';
 COMMENT ON COLUMN ATLAS_RUCIO.rules_history.history_id IS 'Fake id necessary for sqlalchemy';
 
 
+ALTER TABLE ATLAS_RUCIO.rules_history ADD ignore_account_limit NUMBER(1);
 
 -- ========================================= BAD_REPLICAS ==============================================
 -- Description: Table that stores the bad files
