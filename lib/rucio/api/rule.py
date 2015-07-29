@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
@@ -101,6 +101,16 @@ def list_replication_rule_history(rule_id):
     :param rule_id: The rule_id to list.
     """
     return rule.list_rule_history(rule_id)
+
+
+def list_replication_rule_full_history(scope, name):
+    """
+    List the rule history of a DID.
+
+    :param scope: The scope of the DID.
+    :param name: The name of the DID.
+    """
+    return rule.list_rule_full_history(scope, name)
 
 
 def list_associated_replication_rules_for_file(scope, name):

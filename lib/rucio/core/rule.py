@@ -548,6 +548,33 @@ def list_rule_history(rule_id, session=None):
 
 
 @stream_session
+def list_rule_full_history(scope, name, session=None):
+    """
+    List the rule history of a DID.
+
+    :param scope: The scope of the DID.
+    :param name: The name of the DID.
+    :param session: The database session in use.
+    :raises:        RucioException
+    """
+
+    query = session.query(models.ReplicationRuleHistory.id,
+                          models.ReplicationRuleHistory.created_at,
+                          models.ReplicationRuleHistory.updated_at,
+                          models.ReplicationRuleHistory.rse_expression,
+                          models.ReplicationRuleHistory.state,
+                          models.ReplicationRuleHistory.locks_ok_cnt,
+                          models.ReplicationRuleHistory.locks_stuck_cnt,
+                          models.ReplicationRuleHistory.locks_replicating_cnt).\
+        with_hint(models.ReplicationRuleHistory, "INDEX(RULES_HISTORY_SCOPENAME_IDX)", 'oracle').\
+        filter(models.ReplicationRuleHistory.scope == scope, models.ReplicationRuleHistory.name == name).\
+        order_by(models.ReplicationRuleHistory.created_at)
+
+    for rule in query.yield_per(5):
+        yield {'rule_id': rule[0], 'created_at': rule[1], 'updated_at': rule[2], 'rse_expression': rule[3], 'state': rule[4], 'locks_ok_cnt': rule[5], 'locks_stuck_cnt': rule[6], 'locks_replicating_cnt': rule[7]}
+
+
+@stream_session
 def list_associated_rules_for_file(scope, name, session=None):
     """
     List replication rules a file is affected from.
