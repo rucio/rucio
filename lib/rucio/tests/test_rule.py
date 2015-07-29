@@ -9,12 +9,13 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 import string
 import random
 import json
 
-from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_raises
+from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_raises, assert_equal
 
 import rucio.api.rule
 
@@ -769,7 +770,7 @@ class TestReplicationRuleClient():
         self.lock_client = LockClient()
 
     def test_add_rule(self):
-        """ REPLICATION RULE (CLIENT): Add a replication rule """
+        """ REPLICATION RULE (CLIENT): Add a replication rule and list full history """
         scope = 'mock'
         files = create_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
@@ -778,6 +779,10 @@ class TestReplicationRuleClient():
 
         ret = self.rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
         assert_is_instance(ret, list)
+
+        rep_rules = [rep_rule for rep_rule in self.rule_client.list_replication_rule_full_history(scope, dataset)]
+        assert_equal(len(rep_rules), 1)
+        assert_equal(ret[0], rep_rules[0]['rule_id'])
 
     def test_delete_rule(self):
         """ REPLICATION RULE (CLIENT): Delete a replication rule """
