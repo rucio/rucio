@@ -50,6 +50,11 @@ for service in services:
             continue
         logger.debug(r.json())
         value = r.json()[0]['datapoints'][-1][0]
+        if value is None:  # Happens occasionally
+            try:
+                value = r.json()[0]['datapoints'][-2][0]
+            except:
+                pass
         if 'mapping' in service['availability'] and service['availability']['mapping'] != '':
             mapping = service['availability']['mapping'].replace('{value}', str(value))
             logger.debug('Availability mapping function: %s' % (mapping))
@@ -57,17 +62,24 @@ for service in services:
                 availability = eval(mapping)
             except:
                 logger.error('Failed to derive availability.\nURL: %s\nMapping: %s\nDatapoints: %s' % (url, mapping, r.json()))
+                logger.error(sys.exc_info()[0])
         else:
             availability = value
-        logger.debug('Availability: %s' % (availability))
+        logger.debug('Availability of %s: %s' % (service['id'], availability))
+
+        if (availability != 100):    # For a week or so, we print if not 100 and set report 100 to SLS
+            print 'Availability of %s: %s (value: %s)' % (service['id'], availability, value)
+            availability = 100
 
     # Creating XML report
     xml_str = '<serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">'
     xml_str += '<id>%s</id>' % service['id']
     xml_str += '<availability>%s</availability>' % availability
-    xml_str += '<availabilityinfo>%s</availabilityinfo>' % service['availability']['info']
+    xml_str += '<availabilitydesc>%s</availabilitydesc>' % service['availability']['info']
+    xml_str += '<webpage>' + service['webpage'] + '</webpage>'
+    xml_str += '<contact>rucio-admin@cern.ch</contact>'
     xml_str += '<timestamp>%s</timestamp>' % (datetime.datetime.now().isoformat().split('.')[0])
-    xml_str += '<data>'
+    xml_str += '<data><numericvalue name="xsls_availability">%s</numericvalue>' % availability
     for metric in data:
         xml_str += '<numericvalue name="%s" desc="%s">%s</numericvalue>' % (metric, data[metric]['desc'], data[metric]['value'])
     xml_str += '</data>'
