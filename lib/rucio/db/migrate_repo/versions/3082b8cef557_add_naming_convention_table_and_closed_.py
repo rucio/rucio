@@ -33,10 +33,13 @@ def upgrade():
                         sa.Column('convention_type', sa.String(1)),
                         sa.Column('updated_at', sa.DateTime),
                         sa.Column('created_at', sa.DateTime))
-        op.create_primary_key('NAMING_CONVENTIONS_PK', 'dids', ['scope'])
-        op.create_foreign_key('NAMING_CONVENTIONS_SCOPE_FK', 'dids', 'scopes', ['scope'], ['scope'])
-        op.create_check_constraint('NAMING_CONVENTIONS_CREATED_NN', 'naming_conventions', 'created_at is not null')
-        op.create_check_constraint('NAMING_CONVENTIONS_UPDATED_NN', 'naming_conventions', 'updated_at is not null')
+        op.create_primary_key('NAMING_CONVENTIONS_PK', 'naming_conventions', ['scope'])
+        op.create_foreign_key('NAMING_CONVENTIONS_SCOPE_FK', 'naming_conventions',
+                              'scopes', ['scope'], ['scope'])
+        op.create_check_constraint('NAMING_CONVENTIONS_CREATED_NN', 'naming_conventions',
+                                   'created_at is not null')
+        op.create_check_constraint('NAMING_CONVENTIONS_UPDATED_NN', 'naming_conventions',
+                                   'updated_at is not null')
 
 
 def downgrade():
