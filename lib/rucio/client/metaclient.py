@@ -50,7 +50,7 @@ class MetaClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_keys(self):
@@ -66,7 +66,7 @@ class MetaClient(BaseClient):
             keys = loads(r.text)
             return keys
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_values(self, key):
@@ -82,7 +82,7 @@ class MetaClient(BaseClient):
             values = loads(r.text)
             return values
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def add_value(self, key, value):
@@ -103,7 +103,7 @@ class MetaClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def del_value(self, key, value):

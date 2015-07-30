@@ -56,7 +56,7 @@ class DIDClient(BaseClient):
             dids = self._load_json_data(r)
             return dids
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def add_did(self, scope, name, type, statuses=None, meta=None, rules=None, lifetime=None, dids=None, rse=None):
@@ -93,7 +93,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def add_dids(self, dids):
@@ -106,7 +106,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def add_dataset(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None, files=None, rse=None):
@@ -173,7 +173,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def detach_dids(self, scope, name, dids):
@@ -191,7 +191,7 @@ class DIDClient(BaseClient):
         r = self._send_request(url, type='DEL', data=render_json(**data))
         if r.status_code == codes.ok:
             return True
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def attach_dids_to_dids(self, attachments, ignore_duplicate=False):
@@ -211,7 +211,7 @@ class DIDClient(BaseClient):
         if r.status_code in (codes.ok, codes.no_content, codes.created):
             return True
 
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def add_files_to_datasets(self, attachments, ignore_duplicate=False):
@@ -294,7 +294,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_files(self, scope, name, long=None):
@@ -316,7 +316,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def get_did(self, scope, name):
@@ -333,7 +333,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def get_metadata(self, scope, name):
@@ -350,7 +350,7 @@ class DIDClient(BaseClient):
             meta = self._load_json_data(r)
             return meta.next()
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def set_metadata(self, scope, name, key, value):
@@ -369,7 +369,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def set_status(self, scope, name, **kwargs):
@@ -387,7 +387,7 @@ class DIDClient(BaseClient):
         if r.status_code in (codes.ok, codes.no_content, codes.created):
             return True
 
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def close(self, scope, name):
@@ -414,7 +414,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_did_rules(self, scope, name):
@@ -431,7 +431,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_associated_rules_for_file(self, scope, name):
@@ -448,7 +448,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def get_dataset_by_guid(self, guid):
@@ -464,7 +464,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def scope_list(self, scope, name=None, recursive=False):
@@ -488,7 +488,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_parent_dids(self, scope, name):
@@ -506,7 +506,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def create_did_sample(self, input_scope, input_name, output_scope, output_name, nbfiles):
@@ -528,5 +528,5 @@ class DIDClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
