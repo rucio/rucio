@@ -1192,23 +1192,23 @@ def delete_rule(args):
     """
     client = get_client(args)
     try:
-       # Test if the rule_id is a real rule_id
-       uuid.UUID(args.rule_id)
-       client.delete_replication_rule(rule_id=args.rule_id, purge_replicas=args.purge_replicas)
+        # Test if the rule_id is a real rule_id
+        uuid.UUID(args.rule_id)
+        client.delete_replication_rule(rule_id=args.rule_id, purge_replicas=args.purge_replicas)
     except ValueError:
-       # Otherwise, trying to extract the scope, name from args.rule_id
-       if not args.rse_expression:
-           logger.error('A RSE expression must be specified if you do not provide a rule_id but a DID')
-           return FAILURE
-       scope, name = extract_scope(args.rule_id)
-       rules = client.list_did_rules(scope=scope, name=name)
-       if args.account is None:
-           account = client.account
-       else:
-           account = args.account
-       for rule in rules:
-           if rule['rse_expression'] == args.rse_expression and rule['account'] == account:
-               client.delete_replication_rule(rule_id=rule['id'], purge_replicas=args.purge_replicas)
+        # Otherwise, trying to extract the scope, name from args.rule_id
+        if not args.rse_expression:
+            logger.error('A RSE expression must be specified if you do not provide a rule_id but a DID')
+            return FAILURE
+        scope, name = extract_scope(args.rule_id)
+        rules = client.list_did_rules(scope=scope, name=name)
+        if args.account is None:
+            account = client.account
+        else:
+            account = args.account
+        for rule in rules:
+            if rule['rse_expression'] == args.rse_expression and rule['account'] == account:
+                client.delete_replication_rule(rule_id=rule['id'], purge_replicas=args.purge_replicas)
     return SUCCESS
 
 
