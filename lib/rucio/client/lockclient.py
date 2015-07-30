@@ -7,6 +7,7 @@
   Authors:
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 '''
 
 from requests.status_codes import codes

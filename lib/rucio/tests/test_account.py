@@ -100,7 +100,7 @@ class TestAccountRestApi():
         ret = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
 
         assert_equal(ret.header('ExceptionClass'), 'ValueError')
-        assert_equal(ret.normal_body, 'ValueError: cannot decode json parameter dictionary')
+        assert_equal(ret.normal_body, '{"ExceptionMessage": "cannot decode json parameter dictionary", "ExceptionClass": "ValueError"}')
         assert_equal(ret.status, 400)
 
     def test_create_user_missing_parameter(self):
@@ -116,7 +116,7 @@ class TestAccountRestApi():
         ret = TestApp(account_app.wsgifunc(*mw)).post('/account', headers=headers, params=data, expect_errors=True)
 
         assert_equal(ret.header('ExceptionClass'), 'KeyError')
-        assert_equal(ret.normal_body, "KeyError: \'type\' not defined")
+        assert_equal(ret.normal_body, '{"ExceptionMessage": "\'type\' not defined", "ExceptionClass": "KeyError"}')
         assert_equal(ret.status, 400)
 
     def test_create_user_not_json_dict(self):
@@ -132,7 +132,7 @@ class TestAccountRestApi():
         r = TestApp(account_app.wsgifunc(*mw)).post('/testaccount', headers=headers, params=data, expect_errors=True)
 
         assert_equal(r.header('ExceptionClass'), 'TypeError')
-        assert_equal(r.normal_body, "TypeError: body must be a json dictionary")
+        assert_equal(r.normal_body, '{"ExceptionMessage": "body must be a json dictionary", "ExceptionClass": "TypeError"}')
         assert_equal(r.status, 400)
 
     def test_get_user_success(self):

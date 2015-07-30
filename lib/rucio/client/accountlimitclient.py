@@ -9,6 +9,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 
 from json import dumps
 from requests.status_codes import codes
@@ -46,7 +47,7 @@ class AccountLimitClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def delete_account_limit(self, account, rse):
@@ -68,5 +69,5 @@ class AccountLimitClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
