@@ -41,6 +41,8 @@ def should_retry_request(req):
     """
     if req['state'] == RequestState.SUBMITTING:
         return True
+    if req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
+        return False
     # hardcoded for now - only requeue a couple of times
     if req['retry_count'] is None or req['retry_count'] < 3:
         return True
@@ -845,7 +847,7 @@ def touch_requests_by_rule(rule_id, session=None):
     try:
         session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_RULEID_IDX)", 'oracle')\
                                      .filter_by(rule_id=rule_id)\
-                                     .filter(models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST]))\
+                                     .filter(models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]))\
                                      .filter(models.Request.updated_at < datetime.datetime.utcnow())\
                                      .update({'updated_at': datetime.datetime.utcnow() + datetime.timedelta(minutes=20)}, synchronize_session=False)
     except IntegrityError, e:
