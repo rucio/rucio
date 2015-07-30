@@ -26,7 +26,7 @@ import sqlalchemy as sa
 def upgrade():
     if context.get_context().dialect.name != 'sqlite':
         op.add_column('dids', sa.Column('closed_at', sa.DateTime))
-        op.add_column('deleted_dids', sa.Column('deleted_at', sa.DateTime))
+        op.add_column('contents_history', sa.Column('deleted_at', sa.DateTime))
         op.create_table('naming_conventions',
                         sa.Column('scope', sa.String(25)),
                         sa.Column('regexp', sa.String(255)),
@@ -42,4 +42,5 @@ def upgrade():
 def downgrade():
     if context.get_context().dialect.name != 'sqlite':
         op.drop_column('dids', 'closed_at')
+        op.drop_column('contents_history', 'deleted_at')
         op.drop_table('naming_conventions')
