@@ -51,7 +51,7 @@ class ConfigClient(BaseClient):
         if r.status_code == codes.ok:
             return r.json()
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def set_config_option(self, section, option, value):
@@ -71,7 +71,7 @@ class ConfigClient(BaseClient):
         if r.status_code != codes.ok:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def delete_config_option(self, section, option):
@@ -91,5 +91,5 @@ class ConfigClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)

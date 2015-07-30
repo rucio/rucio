@@ -40,7 +40,7 @@ class ReplicaClient(BaseClient):
         r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
         if r.status_code == codes.created:
             return loads(r.text)
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def declare_suspicious_file_replicas(self, pfns, reason):
@@ -56,7 +56,7 @@ class ReplicaClient(BaseClient):
         r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
         if r.status_code == codes.created:
             return loads(r.text)
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def get_did_from_pfns(self, pfns, rse=None):
@@ -73,7 +73,7 @@ class ReplicaClient(BaseClient):
         r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
         if r.status_code == codes.ok:
             return self._load_json_data(r)
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def list_replicas(self, dids, schemes=None, unavailable=False, all_states=False, metalink=None):
@@ -109,7 +109,7 @@ class ReplicaClient(BaseClient):
             if not metalink:
                 return self._load_json_data(r)
             return r.text
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def add_replica(self, rse, scope, name, bytes, adler32, pfn=None, md5=None, meta={}):
@@ -151,7 +151,7 @@ class ReplicaClient(BaseClient):
         r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return True
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def delete_replicas(self, rse, files, ignore_availability=True):
@@ -170,7 +170,7 @@ class ReplicaClient(BaseClient):
         r = self._send_request(url, type='DEL', data=render_json(**data))
         if r.status_code == codes.ok:
             return True
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def update_replicas_states(self, rse, files):
@@ -188,7 +188,7 @@ class ReplicaClient(BaseClient):
         r = self._send_request(url, type='PUT', data=render_json(**data))
         if r.status_code == codes.ok:
             return True
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def list_dataset_replicas(self, scope, name):
@@ -203,7 +203,7 @@ class ReplicaClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
 
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def list_datasets_per_rse(self, rse, filters=None, limit=None):
@@ -221,5 +221,5 @@ class ReplicaClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
 
-        exc_cls, exc_msg = exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
