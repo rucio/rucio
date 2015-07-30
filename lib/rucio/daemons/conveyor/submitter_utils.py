@@ -817,7 +817,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 transfers[id] = {'request_id': id,
                                  'schemes': src_schemes,
                                  # 'src_urls': [source_url],
-                                 'sources': [(rse, source_url, source_rse_id, ranking)],
+                                 'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0)],
                                  'dest_urls': [dest_url],
                                  'src_spacetoken': None,
                                  'dest_spacetoken': dest_spacetoken,
@@ -851,6 +851,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     source_rse = rse
                     rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
 
+                if ranking is None:
+                    ranking = 0
                 # TAPE should not mixed with Disk and should not use as first try
                 # If there is a source whose ranking is more than 0, Tape will not be used.
                 if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
