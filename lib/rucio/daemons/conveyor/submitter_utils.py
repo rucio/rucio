@@ -641,10 +641,11 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
     unavailable_read_rse_ids = get_unavailable_read_rse_ids(session=session)
 
     bring_online_local = bring_online
-    transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], []
+    transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], [], []
     for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
         transfer_src_type = "DISK"
         transfer_dst_type = "DISK"
+        allow_tape_source = True
         try:
             if rses and dest_rse_id not in rses:
                 continue
@@ -682,7 +683,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         attr = json.loads(str(attributes))
 
                 # parse source expression
-                source_replica_expression = attr["source_replica_expression"] if "source_replica_expression" in attr else None
+                source_replica_expression = attr["source_replica_expression"] if (attr and "source_replica_expression" in attr) else None
                 if source_replica_expression:
                     try:
                         parsed_rses = parse_expression(source_replica_expression, session=session)
@@ -693,6 +694,9 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         allowed_rses = [x['rse'] for x in parsed_rses]
                         if rse not in allowed_rses:
                             continue
+
+                # parse allow tape source expression, not finally version.
+                allow_tape_source = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
 
                 # Get protocol
                 if dest_rse_id not in protocols:
@@ -778,6 +782,13 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
                     bring_online = bring_online_local
                     transfer_src_type = "TAPE"
+                    if not allow_tape_source:
+                        if id not in reqs_only_tape_source:
+                            reqs_only_tape_source.append(id)
+                        if id in reqs_no_source:
+                            reqs_no_source.remove(id)
+                        continue
+
                 if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
                     overwrite = False
                     transfer_dst_type = "TAPE"
@@ -797,6 +808,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
                 if id in reqs_no_source:
                     reqs_no_source.remove(id)
+                if id in reqs_only_tape_source:
+                    reqs_only_tape_source.remove(id)
 
                 file_metadata = {'request_id': id,
                                  'scope': scope,
@@ -845,6 +858,29 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id in unavailable_read_rse_ids:
                     continue
 
+                attr = None
+                if attributes:
+                    if type(attributes) is dict:
+                        attr = json.loads(json.dumps(attributes))
+                    else:
+                        attr = json.loads(str(attributes))
+
+                # parse source expression
+                source_replica_expression = attr["source_replica_expression"] if (attr and "source_replica_expression" in attr) else None
+                if source_replica_expression:
+                    try:
+                        parsed_rses = parse_expression(source_replica_expression, session=session)
+                    except InvalidRSEExpression, e:
+                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, e))
+                        continue
+                    else:
+                        allowed_rses = [x['rse'] for x in parsed_rses]
+                        if rse not in allowed_rses:
+                            continue
+
+                # parse allow tape source expression, not finally version.
+                allow_tape_source = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
+
                 # Compute the sources: urls, etc
                 if source_rse_id not in rses_info:
                     # source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
@@ -857,6 +893,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # If there is a source whose ranking is more than 0, Tape will not be used.
                 if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
                     # current src_rse is Tape
+                    if not allow_tape_source:
+                        continue
                     if not transfers[id]['bring_online']:
                         # the sources already founded are disks.
 
@@ -931,7 +969,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
             logging.error("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
             break
 
-    return transfers, reqs_no_source, reqs_scheme_mismatch
+    return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
 
 @read_session
@@ -1151,10 +1189,11 @@ def sort_ranking(sources):
 
 def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None,
                            limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200, retry_other_fts=False, session=None):
-    transfers, reqs_no_source, reqs_scheme_mismatch = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                                                limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes,
-                                                                                                bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
-    request.set_requests_state(reqs_no_source, RequestState.LOST)
+    transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
+                                                                                                                       limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes,
+                                                                                                                       bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
+    request.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
+    request.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES)
     transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch)
 
     for request_id in transfers:
@@ -1251,9 +1290,8 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
                 logging.info("%s" % (log_str))
             else:
-                # here the state should be submission failure. Will be updated after schema changed.
-                xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None}
-                log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTING, None)
+                xfers_ret[request_id] = {'state': RequestState.SUBMISSION_FAILED, 'external_host': external_host, 'external_id': None}
+                log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMISSION_FAILED, None)
                 logging.warn("%s" % (log_str))
         logging.debug("%s:%s start to register transfer state" % (process, thread))
         request.set_request_transfers_state(xfers_ret)
