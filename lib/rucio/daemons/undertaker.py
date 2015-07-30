@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 '''
 Undertaker is a daemon to manage expired did.
@@ -21,7 +22,7 @@ import traceback
 
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException
+from rucio.common.exception import DatabaseException, RuleNotFound
 from rucio.common.utils import chunks
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -63,10 +64,12 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
                     delete_dids(dids=chunk, account='root')
                     logging.info('Undertaker(%s): Delete %s dids', worker_number, len(chunk))
                     record_counter(counters='undertaker.delete_dids', delta=len(chunk))
+                except RuleNotFound, error:
+                    logging.error(error)
                 except DatabaseException, error:
                     logging.error('Undertaker(%s): Got database error %s.', worker_number, str(error))
         except:
-            logging.error(traceback.format_exc())
+            logging.critical(traceback.format_exc())
             time.sleep(1)
 
         if once:
