@@ -1512,6 +1512,9 @@ CREATE INDEX ATLAS_RUCIO.RULES_HIST_RECENT_SC_NA_IDX ON ATLAS_RUCIO.rules_hist_r
 COMMENT ON TABLE ATLAS_RUCIO.rules_hist_recent IS 'Recent history table (1 month) for rules';
 COMMENT ON COLUMN ATLAS_RUCIO.rules_hist_recent.history_id IS 'Fake id necessary for sqlalchemy';
 
+ALTER TABLE ATLAS_RUCIO.rules_hist_recent ADD ignore_account_limit NUMBER(1);
+
+
 -- ========================================= RULES_HISTORY ==============================================
 -- Description: Table of longterm rules (deleted)
 -- Estimated volume:  ?
@@ -1554,11 +1557,13 @@ INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') )
 ( PARTITION "DATA_BEFORE_01012015" VALUES LESS THAN (TO_DATE('01-01-2015', 'DD-MM-YYYY')) )
  ENABLE ROW MOVEMENT ;
 
+CREATE INDEX ATLAS_RUCIO.RULES_HISTORY_SCOPENAME_IDX ON ATLAS_RUCIO.RULES_HISTORY(scope,name) LOCAL COMPRESS 2 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
 
 COMMENT ON TABLE ATLAS_RUCIO.rules_history IS 'Full history table for rules';
 COMMENT ON COLUMN ATLAS_RUCIO.rules_history.history_id IS 'Fake id necessary for sqlalchemy';
 
 
+ALTER TABLE ATLAS_RUCIO.rules_history ADD ignore_account_limit NUMBER(1);
 
 -- ========================================= BAD_REPLICAS ==============================================
 -- Description: Table that stores the bad files
