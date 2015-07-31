@@ -334,6 +334,7 @@ class DataIdentifier(BASE, ModelBase):
     phys_group = Column(String(25))
     transient = Column(Boolean(name='DID_TRANSIENT_CHK'), server_default='0')
     accessed_at = Column(DateTime)
+    closed_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -437,6 +438,7 @@ class DataIdentifierAssociationHistory(BASE, ModelBase):
     events = Column(BigInteger)
     rule_evaluation = Column(Boolean(name='CONTENTS_HIST_RULE_EVAL_CHK'))
     did_created_at = Column(DateTime)
+    deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_HIST_PK'),
                    CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_HIST_DID_TYPE_NN'),
                    CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_HIST_CHILD_TYPE_NN'),
