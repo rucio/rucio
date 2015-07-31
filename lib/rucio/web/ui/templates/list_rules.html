@@ -39,7 +39,7 @@ $var script: <script src="/static/list_rules.js"></script>
           <label>Activity<input type="text" id="activity_input" placeholder="Activity"></input></label>
         </div>
         <div class="large-1 columns">
-          <label>Time Range
+          <label>Interval
             <input type="text" id="age_input" placeholder="" value="14"></input>
           </label>
         </div>
@@ -54,7 +54,11 @@ $var script: <script src="/static/list_rules.js"></script>
         </div>
         <div class="large-1 columns">
           <label><text style="visibility:hidden">.</text>
-          <i id="custom_dates" class="step fi-widget size-36"></i>
+            <div class="row">
+              <div class="large-12 large-centered columns">
+                <i title="Custom Range" id="custom_dates" class="step fi-clock size-24"></i>
+              </div>
+            </div>
           </label>
         </div>
         <div class="large-2 columns">
@@ -83,10 +87,12 @@ $var script: <script src="/static/list_rules.js"></script>
     </div>
     </div>
     <div id="loader"></div>
-    <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
-      <thead><tr><th>Name</th><th>RSE Expression</th><th>Creation Date</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></thead>
-      <tfoot><tr><th>Name</th><th>RSE Expression</th><th>Creation Date</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></tfoot>
+    <div id="results_panel" style="visibility:false;">
+      <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
+        <thead><tr><th>Name</th><th>RSE Expression</th><th>Creation Date</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></thead>
+        <tfoot><tr><th>Name</th><th>RSE Expression</th><th>Creation Date</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></tfoot>
     </table>
+    </div>
     <div id="delete"></div>
     <div id="downloader"></div>
   </div>
