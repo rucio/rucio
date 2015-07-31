@@ -426,6 +426,7 @@ CREATE TABLE dids (
     phys_group VARCHAR2(25 CHAR),
     transient NUMBER(1,0),
     accessed_at DATE,
+    closed_at DATE,
     CONSTRAINT "DIDS_PK" PRIMARY KEY (scope, name) USING INDEX COMPRESS 1,
     CONSTRAINT "DIDS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
     CONSTRAINT "DIDS_SCOPE_FK" FOREIGN KEY(scope) REFERENCES scopes (scope),
