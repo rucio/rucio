@@ -70,7 +70,7 @@ class RSEs(RucioController):
                     item = {'rse': rse}
                     yield render_json(**item) + '\n'
             except InvalidRSEExpression, e:
-                raise generate_http_error(400, 'InvalidRSEExpression', e)
+                raise generate_http_error(400, 'InvalidRSEExpression', e[0][0])
             except InvalidObject, e:
                 raise generate_http_error(400, 'InvalidObject', e[0][0])
             except RucioException, e:
