@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
@@ -44,7 +44,7 @@ class ScopeClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_scopes(self):
@@ -61,7 +61,7 @@ class ScopeClient(BaseClient):
             scopes = loads(r.text)
             return scopes
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_scopes_for_account(self, account):
@@ -82,5 +82,5 @@ class ScopeClient(BaseClient):
             scopes = loads(r.text)
             return scopes
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)

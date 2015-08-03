@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
@@ -63,7 +63,7 @@ class RuleClient(BaseClient):
         if r.status_code == codes.created:
             return loads(r.text)
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def delete_replication_rule(self, rule_id, purge_replicas=None):
@@ -85,7 +85,7 @@ class RuleClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def get_replication_rule(self, rule_id):
@@ -101,7 +101,7 @@ class RuleClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def update_replication_rule(self, rule_id, options):
@@ -117,7 +117,7 @@ class RuleClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def reduce_replication_rule(self, rule_id, copies, exclude_expression=None):
@@ -135,7 +135,7 @@ class RuleClient(BaseClient):
         if r.status_code == codes.ok:
             return loads(r.text)
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def approve_replication_rule(self, rule_id):
@@ -151,7 +151,7 @@ class RuleClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def deny_replication_rule(self, rule_id):
@@ -167,7 +167,7 @@ class RuleClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_replication_rule_full_history(self, scope, name):
