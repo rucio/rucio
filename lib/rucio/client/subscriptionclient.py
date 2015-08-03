@@ -7,6 +7,7 @@
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 
 from json import dumps
 from requests.status_codes import codes
@@ -61,7 +62,7 @@ class SubscriptionClient(BaseClient):
         if r.status_code == codes.created:
             return r.text
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_subscriptions(self, name=None, account=None):
@@ -89,7 +90,7 @@ class SubscriptionClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def update_subscription(self, name, account=None, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, priority=None):
@@ -131,7 +132,7 @@ class SubscriptionClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
     def list_subscription_rules(self, account, name):
@@ -148,5 +149,5 @@ class SubscriptionClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)

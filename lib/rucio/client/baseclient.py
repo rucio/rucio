@@ -181,26 +181,30 @@ class BaseClient(object):
         except ValueError:
             LOG.debug('request_retries must be an integer. Taking default.')
 
-    def _get_exception(self, headers, status_code=None):
+    def _get_exception(self, headers, status_code=None, data=None):
         """
         Helper method to parse an error string send by the server and transform it into the corresponding rucio exception.
 
         :param headers: The http response header containing the Rucio exception details.
+        :param status_code: The http status code.
+        :param data: The data with the ExceptionMessage.
+
         :return: A rucio exception class and an error string.
         """
-        if 'ExceptionClass' not in headers:
-            if 'ExceptionMessage' not in headers:
+        data = parse_response(data)
+        if 'ExceptionClass' not in data:
+            if 'ExceptionMessage' not in data:
                 human_http_code = _codes.get(status_code, None)  # NOQA, pylint: disable-msg=W0612
                 return getattr(exception, 'RucioException'), 'no error information passed (http status code: %(status_code)s %(human_http_code)s)' % locals()
-            return getattr(exception, 'RucioException'), headers['ExceptionMessage']
+            return getattr(exception, 'RucioException'), data['ExceptionMessage']
 
         exc_cls = None
         try:
-            exc_cls = getattr(exception, headers['ExceptionClass'])
+            exc_cls = getattr(exception, data['ExceptionClass'])
         except AttributeError:
-            return getattr(exception, 'RucioException'), headers['ExceptionMessage']
+            return getattr(exception, 'RucioException'), data['ExceptionMessage']
 
-        return exc_cls, headers['ExceptionMessage']
+        return exc_cls, data['ExceptionMessage']
 
     def _load_json_data(self, response):
         """
@@ -299,7 +303,8 @@ class BaseClient(object):
 
         if result.status_code != codes.ok:  # pylint: disable-msg=E1101
             exc_cls, exc_msg = self._get_exception(headers=result.headers,
-                                                   status_code=result.status_code)
+                                                   status_code=result.status_code,
+                                                   data=result.content)
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
@@ -361,7 +366,8 @@ class BaseClient(object):
 
         if result and result.status_code != codes.ok:   # pylint: disable-msg=E1101
             exc_cls, exc_msg = self._get_exception(headers=result.headers,
-                                                   status_code=result.status_code)
+                                                   status_code=result.status_code,
+                                                   data=result.content)
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
@@ -398,7 +404,8 @@ class BaseClient(object):
 
         if result.status_code != codes.ok:   # pylint: disable-msg=E1101
             exc_cls, exc_msg = self._get_exception(headers=result.headers,
-                                                   status_code=result.status_code)
+                                                   status_code=result.status_code,
+                                                   data=result.content)
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']

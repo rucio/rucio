@@ -101,26 +101,6 @@ def clean_headers(msg):
     return msg
 
 
-def generate_http_error(status_code, exc_cls, exc_msg):
-    """
-    utitily function to generate a complete HTTP error response.
-    :param status_code: The HTTP status code to generate a response for.
-    :param exc_cls: The name of the exception class to send with the response.
-    :param exc_msg: The error message.
-    :returns: a web.py HTTP response object.
-    """
-
-    status = codes[status_code]
-    headers = {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': clean_headers(exc_msg)}
-    data = ': '.join([exc_cls, str(exc_msg).strip()])
-
-    try:
-        return HTTPError(status, headers=headers, data=data)
-    except:
-        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
-        raise
-
-
 def adler32(file):
     """
     An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the stream plus one, and B is the sum of the individual values of A from each step.
@@ -208,6 +188,31 @@ def parse_response(data):
     """ JSON render function
     """
     return json.loads(data, object_hook=datetime_parser)
+
+
+def generate_http_error(status_code, exc_cls, exc_msg):
+    """
+    utitily function to generate a complete HTTP error response.
+    :param status_code: The HTTP status code to generate a response for.
+    :param exc_cls: The name of the exception class to send with the response.
+    :param exc_msg: The error message.
+    :returns: a web.py HTTP response object.
+    """
+
+    status = codes[status_code]
+    data = {'ExceptionClass': exc_cls,
+            'ExceptionMessage': exc_msg}
+    # Truncate too long exc_msg
+    if len(str(exc_msg)) > 15000:
+        exc_msg = str(exc_msg)[:15000]
+    headers = {'Content-Type': 'application/octet-stream',
+               'ExceptionClass': exc_cls,
+               'ExceptionMessage': clean_headers(exc_msg)}
+    try:
+        return HTTPError(status, headers=headers, data=render_json(**data))
+    except:
+        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+        raise
 
 
 def execute(cmd):
