@@ -1855,6 +1855,8 @@ def __evaluate_did_attach(eval_did, session=None):
                             # Try to update the DatasetLocks
                             if rule.grouping != RuleGrouping.NONE:
                                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                            if not isinstance(e, IntegrityError):
+                                session.commit()
                             continue
 
                         # 4. Update the Rule State
