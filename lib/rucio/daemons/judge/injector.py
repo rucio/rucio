@@ -44,10 +44,6 @@ def rule_injector(once=False):
     Main loop to check for asynchronous creation of replication rules
     """
 
-    logging.info('rule_injector: starting')
-
-    logging.info('rule_injector: started')
-
     hostname = socket.gethostname()
     pid = os.getpid()
     current_thread = threading.current_thread()
@@ -79,7 +75,7 @@ def rule_injector(once=False):
             rules = [rule for rule in rules if rule[0] not in paused_rules]
 
             if not rules and not once:
-                logging.info('rule_injector[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
+                logging.debug('rule_injector[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
                 graceful_stop.wait(60)
             else:
                 for rule in rules:
@@ -107,17 +103,23 @@ def rule_injector(once=False):
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                     except RuleNotFound, e:
                         pass
+        except (DatabaseException, DatabaseError), e:
+            if match('.*QueuePool.*', str(e.args[0])):
+                logging.warning(traceback.format_exc())
+                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+            elif match('.*ORA-03135.*', str(e.args[0])):
+                logging.warning(traceback.format_exc())
+                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+            else:
+                logging.critical(traceback.format_exc())
+                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
         except Exception, e:
-            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
             logging.critical(traceback.format_exc())
+            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
         if once:
-            return
+            break
 
     die(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread)
-
-    logging.info('rule_injector: graceful stop requested')
-
-    logging.info('rule_injector: graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -137,13 +139,11 @@ def run(once=False, threads=1):
     sanity_check(executable='rucio-judge-evaluator', hostname=hostname)
 
     if once:
-        logging.info('main: executing one iteration only')
         rule_injector(once)
     else:
-        logging.info('main: starting threads')
+        logging.info('Injector starting %s threads' % str(threads))
         threads = [threading.Thread(target=rule_injector, kwargs={'once': once}) for i in xrange(0, threads)]
         [t.start() for t in threads]
-        logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
         while threads[0].is_alive():
             [t.join(timeout=3.14) for t in threads]
