@@ -20,6 +20,7 @@ from re import match
 
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, bindparam, text
 
 import rucio.core.did
@@ -778,9 +779,14 @@ def repair_rule(rule_id, session=None):
 
         # Reset the counters
         logging.debug("Resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
-        rule.locks_ok_cnt = len([lock for sublist in locks.values() for lock in sublist if lock.state == LockState.OK and lock.rule_id == rule.id])
-        rule.locks_replicating_cnt = len([lock for sublist in locks.values() for lock in sublist if lock.state == LockState.REPLICATING and lock.rule_id == rule.id])
-        rule.locks_stuck_cnt = len([lock for sublist in locks.values() for lock in sublist if lock.state == LockState.STUCK and lock.rule_id == rule.id])
+        rule_counts = session.query(models.ReplicaLock.state, func.count(models.ReplicaLock.state)).filter(models.ReplicaLock.rule_id == rule.id).group_by(models.ReplicaLock.state).all()
+        for count in rule_counts:
+            if count[0] == LockState.OK:
+                rule.locks_ok_cnt = count[1]
+            elif count[0] == LockState.REPLICATING:
+                rule.locks_replicating_cnt = count[1]
+            elif count[0] == LockState.STUCK:
+                rule.locks_stuck_cnt = count[1]
         logging.debug("Finished resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
         # 1. Try to find missing locks and create them based on grouping
