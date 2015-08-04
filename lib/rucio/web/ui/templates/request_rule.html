@@ -185,6 +185,21 @@ $var script: <script src="/static/request_rule.js"></script>
         </div>
         <div class="row">
           <div class="large-2 columns">
+            <label>Create sample
+            <div class="switch">
+              <input id="check_sample" type="checkbox">
+              <label for="check_sample">Sample</label>
+            </div>
+            </label>
+          </div>
+          <div class="large-3 columns">
+            <label style="visibility: hidden;">.</label>
+            <input type="text" placeholder="Number of files" id="nbfiles" disabled/>
+          </div>
+          <div class="large-7 columns"></div>
+        </div>
+        <div class="row">
+          <div class="large-2 columns">
             <label style="visibility: hidden;">.</label>
             <div class="button postfix" id="options_continue">Continue</div>
           </div>
@@ -236,6 +251,7 @@ $var script: <script src="/static/request_rule.js"></script>
         <li>Lifetime: The lifetime is specified in days and defines when a rule will be deleted again. For SCRATCHDISK the maximum lifetime is 15 days and for everything else you can choose any number of days or leave it empty to set no lifetime at all.</li>
         <li>Copies: The copies also only work with RSE expression and it defines the number of replicas that should be created.</li>
         <li>Comment: The comment is optional unless you want to ask for approval. Then you have to give a justification here.</li>
+        <li>Create Sample: Create a sample dataset with the given number of random files from the selected dataset.</li>
       </ol>
     </text>
   </div>
