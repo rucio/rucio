@@ -125,9 +125,19 @@ def re_evaluator(once=False):
                     except FlushError, e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         logging.warning('re_evaluator[%s/%s]: Flush error for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, did.scope, did.name))
+        except (DatabaseException, DatabaseError), e:
+            if match('.*QueuePool.*', str(e.args[0])):
+                logging.warning(traceback.format_exc())
+                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+            elif match('.*ORA-03135.*', str(e.args[0])):
+                logging.warning(traceback.format_exc())
+                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+            else:
+                logging.critical(traceback.format_exc())
+                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
         except Exception, e:
-            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
             logging.critical(traceback.format_exc())
+            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
         if once:
             break
 
