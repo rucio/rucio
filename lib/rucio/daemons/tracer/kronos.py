@@ -75,7 +75,7 @@ class AMQConsumer(object):
 
         if 'resubmitted' in headers:
             record_counter('daemons.tracer.kronos.received_resubmitted')
-            logging.info('(kronos_file) got a resubmitted report')
+            logging.warning('(kronos_file) got a resubmitted report')
 
         try:
             if appversion == 'dq2':
@@ -161,7 +161,7 @@ class AMQConsumer(object):
                     continue
                 self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
-        logging.info(replicas)
+        logging.debug(replicas)
 
         try:
             ts = time()
@@ -171,7 +171,7 @@ class AMQConsumer(object):
                     resubmit = {'filename': replica['name'], 'scope': replica['scope'], 'remoteSite': replica['rse'], 'traceTimeentryUnix': replica['traceTimeentryUnix'], 'eventType': 'get', 'usrdn': 'someuser', 'clientState': 'DONE'}
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     record_counter('daemons.tracer.kronos.sent_resubmitted')
-                    logging.info('(kronos_file) hit locked row, resubmitted to queue')
+                    logging.warning('(kronos_file) hit locked row, resubmitted to queue')
             record_timer('daemons.tracer.kronos.update_atime', (time() - ts) * 1000)
         except:
             logging.error(format_exc())
@@ -300,7 +300,7 @@ def __update_datasets(dataset_queue):
             dslocks[did][rse] = dataset['accessed_at']
         else:
             dslocks[did][rse] = max(dataset['accessed_at'], dslocks[did][rse])
-    logging.info('(kronos_dataset) fetched %d datasets from queue (%ds)' % (len_ds, time() - now))
+    logging.debug('(kronos_dataset) fetched %d datasets from queue (%ds)' % (len_ds, time() - now))
 
     total, failed, start = 0, 0, time()
     for did, accessed_at in datasets.items():
@@ -312,7 +312,7 @@ def __update_datasets(dataset_queue):
             dataset_queue.put(update_did)
             failed += 1
         total += 1
-    logging.info('(kronos_dataset) did update for %d datasets, %d failed (%ds)' % (total, failed, time() - start))
+    logging.debug('(kronos_dataset) did update for %d datasets, %d failed (%ds)' % (total, failed, time() - start))
 
     total, failed, start = 0, 0, time()
     for did, rses in dslocks.items():
@@ -324,7 +324,7 @@ def __update_datasets(dataset_queue):
                 dataset_queue.put(update_dslock)
                 failed += 1
             total += 1
-    logging.info('(kronos_dataset) did update for %d locks, %d failed (%ds)' % (total, failed, time() - start))
+    logging.debug('(kronos_dataset) did update for %d locks, %d failed (%ds)' % (total, failed, time() - start))
 
     total, failed, start = 0, 0, time()
     for did, rses in dslocks.items():
@@ -336,7 +336,7 @@ def __update_datasets(dataset_queue):
                 dataset_queue.put(update_dslock)
                 failed += 1
             total += 1
-    logging.info('(kronos_dataset) did update for %d collection replicas, %d failed (%ds)' % (total, failed, time() - start))
+    logging.debug('(kronos_dataset) did update for %d collection replicas, %d failed (%ds)' % (total, failed, time() - start))
 
 
 def stop(signum=None, frame=None):
