@@ -661,8 +661,6 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if link_ranking is None:
                     logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
                     continue
-                if ranking is None:
-                    ranking = link_ranking
 
                 if source_rse_id in unavailable_read_rse_ids:
                     continue
@@ -817,7 +815,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 transfers[id] = {'request_id': id,
                                  'schemes': src_schemes,
                                  # 'src_urls': [source_url],
-                                 'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0)],
+                                 'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
                                  'dest_urls': [dest_url],
                                  'src_spacetoken': None,
                                  'dest_spacetoken': dest_spacetoken,
@@ -839,8 +837,6 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if link_ranking is None:
                     logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
                     continue
-                if ranking is None:
-                    ranking = link_ranking
 
                 if source_rse_id in unavailable_read_rse_ids:
                     continue
@@ -854,7 +850,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if ranking is None:
                     ranking = 0
                 # TAPE should not mixed with Disk and should not use as first try
-                # If there is a source whose ranking is more than 0, Tape will not be used.
+                # If there is a source whose ranking is no less than the Tape ranking, Tape will not be used.
                 if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
                     # current src_rse is Tape
                     if not transfers[id]['bring_online']:
@@ -881,7 +877,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     else:
                         # the sources already founded is Tape too.
                         # multiple Tape source replicas are not allowed in FTS3.
-                        if transfers[id]['sources'][0][3] >= ranking:
+                        if transfers[id]['sources'][0][3] > ranking or (transfers[id]['sources'][0][3] == ranking and transfers[id]['sources'][0][4] >= link_ranking):
                             continue
                         else:
                             transfers[id]['sources'] = []
@@ -925,7 +921,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
 
                 # transfers[id]['src_urls'].append((source_rse_id, source_url))
-                transfers[id]['sources'].append((rse, source_url, source_rse_id, ranking))
+                transfers[id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
 
         except:
             logging.error("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
@@ -1128,12 +1124,32 @@ def mock_sources(sources):
     return tmp_sources
 
 
+def sort_link_ranking(sources):
+    rank_sources = {}
+    ret_sources = []
+    for source in sources:
+        rse, source_url, source_rse_id, ranking, link_ranking = source
+        if link_ranking not in rank_sources:
+            rank_sources[link_ranking] = []
+        rank_sources[link_ranking].append(source)
+    rank_keys = rank_sources.keys()
+    rank_keys.sort(reverse=True)
+    for rank_key in rank_keys:
+        sources_list = rank_sources[rank_key]
+        random.shuffle(sources_list)
+        ret_sources = ret_sources + sources_list
+    return ret_sources
+
+
 def sort_ranking(sources):
     logging.debug("Sources before sorting: %s" % sources)
     rank_sources = {}
     ret_sources = []
     for source in sources:
-        rse, source_url, source_rse_id, ranking = source
+        # ranking is from sources table, is the retry times
+        # link_ranking is from distances table, is the link rank.
+        # link_ranking should not be None(None means no link, the source will not be used).
+        rse, source_url, source_rse_id, ranking, link_ranking = source
         if ranking is None:
             ranking = 0
         if ranking not in rank_sources:
@@ -1142,8 +1158,7 @@ def sort_ranking(sources):
     rank_keys = rank_sources.keys()
     rank_keys.sort(reverse=True)
     for rank_key in rank_keys:
-        sources_list = rank_sources[rank_key]
-        random.shuffle(sources_list)
+        sources_list = sort_link_ranking(rank_sources[rank_key])
         ret_sources = ret_sources + sources_list
     logging.debug("Sources after sorting: %s" % ret_sources)
     return ret_sources
@@ -1160,14 +1175,21 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
     for request_id in transfers:
         sources = transfers[request_id]['sources']
         sources = sort_ranking(sources)
-        sources = sort_sources(sources, transfers[request_id]['file_metadata']['dst_rse'])
-        transfers[request_id]['file_metadata']['src_rse'] = sources[0][0]
         if len(sources) > max_sources:
             sources = sources[:max_sources]
         if not mock:
             transfers[request_id]['sources'] = sources
         else:
             transfers[request_id]['sources'] = mock_sources(sources)
+
+        # remove link_ranking in the final sources
+        sources = transfers[request_id]['sources']
+        transfers[request_id]['sources'] = []
+        for source in sources:
+            rse, source_url, source_rse_id, ranking, link_ranking = source
+            transfers[request_id]['sources'].append((rse, source_url, source_rse_id, ranking))
+
+        transfers[request_id]['file_metadata']['src_rse'] = sources[0][0]
         logging.debug("Transfer for request(%s): %s" % (request_id, transfers[request_id]))
     return transfers
 
