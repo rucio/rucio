@@ -11,6 +11,7 @@
    - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
    - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
    - Wen Guan, <wen.guan@cern.ch>, 2014
+   - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 '''
 
 '''
@@ -63,6 +64,10 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000):
     pid = os.getpid()
     hb_thread = threading.current_thread()
     sanity_check(executable=executable, hostname=hostname)
+
+    # Make an initial heartbeat so that all daemons have the correct worker number on the next try
+    live(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
+    graceful_stop.wait(1)
 
     email_from = config_get('hermes', 'email_from')
 
@@ -149,6 +154,10 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
     pid = os.getpid()
     hb_thread = threading.current_thread()
     sanity_check(executable=executable, hostname=hostname)
+
+    # Make an initial heartbeat so that all daemons have the correct worker number on the next try
+    live(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
+    graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
 
@@ -249,6 +258,8 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
 
     logging.debug('[broker] %i:%i - graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
 
+    return
+
 
 def stop(signum=None, frame=None):
     '''
@@ -276,7 +287,11 @@ def run(once=False, send_email=True, threads=1, bulk=1000):
 
     brokers_resolved = []
     for broker in brokers_alias:
-        brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
+        try:
+            brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
+        except dns.resolver.NXDOMAIN:
+            logging.error('Cannot resolve domain name %s', broker)
+
     brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
 
     logging.debug('brokers resolved to %s', brokers_resolved)
