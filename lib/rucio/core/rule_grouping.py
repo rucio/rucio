@@ -31,13 +31,14 @@ logging.basicConfig(stream=sys.stdout,
 
 
 @transactional_session
-def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply rule grouping to files.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding all locks.
     :param replicas:           Dict holding all replicas.
+    :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
@@ -57,6 +58,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, prefer
             transfers_to_create = __apply_rule_to_files_none_grouping(datasetfiles=datasetfiles,
                                                                       locks=locks,
                                                                       replicas=replicas,
+                                                                      source_replicas=source_replicas,
                                                                       rseselector=rseselector,
                                                                       rule=rule,
                                                                       preferred_rse_ids=preferred_rse_ids,
@@ -67,6 +69,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, prefer
             transfers_to_create = __apply_rule_to_files_all_grouping(datasetfiles=datasetfiles,
                                                                      locks=locks,
                                                                      replicas=replicas,
+                                                                     source_replicas=source_replicas,
                                                                      rseselector=rseselector,
                                                                      rule=rule,
                                                                      preferred_rse_ids=preferred_rse_ids,
@@ -77,6 +80,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, prefer
             transfers_to_create = __apply_rule_to_files_dataset_grouping(datasetfiles=datasetfiles,
                                                                          locks=locks,
                                                                          replicas=replicas,
+                                                                         source_replicas=source_replicas,
                                                                          rseselector=rseselector,
                                                                          rule=rule,
                                                                          preferred_rse_ids=preferred_rse_ids,
@@ -87,13 +91,14 @@ def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, prefer
 
 
 @transactional_session
-def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
+def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
     """
     Apply rule grouping to files.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding all locks.
     :param replicas:           Dict holding all replicas.
+    :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param source_rses:        RSE ids of eglible source_rses.
@@ -113,6 +118,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rs
             locks_to_delete = __repair_stuck_locks_with_none_grouping(datasetfiles=datasetfiles,
                                                                       locks=locks,
                                                                       replicas=replicas,
+                                                                      source_replicas=source_replicas,
                                                                       rseselector=rseselector,
                                                                       rule=rule,
                                                                       source_rses=source_rses,
@@ -122,6 +128,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rs
             locks_to_delete = __repair_stuck_locks_with_all_grouping(datasetfiles=datasetfiles,
                                                                      locks=locks,
                                                                      replicas=replicas,
+                                                                     source_replicas=source_replicas,
                                                                      rseselector=rseselector,
                                                                      rule=rule,
                                                                      source_rses=source_rses,
@@ -131,6 +138,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rs
             locks_to_delete = __repair_stuck_locks_with_dataset_grouping(datasetfiles=datasetfiles,
                                                                          locks=locks,
                                                                          replicas=replicas,
+                                                                         source_replicas=source_replicas,
                                                                          rseselector=rseselector,
                                                                          rule=rule,
                                                                          source_rses=source_rses,
@@ -175,13 +183,14 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=Non
 
 
 @transactional_session
-def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply a rule to files with NONE grouping.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding all locks.
     :param replicas:           Dict holding all replicas.
+    :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
@@ -222,19 +231,21 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselect
                                           source_rses=source_rses,
                                           replicas_to_create=replicas_to_create,
                                           replicas=replicas,
+                                          source_replicas=source_replicas,
                                           transfers_to_create=transfers_to_create)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
 
 @transactional_session
-def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply a rule to files with ALL grouping.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding all locks.
     :param replicas:           Dict holding all replicas.
+    :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
@@ -290,6 +301,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                                           source_rses=source_rses,
                                           replicas_to_create=replicas_to_create,
                                           replicas=replicas,
+                                          source_replicas=source_replicas,
                                           transfers_to_create=transfers_to_create)
             # Add a DatasetLock to the DB
             if dataset['scope'] is not None:
@@ -341,13 +353,14 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
 
 
 @transactional_session
-def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply a rule to files with ALL grouping.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding all locks.
     :param replicas:           Dict holding all replicas.
+    :param source_replicas:    Dict holding all source replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
@@ -401,6 +414,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                                           source_rses=source_rses,
                                           replicas_to_create=replicas_to_create,
                                           replicas=replicas,
+                                          source_replicas=source_replicas,
                                           transfers_to_create=transfers_to_create)
             # Add a DatasetLock to the DB
             if dataset['scope'] is not None:
@@ -453,13 +467,14 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
 
 
 @transactional_session
-def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
+def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
     """
     Apply a rule to files with NONE grouping.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding all locks.
     :param replicas:           Dict holding all replicas.
+    :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param source_rses:        RSE ids of eglible source replicas.
@@ -503,7 +518,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses]:
+                    if source_replicas.get((file['scope'], file['name'])):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
@@ -528,6 +543,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
                                                       source_rses=source_rses,
                                                       replicas_to_create=replicas_to_create,
                                                       replicas=replicas,
+                                                      source_replicas=source_replicas,
                                                       transfers_to_create=transfers_to_create)
                             rule.locks_stuck_cnt -= 1
                             __set_replica_unavailable(replica=[replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0],
@@ -551,13 +567,14 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
 
 
 @transactional_session
-def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
+def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
     """
     Apply a rule to files with ALL grouping.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding all locks.
     :param replicas:           Dict holding all replicas.
+    :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param source_rses:        RSE ids of eglible source replicas.
@@ -602,7 +619,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses]:
+                    if source_replicas.get((file['scope'], file['name'])):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
@@ -635,6 +652,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
                                                       source_rses=source_rses,
                                                       replicas_to_create=replicas_to_create,
                                                       replicas=replicas,
+                                                      source_replicas=source_replicas,
                                                       transfers_to_create=transfers_to_create)
                             rule.locks_stuck_cnt -= 1
                             __set_replica_unavailable(replica=[replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0],
@@ -658,13 +676,14 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
 
 
 @transactional_session
-def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
+def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
     """
     Apply a rule to files with DATASET grouping.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding all locks.
     :param replicas:           Dict holding all replicas.
+    :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param source_rses:        RSE ids of eglible source replicas.
@@ -709,7 +728,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses]:
+                    if source_replicas.get((file['scope'], file['name'])):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
@@ -742,6 +761,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
                                                       source_rses=source_rses,
                                                       replicas_to_create=replicas_to_create,
                                                       replicas=replicas,
+                                                      source_replicas=source_replicas,
                                                       transfers_to_create=transfers_to_create)
                             rule.locks_stuck_cnt -= 1
                             __set_replica_unavailable(replica=[replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0],
@@ -786,7 +806,7 @@ def __is_retry_required(lock):
     return False
 
 
-def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_to_create, locks, source_rses, replicas_to_create, replicas, transfers_to_create):
+def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_to_create, locks, source_rses, replicas_to_create, replicas, source_replicas, transfers_to_create):
     """
     This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
 
@@ -800,6 +820,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
     :param source_rses:          RSE ids of eglible source replicas.
     :param replicas_to_create:   Dictionary of the replicas to create.
     :param replicas:             Dictionary of the replicas.
+    :param source_replicas:      Dictionary of the source replicas.
     :param transfers_to_create:  List of transfers to create.
     :returns:                    True, if the created lock is replicating, False otherwise.
     :attention:                  This method modifies the contents of the locks, locks_to_create, replicas_to_create and replicas input parameters.
@@ -847,10 +868,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
             if source_rses:
                 available_source_replica = False
                 # Check if there is an eglible source replica for this lock
-                for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
-                    if replica.rse_id in source_rses:
-                        available_source_replica = True
-                        break
+                if source_replicas.get((file['scope'], file['name'])):
+                    available_source_replica = True
             new_lock = __create_lock(rule=rule,
                                      rse_id=rse_id,
                                      scope=file['scope'],
@@ -894,10 +913,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
         if source_rses:
             available_source_replica = False
             # Check if there is an eglible source replica for this lock
-            for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
-                if replica.rse_id in source_rses:
-                    available_source_replica = True
-                    break
+            if source_replicas.get((file['scope'], file['name'])):
+                available_source_replica = True
 
         new_replica = __create_replica(rse_id=rse_id,
                                        scope=file['scope'],
