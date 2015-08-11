@@ -238,7 +238,7 @@ if __name__ == '__main__':
             if ddmendpoint['phys_groups']:
                 set_group_quotas(ddmendpoint['quotas'])
 
-            if ddmendpoint['type']=='LOCALGROUPDISK':
+            if ddmendpoint['type'] == 'LOCALGROUPDISK':
                 try:
                     country = rse.list_rse_attributes(name)['country']
                 except:
