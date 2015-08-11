@@ -238,7 +238,7 @@ if __name__ == '__main__':
             if ddmendpoint['phys_groups']:
                 set_group_quotas(ddmendpoint['quotas'])
 
-            if name.endswith('_LOCALGROUPDISK') or ddmendpoint['token'] == 'ATLASLOCALGROUPDISK':
+            if ddmendpoint['type']=='LOCALGROUPDISK':
                 try:
                     country = rse.list_rse_attributes(name)['country']
                 except:
@@ -251,7 +251,7 @@ if __name__ == '__main__':
                 else:
                     set_user_quotas(name, country_accounts[country], 0.95)
 
-            if name.endswith('_SCRATCHDISK') or name.endswith('_USERDISK'):
+            if ddmendpoint['type'] in ('SCRATCHDISK', 'USERDISK', 'TEST'):
                 set_user_quotas(name, all_accounts, 0.5)
 
         # Write back cache files
