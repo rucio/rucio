@@ -69,7 +69,6 @@ Developer Documentation
     :maxdepth: 1
 
     development_guidelines
-    setup
     developing
     naming_convention_db
 
