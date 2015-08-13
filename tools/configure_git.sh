@@ -12,7 +12,7 @@ git branch --track next
 git remote add upstream https://gitlab.cern.ch/rucio01/rucio.git
 git remote set-url --push upstream xxx
 
-cp tools/commit-msg .git/hooks/commit-msg
-chmod +x .git/hooks/commit-msg
 cp tools/pre-commit .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
+cp tools/prepare-commit-msg .git/hooks/prepare-commit-msg
+chmod +x .git/hooks/prepare-commit-msg
