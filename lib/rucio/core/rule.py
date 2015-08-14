@@ -900,7 +900,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression']
 
     for key in options:
         if key not in valid_options:
@@ -911,6 +911,8 @@ def update_rule(rule_id, options, session=None):
         for key in options:
             if key == 'lifetime':
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
+            if key == 'source_replica_expression':
+                rule.source_replica_expression = options['source_replica_expression']
 
             if key == 'activity':
                 validate_schema('activity', options['activity'])
