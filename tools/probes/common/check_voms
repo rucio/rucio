@@ -150,25 +150,26 @@ if __name__ == '__main__':
                                         print 'Account %(account)s added' % locals()
                                     except Duplicate:
                                         pass
-                                # Get all certificates associated to this account
-                                certs_result = admin.call_method('get-certificates', dn, ca)
-                                for cert in certs_result:
-                                    try:
-                                        account_dn = cert.get_element_subject()
-                                    except:
-                                        print "Warning: cert.get_element_subject() failed for dn: %(account_dn)s" % locals()
-                                        status = WARNING
-                                    else:
-                                        try:
-                                            client.add_identity(account=account, identity=account_dn, authtype='X509', email=email, default=True)
-                                            print 'Identity %(account_dn)s added' % locals()
-                                        except Duplicate:
-                                            pass
                                 scope = 'user.' + account
                                 if scope not in scopes:
                                     try:
                                         client.add_scope(account, scope)
                                         print 'Scope %(scope)s added' % locals()
+                                    except Duplicate:
+                                        pass
+                            # Get all certificates associated to this account
+                            certs_result = admin.call_method('get-certificates', dn, ca)
+                            for cert in certs_result:
+                                try:
+                                    account_dn = cert.get_element_subject()
+                                    print "account_dn: %s" % str(account_dn)
+                                except:
+                                    print "Warning: cert.get_element_subject() failed for dn: %(account_dn)s" % locals()
+                                    status = WARNING
+                                else:
+                                    try:
+                                        client.add_identity(account=nickname, identity=account_dn, authtype='X509', email=email, default=True)
+                                        print 'Identity %(account_dn)s added' % locals()
                                     except Duplicate:
                                         pass
                             break
