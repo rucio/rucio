@@ -21,27 +21,28 @@ $var script:
     <h4>Replicas per RSE</h4>
     Retrieve a tab-separated, bz2 compressed, list of replicas at an RSE.</br>
     <b>URL:</b> https://rucio-hadoop.cern.ch/replica_dumps</br>
-    <b>URL params:</b> rse, date</br>
+    <b>URL params:</b> rse, date (optional)</br>
     <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/replica_dumps?rse=CERN-PROD_DATADISK&date=21-01-2015">https://rucio-hadoop.cern.ch/replica_dumps?rse=CERN-PROD_DATADISK&date=21-01-2015</a></br>
-    <b>Format:</b> RSE, scope, name, checksum, size, creation date, path, last update date
+    <b>Format:</b> RSE, scope, name, checksum, size, creation date, path, last update date</br>
+    <b>Notabene:</b> if no date provided, the latest available dump will be taken
   </div>
   <div id="dataset_dumps" class="panel">
     <h4>Datasets per RSE</h4>
     Retrieve a list of complete datasets at an RSE.</br>
     <b>URL:</b> https://rucio-hadoop.cern.ch/consistency_datasets</br>
-    <b>URL params:</b> rse, date</br>
+    <b>URL params:</b> rse, date (optional)</br>
     <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/consistency_datasets?rse=CERN-PROD_DATADISK&date=21-01-2015">https://rucio-hadoop.cern.ch/consistency_datasets?rse=CERN-PROD_DATADISK&date=21-01-2015</a></br>
     <b>Format:</b> RSE, scope, name, owner, size, creation date, last accessed date</br>
-    <b>Notabene:</b> size can be empty (dataset is still open), last accessed date can be empty
+    <b>Notabene:</b> size can be empty (dataset is still open); last accessed date can be empty; if no date provided, the latest available dump will be taken
   </div>
   <div id="dataset_replica_dumps" class="panel">
     <h4>Datasets per RSE (with incomplete)</h4>
     Retrieve a list of all datasets (complete and incomplete) at an RSE.</br>
     <b>URL:</b> https://rucio-hadoop.cern.ch/datasets_per_rse</br>
-    <b>URL params:</b> rse, date</br>
+    <b>URL params:</b> rse, date (optional)</br>
     <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/datasets_per_rse?rse=CERN-PROD_DATADISK&date=27-03-2015">https://rucio-hadoop.cern.ch/datasets_per_rse?rse=CERN-PROD_DATADISK&date=27-03-2015</a></br>
     <b>Format:</b> RSE, scope, name, size, creation date, update date, last accessed date, state</br>
-    <b>Notabene:</b> last accessed date can be empty
+    <b>Notabene:</b> last accessed date can be empty; if no date provided, the latest available dump will be taken
   </div>
 
 </br>
