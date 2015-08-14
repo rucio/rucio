@@ -1222,7 +1222,7 @@ def update_rule(args):
     client = get_client(args)
     options = {}
     if args.lifetime:
-        options['lifetime'] = None if args.lifetime == "None" else int(args.lifetime)
+        options['lifetime'] = None if args.lifetime.lower() == "none" else int(args.lifetime)
     if args.locked:
         if args.locked == "True":
             options['locked'] = True
@@ -1236,6 +1236,8 @@ def update_rule(args):
         options['state'] = 'SUSPENDED'
     if args.rule_activity:
         options['activity'] = args.rule_activity
+    if args.source_replica_expression:
+        options['source_replica_expression'] = None if args.source_replica_expression.lower() == 'none' else args.source_replica_expression
     client.update_replication_rule(rule_id=args.rule_id, options=options)
     print 'Updated Rule'
     return SUCCESS
@@ -1806,6 +1808,7 @@ Commands:
     update_rule_parser.add_argument('--stuck', dest='state_stuck', action='store_true', help='Set state to STUCK.')
     update_rule_parser.add_argument('--suspend', dest='state_suspended', action='store_true', help='Set state to SUSPENDED.')
     update_rule_parser.add_argument('--activity', dest='rule_activity', action='store', help='Activity of the rule.')
+    update_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Source replica expression of the rule.')
 
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='List RSEs')
