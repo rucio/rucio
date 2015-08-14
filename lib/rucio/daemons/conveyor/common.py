@@ -231,7 +231,7 @@ def handle_requests(reqs):
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = False
                     replicas[req['request_type']][req['rule_id']].append(replica)
-            elif req['state'] == RequestState.SUBMITTING:
+            elif req['state'] == RequestState.SUBMITTING or req['state'] == RequestState.SUBMISSION_FAILED:
                 if req['updated_at'] > (datetime.datetime.utcnow()-datetime.timedelta(minutes=120)):
                     continue
 
@@ -250,6 +250,25 @@ def handle_requests(reqs):
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = False
                     replicas[req['request_type']][req['rule_id']].append(replica)
+            elif req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
+                if request_core.should_retry_request(req):
+                    tss = time.time()
+                    new_req = request_core.requeue_and_archive(req['request_id'])
+                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
+                    if new_req:
+                        # should_retry_request and requeue_and_archive are not in one session,
+                        # another process can requeue_and_archive and this one will return None.
+                        logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
+                                                                                     req['name'],
+                                                                                     req['request_id'],
+                                                                                     new_req['request_id'],
+                                                                                     new_req['retry_count']))
+                else:
+                    logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
+                    replica['state'] = ReplicaState.UNAVAILABLE  # should be broken here
+                    replica['archived'] = False
+                    replicas[req['request_type']][req['rule_id']].append(replica)
+
         except:
             logging.error("Something unexpected happened when handling request %s(%s:%s) at %s: %s" % (req['request_id'],
                                                                                                        req['scope'],
