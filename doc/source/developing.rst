@@ -1,6 +1,6 @@
-================
-Developing Rucio
-================
+==========================================
+Setting up a Rucio development environment
+==========================================
 
 ----------------------------------
 Contributing patches & code review
@@ -18,43 +18,118 @@ First setup
 
 Go to the GitLab web-interface mentioned above, and login with your CERN account. It will give you the option to fork the rucio01/rucio repository into your private account (upper left corner). Do this.
 
-Afterwards, switch to your private account and clone it, for example:
+Afterwards, switch to your private account and clone it, for example::
 
-    git clone https://gitlab.cern.ch/<cern_username>/rucio
+   $ git clone https://gitlab.cern.ch/<cern_username>/rucio.git
 
-This will be your private copy of Rucio that has no knowledge of upstream. So first, add upstream as a remote:
+Setup your git environment. You must provide a valid e-mail address and ask Developer access to the project Rucio in Gitlab::
 
-    git remote add upstream https://gitlab.cern.ch/rucio01/rucio
+   $ git config ---global user.name='Joaquin Bogado'
+   $ git config ---global user.name='joaquin.bogado@cern.ch'
 
-Verify that everything is alright with:
 
-   git remote -v
+The repository hooks and upstream are installed by executing the script tools/configure_git.sh::
 
-You should see both push/pull remotes for origin (your private account) and upstream (official rucio repository).
+   $ cd rucio
+   $ ./tools/configure_git.sh
+
+
+Verify that everything is alright. You should see both push/pull remotes for origin (your private account) and upstream (official rucio repository)::
+
+   $ git remote -v
+    origin  ssh://git@gitlab.cern.ch:7999/jbogadog/rucio.git (fetch)
+    origin  ssh://git@gitlab.cern.ch:7999/jbogadog/rucio.git (push)
+    upstream        https://gitlab.cern.ch/rucio01/rucio.git (fetch)
+    upstream        xxx (push)
+
+Also, it's necessary to create the file .gitlabkey with the development key provided by the GitLab interface (gitlabkey_) in the local directory.
+
+
+.. _gitlabkey: https://gitlab.cern.ch/profile/account
+
+-----------------------
+Installing dependencies
+-----------------------
+
+Rucio maintains three lists of dependencies::
+
+   $ tools/pip-requires
+   $ tools/pip-requires-client
+   $ tools/pip-requires-test
+
+The first is the list of dependencies needed for running rucio,
+the second list includes dependencies used for the rucio python clients and CLIs and
+the third list is for active development and testing of rucio itself.
+
+These depdendencies can be installed from PyPi_ using the python tool pip_ or by using
+the tools/install_venv.py script as described in the next section.
+
+.. _PyPi: http://pypi.python.org/
+.. _pip: http://pypi.python.org/pypi/pip
+
+However, your system *may* need additional dependencies that `pip` (and by
+extension, PyPi) cannot satisfy. These dependencies should be installed
+prior to using `pip`, and the installation method may vary depending on
+your platform.
+
+----------------------------
+PyPi Packages and VirtualEnv
+----------------------------
+
+We recommend establishing a virtualenv to run rucio within. Virtualenv limits the python environment
+to just what you're installing as dependencies, useful to keep a clean environment for working on
+rucio. The tools directory in rucio has a script already created to make this very simple::
+
+    $ python tools/install_venv.py
+
+This will create a local virtual environment in the directory ``.venv``.
+
+If you need to develop only the clients and have a default configuration::
+
+    $ python tools/install_venv.py --atlas-clients
+
+Once created, you can activate this virtualenv for your current shell using::
+
+    $ source .venv/bin/activate
+
+The virtual environment can be disabled using the command::
+
+    $ deactivate
+
+You can also use ``tools\with_venv.sh`` to prefix commands so that they run
+within the virtual environment. For more information on virtual environments,
+see virtualenv_.
+
+Lastly you have to create a symbolic link from the virtual environments python directory to the rucio source directory::
+
+    $ cd .venv/lib/python2.7/site-packages/
+    $ ln PATH_TO_INSTALL_DIRECTORY/lib/rucio/ rucio -s
+
+.. _virtualenv: http://www.virtualenv.org/
 
 --------------------
 Developing a feature
 --------------------
 
-Features are scheduled for the next Rucio release and are collected from the protected "next" branch. Create a new feature branch with:
+Features are scheduled for the next Rucio release and are collected from the protected "next" branch. Create a new feature branch with::
 
-    tools/create-feature-branch <ticketnumber> <branch description>
+   $ tools/create-feature-branch <ticketnumber> <branch description>
 
-and do your development there. When done, push the branch into origin (your private account) for code review:
+and do your development there. When done, push the branch into origin (your private account) for code review::
 
-    git push origin
+   $ tools/submit-merge
 
 ------------------
 Developing a patch
 ------------------
 
-A patch works exactly the same, but is branched off the "master". Create a new patch branch with
+A patch works exactly the same, but is branched off the "master". Create a new patch branch with::
 
-    tools/create-patch-branch <ticketnumber> <branch description>
+   $ tools/create-patch-branch <ticketnumber> <branch description>
 
-and do your development there. When done, push the branch into origin (your private account) for code review:
+and do your development there. When done, push the branch into origin (your private account) for code review:::
 
-    git push origin
+   $ tools/submit-merge
 
 -------------------------------
 Code review and merging a patch
@@ -69,7 +144,7 @@ Two rules must be obeyed:
 
 The merge request will enable the code review. After successful code review, the responsible can merge the patch on the web interface.
 
-TL;DR: If something is weird, ask for help on rucio-dev@cern.ch :-D
+*If something is weird, ask for help on rucio-dev@cern.ch :-D*
 
 ----------------
 Ticketing system
