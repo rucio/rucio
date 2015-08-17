@@ -33,8 +33,6 @@ logger.addHandler(sh)
 urls = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
         '/(.+)/history', 'RuleHistory',
-        '/(.+)/approve', 'RuleApprove',
-        '/(.+)/deny', 'RuleDeny',
         '/', 'AllRule',
         '/(.+)', 'Rule',)
 
