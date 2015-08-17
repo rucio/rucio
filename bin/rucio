@@ -46,7 +46,7 @@ from rucio import version
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
-                                    RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported, UnsupportedOperation)
+                                    RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported, UnsupportedOperation, RucioException)
 from rucio.common.utils import adler32, generate_uuid, execute, construct_surl, chunks
 from rucio.rse import rsemanager as rsemgr
 
@@ -170,6 +170,9 @@ def exception_handler(function):
         except MissingDependency, error:
             logger.error(error)
             logger.debug('This means one dependency is missing.')
+            return FAILURE
+        except RucioException, error:
+            logger.error(error)
             return FAILURE
         except IOError, error:
             logger.error(error)
