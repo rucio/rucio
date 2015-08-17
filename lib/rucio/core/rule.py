@@ -615,7 +615,7 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, nowait=False, session=
 
     with record_timer_block('rule.delete_rule'):
         try:
-            rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=nowait).one()
+            rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).one()
         except NoResultFound:
             raise RuleNotFound('No rule with the id %s found' % (rule_id))
         if rule.locked:
@@ -629,7 +629,7 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, nowait=False, session=
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             return
 
-        locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == rule_id).with_for_update(nowait=nowait).all()
+        locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == rule_id).with_for_update(nowait=nowait).yield_per(100)
 
         # Remove locks, set tombstone if applicable
         transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
