@@ -177,10 +177,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             # 5. Resolve the did to its contents
             with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
                 # Get all Replicas, not only the ones interesting for the rse_expression
-                datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
-                                                                                    nowait=False,
-                                                                                    restrict_rses=[rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
-                                                                                    session=session)
+                datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
+                                                                                                     nowait=False,
+                                                                                                     restrict_rses=[rse['id'] for rse in rses],
+                                                                                                     source_rses=[rse['id'] for rse in source_rses],
+                                                                                                     session=session)
 
             sumfiles = sum([len(x['files']) for x in datasetfiles])
             if sumfiles > 30000:
@@ -192,6 +193,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     __create_locks_replicas_transfers(datasetfiles=datasetfiles,
                                                       locks=locks,
                                                       replicas=replicas,
+                                                      source_replicas=source_replicas,
                                                       rseselector=rseselector,
                                                       rule=new_rule,
                                                       preferred_rse_ids=[],
@@ -272,10 +274,11 @@ def add_rules(dids, rules, session=None):
             # 3. Resolve the did into its contents
             with record_timer_block('rule.add_rules.resolve_dids_to_locks_replicas'):
                 # Get all Replicas, not only the ones interesting for the rse_expression
-                datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
-                                                                                    nowait=False,
-                                                                                    restrict_rses=restrict_rses + all_source_rses,
-                                                                                    session=session)
+                datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
+                                                                                                     nowait=False,
+                                                                                                     restrict_rses=restrict_rses,
+                                                                                                     source_rses=all_source_rses,
+                                                                                                     session=session)
 
             for rule in rules:
                 with record_timer_block('rule.add_rules.add_rule'):
@@ -360,6 +363,7 @@ def add_rules(dids, rules, session=None):
                             __create_locks_replicas_transfers(datasetfiles=datasetfiles,
                                                               locks=locks,
                                                               replicas=replicas,
+                                                              source_replicas=source_replicas,
                                                               rseselector=rseselector,
                                                               rule=new_rule,
                                                               preferred_rse_ids=[],
@@ -440,10 +444,11 @@ def inject_rule(rule_id, session=None):
     # 5. Resolve the did to its contents
     with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
         # Get all Replicas, not only the ones interesting for the rse_expression
-        datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
-                                                                            nowait=True,
-                                                                            restrict_rses=[rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
-                                                                            session=session)
+        datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
+                                                                                             nowait=True,
+                                                                                             restrict_rses=[rse['id'] for rse in rses],
+                                                                                             source_rses=[rse['id'] for rse in source_rses],
+                                                                                             session=session)
 
     # 6. Apply the replication rule to create locks, replicas and transfers
     with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
@@ -451,6 +456,7 @@ def inject_rule(rule_id, session=None):
             __create_locks_replicas_transfers(datasetfiles=datasetfiles,
                                               locks=locks,
                                               replicas=replicas,
+                                              source_replicas=source_replicas,
                                               rseselector=rseselector,
                                               rule=rule,
                                               preferred_rse_ids=[],
@@ -741,10 +747,11 @@ def repair_rule(rule_id, session=None):
                                                           models.DataIdentifier.name == rule.name).one()
 
         # Resolve the did to its contents
-        datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
-                                                                            nowait=True,
-                                                                            restrict_rses=[rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
-                                                                            session=session)
+        datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
+                                                                                             nowait=True,
+                                                                                             restrict_rses=[rse['id'] for rse in rses],
+                                                                                             source_rses=[rse['id'] for rse in source_rses],
+                                                                                             session=session)
 
         if session.bind.dialect.name != 'sqlite':
             session.commit()
@@ -763,6 +770,7 @@ def repair_rule(rule_id, session=None):
                 __find_missing_locks_and_create_them(datasetfiles=datasetfiles,
                                                      locks=locks,
                                                      replicas=replicas,
+                                                     source_replicas=source_replicas,
                                                      rseselector=rseselector,
                                                      rule=rule,
                                                      source_rses=[rse['id'] for rse in source_rses],
@@ -789,6 +797,7 @@ def repair_rule(rule_id, session=None):
         __find_surplus_locks_and_remove_them(datasetfiles=datasetfiles,
                                              locks=locks,
                                              replicas=replicas,
+                                             source_replicas=source_replicas,
                                              rseselector=rseselector,
                                              rule=rule,
                                              source_rses=[rse['id'] for rse in source_rses],
@@ -801,6 +810,7 @@ def repair_rule(rule_id, session=None):
             __find_stuck_locks_and_repair_them(datasetfiles=datasetfiles,
                                                locks=locks,
                                                replicas=replicas,
+                                               source_replicas=source_replicas,
                                                rseselector=rseselector,
                                                rule=rule,
                                                source_rses=[rse['id'] for rse in source_rses],
@@ -1483,13 +1493,14 @@ def deny_rule(rule_id, session=None):
 
 
 @transactional_session
-def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
+def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
     """
     Find missing locks for a rule and create them.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding locks.
     :param replicas:           Dict holding replicas.
+    :param source_replicas:    Dict holding source replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
     :param source_rses:        RSE ids for eglible source RSEs.
@@ -1517,6 +1528,7 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselec
             __create_locks_replicas_transfers(datasetfiles=mod_datasetfiles,
                                               locks=locks,
                                               replicas=replicas,
+                                              source_replicas=source_replicas,
                                               rseselector=rseselector,
                                               rule=rule,
                                               preferred_rse_ids=preferred_rse_ids,
@@ -1527,13 +1539,14 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselec
 
 
 @transactional_session
-def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
+def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
     """
     Find surplocks locks for a rule and delete them.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding locks.
     :param replicas:           Dict holding replicas.
+    :param source_replicas:    Dict holding all source replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
     :param source_rses:        RSE ids for eglible source RSEs.
@@ -1573,13 +1586,14 @@ def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, rseselec
 
 
 @transactional_session
-def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
+def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
     """
     Find stuck locks for a rule and repair them.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding locks.
     :param replicas:           Dict holding replicas.
+    :param source_replicas:    Dict holding source replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
     :param source_rses:        RSE ids of eglible source RSEs.
@@ -1594,6 +1608,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselecto
         locks_to_delete = repair_stuck_locks_and_apply_rule_grouping(datasetfiles=datasetfiles,
                                                                      locks=locks,
                                                                      replicas=replicas,
+                                                                     source_replicas=source_replicas,
                                                                      rseselector=rseselector,
                                                                      rule=rule,
                                                                      source_rses=source_rses,
@@ -1770,10 +1785,10 @@ def __evaluate_did_attach(eval_did, session=None):
                     if session.bind.dialect.name != 'sqlite':
                         session.commit()
 
-                    datasetfiles, locks, replicas = __resolve_dids_to_locks_and_replicas(dids=new_child_dids,
-                                                                                         nowait=True,
-                                                                                         restrict_rses=possible_rses,
-                                                                                         session=session)
+                    datasetfiles, locks, replicas, source_replicas = __resolve_dids_to_locks_and_replicas(dids=new_child_dids,
+                                                                                                          nowait=True,
+                                                                                                          restrict_rses=possible_rses,
+                                                                                                          session=session)
 
                 # Evaluate the replication rules
                 with record_timer_block('rule.evaluate_did_attach.evaluate_rules'):
@@ -1842,6 +1857,7 @@ def __evaluate_did_attach(eval_did, session=None):
                             __create_locks_replicas_transfers(datasetfiles=datasetfiles,
                                                               locks=locks,
                                                               replicas=replicas,
+                                                              source_replicas=source_replicas,
                                                               rseselector=rseselector,
                                                               rule=rule,
                                                               preferred_rse_ids=preferred_rse_ids,
@@ -1897,21 +1913,23 @@ def __evaluate_did_attach(eval_did, session=None):
 
 
 @transactional_session
-def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, session=None):
+def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, source_rses=None, session=None):
     """
     Resolves a did to its constituent childs and reads the locks and replicas of all the constituent files.
 
     :param did:            The db object of the did the rule is applied on.
     :param nowait:         Nowait parameter for the FOR UPDATE statement.
     :param restrict_rses:  Possible rses of the rule, so only these replica/locks should be considered.
+    :param source_rses:    Source rses for this rule. These replicas are not row-locked.
     :param session:        Session of the db.
     :returns:              (datasetfiles, locks, replicas)
     """
 
-    datasetfiles = []  # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
+    datasetfiles = []     # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
     # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
-    locks = {}         # {(scope,name): [SQLAlchemy]}
-    replicas = {}      # {(scope, name): [SQLAlchemy]}
+    locks = {}            # {(scope,name): [SQLAlchemy]}
+    replicas = {}         # {(scope, name): [SQLAlchemy]}
+    source_replicas = {}  # {(scope, name): [rse_id]
 
     if did.did_type == DIDType.FILE:
         datasetfiles = [{'scope': None,
@@ -1923,9 +1941,12 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
                                     'adler32': did.adler32}]}]
         locks[(did.scope, did.name)] = rucio.core.lock.get_replica_locks(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
         replicas[(did.scope, did.name)] = rucio.core.replica.get_and_lock_file_replicas(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
+        if source_rses:
+            source_replicas[(did.scope, did.name)] = rucio.core.replica.get_source_replicas(scope=did.scope, name=did.name, source_rses=source_rses, session=session)
 
     elif did.did_type == DIDType.DATASET:
         files, replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
+        source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=did.scope, name=did.name, source_rses=source_rses, session=session)
         datasetfiles = [{'scope': did.scope,
                          'name': did.name,
                          'files': files}]
@@ -1935,6 +1956,9 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
 
         for dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
             files, tmp_replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
+            if source_rses:
+                tmp_source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], source_rses=restrict_rses, session=session)
+                source_replicas = dict(source_replicas.items() + tmp_source_replicas.items())
             tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             datasetfiles.append({'scope': dataset['scope'],
                                  'name': dataset['name'],
@@ -1945,25 +1969,27 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
     else:
         raise InvalidReplicationRule('The did \"%s:%s\" has been deleted.' % (did.scope, did.name))
 
-    return datasetfiles, locks, replicas
+    return datasetfiles, locks, replicas, source_replicas
 
 
 @transactional_session
-def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], session=None):
+def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], source_rses=None, session=None):
     """
     Resolves a list of dids to its constituent childs and reads the locks and replicas of all the constituent files.
 
     :param dids:           The list of DIDAssociation objects.
     :param nowait:         Nowait parameter for the FOR UPDATE statement.
     :param restrict_rses:  Possible rses of the rule, so only these replica/locks should be considered.
+    :param source_rses:    Source rses for this rule. These replicas are not row-locked.
     :param session:        Session of the db.
     :returns:              (datasetfiles, locks, replicas)
     """
 
-    datasetfiles = []  # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
+    datasetfiles = []     # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
     # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
-    locks = {}         # {(scope,name): [SQLAlchemy]}
-    replicas = {}      # {(scope, name): [SQLAlchemy]}
+    locks = {}            # {(scope,name): [SQLAlchemy]}
+    replicas = {}         # {(scope, name): [SQLAlchemy]}
+    source_replicas = {}  # {(scope, name): [rse_id]
 
     if dids[0].child_type == DIDType.FILE:
         # All the dids will be files!
@@ -1977,6 +2003,7 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                           'adler32': did.adler32})
             locks[(did.child_scope, did.child_name)] = []
             replicas[(did.child_scope, did.child_name)] = []
+            source_replicas[(did.child_scope, did.child_name)] = []
         datasetfiles = [{'scope': dids[0].scope, 'name': dids[0].name, 'files': files}]
 
         # Prepare the locks and files
@@ -1991,11 +2018,15 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
         replica_clause_chunks = [replica_clauses[x:x+10] for x in xrange(0, len(replica_clauses), 10)]
 
         replicas_rse_clause = []
+        source_replicas_rse_clause = []
         locks_rse_clause = []
         if restrict_rses:
             for rse_id in restrict_rses:
                 replicas_rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
                 locks_rse_clause.append(models.ReplicaLock.rse_id == rse_id)
+        if source_rses:
+            for rse_id in source_rses:
+                source_replicas_rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
 
         for lock_clause_chunk in lock_clause_chunks:
             if locks_rse_clause:
@@ -2026,28 +2057,41 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                     replicas[(replica.scope, replica.name)] = [replica]
                 else:
                     replicas[(replica.scope, replica.name)].append(replica)
+
+        if source_rses:
+            for replica_clause_chunk in replica_clause_chunks:
+                tmp_source_replicas = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).filter(or_(*replica_clause_chunk), or_(*source_replicas_rse_clause), models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
+                    .with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').all()
+                for scope, name, rse_id in tmp_source_replicas:
+                    if (scope, name) not in source_replicas:
+                        source_replicas[(scope, name)] = [rse_id]
+                    else:
+                        source_replicas[(scope, name)].append(rse_id)
     else:
         # The evaluate_dids will be containers and/or datasets
         for did in dids:
             real_did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == did.child_scope, models.DataIdentifier.name == did.child_name).one()
-            tmp_datasetfiles, tmp_locks, tmp_replicas = __resolve_did_to_locks_and_replicas(did=real_did,
-                                                                                            nowait=nowait,
-                                                                                            restrict_rses=restrict_rses,
-                                                                                            session=session)
+            tmp_datasetfiles, tmp_locks, tmp_replicas, tmp_source_replicas = __resolve_did_to_locks_and_replicas(did=real_did,
+                                                                                                                 nowait=nowait,
+                                                                                                                 restrict_rses=restrict_rses,
+                                                                                                                 source_rses=source_rses,
+                                                                                                                 session=session)
             datasetfiles.extend(tmp_datasetfiles)
             locks = dict(locks.items() + tmp_locks.items())
             replicas = dict(replicas.items() + tmp_replicas.items())
-    return datasetfiles, locks, replicas
+            source_replicas = dict(source_replicas.items() + tmp_source_replicas.items())
+    return datasetfiles, locks, replicas, source_replicas
 
 
 @transactional_session
-def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply a created replication rule to a set of files
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding locks.
     :param replicas:           Dict holding replicas.
+    :param source_replicas:    Dict holding source replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
     :param preferred_rse_ids:  Preferred RSE's to select.
@@ -2062,6 +2106,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
     replicas_to_create, locks_to_create, transfers_to_create = apply_rule_grouping(datasetfiles=datasetfiles,
                                                                                    locks=locks,
                                                                                    replicas=replicas,
+                                                                                   source_replicas=source_replicas,
                                                                                    rseselector=rseselector,
                                                                                    rule=rule,
                                                                                    preferred_rse_ids=preferred_rse_ids,

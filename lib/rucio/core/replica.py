@@ -1275,6 +1275,29 @@ def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, se
 
 
 @transactional_session
+def get_source_replicas(scope, name, source_rses=None, session=None):
+    """
+    Get soruce replicas for a specific scope:name.
+
+    :param scope:          The scope of the did.
+    :param name:           The name of the did.
+    :param soruce_rses:    Possible RSE_ids to filter on.
+    :param session:        The db session in use.
+    :returns:              List of SQLAlchemy Replica Objects
+    """
+
+    query = session.query(models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name).filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+    if source_rses:
+        if len(source_rses) < 10:
+            rse_clause = []
+            for rse_id in source_rses:
+                rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+            if rse_clause:
+                query = query.filter(or_(*rse_clause))
+    return query.all()
+
+
+@transactional_session
 def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_rses=None, session=None):
     """
     Get file replicas for all files of a dataset.
@@ -1320,7 +1343,7 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                .filter(models.DataIdentifierAssociation.scope == scope,
                                        models.DataIdentifierAssociation.name == name)
 
-        query = query.with_for_update(nowait=nowait, of=models.RSEFileAssociation.lock_cnt)
+    query = query.with_for_update(nowait=nowait, of=models.RSEFileAssociation.lock_cnt)
 
     files = {}
     replicas = {}
@@ -1342,6 +1365,60 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                 replicas[(child_scope, child_name)].append(replica)
 
     return (files.values(), replicas)
+
+
+@transactional_session
+def get_source_replicas_for_dataset(scope, name, source_rses=None, session=None):
+    """
+    Get file replicas for all files of a dataset.
+
+    :param scope:          The scope of the dataset.
+    :param name:           The name of the dataset.
+    :param source_rses:    Possible source RSE_ids to filter on.
+    :param session:        The db session in use.
+    :returns:              (files in dataset, replicas in dataset)
+    """
+    query = session.query(models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.RSEFileAssociation.rse_id)\
+        .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
+        .outerjoin(models.RSEFileAssociation,
+                   and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                        models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).\
+        filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
+
+    if source_rses:
+        if len(source_rses) < 10:
+            rse_clause = []
+            for rse_id in source_rses:
+                rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+            if rse_clause:
+                query = session.query(models.DataIdentifierAssociation.child_scope,
+                                      models.DataIdentifierAssociation.child_name,
+                                      models.RSEFileAssociation.rse_id)\
+                               .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
+                               .outerjoin(models.RSEFileAssociation,
+                                          and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                               models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                               models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                               or_(*rse_clause)))\
+                               .filter(models.DataIdentifierAssociation.scope == scope,
+                                       models.DataIdentifierAssociation.name == name)
+
+    replicas = {}
+
+    for child_scope, child_name, rse_id in query:
+
+        if (child_scope, child_name) in replicas:
+            if rse_id:
+                replicas[(child_scope, child_name)].append(rse_id)
+        else:
+            replicas[(child_scope, child_name)] = []
+            if rse_id:
+                replicas[(child_scope, child_name)].append(rse_id)
+
+    return replicas
 
 
 @transactional_session
