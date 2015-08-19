@@ -14,7 +14,7 @@
 
 from os.path import dirname, join
 
-from web import application, header, template
+from web import application, header, input, seeother, template
 
 from rucio.common.utils import generate_http_error
 from rucio.web.ui.common.utils import check_token, get_token
@@ -35,13 +35,15 @@ urls = (
     '/dumps', 'Dumps',
     '/heartbeats', 'Heartbeats',
     '/infrastructure', 'Infrastructure',
-    '/list_rules', 'ListRules',
+    '/list_rules', 'ListRulesRedirect',
+    '/r2d2/request', 'RequestRule',
+    '/r2d2', 'ListRules',
     '/rse_account_usage', 'RSEAccountUsage',
     '/rse_usage', 'RSEUsage',
     '/rse_locks', 'RSELocks',
     '/rule', 'Rule',
     '/rules', 'Rules',
-    '/request_rule', 'RequestRule',
+    '/request_rule', 'RequestRuleRedirect',
     '/rule_backlog_monitor', 'BacklogMon',
     '/search', 'Search',
     '/subscriptions/rules', 'SubscriptionRules',
@@ -147,6 +149,15 @@ class ListRules():
         return check_token(render.list_rules())
 
 
+class ListRulesRedirect():
+    def GET(self):
+        params = input()
+        url = '/r2d2?'
+        for key, value in params.items():
+            url += key + '=' + value + '&'
+        seeother(url[:-1])
+
+
 class Rule():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
@@ -157,6 +168,11 @@ class RequestRule():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.request_rule())
+
+
+class RequestRuleRedirect():
+    def GET(self):
+        seeother('/r2d2/request')
 
 
 class Subscription():
