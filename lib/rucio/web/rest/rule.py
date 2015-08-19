@@ -35,8 +35,6 @@ urls = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
         '/(.+)/(.+)/history', 'RuleHistoryFull',
         '/(.+)/history', 'RuleHistory',
-        '/(.+)/approve', 'RuleApprove',
-        '/(.+)/deny', 'RuleDeny',
         '/', 'AllRule',
         '/(.+)', 'Rule',)
 
