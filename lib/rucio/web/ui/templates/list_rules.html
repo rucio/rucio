@@ -10,13 +10,20 @@
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 -->
 
-$var title: Rules
+$var title: Rucio Rule Definition Droid - List Rules
 $var script: <script src="/static/list_rules.js"></script>
 
 <div id="results" class="row">
 
   <div id="t_data" class="columns panel">
-    <h4>Rules</h4>
+    <div class="row">
+      <div class="large-11 columns">
+        <h4>Rules</h4>
+      </div>
+      <div class="large-1 columns">
+          <a class="button small postfix">New request</a>
+      </div>
+    </div>
     <form>
       <div id="selector_row" class="row collapse">
         <div class="large-2 columns">
@@ -63,7 +70,7 @@ $var script: <script src="/static/list_rules.js"></script>
         </div>
         <div class="large-2 columns">
           <label><text style="visibility:hidden">.</text>
-          <a class="button postfix" id="apply_button">Apply</a>
+          <a class="button small postfix" id="apply_button">Apply</a>
           </label>
         </div>
       </div>
