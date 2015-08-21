@@ -43,14 +43,14 @@ logging.basicConfig(stream=sys.stdout,
 graceful_stop = threading.Event()
 
 
-def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1, sleep_time=60, activities=None, bulk=1000):
+def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
     """
     Main loop to update the replicas and rules based on finished requests.
     """
 
-    logging.info('finisher starting - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
-                                                                                   thread, total_threads,
-                                                                                   bulk))
+    logging.info('finisher starting - process (%i/%i) thread (%i/%i) db_bulk(%i) bulk (%i)' % (process, total_processes,
+                                                                                               thread, total_threads,
+                                                                                               db_bulk, bulk))
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -79,7 +79,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                 reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                         state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING,
                                                RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES],
-                                        limit=100000,
+                                        limit=db_bulk,
                                         older_than=datetime.datetime.utcnow(),
                                         activity=activity,
                                         process=process, total_processes=total_processes,
@@ -128,14 +128,14 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, sleep_time=60, activities=None, bulk=1000):
+def run(once=False, process=0, total_processes=1, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
     """
     Starts up the conveyer threads.
     """
 
     if once:
         logging.info('executing one finisher iteration only')
-        finisher(once=once, activities=activities, bulk=bulk)
+        finisher(once=once, activities=activities, bulk=bulk, db_bulk=db_bulk)
 
     else:
 
@@ -146,6 +146,7 @@ def run(once=False, process=0, total_processes=1, total_threads=1, sleep_time=60
                                                              'total_threads': total_threads,
                                                              'sleep_time': sleep_time,
                                                              'activities': activities,
+                                                             'db_bulk': db_bulk,
                                                              'bulk': bulk}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
