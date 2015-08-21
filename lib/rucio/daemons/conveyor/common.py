@@ -445,6 +445,7 @@ def add_monitor_message(request, response, session=None):
     adler32 = response.get('adler32', None)
     scope = response.get('scope', None)
     name = response.get('name', None)
+    transferred_at = response.get('transferred_at', None)
     job_m_replica = response.get('job_m_replica', None)
     if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
         try:
@@ -483,6 +484,7 @@ def add_monitor_message(request, response, session=None):
                                   'transfer-endpoint': response['external_host'],
                                   'transfer-id': response['transfer_id'],
                                   'transfer-link': transfer_link,
+                                  'transferred_at': str(transferred_at) if transferred_at else None,
                                   'tool-id': 'rucio-conveyor'},
                 session=session)
 
