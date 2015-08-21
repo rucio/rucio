@@ -30,6 +30,8 @@ if __name__ == "__main__":
                         help='Concurrency control: total number of processes')
     parser.add_argument("--total-threads", action="store", default=1, type=int,
                         help='Concurrency control: total number of threads per process')
+    parser.add_argument("--db-bulk", action="store", default=1000, type=int,
+                        help='Bulk control: number of transfers per db query')
     parser.add_argument("--bulk", action="store", default=100, type=int,
                         help='Bulk control: number of requests')
     parser.add_argument('--sleep-time', action="store", default=300, type=int,
@@ -45,6 +47,7 @@ if __name__ == "__main__":
             total_threads=args.total_threads,
             sleep_time=args.sleep_time,
             activities=args.activities,
+            db_bulk=args.db_bulk,
             bulk=args.bulk)
     except KeyboardInterrupt:
         stop()
