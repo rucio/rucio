@@ -910,7 +910,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests']
 
     for key in options:
         if key not in valid_options:
@@ -955,8 +955,25 @@ def update_rule(rule_id, options, session=None):
                 elif options['state'].lower() == 'stuck':
                     rule.state = RuleState.STUCK
                     rule.stuck_at = datetime.utcnow()
-                    session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).update({'state': LockState.STUCK})
-                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                    if options.get('cancel_requests', False):
+                        rule_ids_to_stuck = set()
+                        for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
+                            # Set locks to stuck:
+                            for l in session.query(models.ReplicaLock).filter_by(scope=lock.scope, name=lock.name, rse_id=lock.rse_id, state=LockState.REPLICATING).all():
+                                l.state = LockState.STUCK
+                                rule_ids_to_stuck.add(l.rule_id)
+                            cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                        # Set rules and DATASETLOCKS to STUCK:
+                        for rid in rule_ids_to_stuck:
+                            session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rid,
+                                                                         models.ReplicationRule.state != RuleState.SUSPENDED).update({'state': RuleState.STUCK})
+                            session.query(models.DatasetLock).filter_by(rule_id=rid).update({'state': LockState.STUCK})
+                    else:
+                        session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).update({'state': LockState.STUCK})
+                        session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+
+            elif key == 'cancel_requests':
+                pass
 
             else:
                 setattr(rule, key, options[key])
