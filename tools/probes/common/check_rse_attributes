@@ -84,6 +84,10 @@ if __name__ == '__main__':
                 r.add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
             else:
                 r.add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
+            if 'datapolicies' in rse:
+                r.add_rse_attribute(name, 'datapolicyt0disk', 'T0Disk' in rse['datapolicies'], 'root')
+                r.add_rse_attribute(name, 'datapolicyt0tape', 'T0Tape' in rse['datapolicies'], 'root')
+                r.add_rse_attribute(name, 'datapolicyt0taskoutput', 'T0TaskOutput' in rse['datapolicies'], 'root')
 
         except RucioException as e:
             print str(e)
