@@ -66,6 +66,9 @@ def check_token(rendered_tpl):
     if validate_token is None:
         # get all accounts for an identity. Needed for account switcher in UI.
         accounts = identity.list_accounts_for_identity(dn, 'x509')
+        if len(accounts) == 0:
+            return render.problem("Your certificate (%s) is not mapped to any rucio account. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
+
         cookie_accounts = accounts
 
         # try to set the default account to the user account, if not available take the first account.
@@ -82,7 +85,7 @@ def check_token(rendered_tpl):
                                                        'webui',
                                                        ctx.env.get('REMOTE_ADDR'))
         except:
-            return render.problem("Your certificate (%s) is not registered in Rucio. Please contact <a href=\"mailto:rucio-support@cern.ch\">Rucio Support</a>" % dn)
+            return render.problem("Your certificate (%s) is not registered in Rucio. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
 
         # write the token and account to javascript variables, that will be used in the HTML templates.
         js_token = __to_js('token', token)
