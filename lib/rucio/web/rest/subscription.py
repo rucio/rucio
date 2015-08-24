@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014.
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps, loads
@@ -146,7 +146,7 @@ class Subscription:
             lifetime = params['lifetime']
             retroactive = params['retroactive']
             dry_run = params['dry_run']
-            priority = params.get('priority', 3)
+            priority = params.get('priority', 3) or 3
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
