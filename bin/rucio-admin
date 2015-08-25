@@ -771,24 +771,23 @@ Commands:
     list_account_parser = account_subparser.add_parser('list', help='List Rucio accounts')
     list_account_parser.add_argument('--type', dest='account_type', action='store', help='Account Type (USER, GROUP, SERVICE)')
     list_account_parser.add_argument('--id', dest='identity', action='store', help='Identity (e.g. DN)')
-
     list_account_parser.set_defaults(which='list_accounts')
 
     # The list_account_attributes command
     list_attr_parser = account_subparser.add_parser('list-attributes', help='List attributes for an account')
-    list_attr_parser.add_argument('--account', dest='account', action='store', help='Account name')
+    list_attr_parser.add_argument('account', action='store', help='Account name')
     list_attr_parser.set_defaults(which='list_account_attributes')
 
     # The add_account_attribute command
     add_attr_parser = account_subparser.add_parser('add-attribute', help='Add attribute for an account')
-    add_attr_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    add_attr_parser.add_argument('account', action='store', help='Account name')
     add_attr_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     add_attr_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
     add_attr_parser.set_defaults(which='add_account_attribute')
 
-    # The add_account_attribute command
+    # The delete_account_attribute command
     delete_attr_parser = account_subparser.add_parser('delete-attribute', help='Delete attribute for an account')
-    delete_attr_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    delete_attr_parser.add_argument('account', action='store', help='Account name')
     delete_attr_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     delete_attr_parser.set_defaults(which='delete_account_attribute')
 
