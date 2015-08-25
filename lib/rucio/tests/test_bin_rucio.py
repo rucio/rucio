@@ -117,19 +117,19 @@ class TestBinRucio():
         cmd = 'rucio-admin account add %s' % tmp_acc
         exitcode, out, err = execute(cmd)
         # add attribute to the account
-        cmd = 'rucio-admin account add-attribute --account {0} --key test_attribute_key --value true'.format(tmp_acc)
+        cmd = 'rucio-admin account add-attribute {0} --key test_attribute_key --value true'.format(tmp_acc)
         exitcode, out, err = execute(cmd)
         print out
         print err
         nose.tools.assert_equal(0, exitcode)
         # list attributes
-        cmd = 'rucio-admin account list-attributes --account {0}'.format(tmp_acc)
+        cmd = 'rucio-admin account list-attributes {0}'.format(tmp_acc)
         exitcode, out, err = execute(cmd)
         print out
         print err
         nose.tools.assert_equal(0, exitcode)
         # delete attribute to the account
-        cmd = 'rucio-admin account delete-attribute --account {0} --key test_attribute_key'.format(tmp_acc)
+        cmd = 'rucio-admin account delete-attribute {0} --key test_attribute_key'.format(tmp_acc)
         exitcode, out, err = execute(cmd)
         print out
         print err
