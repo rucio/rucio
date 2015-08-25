@@ -1275,6 +1275,9 @@ def info_rule(args):
     print "Activity:                   %s" % rule['activity']
     print "Comment:                    %s" % rule['comments']
     print "Ignore Quota:               %s" % rule['ignore_account_limit']
+    print "Ignore Availability:        %s" % rule['ignore_availability']
+    print "Purge replicas:             %s" % rule['purge_replicas']
+    print "Notification:               %s" % rule['notification']
     return SUCCESS
 
 
