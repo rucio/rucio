@@ -201,24 +201,18 @@ def update_bad_replicas_history(dids, rse_id, session=None):
 
     for did in dids:
         # Check if the replica is still there
-        query = session.query(models.RSEFileAssociation.state).filter_by(rse_id=rse_id, scope=did['scope'], name=did['name'])
-        if query.count():
+        try:
+            result = session.query(models.RSEFileAssociation.state).filter_by(rse_id=rse_id, scope=did['scope'], name=did['name']).one()
             # If yes, and replica state is AVAILABLE, update BadReplicas
-            result = query.first()
             state = result.state
             if state == ReplicaState.AVAILABLE:
                 query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
                 query.update({'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
-        else:
+        except NoResultFound:
             # If no, check if the did still exists
-            query = session.query(models.DataIdentifier.availability).filter_by(scope=did['scope'], name=did['name'], did_type=DIDType.FILE)
-            if not query.count():
-                # If no, the replica is marked as LOST in BadFilesStatus
-                query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
-                query.update({'state': BadFilesStatus.LOST, 'updated_at': datetime.utcnow()}, synchronize_session=False)
-            else:
+            try:
+                result = session.query(models.DataIdentifier.availability).filter_by(scope=did['scope'], name=did['name'], did_type=DIDType.FILE).one()
                 # If yes, the state depends on DIDAvailability
-                result = query.first()
                 state = result.availability
                 final_state = None
                 if state == DIDAvailability.LOST:
@@ -233,6 +227,10 @@ def update_bad_replicas_history(dids, rse_id, session=None):
                     print 'Houston we have a problem.'
                 query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
                 query.update({'state': final_state, 'updated_at': datetime.utcnow()}, synchronize_session=False)
+            except NoResultFound:
+                # If no, the replica is marked as LOST in BadFilesStatus
+                query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
+                query.update({'state': BadFilesStatus.LOST, 'updated_at': datetime.utcnow()}, synchronize_session=False)
 
 
 @transactional_session
