@@ -334,6 +334,7 @@ class DataIdentifier(BASE, ModelBase):
     phys_group = Column(String(25))
     transient = Column(Boolean(name='DID_TRANSIENT_CHK'), server_default='0')
     accessed_at = Column(DateTime)
+    closed_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -437,6 +438,7 @@ class DataIdentifierAssociationHistory(BASE, ModelBase):
     events = Column(BigInteger)
     rule_evaluation = Column(Boolean(name='CONTENTS_HIST_RULE_EVAL_CHK'))
     did_created_at = Column(DateTime)
+    deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_HIST_PK'),
                    CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_HIST_DID_TYPE_NN'),
                    CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_HIST_CHILD_TYPE_NN'),
@@ -758,7 +760,8 @@ class ReplicationRuleHistory(BASE, ModelBase):
     ignore_availability = Column(Boolean())
     ignore_account_limit = Column(Boolean())
     comments = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),)  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
+    _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
+                   Index('RULES_HISTORY_SCOPENAME_IDX', 'scope', 'name'))
 
 
 class ReplicaLock(BASE, ModelBase):
@@ -853,6 +856,7 @@ class Request(BASE, ModelBase, Versioned):
     dest_url = Column(String(2048))
     submitted_at = Column(DateTime)
     transferred_at = Column(DateTime)
+    submitter_id = Column(Integer)
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
@@ -875,6 +879,7 @@ class Source(BASE, ModelBase):
     url = Column(String(2048))
     bytes = Column(BigInteger)
     ranking = Column(Integer())
+    is_using = Column(Boolean(), default=False)
     _table_args = (PrimaryKeyConstraint('request_id', 'rse_id', 'scope', 'name', name='SOURCES_PK'),
                    ForeignKeyConstraint(['request_id'], ['requests.id'], name='SOURCES_REQ_ID_FK'),
                    ForeignKeyConstraint(['scope', 'name', 'rse_id'], ['replicas.scope', 'replicas.name', 'replicas.rse_id'], name='SOURCES_REPLICA_FK'),

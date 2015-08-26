@@ -19,13 +19,15 @@ Create Date: 2015-01-13 15:32:20.732545
 revision = '271a46ea6244'
 down_revision = 'd6dceb1de2d'
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 
 
 def upgrade():
-    op.add_column('rules', sa.Column('ignore_availability', sa.Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False))
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.add_column('rules', sa.Column('ignore_availability', sa.Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False))
 
 
 def downgrade():
-    op.drop_column('rules', 'ignore_availability')
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.drop_column('rules', 'ignore_availability')
