@@ -262,8 +262,25 @@ def transmogrifier(bulk=5, once=False):
                                         rse_id_dict = {}
                                         for rse in rses:
                                             rse_id_dict[rse['id']] = rse['rse']
-                                        rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
-                                        selected_rses = [rse_id_dict[rse_id] for rse_id, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=blacklisted_rse_id)]
+                                        try:
+                                            rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
+                                            selected_rses = [rse_id_dict[rse_id] for rse_id, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=blacklisted_rse_id)]
+                                        except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight) as error:
+                                            logging.warning('Thread [%i/%i] : Problem getting RSEs for subscription "%s" for account %s : %s. Try including blacklisted sites' %
+                                                            (heart_beat['assign_thread'], heart_beat['nr_threads'], subscription['name'], account, str(error)))
+                                            # Now including the blacklisted sites
+                                            try:
+                                                rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
+                                                selected_rses = [rse_id_dict[rse_id] for rse_id, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=[])]
+                                                ignore_availability = True
+                                            except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight) as error:
+                                                logging.error('Thread [%i/%i] : Problem getting RSEs for subscription "%s" for account %s : %s. Skipping rule creation.' %
+                                                              (heart_beat['assign_thread'], heart_beat['nr_threads'], subscription['name'], account, str(error)))
+                                                monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
+                                                # The DID won't be reevaluated at the next cycle
+                                                did_success = did_success and True
+                                                continue
+
                                     for attempt in xrange(0, nattempt):
                                         attemptnr = attempt
                                         nb_rule = 0
