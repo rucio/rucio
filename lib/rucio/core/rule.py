@@ -103,7 +103,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
         # 2. Create the rse selector
         with record_timer_block('rule.add_rule.create_rse_selector'):
-            rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, session=session)
+            rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, ignore_account_limit=ask_approval, session=session)
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
 
@@ -299,7 +299,7 @@ def add_rules(dids, rules, session=None):
 
                     # 5. Create the RSE selector
                     with record_timer_block('rule.add_rules.create_rse_selector'):
-                        rseselector = RSESelector(account=rule['account'], rses=rses, weight=rule.get('weight'), copies=rule['copies'], session=session)
+                        rseselector = RSESelector(account=rule['account'], rses=rses, weight=rule.get('weight'), copies=rule['copies'], ignore_account_limit=rule.get('ask_approval', False), session=session)
 
                     # 4. Create the replication rule
                     with record_timer_block('rule.add_rules.create_rule'):
