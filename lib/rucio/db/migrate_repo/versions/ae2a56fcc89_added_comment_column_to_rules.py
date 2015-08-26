@@ -26,9 +26,10 @@ from rucio.db.models import String
 
 
 def upgrade():
-    op.add_column('rules', sa.Column('comments', String(255)))
-    op.add_column('rules_hist_recent', sa.Column('comments', String(255)))
-    op.add_column('rules_history', sa.Column('comments', String(255)))
+    if context.get_context().dialect.name != 'sqlite':
+        op.add_column('rules', sa.Column('comments', String(255)))
+        op.add_column('rules_hist_recent', sa.Column('comments', String(255)))
+        op.add_column('rules_history', sa.Column('comments', String(255)))
 
 
 def downgrade():
