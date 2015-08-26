@@ -19,13 +19,15 @@ Create Date: 2014-11-12 14:01:14.996892
 revision = 'd6dceb1de2d'
 down_revision = '25821a8a45a3'
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 
 
 def upgrade():
-    op.add_column('rules', sa.Column('purge_replicas', sa.Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False))
+    if context.get_context().dialect.name != 'sqlite':
+        op.add_column('rules', sa.Column('purge_replicas', sa.Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False))
 
 
 def downgrade():
-    op.drop_column('rules', 'purge_replicas')
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_column('rules', 'purge_replicas')

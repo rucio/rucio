@@ -19,17 +19,19 @@ Create Date: 2015-07-08 16:59:23.710208
 revision = '1d96f484df21'
 down_revision = '3d9813fab443'
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 
 
 def upgrade():
-    op.add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
-    op.drop_constraint('RULES_STATE_CHK', 'rules')
-    op.create_check_constraint('RULES_STATE_CHK', 'rules', 'state IN (\'S\', \'R\', \'U\', \'O\', \'A\', \'I\')')
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
+        op.drop_constraint('RULES_STATE_CHK', 'rules')
+        op.create_check_constraint('RULES_STATE_CHK', 'rules', 'state IN (\'S\', \'R\', \'U\', \'O\', \'A\', \'I\')')
 
 
 def downgrade():
-    op.drop_column('rules', 'ignore_account_limit')
-    op.drop_constraint('RULES_STATE_CHK', 'rules')
-    op.create_check_constraint('RULES_STATE_CHK', 'rules', 'state IN (\'S\', \'R\', \'U\', \'O\')')
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.drop_column('rules', 'ignore_account_limit')
+        op.drop_constraint('RULES_STATE_CHK', 'rules')
+        op.create_check_constraint('RULES_STATE_CHK', 'rules', 'state IN (\'S\', \'R\', \'U\', \'O\')')

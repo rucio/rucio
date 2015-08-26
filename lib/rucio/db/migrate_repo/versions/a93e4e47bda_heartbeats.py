@@ -33,21 +33,24 @@ def upgrade():
                     sa.Column('updated_at', sa.DateTime),
                     sa.Column('created_at', sa.DateTime))
 
-    op.create_primary_key('heartbeats_pk', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
-    op.create_index('heartbeats_updated_at', 'heartbeats', ['updated_at'])
+    if context.get_context().dialect.name != 'sqlite':
+        op.create_primary_key('heartbeats_pk', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
+        op.create_index('heartbeats_updated_at', 'heartbeats', ['updated_at'])
 
-    if context.get_context().dialect.name != 'mysql':
-        op.create_check_constraint('heartbeats_created_nn', 'heartbeats', 'created_at is not null')
-        op.create_check_constraint('heartbeats_updated_nn', 'heartbeats', 'updated_at is not null')
+        if context.get_context().dialect.name != 'mysql':
+            op.create_check_constraint('heartbeats_created_nn', 'heartbeats', 'created_at is not null')
+            op.create_check_constraint('heartbeats_updated_nn', 'heartbeats', 'updated_at is not null')
 
 
 def downgrade():
 
-    op.drop_constraint('heartbeats_pk', 'configs', type_='primary')
-    op.drop_index('heartbeats_updated_at', 'heartbeats')
+    if context.get_context().dialect.name != 'sqlite':
 
-    if context.get_context().dialect.name != 'mysql':
-        op.drop_constraint('heartbeats_created_nn', 'heartbeats', type_='check')
-        op.drop_constraint('heartbeats_updated_nn', 'heartbeats', type_='check')
+        op.drop_constraint('heartbeats_pk', 'configs', type_='primary')
+        op.drop_index('heartbeats_updated_at', 'heartbeats')
+
+        if context.get_context().dialect.name != 'mysql':
+            op.drop_constraint('heartbeats_created_nn', 'heartbeats', type_='check')
+            op.drop_constraint('heartbeats_updated_nn', 'heartbeats', type_='check')
 
     op.drop_table('heartbeats')

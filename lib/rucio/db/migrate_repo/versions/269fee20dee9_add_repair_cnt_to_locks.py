@@ -19,13 +19,15 @@ Create Date: 2015-07-13 17:52:33.103379
 revision = '269fee20dee9'
 down_revision = '1d96f484df21'
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 
 
 def upgrade():
-    op.add_column('locks', sa.Column('repair_cnt', sa.BigInteger()))
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.add_column('locks', sa.Column('repair_cnt', sa.BigInteger()))
 
 
 def downgrade():
-    op.drop_column('locks', 'repair_cnt')
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.drop_column('locks', 'repair_cnt')
