@@ -19,23 +19,25 @@ Create Date: 2015-05-06 15:31:50.256448
 revision = '277b5fbb41d3'
 down_revision = '44278720f774'
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 
 from rucio.db.models import String
 
 
 def upgrade():
-    op.drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-    op.drop_column('heartbeats', 'executable')
-    op.add_column('heartbeats', sa.Column('executable', String(64)))
-    op.add_column('heartbeats', sa.Column('readable', String(4000)))
-    op.create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
+        op.drop_column('heartbeats', 'executable')
+        op.add_column('heartbeats', sa.Column('executable', String(64)))
+        op.add_column('heartbeats', sa.Column('readable', String(4000)))
+        op.create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
 
 
 def downgrade():
-    op.drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-    op.drop_column('heartbeats', 'executable')
-    op.drop_column('heartbeats', 'readable')
-    op.add_column('heartbeats', sa.Column('executable', String(767)))
-    op.create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
+        op.drop_column('heartbeats', 'executable')
+        op.drop_column('heartbeats', 'readable')
+        op.add_column('heartbeats', sa.Column('executable', String(767)))
+        op.create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])

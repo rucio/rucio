@@ -3,9 +3,10 @@
 #cx_Oracle==5.1.2           # Oracle connector
 # MySQL-python==1.2.5      # MySQL connector
 # psycopg2==2.5.2          # PostgreSQL
-SQLAlchemy==1.0.6 # db backend
-alembic==0.7.6 # Lightweight database migration tool for SQLAlchemy
+SQLAlchemy==1.0.8 # db backend
+alembic==0.8.2 # Lightweight database migration tool for SQLAlchemy
 Mako==1.0.1 # Templating language
+python-editor==0.4 # Programmatically open an editor, capture the result.
 flup==1.0.3.dev-20110405 # Needed to deploy web.py in lighthttpd
 web.py==0.37 # Python web framework
 python-memcached==1.54 # Quick and small memcached client for Python
