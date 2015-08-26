@@ -426,6 +426,7 @@ CREATE TABLE dids (
     phys_group VARCHAR2(25 CHAR),
     transient NUMBER(1,0),
     accessed_at DATE,
+    closed_at DATE,
     CONSTRAINT "DIDS_PK" PRIMARY KEY (scope, name) USING INDEX COMPRESS 1,
     CONSTRAINT "DIDS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
     CONSTRAINT "DIDS_SCOPE_FK" FOREIGN KEY(scope) REFERENCES scopes (scope),
@@ -675,6 +676,7 @@ CREATE INDEX RULES_EXPIRES_AT_IDX ON rules (expires_at, name) COMPRESS 1 TABLESP
 CREATE INDEX RULES_STUCKSTATE_IDX ON rules (CASE when state='S' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE UNIQUE INDEX "RULES_SC_NA_AC_RS_CO_UQ_IDX" ON "RULES" ("SCOPE", "NAME", "ACCOUNT", "RSE_EXPRESSION", "COPIES") COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE INDEX RULES_INJECTSTATE_IDX ON rules (CASE when state='I' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+CREATE INDEX RULES_APPROVALSTATE_IDX ON rules (CASE when state='W' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
 
 -- ========================================= LOCKS (List partitioned table) =========================================
@@ -977,6 +979,7 @@ CREATE TABLE ATLAS_RUCIO.CONTENTS_HISTORY (
     rule_evaluation NUMBER(1),
     updated_at DATE,
     created_at DATE,
+    deleted_at DATE,
     did_created_at DATE,
     CONSTRAINT "CONTENTS_HIST_DID_TYPE_NN" CHECK ("DID_TYPE" IS NOT NULL),
     CONSTRAINT "CONTENTS_HIST_CHILD_TYPE_NN" CHECK ("CHILD_TYPE" IS NOT NULL),
@@ -1027,7 +1030,7 @@ CREATE TABLE REQUESTS
      CONSTRAINT "REQUESTS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL) ,
      CONSTRAINT "REQUESTS_RSE_ID_NN" CHECK (dest_rse_id IS NOT NULL) ,
      CONSTRAINT "REQUESTS_TYPE_CHK" CHECK (request_type IN ('U', 'D', 'T','I','0')) ,
-     CONSTRAINT "REQUESTS_STATE_CHK" CHECK (state IN ('Q', 'G', 'S', 'D', 'F', 'L')),
+     CONSTRAINT "REQUESTS_STATE_CHK" CHECK (state IN ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')),
      CONSTRAINT "REQUESTS_DIDTYPE_CHK" CHECK (did_type IN ('C', 'F', 'D'))
        ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
 
@@ -1051,6 +1054,8 @@ ALTER TABLE REQUESTS ADD transferred_at  DATE;
 ALTER TABLE REQUESTS_HISTORY ADD submitted_at DATE;
 ALTER TABLE REQUESTS_HISTORY ADD transferred_at  DATE;
 
+ALTER TABLE REQUESTS ADD submitter_id NUMBER(10);
+
 
 
 -- ========================================= SOURCES =========================================
@@ -1070,6 +1075,7 @@ CREATE TABLE ATLAS_RUCIO.SOURCES (
 	URL VARCHAR2(2048 CHAR),
 	bytes NUMBER(19),
 	RANKING INTEGER,
+        IS_USING NUMBER(1),
 	UPDATED_AT DATE,
 	CREATED_AT DATE,
 	CONSTRAINT "SOURCES_PK" PRIMARY KEY (REQUEST_ID, SCOPE, NAME, RSE_ID) USING INDEX COMPRESS 1,
@@ -1509,6 +1515,9 @@ CREATE INDEX ATLAS_RUCIO.RULES_HIST_RECENT_SC_NA_IDX ON ATLAS_RUCIO.rules_hist_r
 COMMENT ON TABLE ATLAS_RUCIO.rules_hist_recent IS 'Recent history table (1 month) for rules';
 COMMENT ON COLUMN ATLAS_RUCIO.rules_hist_recent.history_id IS 'Fake id necessary for sqlalchemy';
 
+ALTER TABLE ATLAS_RUCIO.rules_hist_recent ADD ignore_account_limit NUMBER(1);
+
+
 -- ========================================= RULES_HISTORY ==============================================
 -- Description: Table of longterm rules (deleted)
 -- Estimated volume:  ?
@@ -1551,11 +1560,13 @@ INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') )
 ( PARTITION "DATA_BEFORE_01012015" VALUES LESS THAN (TO_DATE('01-01-2015', 'DD-MM-YYYY')) )
  ENABLE ROW MOVEMENT ;
 
+CREATE INDEX ATLAS_RUCIO.RULES_HISTORY_SCOPENAME_IDX ON ATLAS_RUCIO.RULES_HISTORY(scope,name) LOCAL COMPRESS 2 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
 
 COMMENT ON TABLE ATLAS_RUCIO.rules_history IS 'Full history table for rules';
 COMMENT ON COLUMN ATLAS_RUCIO.rules_history.history_id IS 'Fake id necessary for sqlalchemy';
 
 
+ALTER TABLE ATLAS_RUCIO.rules_history ADD ignore_account_limit NUMBER(1);
 
 -- ========================================= BAD_REPLICAS ==============================================
 -- Description: Table that stores the bad files

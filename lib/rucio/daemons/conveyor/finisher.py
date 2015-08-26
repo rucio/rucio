@@ -77,7 +77,8 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
             for activity in activities:
                 ts = time.time()
                 reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                        state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING],
+                                        state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING,
+                                               RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES],
                                         limit=db_bulk,
                                         older_than=datetime.datetime.utcnow(),
                                         activity=activity,

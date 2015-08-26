@@ -21,13 +21,15 @@ Create Date: 2015-01-16 16:42:37.039637
 revision = '4cf0a2e127d4'
 down_revision = '271a46ea6244'
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 
 
 def upgrade():
-    op.add_column('dids', sa.Column('transient', sa.Boolean(name='DID_TRANSIENT_CHK'), server_default='0'))
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.add_column('dids', sa.Column('transient', sa.Boolean(name='DID_TRANSIENT_CHK'), server_default='0'))
 
 
 def downgrade():
-    op.drop_column('dids', 'transient')
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.drop_column('dids', 'transient')
