@@ -569,6 +569,7 @@ def list_rule_full_history(scope, name, session=None):
                           models.ReplicationRuleHistory.updated_at,
                           models.ReplicationRuleHistory.rse_expression,
                           models.ReplicationRuleHistory.state,
+                          models.ReplicationRuleHistory.account,
                           models.ReplicationRuleHistory.locks_ok_cnt,
                           models.ReplicationRuleHistory.locks_stuck_cnt,
                           models.ReplicationRuleHistory.locks_replicating_cnt).\
@@ -577,7 +578,8 @@ def list_rule_full_history(scope, name, session=None):
         order_by(models.ReplicationRuleHistory.created_at, models.ReplicationRuleHistory.updated_at)
 
     for rule in query.yield_per(5):
-        yield {'rule_id': rule[0], 'created_at': rule[1], 'updated_at': rule[2], 'rse_expression': rule[3], 'state': rule[4], 'locks_ok_cnt': rule[5], 'locks_stuck_cnt': rule[6], 'locks_replicating_cnt': rule[7]}
+        yield {'rule_id': rule[0], 'created_at': rule[1], 'updated_at': rule[2], 'rse_expression': rule[3], 'state': rule[4],
+               'account': rule[5], 'locks_ok_cnt': rule[6], 'locks_stuck_cnt': rule[7], 'locks_replicating_cnt': rule[8]}
 
 
 @stream_session
