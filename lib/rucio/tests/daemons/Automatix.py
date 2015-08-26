@@ -98,7 +98,7 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
     logging.info('Thread [%i/%i] : Registering DIDs and replicas in Rucio' % (worker_number, total_workers))
     if dsn:
         try:
-            client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}], meta=metadata, lifetime=dataset_lifetime)
+            client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET', 'activity': 'Functional Test'}], meta=metadata, lifetime=dataset_lifetime)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
             logging.info('Thread [%i/%i] : Upload operation for %s:%s done' % (worker_number, total_workers, dsn['scope'], dsn['name']))
         except Exception, error:
@@ -111,7 +111,7 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
         logging.warning('Thread [%i/%i] : No dsn is specified' % (worker_number, total_workers))
         try:
             client.add_replicas(files=list_files, rse=rse)
-            client.add_replication_rule(list_files, copies=1, rse_expression=rse)
+            client.add_replication_rule(list_files, copies=1, rse_expression=rse, activity='Functional Test')
             logging.info('Thread [%i/%i] : Upload operation for %s done' % (worker_number, total_workers, str(list_files)))
         except Exception, error:
             logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload %(files)s' % locals())
