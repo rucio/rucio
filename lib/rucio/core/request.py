@@ -41,6 +41,8 @@ def should_retry_request(req):
     """
     if req['state'] == RequestState.SUBMITTING:
         return True
+    if req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
+        return False
     # hardcoded for now - only requeue a couple of times
     if req['retry_count'] is None or req['retry_count'] < 3:
         return True
@@ -845,7 +847,7 @@ def touch_requests_by_rule(rule_id, session=None):
     try:
         session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_RULEID_IDX)", 'oracle')\
                                      .filter_by(rule_id=rule_id)\
-                                     .filter(models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST]))\
+                                     .filter(models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]))\
                                      .filter(models.Request.updated_at < datetime.datetime.utcnow())\
                                      .update({'updated_at': datetime.datetime.utcnow() + datetime.timedelta(minutes=20)}, synchronize_session=False)
     except IntegrityError, e:
@@ -1204,7 +1206,8 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
                           models.RSEFileAssociation.path,
                           sub_requests.c.retry_count,
                           models.Source.url,
-                          models.Source.ranking)\
+                          models.Source.ranking,
+                          models.Distance.ranking)\
         .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
                                                    sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
@@ -1214,7 +1217,10 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
                                     models.RSE.staging_area == is_false))\
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
                                        models.RSE.id == models.Source.rse_id))\
-        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')
+        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')\
+        .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
+                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id))\
+        .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
 
     if rses:
         result = []

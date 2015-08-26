@@ -48,8 +48,9 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_column('collection_replicas', 'available_replicas_cnt')
-    op.drop_column('collection_replicas', 'available_bytes')
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_column('collection_replicas', 'available_replicas_cnt')
+        op.drop_column('collection_replicas', 'available_bytes')
 
     if context.get_context().dialect.name == 'postgresql':
         op.drop_constraint('UPDATED_COL_REP_PK', 'updated_col_rep', type_='primary')

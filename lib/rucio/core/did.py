@@ -516,7 +516,10 @@ def detach_dids(scope, name, dids, session=None):
                                                 guid=associ_did.guid,
                                                 events=associ_did.events,
                                                 rule_evaluation=associ_did.rule_evaluation,
-                                                did_created_at=did.created_at).\
+                                                did_created_at=did.created_at,
+                                                created_at=associ_did.created_at,
+                                                updated_at=associ_did.updated_at,
+                                                deleted_at=datetime.utcnow()).\
             save(session=session, flush=False)
 
         # Send message for AMI. To be removed in the future when they use the DETACH messages
@@ -952,7 +955,7 @@ def set_status(scope, name, session=None, **kwargs):
         if k == 'open':
             if not kwargs[k]:
                 query = query.filter_by(is_open=True).filter(models.DataIdentifier.did_type != DIDType.FILE)
-                values['is_open'] = False
+                values['is_open'], values['closed_at'] = False, datetime.utcnow()
                 values['length'], values['bytes'], values['events'] = session.query(func.count(models.DataIdentifierAssociation.scope),
                                                                                     func.sum(models.DataIdentifierAssociation.bytes),
                                                                                     func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=scope, name=name).one()

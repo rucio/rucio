@@ -1241,6 +1241,8 @@ def update_rule(args):
         options['activity'] = args.rule_activity
     if args.source_replica_expression:
         options['source_replica_expression'] = None if args.source_replica_expression.lower() == 'none' else args.source_replica_expression
+    if args.cancel_requests:
+        options['cancel_requests'] = True
     client.update_replication_rule(rule_id=args.rule_id, options=options)
     print 'Updated Rule'
     return SUCCESS
@@ -1318,6 +1320,34 @@ def list_rules(args):
                       rule['copies'],
                       rule['expires_at']])
     print tabulate.tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)'])
+    return SUCCESS
+
+
+@exception_handler
+def list_rules_history(args):
+    """
+    %(prog)s list-rules_history ...
+
+    List replication rules history for a DID.
+    """
+    rule_dict = []
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    for rule in client.list_replication_rule_full_history(scope, name):
+        if rule['rule_id'] not in rule_dict:
+            rule_dict.append(rule['rule_id'])
+            print '-' * 40
+            print 'Rule insertion'
+            print 'Account : %s' % rule['account']
+            print 'RSE expression : %s' % (rule['rse_expression'])
+            print 'Time : %s' % (rule['created_at'])
+        else:
+            rule_dict.remove(rule['rule_id'])
+            print '-' * 40
+            print 'Rule deletion'
+            print 'Account : %s' % rule['account']
+            print 'RSE expression : %s' % (rule['rse_expression'])
+            print 'Time : %s' % (rule['updated_at'])
     return SUCCESS
 
 
@@ -1804,6 +1834,11 @@ Commands:
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
     list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by account and subscription name', metavar=('ACCOUNT', 'SUBSCRIPTION'), nargs=2)
 
+    # The list_rules_history command
+    list_rules_history_parser = subparsers.add_parser('list-rules-history', help='List replication rules history for a DID')
+    list_rules_history_parser.set_defaults(which='list_rules_history')
+    list_rules_history_parser.add_argument(dest='did', action='store', help='The Data IDentifier')
+
     # The update_rule command
     update_rule_parser = subparsers.add_parser('update-rule', help='Update replication rule')
     update_rule_parser.set_defaults(which='update_rule')
@@ -1815,6 +1850,7 @@ Commands:
     update_rule_parser.add_argument('--suspend', dest='state_suspended', action='store_true', help='Set state to SUSPENDED.')
     update_rule_parser.add_argument('--activity', dest='rule_activity', action='store', help='Activity of the rule.')
     update_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Source replica expression of the rule.')
+    update_rule_parser.add_argument('--cancel-requests', dest='cancel_requests', action='store_true', help='Cancel requests when setting rules to stuck.')
 
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='List RSEs')
@@ -1872,6 +1908,7 @@ Commands:
                 'list_rse-attributes': list_rse_attributes,
                 'list_rse_usage': list_rse_usage,
                 'list_rules': list_rules,
+                'list_rules_history': list_rules_history,
                 'list_scopes': list_scopes,
                 'ping': ping,
                 'set_metadata': set_metadata,
