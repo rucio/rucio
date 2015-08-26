@@ -50,7 +50,7 @@ for service in services:
             continue
         logger.debug(r.json())
         value = r.json()[0]['datapoints'][-1][0]
-        if value is None:  # Happens occasionally
+        if value is None or (value == 0 and len(r.json()[0]['datapoints']) > 1):  # Happens occasionally
             try:
                 value = r.json()[0]['datapoints'][-2][0]
             except:
@@ -69,12 +69,17 @@ for service in services:
 
         if (availability != 100):    # For a week or so, we print if not 100 and set report 100 to SLS
             print 'Availability of %s: %s (value: %s)' % (service['id'], availability, value)
-            availability = 100
+        if (availability > 10):
+            status = 'available'
+        elif (availability <= 10):
+            status = 'degraded'
+        else:
+            status = 'unavailable'
 
     # Creating XML report
     xml_str = '<serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">'
     xml_str += '<id>%s</id>' % service['id']
-    xml_str += '<availability>%s</availability>' % availability
+    xml_str += '<status>%s</status>' % status
     xml_str += '<availabilitydesc>%s</availabilitydesc>' % service['availability']['info']
     xml_str += '<webpage>' + service['webpage'] + '</webpage>'
     xml_str += '<contact>rucio-admin@cern.ch</contact>'
