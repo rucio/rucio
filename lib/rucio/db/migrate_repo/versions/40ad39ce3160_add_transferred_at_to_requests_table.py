@@ -19,13 +19,15 @@ Create Date: 2015-04-14 15:56:32.647375
 revision = '40ad39ce3160'
 down_revision = '2ba5229cb54c'
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 
 
 def upgrade():
-    op.add_column('requests', sa.Column('transferred_at', sa.DateTime()))
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.add_column('requests', sa.Column('transferred_at', sa.DateTime()))
 
 
 def downgrade():
-    op.drop_column('requests', 'transferred_at')
+    if context.get_context().dialect.name not in ('sqlite'):
+        op.drop_column('requests', 'transferred_at')

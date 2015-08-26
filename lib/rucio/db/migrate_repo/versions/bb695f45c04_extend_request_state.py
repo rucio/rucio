@@ -27,13 +27,13 @@ def upgrade():
     if context.get_context().dialect.name not in ('sqlite', 'mysql'):
         op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         op.create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
-    op.add_column('requests', sa.Column('submitter_id', sa.Integer()))
-    op.add_column('sources', sa.Column('is_using', sa.Boolean()))
+        op.add_column('requests', sa.Column('submitter_id', sa.Integer()))
+        op.add_column('sources', sa.Column('is_using', sa.Boolean()))
 
 
 def downgrade():
     if context.get_context().dialect.name not in ('sqlite', 'mysql'):
         op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         op.create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
-    op.drop_column('requests', 'submitter_id')
-    op.drop_column('sources', 'is_using')
+        op.drop_column('requests', 'submitter_id')
+        op.drop_column('sources', 'is_using')
