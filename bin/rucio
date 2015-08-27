@@ -530,6 +530,14 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
+    if args.csv:
+            for did in args.dids:
+                scope, name = extract_scope(did)
+                for f in client.list_files(scope=scope, name=name):
+                    guid = f['guid']
+                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                    print "{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], int(f['bytes']), f['events'])
+            return SUCCESS
     table = []
     for did in args.dids:
         totfiles = 0
@@ -1721,6 +1729,7 @@ Commands:
     list_files_parser = subparsers.add_parser('list-files', help='List data identifier contents', description='List all the files in a Data IDentifier (DID). The DID can be a container, dataset or a file.\
                                                                   What is returned is a list of files in the DID with : <scope>:<name>\t<filesize>\t<checksum>\t<guid>')
     list_files_parser.set_defaults(which='list_files')
+    list_files_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Coma Separated Value output')
     list_files_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The list_content command
