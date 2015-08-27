@@ -14,12 +14,13 @@
 
 from json import dumps
 
-from rucio.common.exception import InvalidObject
+from rucio.api.permission import has_permission
+from rucio.common.exception import InvalidObject, AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.core import subscription
 
 
-def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=None):
+def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -42,9 +43,13 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     :type dry_run:  Boolean
     :param priority: The priority of the subscription
     :type priority: Integer
+    :param issuer:  The account issuing this operation.
+    :type comments:  String
     :returns: subscription_id
     :rtype:   String
     """
+    if not has_permission(issuer=issuer, action='add_subscription', kwargs={'account': account}):
+        raise AccessDenied('Account %s can not add subscription' % (issuer))
     try:
         if filter:
             if type(filter) != dict:
@@ -58,13 +63,13 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
                     validate_schema(name='activity', obj=rule.get('activity', 'default'))
         else:
             raise InvalidObject('You must specify a rule')
-    except ValueError, e:
-        raise TypeError(e)
+    except ValueError, error:
+        raise TypeError(error)
 
     return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
 
 
-def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, state=None, dry_run=None, priority=None):
+def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, state=None, dry_run=None, priority=None, issuer=None):
     """
     Updates a subscription
 
@@ -88,8 +93,12 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
     :param state: The state of the subscription
     :param priority: The priority of the subscription
     :type priority: Integer
+    :param issuer:  The account issuing this operation.
+    :type comments:  String
     :raises: exception.NotFound if subscription is not found
     """
+    if not has_permission(issuer=issuer, action='update_subscription', kwargs={'account': account}):
+        raise AccessDenied('Account %s can not update subscription' % (issuer))
     try:
         if filter:
             if type(filter) != dict:
@@ -101,8 +110,8 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
             else:
                 for rule in replication_rules:
                     validate_schema(name='activity', obj=rule.get('activity', 'default'))
-    except ValueError, e:
-        raise TypeError(e)
+    except ValueError, error:
+        raise TypeError(error)
     return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, state=state, priority=priority)
 
 
@@ -153,26 +162,3 @@ def get_subscription_by_id(subscription_id):
     :raises: SubscriptionNotFound if no Subscription can be found.
     """
     return subscription.get_subscription_by_id(subscription_id)
-
-
-class SubscriptionPolicy():
-    """
-    Abstract class for advanced subscription policies; Each time a subscription with a set subscription policy is called the specifically designed process function is called to return the replication_rules and transfer_requests for the input dataset/file
-    """
-
-    def process(lfn, dsn, meta_data):
-        """
-        Specifically selects and returns the replication_rules and transfer_requests
-
-        :param lfn: Logical file name
-        :type lfn:  String
-        :param dsn: Dataset name the file belongs to
-        :type dsn:  String
-        :param meta_data: Meta data dictionary of this file
-        :type meta_data:  Dict
-        :returns: Tuple holding the List of replication_rules and List of transfer_requests: (replication_rules, transfer_requests)
-                  **Example**: ``([(1, 'T1-DATADISKS', True, True), (3, 'T2-DATADISKS', False, False)], [(1, 'T1-DATADISKS', True), (2, 'T2-DATADISKS', False)])``
-        :rtype:   List
-        """
-
-        raise NotImplementedError
