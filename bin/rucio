@@ -46,7 +46,8 @@ from rucio import version
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
-                                    RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported, UnsupportedOperation, RucioException)
+                                    RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported, UnsupportedOperation, FileConsistencyMismatch,
+                                    RucioException)
 from rucio.common.utils import adler32, generate_uuid, execute, construct_surl, chunks
 from rucio.rse import rsemanager as rsemgr
 
@@ -531,13 +532,13 @@ def list_files(args):
     """
     client = get_client(args)
     if args.csv:
-            for did in args.dids:
-                scope, name = extract_scope(did)
-                for f in client.list_files(scope=scope, name=name):
-                    guid = f['guid']
-                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
-                    print "{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], int(f['bytes']), f['events'])
-            return SUCCESS
+        for did in args.dids:
+            scope, name = extract_scope(did)
+            for f in client.list_files(scope=scope, name=name):
+                guid = f['guid']
+                guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                print "{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], int(f['bytes']), f['events'])
+        return SUCCESS
     table = []
     for did in args.dids:
         totfiles = 0
@@ -869,7 +870,7 @@ def upload(args):
             replicas.append(file)
     if replicas != []:
         logger.info('Will update the file replicas states')
-        for chunk_replicas in chunks(replicas, 50):
+        for chunk_replicas in chunks(replicas, 20):
             try:
                 client.update_replicas_states(rse=args.rse, files=chunk_replicas)
             except AccessDenied, error:
@@ -936,6 +937,7 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
                 trace['remoteSite'] = rse_dict[rse]['rse']
                 trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
                 trace['transferStart'] = time.time()
+                trace['clientState'] = 'DOWNLOAD_ATTEMPT'
                 success = False
                 retries = 5
                 for attempt in xrange(0, retries):
@@ -946,32 +948,31 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
                         success = True
                         last_chosen_rse = rse
                         break
+                    except FileConsistencyMismatch, error:
+                        logger.warning(str(error))
+                        try:
+                            pfns_dict = rsemgr.lfns2pfns(rse_dict[rse], lfns=[{'name': file['name'], 'scope': file['scope']}, ], operation='read', scheme=args.protocol)
+                            pfn = pfns_dict['%s:%s' % (file['scope'], file['name'])]
+                            client.declare_suspicious_file_replicas([pfn, ], reason='Corrupted')
+                        except Exception, error:
+                            logger.debug(str(error))
+                        trace['clientState'] = 'FAIL_VALIDATE'
+                        logger.debug('Failed attempt %s/%s' % (attempt + 1, retries))
                     except Exception, error:
                         logger.warning(str(error))
+                        trace['clientState'] = str(type(error).__name__)
                         logger.debug('Failed attempt %s/%s' % (attempt + 1, retries))
                 if success:
+                    trace['clientState'] = 'DONE'
+                trace['transferEnd'] = time.time()
+                for dummy in xrange(retries):
                     try:
-                        trace['transferEnd'] = time.time()
-                        trace['clientState'] = 'DONE'
-                        for dummy in xrange(retries):
-                            try:
-                                requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                                break
-                            except Exception:
-                                pass
+                        requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
                         break
-                    except Exception, error:
-                        trace['transferEnd'] = time.time()
-                        trace['clientState'] = str(type(error).__name__)
-                        retries = 5
-                        for dummy in xrange(retries):
-                            try:
-                                requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                                break
-                            except Exception:
-                                pass
-                        logger.warning(error)
-                        break
+                    except Exception:
+                        pass
+                if success:
+                    break
                 index += 1
                 if index != len(rses):
                     logger.debug('Will retry download on an other RSE')
@@ -1072,6 +1073,27 @@ def download(args):
                 if file_exists:
                     logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
+                    # Filling and sending the trace
+                    trace['scope'] = file['scope']
+                    trace['filename'] = file['name']
+                    if scope == file['scope'] and name == file['name']:
+                        trace['dataset'] = ''
+                        trace['datasetScope'] = ''
+                    else:
+                        trace['dataset'] = name
+                        trace['datasetScope'] = scope
+                    trace['filesize'] = file['bytes']
+                    trace['eventType'] = 'download'
+                    trace['eventVersion'] = version.RUCIO_VERSION[0]
+                    trace['transferStart'] = time.time()
+                    trace['transferEnd'] = time.time()
+                    trace['clientState'] = 'ALREADY_DONE'
+                    for dummy in xrange(5):
+                        try:
+                            requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
+                            break
+                        except Exception:
+                            pass
                 else:
                     logger.debug('Will start downloading file %s:%s' % (file['scope'], file['name']))
                     if not os.path.isdir(dest_dir):
