@@ -8,7 +8,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 '''
@@ -160,6 +160,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
+    heartbeat.sanity_check(executable=executable, hostname=hostname)
 
     while not graceful_stop.is_set():
         heartbeat.live(executable, hostname, pid, hb_thread)
