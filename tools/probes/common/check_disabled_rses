@@ -30,19 +30,21 @@ if __name__ == '__main__':
     data = json.loads(resp.content)
     retvalue = OK
 
-    c = Client()
+    client = Client()
     for rse in data:
-        try:
-            if rse['state'] == 'DISABLED':
-                try:
-                    c.get_rse(rse['name'])
-                    print '%s needs to be deleted' % (rse['name'])
-                    retvalue = CRITICAL
-                except RSENotFound:
-                    # Site is already deleted. Skip
-                    pass
-        except:
-            trcbck = traceback.format_exc()
-            errno, errstr = sys.exc_info()[:2]
-            print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+        notify = False
+        if rse['state'] == 'DISABLED' or rse['site_state'] == 'DISABLED':
+            notify = True
+        if notify:
+            try:
+                client.get_rse(rse['name'])
+                print '%s needs to be deleted' % (rse['name'])
+                retvalue = CRITICAL
+            except RSENotFound:
+                # Site is already deleted. Skip
+                pass
+            except:
+                trcbck = traceback.format_exc()
+                errno, errstr = sys.exc_info()[:2]
+                print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
     sys.exit(retvalue)
