@@ -221,7 +221,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             # Add rule to History
             insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
 
-            logging.info("Created rule %s [%d/%d/%d] in state %s" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, str(new_rule.state)))
+            logging.info("Created rule %s [%d/%d/%d] for did %s:%s in state %s" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state)))
 
     return rule_ids
 
