@@ -929,6 +929,17 @@ def update_rule(rule_id, options, session=None):
             if key == 'activity':
                 validate_schema('activity', options['activity'])
                 rule.activity = options['activity']
+                # Cancel transfers and re-submit them:
+                for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
+                    cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                    md5, bytes, adler32 = session.query(models.RSEFileAssociation.md5, models.RSEFileAssociation.bytes, models.RSEFileAssociation.adler32).filter(models.RSEFileAssociation.scope == lock.scope,
+                                                                                                                                                                  models.RSEFileAssociation.name == lock.name,
+                                                                                                                                                                  models.RSEFileAssociation.rse_id == lock.rse_id).one()
+                    session.flush()
+                    queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
+                                                                  request_type=RequestType.TRANSFER,
+                                                                  scope=lock.scope, name=lock.name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
+                                                                  ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity)], session=session)
 
             elif key == 'account':
                 # Check if the account exists
