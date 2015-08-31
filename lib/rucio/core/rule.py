@@ -44,7 +44,7 @@ from rucio.core.request import get_request_by_did, queue_requests, cancel_reques
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db import models
-from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification, OBSOLETE
+from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification, OBSOLETE, RSEType
 from rucio.db.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
@@ -95,6 +95,10 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
                     raise StagingAreaRuleRequiresLifetime()
+
+            if not locked:
+                if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
+                    locked = True
 
             if source_replica_expression:
                 source_rses = parse_expression(source_replica_expression, session=session)
@@ -292,6 +296,10 @@ def add_rules(dids, rules, session=None):
                         if [rse for rse in rses if rse.get('staging_area', False)]:
                             raise StagingAreaRuleRequiresLifetime()
 
+                    if not rule.get('locked', False):
+                        if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
+                            rule['locked'] = True
+
                     if rule.get('source_replica_expression'):
                         source_rses = parse_expression(rule.get('source_replica_expression'), session=session)
                     else:
@@ -421,6 +429,10 @@ def inject_rule(rule_id, session=None):
         if rule.expires_at is None:  # Check if one of the rses is a staging area
             if [rse for rse in rses if rse.get('staging_area', False)]:
                 raise StagingAreaRuleRequiresLifetime()
+
+        if not rule.locked:
+            if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
+                rule.locked = True
 
         if rule.source_replica_expression:
             source_rses = parse_expression(rule.source_replica_expression, session=session)
