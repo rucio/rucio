@@ -416,9 +416,22 @@ def attach(args):
     client = get_client(args)
     scope, name = extract_scope(args.todid)
     dids = []
-    for did in args.dids:
-        cscope, cname = extract_scope(did)
-        dids.append({'scope': cscope, 'name': cname})
+    if args.fromfile:
+        if len(args.dids) > 1:
+            logger.error("If --fromfile option is active, only one file is supported. The file should contain a list of dids, one per line.")
+            return FAILURE
+        try:
+            f = open(args.dids[0], 'r')
+            for did in f.readlines():
+                cscope, cname = extract_scope(did.rstrip())
+                dids.append({'scope': cscope, 'name': cname})
+        except IOError:
+            logger.error("Can't open file '" + args.dids[0] + "'.")
+            return FAILURE
+    else:
+        for did in args.dids:
+            cscope, cname = extract_scope(did)
+            dids.append({'scope': cscope, 'name': cname})
     client.attach_dids(scope=scope, name=name, dids=dids)
     print 'DIDs successfully attached to %s:%s' % (scope, name)
     return SUCCESS
@@ -1668,7 +1681,8 @@ Commands:
                                           description='Attach a list of Data Identifiers (file, dataset or container) to an other Data Identifier (dataset or container)')
     attach_parser.set_defaults(which='attach')
     attach_parser.add_argument(dest='todid', action='store', help='Destination Data IDentifier (either dataset or container)')
-    attach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
+    attach_parser.add_argument('-f', '--from-file', dest='fromfile', action='store_true', default=False, help='Attach the dids conteined in a file. The file should contain one did per line')
+    attach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers (or a file containing one did per line, if -f is present)')
 
     # The detach command
     detach_parser = subparsers.add_parser('detach', help='Detach a list of Data Identifiers (file, dataset or container) from an other Data Identifier (dataset or container)',
