@@ -54,14 +54,17 @@ rse_capacity_cache = '/var/cache/nagios/rucio_quotas_rse_capacity.json'
 country_accounts_cache = '/var/cache/nagios/rucio_quotas_country_accounts.json'
 
 
-def get_srm_total(name):
+def get_srm_total(name, ddm_type):
     global result
     try:
         capacity = rse.get_rse_usage(name, 'root', source='srm')
         tier = rse.list_rse_attributes(name)['tier']
     except RucioException as e:
-        print "WARNING: Could not get capacity of %s: %s" % (name, str(e))
-        result = WARNING
+        if ddm_type == 'TEST':
+            print "Ignoring failed 'get capacity' for TEST endpoint: %s: %s" % (name, str(e))
+        else:
+            print "WARNING: Could not get capacity of %s: %s" % (name, str(e))
+            result = WARNING
         return None
 
     try:
@@ -71,7 +74,7 @@ def get_srm_total(name):
             capacity = rse.get_rse_usage(name, 'root', source='gsiftp')
             srmtotal = capacity[0]['total']
         except:
-            if tier in ['0', '1', '2']:
+            if tier in ['0', '1', '2'] and ddm_type != 'TEST':
                 print "WARNING: No srm info for %s" % name
                 result = WARNING
         return None
@@ -123,13 +126,13 @@ def set_group_quotas(quotas):
             result = CRITICAL
 
 
-def set_user_quotas(name, accs, fraction):
+def set_user_quotas(name, accs, fraction, ddm_type):
     ''' Set quota of fraction of total capacity for all accounts on RSE if
         space changed, or for new accounts '''
 
     global result
     # Check space compared to cache value
-    srmtotal = get_srm_total(name)
+    srmtotal = get_srm_total(name, ddm_type)
     if not srmtotal:
         return
 
@@ -152,8 +155,11 @@ def set_user_quotas(name, accs, fraction):
             print "Set quota of %dTB on %s for %s" % (srmtotal * fraction / 1000**4, name, account)
             set_account_limit(account, name, srmtotal * fraction, 'root')
         except RucioException as e:
-            print 'WARNING: %s' % str(e)
-            result = WARNING
+            if ddm_type == 'TEST':
+                print "%s failed, but ignoring it as TEST endpoint" % str(e)
+            else:
+                print 'WARNING: %s' % str(e)
+                result = WARNING
 
 
 # Takes DDM endpoint quota information from AGIS and sets rucio account quotas
@@ -238,7 +244,7 @@ if __name__ == '__main__':
             if ddmendpoint['phys_groups']:
                 set_group_quotas(ddmendpoint['quotas'])
 
-            if name.endswith('_LOCALGROUPDISK') or ddmendpoint['token'] == 'ATLASLOCALGROUPDISK':
+            if ddmendpoint['type'] == 'LOCALGROUPDISK':
                 try:
                     country = rse.list_rse_attributes(name)['country']
                 except:
@@ -249,10 +255,10 @@ if __name__ == '__main__':
                 if country not in country_accounts:
                     print "No accounts in country %s" % country
                 else:
-                    set_user_quotas(name, country_accounts[country], 0.95)
+                    set_user_quotas(name, country_accounts[country], 0.95, 'LOCALGROUPDISK')
 
-            if name.endswith('_SCRATCHDISK') or name.endswith('_USERDISK'):
-                set_user_quotas(name, all_accounts, 0.5)
+            if ddmendpoint['type'] in ('SCRATCHDISK', 'USERDISK', 'TEST'):
+                set_user_quotas(name, all_accounts, 0.5, ddmendpoint['type'])
 
         # Write back cache files
         try:
