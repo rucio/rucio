@@ -913,12 +913,17 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
         else:
             trace['dataset'] = name
             trace['datasetScope'] = scope
-        trace['filesize'] = file['bytes']
-        trace['eventType'] = 'download'
-        trace['eventVersion'] = version.RUCIO_VERSION[0]
         rses = file['rses'].keys()
         if rses == []:
             logger.warning('File %s:%s has no available replicas. Cannot be downloaded.' % (file['scope'], file['name']))
+            trace['clientState'] = 'FILE_NOT_FOUND'
+            trace['eventType'] = 'download'
+            trace['eventVersion'] = version.RUCIO_VERSION[0]
+            requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
+        else:
+            trace['filesize'] = file['bytes']
+        trace['eventType'] = 'download'
+        trace['eventVersion'] = version.RUCIO_VERSION[0]
         rse_to_remove = []
         for rse in rses:
             if str(rse) in tape_endpoints:
