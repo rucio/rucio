@@ -177,7 +177,7 @@ def exception_handler(function):
                 logger.error('This means that your RUCIO_ACCOUNT environment variable not match with a registered identity to your account.')
             else:
                 logger.error(error)
-                logger.debug(tracebacv.format_exc())
+                logger.debug(traceback.format_exc())
                 logger.error("This means that the object doesn't have the property " + error + ". This should never happen.\
                               Please rerun the last command with the '-v' option and provide the traceback to the developers.")
             return FAILURE
