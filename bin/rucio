@@ -171,6 +171,15 @@ def exception_handler(function):
             logger.error(error)
             logger.debug('This means one dependency is missing.')
             return FAILURE
+        except KeyError, error:
+            if 'x-rucio-auth-token' in error:
+                logger.error(error)
+                logger.error('This means that your RUCIO_ACCOUNT environment variable not match with a registered identity to your account.')
+            else:
+                logger.error(error)
+                logger.debug(traceback.format_exc())
+                logger.error("This means that the object doesn't have the property " + str(error) + ". This should never happen. Please rerun the last command with the '-v' option and provide the traceback to the developers.")
+            return FAILURE
         except RucioException, error:
             logger.error(error)
             return FAILURE
@@ -179,7 +188,7 @@ def exception_handler(function):
             return FAILURE
         except Exception, error:
             logger.error(error)
-            logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
+            logger.error('Rucio exited with an unexpected/unknown error. Please re run the last command with "-v" option and provide the traceback below to the developers.')
             logger.debug(traceback.format_exc())
             return FAILURE
     return new_funct
