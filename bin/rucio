@@ -306,10 +306,14 @@ def list_dataset_replicas(args):
         else:
             for rep in client.list_dataset_replicas(scope, name):
                 result[dsn][rep['rse']] = [rep['rse'], rep['available_length'], rep['length']]
-
-    for dsn in result:
-        print '\nDATASET: %s' % (dsn)
-        print tabulate.tabulate(result[dsn].values(), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL'])
+    if args.csv:
+        for dsn in result:
+            for rse in result[dsn].values():
+                print "{0}, {1}, {2}".format(rse[0], rse[1], rse[2])
+    else:
+        for dsn in result:
+            print '\nDATASET: %s' % (dsn)
+            print tabulate.tabulate(result[dsn].values(), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL'])
     return SUCCESS
 
 
@@ -1344,17 +1348,26 @@ def list_rules(args):
     else:
         print 'At least one option has to be given. Use -h to list the options.'
         return FAILURE
-
-    table = []
-    for rule in rules:
-        table.append([rule['id'],
-                      rule['account'],
-                      '%s:%s' % (rule['scope'], rule['name']),
-                      '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
-                      rule['rse_expression'],
-                      rule['copies'],
-                      rule['expires_at']])
-    print tabulate.tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)'])
+    if args.csv:
+        for rule in rules:
+            print "{0}, {1}, {2}, {3}, {4}, {5}, {6}".format(rule['id'],
+                            rule['account'],
+                            '%s:%s' % (rule['scope'], rule['name']),
+                            '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                            rule['rse_expression'],
+                            rule['copies'],
+                            rule['expires_at'])
+    else:
+        table = []
+        for rule in rules:
+            table.append([rule['id'],
+                          rule['account'],
+                          '%s:%s' % (rule['scope'], rule['name']),
+                          '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                          rule['rse_expression'],
+                          rule['copies'],
+                          rule['expires_at']])
+        print tabulate.tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)'])
     return SUCCESS
 
 
@@ -1675,6 +1688,7 @@ Commands:
     list_dataset_replicas_parser.set_defaults(which='list_dataset_replicas')
     list_dataset_replicas_parser.add_argument(dest='did', action='store', help='Data IDentifier to search')
     list_dataset_replicas_parser.add_argument('--deep', action='store_true', help='Make a deep check.')
+    list_dataset_replicas_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Coma Separated Value output')
 
     # The add-dataset command
     add_dataset_parser = subparsers.add_parser('add-dataset', help='Add dataset')
@@ -1867,6 +1881,7 @@ Commands:
     list_rules_parser.set_defaults(which='list_rules')
     list_rules_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='List by did')
     list_rules_parser.add_argument('--rule', dest='rule_id', action='store', help='List by rule id')
+    list_rules_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Coma Separated Value output')
     list_rules_parser.add_argument('--file', dest='file', action='store', help='List associated rules of an affected file')
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
     list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by account and subscription name', metavar=('ACCOUNT', 'SUBSCRIPTION'), nargs=2)
