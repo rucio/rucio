@@ -1351,12 +1351,12 @@ def list_rules(args):
     if args.csv:
         for rule in rules:
             print "{0}, {1}, {2}, {3}, {4}, {5}, {6}".format(rule['id'],
-                            rule['account'],
-                            '%s:%s' % (rule['scope'], rule['name']),
-                            '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
-                            rule['rse_expression'],
-                            rule['copies'],
-                            rule['expires_at'])
+                                                             rule['account'],
+                                                             '%s:%s' % (rule['scope'], rule['name']),
+                                                             '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                                                             rule['rse_expression'],
+                                                             rule['copies'],
+                                                             rule['expires_at'])
     else:
         table = []
         for rule in rules:
