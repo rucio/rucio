@@ -567,6 +567,10 @@ def get_rse_protocols(rse, schemes=None, session=None):
 
     query = None
     terms = [models.RSEProtocols.rse_id == _rse.id]
+    if schemes:
+        if not type(schemes) is list:
+            schemes = [schemes]
+        terms.extend([models.RSEProtocols.scheme.in_(schemes)])
 
     query = session.query(models.RSEProtocols.hostname,
                           models.RSEProtocols.scheme,
