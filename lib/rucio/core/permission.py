@@ -38,6 +38,7 @@ def has_permission(issuer, action, kwargs):
             'del_account': perm_del_account,
             'set_account_status': perm_set_account_status,
             'add_rule': perm_add_rule,
+            'add_subscription': perm_add_subscription,
             'add_scope': perm_add_scope,
             'add_rse': perm_add_rse,
             'update_rse': perm_update_rse,
@@ -54,6 +55,7 @@ def has_permission(issuer, action, kwargs):
             'del_rse': perm_del_rse,
             'del_rule': perm_del_rule,
             'update_rule': perm_update_rule,
+            'update_subscription': perm_update_subscription,
             'reduce_rule': perm_reduce_rule,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
@@ -89,8 +91,7 @@ def has_permission(issuer, action, kwargs):
             'get_account_usage': perm_get_account_usage,
             'add_attribute': perm_add_account_attribute,
             'del_attribute': perm_del_account_attribute,
-            'list_heartbeats': perm_list_heartbeats
-            }
+            'list_heartbeats': perm_list_heartbeats}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -131,6 +132,22 @@ def perm_update_rse(issuer, kwargs):
 def perm_add_rule(issuer, kwargs):
     """
     Checks if an account can add a replication rule.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if kwargs['account'] == issuer:
+        return True
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+
+    return False
+
+
+def perm_add_subscription(issuer, kwargs):
+    """
+    Checks if an account can add a subscription.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
@@ -422,6 +439,22 @@ def perm_reduce_rule(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
+    return False
+
+
+def perm_update_subscription(issuer, kwargs):
+    """
+    Checks if an account can update a subscription.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if kwargs['account'] == issuer:
+        return True
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+
     return False
 
 
