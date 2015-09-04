@@ -40,8 +40,8 @@ $def with (token, account, rucio_ui_version, content)
     <script src="//code.highcharts.com/modules/exporting.js"></script>
     <script src="/static/jquery.storageapi.min.js"></script>
     <script src="/static/filesize.min.js"></script>
-    <script src="/static/rucio.js?version=8a13a2a9e7ee6907d17fc5aba85ed28e"></script>
-    <script src="/static/base.js?version=d0f6844ab830fae6c5207163e063743d"></script>
+    <script src="/static/rucio.js?version=1058e0a1e93be27bc42efeba3f3f46f7"></script>
+    <script src="/static/base.js?version=d68d0fcee07679e72acf04aba3915f3d"></script>
     $:content.script
     <script>
       (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
@@ -83,7 +83,7 @@ $def with (token, account, rucio_ui_version, content)
 
             <li class="has-dropdown">
               <a>Data Transfers (R2D2)</a>
-              <ul class="dropdown">
+              <ul class="dropdown" id="r2d2_dropdown">
                 <li><a id="list_rules_link" href="/r2d2">List my rules</a></li>
                 <li><a id="create_rules_link" href="/r2d2/request">Request new rule</a></li>
               </ul>
