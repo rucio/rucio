@@ -196,7 +196,7 @@ def scope_list(scope, name=None, recursive=False):
     return did.scope_list(scope, name=name, recursive=recursive)
 
 
-def get_did(scope, name):
+def get_did(scope, name, dynamic=False):
     """
     Retrieve a single data did.
 
@@ -205,7 +205,7 @@ def get_did(scope, name):
     :return did: Dictionary containing {'name', 'scope', 'type'}, Exception otherwise
     """
 
-    return did.get_did(scope=scope, name=name)
+    return did.get_did(scope=scope, name=name, dynamic=dynamic)
 
 
 def set_metadata(scope, name, key, value, issuer):
