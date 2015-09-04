@@ -32,8 +32,9 @@ from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlread
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids,
-                            get_metadata, set_metadata)
+                            get_metadata, set_metadata, get_did)
 from rucio.core.rse import get_rse_id
+from rucio.core.replica import add_replica
 from rucio.db.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
@@ -91,6 +92,25 @@ class TestDIDCore:
 
         set_metadata(scope=tmp_scope, name=lfn, key='bytes', value=724963577L)
         assert_equal(get_metadata(scope=tmp_scope, name=lfn)['bytes'], 724963577L)
+
+    def test_get_did_with_dynamic(self):
+        """ DATA IDENTIFIERS (CORE): Get did with dynamic resolve of size"""
+        tmp_scope = 'mock'
+        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        tmp_dsn4 = 'dsn_%s' % generate_uuid()
+
+        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account='root')
+        add_replica(rse='MOCK', scope=tmp_scope, name=tmp_dsn2, bytes=10, account='root')
+        add_replica(rse='MOCK', scope=tmp_scope, name=tmp_dsn3, bytes=10, account='root')
+        attach_dids(scope=tmp_scope, name=tmp_dsn1, dids=[{'scope': tmp_scope, 'name': tmp_dsn2}, {'scope': tmp_scope, 'name': tmp_dsn3}], account='root')
+
+        add_did(scope=tmp_scope, name=tmp_dsn4, type=DIDType.CONTAINER, account='root')
+        attach_dids(scope=tmp_scope, name=tmp_dsn4, dids=[{'scope': tmp_scope, 'name': tmp_dsn1}], account='root')
+
+        assert_equal(get_did(scope=tmp_scope, name=tmp_dsn1, dynamic=True)['bytes'], 20)
+        assert_equal(get_did(scope=tmp_scope, name=tmp_dsn4, dynamic=True)['bytes'], 20)
 
 
 class TestDIDApi:
