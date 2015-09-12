@@ -225,11 +225,69 @@ It returns all the locations of the dataset, the number of files on each of thes
 -----------------------------
 The command `rucio list-file-replicas <scope>:<filename>` will show the physical location of the file.
 ::
-    $> rucio list-file-replicas mc12_14TeV:ESD.01332706._000181.pool.root.1
-    Scope   Name                    Filesize        adler32 Replicas
-    mc12_14TeV      ESD.01332706._000181.pool.root.1        1175213672      3f51b03d        CERN-PROD_DATADISK      :       gsiftp://eosatlassftp.cern.ch:2811/eos/atlas/atlasdatadisk/rucio/mc12_14TeV/58/4f/ESD.01332706._000181.pool.root.1
+    $> rucio list-file-replicas data15_13TeV:data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1
+    +--------------+----------------------------------------------------------------------------+------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+    | SCOPE        | NAME                                                                       |   FILESIZE | ADLER32   | RSE: REPLICA                                                                                                                                                                                                                                                                           |
+    |--------------+----------------------------------------------------------------------------+------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | data15_13TeV | data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 | 2375816553 | 385bcefb  | UKI-SCOTGRID-GLASGOW_PHYS-SM: srm://svr018.gla.scotgrid.ac.uk:8446/srm/managerv2?SFN=/dpm/gla.scotgrid.ac.uk/home/atlas/atlasgroupdisk/phys-sm/rucio/data15_13TeV/84/6e/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1                                     |
+    | data15_13TeV | data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 | 2375816553 | 385bcefb  | UKI-SCOTGRID-ECDF_DATADISK: srm://srm.glite.ecdf.ed.ac.uk:8446/srm/managerv2?SFN=/dpm/ecdf.ed.ac.uk/home/atlas/atlasdatadisk/rucio/data15_13TeV/84/6e/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1                                                       |
+    | data15_13TeV | data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 | 2375816553 | 385bcefb  | DESY-HH_LOCALGROUPDISK: srm://dcache-se-atlas.desy.de:8443/srm/managerv2?SFN=/pnfs/desy.de/atlas/dq2/atlaslocalgroupdisk/rucio/data15_13TeV/84/6e/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1                                                           |
+    | data15_13TeV | data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 | 2375816553 | 385bcefb  | UKI-SOUTHGRID-BHAM-HEP_SCRATCHDISK: srm://epgse1.ph.bham.ac.uk:8446/srm/managerv2?SFN=/dpm/ph.bham.ac.uk/home/atlas/atlasscratchdisk/rucio/data15_13TeV/84/6e/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1                                               |
+    | data15_13TeV | data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 | 2375816553 | 385bcefb  | IN2P3-CC_DATADISK: https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/data15_13TeV/84/6e/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1                                                                                                                 |
+    | data15_13TeV | data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 | 2375816553 | 385bcefb  | CERN-PROD_DERIVED: srm://srm-atlas.cern.ch:8443/srm/managerv2?SFN=/castor/cern.ch/grid/atlas/rucio/derived/data15_13TeV/physics_MinBias/00267359/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 |
+    | data15_13TeV | data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 | 2375816553 | 385bcefb  | PRAGUELCG2_LOCALGROUPDISK: srm://golias100.farm.particle.cz:8446/srm/managerv2?SFN=/dpm/farm.particle.cz/home/atlas/atlaslocalgroupdisk/rucio/data15_13TeV/84/6e/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1                                            |
+    +--------------+----------------------------------------------------------------------------+------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-It's possible to filter the results by site with the argument --rse <RSE-NAME>
+By default, list-file-replicas only list the successful transfers (rules with OK state). In order to list the replicas in REPLICATING or STUCK states, you can use the --all-states option. It's possible to filter the results by site with the argument --rse <RSE-NAME> and by protocol with --protocol. However, the --protocol option receive as a parameter the URL header instead of the name of the protocol. For example, to filter PFNs belonging to the webdav protocol, you should use --protocol https and for xrootd, you should use --protocol root ::
+
+    $> rucio list-file-replicas data15_13TeV:data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 --rse CERN-PROD_DERIVED --protocol srm
+    +--------------+----------------------------------------------------------------------------+------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+    | SCOPE        | NAME                                                                       |   FILESIZE | ADLER32   | RSE: REPLICA                                                                                                                                                                                                                                                                           |
+    |--------------+----------------------------------------------------------------------------+------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | data15_13TeV | data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 | 2375816553 | 385bcefb  | CERN-PROD_DERIVED: srm://srm-atlas.cern.ch:8443/srm/managerv2?SFN=/castor/cern.ch/grid/atlas/rucio/derived/data15_13TeV/physics_MinBias/00267359/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441/data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 |
+    +--------------+----------------------------------------------------------------------------+------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+If the DID is a dataset, the result will be the replicas for all the files belonging to the dataset. Again, is possible to filter them by RSE or by protocol. Also you can use --list-collections to get an output similar to list-dataset-replicas. For a file DID the output will be something like this::
+
+    $> rucio list-file-replicas data15_13TeV:data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 --list-collections --all-states
+    +------------------------------------+---------+---------+
+    | RSE                                |   Found |   Total |
+    |------------------------------------+---------+---------|
+    | CERN-PROD_DERIVED                  |       1 |       1 |
+    | DESY-HH_LOCALGROUPDISK             |       1 |       1 |
+    | IN2P3-CC_DATADISK                  |       1 |       1 |
+    | PRAGUELCG2_LOCALGROUPDISK          |       1 |       1 |
+    | UKI-SCOTGRID-ECDF_DATADISK         |       1 |       1 |
+    | UKI-SCOTGRID-GLASGOW_PHYS-SM       |       1 |       1 |
+    | UKI-SOUTHGRID-BHAM-HEP_SCRATCHDISK |       1 |       1 |
+    +------------------------------------+---------+---------+
+
+While for a dataset, will be::
+
+    $> rucio list-file-replicas --list-collections data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441
+    +------------------------------------+---------+---------+
+    | RSE                                |   Found |   Total |
+    |------------------------------------+---------+---------|
+    | CERN-PROD_DERIVED                  |     608 |     608 |
+    | DESY-HH_LOCALGROUPDISK             |     608 |     608 |
+    | IN2P3-CC_DATADISK                  |     608 |     608 |
+    | PRAGUELCG2_LOCALGROUPDISK          |     608 |     608 |
+    | UKI-SCOTGRID-ECDF_DATADISK         |     608 |     608 |
+    | UKI-SCOTGRID-GLASGOW_PHYS-SM       |     608 |     608 |
+    | UKI-SOUTHGRID-BHAM-HEP_SCRATCHDISK |     608 |     608 |
+    +------------------------------------+---------+---------+
+
+The argument --missing shows what replicas are not present in a particular RSE. This command however doesn't check the validity of the RSE name. If the RSE is a non existing one or have a typo, then all the replicas for this RSE are considered missing. ::
+
+    $> ./rucio list-file-replicas data15_13TeV:data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 --missing --rse NONEXISTINGRSE
+    +--------------+----------------------------------------------------------------------------+
+    | SCOPE        | NAME                                                                       |
+    |--------------+----------------------------------------------------------------------------|
+    | data15_13TeV | data15_13TeV.00267359.physics_MinBias.merge.AOD.f597_m1441._lb0303._0004.1 |
+    +--------------+----------------------------------------------------------------------------+
+
+This command is useful to determine which files of a dataset are still missing in a RSE.
+
 
 ``List the datasets where a particular file belongs``
 -----------------------------------------------------
