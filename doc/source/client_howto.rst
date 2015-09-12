@@ -190,8 +190,7 @@ The content of a dataset can be listed with list-files. Mandatory parameters are
 
 This command can also be used to list the content of a container.
 
-Also, yo can use `rucio list-dids` command. If you specify one dataset or container, the command will list it's content.
-::
+Also, yo can use `rucio list-dids` command. If you specify one dataset or container, the command will list it's content. ::
     $> rucio list-files mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
     |    |- mc12_14TeV:log.01596380._000026.job.log.tgz.1    [FILE]
     |    |- mc12_14TeV:log.01596380._000050.job.log.tgz.1    [FILE]
@@ -219,7 +218,21 @@ It returns all the locations of the dataset, the number of files on each of thes
 
 ``List the datasets at a site``
 -------------------------------
-    See dumps
+The command rcuio list-datasets-rse RSE_NAME will return the list of DIDs (datases) registered in the given RSE::
+
+    $> rucio list-datasets-rse CERN-PROD_DERIVED
+    SCOPE:NAME
+    ----------
+    data10_7TeV:data10_7TeV.00152221.physics_MinBias.merge.AOD.f572_m1411
+    data10_7TeV:data10_7TeV.00152221.physics_MinBias.merge.HIST.f572_h19
+    data10_7TeV:data10_7TeV.00152221.physics_MinBias.recon.ESD.f572
+    ...
+    data15_cos:data15_cos.00278583.physics_CosmicMuons.merge.AOD.x351_m1486
+    data15_cos:data15_cos.00278583.physics_CosmicMuons.merge.HIST.x351_h75
+    data15_cos:data15_cos.00278583.physics_Main.merge.AOD.f627_m1491
+    data15_cos:data15_cos.00278583.physics_Main.merge.HIST.f627_h76
+
+The --long option provides a more complete json output.
 
 ``List the replicas of file``
 -----------------------------
