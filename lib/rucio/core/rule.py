@@ -638,7 +638,7 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, nowait=False, session=
 
     with record_timer_block('rule.delete_rule'):
         try:
-            rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).one()
+            rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=nowait).one()
         except NoResultFound:
             raise RuleNotFound('No rule with the id %s found' % (rule_id))
         if rule.locked:
