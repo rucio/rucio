@@ -787,13 +787,14 @@ def scope_list(scope, name=None, recursive=False, session=None):
 
 
 @read_session
-def get_did(scope, name, session=None):
+def get_did(scope, name, dynamic=False, session=None):
     """
     Retrieve a single data identifier.
 
-    :param scope: The scope name.
-    :param name: The data identifier name.
-    :param session: The database session in use.
+    :param scope:    The scope name.
+    :param name:     The data identifier name.
+    :param dynamic:  Dynamically resolve the bytes and length of the did.
+    :param session:  The database session in use.
     """
     try:
         result = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
@@ -801,9 +802,14 @@ def get_did(scope, name, session=None):
         if result.did_type == DIDType.FILE:
             did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type, 'account': result.account}
         else:
+            if result.bytes is None and dynamic:
+                bytes, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
+            else:
+                bytes = result.bytes
+                length = result.length
             did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type,
                      'account': result.account, 'open': result.is_open, 'monotonic': result.monotonic, 'expired_at': result.expired_at,
-                     'length': result.length, 'bytes': result.bytes}
+                     'length': length, 'bytes': bytes}
         return did_r
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
@@ -956,9 +962,7 @@ def set_status(scope, name, session=None, **kwargs):
             if not kwargs[k]:
                 query = query.filter_by(is_open=True).filter(models.DataIdentifier.did_type != DIDType.FILE)
                 values['is_open'], values['closed_at'] = False, datetime.utcnow()
-                values['length'], values['bytes'], values['events'] = session.query(func.count(models.DataIdentifierAssociation.scope),
-                                                                                    func.sum(models.DataIdentifierAssociation.bytes),
-                                                                                    func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=scope, name=name).one()
+                values['bytes'], values['length'], values['events'] = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
                 # Update datasetlocks as well
                 session.query(models.DatasetLock).filter_by(scope=scope, name=name).update({'length': values['length'], 'bytes': values['bytes']})
             else:
@@ -1126,3 +1130,42 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, accoun
     output_files = files[:int(nbfiles)]
     add_did(scope=output_scope, name=output_name, type=DIDType.DATASET, account=account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse=None, session=session)
     __add_files_to_dataset(scope=output_scope, name=output_name, files=output_files, account=account, rse=None, ignore_duplicate=False, session=session)
+
+
+@transactional_session
+def __resolve_bytes_length_events_did(scope, name, session):
+    """
+    Resolve bytes, length and events of a did
+
+    :param scope:   The scope of the DID.
+    :param name:    The name of the DID.
+    :param session: The database session in use.
+    """
+
+    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
+        with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
+
+    bytes, length, events = None, 0, None
+    if did.did_type == DIDType.FILE:
+        bytes = did.bytes
+        length = 1
+        events = did.events
+    elif did.did_type == DIDType.DATASET:
+        length, bytes, events = session.query(func.count(models.DataIdentifierAssociation.scope),
+                                              func.sum(models.DataIdentifierAssociation.bytes),
+                                              func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=scope, name=name).one()
+    elif did.did_type == DIDType.CONTAINER:
+        for dataset in list_child_datasets(scope=scope, name=name, session=session):
+            tmp_length, tmp_bytes, tmp_events = session.query(func.count(models.DataIdentifierAssociation.scope),
+                                                              func.sum(models.DataIdentifierAssociation.bytes),
+                                                              func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=dataset['scope'], name=dataset['name']).one()
+            if tmp_bytes:
+                if not bytes:
+                    bytes = 0
+                bytes += tmp_bytes
+            length += tmp_length
+            if tmp_events:
+                if not events:
+                    events = 0
+                events += tmp_events
+    return (bytes, length, events)
