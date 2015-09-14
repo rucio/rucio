@@ -1787,15 +1787,18 @@ def __evaluate_did_attach(eval_did, session=None):
                 with record_timer_block('rule.evaluate_did_attach.resolve_did_to_locks_and_replicas'):
                     # Resolve the rules to possible target rses:
                     possible_rses = []
+                    source_rses = []
                     if session.bind.dialect.name != 'sqlite':
                         session.begin_nested()
                     try:
                         for rule in rules:
+                            if rule.source_replica_expression:
+                                source_rses.extend(parse_expression(rule.source_replica_expression, session=session))
+
                             if rule.ignore_availability:
                                 possible_rses.extend(parse_expression(rule.rse_expression, session=session))
                             else:
                                 possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
-                        possible_rses = list(set([rse['id'] for rse in possible_rses]))
                     except Exception, e:
                         logging.warning('Could not parse RSE expression for possible RSEs for rule %s' % (str(rule.id)))
                         session.rollback()
@@ -1804,9 +1807,13 @@ def __evaluate_did_attach(eval_did, session=None):
                     if session.bind.dialect.name != 'sqlite':
                         session.commit()
 
+                    source_rses = list(set([rse['id'] for rse in source_rses]))
+                    possible_rses = list(set([rse['id'] for rse in possible_rses]))
+
                     datasetfiles, locks, replicas, source_replicas = __resolve_dids_to_locks_and_replicas(dids=new_child_dids,
                                                                                                           nowait=True,
                                                                                                           restrict_rses=possible_rses,
+                                                                                                          source_rses=source_rses,
                                                                                                           session=session)
 
                 # Evaluate the replication rules
@@ -1976,7 +1983,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
         for dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
             files, tmp_replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             if source_rses:
-                tmp_source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], source_rses=restrict_rses, session=session)
+                tmp_source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], source_rses=source_rses, session=session)
                 source_replicas = dict(source_replicas.items() + tmp_source_replicas.items())
             tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             datasetfiles.append({'scope': dataset['scope'],
