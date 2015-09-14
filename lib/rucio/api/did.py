@@ -22,7 +22,7 @@ from rucio.common.schema import validate_schema
 from rucio.db.constants import DIDType
 
 
-def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None):
+def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False):
     """
     List dids in a scope.
 
@@ -30,9 +30,13 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param pattern: The wildcard pattern.
     :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
     :param ignore_case: Ignore case distinctions.
+    :param limit: The maximum number of DIDs returned.
+    :param offset: Offset number.
+    :param long: Long format option to display more information for each DID.
     """
     validate_schema(name='did_filters', obj=filters)
-    return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case, limit=limit, offset=offset)
+    return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case,
+                         limit=limit, offset=offset, long=long)
 
 
 def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None):

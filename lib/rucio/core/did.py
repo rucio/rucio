@@ -984,7 +984,7 @@ def set_status(scope, name, session=None, **kwargs):
 
 
 @stream_session
-def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, session=None):
+def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False, session=None):
     """
     Search data identifiers
 
@@ -994,13 +994,17 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param ignore_case: ignore case distinctions.
     :param limit: limit number.
     :param offset: offset number.
+    :param long: Long format option to display more information for each DID.
     :param session: The database session in use.
     """
     types = ['all', 'collection', 'container', 'dataset', 'file']
     if type not in types:
         raise exception.UnsupportedOperation("Valid type are: %(types)s" % locals())
 
-    query = session.query(models.DataIdentifier.name).filter(models.DataIdentifier.scope == scope)
+    query = session.query(models.DataIdentifier.scope,
+                          models.DataIdentifier.name,
+                          models.DataIdentifier.did_type).\
+        filter(models.DataIdentifier.scope == scope)
     if type == 'all':
         query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
                                  models.DataIdentifier.did_type == DIDType.DATASET,
@@ -1041,8 +1045,12 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     if limit:
         query = query.limit(limit)
 
-    for name in query.yield_per(5):
-        yield name
+    if long:
+        for scope, name, did_type in query.yield_per(5):
+            yield {'scope': scope, 'name': name, 'did_type': str(did_type)}
+    else:
+        for scope, name, did_type in query.yield_per(5):
+            yield name
 
 
 @read_session
