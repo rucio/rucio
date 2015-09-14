@@ -76,6 +76,7 @@ def parse_expression(expression, filter=None, session=None):
             if match.group() != expression:
                 raise InvalidRSEExpression('Expression does not comply to RSE Expression syntax')
         result_tuple = __resolve_term_expression(expression)[0].resolve_elements(session=session)
+        # result_tuple = ([rse_ids], {rse_id: {rse_info}})
         result = []
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
@@ -96,6 +97,7 @@ def parse_expression(expression, filter=None, session=None):
     else:
         final_result = result
 
+    # final_result = [{rse-info}]
     return final_result
 
 
