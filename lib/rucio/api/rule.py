@@ -147,14 +147,16 @@ def update_replication_rule(rule_id, options, issuer):
     :raises:            RuleNotFound if no Rule can be found.
     """
     kwargs = {'rule_id': rule_id, 'options': options}
-    if not has_permission(issuer=issuer, action='update_rule', kwargs=kwargs):
-        raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
     if 'approve' in options:
+        if not has_permission(issuer=issuer, action='approve_rule', kwargs=kwargs):
+            raise AccessDenied('Account %s can not approve/deny this replication rule.' % (issuer))
         if options['approve']:
             rule.approve_rule(rule_id=rule_id)
         else:
             rule.deny_rule(rule_id=rule_id)
     else:
+        if not has_permission(issuer=issuer, action='update_rule', kwargs=kwargs):
+            raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
         rule.update_rule(rule_id=rule_id, options=options)
 
 

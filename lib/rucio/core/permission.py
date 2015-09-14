@@ -20,6 +20,7 @@ import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
 from rucio.core.lock import get_replica_locks_for_rule_id_per_rse
 from rucio.core.rse import list_rse_attributes
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rule
 from rucio.db.constants import IdentityType
 
@@ -55,6 +56,7 @@ def has_permission(issuer, action, kwargs):
             'del_rse': perm_del_rse,
             'del_rule': perm_del_rule,
             'update_rule': perm_update_rule,
+            'approve_rule': perm_approve_rule,
             'update_subscription': perm_update_subscription,
             'reduce_rule': perm_reduce_rule,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
@@ -391,7 +393,7 @@ def perm_del_rule(issuer, kwargs):
     admin_in_country = []
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.append(kv['key'].rpartition('-')[2])
+            admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country:
         for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
             if list_rse_attributes(rse=None, rse_id=rse['rse_id']).get('country') in admin_in_country:
@@ -407,25 +409,70 @@ def perm_update_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
+    # Admin accounts can do everything
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if 'approve' in kwargs['options']:
-        return False  # Only priv accounts are allowed to approve/deny rules
+
+    # Only admin accounts can change account and state of a rule
     if 'account' in kwargs['options']:
         return False  # Only priv accounts are allowed to change owner
     if 'state' in kwargs['options']:
         return False  # Only priv accounts are allowed to change state
+
+    # Owner or country admins can change the rest of a rule
     if get_rule(kwargs['rule_id'])['account'] == issuer:
         return True
-    # Check if user is a country admin
     admin_in_country = []
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.append(kv['key'].rpartition('-')[2])
+            admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country:
         for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
             if list_rse_attributes(rse=None, rse_id=rse['rse_id']).get('country') in admin_in_country:
                 return True
+
+    return False
+
+
+def perm_approve_rule(issuer, kwargs):
+    """
+    Checks if an issuer can approve a replication rule.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    # Admin accounts can do everything
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+
+    rule = get_rule(rule_id=kwargs['rule_id'])
+    rses = parse_expression(rule['rse_expression'])
+
+    # LOCALGROUPDISK admins can approve the rule
+    admin_in_country = []
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            admin_in_country.append(kv['key'].partition('-')[2])
+    if admin_in_country:
+        for rse in rses:
+            rse_attr = list_rse_attributes(rse=rse['rse'])
+            if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+                if rse_attr.get('country', '') in admin_in_country:
+                    return True
+
+    # GROUPDISK admins can approve the rule
+    admin_for_phys_group = []
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('physgroup-') and kv['value'] == 'admin':
+            admin_for_phys_group.append(kv['key'].partition('-')[2])
+    if admin_for_phys_group:
+        for rse in rses:
+            rse_attr = list_rse_attributes(rse=rse['rse'])
+            if rse_attr.get('type', '') == 'GROUPDISK':
+                if rse_attr.get('physgroup', '') in admin_for_phys_group:
+                    return True
+
     return False
 
 
@@ -682,7 +729,7 @@ def perm_set_account_limit(issuer, kwargs):
     admin_in_country = []
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.append(kv['key'].rpartition('-')[2])
+            admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country and list_rse_attributes(rse=kwargs['rse'], rse_id=None).get('country') in admin_in_country:
         return True
     return False
@@ -702,7 +749,7 @@ def perm_delete_account_limit(issuer, kwargs):
     admin_in_country = []
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.append(kv['key'].rpartition('-')[2])
+            admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country and list_rse_attributes(rse=kwargs['rse'], rse_id=None).get('country') in admin_in_country:
         return True
     return False
