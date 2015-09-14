@@ -32,16 +32,20 @@ class DIDClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
         super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
-    def list_dids(self, scope, filters, type='collection'):
+    def list_dids(self, scope, filters, type='collection', long=False):
         """
         List all data identifiers in a scope which match a given pattern.
 
         :param scope: The scope name.
         :param filters: A dictionary of key/value pairs like {'name': 'file_name','rse-expression': 'tier0'}.
         :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
+        :param long: Long format option to display more information for each DID.
         """
         path = '/'.join([self.DIDS_BASEURL, scope, 'dids', 'search'])
         payload = {}
+        if long:
+            payload['long'] = 1
+
         for k, v in filters.items():
             if k in ('created_before', 'created_after'):
                 payload[k] = date_to_str(v)
