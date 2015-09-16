@@ -27,23 +27,50 @@ $var script: <script src="/static/backlog_mon.js"></script>
             <input id="activity_input" type="text" placeholder="Activity" />
         </div>
         <div class="large-2 columns">
+          <label>Endpoint
+            <input id="rse_input" type="text" placeholder="RSE" />
+          </label>
+        </div>
+        <div class="large-2 columns">
+          <label>State
+            <select id="state_selector">
+              <option value=""></option>
+              <option value="done">Done</option>
+              <option value="90% transfers done">90% transfers done</option>
+              <option value="initialised">Initialised</option>
+              <option value="subscribed">Subscribed</option>
+              <option value="transferring">Transferring</option>
+              <option value="stuck">Stuck</option>
+            </select>
+          </label>
+        </div>
+        <div class="large-1 columns">
+          <label style="visibility: hidden;">.</label>
+            <select id="age_mode_selector">
+              <option value="younger">younger than</option>
+              <option value="older">older than</option>
+            </select>
+          </label>
+        </div>
+        <div class="large-1 columns"><label>Age
+            <select id="age_selector">
+              <option value="6h">6 hours</option>
+              <option value="12h">12 hours</option>
+              <option value="18h">18 hours</option>
+              <option value="1d" selected="selected">1 day</option>
+              <option value="2d">2 days</option>
+              <option value="4d">4 days</option>
+            </select>
+            </label>
+        </div>
+        <div class="large-2 columns">
           <label style="visibility: hidden;">.</label>
           <a class="button postfix inline" id="load_button">Load</a>
         </div>
-        <div class="large-4 columns">
-          <div style="visibility: hidden;">.</div>
-        </div>
-        <div class="large-1 columns">
-          <label style="visibility: hidden;">.</label>
-          <a class="button postfix inline" id="reload_button" style="width:99%;">Reload</a>
-        </div>
-        <div class="large-1 columns">
-          <label style="visibility: hidden;">.</label>
-          <a class="button postfix inline" id="url_button">Get Link</a>
-        </div>
       </div>
     </form>
-    <div id="results"></div>
+    <div id="results">
+    </div>
   </div>
 </div>
 
