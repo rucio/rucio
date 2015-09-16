@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
@@ -83,10 +83,12 @@ def submitter(once=False, rses=[], mock=False,
     while not graceful_stop.is_set():
 
         try:
+
+            hb = heartbeat.live(executable, hostname, pid, hb_thread)
+            logging.info('Transfer submitter - thread (%i/%i) bulk(%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
+
             if not sleeping:
                 sleeping = True
-                hb = heartbeat.live(executable, hostname, pid, hb_thread)
-                logging.info('Transfer submitter - thread (%i/%i) bulk(%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
 
             if activities is None:
                 activities = [None]
