@@ -8,12 +8,13 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 
+from json import dumps
 from os.path import dirname, join
 from web import template, ctx, cookies, setcookie
 
 from rucio import version
 from rucio.api import authentication, identity
-from rucio.api.account import get_account_info
+from rucio.api.account import get_account_info, list_account_attributes
 from rucio.db.constants import AccountType
 
 
@@ -62,6 +63,7 @@ def check_token(rendered_tpl):
     session_token = cookies().get('x-rucio-auth-token')
     validate_token = authentication.validate_auth_token(session_token)
 
+    attribs = None
     # if there is no session token or if invalid: get a new one.
     if validate_token is None:
         # get all accounts for an identity. Needed for account switcher in UI.
@@ -87,6 +89,7 @@ def check_token(rendered_tpl):
         except:
             return render.problem("Your certificate (%s) is not registered in Rucio. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
 
+        attribs = list_account_attributes(def_account)
         # write the token and account to javascript variables, that will be used in the HTML templates.
         js_token = __to_js('token', token)
         js_account = __to_js('account', def_account)
@@ -100,5 +103,8 @@ def check_token(rendered_tpl):
         for acc in cookie_accounts:
             values += acc + " "
         setcookie('rucio-available-accounts', value=values[:-1], path='/')
+
+    if attribs:
+        setcookie('rucio-account-attr', value=dumps(attribs), path='/')
 
     return render.base(js_token, js_account, rucio_ui_version, rendered_tpl)
