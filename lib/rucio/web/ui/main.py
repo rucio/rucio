@@ -36,6 +36,7 @@ urls = (
     '/heartbeats', 'Heartbeats',
     '/infrastructure', 'Infrastructure',
     '/list_rules', 'ListRulesRedirect',
+    '/r2d2/approve', 'ApproveRules',
     '/r2d2/request', 'RequestRule',
     '/r2d2', 'ListRules',
     '/rse_account_usage', 'RSEAccountUsage',
@@ -71,6 +72,12 @@ class AccountRSEUsage():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.account_rse_usage())
+
+
+class ApproveRules():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.approve_rules())
 
 
 class Auth():
