@@ -218,7 +218,7 @@ It returns all the locations of the dataset, the number of files on each of thes
 
 ``List the datasets at a site``
 -------------------------------
-The command rcuio list-datasets-rse RSE_NAME will return the list of DIDs (datases) registered in the given RSE::
+The command rucio list-datasets-rse RSE_NAME will return the list of DIDs (datasets) registered in the given RSE::
 
     $> rucio list-datasets-rse CERN-PROD_DERIVED
     SCOPE:NAME
