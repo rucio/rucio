@@ -75,7 +75,7 @@ def poller(once=False,
     while not graceful_stop.is_set():
 
         try:
-            hb = heartbeat.live(executable, hostname, pid, hb_thread)
+            hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
             logging.info('poller - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
 
             if not sleeping:
