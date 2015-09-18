@@ -16,6 +16,10 @@ git pull --all --prune --progress
 
 echo "Rebasing master"
 git rebase upstream/master master
+if [ $? != 0 ]; then
+    echo "Can't rebase to master. Unstaged changes?"
+    exit 1
+fi
 
 echo "Creating patch branch"
 git checkout -b patch-$1-${2//[^a-zA-Z0-9]/_} master
