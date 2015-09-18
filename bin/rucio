@@ -48,7 +48,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, File
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException)
-from rucio.common.utils import adler32, generate_uuid, execute, construct_surl, chunks
+from rucio.common.utils import adler32, generate_uuid, execute, construct_surl, chunks, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -193,17 +193,6 @@ def exception_handler(function):
             logger.debug(traceback.format_exc())
             return FAILURE
     return new_funct
-
-def _sizefmt(num, human=True):
-    num = int(num)
-    if human:
-        for unit in ['','k','M','G','T','P','E','Z']:
-            if abs(num) < 1000.0:
-                return "%3.1f %sB" % (num, unit)
-            num /= 1000.0
-        return "%.1f %sB" % (num, 'Y')
-    else:
-        return str(num)
 
 
 def get_client(args):
@@ -377,9 +366,9 @@ def list_file_replicas(args):
                         for pfn in replica['rses'][rse]:
                             if args.selected_rse:
                                 if rse == args.selected_rse:
-                                    table.append([replica['scope'], replica['name'], _sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
+                                    table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
                             else:
-                                table.append([replica['scope'], replica['name'], _sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
+                                table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
             elif not args.list_collections:
                 table.append([replica['scope'], replica['name'], '???', '???', 'Unavailable'])
         if args.list_collections:
@@ -567,7 +556,7 @@ def list_files(args):
             for f in client.list_files(scope=scope, name=name):
                 guid = f['guid']
                 guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
-                print "{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], _sizefmt(f['bytes'], args.human), f['events'])
+                print "{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events'])
         return SUCCESS
     table = []
     for did in args.dids:
@@ -582,7 +571,7 @@ def list_files(args):
                 totevents += int(file.get('events', 0))
             guid = file['guid']
             guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
-            table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], _sizefmt(file['bytes'],args.human), file['events']])
+            table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), file['events']])
         print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'])
         print 'Total files : %s' % totfiles
         print 'Total size : %s' % totsize
@@ -1014,7 +1003,7 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
         if not download_ok:
             logger.error('Cannot download file %s:%s' % (file['scope'], file['name']))
         else:
-            logger.info('File %s:%s successfully downloaded. %s bytes downloaded in %s seconds' % (file['scope'], file['name'], _sizefmt(file['bytes'], args.human), time.time() - stime))
+            logger.info('File %s:%s successfully downloaded. %s bytes downloaded in %s seconds' % (file['scope'], file['name'], sizefmt(file['bytes'], args.human), time.time() - stime))
     sys.exit(0)
 
 
@@ -1477,9 +1466,9 @@ def list_rse_usage(args):
         for elem in usage:
             if not (elem == 'free' or elem == 'total') or print_free:
                 if elem == 'free' or elem == 'total' or elem == 'used':
-                    print '  {0}: {1}'.format(elem, _sizefmt(usage[elem], args.human))
+                    print '  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human))
                 else:
-                    print '  {0}: {1}'.format(elem, _sizefmt(usage[elem], args.human))
+                    print '  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human))
     print '------'
     return SUCCESS
 
@@ -1499,7 +1488,7 @@ def list_account_limits(args):
     else:
         limits = client.get_account_limits(account=args.limit_account)
     for limit in limits.items():
-        table.append([limit[0], _sizefmt(limit[1], args.human)])
+        table.append([limit[0], sizefmt(limit[1], args.human)])
     table.sort()
     print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT'])
     return SUCCESS
@@ -1521,7 +1510,7 @@ def list_account_usage(args):
         usage = client.get_account_usage(account=args.usage_account)
     for item in usage:
         remaining = 0 if int(item['bytes_remaining']) < 0 else int(item['bytes_remaining'])
-        table.append([item['rse'], _sizefmt(item['bytes'], args.human), _sizefmt(item['bytes_limit'], args.human), _sizefmt(remaining, args.human)])
+        table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
     print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'])
     return SUCCESS
