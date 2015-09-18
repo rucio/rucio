@@ -518,7 +518,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    if source_replicas.get((file['scope'], file['name'])):
+                    if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
@@ -619,7 +619,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    if source_replicas.get((file['scope'], file['name'])):
+                    if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
@@ -728,7 +728,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    if source_replicas.get((file['scope'], file['name'])):
+                    if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
@@ -868,7 +868,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
             if source_rses:
                 available_source_replica = False
                 # Check if there is an eglible source replica for this lock
-                if source_replicas.get((file['scope'], file['name'])):
+                if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
                     available_source_replica = True
             new_lock = __create_lock(rule=rule,
                                      rse_id=rse_id,
@@ -913,7 +913,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
         if source_rses:
             available_source_replica = False
             # Check if there is an eglible source replica for this lock
-            if source_replicas.get((file['scope'], file['name'])):
+            if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
                 available_source_replica = True
 
         new_replica = __create_replica(rse_id=rse_id,
