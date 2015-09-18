@@ -668,7 +668,18 @@ def erase(args):
     client = get_client(args)
     for did in args.dids:
         scope, name = extract_scope(did)
-        client.set_metadata(scope=scope, name=name, key='lifetime', value=0.0001)
+        if args.undo:
+            try:
+                client.set_metadata(scope=scope, name=name, key='lifetime', value=None)
+                logger.info('Erase undo for DID: {0}:{1}'.format(scope, name))
+            except Exception:
+                logger.warning('Cannot undo erase operation on DID. DID not existent or grace period of 24 hours already expired.')
+                logger.warning('    DID: {0}:{1}'.format(scope, name))
+        else:
+            # set lifetime to expire in 24 hours (value is in seconds).
+            client.set_metadata(scope=scope, name=name, key='lifetime', value=86400)
+            logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
+            print "rucio erase --undo {0}:{1}".format(scope, name)
     return SUCCESS
 
 
@@ -1781,6 +1792,7 @@ Commands:
     # The erase command
     erase_parser = subparsers.add_parser('erase', help='Delete a data identifier')
     erase_parser.set_defaults(which='erase')
+    erase_parser.add_argument('--undo', dest='undo', action='store_true', default=False, help='Undo erase DIDs. Only works if has been less than 24 hours since erase operation.')
     erase_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The list_files command
