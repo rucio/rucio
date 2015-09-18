@@ -428,3 +428,18 @@ def pid_exists(pid):
             raise
     else:
         return True
+
+
+def sizefmt(num, human=True):
+    """
+    Print human readable file sizes
+    """
+    num = int(num)
+    if human:
+        for unit in ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z']:
+            if abs(num) < 1000.0:
+                return "%3.1f %sB" % (num, unit)
+            num /= 1000.0
+        return "%.1f %sB" % (num, 'Y')
+    else:
+        return str(num)
