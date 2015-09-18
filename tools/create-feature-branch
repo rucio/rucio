@@ -16,7 +16,7 @@ git pull --all --prune --progress
 
 echo "Rebasing next"
 git rebase upstream/next next
-if [ $? ]; then
+if [ $? != 0 ]; then
     echo "Can't rebase to master. Unstaged changes?"
     exit 1
 fi
