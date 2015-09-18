@@ -42,16 +42,28 @@ if __name__ == "__main__":
         print "Failed to get ftsmonhosts"
         worst_retvalue = WARNING
     for ftshost in ftshosts.split(','):
+        print "=== %s ===" % (ftshost)
         url = '%s/fts3/ftsmon/overview?dest_se=&source_se=&time_window=1&vo=%s' % (ftshost, vo)
+        busy_channels = []
+        busylimit = 5000
         for attempt in xrange(0, 5):
-            print '%i/5 attempt to contact %s' % (attempt+1, ftshost)
+#            print '%i/5 attempt to contact %s' % (attempt+1, ftshost)
             try:
                 r = requests.get(url, verify=False)
                 res = r.json()
-                busylimit = 5000
                 for channel in res['overview']['items']:
+                    src = channel['source_se']
+                    dst = channel['dest_se']
                     if 'submitted' in channel and channel['submitted'] >= busylimit:
-                        print 'Busy channels (>%s submitted) : %s to %s : %s jobs' % (busylimit, channel['source_se'], channel['dest_se'], channel['submitted'])
+                        url_activities = '%s/fts3/ftsmon/config/activities/%s?source_se=%s&dest_se=%s' % (ftshost,vo,src,dst)
+                        activities = {}
+                        try:
+                            s = requests.get(url_activities, verify=False)
+                            for key,val in s.json().items():
+                                activities[key] = val['SUBMITTED']
+                        except Exception, e:
+                            pass 
+                        busy_channels.append({'src':src, 'dst':dst, 'submitted':channel['submitted'], 'activities':activities})
                 summary = res['summary']
                 h = urlparse(url)
                 hostname = h.hostname.replace('.', '_')
@@ -59,14 +71,21 @@ if __name__ == "__main__":
                 print '%s : Active : %s' % (hostname, summary['active'])
                 print '%s : Staging : %s' % (hostname, summary['staging'])
                 print '%s : Started : %s' % (hostname, summary['started'])
+                if len(busy_channels)>0:
+                    print 'Busy channels (>%s submitted):' % (busylimit)
+                    for bc in busy_channels:
+                        activities_str = ", ".join([("%s: %s" % (key,val)) for key,val in bc['activities'].items()])
+                        print '  %s to %s : %s submitted jobs (%s)' % (bc['src'], bc['dst'], bc['submitted'], str(activities_str))
                 monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=(summary['submitted'] + summary['active'] + summary['staging'] + summary['started']))
                 retvalue = OK
                 break
             except Exception, e:
                 retvalue = CRITICAL
                 if r.status_code:
-                    print 'Error when trying to get info from %s : HTTP status code %s. [%s]' % (ftshost, str(r.status_code), str(e))
+                    errmsg = 'Error when trying to get info from %s : HTTP status code %s. [%s]' % (ftshost, str(r.status_code), str(e))
                 else:
-                    print 'Error when trying to get info from %s. %s' % (ftshost, str(e))
+                    errmsg = 'Error when trying to get info from %s. %s' % (ftshost, str(e))
+        if retvalue == CRITICAL:
+            print "All attempts failed. %s" % (errmsg)
         worst_retvalue = max(retvalue, worst_retvalue)
     sys.exit(worst_retvalue)
