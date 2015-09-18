@@ -84,7 +84,7 @@ def submitter(once=False, rses=[], mock=False,
 
         try:
 
-            hb = heartbeat.live(executable, hostname, pid, hb_thread)
+            hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
             logging.info('Transfer submitter - thread (%i/%i) bulk(%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
 
             if not sleeping:
