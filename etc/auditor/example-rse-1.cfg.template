@@ -1,0 +1,4 @@
+[EXAMPLE-RSE-1]
+
+EXAMPLE-RSE-1_DATADISK=http://example.com/dumps/dump-atlas-atlasdatadisk-%Y-%m-%d.txt.bz2
+EXAMPLE-RSE-1_SCRATCHDISK=http://example.com/dumps/dump-atlas-atlasscratchdisk-%Y-%m-%d.txt.bz2
