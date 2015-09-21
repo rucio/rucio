@@ -721,7 +721,9 @@ def declare_bad_file_replicas(args):
     if args.inputfile:
         with open(args.inputfile) as infile:
             for line in infile:
-                bad_files.append(line.rstrip('\n'))
+                bad_file = line.rstrip('\n')
+                if bad_file != '':
+                    bad_files.append(bad_file)
     else:
         bad_files = args.listbadfiles
     for chunk in chunks(bad_files, 500):
