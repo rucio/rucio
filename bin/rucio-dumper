@@ -1,0 +1,144 @@
+#!/usr/bin/env python2
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Fernando Lopez, <felopez@cern.ch>, 2015
+from rucio.common.dumper import error
+import argparse
+import datetime
+import logging
+import rucio.common.dumper.consistency as consistency
+import rucio.common.dumper.data_models as data_models
+import sys
+import tabulate
+
+logger = logging.getLogger('rucio-dumper')
+libs_logger = logging.getLogger('dumper')
+logger.setLevel(logging.WARNING)
+libs_logger.setLevel(logging.WARNING)
+
+handler = logging.StreamHandler(sys.stderr)
+logger.addHandler(handler)
+libs_logger.addHandler(handler)
+
+formatter = logging.Formatter(
+    "%(asctime)s  %(name)-22s  %(levelname)-8s %(message)s"
+)
+handler.setFormatter(formatter)
+
+
+parser = argparse.ArgumentParser()
+format_args = parser.add_mutually_exclusive_group(required=False)
+
+fields_or_hide = parser.add_mutually_exclusive_group(required=False)
+fields_or_hide.add_argument('--fields', help='Comma separated list of fields that should be printed')
+fields_or_hide.add_argument('--hide', help='Comma separated list of fields that should not be printed')
+fields_or_hide.add_argument('--group-by', help='Group records, according to the the indicated fields FIXME')
+
+# FIXME: Check that --group-by is given in order to use sum
+parser.add_argument('--sum', help='Summatory of the values of the given fields (only numerical fields and should be used in combination with --group-by)')
+
+common_args = (
+    ('rse', 'Name of the RSE (Rucio endpoint)'),
+    ('--date', 'Date of the dump (format dd-mm-yyyy or "latest") [defaults to "latest"]'),
+    ('--filter', 'Filter by field value field=value,field2=value2,... (see --valid-fields)'),
+    ('--valid-fields', 'Prints the valid fields for the selected dump and exits'),
+)
+
+format_args.add_argument('--csv', action='store_true', help='Format the output as a CSV with headers')
+format_args.add_argument('--csv-nohead', action='store_true', help='Format the output as a CSV without headers (default)', default=True)
+format_args.add_argument('--tabulate', help='Format the output as a table (printing large tables can take several minutes)', choices=[str(fmt) for fmt in tabulate.tabulate_formats])
+
+
+subparser = parser.add_subparsers(title='dump', help='dump data FIXME', dest='subcommand')
+
+dds_parser = subparser.add_parser('dump-datasets', help='List the dump of all datasets for a given RSE')
+dcdds_parser = subparser.add_parser('dump-complete-datasets', help='List the dump of all complete datasets for a given RSE')
+dreplicas_parser = subparser.add_parser('dump-replicas', help='List the dump of all replicas for a given RSE')
+consistency.populate_args(subparser)
+
+for arg in common_args:
+    dds_parser.add_argument(arg[0], help=arg[1])
+    dcdds_parser.add_argument(arg[0], help=arg[1])
+    dreplicas_parser.add_argument(arg[0], help=arg[1])
+
+args = parser.parse_args()
+
+if 'date' in args:
+    if args.date is None or args.date == 'latest':
+        args.date = 'latest'
+    else:
+        args.date = datetime.datetime.strptime(args.date, '%d-%m-%Y')
+
+if args.subcommand == 'dump-datasets':
+    record_type = data_models.Dataset
+elif args.subcommand == 'dump-complete-datasets':
+    record_type = data_models.CompleteDataset
+elif args.subcommand == 'dump-replicas':
+    record_type = data_models.Replica
+else:
+    assert args.subcommand in consistency.subcommands
+    record_type = consistency.Consistency
+
+if 'filter' in args and args.filter:
+    user_filter = data_models.Filter(args.filter, record_type).match
+else:
+    user_filter = None
+
+
+if args.subcommand.startswith('dump-'):
+    data = record_type.dump(args.rse, args.date, filter_=user_filter)
+else:
+    args_dict = consistency.parse_args(args)
+    data = record_type.dump(**args_dict)
+
+fields = record_type.get_fieldnames()
+
+if 'group_by' in args and args.group_by:
+    # FIXME: Better checking
+    assert args.group_by in fields
+    fields = [args.group_by]
+    data_iter = data
+    data_dict = {}
+    for record in data_iter:
+        key = getattr(record, args.group_by)
+        if key not in data_dict:
+            data_dict[key] = []
+        data_dict[key].append(record)
+
+    if 'sum' in args and args.sum:
+        assert args.sum in record_type.get_fieldnames()
+        fields.append(args.sum)
+        data = []
+        for key, value in data_dict.items():
+            total = sum((getattr(x, args.sum) for x in value))
+            # FIXME: Ugly hack to have some result
+            setattr(value[0], args.sum, total)
+            data.append(value[0])
+    else:
+        data = data_dict.values()
+
+if args.fields:
+    _show_fields = args.fields.split(',')
+    if not all((f in fields for f in _show_fields)):
+        error('Invalid field in --fields argument')
+    fields = _show_fields
+elif args.hide:
+    _hide_fields = args.hide.split(',')
+    if not all((f in fields for f in _hide_fields)):
+        error('Invalid field in --hide argument')
+    fields = [f for f in fields if f not in _hide_fields]
+
+if args.csv:
+    print(record_type.csv_header(fields))
+    for record in data:
+        print(record.csv(fields))
+elif args.csv_nohead:
+    for record in data:
+        print(record.csv(fields))
+elif args.tabulate:
+    print(record_type.tabulate_from(data, format=args.tabulate, fields=fields))

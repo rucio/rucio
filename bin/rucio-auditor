@@ -1,0 +1,130 @@
+#!/usr/bin/env python2
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Fernando Lopez, <felopez@cern.ch>, 2015
+from datetime import datetime
+from functools import partial
+from multiprocessing import Queue, Process, Event, Pipe
+import argparse
+import logging
+import logging.handlers
+import os
+import rucio.common.dumper as dumper
+import rucio.common.config as config
+import rucio.daemons.auditor
+import signal
+import sys
+import time
+
+
+def setup_pipe_logger(pipe, loglevel):
+    logger = logging.getLogger('auditor')
+    logger.setLevel(loglevel)
+    handler = dumper.LogPipeHandler(pipe)
+    logger.addHandler(handler)
+
+    formatter = logging.Formatter(
+        "%(asctime)s  %(name)-22s  %(levelname)-8s %(message)s"
+    )
+    handler.setFormatter(formatter)
+    return logger
+
+
+def main(args):
+    RETRY_AFTER = 60 * 60 * 24 * 15  # Two weeks
+
+    nprocs = args.nprocs
+    assert nprocs >= 1
+
+    procs = []
+    queue = Queue()
+    terminate = Event()
+    logpipes = []
+
+    loglevel = logging.getLevelName(config.config_get('common', 'loglevel'))
+
+    mainlogr, mainlogw = Pipe(duplex=False)
+    logpipes.append(mainlogr)
+    logger = setup_pipe_logger(mainlogw, loglevel)
+
+    assert config.config_has_section('auditor')
+    cache_dir = config.config_get('auditor', 'cache')
+    results_dir = config.config_get('auditor', 'results')
+    rses = config.config_get('auditor', 'rses')
+    rses = [rse.strip() for rse in rses.split(',')]
+
+    logfilename = os.path.join(config.config_get('common', 'logdir'), 'auditor.log')
+    logger.info('Starting auditor')
+
+    def termhandler(sign, trace):
+        logger.error('Main process received signal %d, terminating child processes', sign)
+        terminate.set()
+        for proc in procs:
+            proc.join()
+
+    signal.signal(signal.SIGTERM, termhandler)
+
+    for n in range(nprocs):
+        logpiper, logpipew = Pipe(duplex=False)
+        p = Process(
+            target=partial(
+                rucio.daemons.auditor.check,
+                queue,
+                terminate,
+                logpipew,
+                cache_dir,
+                results_dir,
+            ),
+            name='auditor-worker'
+        )
+        p.start()
+        procs.append(p)
+        logpipes.append(logpiper)
+
+    p = Process(
+        target=partial(
+            rucio.daemons.auditor.activity_logger,
+            logpipes,
+            logfilename,
+            terminate
+        ),
+        name='auditor-logger'
+    )
+    p.start()
+    procs.append(p)
+
+    last_run_month = None  # Don't check more than once per month. FIXME: Save on DB or file...
+
+    try:
+        while all(p.is_alive() for p in procs):
+            while last_run_month == datetime.now().month:
+                time.sleep(60 * 60 * 24)
+
+            for rse in rses:
+                queue.put((rse, 1))
+
+            time.sleep(RETRY_AFTER)
+    except:
+        logging.error('Main process failed: %s', sys.exc_info()[0])
+
+    terminate.set()
+    for proc in procs:
+        proc.join()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--nprocs',
+        help='Number subprocess, each subprocess check a fraction of the DDM Endpoints in sequence.',
+        default=1,
+        type=int,
+    )
+    args = parser.parse_args()
+
+    main(args)
