@@ -30,7 +30,7 @@ from rucio.db.constants import ReplicaState
 from rucio.common.config import config_get
 from rucio.common.exception import (SourceNotFound, ServiceUnavailable, RSEAccessDenied,
                                     ReplicaUnAvailable, ResourceTemporaryUnavailable,
-                                    DatabaseException, UnsupportedOperation)
+                                    DatabaseException, UnsupportedOperation, ReplicaNotFound)
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core import rse as rse_core
@@ -187,7 +187,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                     replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
                                                                           lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
                                                                           operation='delete', scheme=scheme).values()[0])
-                                except ReplicaUnAvailable as error:
+                                except (ReplicaUnAvailable, ReplicaNotFound) as error:
                                     err_msg = 'Failed to get pfn UNAVAILABLE replica %s:%s on %s with error %s' % (replica['scope'], replica['name'], rse['rse'], str(error))
                                     logging.warning('Reaper %s-%s: %s', worker_number, child_number, err_msg)
                                     replica['pfn'] = None
