@@ -508,8 +508,8 @@ def list_dids(args):
             logger.error('You cannot use a wildcard query and a filter by name')
             return FAILURE
         filters['name'] = name
-        for did in client.list_dids(scope, filters=filters, type=type):
-            table.append(['%s:%s' % (scope, did), type.upper()])
+        for did in client.list_dids(scope, filters=filters, type=type, long=True):
+            table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
     else:
         dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
         no_result = True
