@@ -1289,8 +1289,10 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
     eid = None
     try:
         ts = time.time()
+        logging.info("%s:%s About to submit job to %s" % (process, thread,  external_host))
         eid = request.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'])
-        logging.info("%s:%s Submit job %s to %s" % (process, thread, eid, external_host))
+        duration = time.time() - ts
+        logging.info("%s:%s Submit job %s to %s in %s seconds" % (process, thread, eid, external_host, duration))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - ts) * 1000/len(job['files']))
         record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
