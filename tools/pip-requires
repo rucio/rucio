@@ -5,17 +5,18 @@
 # psycopg2==2.5.2          # PostgreSQL
 SQLAlchemy==1.0.8 # db backend
 alembic==0.8.2 # Lightweight database migration tool for SQLAlchemy
-Mako==1.0.1 # Templating language
+Mako==1.0.2 # Templating language
 python-editor==0.4 # Programmatically open an editor, capture the result.
 flup==1.0.3.dev-20110405 # Needed to deploy web.py in lighthttpd
 web.py==0.37 # Python web framework
-python-memcached==1.54 # Quick and small memcached client for Python
-ntplib>=0.3.2 # NTPlib
+python-memcached==1.57 # Quick and small memcached client for Python
+ntplib==0.3.3 # NTPlib
 
 # Celery==2.5.1            # Distributed Task Queue
 # importlib==1.0.2         # An implementation of import
 anyjson==0.3.3 # Wraps the best available JSON implementation available in a common interface
-jsonschema==2.4.0 # JSON Schema
+jsonschema==2.5.1 # JSON Schema
+repoze.lru==0.6   # LRU (least recently used) cache implementation.
 
 # kombu==2.1.2             # AMQP Messaging Framework
 python-dateutil==2.4.2 # Extensions to the standard datetime module
@@ -28,10 +29,10 @@ meld3==1.0.2 # an HTML/XML templating system for Python 2.3+
 pysftp==0.2.8 # forces installation of paramikoi and pycrypto
 paramiko==1.15.2 #
 pycrypto==2.6.1 #
-s3cmd==1.5.2 # Package built from http://s3tools.org/download
+s3cmd==1.6.0 # Package built from http://s3tools.org/download
 python-magic==0.4.6 # Dependency for S3, but unfortunately not installed by it automatically
 gearman==2.0.2 # Used only gor emulation framework
-stomp.py==4.0.16 # ActiveMQ Messaging Protocol
+stomp.py==4.1.5 # ActiveMQ Messaging Protocol
 dnspython==1.12.0 # To resolve ActiveMQ broker alias
 pystatsd==0.1.10 # Needed to log into graphite with more than 1 Hz
 pygeoip==0.3.2 # GeoIP API
