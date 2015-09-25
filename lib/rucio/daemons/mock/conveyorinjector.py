@@ -25,8 +25,8 @@ import requests
 from rucio.common.config import config_get, config_get_int
 from rucio.common.utils import generate_uuid
 from rucio.core import account_limit, did, rse, replica, rule
-from rucio.db.constants import DIDType
-from rucio.db.session import get_session
+from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.session import get_session
 from rucio.rse import rsemanager
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)

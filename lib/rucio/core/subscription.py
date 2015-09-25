@@ -21,9 +21,9 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
-from rucio.db import models
-from rucio.db.constants import SubscriptionState
-from rucio.db.session import transactional_session, stream_session, read_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import SubscriptionState
+from rucio.db.sqla.session import transactional_session, stream_session, read_session
 
 
 @transactional_session

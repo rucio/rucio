@@ -22,7 +22,7 @@ import requests
 
 from rucio.common.config import config_get
 from rucio.core.monitor import record_counter, record_timer
-from rucio.db.constants import FTSState
+from rucio.db.sqla.constants import FTSState
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 requests.packages.urllib3.disable_warnings()

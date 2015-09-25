@@ -16,7 +16,7 @@ from rucio.core.account import has_account_attribute
 from rucio.core.account_counter import get_counter
 from rucio.core.account_limit import get_account_limit
 from rucio.core.rse import list_rse_attributes, has_rse_attribute
-from rucio.db.session import read_session
+from rucio.db.sqla.session import read_session
 
 
 class RSESelector():

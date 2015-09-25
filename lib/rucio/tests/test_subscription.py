@@ -26,7 +26,7 @@ from rucio.core.rse import add_rse, get_rse_id
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier import run
-from rucio.db.constants import DIDType
+from rucio.db.sqla.constants import DIDType
 from rucio.web.rest.authentication import app as auth_app
 from rucio.web.rest.subscription import app as subs_app
 
