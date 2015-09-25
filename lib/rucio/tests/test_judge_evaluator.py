@@ -18,7 +18,7 @@ from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.abacus.account import account_update
-from rucio.db.constants import DIDType
+from rucio.db.sqla.constants import DIDType
 from rucio.tests.test_rule import create_files, tag_generator
 
 

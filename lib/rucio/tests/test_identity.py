@@ -11,7 +11,7 @@
 
 from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
-from rucio.db.constants import AccountType, IdentityType
+from rucio.db.sqla.constants import AccountType, IdentityType
 from rucio.tests.common import account_name_generator
 
 

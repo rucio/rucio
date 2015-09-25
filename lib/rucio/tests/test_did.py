@@ -34,7 +34,7 @@ from rucio.core.account_limit import set_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids,
                             get_metadata, set_metadata)
 from rucio.core.rse import get_rse_id
-from rucio.db.constants import DIDType
+from rucio.db.sqla.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
 

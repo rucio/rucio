@@ -15,7 +15,7 @@ from web import template, ctx, cookies, setcookie
 from rucio import version
 from rucio.api import authentication, identity
 from rucio.api.account import get_account_info, list_account_attributes
-from rucio.db.constants import AccountType
+from rucio.db.sqla.constants import AccountType
 
 
 def __to_js(var, value):
