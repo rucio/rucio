@@ -22,7 +22,7 @@ down_revision = '384b96aa0f60'
 
 from alembic import op, context
 import sqlalchemy as sa
-from rucio.db.types import GUID
+from rucio.db.sqla.types import GUID
 
 
 def upgrade():

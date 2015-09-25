@@ -31,8 +31,8 @@ from rucio.common.utils import construct_surl, chunks
 from rucio.core import did, replica, request, rse as rse_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.constants import DIDType, RequestType, RequestState, RSEType
-from rucio.db.session import read_session
+from rucio.db.sqla.constants import DIDType, RequestType, RequestState, RSEType
+from rucio.db.sqla.session import read_session
 from rucio.rse import rsemanager as rsemgr
 
 
