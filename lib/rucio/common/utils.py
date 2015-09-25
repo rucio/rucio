@@ -32,7 +32,7 @@ from rucio.common.config import config_get
 try:
     # Hack for the client distribution
     from web import HTTPError
-    from rucio.db.enum import EnumSymbol
+    from rucio.db.sqla.enum import EnumSymbol
 except:
     pass
 

@@ -43,9 +43,9 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
-from rucio.db import models
-from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification, OBSOLETE
-from rucio.db.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification, OBSOLETE
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),

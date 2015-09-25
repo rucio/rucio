@@ -19,9 +19,9 @@ from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
 from rucio.core.account import account_exists
-from rucio.db import models
-from rucio.db.constants import IdentityType
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import IdentityType
+from rucio.db.sqla.session import read_session, transactional_session
 
 
 @transactional_session

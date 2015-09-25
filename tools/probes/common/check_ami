@@ -15,7 +15,7 @@
 import sys
 import traceback
 
-from rucio.db.session import get_session
+from rucio.db.sqla.session import get_session
 from rucio.core.scope import add_scope
 
 # Exit statuses

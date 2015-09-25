@@ -40,7 +40,7 @@ from rucio.common.config import config_get, config_get_int
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
-from rucio.db.session import get_session
+from rucio.db.sqla.session import get_session
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)

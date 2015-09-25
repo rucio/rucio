@@ -26,7 +26,7 @@ from traceback import format_exception
 
 from rucio.api.did import list_new_dids, set_new_dids, get_metadata
 from rucio.api.subscription import list_subscriptions, update_subscription
-from rucio.db.constants import DIDType, SubscriptionState
+from rucio.db.sqla.constants import DIDType, SubscriptionState
 from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule, RSEBlacklisted,
                                     InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
