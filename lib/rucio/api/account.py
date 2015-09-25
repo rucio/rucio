@@ -20,7 +20,7 @@ import rucio.core.identity
 
 from rucio.core import account as account_core
 from rucio.common.schema import validate_schema
-from rucio.db.constants import AccountType
+from rucio.db.sqla.constants import AccountType
 
 
 def add_account(account, type, issuer):

@@ -15,7 +15,7 @@ from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import add_rule
 from rucio.daemons.judge.cleaner import rule_cleaner
-from rucio.db.constants import DIDType
+from rucio.db.sqla.constants import DIDType
 from rucio.tests.test_rule import create_files, tag_generator
 
 

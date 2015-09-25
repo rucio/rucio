@@ -18,9 +18,9 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common.exception import Duplicate, RucioException, InvalidObject
-from rucio.db import models
-from rucio.db.constants import KeyType
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import KeyType
+from rucio.db.sqla.session import read_session, transactional_session
 
 
 REGION = make_region().configure('dogpile.cache.memcached',

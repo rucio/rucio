@@ -23,7 +23,7 @@ import sqlalchemy as sa
 
 from alembic import context, op
 
-from rucio.db.types import GUID
+from rucio.db.sqla.types import GUID
 
 
 def upgrade():

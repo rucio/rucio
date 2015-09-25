@@ -35,7 +35,7 @@ from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.lock import touch_dataset_locks
 from rucio.core.replica import touch_replica_no_wait, touch_collection_replicas
-from rucio.db.constants import DIDType
+from rucio.db.sqla.constants import DIDType
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 

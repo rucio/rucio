@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
-from rucio.db.util import dump_schema
+from rucio.db.sqla.util import dump_schema
 
 if __name__ == '__main__':
     dump_schema()
