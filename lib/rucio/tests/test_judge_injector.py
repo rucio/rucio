@@ -18,7 +18,7 @@ from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import add_rule, get_rule, approve_rule, deny_rule
 from rucio.daemons.judge.injector import rule_injector
-from rucio.db.constants import DIDType, RuleState
+from rucio.db.sqla.constants import DIDType, RuleState
 from rucio.tests.test_rule import create_files, tag_generator
 
 

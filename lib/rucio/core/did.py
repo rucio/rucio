@@ -41,10 +41,10 @@ from rucio.common.utils import str_to_date
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
-from rucio.db import models
-from rucio.db.constants import DIDType, DIDReEvaluation, DIDAvailability
-from rucio.db.enum import EnumSymbol
-from rucio.db.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability
+from rucio.db.sqla.enum import EnumSymbol
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
 logging.basicConfig(stream=sys.stdout,

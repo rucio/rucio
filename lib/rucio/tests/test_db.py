@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 
-from rucio.db.session import get_session
+from rucio.db.sqla.session import get_session
 
 
 class TestDB():

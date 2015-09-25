@@ -16,8 +16,8 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
 
 from rucio.core.rse import get_rse_name, get_rse_id
-from rucio.db import models
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.session import read_session, transactional_session
 
 
 @read_session

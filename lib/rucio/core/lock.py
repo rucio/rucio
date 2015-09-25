@@ -25,9 +25,9 @@ import rucio.core.did
 
 from rucio.common.config import config_get
 from rucio.core.rse import get_rse_name, get_rse_id
-from rucio.db import models
-from rucio.db.constants import LockState, RuleState, RuleGrouping, DIDType
-from rucio.db.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
