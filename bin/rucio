@@ -379,6 +379,7 @@ def list_file_replicas(args):
             for rse in sorted_key:
                 table.append([rse, rse_dict[rse], nbfiles])
         if args.list_collections:
+            logger.warning('This option is deprecated. Please use rucio list-dataset-replicas instead.')
             print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'Found', 'Total'])
         else:
             print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA'])
@@ -1713,7 +1714,7 @@ Commands:
     list_file_replicas_parser.set_defaults(which='list_file_replicas')
     list_file_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols. (eg: https, root, srm)', required=False)
     list_file_replicas_parser.add_argument('--all-states', dest='all_states', action='store_true', default=False, help='To select all replicas (including unavailable ones)', required=False)
-    list_file_replicas_parser.add_argument('--list-collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site', required=False)
+    list_file_replicas_parser.add_argument('--list-collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site (DEPRECATED: please use list-dataset-replicas instead.)', required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Target RSE', required=False)
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE', required=False)
