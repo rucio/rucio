@@ -1271,10 +1271,10 @@ def delete_rule(args):
             return FAILURE
         scope, name = extract_scope(args.rule_id)
         rules = client.list_did_rules(scope=scope, name=name)
-        if args.account is None:
+        if args.rule_account is None:
             account = client.account
         else:
-            account = args.account
+            account = args.rule_account
         for rule in rules:
             if rule['rse_expression'] == args.rse_expression and rule['account'] == account:
                 client.delete_replication_rule(rule_id=rule['id'], purge_replicas=args.purge_replicas)
@@ -1912,6 +1912,7 @@ Commands:
     delete_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id or DID. If DID, the RSE expression is mandatory.')
     delete_rule_parser.add_argument('--purge-replicas', dest='purge_replicas', action='store_true', help='Purge rule replicas')
     delete_rule_parser.add_argument('--rse_expression', dest='rse_expression', action='store', help='The RSE expression. Must be specified if a DID is provided')
+    delete_rule_parser.add_argument('--account', dest='rule_account', action='store', help='The account of the rule that must be deleted')
 
     # Info replication rule subparser
     info_rule_parser = subparsers.add_parser('rule-info', help='Retrieve information about a rule')
