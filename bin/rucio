@@ -1723,7 +1723,7 @@ Commands:
     # The list_parent_datasets command
     list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List the datasets associated to a PFN.')
     list_parent_datasets_parser.set_defaults(which='list_parent_datasets')
-    list_parent_datasets_parser.add_argument(dest='inputs', action='store', help='The PNF of the DID is required. Must be a SURL or GUID.')
+    list_parent_datasets_parser.add_argument(dest='inputs', action='store', help='The PFN of the DID is required. Must be a SURL or GUID.')
 
     # The list-dataset-replicas command
     list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas.')
