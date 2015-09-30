@@ -478,12 +478,7 @@ def add_protocol(rse, parameter, session=None):
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
                 op_name = ''.join([op, '_', s]).lower()
-                no = session.query(models.RSEProtocols).\
-                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid, getattr(models.RSEProtocols, op_name) > 0)).\
-                    count()
-                if parameter['domains'][s][op] > (no + 1):
-                    parameter['domains'][s][op] = (no + 1)
-                if not 0 <= parameter['domains'][s][op] <= (no + 1):
+                if parameter['domains'][s][op] < 0:
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
                 parameter[op_name] = parameter['domains'][s][op]
         del parameter['domains']
@@ -499,19 +494,6 @@ def add_protocol(rse, parameter, session=None):
             raise exception.InvalidObject('Missing values! For SRM, extended_attributes and web_service_path must be specified')
 
     try:
-        # Open gaps in protocols priorities for new protocol
-        for domain in utils.rse_supported_protocol_domains():
-            for op in utils.rse_supported_protocol_operations():
-                op_name = ''.join([op, '_', domain])
-                if (op_name in parameter) and parameter[op_name]:
-                    prots = session.query(models.RSEProtocols).\
-                        filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                               getattr(models.RSEProtocols, op_name) >= parameter[op_name])).\
-                        order_by(getattr(models.RSEProtocols, op_name).asc())
-                    val = parameter[op_name] + 1
-                    for p in prots:
-                        p.update({op_name: val})
-                        val += 1
         new_protocol = models.RSEProtocols()
         new_protocol.update(parameter)
         new_protocol.save(session=session)
