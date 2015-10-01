@@ -26,9 +26,9 @@ from rucio.common.exception import RequestNotFound, RucioException, UnsupportedO
 from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_id, get_rse_name
-from rucio.db import models
-from rucio.db.constants import RequestState, RequestType, FTSState, ReplicaState
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState
+from rucio.db.sqla.session import read_session, transactional_session
 from rucio.transfertool import fts3
 
 
@@ -996,7 +996,7 @@ def get_request_by_did(scope, name, rse, rse_id=None, request_type=None, session
     :param name: The name of the data identifier.
     :param rse: The destination RSE of the request.
     :param rse_id: The destination RSE ID of the request. Overrides rse param!
-    :param request_type: The type of request as rucio.db.constants.RequestType.
+    :param request_type: The type of request as rucio.db.sqla.constants.RequestType.
     :param session: Database session to use.
     :returns: Request as a dictionary.
     """

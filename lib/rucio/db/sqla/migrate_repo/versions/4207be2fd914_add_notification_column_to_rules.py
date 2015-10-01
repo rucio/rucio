@@ -22,7 +22,7 @@ down_revision = '14ec5aeb64cf'
 from alembic import context, op
 import sqlalchemy as sa
 
-from rucio.db.constants import RuleNotification
+from rucio.db.sqla.constants import RuleNotification
 
 
 def upgrade():

@@ -29,8 +29,8 @@ import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter
 from rucio.common import exception, utils
-from rucio.db import models
-from rucio.db.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import models
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
 @transactional_session
@@ -549,6 +549,10 @@ def get_rse_protocols(rse, schemes=None, session=None):
 
     query = None
     terms = [models.RSEProtocols.rse_id == _rse.id]
+    if schemes:
+        if not type(schemes) is list:
+            schemes = [schemes]
+        terms.extend([models.RSEProtocols.scheme.in_(schemes)])
 
     query = session.query(models.RSEProtocols.hostname,
                           models.RSEProtocols.scheme,
