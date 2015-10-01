@@ -22,7 +22,7 @@ DESCRIPTION is the meaningful string for client
 
 from datetime import datetime
 
-from rucio.db.enum import DeclEnum
+from rucio.db.sqla.enum import DeclEnum
 
 
 class AccountStatus(DeclEnum):

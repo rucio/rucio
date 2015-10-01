@@ -90,6 +90,7 @@ def select_protocol(rse_settings, operation, scheme=None):
         raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings))
 
     # Select the one with the highest priority
+    candidates = sorted(candidates, key=lambda k: k['scheme'])
     best_choice = candidates[0]
     candidates.remove(best_choice)
     domain = rse_settings['domain'][0]

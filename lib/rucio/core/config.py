@@ -9,8 +9,8 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 from rucio.common.exception import ConfigNotFound
-from rucio.db import models
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.session import read_session, transactional_session
 
 
 @read_session

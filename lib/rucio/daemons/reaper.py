@@ -26,7 +26,7 @@ import threading
 import time
 import traceback
 
-from rucio.db.constants import ReplicaState
+from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get
 from rucio.common.exception import (SourceNotFound, ServiceUnavailable, RSEAccessDenied,
                                     ReplicaUnAvailable, ResourceTemporaryUnavailable,

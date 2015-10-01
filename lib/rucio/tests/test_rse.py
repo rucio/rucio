@@ -272,11 +272,10 @@ class TestRSEClient():
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
         resp = mgr.get_rse_info(protocol_rse)
-        print resp
         for p in resp['protocols']:
             if ((p['port'] == 19) and (p['domains']['lan']['read'] != 1)) or \
                ((p['port'] == 20) and (p['domains']['lan']['read'] != 2)) or \
-               ((p['port'] == 18) and (p['domains']['lan']['read'] != 3)) or \
+               ((p['port'] == 18) and (p['domains']['lan']['read'] != 1)) or \
                ((p['port'] == 17) and (p['domains']['lan']['read'] != 4)):
                 print resp
                 assert(False)
