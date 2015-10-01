@@ -35,7 +35,8 @@ from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touc
                             get_metadata, set_metadata, get_did)
 from rucio.core.rse import get_rse_id
 from rucio.core.replica import add_replica
-from rucio.db.constants import DIDType
+from rucio.db.sqla.constants import DIDType
+
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
 

@@ -26,7 +26,7 @@ from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replica
                                declare_bad_file_replicas,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
                                get_bad_replicas_summary, list_datasets_per_rse)
-from rucio.db.constants import BadFilesStatus
+from rucio.db.sqla.constants import BadFilesStatus
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,

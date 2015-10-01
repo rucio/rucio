@@ -19,8 +19,8 @@ from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, 
 
 from rucio.common.config import config_get
 from rucio.core.account_counter import create_counters_for_new_account
-from rucio.db import session, models
-from rucio.db.constants import AccountStatus, AccountType, IdentityType
+from rucio.db.sqla import session, models
+from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
 
 
 def build_database(echo=True, tests=False):

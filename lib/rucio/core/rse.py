@@ -29,8 +29,8 @@ import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter
 from rucio.common import exception, utils
-from rucio.db import models
-from rucio.db.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import models
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
 @transactional_session

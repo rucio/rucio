@@ -18,8 +18,8 @@ from threading import Thread
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.core import rse as rse_core, replica as replica_core
-from rucio.db.constants import ReplicaState
-from rucio.db.session import get_session
+from rucio.db.sqla.constants import ReplicaState
+from rucio.db.sqla.session import get_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.common.exception import ReplicaNotFound
 

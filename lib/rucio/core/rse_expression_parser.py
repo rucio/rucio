@@ -23,7 +23,7 @@ from hashlib import sha256
 from rucio.common import schema
 from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
 from rucio.core.rse import list_rses
-from rucio.db.session import transactional_session
+from rucio.db.sqla.session import transactional_session
 
 
 DEFAULT_RSE_ATTRIBUTE = schema.DEFAULT_RSE_ATTRIBUTE['pattern']

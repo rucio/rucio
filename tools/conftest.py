@@ -16,7 +16,7 @@
 import pytest
 
 # from rucio.client import Client
-# from rucio.db.util import build_database, destroy_database, create_root_account
+# from rucio.db.sqla.util import build_database, destroy_database, create_root_account
 
 
 def pytest_collection_modifyitems(items):
