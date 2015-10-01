@@ -19,7 +19,7 @@ import rucio.api.permission
 from rucio.core import did, naming_convention, meta as meta_core
 from rucio.common.constants import RESERVED_KEYS
 from rucio.common.schema import validate_schema
-from rucio.db.constants import DIDType
+from rucio.db.sqla.constants import DIDType
 
 
 def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False):

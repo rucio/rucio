@@ -17,9 +17,9 @@ from sqlalchemy.exc import IntegrityError
 from traceback import format_exc
 
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
-from rucio.db import models
-from rucio.db.constants import AccountStatus, ScopeStatus
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import AccountStatus, ScopeStatus
+from rucio.db.sqla.session import read_session, transactional_session
 
 
 @transactional_session

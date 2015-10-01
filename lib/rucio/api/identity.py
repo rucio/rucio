@@ -13,7 +13,7 @@
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import identity
-from rucio.db.constants import IdentityType
+from rucio.db.sqla.constants import IdentityType
 
 
 def add_identity(identity_key, type, email, password=None):

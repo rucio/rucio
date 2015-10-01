@@ -23,7 +23,7 @@ from rucio.api.account import get_account_status, set_account_status
 from rucio.client.accountclient import AccountClient
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
-from rucio.db.constants import AccountStatus
+from rucio.db.sqla.constants import AccountStatus
 from rucio.tests.common import account_name_generator
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app

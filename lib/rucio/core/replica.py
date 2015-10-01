@@ -32,10 +32,10 @@ from rucio.common.utils import chunks, clean_surls, str_to_date
 from rucio.core.rse import get_rse, get_rse_id, get_rse_name
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db import models
-from rucio.db.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability, BadFilesStatus
-from rucio.db.session import (read_session, stream_session, transactional_session,
-                              DEFAULT_SCHEMA_NAME)
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability, BadFilesStatus
+from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
+                                   DEFAULT_SCHEMA_NAME)
 from rucio.rse import rsemanager as rsemgr
 
 

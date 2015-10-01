@@ -33,7 +33,7 @@ from rucio.common.exception import DatabaseException
 from rucio.core import request, heartbeat
 from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
-from rucio.db.constants import RequestState, RequestType
+from rucio.db.sqla.constants import RequestState, RequestType
 
 
 logging.basicConfig(stream=sys.stdout,

@@ -24,10 +24,10 @@ from sqlalchemy.orm import exc
 import rucio.core.account_counter
 
 from rucio.common import exception
-from rucio.db import models
-from rucio.db.constants import AccountStatus, AccountType
-from rucio.db.enum import EnumSymbol
-from rucio.db.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import AccountStatus, AccountType
+from rucio.db.sqla.enum import EnumSymbol
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
 @transactional_session
