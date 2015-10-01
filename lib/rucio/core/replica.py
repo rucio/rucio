@@ -683,7 +683,7 @@ def __bulk_add_new_file_dids(files, account, session=None):
     :returns: True is successful.
     """
     for file in files:
-        new_did = models.DataIdentifier(scope=file['scope'], name=file['name'], account=file.get('account') or account, did_type=DIDType.FILE, bytes=file['bytes'], md5=file.get('md5'), adler32=file.get('adler32'))
+        new_did = models.DataIdentifier(scope=file['scope'], name=file['name'], account=file.get('account') or account, did_type=DIDType.FILE, bytes=file['bytes'], md5=file.get('md5'), adler32=file.get('adler32'), is_new=None)
         for key in file.get('meta', []):
             new_did.update({key: file['meta'][key]})
         new_did.save(session=session, flush=False)
