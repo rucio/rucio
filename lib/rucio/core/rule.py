@@ -650,7 +650,10 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, nowait=False, session=
             rule.purge_replicas = purge_replicas
 
         if soft:
-            rule.expires_at = datetime.utcnow() + timedelta(seconds=3600)
+            if rule.expires_at:
+                rule.expires_at = min(datetime.utcnow() + timedelta(seconds=3600), rule.expires_at)
+            else:
+                rule.expires_at = datetime.utcnow() + timedelta(seconds=3600)
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             return
 
