@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
@@ -44,7 +44,9 @@ from rucio.core.request import get_request_by_did, queue_requests, cancel_reques
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification, OBSOLETE
+from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGrouping,
+                                     DIDAvailability, DIDReEvaluation, DIDType,
+                                     RequestType, RuleNotification, OBSOLETE, RSEType)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
