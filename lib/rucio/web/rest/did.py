@@ -218,7 +218,12 @@ class DIDs(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            did = get_did(scope=scope, name=name)
+            dynamic = False
+            if ctx.query:
+                params = parse_qs(ctx.query[1:])
+                if 'dynamic' in params:
+                    dynamic = True
+            did = get_did(scope=scope, name=name, dynamic=dynamic)
             return render_json(**did)
         except ScopeNotFound, e:
             raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])

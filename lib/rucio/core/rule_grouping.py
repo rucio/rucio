@@ -21,9 +21,9 @@ from sqlalchemy import func
 from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
 from rucio.core.rse import get_rse
-from rucio.db import models
-from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
-from rucio.db.session import transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
+from rucio.db.sqla.session import transactional_session
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),

@@ -24,7 +24,7 @@ import sqlalchemy as sa
 from alembic import context, op
 from sqlalchemy import BigInteger
 
-from rucio.db.models import String
+from rucio.db.sqla.models import String
 
 
 def upgrade():

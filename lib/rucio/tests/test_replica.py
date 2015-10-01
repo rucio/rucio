@@ -19,7 +19,7 @@ from nose.tools import assert_equal, assert_in, assert_raises
 from paste.fixture import TestApp
 
 
-from rucio.db.constants import DIDType, ReplicaState
+from rucio.db.sqla.constants import DIDType, ReplicaState
 from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient

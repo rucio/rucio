@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from rucio.db.session import get_session
+
+from rucio.db.sqla.session import get_session
 
 # Exit statuses
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3

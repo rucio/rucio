@@ -17,8 +17,8 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, text
 
 from rucio.common.exception import InvalidObject, RucioException
-from rucio.db.models import Message, MessageHistory
-from rucio.db.session import transactional_session
+from rucio.db.sqla.models import Message, MessageHistory
+from rucio.db.sqla.session import transactional_session
 
 
 @transactional_session

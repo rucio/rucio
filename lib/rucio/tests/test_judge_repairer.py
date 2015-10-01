@@ -19,9 +19,9 @@ from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import get_rule, add_rule
 from rucio.daemons.judge.repairer import rule_repairer
 from rucio.daemons.judge.evaluator import re_evaluator
-from rucio.db.constants import DIDType, RuleState, ReplicaState
-from rucio.db.session import get_session
-from rucio.db import models
+from rucio.db.sqla.constants import DIDType, RuleState, ReplicaState
+from rucio.db.sqla.session import get_session
+from rucio.db.sqla import models
 from rucio.tests.test_rule import create_files, tag_generator
 
 

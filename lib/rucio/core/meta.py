@@ -20,9 +20,9 @@ from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.common.exception import (Duplicate, RucioException,
                                     KeyNotFound, InvalidValueForKey, UnsupportedValueType,
                                     InvalidObject)
-from rucio.db import models
-from rucio.db.constants import DIDType
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.session import read_session, transactional_session
 
 
 @transactional_session
