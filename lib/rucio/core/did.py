@@ -30,7 +30,7 @@ from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, text
+from sqlalchemy.sql.expression import bindparam, text, Insert
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -64,7 +64,9 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     stmt = exists().where(and_(models.ReplicationRule.scope == models.DataIdentifier.scope,
                                models.ReplicationRule.name == models.DataIdentifier.name,
                                models.ReplicationRule.locked == True))  # NOQA
-    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).\
+    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
+                          models.DataIdentifier.did_type,
+                          models.DataIdentifier.created_at).\
         filter(models.DataIdentifier.expired_at < datetime.utcnow(), not_(stmt)).\
         order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
@@ -80,9 +82,12 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
         elif session.bind.dialect.name == 'sqlite':
             row_count = 0
             dids = list()
-            for scope, name, did_type in query.yield_per(10):
+            for scope, name, did_type, created_at in query.yield_per(10):
                 if int(md5(name).hexdigest(), 16) % total_workers == worker_number-1:
-                    dids.append({'scope': scope, 'name': name, 'did_type': did_type})
+                    dids.append({'scope': scope,
+                                 'name': name,
+                                 'did_type': did_type,
+                                 'created_at': created_at})
                     row_count += 1
                 if limit and row_count >= limit:
                     return dids
@@ -91,7 +96,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     if limit:
         query = query.limit(limit)
 
-    return [{'scope': scope, 'name': name, 'did_type': did_type} for scope, name, did_type in query]
+    return [{'scope': scope, 'name': name, 'did_type': did_type, 'created_at': created_at} for scope, name, did_type, created_at in query]
 
 
 @transactional_session
@@ -397,11 +402,8 @@ def delete_dids(dids, account, session=None):
     :param account: The account.
     :param session: The database session in use.
     """
-
-    rule_id_clause = []
-    content_clause = []
-    parent_content_clause = []
-    did_clause = []
+    rule_id_clause, content_clause = [], []
+    parent_content_clause, did_clause = [], []
     collection_replica_clause = []
     for did in dids:
         logging.info('Removing did %s:%s' % (did['scope'], did['name']))
@@ -411,6 +413,41 @@ def delete_dids(dids, account, session=None):
         content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
         collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                               models.CollectionReplica.name == did['name']))
+        # Archive content
+        q = session.query(models.DataIdentifierAssociation.scope,
+                          models.DataIdentifierAssociation.name,
+                          models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.DataIdentifierAssociation.did_type,
+                          models.DataIdentifierAssociation.child_type,
+                          models.DataIdentifierAssociation.bytes,
+                          models.DataIdentifierAssociation.adler32,
+                          models.DataIdentifierAssociation.md5,
+                          models.DataIdentifierAssociation.guid,
+                          models.DataIdentifierAssociation.events,
+                          models.DataIdentifierAssociation.rule_evaluation,
+                          bindparam("did_created_at",  did['created_at']),
+                          models.DataIdentifierAssociation.created_at,
+                          models.DataIdentifierAssociation.updated_at,
+                          bindparam("deleted_at",  datetime.utcnow())).\
+            filter(and_(models.DataIdentifierAssociation.child_scope == did['scope'],
+                        models.DataIdentifierAssociation.child_name == did['name']))
+        Insert(models.DataIdentifierAssociationHistory).from_select(('scope',
+                                                                     'name',
+                                                                     'child_scope',
+                                                                     'child_name',
+                                                                     'did_type',
+                                                                     'child_type',
+                                                                     'bytes',
+                                                                     'adler32',
+                                                                     'md5',
+                                                                     'guid',
+                                                                     'events',
+                                                                     'rule_evaluation',
+                                                                     'did_created_at',
+                                                                     'created_at',
+                                                                     'updated_at',
+                                                                     'deleted_at'), q)
 
         # Send message for AMI
         add_message('ERASE', {'account': account,
@@ -453,6 +490,7 @@ def delete_dids(dids, account, session=None):
         # Exit method early to give Judge time to remove locks (Otherwise, due to foreign keys, did removal does not work
         logging.debug('Leaving delete_dids early for Judge-Evaluator checks')
         return
+
     with record_timer_block('undertaker.dids'):
         rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
             filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
