@@ -34,7 +34,7 @@ from rucio.common.exception import UnsupportedOperation
 from rucio.core import heartbeat, request
 from rucio.core.monitor import record_counter, record_timer
 from rucio.daemons.conveyor.submitter_utils import get_rses, get_transfers_from_requests
-from rucio.db.constants import RequestState
+from rucio.db.sqla.constants import RequestState
 from rucio.transfertool import fts3
 
 logging.basicConfig(stream=sys.stdout,

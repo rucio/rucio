@@ -34,8 +34,8 @@ from rucio.common.exception import DatabaseException, UnsupportedOperation, Repl
 from rucio.core import replica as replica_core, request as request_core, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer, record_counter
-from rucio.db.constants import RequestState, ReplicaState, RequestType
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla.constants import RequestState, ReplicaState, RequestType
+from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
 region = make_region().configure('dogpile.cache.memory', expiration_time=3600)

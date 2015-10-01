@@ -15,9 +15,9 @@ from sqlalchemy import and_, or_
 
 from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
-from rucio.db import test_models
-from rucio.db.constants import FTSState
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import test_models
+from rucio.db.sqla.constants import FTSState
+from rucio.db.sqla.session import read_session, transactional_session
 
 """
 This mock FTS3 server provides basic job control, with a random job progression model.

@@ -40,9 +40,9 @@ from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
-from rucio.db.constants import DIDType, OBSOLETE, RuleState
-from rucio.db import models
-from rucio.db.session import transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState
+from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import rse_name_generator, account_name_generator
 
 

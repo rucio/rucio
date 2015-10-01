@@ -32,10 +32,10 @@ from rucio.common.utils import chunks, clean_surls, str_to_date
 from rucio.core.rse import get_rse, get_rse_id, get_rse_name
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db import models
-from rucio.db.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability, BadFilesStatus
-from rucio.db.session import (read_session, stream_session, transactional_session,
-                              DEFAULT_SCHEMA_NAME)
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability, BadFilesStatus
+from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
+                                   DEFAULT_SCHEMA_NAME)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -683,7 +683,7 @@ def __bulk_add_new_file_dids(files, account, session=None):
     :returns: True is successful.
     """
     for file in files:
-        new_did = models.DataIdentifier(scope=file['scope'], name=file['name'], account=file.get('account') or account, did_type=DIDType.FILE, bytes=file['bytes'], md5=file.get('md5'), adler32=file.get('adler32'))
+        new_did = models.DataIdentifier(scope=file['scope'], name=file['name'], account=file.get('account') or account, did_type=DIDType.FILE, bytes=file['bytes'], md5=file.get('md5'), adler32=file.get('adler32'), is_new=None)
         for key in file.get('meta', []):
             new_did.update({key: file['meta'][key]})
         new_did.save(session=session, flush=False)

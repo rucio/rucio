@@ -10,7 +10,7 @@
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
 from rucio.core import meta
-from rucio.db.constants import KeyType
+from rucio.db.sqla.constants import KeyType
 
 
 def list_keys():
