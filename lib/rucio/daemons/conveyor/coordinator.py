@@ -24,7 +24,7 @@ import urllib2
 
 from rucio.common.config import config_get
 from rucio.core import heartbeat, distance as distance_core, rse as rse_core, request as request_core
-from rucio.db.constants import RSEType
+from rucio.db.sqla.constants import RSEType
 
 
 logging.basicConfig(stream=sys.stdout,

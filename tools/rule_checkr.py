@@ -22,9 +22,9 @@ from sqlalchemy.sql.expression import and_
 
 from rucio.core.did import list_child_dids
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db import models
-from rucio.db.constants import DIDType
-from rucio.db.session import get_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.session import get_session
 
 
 def check_rule(rule, session):

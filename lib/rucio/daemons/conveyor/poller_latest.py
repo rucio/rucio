@@ -30,7 +30,7 @@ from rucio.common.config import config_get
 from rucio.core import request, heartbeat
 from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
-from rucio.db.constants import FTSState
+from rucio.db.sqla.constants import FTSState
 
 
 logging.basicConfig(stream=sys.stdout,

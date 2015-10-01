@@ -12,8 +12,8 @@
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from rucio.common import exception
-from rucio.db.models import Distance
-from rucio.db.session import transactional_session, read_session
+from rucio.db.sqla.models import Distance
+from rucio.db.sqla.session import transactional_session, read_session
 
 
 @transactional_session

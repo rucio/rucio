@@ -43,9 +43,9 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
-from rucio.db import models
-from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification, OBSOLETE
-from rucio.db.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification, OBSOLETE
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -95,6 +95,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
                     raise StagingAreaRuleRequiresLifetime()
+
+            # Auto-lock rules for TAPE rses
+            if not locked:
+                if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
+                    locked = True
 
             if source_replica_expression:
                 source_rses = parse_expression(source_replica_expression, session=session)
@@ -292,6 +297,11 @@ def add_rules(dids, rules, session=None):
                         if [rse for rse in rses if rse.get('staging_area', False)]:
                             raise StagingAreaRuleRequiresLifetime()
 
+                    # Auto-lock rules for TAPE rses
+                    if not rule.get('locked', False):
+                        if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
+                            rule['locked'] = True
+
                     if rule.get('source_replica_expression'):
                         source_rses = parse_expression(rule.get('source_replica_expression'), session=session)
                     else:
@@ -421,6 +431,11 @@ def inject_rule(rule_id, session=None):
         if rule.expires_at is None:  # Check if one of the rses is a staging area
             if [rse for rse in rses if rse.get('staging_area', False)]:
                 raise StagingAreaRuleRequiresLifetime()
+
+        # Auto-lock rules for TAPE rses
+        if not rule.locked:
+            if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
+                rule.locked = True
 
         if rule.source_replica_expression:
             source_rses = parse_expression(rule.source_replica_expression, session=session)
@@ -929,6 +944,17 @@ def update_rule(rule_id, options, session=None):
             if key == 'activity':
                 validate_schema('activity', options['activity'])
                 rule.activity = options['activity']
+                # Cancel transfers and re-submit them:
+                for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
+                    cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                    md5, bytes, adler32 = session.query(models.RSEFileAssociation.md5, models.RSEFileAssociation.bytes, models.RSEFileAssociation.adler32).filter(models.RSEFileAssociation.scope == lock.scope,
+                                                                                                                                                                  models.RSEFileAssociation.name == lock.name,
+                                                                                                                                                                  models.RSEFileAssociation.rse_id == lock.rse_id).one()
+                    session.flush()
+                    queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
+                                                                  request_type=RequestType.TRANSFER,
+                                                                  scope=lock.scope, name=lock.name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
+                                                                  ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity)], session=session)
 
             elif key == 'account':
                 # Check if the account exists
