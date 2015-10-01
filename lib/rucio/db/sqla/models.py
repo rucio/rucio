@@ -29,13 +29,13 @@ from sqlalchemy.sql import Delete
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
-from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
-                                KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
-                                RuleState, ReplicaState, RequestState, RequestType, RSEType,
-                                ScopeStatus, SubscriptionState, RuleNotification)
-from rucio.db.history import Versioned
-from rucio.db.session import BASE
-from rucio.db.types import GUID, BooleanString
+from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
+                                     KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
+                                     RuleState, ReplicaState, RequestState, RequestType, RSEType,
+                                     ScopeStatus, SubscriptionState, RuleNotification)
+from rucio.db.sqla.history import Versioned
+from rucio.db.sqla.session import BASE
+from rucio.db.sqla.types import GUID, BooleanString
 
 
 # Recipe to for str instead if unicode

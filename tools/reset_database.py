@@ -7,11 +7,11 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 
 from argparse import ArgumentParser
 
-from rucio.db.util import build_database, destroy_database, drop_everything, create_root_account
+from rucio.db.sqla.util import build_database, destroy_database, drop_everything, create_root_account
 
 if __name__ == '__main__':
 

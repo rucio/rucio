@@ -12,7 +12,7 @@
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import authentication, identity
-from rucio.db.constants import IdentityType
+from rucio.db.sqla.constants import IdentityType
 
 
 def get_auth_token_user_pass(account, username, password, appid, ip=None):

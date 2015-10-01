@@ -29,8 +29,8 @@ import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter
 from rucio.common import exception, utils
-from rucio.db import models
-from rucio.db.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import models
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
 @transactional_session
@@ -478,12 +478,7 @@ def add_protocol(rse, parameter, session=None):
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
                 op_name = ''.join([op, '_', s]).lower()
-                no = session.query(models.RSEProtocols).\
-                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid, getattr(models.RSEProtocols, op_name) > 0)).\
-                    count()
-                if parameter['domains'][s][op] > (no + 1):
-                    parameter['domains'][s][op] = (no + 1)
-                if not 0 <= parameter['domains'][s][op] <= (no + 1):
+                if parameter['domains'][s][op] < 0:
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
                 parameter[op_name] = parameter['domains'][s][op]
         del parameter['domains']
@@ -499,25 +494,13 @@ def add_protocol(rse, parameter, session=None):
             raise exception.InvalidObject('Missing values! For SRM, extended_attributes and web_service_path must be specified')
 
     try:
-        # Open gaps in protocols priorities for new protocol
-        for domain in utils.rse_supported_protocol_domains():
-            for op in utils.rse_supported_protocol_operations():
-                op_name = ''.join([op, '_', domain])
-                if (op_name in parameter) and parameter[op_name]:
-                    prots = session.query(models.RSEProtocols).\
-                        filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                               getattr(models.RSEProtocols, op_name) >= parameter[op_name])).\
-                        order_by(getattr(models.RSEProtocols, op_name).asc())
-                    val = parameter[op_name] + 1
-                    for p in prots:
-                        p.update({op_name: val})
-                        val += 1
         new_protocol = models.RSEProtocols()
         new_protocol.update(parameter)
         new_protocol.save(session=session)
     except (IntegrityError, FlushError, OperationalError) as e:
-        if ('not unique' in e.args[0]) or ('conflicts with persistent instance' in e.args[0]) \
+        if ('UNIQUE constraint failed' in e.args[0]) or ('conflicts with persistent instance' in e.args[0]) \
            or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', e.args[0]):
+
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
         elif 'may not be NULL' in e.args[0] \
              or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', e.args[0]) \
@@ -567,6 +550,10 @@ def get_rse_protocols(rse, schemes=None, session=None):
 
     query = None
     terms = [models.RSEProtocols.rse_id == _rse.id]
+    if schemes:
+        if not type(schemes) is list:
+            schemes = [schemes]
+        terms.extend([models.RSEProtocols.scheme.in_(schemes)])
 
     query = session.query(models.RSEProtocols.hostname,
                           models.RSEProtocols.scheme,

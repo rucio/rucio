@@ -14,8 +14,8 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import bindparam, text
 
 from rucio.common.exception import CounterNotFound
-from rucio.db import models
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.session import read_session, transactional_session
 
 
 @transactional_session

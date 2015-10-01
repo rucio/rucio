@@ -11,7 +11,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from rucio.api import permission
-from rucio.db.constants import BadFilesStatus
+from rucio.db.sqla.constants import BadFilesStatus
 from rucio.core import replica
 from rucio.common import exception
 from rucio.common.schema import validate_schema

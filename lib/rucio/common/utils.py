@@ -32,7 +32,7 @@ from rucio.common.config import config_get
 try:
     # Hack for the client distribution
     from web import HTTPError
-    from rucio.db.enum import EnumSymbol
+    from rucio.db.sqla.enum import EnumSymbol
 except:
     pass
 
@@ -301,7 +301,9 @@ def construct_surl_DQ2(dsn, filename):
     fields = dsn.split('.')
     nfields = len(fields)
 
-    if nfields == 1:
+    if nfields == 0:
+        return '/other/other/%s' % (filename)
+    elif nfields == 1:
         stripped_dsn = __strip_dsn(dsn)
         return '/other/%s/%s' % (stripped_dsn, filename)
     elif nfields == 2:
@@ -341,6 +343,8 @@ def construct_surl_T0(dsn, filename):
         return '/%s/%s/%s/%s/%s' % (fields[0], 'other', 'other', dsn, filename)
     elif nfields == 2:
         return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], 'other', dsn, filename)
+    elif nfields == 0:
+        return '/other/other/other/other/%s' % (filename)
 
 
 def construct_surl(dsn, filename, naming_convention=None):

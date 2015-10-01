@@ -16,8 +16,8 @@ from sqlalchemy.sql.expression import bindparam, text
 import rucio.core.account
 import rucio.core.rse
 
-from rucio.db import models
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.session import read_session, transactional_session
 
 MAX_COUNTERS = 10
 
