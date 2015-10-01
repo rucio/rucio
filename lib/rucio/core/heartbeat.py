@@ -14,8 +14,8 @@ import hashlib
 
 from sqlalchemy.sql import distinct
 
-from rucio.db.models import Heartbeats
-from rucio.db.session import read_session, transactional_session
+from rucio.db.sqla.models import Heartbeats
+from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common.utils import pid_exists
 
 

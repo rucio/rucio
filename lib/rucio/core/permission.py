@@ -22,7 +22,7 @@ from rucio.core.lock import get_replica_locks_for_rule_id_per_rse
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rule
-from rucio.db.constants import IdentityType
+from rucio.db.sqla.constants import IdentityType
 
 
 def has_permission(issuer, action, kwargs):

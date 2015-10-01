@@ -20,7 +20,7 @@ from rucio.core.naming_convention import (add_naming_convention,
                                           validate_name,
                                           list_naming_conventions,
                                           delete_naming_convention)
-from rucio.db.constants import KeyType
+from rucio.db.sqla.constants import KeyType
 
 
 class TestNamingConventionCore:

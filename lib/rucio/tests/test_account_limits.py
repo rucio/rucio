@@ -18,7 +18,7 @@ from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.core import account_limit
 from rucio.core.account import add_account
 from rucio.core.rse import get_rse
-from rucio.db.constants import AccountType
+from rucio.db.sqla.constants import AccountType
 
 
 class TestCoreAccountLimits():

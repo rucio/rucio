@@ -11,7 +11,7 @@
 
 import argparse
 
-from rucio.db.util import destroy_database, drop_everything
+from rucio.db.sqla.util import destroy_database, drop_everything
 
 if __name__ == '__main__':
 
