@@ -426,7 +426,7 @@ def delete_dids(dids, account, session=None):
                               models.DataIdentifierAssociation.guid,
                               models.DataIdentifierAssociation.events,
                               models.DataIdentifierAssociation.rule_evaluation,
-                              bindparam("did_created_at",  did['created_at']),
+                              bindparam("did_created_at",  did.get('created_at')),
                               models.DataIdentifierAssociation.created_at,
                               models.DataIdentifierAssociation.updated_at,
                               bindparam("deleted_at",  datetime.utcnow())).\
