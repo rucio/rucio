@@ -406,7 +406,7 @@ def delete_dids(dids, account, session=None):
     parent_content_clause, did_clause = [], []
     collection_replica_clause = []
     for did in dids:
-        logging.info('Removing did %s:%s' % (did['scope'], did['name']))
+        logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
         did_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
@@ -426,29 +426,18 @@ def delete_dids(dids, account, session=None):
                           models.DataIdentifierAssociation.guid,
                           models.DataIdentifierAssociation.events,
                           models.DataIdentifierAssociation.rule_evaluation,
-                          bindparam("did_created_at", did.get('created_at')),
+                          bindparam("did_created_at",  did['created_at']),
                           models.DataIdentifierAssociation.created_at,
                           models.DataIdentifierAssociation.updated_at,
                           bindparam("deleted_at",  datetime.utcnow())).\
-            filter(and_(models.DataIdentifierAssociation.child_scope == did['scope'],
-                        models.DataIdentifierAssociation.child_name == did['name']))
-        Insert(models.DataIdentifierAssociationHistory).from_select(('scope',
-                                                                     'name',
-                                                                     'child_scope',
-                                                                     'child_name',
-                                                                     'did_type',
-                                                                     'child_type',
-                                                                     'bytes',
-                                                                     'adler32',
-                                                                     'md5',
-                                                                     'guid',
-                                                                     'events',
-                                                                     'rule_evaluation',
-                                                                     'did_created_at',
-                                                                     'created_at',
-                                                                     'updated_at',
-                                                                     'deleted_at'), q)
-
+            filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
+                        models.DataIdentifierAssociation.name == did['name']))
+        ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
+            from_select(('scope', 'name', 'child_scope', 'child_name', 'did_type',
+                         'child_type', 'bytes', 'adler32', 'md5', 'guid', 'events',
+                         'rule_evaluation', 'did_created_at', 'created_at', 'updated_at',
+                         'deleted_at'), q)
+        session.execute(ins)
         # Send message for AMI
         add_message('ERASE', {'account': account,
                               'scope': did['scope'],
