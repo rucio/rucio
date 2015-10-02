@@ -33,12 +33,12 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound)
 from rucio.common.schema import validate_schema
-from rucio.common.utils import str_to_date
+from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
-from rucio.core.rse import get_rse_name
+from rucio.core.rse import get_rse_name, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
@@ -172,7 +172,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             if ask_approval:
                 new_rule.state = RuleState.WAITING_APPROVAL
                 logging.debug("Created rule %s in waiting for approval" % (str(new_rule.id)))
-                # TODO: eMail notification?
+                __create_rule_approval_email(rule=new_rule, session=session)
                 continue
 
             if asynchronous:
@@ -361,7 +361,7 @@ def add_rules(dids, rules, session=None):
                     if rule.get('ask_approval', False):
                         new_rule.state = RuleState.WAITING_APPROVAL
                         logging.debug("Created rule %s in waiting for approval" % str(new_rule.id))
-                        # TODO: eMail notification?
+                        __create_rule_approval_email(rule=new_rule, session=session)
                         continue
 
                     if rule.get('asynchronous', False):
@@ -2222,3 +2222,82 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
     except NoResultFound:
         logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found" % (lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session)))
     return False
+
+
+@transactional_session
+def __create_rule_approval_email(rule, session=None):
+    """
+    Create the rule notification email.
+
+    :param rule:      The rule object.
+    :param session:   The database session in use.
+    """
+
+    did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)
+    rses = [rep['rse'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
+
+    # Resolve recipents:
+    recipents = []
+    # LOCALGROUPDISK
+    for rse in parse_expression(rule.rse_expression, session=session):
+        rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+        if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+            accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
+                                                                                      value='admin').all()
+            for account in accounts:
+                email = get_account(account=account, session=session).email
+                if email:
+                    recipents.append(email)
+    # DDMADMIN as default
+    if not recipents:
+        recipents = ['atlas-adc-ddm-support@cern.ch']
+
+    text = """A new rule has been requested for approval in Rucio.
+
+Rule description:
+
+  ID:                   %s
+  Creation date:        %s
+  Expiration date:      %s
+  Rule owner:           %s (%s)
+  RSE Expression:       %s
+  Comment:              %s
+  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
+
+DID description:
+
+  Scope:Name:           %s:%s
+  Type:                 %s
+  Number of files:      %s
+  Total size:           %s
+  Complete replicas:    %s
+  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
+
+Action:
+
+  Approve:              https://rucio-ui.cern.ch/rule?rule_id=%s&action=approve
+  Deny:                 https://rucio-ui.cern.ch/rule?rule_id=%s&action=deny
+
+--
+THIS IS AN AUTOMATICALLY GENERATED MESSAGE
+""" % (str(rule.id),
+       str(rule.created_at),
+       str(rule.expires_at),
+       rule.account, get_account(account=rule.account, session=session).email,
+       rule.rse_expression,
+       rule.comments,
+       str(rule.id),
+       rule.scope, rule.name,
+       rule.did_type,
+       did['length'],
+       sizefmt(did['bytes']),
+       ', '.join(rses),
+       rule.scope, rule.name,
+       str(rule.id),
+       str(rule.id))
+
+    add_message(event_type='email',
+                payload={'body': text,
+                         'to': recipents,
+                         'subject': 'Request to approve replication rule'},
+                session=session)
