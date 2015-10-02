@@ -442,6 +442,8 @@ def delete_dids(dids, account, session=None):
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
+        session.execute(ins)
+
         # Send message for AMI
         add_message('ERASE', {'account': account,
                               'scope': did['scope'],
