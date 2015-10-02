@@ -485,10 +485,11 @@ def delete_dids(dids, account, session=None):
         logging.debug('Leaving delete_dids early for Judge-Evaluator checks')
         return
 
-    with record_timer_block('undertaker.dids'):
-        rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
-            filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
-            delete(synchronize_session=False)
+    if did_clause:
+        with record_timer_block('undertaker.dids'):
+            rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
+                filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
+                delete(synchronize_session=False)
 
 
 @transactional_session
