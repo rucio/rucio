@@ -474,9 +474,10 @@ def delete_dids(dids, account, session=None):
         record_counter(counters='undertaker.content.rowcount', delta=rowcount)
 
     # Remove CollectionReplica
-    with record_timer_block('undertaker.dids'):
-        rowcount = session.query(models.CollectionReplica).filter(or_(*collection_replica_clause)).\
-            delete(synchronize_session=False)
+    if collection_replica_clause:
+        with record_timer_block('undertaker.dids'):
+            rowcount = session.query(models.CollectionReplica).filter(or_(*collection_replica_clause)).\
+                delete(synchronize_session=False)
 
     # remove data identifier
     if existing_parent_dids:
