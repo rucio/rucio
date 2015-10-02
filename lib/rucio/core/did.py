@@ -447,7 +447,6 @@ def delete_dids(dids, account, session=None):
                               'scope': did['scope'],
                               'name': did['name']},
                     session=session)
-
     # Delete rules on did
     if rule_id_clause:
         with record_timer_block('undertaker.rules'):
