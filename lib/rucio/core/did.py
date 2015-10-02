@@ -565,12 +565,14 @@ def detach_dids(scope, name, dids, session=None):
                 chld_type = 'DATASET'
             else:
                 chld_type = 'UNKNOWN'
+
             add_message('ERASE_CNT', {'scope': scope,
                                       'name': name,
                                       'childscope': source['scope'],
                                       'childname': source['name'],
                                       'childtype': chld_type},
                         session=session)
+
         add_message('DETACH', {'scope': scope,
                                'name': name,
                                'did_type': str(did.did_type),
