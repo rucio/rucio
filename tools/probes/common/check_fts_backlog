@@ -54,7 +54,7 @@ if __name__ == "__main__":
             busylimit = 5000
             for attempt in xrange(0, 5):
                 try:
-                    result = requests.get(url, verify=False)
+                    result = requests.get(url, verify=False, cert=(proxy, proxy))
                     res = result.json()
                     for channel in res['overview']['items']:
                         src = channel['source_se']
@@ -63,7 +63,7 @@ if __name__ == "__main__":
                             url_activities = '%s/fts3/ftsmon/config/activities/%s?source_se=%s&dest_se=%s' % (ftshost, vo, src, dst)
                             activities = {}
                             try:
-                                s = requests.get(url_activities, verify=False)
+                                s = requests.get(url_activities, verify=False, cert=(proxy, proxy))
                                 for key, val in s.json().items():
                                     activities[key] = val['SUBMITTED']
                             except Exception, error:
