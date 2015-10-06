@@ -263,8 +263,12 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
+        space_token = ''
+        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+            space_token = '--dst %s' % self.attributes['extended_attributes']['space_token']
+
         try:
-            cmd = 'lcg-cp $LCGVO -v -b --srm-timeout 3600 -D srmv2 %s %s' % (path, new_path)
+            cmd = 'lcg-cp $LCGVO -v -b --srm-timeout 3600 -D srmv2 %s %s %s' % (space_token, path, new_path)
             status, out, err = execute(cmd)
             if status:
                 raise exception.RucioException(err)
