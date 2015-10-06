@@ -10,7 +10,7 @@
 
 from json import dumps
 from os.path import dirname, join
-from web import template, ctx, cookies, setcookie, input
+from web import cookies, ctx, input, setcookie, template
 
 from rucio import version
 from rucio.api import authentication, identity
@@ -63,6 +63,11 @@ def check_token(rendered_tpl):
         return render.problem("No certificate provided. Please authenticate with a certificate registered in Rucio.")
 
     dn = ctx.env.get('SSL_CLIENT_S_DN')
+
+    # try to get and check the rucio session token from cookie
+    session_token = cookies().get('x-rucio-auth-token')
+    validate_token = authentication.validate_auth_token(session_token)
+
     # check if ui_account param is set and if yes, force new token
     if ui_account:
         accounts = identity.list_accounts_for_identity(dn, 'x509')
@@ -74,21 +79,18 @@ def check_token(rendered_tpl):
             return render.problem("The rucio account (%s) you selected is not mapped to your certificate (%s). Please select another account or none at all to automatically use your default account." % (ui_account, dn))
 
         cookie_accounts = accounts
-        try:
-            token = authentication.get_auth_token_x509(ui_account,
-                                                       dn,
-                                                       'webui',
-                                                       ctx.env.get('REMOTE_ADDR'))
-        except:
-            return render.problem("Your certificate (%s) is not registered in Rucio. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
+        if (validate_token is None) or (validate_token['account'] != ui_account):
+            try:
+                token = authentication.get_auth_token_x509(ui_account,
+                                                           dn,
+                                                           'webui',
+                                                           ctx.env.get('REMOTE_ADDR'))
+            except:
+                return render.problem("Your certificate (%s) is not registered in Rucio. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
         attribs = list_account_attributes(ui_account)
         js_token = __to_js('token', token)
         js_account = __to_js('account', def_account)
     else:
-        # try to get and check the rucio session token from cookie
-        session_token = cookies().get('x-rucio-auth-token')
-        validate_token = authentication.validate_auth_token(session_token)
-
         # if there is no session token or if invalid: get a new one.
         if validate_token is None:
             # get all accounts for an identity. Needed for account switcher in UI.
