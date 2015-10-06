@@ -1,0 +1,35 @@
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Joaquin Bogado, <jbogadog@cern.ch>, 2015
+
+"""add source to requests and requests_history
+
+Revision ID: 2edee4a83846
+Revises: 2f648fc909f3
+Create Date: 2015-10-06 10:51:43.473893
+
+"""
+
+# revision identifiers, used by Alembic.
+revision = '2edee4a83846'
+down_revision = '2f648fc909f3'
+
+from alembic import context, op
+import sqlalchemy as sa
+from rucio.db.sqla.types import GUID
+
+
+def upgrade():
+    op.add_column('requests', sa.Column('source_rse_id', GUID()))
+    op.add_column('requests_history', sa.Column('source_rse_id', GUID()))
+
+
+def downgrade():
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_column('requests', 'source_rse_id')
+        op.drop_column('requests_history', 'source_rse_id')
