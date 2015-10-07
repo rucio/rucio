@@ -438,7 +438,6 @@ def delete_dids(dids, account, session=None):
                              'rule_evaluation', 'did_created_at', 'created_at', 'updated_at',
                              'deleted_at'), q)
             session.execute(ins)
-
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
