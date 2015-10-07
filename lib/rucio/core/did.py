@@ -1014,6 +1014,7 @@ def set_status(scope, name, session=None, **kwargs):
                 # Set status to open only for privileged accounts
                 query = query.filter_by(is_open=False).filter(models.DataIdentifier.did_type != DIDType.FILE)
                 values['is_open'] = True
+                add_message('OPEN', {'scope': scope, 'name': name}, session=session)
 
     rowcount = query.update(values, synchronize_session='fetch')
 
