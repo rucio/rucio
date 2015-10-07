@@ -1000,6 +1000,14 @@ def set_status(scope, name, session=None, **kwargs):
                 values['bytes'], values['length'], values['events'] = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
                 # Update datasetlocks as well
                 session.query(models.DatasetLock).filter_by(scope=scope, name=name).update({'length': values['length'], 'bytes': values['bytes']})
+
+                # Generate a message
+                add_message('CLOSE', {'scope': scope, 'name': name,
+                                      'bytes': values['bytes'],
+                                      'length': values['length'],
+                                      'events': values['events']},
+                            session=session)
+
             else:
                 # Set status to open only for privileged accounts
                 query = query.filter_by(is_open=False).filter(models.DataIdentifier.did_type != DIDType.FILE)
