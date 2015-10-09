@@ -93,7 +93,7 @@ class Rule:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
         raise OK()
 
     def DELETE(self, rule_id):
@@ -255,7 +255,7 @@ class AllRule:
         except InvalidObject, e:
             raise generate_http_error(409, 'InvalidObject', e.args[0])
         except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             print e
             print format_exc()
@@ -330,7 +330,7 @@ class ReduceRule:
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
         except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             print e
             print format_exc()
