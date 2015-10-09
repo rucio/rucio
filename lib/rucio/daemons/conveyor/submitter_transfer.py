@@ -60,6 +60,11 @@ def submitter(once=False, rses=[], mock=False,
         cachedir = config_get('conveyor', 'cachedir')
     except NoOptionError:
         cachedir = None
+    try:
+        timeout = config_get('conveyor', 'submit_timeout')
+        timeout = float(timeout)
+    except NoOptionError:
+        timeout = None
 
     try:
         bring_online = config_get('conveyor', 'bring_online')
@@ -73,8 +78,9 @@ def submitter(once=False, rses=[], mock=False,
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     hb = heartbeat.live(executable, hostname, pid, hb_thread)
 
-    logging.info('Transfer submitter started - process (%i/%i) threads (%i/%i)' % (process, total_processes,
-                                                                                   hb['assign_thread'], hb['nr_threads']))
+    logging.info('Transfer submitter started - process (%i/%i) threads (%i/%i) timeout (%s)' % (process, total_processes,
+                                                                                                hb['assign_thread'], hb['nr_threads'],
+                                                                                                timeout))
 
     threadPool = ThreadPool(total_threads)
     activity_next_exe_time = defaultdict(time.time)
@@ -84,10 +90,10 @@ def submitter(once=False, rses=[], mock=False,
 
         try:
 
-            hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            logging.info('Transfer submitter - thread (%i/%i) bulk(%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
-
             if not sleeping:
+                hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
+                logging.info('Transfer submitter - thread (%i/%i) bulk(%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
+
                 sleeping = True
 
             if activities is None:
@@ -123,7 +129,8 @@ def submitter(once=False, rses=[], mock=False,
                     for job in grouped_jobs[external_host]:
                         # submit transfers
                         # job_requests = makeRequests(submit_transfer, args_list=[((external_host, job, 'transfer_submitter', process, thread), {})])
-                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host, 'job': job, 'submitter': 'transfer_submitter', 'process': process, 'thread': hb['assign_thread'], 'cachedir': cachedir})])
+                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host, 'job': job, 'submitter': 'transfer_submitter', 'process': process,
+                                                                                      'thread': hb['assign_thread'], 'cachedir': cachedir, 'timeout': timeout})])
                         [threadPool.putRequest(job_req) for job_req in job_requests]
                 threadPool.wait()
 
