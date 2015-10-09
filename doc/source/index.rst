@@ -41,6 +41,7 @@ The following concepts define how data is organised, accessed, and catalogued by
     overview_Permission_model
     overview_Replica_management
     replication_rules_examples
+    RSE_Expressions
     overview_Accounting_and_quota
     overview_Notifications
     overview_Subscriptions
