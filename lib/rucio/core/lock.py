@@ -157,7 +157,7 @@ def get_replica_locks_for_rule_id_per_rse(rule_id, session=None):
 
 
 @read_session
-def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_rses=None, session=None):
+def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_rses=None, only_stuck=False, session=None):
     """
     Get all the files of a dataset and, if existing, all locks of the file.
 
@@ -165,9 +165,10 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
     :param name:           Name of the datset
     :param nowait:         Nowait parameter for the FOR UPDATE statement
     :param restrict_rses:  Possible RSE_ids to filter on.
+    :param only_stuck:     If true, only get STUCK locks.
     :param session:        The db session.
     :return:               Dictionary with keys: (scope, name)
-                           and as value: {'bytes':, 'locks: [{'rse_id':, 'state':}]}
+                           and as value: [LockObject]
     :raises:               NoResultFound
     """
     # with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
@@ -195,6 +196,9 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
                                or_(*rse_clause)))\
                 .filter(models.DataIdentifierAssociation.scope == scope,
                         models.DataIdentifierAssociation.name == name)
+
+    if only_stuck:
+        query = query.filter(models.ReplicaLock.state == LockState.STUCK)
 
     query = query.with_for_update(nowait=nowait, of=models.ReplicaLock.state)
 
