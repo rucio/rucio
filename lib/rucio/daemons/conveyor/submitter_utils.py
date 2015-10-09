@@ -1260,7 +1260,7 @@ def update_transfer_file(transfer_id, state, cachedir=None,  process=0, thread=0
         logging.warn("%s:%s Failed to update transfer in %s: %s" % (process, thread, cachedir, traceback.format_exc()))
 
 
-def submit_transfer(external_host, job, submitter='submitter', cachedir=None, process=0, thread=0):
+def submit_transfer(external_host, job, submitter='submitter', cachedir=None, process=0, thread=0, timeout=None):
     # prepare submitting
     xfers_ret = {}
     try:
@@ -1289,8 +1289,8 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
     eid = None
     try:
         ts = time.time()
-        logging.info("%s:%s About to submit job to %s" % (process, thread,  external_host))
-        eid = request.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'])
+        logging.info("%s:%s About to submit job to %s with timeout %s" % (process, thread,  external_host, timeout))
+        eid = request.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'], timeout=timeout)
         duration = time.time() - ts
         logging.info("%s:%s Submit job %s to %s in %s seconds" % (process, thread, eid, external_host, duration))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - ts) * 1000/len(job['files']))
