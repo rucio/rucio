@@ -3,10 +3,10 @@ RSE Expressions
 ---------------
 
 A **RSE Expression** allows to select a set of RSEs to create replication rules.
-The RSE Expression consists of one or more **term**. A term can be a single RSE name or a condition over the RSE attributes.
-The RSE Expression Parser resolves each term to a set of RSEs. The resulting set for a term will be all those RSEs match the attribute or name.
+The RSE Expression consists of one or more **terms**. A term can be a single RSE name or a condition over the RSE attributes.
+The RSE Expression Parser resolves each term to a set of RSEs. The resulting set of a term will be all those RSEs match the attribute or name.
 Terms can be connected by **operators** to form more complex expressions.
-We can write RSE expressions to address all Tier 2 sites, all the sites in certain cloud, all Tier 2 not in certain clouds, etc.
+For example, users can write RSE expressions to address all Tier 2 RSEs, all the RSEs in certain cloud, all Tier 2 RSEs not in certain clouds, etc.
 
 ^^^^^^^^^^^^^^^^^^^^^^
 Simple RSE Expressions
@@ -15,7 +15,7 @@ Rucio allows to test RSE Expressions, using the command **list-rses**. The most 
 
 1) The following expression only return a set containing a single RSE::
 
-    jbogadog@lxplus0058:~$  rucio list-rses --expression EELA-UNLP_SCRATCHDISK
+    jbogadog@lxplus0058:~$ rucio list-rses --expression EELA-UNLP_SCRATCHDISK
     EELA-UNLP_SCRATCHDISK
 
 2) Another simple RSE Expression allows to list the set of all the RSEs in a particular site::
@@ -27,7 +27,7 @@ Rucio allows to test RSE Expressions, using the command **list-rses**. The most 
 
 3) Or all the RSEs who's type is SCRATCHDISK::
 
-    jbogadog@lxplus0058:~$ ./rucio list-rses --expression type=SCRATCHDISK
+    jbogadog@lxplus0058:~$ rucio list-rses --expression type=SCRATCHDISK
     UNI-SIEGEN-HEP_SCRATCHDISK
     NCG-INGRID-PT_SCRATCHDISK
     EELA-UNLP_SCRATCHDISK
@@ -38,7 +38,7 @@ Rucio allows to test RSE Expressions, using the command **list-rses**. The most 
 
 4) Or all the Spanish sites::
 
-    jbogadog@lxplus0058:~$ ./rucio list-rses --expression SPAINSITES
+    jbogadog@lxplus0058:~$ rucio list-rses --expression SPAINSITES
     IFIC-LCG2_LOCALGROUPDISK
     IFAE_PRODDISK
     PIC_SCRATCHDISK
@@ -50,10 +50,10 @@ Rucio allows to test RSE Expressions, using the command **list-rses**. The most 
     LIP-COIMBRA_LOCALGROUPDISK
 
 
-Note that if the RSE Expresion returns an empty set, rucio returns an error. This could be because the name of the attribute doesn't exist or because there's no RSE that match the expression. Not necessarily means that the syntax of the expression is wrong.
+Note that if the RSE Expresion returns an empty set, rucio returns an error. This could be because the name of the attribute doesn't exist or because there's no RSE that match the expression. It does not necessarily mean that the syntax of the expression is wrong.
 
 In 2) and 3), the RSE Expression refers to an attribute in the RSE that must be equal to a given value to match the expression.
-While in 1) and 4), the expression match a RSE if the attribute is True. Is possible to see the list of attributes for a particular RSE with rucio::
+While in 1) and 4), the expression match a RSE if the attribute is True. It is possible to see the list of attributes for a particular RSE with rucio::
 
   jbogadog@lxplus0100:~$ rucio list-rse-attributes EELA-UNLP_SCRATCHDISK
     ftstesting: https://fts3-pilot.cern.ch:8446
@@ -74,33 +74,33 @@ While in 1) and 4), the expression match a RSE if the attribute is True. Is poss
     type: SCRATCHDISK
     istape: False
 
-Most of the RSEs share the same set of attributes, and is possible to create RSE Expressions based in all of them.
+Most of the RSEs share the same set of attributes, and is possible to create RSE Expressions based on all of them.
 
 ^^^^^^^^^
 Operators
 ^^^^^^^^^
 
 Operators are used to connect terms in order to get more complex RSE Expressions/terms.
-The syntactic functionality of Rucio RSE Expressions Parser allows the basic operations defined in
+The syntactic functionality of the Rucio RSE Expressions Parser allows the basic operations defined in
 mathematical set theory, Union, Intersection and Complement.
 Using an operator on two sets of RSEs will construct a new set based on the given sets.
 
 The symbols **A** and **B** in this table stand for a term.
 
-========  ==========  ==============  =========================
+========  ==========  ==============  ==========================================
 Operator  Meaning     Interpretation  Example
-========  ==========  ==============  =========================
-A|B       UNION       A union B       CERN_DATADISK | CERN_TAPE
-A&B       INTERSECT   A intersect B   T1&country=US
-A\\B      COMPLEMENT  A complement B  T1\\BNL
-========  ==========  ==============  =========================
+========  ==========  ==============  ==========================================
+A|B       UNION       A union B       EELA-UNLP_SCRATCHDISK | EELA-UNLP_PRODDISK
+A&B       INTERSECT   A intersect B   tier=1&country=us
+A\\B      COMPLEMENT  A complement B  cloud=ES\\type=SCRATCHDISK
+========  ==========  ==============  ==========================================
 
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 Composing RSE Expressions
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Using the operators described above, is possible to create expressions to select whatever RSE you need to put your data in.
+Using the operators described above, it's possible to create expressions to select whatever RSE you need to put your data in.
 Use the following list of examples to build your own RSE Expressions.
 
 All Tier 2 sites in DE cloud::
