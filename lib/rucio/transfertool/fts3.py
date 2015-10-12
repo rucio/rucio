@@ -152,7 +152,7 @@ def submit_transfers(transfers, job_metadata):
     return transfer_ids
 
 
-def submit_bulk_transfers(external_host, files, job_params):
+def submit_bulk_transfers(external_host, files, job_params, timeout=None):
     """
     Submit a transfer to FTS3 via JSON.
 
@@ -197,7 +197,8 @@ def submit_bulk_transfers(external_host, files, job_params):
                               verify=False,
                               cert=(__USERCERT, __USERCERT),
                               data=params_str,
-                              headers={'Content-Type': 'application/json'})
+                              headers={'Content-Type': 'application/json'},
+                              timeout=timeout)
             record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000/len(files))
         except:
             logging.warn('Could not submit transfer to %s - %s' % (external_host, str(traceback.format_exc())))
@@ -206,7 +207,8 @@ def submit_bulk_transfers(external_host, files, job_params):
             ts = time.time()
             r = requests.post('%s/jobs' % external_host,
                               data=params_str,
-                              headers={'Content-Type': 'application/json'})
+                              headers={'Content-Type': 'application/json'},
+                              timeout=timeout)
             record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000/len(files))
         except:
             logging.warn('Could not submit transfer to %s - %s' % (external_host, str(traceback.format_exc())))
@@ -485,7 +487,7 @@ def bulk_query_responses(jobs_response, transfer_host):
     return responses
 
 
-def bulk_query(transfer_ids, transfer_host):
+def bulk_query(transfer_ids, transfer_host, timeout=None):
     """
     Query the status of a bulk of transfers in FTS3 via JSON.
 
@@ -506,10 +508,12 @@ def bulk_query(transfer_ids, transfer_host):
         jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl,file_metadata' % (transfer_host, xfer_ids),
                                verify=False,
                                cert=(__USERCERT, __USERCERT),
-                               headers={'Content-Type': 'application/json'})
+                               headers={'Content-Type': 'application/json'},
+                               timeout=timeout)
     else:
         jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl,file_metadata' % (transfer_host, xfer_ids),
-                               headers={'Content-Type': 'application/json'})
+                               headers={'Content-Type': 'application/json'},
+                               timeout=timeout)
 
     if not jobs:
         record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))

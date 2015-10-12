@@ -26,6 +26,7 @@ import time
 import traceback
 
 from collections import defaultdict
+from ConfigParser import NoOptionError
 from threadpool import ThreadPool, makeRequests
 
 from rucio.common.config import config_get
@@ -53,9 +54,15 @@ def poller(once=False,
     Main loop to check the status of a transfer primitive with a transfertool.
     """
 
-    logging.info('poller starting - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
-                                                                                 thread, total_threads,
-                                                                                 db_bulk))
+    try:
+        timeout = config_get('conveyor', 'poll_timeout')
+        timeout = float(timeout)
+    except NoOptionError:
+        timeout = None
+
+    logging.info('poller starting - process (%i/%i) thread (%i/%i) bulk (%i) timeout (%s)' % (process, total_processes,
+                                                                                              thread, total_threads,
+                                                                                              db_bulk, timeout))
 
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
@@ -114,7 +121,7 @@ def poller(once=False,
                     for xfers in chunks(xfers_ids[external_host], fts_bulk):
                         # poll transfers
                         # xfer_requests = makeRequests(common.poll_transfers, args_list=[((external_host, xfers, process, thread), {})])
-                        xfer_requests = makeRequests(common.poll_transfers, args_list=[((), {'external_host': external_host, 'xfers': xfers, 'process': process, 'thread': hb['assign_thread']})])
+                        xfer_requests = makeRequests(common.poll_transfers, args_list=[((), {'external_host': external_host, 'xfers': xfers, 'process': process, 'thread': hb['assign_thread'], 'timeout': timeout})])
                         [threadPool.putRequest(xfer_req) for xfer_req in xfer_requests]
                 threadPool.wait()
 
