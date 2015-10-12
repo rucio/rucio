@@ -508,12 +508,12 @@ def add_monitor_message(request, response, session=None):
                 session=session)
 
 
-def poll_transfers(external_host, xfers, process=0, thread=0):
+def poll_transfers(external_host, xfers, process=0, thread=0, timeout=None):
     try:
         try:
             ts = time.time()
-            logging.info('%i:%i - polling %i transfers against %s' % (process, thread, len(xfers), external_host))
-            resps = request_core.bulk_query_transfers(external_host, xfers, 'fts3')
+            logging.info('%i:%i - polling %i transfers against %s with timeout %s' % (process, thread, len(xfers), external_host, timeout))
+            resps = request_core.bulk_query_transfers(external_host, xfers, 'fts3', timeout)
             record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time()-ts)*1000/len(xfers))
         except RequestException, e:
             logging.error("Failed to contact FTS server: %s" % (str(e)))
