@@ -24,12 +24,8 @@ import redis
 import socket
 import sys
 import time
-import traceback
 
-from datetime import datetime
-from elasticsearch import Elasticsearch
-
-ES_URL = 'rucio-logger-prod-01.cern.ch:80/elastic'
+from pystatsd import Client
 
 UNKNOWN = 3
 CRITICAL = 2
@@ -47,90 +43,57 @@ THRESHOLD_GB = 8
 # Threshold where alters are sent via email
 THRESHOLD_CRITICAL_GB = 4
 
+# Number of events removed when critical, e.g. 2.5M events per hour as a rule of thumb
+TRIM_CRITICAL_EVENTS = 5000000
+
+HOST = socket.getfqdn()
+
 
 def get_free_disk_space():
     s = os.statvfs('/')
-    return (s.f_bavail * s.f_frsize) / 1024
+    return (s.f_bavail * s.f_frsize) / 1024 / 1024
 
+
+def report_to_graphite(name, value):
+    server = 'rucio-graphite-prod.cern.ch'
+    port = 8125
+    try:
+        Client(host=server, port=port, prefix='%s.%s' % ('rucio.monitoring.redis', HOST)).gauge(name, value)
+    except Exception:
+        pass
 
 if __name__ == '__main__':
     server = redis.Redis(REDIS_URL)
     status = OK
-    es = Elasticsearch(ES_URL)
-    today = datetime.today()
-    log_index = 'logs-rucio-residue-%04d.%02d.%02d' % (today.year, today.month, today.day)
 
     for queue in REDIS_QUEUES:
         try:
             queue_len = server.llen(queue)
+            # Report to Graphite
+            report_to_graphite('queue.%s' % queue, queue_len)
             if queue_len > THRESHOLD_QUEUE_SIZE:
-                es.index(index=log_index,
-                         doc_type='rucio-residue',
-                         body={'message': 'Queue %s on node %s exceeded size threshold.' % (queue, REDIS_URL),
-                               'application': 'check_redis',
-                               'queue-name': queue,
-                               'queue-size': queue_len,
-                               'severity': 6,
-                               'severity_label': 'info',
-                               'facility': 1,
-                               'host': socket.getfqdn(),
-                               '@timestamp': datetime.utcnow()})
-        except Exception as e:
-            traceback.print_exc()
-            status = WARNING
+                status = WARNING
         except redis.exceptions.ConnectionError as e:
-            print 'Failed connecting to REDIS server \"%s\": ' % (REDIS_URL, str(e))
-            try:
-                es.index(index=log_index,
-                         doc_type='rucio-residue',
-                         body={'message': 'Failed connecting to REDIS server \"%s\": ' % (REDIS_URL, str(e)),
-                               'application': 'check_redis',
-                               'severity': 2,
-                               'severity_label': 'critical',
-                               'facility': 1,
-                               'host': socket.getfqdn(),
-                               '@timestamp': datetime.utcnow()})
-            except Exception as arg:
-                traceback.print_exc()
+            print '[%s] Failed connecting to REDIS server \"%s\": ' % (HOST, REDIS_URL, str(e))
             sys.exit(CRITICAL)
 
     free_disk_space = get_free_disk_space()
+    report_to_graphite('avail_diskspace', free_disk_space)
 
-    if free_disk_space < THRESHOLD_GB * (1024*1024):  # GB to bytes
+    if free_disk_space < THRESHOLD_GB * (1024):  # GB to bytes
         debug_cutoff = server.llen('rucio.debug')/2
         server.ltrim('rucio.debug', debug_cutoff, -1)
-        status = WARNING if status == OK else status
-        time.sleep(10)  # Sleeping two minutes to wait for the effects on queue trimming on disk
+        time.sleep(120)  # Sleeping two minutes to wait for the effects on queue trimming on disk
         free_disk_space_after = get_free_disk_space()
-        try:
-            es.index(index=log_index,
-                     doc_type='rucio-residue',
-                     body={'message': 'Deleted %s entries from debug queue on host %s. Freed up %d MB of disk space (before: %d, after: %d).' % (debug_cutoff,
-                                                                                                                                                 REDIS_URL,
-                                                                                                                                                 (free_disk_space_after - free_disk_space)/1024,
-                                                                                                                                                 free_disk_space/1024,
-                                                                                                                                                 free_disk_space_after/1024),
-                           'application': 'check_redis',
-                           'severity': 4,
-                           'severity_label': 'warning',
-                           'facility': 1,
-                           'host': socket.getfqdn(),
-                           '@timestamp': datetime.utcnow()})
-        except Exception as arg:
-            traceback.print_exc()
-        if free_disk_space_after < THRESHOLD_CRITICAL_GB * (1024*1024):
+        report_to_graphite('avail_diskspace', free_disk_space_after)
+        status = WARNING if status == OK else status
+        if free_disk_space_after < THRESHOLD_CRITICAL_GB * (1024):
+            print '[%s] Cleaning debug queue wasn\'t sufficient to free enough disk space. Last gain: %d mb (%d entries)' % (HOST, (free_disk_space_after-free_disk_space), debug_cutoff)
+            server.ltrim('rucio.daemons', TRIM_CRITICAL_EVENTS, -1)
+            time.sleep(120)  # Sleeping two minutes to wait for the effects on queue trimming on disk
+            crit_free_disk_space = get_free_disk_space()
+            report_to_graphite('avail_diskspace', crit_free_disk_space)
+            print '[%s] Remvoing %s events from daemon queue to gain %d mb of disk space.' % (HOST, TRIM_CRITICAL_EVENTS, (crit_free_disk_space-free_disk_space_after))
             status = CRITICAL
-            print 'Cleaning debug queue wasn\'t sufficient to free enough disk space. Last gain: %d mb (%d entries)' % ((free_disk_space_after-free_disk_space)/1024, debug_cutoff)
-            try:
-                es.index(index=log_index,
-                         doc_type='rucio-residue',
-                         body={'message': 'Cleaning debug queue wasn\'t sufficient to free enough disk space. Last gain: %d mb (%d entries)' % ((free_disk_space_after-free_disk_space)/1024, debug_cutoff),
-                               'application': 'check_redis',
-                               'severity': 2,
-                               'severity_label': 'critical',
-                               'facility': 1,
-                               'host': socket.getfqdn(),
-                               '@timestamp': datetime.utcnow()})
-            except Exception as arg:
-                traceback.print_exc()
+
     sys.exit(status)
