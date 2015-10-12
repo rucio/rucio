@@ -167,7 +167,7 @@ def queue_requests(requests, session=None):
         raise
 
 
-def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}):
+def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None):
     """
     Submit transfer request to a transfertool.
 
@@ -196,7 +196,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
-        transfer_id = fts3.submit_bulk_transfers(external_host, job_files, job_params)
+        transfer_id = fts3.submit_bulk_transfers(external_host, job_files, job_params, timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000/len(files))
     return transfer_id
 
@@ -674,7 +674,7 @@ def bulk_query_requests(request_host, request_ids, transfertool='fts3'):
     return None
 
 
-def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3'):
+def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None):
     """
     Query the status of a request.
 
@@ -689,7 +689,7 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3'):
     if transfertool == 'fts3':
         try:
             ts = time.time()
-            fts_resps = fts3.bulk_query(transfer_ids, request_host)
+            fts_resps = fts3.bulk_query(transfer_ids, request_host, timeout)
             record_timer('core.request.bulk_query_transfers', (time.time() - ts) * 1000 / len(transfer_ids))
         except Exception:
             raise
