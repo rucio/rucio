@@ -989,25 +989,26 @@ def update_rule(rule_id, options, session=None):
                 session.flush()
 
             elif key == 'state':
+                if options.get('cancel_requests', False):
+                    rule_ids_to_stuck = set()
+                    for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
+                        # Set locks to stuck:
+                        for l in session.query(models.ReplicaLock).filter_by(scope=lock.scope, name=lock.name, rse_id=lock.rse_id, state=LockState.REPLICATING).all():
+                            l.state = LockState.STUCK
+                            rule_ids_to_stuck.add(l.rule_id)
+                        cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                    # Set rules and DATASETLOCKS to STUCK:
+                    for rid in rule_ids_to_stuck:
+                        session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rid,
+                                                                     models.ReplicationRule.state != RuleState.SUSPENDED).update({'state': RuleState.STUCK})
+                        session.query(models.DatasetLock).filter_by(rule_id=rid).update({'state': LockState.STUCK})
+
                 if options['state'].lower() == 'suspended':
                     rule.state = RuleState.SUSPENDED
                 elif options['state'].lower() == 'stuck':
                     rule.state = RuleState.STUCK
                     rule.stuck_at = datetime.utcnow()
-                    if options.get('cancel_requests', False):
-                        rule_ids_to_stuck = set()
-                        for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
-                            # Set locks to stuck:
-                            for l in session.query(models.ReplicaLock).filter_by(scope=lock.scope, name=lock.name, rse_id=lock.rse_id, state=LockState.REPLICATING).all():
-                                l.state = LockState.STUCK
-                                rule_ids_to_stuck.add(l.rule_id)
-                            cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
-                        # Set rules and DATASETLOCKS to STUCK:
-                        for rid in rule_ids_to_stuck:
-                            session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rid,
-                                                                         models.ReplicationRule.state != RuleState.SUSPENDED).update({'state': RuleState.STUCK})
-                            session.query(models.DatasetLock).filter_by(rule_id=rid).update({'state': LockState.STUCK})
-                    else:
+                    if not options.get('cancel_requests', False):
                         session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).update({'state': LockState.STUCK})
                         session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
 
