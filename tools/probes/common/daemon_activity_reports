@@ -19,7 +19,13 @@ from email.mime.text import MIMEText
 ES_URL = 'cl-analytics.mwt2.org'
 SEVERITY_LIST = ['critical', 'error', 'warning', 'info', 'debug']
 DATES = [(datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d'), (datetime.today() - timedelta(days=2)).strftime('%Y-%m-%d')]
-LINK = "http://cl-analytics.mwt2.org:5601/#/dashboard/Rucio-Errror-Report?_g=(filters:!(),refreshInterval:(display:Off,pause:!f,section:0,value:0),time:(from:now-1d%2Fd,mode:quick,to:now-1d%2Fd))&_a=(filters:!((meta:(apply:!t,disabled:!t,index:rucio-daemon-logs,key:severity_label,negate:!f,value:critical),query:(match:(severity_label:(query:critical,type:phrase)))),(meta:(apply:!t,disabled:!t,index:rucio-daemon-logs,key:severity_label,negate:!f,value:error),query:(match:(severity_label:(query:error,type:phrase)))),(meta:(apply:!t,disabled:!t,index:rucio-daemon-logs,key:severity_label,negate:!f,value:warning),query:(match:(severity_label:(query:warning,type:phrase)))),(meta:(apply:!t,disabled:!f,index:rucio-daemon-logs,key:severity_label,negate:!t,value:info),query:(match:(severity_label:(query:info,type:phrase)))),(meta:(apply:!t,disabled:!f,index:rucio-daemon-logs,key:severity_label,negate:!t,value:debug),query:(match:(severity_label:(query:debug,type:phrase))))),query:(query_string:(analyze_wildcard:!t,lowercase_expanded_terms:!f,query:'{QUERY}')),title:'Rucio%20-%20Errror%20Report')"
+LINK = "http://cl-analytics.mwt2.org:5601/#/dashboard/Rucio-Errror-Report?_g=(filters:!(),refreshInterval:(display:Off,pause:!f,section:0,value:0)," +
+       "time:(from:now-1d%2Fd,mode:quick,to:now-1d%2Fd))&_a=(filters:!((meta:(apply:!t,disabled:!t,index:rucio-daemon-logs,key:severity_label,negate:!f,value:critical)," +
+       "query:(match:(severity_label:(query:critical,type:phrase)))),(meta:(apply:!t,disabled:!t,index:rucio-daemon-logs,key:severity_label,negate:!f,value:error)," +
+       "query:(match:(severity_label:(query:error,type:phrase)))),(meta:(apply:!t,disabled:!t,index:rucio-daemon-logs,key:severity_label,negate:!f,value:warning)," +
+       "query:(match:(severity_label:(query:warning,type:phrase)))),(meta:(apply:!t,disabled:!f,index:rucio-daemon-logs,key:severity_label,negate:!t,value:info)," +
+       "query:(match:(severity_label:(query:info,type:phrase)))),(meta:(apply:!t,disabled:!f,index:rucio-daemon-logs,key:severity_label,negate:!t,value:debug)," +
+       "query:(match:(severity_label:(query:debug,type:phrase))))),query:(query_string:(analyze_wildcard:!t,lowercase_expanded_terms:!f,query:'{QUERY}')),title:'Rucio%20-%20Errror%20Report')"
 
 locale.setlocale(locale.LC_ALL, '')
 
