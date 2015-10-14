@@ -155,8 +155,6 @@ def perm_add_subscription(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if kwargs['account'] == issuer:
-        return True
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
 
@@ -497,8 +495,6 @@ def perm_update_subscription(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if kwargs['account'] == issuer:
-        return True
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
 
