@@ -127,10 +127,10 @@ if __name__ == "__main__":
     msg = MIMEText(html, 'html')
 
     msg['Subject'] = '[RUCIO] Daemon Activity Report'
-    msg['From'] = 'ralph.vigne@cern.ch'
-    msg['To'] = 'ralph.vigne@gmail.com'
+    msg['From'] = 'rucio-dev@cern.ch'
+    msg['To'] = 'rucio-dev@cern.ch; atlas-adc-ddm-support@cern.ch'
 
     # Send the message via our own SMTP server, but don't include the
     # envelope header.
     s = smtplib.SMTP('localhost')
-    s.sendmail('rucio-dev@cern.ch', ['rucio-dev@cern.ch'], msg.as_string())
+    s.sendmail('rucio-dev@cern.ch', ['rucio-dev@cern.ch','atlas-adc-ddm-support@cern.ch'], msg.as_string())
