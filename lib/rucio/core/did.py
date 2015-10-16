@@ -404,10 +404,12 @@ def delete_dids(dids, account, session=None):
     """
     rule_id_clause, content_clause = [], []
     parent_content_clause, did_clause = [], []
-    collection_replica_clause = []
+    collection_replica_clause, file_clause = [], []
     for did in dids:
         logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
-        if did['did_type'] != DIDType.FILE:
+        if did['did_type'] == DIDType.FILE:
+            file_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
+        else:
             did_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
             content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
@@ -488,6 +490,11 @@ def delete_dids(dids, account, session=None):
             rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
                 filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
                 delete(synchronize_session=False)
+
+    if file_clause:
+        rowcount = session.query(models.DataIdentifier).filter(or_(*file_clause)).\
+            filter(models.DataIdentifier.did_type == DIDType.FILE).\
+            update({'expired_at': None}, synchronize_session=False)
 
 
 @transactional_session
