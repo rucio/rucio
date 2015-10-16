@@ -841,6 +841,7 @@ class Request(BASE, ModelBase, Versioned):
     name = Column(String(255))
     did_type = Column(DIDType.db_type(name='REQUESTS_DIDTYPE_CHK'), default=DIDType.FILE)
     dest_rse_id = Column(GUID())
+    source_rse_id = Column(GUID())
     attributes = Column(String(4000))
     state = Column(RequestState.db_type(name='REQUESTS_STATE_CHK'), default=RequestState.QUEUED)
     external_id = Column(String(64))
