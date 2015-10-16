@@ -76,7 +76,33 @@ def update_request_state(response, session=None):
                 response['external_host'] = request['external_host']
                 transfer_id = response['transfer_id'] if 'transfer_id' in response else None
                 logging.info('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
-                request_core.set_request_state(response['request_id'], response['new_state'], transfer_id, transferred_at=response.get('transferred_at', None), session=session)
+
+                job_m_replica = response.get('job_m_replica', None)
+                src_url = response.get('src_url', None)
+                src_rse = response.get('src_rse', None)
+                src_rse_id = response.get('src_rse_id', None)
+                started_at = response.get('started_at', None)
+                transferred_at = response.get('transferred_at', None)
+                scope = response.get('scope', None)
+                name = response.get('name', None)
+                if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
+                    try:
+                        src_rse_name, src_rse_id = get_source_rse(response['request_id'], scope, name, src_url, session=session)
+                    except:
+                        logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
+                        src_rse_name = None
+                    if src_rse_name and src_rse_name != src_rse:
+                        response['src_rse'] = src_rse_name
+                        response['src_rse_id'] = src_rse_id
+                        logging.debug('Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
+
+                request_core.set_request_state(response['request_id'],
+                                               response['new_state'],
+                                               transfer_id=transfer_id,
+                                               started_at=started_at,
+                                               transferred_at=transferred_at,
+                                               src_rse_id=src_rse_id,
+                                               session=session)
 
                 add_monitor_message(request, response, session=session)
                 return True
@@ -415,7 +441,7 @@ def handle_submitting_requests(older_than=1800, process=None, total_processes=No
 def get_source_rse(request_id, scope, name, src_url, session=None):
     try:
         if not request_id:
-            return None
+            return None, None
 
         sources = request_core.get_sources(request_id, session=session)
         for source in sources:
@@ -423,13 +449,13 @@ def get_source_rse(request_id, scope, name, src_url, session=None):
                 src_rse_id = source['rse_id']
                 src_rse_name = rse_core.get_rse_name(src_rse_id, session=session)
                 logging.debug("Find rse name %s for %s" % (src_rse_name, src_url))
-                return src_rse_name
+                return src_rse_name, src_rse_id
         # cannot find matched surl
         logging.warn('Cannot get correct RSE for source url: %s' % (src_url))
-        return None
+        return None, None
     except:
         logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
-        return None
+        return None, None
 
 
 @read_session
@@ -462,19 +488,7 @@ def add_monitor_message(request, response, session=None):
     filesize = response.get('filesize', None)
     md5 = response.get('md5', None)
     adler32 = response.get('adler32', None)
-    scope = response.get('scope', None)
-    name = response.get('name', None)
     transferred_at = response.get('transferred_at', None)
-    job_m_replica = response.get('job_m_replica', None)
-    if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
-        try:
-            rse_name = get_source_rse(response['request_id'], scope, name, src_url, session=session)
-        except:
-            logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
-            rse_name = None
-        if rse_name and rse_name != src_rse:
-            src_rse = rse_name
-            logging.debug('find RSE: %s for source surl: %s' % (src_rse, src_url))
 
     if response['external_host']:
         transfer_link = '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'), response['transfer_id'])
