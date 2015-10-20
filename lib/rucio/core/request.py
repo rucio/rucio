@@ -76,10 +76,12 @@ def requeue_and_archive(request_id, session=None):
 
             if new_req['sources']:
                 for i in range(len(new_req['sources'])):
-                    if new_req['sources'][i]['ranking'] is None:
-                        new_req['sources'][i]['ranking'] = -1
-                    else:
-                        new_req['sources'][i]['ranking'] -= 1
+                    if new_req['sources'][i]['is_using']:
+                        if new_req['sources'][i]['ranking'] is None:
+                            new_req['sources'][i]['ranking'] = -1
+                        else:
+                            new_req['sources'][i]['ranking'] -= 1
+                        new_req['sources'][i]['is_using'] = False
             queue_requests([new_req], session=session)
             return new_req
 
@@ -155,7 +157,8 @@ def queue_requests(requests, session=None):
                                   dest_rse_id=req['dest_rse_id'],
                                   ranking=source['ranking'],
                                   bytes=source['bytes'],
-                                  url=source['url']).\
+                                  url=source['url'],
+                                  is_using=source['is_using']).\
                         save(session=session, flush=False)
 
         session.flush()
@@ -263,9 +266,12 @@ def prepare_request_transfers(transfers, session=None):
 
             if 'file' in transfers[request_id]:
                 file = transfers[request_id]['file']
-                used_src_rse_ids = get_source_rse_ids(request_id, session=session)
                 for src_rse, src_url, src_rse_id, rank in file['sources']:
-                    if src_rse_id not in used_src_rse_ids:
+                    src_rowcount = session.query(models.Source)\
+                                          .filter_by(request_id=request_id)\
+                                          .filter(models.Source.rse_id == src_rse_id)\
+                                          .update({'is_using': True}, synchronize_session=False)
+                    if src_rowcount == 0:
                         models.Source(request_id=file['metadata']['request_id'],
                                       scope=file['metadata']['scope'],
                                       name=file['metadata']['name'],
@@ -273,7 +279,8 @@ def prepare_request_transfers(transfers, session=None):
                                       dest_rse_id=file['metadata']['dest_rse_id'],
                                       ranking=rank if rank else 0,
                                       bytes=file['metadata']['filesize'],
-                                      url=src_url).\
+                                      url=src_url,
+                                      is_using=True).\
                             save(session=session, flush=False)
 
     except IntegrityError, e:
@@ -1395,8 +1402,12 @@ def get_heavy_load_rses(threshold, session=None):
     :returns: .
     """
 
+    is_true = True
     try:
-        results = session.query(models.Source.rse_id, func.count(models.Source.rse_id).label('load')).group_by(models.Source.rse_id).all()
+        results = session.query(models.Source.rse_id, func.count(models.Source.rse_id).label('load'))\
+                         .filter(models.Source.is_using == is_true)\
+                         .group_by(models.Source.rse_id)\
+                         .all()
 
         if not results:
             return
