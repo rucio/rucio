@@ -1,0 +1,29 @@
+include MANIFEST.in pylintrc
+include AUTHORS
+include LICENSE
+include ChangeLog
+include README.rst
+include setup.py
+include setup.cfg
+include etc/rse-accounts.cfg.template
+include etc/rucio.cfg.atlas.client.template
+include etc/rucio.cfg.template
+include tools/pip-requires-client
+include etc/rse-accounts.cfg.template
+include etc/rucio.cfg.atlas.client.template
+include etc/rucio.cfg.template
+include tools/pip-requires-client
+recursive-include  etc/schemas *.json
+graft doc
+prune dist
+prune examples
+prune .coverage
+prune build/
+prune covhtml
+prune doc/build/
+prune lib/rucio*egg-info/
+prune tools/patches
+prune .tox
+prune .venv
+prune .DS_Store
+global-exclude *.pyc *.log *.db *.swp *.proxy *~ rse-accounts.cfg rucio*.cfg emulation.cfg
