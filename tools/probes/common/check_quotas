@@ -145,7 +145,6 @@ def set_user_quotas(name, accs, fraction, ddm_type, overwrite=True):
         print "%s capacity changed from %dTB to %dTB" % (name, rse_capacity[name]/1000**4, srmtotal/1000**4)
     else:
         print "%s total capacity is unchanged since last run" % name
-
         # Just change new accounts
         accounts = [a for a in accounts if a not in done_accounts]
 
@@ -154,8 +153,8 @@ def set_user_quotas(name, accs, fraction, ddm_type, overwrite=True):
         try:
             if not overwrite:
                 value = get_account_limit(account=account, rse=name)
-                if value:
-                    print "Quota already set for %s to %s on %s" % (account, name, value)
+                if value and value[name] > 0:
+                    print "Positive quota already set for %s to %s on %s" % (account, name, value)
                     continue
             print "Set quota of %dTB on %s for %s" % (srmtotal * fraction / 1000**4, name, account)
             set_account_limit(account, name, srmtotal * fraction, 'root')
