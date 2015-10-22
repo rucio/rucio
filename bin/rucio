@@ -1492,7 +1492,7 @@ def list_rse_usage(args):
                 if elem == 'free' or elem == 'total' or elem == 'used':
                     print '  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human))
                 else:
-                    print '  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human))
+                    print '  {0}: {1}'.format(elem, usage[elem])
     print '------'
     return SUCCESS
 
