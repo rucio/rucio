@@ -52,7 +52,7 @@ logging.basicConfig(stream=sys.stdout,
 graceful_stop = threading.Event()
 
 
-def deliver_emails(once=False, send_email=True, thread=0, bulk=1000):
+def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
     '''
     Main loop to deliver emails via SMTP.
     '''
@@ -74,21 +74,21 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000):
     while not graceful_stop.is_set():
 
         hb = live(executable, hostname, pid, hb_thread)
-        logging.debug('[email] %i/%i - bulk %i' % (hb['assign_thread'],
+        logging.debug('[email] %i:%i - bulk %i' % (hb['assign_thread'],
                                                    hb['nr_threads'],
                                                    bulk))
+
+        t_start = time.time()
 
         tmp = retrieve_messages(bulk=bulk,
                                 thread=hb['assign_thread'],
                                 total_threads=hb['nr_threads'],
                                 event_type='email')
 
-        if tmp == []:
-            time.sleep(1)
-        else:
+        if tmp != []:
             to_delete = []
             for t in tmp:
-                logging.debug('[email] %i/%i - submitting: %s' % (hb['assign_thread'],
+                logging.debug('[email] %i:%i - submitting: %s' % (hb['assign_thread'],
                                                                   hb['nr_threads'],
                                                                   str(t)))
 
@@ -105,14 +105,23 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000):
                     s.quit()
 
                 to_delete.append(t['id'])
-                logging.debug('[email] %i/%i - submitting done: %s' % (hb['assign_thread'],
+                logging.debug('[email] %i:%i - submitting done: %s' % (hb['assign_thread'],
                                                                        hb['nr_threads'],
                                                                        str(t['id'])))
 
             delete_messages(to_delete)
+            logging.info('[email] %i:%i - submitted %i messages' % (hb['assign_thread'],
+                                                                    hb['nr_threads'],
+                                                                    len(to_delete)))
 
         if once:
             break
+
+        t_delay = delay - (time.time() - t_start)
+        t_delay = t_delay if t_delay > 0 else 0
+        if t_delay:
+            logging.debug('[email] %i:%i - sleeping %s seconds' % (hb['assign_thread'], hb['nr_threads'], t_delay))
+        time.sleep(t_delay)
 
     logging.debug('[email] %i:%i - graceful stop requested' % (hb['assign_thread'], hb['nr_threads']))
 
@@ -128,7 +137,7 @@ class Deliver(object):
         self.__session = get_session()
 
 
-def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
+def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10):
     '''
     Main loop to deliver messages to a broker.
     '''
@@ -162,10 +171,11 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
     while not graceful_stop.is_set():
 
         hb = live(executable, hostname, pid, hb_thread)
-        logging.debug('[broker] %i/%i - bulk %i' % (hb['assign_thread'],
+        logging.debug('[broker] %i:%i - bulk %i' % (hb['assign_thread'],
                                                     hb['nr_threads'],
                                                     bulk))
 
+        t_start = time.time()
         try:
             for conn in conns:
 
@@ -180,9 +190,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
                                     thread=hb['assign_thread'],
                                     total_threads=hb['nr_threads'])
 
-            if tmp == []:
-                time.sleep(1)
-            else:
+            if tmp != []:
                 to_delete = []
                 for t in tmp:
 
@@ -233,9 +241,14 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
                                                                                                                                    str(t['created_at'])))
 
                     else:
-                        logging.debug('[broker] %i:%i - other message: %s' % (hb['assign_thread'], hb['nr_threads'], t))
+                        logging.debug('[broker] %i:%i - other message: %s' % (hb['assign_thread'],
+                                                                              hb['nr_threads'],
+                                                                              t))
 
                 delete_messages(to_delete)
+                logging.info('[broker] %i:%i - submitted %i messages' % (hb['assign_thread'],
+                                                                         hb['nr_threads'],
+                                                                         len(to_delete)))
 
                 if once:
                     break
@@ -245,6 +258,12 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
             pass
         except:
             logging.critical(traceback.format_exc())
+
+        t_delay = delay - (time.time() - t_start)
+        t_delay = t_delay if t_delay > 0 else 0
+        if t_delay:
+            logging.debug('[broker] %i:%i - sleeping %s seconds' % (hb['assign_thread'], hb['nr_threads'], t_delay))
+        time.sleep(t_delay)
 
     logging.debug('[broker] %i:%i - graceful stop requested' % (hb['assign_thread'], hb['nr_threads']))
 
@@ -269,7 +288,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, send_email=True, threads=1, bulk=1000):
+def run(once=False, send_email=True, threads=1, bulk=1000, delay=10):
     '''
     Starts up the hermes threads.
     '''
@@ -298,18 +317,20 @@ def run(once=False, send_email=True, threads=1, bulk=1000):
 
     if once:
         logging.info('executing one hermes iteration only')
-        deliver_messages(once=once, brokers_resolved=brokers_resolved, bulk=bulk)
-        deliver_emails(once=once, send_email=send_email, bulk=bulk)
+        deliver_messages(once=once, brokers_resolved=brokers_resolved, bulk=bulk, delay=delay)
+        deliver_emails(once=once, send_email=send_email, bulk=bulk, delay=delay)
 
     else:
         logging.info('starting hermes threads')
         thread_list = [threading.Thread(target=deliver_messages, kwargs={'brokers_resolved': brokers_resolved,
                                                                          'thread': i,
-                                                                         'bulk': bulk}) for i in xrange(0, threads)]
+                                                                         'bulk': bulk,
+                                                                         'delay': delay}) for i in xrange(0, threads)]
 
         for i in xrange(0, threads):
-            thread_list.append(threading.Thread(target=deliver_messages, kwargs={'thread': i,
-                                                                                 'bulk': bulk}))
+            thread_list.append(threading.Thread(target=deliver_emails, kwargs={'thread': i,
+                                                                               'bulk': bulk,
+                                                                               'delay': delay}))
 
         [t.start() for t in thread_list]
 
