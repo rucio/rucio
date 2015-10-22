@@ -7,11 +7,11 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 
+import calendar
 import datetime
 import json
-import time
 import traceback
 import uuid
 
@@ -41,7 +41,7 @@ class Trace(RucioController):
 
             # generate entry timestamp
             payload['traceTimeentry'] = datetime.datetime.utcnow()
-            payload['traceTimeentryUnix'] = time.mktime(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond/1e6
+            payload['traceTimeentryUnix'] = calendar.timegm(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond/1e6
 
             # guess client IP
             payload['traceIp'] = ctx.env.get('HTTP_X_FORWARDED_FOR')
