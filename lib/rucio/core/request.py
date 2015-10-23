@@ -1051,6 +1051,7 @@ def archive_request(request_id, session=None):
                                                                 scope=req['scope'],
                                                                 name=req['name'],
                                                                 dest_rse_id=req['dest_rse_id'],
+                                                                source_rse_id=req['source_rse_id'],
                                                                 attributes=req['attributes'],
                                                                 state=req['state'],
                                                                 external_id=req['external_id'],
@@ -1065,6 +1066,7 @@ def archive_request(request_id, session=None):
                                                                 adler32=req['adler32'],
                                                                 dest_url=req['dest_url'],
                                                                 submitted_at=req['submitted_at'],
+                                                                started_at=req['started_at'],
                                                                 transferred_at=req['transferred_at'])
         hist_request.save(session=session)
         try:
