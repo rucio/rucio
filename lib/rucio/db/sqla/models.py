@@ -856,6 +856,7 @@ class Request(BASE, ModelBase, Versioned):
     adler32 = Column(String(8))
     dest_url = Column(String(2048))
     submitted_at = Column(DateTime)
+    started_at = Column(DateTime)
     transferred_at = Column(DateTime)
     submitter_id = Column(Integer)
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
