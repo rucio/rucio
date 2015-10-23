@@ -2244,7 +2244,7 @@ def __create_rule_approval_email(rule, session=None):
     rses = [rep['rse'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
     # Resolve recipents:
-    recipents = []
+    recipents = []  # (eMail, account)
     # LOCALGROUPDISK
     for rse in parse_expression(rule.rse_expression, session=session):
         rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
@@ -2254,12 +2254,13 @@ def __create_rule_approval_email(rule, session=None):
             for account in accounts:
                 email = get_account(account=account, session=session).email
                 if email:
-                    recipents.append(email)
+                    recipents.append((email, account))
     # DDMADMIN as default
     if not recipents:
-        recipents = ['atlas-adc-ddm-support@cern.ch']
+        recipents = [('atlas-adc-ddm-support@cern.ch', 'root')]
 
-    text = """A new rule has been requested for approval in Rucio.
+    for recipent in recipents:
+        text = """A new rule has been requested for approval in Rucio.
 
 Rule description:
 
@@ -2282,29 +2283,30 @@ DID description:
 
 Action:
 
-  Approve:              https://rucio-ui.cern.ch/rule?rule_id=%s&action=approve
-  Deny:                 https://rucio-ui.cern.ch/rule?rule_id=%s&action=deny
+  Approve:              https://rucio-ui.cern.ch/rule?rule_id=%s&action=approve&ui_account=%s
+  Deny:                 https://rucio-ui.cern.ch/rule?rule_id=%s&action=deny&ui_account=%s
 
 --
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE
-""" % (str(rule.id),
-       str(rule.created_at),
-       str(rule.expires_at),
-       rule.account, get_account(account=rule.account, session=session).email,
-       rule.rse_expression,
-       rule.comments,
-       str(rule.id),
-       rule.scope, rule.name,
-       rule.did_type,
-       did['length'],
-       sizefmt(did['bytes']),
-       ', '.join(rses),
-       rule.scope, rule.name,
-       str(rule.id),
-       str(rule.id))
+THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
+                                                 str(rule.created_at),
+                                                 str(rule.expires_at),
+                                                 rule.account, get_account(account=rule.account, session=session).email,
+                                                 rule.rse_expression,
+                                                 rule.comments,
+                                                 str(rule.id),
+                                                 rule.scope, rule.name,
+                                                 rule.did_type,
+                                                 '0' if did['length'] is None else str(did['length']),
+                                                 '0' if did['bytes'] is None else sizefmt(did['bytes']),
+                                                 ', '.join(rses),
+                                                 rule.scope, rule.name,
+                                                 str(rule.id),
+                                                 recipent[1],
+                                                 str(rule.id),
+                                                 recipent[1])
 
-    add_message(event_type='email',
-                payload={'body': text,
-                         'to': recipents,
-                         'subject': 'Request to approve replication rule'},
-                session=session)
+        add_message(event_type='email',
+                    payload={'body': text,
+                             'to': [recipent[0]],
+                             'subject': 'Request to approve replication rule'},
+                    session=session)
