@@ -13,6 +13,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2015
 
 
 from json import dumps
@@ -24,7 +25,8 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, ResourceTemporaryUnavailable)
 from rucio.common.utils import generate_uuid
-from rucio.core.rse import add_rse, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes
+from rucio.core.rse import (add_rse, get_rse_id, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes,
+                            set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits)
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import rse_name_generator
 from rucio.web.rest.rse import app as rse_app
@@ -68,6 +70,39 @@ class TestRSECoreApi():
         attr = list_rse_attributes(rse=None, rse_id=rse_id)
         assert_in('tier', attr.keys())
         assert_in(rse, attr.keys())
+
+    def test_create_and_check_rse_transfer_limits(self):
+        """ RSE (CORE): Test the creation, query, and deletion of a RSE transfer limit"""
+        rse = rse_name_generator()
+        activity = 'MOCk'
+        max_transfers = 100
+        transfers = 90
+        waitings = 20
+        add_rse(rse)
+        rse_id = get_rse_id(rse)
+
+        set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
+        limits = get_rse_transfer_limits(rse=rse, activity=activity)
+        assert_in(activity, limits.keys())
+        assert_in(rse_id, limits[activity])
+        assert_equal(max_transfers, limits[activity][rse_id]['max_transfers'])
+        assert_equal(transfers, limits[activity][rse_id]['transfers'])
+        assert_equal(waitings, limits[activity][rse_id]['waitings'])
+
+        set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers+1, transfers=transfers+1, waitings=waitings+1)
+        limits = get_rse_transfer_limits(rse=rse, activity=activity)
+        assert_in(activity, limits.keys())
+        assert_in(rse_id, limits[activity])
+        assert_equal(max_transfers+1, limits[activity][rse_id]['max_transfers'])
+        assert_equal(transfers+1, limits[activity][rse_id]['transfers'])
+        assert_equal(waitings+1, limits[activity][rse_id]['waitings'])
+
+        delete_rse_transfer_limits(rse=rse, activity=activity)
+        limits = get_rse_transfer_limits(rse=rse, activity=activity)
+        deleted = not limits or activity not in limits or rse_id not in limits[activity]
+        assert_equal(deleted, True)
+
+        del_rse(rse)
 
 
 class TestRSE():
