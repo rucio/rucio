@@ -482,6 +482,19 @@ class RSELimit(BASE, ModelBase):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_LIMIT_RSE_ID_FK'), )
 
 
+class RSETransferLimit(BASE, ModelBase):
+    """Represents RSE limits"""
+    __tablename__ = 'rse_transfer_limits'
+    rse_id = Column(GUID())
+    activity = Column(String(50))
+    rse_expression = Column(String(3000))
+    max_transfers = Column(BigInteger)
+    transfers = Column(BigInteger)
+    waitings = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('rse_id', 'activity', name='RSE_TRANSFER_LIMITS_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_TRANSFER_LIMITS_RSE_ID_FK'), )
+
+
 class RSEUsage(BASE, ModelBase, Versioned):
     """Represents location usage"""
     __tablename__ = 'rse_usage'
