@@ -83,7 +83,7 @@ def poller(once=False,
 
         try:
             hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            logging.info('poller - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
+            logging.debug('poller - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
 
             if not sleeping:
                 sleeping = True
@@ -97,7 +97,7 @@ def poller(once=False,
                 sleeping = False
 
                 ts = time.time()
-                logging.info('%i:%i - start to poll transfers older than %i seconds for activity %s' % (process, hb['assign_thread'], older_than, activity))
+                logging.debug('%i:%i - start to poll transfers older than %i seconds for activity %s' % (process, hb['assign_thread'], older_than, activity))
                 transfs = request.get_next_transfers(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                                      state=RequestState.SUBMITTED,
                                                      limit=db_bulk,
@@ -109,7 +109,7 @@ def poller(once=False,
                 record_timer('daemons.conveyor.poller.000-get_next_transfers', (time.time()-ts)*1000)
 
                 if transfs:
-                    logging.info('%i:%i - polling %i transfers for activity %s' % (process, hb['assign_thread'], len(transfs), activity))
+                    logging.debug('%i:%i - polling %i transfers for activity %s' % (process, hb['assign_thread'], len(transfs), activity))
 
                 xfers_ids = {}
                 for transf in transfs:
@@ -126,7 +126,7 @@ def poller(once=False,
                 threadPool.wait()
 
                 if len(transfs) < db_bulk / 2:
-                    logging.info("%i:%i - only %s transfers for activity %s, which is less than half of the bulk %s, will sleep % seconds" % (process, hb['assign_thread'], len(transfs), activity, db_bulk, sleep_time))
+                    logging.info("%i:%i - only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (process, hb['assign_thread'], len(transfs), activity, db_bulk, sleep_time))
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
         except:
