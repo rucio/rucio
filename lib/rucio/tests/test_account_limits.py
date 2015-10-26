@@ -41,7 +41,7 @@ class TestCoreAccountLimits():
         account_limit.set_account_limit(account=self.account, rse_id=self.rse1_id, bytes=100000)
 
         assert_equal(account_limit.get_account_limit(account=self.account, rse_id=self.rse1_id), 100000)
-        assert_equal(account_limit.get_account_limit(account=self.account, rse_id=self.rse2_id), 0)
+        assert_equal(account_limit.get_account_limit(account=self.account, rse_id=self.rse2_id), None)
 
 
 class TestAccountClient():
@@ -104,5 +104,5 @@ class TestAccountClient():
 
         self.alclient.delete_account_limit(account=self.account, rse=self.rse1)
         limit = self.client.get_account_limit(account=self.account, rse=self.rse1)
-        assert_equal(limit[self.rse1], 0)
+        assert_equal(limit[self.rse1], None)
         account_limit.delete_account_limit(account=self.account, rse_id=self.rse1_id)
