@@ -65,7 +65,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
 
             start_time = time.time()
             for external_host in external_hosts:
-                logging.info('polling latest %s hours on host: %s' % (last_nhours, external_host))
+                logging.debug('polling latest %s hours on host: %s' % (last_nhours, external_host))
                 ts = time.time()
                 resps = None
                 state = [str(FTSState.FINISHED), str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY), str(FTSState.CANCELED)]
@@ -97,7 +97,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
 
             time_left = fts_wait - abs(time.time() - start_time)
             if time_left > 0:
-                logging.warning("Waiting %s seconds until next FTS terminal state retrieval" % time_left)
+                logging.debug("Waiting %s seconds until next FTS terminal state retrieval" % time_left)
                 time.sleep(time_left)
         except RequestException, e:
             logging.error("Failed to contact FTS server: %s" % (str(e)))
