@@ -515,10 +515,10 @@ def bulk_query(transfer_ids, transfer_host, timeout=None):
                                headers={'Content-Type': 'application/json'},
                                timeout=timeout)
 
-    if not jobs:
+    if jobs is None:
         record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))
         for transfer_id in transfer_ids:
-            responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % jobs)
+            responses[transfer_id] = Exception('Transfer information returns None: %s' % jobs)
     elif jobs.status_code == 200 or jobs.status_code == 207:
         try:
             record_counter('transfertool.fts3.%s.bulk_query.success' % __extract_host(transfer_host))
