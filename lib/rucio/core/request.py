@@ -570,10 +570,10 @@ def query_latest(external_host, state, last_nhours=1, session=None):
         if 'request_id' not in resp['job_metadata']:
             # submitted by new submitter
             try:
-                logging.info("Transfer %s on %s is %s, decrease its updated_at." % (resp['job_id'], external_host, resp['job_state']))
+                logging.debug("Transfer %s on %s is %s, decrease its updated_at." % (resp['job_id'], external_host, resp['job_state']))
                 set_transfer_update_time(external_host, resp['job_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
             except Exception, e:
-                logging.warn("Exception happened when updating transfer updatetime: %s" % str(e).replace('\n', ''))
+                logging.debug("Exception happened when updating transfer updatetime: %s" % str(e).replace('\n', ''))
             continue
 
         request_id = resp['job_metadata']['request_id']
