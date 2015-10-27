@@ -133,4 +133,4 @@ if __name__ == "__main__":
     # Send the message via our own SMTP server, but don't include the
     # envelope header.
     s = smtplib.SMTP('localhost')
-    s.sendmail('rucio-dev@cern.ch', ['rucio-dev@cern.ch','atlas-adc-ddm-support@cern.ch'], msg.as_string())
+    s.sendmail('rucio-dev@cern.ch', ['rucio-dev@cern.ch', 'atlas-adc-ddm-support@cern.ch'], msg.as_string())
