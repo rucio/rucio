@@ -39,7 +39,7 @@ def needs_testing(mr_id):
             if dateutil.parser.parse(comment['created_at']) > comparison_time:
                 needs_testing = False
                 comparison_time = dateutil.parser.parse(comment['created_at'])
-        elif comment['body'].startswith('Added 1 commit'):
+        elif comment['body'].startswith('Added'):
             if dateutil.parser.parse(comment['created_at']) > comparison_time:
                 needs_testing = True
                 comparison_time = dateutil.parser.parse(comment['created_at'])
@@ -81,6 +81,8 @@ def update_merg_request(mr, test_result, comment):
 
 
 def start_test(mr):
+    tests_passed = True
+    error_lines = []
     print 'Starting testing for MR %s ...' % mr['source_branch']
     # Add remote of user
     resp = requests.get(url='https://gitlab.cern.ch/api/v3/projects/%s' % str(mr['source_project_id']),
@@ -93,6 +95,31 @@ def start_test(mr):
     if commands.getstatusoutput('git fetch --all --prune')[0] != 0:
         print 'Error while fetching all'
         sys.exit(-1)
+
+    # Rebase master/next
+    print '  git rebase origin/next next'
+    if commands.getstatusoutput('git rebase origin/next next')[0] != 0:
+        print 'Error while rebaseing next'
+        sys.exit(-1)
+    print '  git rebase origin/master master'
+    if commands.getstatusoutput('git rebase origin/master master')[0] != 0:
+        print 'Error while rebaseing master'
+        sys.exit(-1)
+
+    # Check for Cross Merges
+    if mr['source_branch'].lower().startswith('patch'):
+        print '  Checking for cross-merges:'
+        commits = commands.getoutput('git log master..remotes/%s/%s | grep ^commit' % (proj['namespace']['name'], mr['source_branch']))
+        for commit in commits.splitlines():
+            commit = commit.partition(' ')[2]
+            if commands.getstatusoutput('git branch --contains %s | grep next' % commit)[0] == 0:
+                print '    Found cross-merge problem with commit %s' % commit
+                tests_passed = False
+                error_lines.append('##### CROSS-MERGE TESTS:\n')
+                error_lines.append('```\n')
+                error_lines.append('This patch is suspicious. It looks like there are feature-commits pulled into the master branch!\n')
+                error_lines.append('```\n')
+                break
 
     # Checkout the branch to test
     print '  git checkout remotes/%s/%s' % (proj['namespace']['name'], mr['source_branch'])
@@ -123,7 +150,7 @@ def start_test(mr):
     tools/reset_database.py;
     tools/sync_rses.py;
     tools/sync_meta.py;
-    ../bootstrap_tests.py;
+    tools/bootstrap_tests.py;
     nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_dq2* > /tmp/rucio_nose.txt 2> /tmp/rucio_nose.txt;
     tools/reset_database.py;
     nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt;
@@ -135,8 +162,6 @@ def start_test(mr):
     process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
     process.communicate()
 
-    tests_passed = True
-    error_lines = []
     with open('/tmp/rucio_nose.txt', 'r') as f:
         lines = f.readlines()
         if lines[-1] != 'OK\n':
