@@ -1191,8 +1191,10 @@ def __resolve_bytes_length_events_did(scope, name, session):
     :param session: The database session in use.
     """
 
-    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-        with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
+    try:
+        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
 
     bytes, length, events = None, 0, None
     if did.did_type == DIDType.FILE:
