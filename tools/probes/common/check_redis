@@ -74,7 +74,7 @@ if __name__ == '__main__':
             if queue_len > THRESHOLD_QUEUE_SIZE:
                 status = WARNING
         except redis.exceptions.ConnectionError as e:
-            print '[%s] Failed connecting to REDIS server \"%s\": ' % (HOST, REDIS_URL, str(e))
+            print e
             sys.exit(CRITICAL)
 
     free_disk_space = get_free_disk_space()
