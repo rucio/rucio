@@ -72,8 +72,11 @@ class RSESelector():
                     rse['quota_left'] = float('inf')
                 else:
                     # TODO: Add RSE-space-left here!
-                    rse['quota_left'] = get_account_limit(account=account, rse_id=rse['rse_id'], session=session)\
-                        - get_counter(rse_id=rse['rse_id'], account=account, session=session)['bytes']
+                    limit = get_account_limit(account=account, rse_id=rse['rse_id'], session=session)
+                    if limit is None:
+                        rse['quota_left'] = 0
+                    else:
+                        rse['quota_left'] = limit - get_counter(rse_id=rse['rse_id'], account=account, session=session)['bytes']
 
         self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
 
