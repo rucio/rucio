@@ -57,7 +57,7 @@ def get_account_limit(account, rse_id, session=None):
         else:
             return account_limit.bytes
     except NoResultFound:
-        return 0
+        return None
 
 
 @read_session
