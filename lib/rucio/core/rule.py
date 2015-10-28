@@ -1521,6 +1521,37 @@ def approve_rule(rule_id, session=None):
         if rule.state == RuleState.WAITING_APPROVAL:
             rule.ignore_account_limit = True
             rule.state = RuleState.INJECT
+            email = get_account(account=rule.account, session=session).email
+            if email:
+                text = """The replication rule has been APPROVED
+
+Rule description:
+  ID:                   %s
+  RSE Expression:       %s
+  Comment:              %s
+  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
+
+DID description:
+
+  Scope:Name:           %s:%s
+  Type:                 %s
+  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
+
+--
+THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
+                                                 str(rule.rse_expression),
+                                                 str(rule.comments),
+                                                 str(rule.id),
+                                                 rule.scope,
+                                                 rule.name,
+                                                 str(rule.did_type),
+                                                 rule.scope,
+                                                 rule.name)
+                add_message(event_type='email',
+                            payload={'body': text,
+                                     'to': [email],
+                                     'subject': 'Replication rule has been approved'},
+                            session=session)
             return
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
@@ -1541,6 +1572,37 @@ def deny_rule(rule_id, session=None):
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
         if rule.state == RuleState.WAITING_APPROVAL:
+            email = get_account(account=rule.account, session=session).email
+            if email:
+                text = """The replication rule has been DENIED
+
+Rule description:
+  ID:                   %s
+  RSE Expression:       %s
+  Comment:              %s
+  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
+
+DID description:
+
+  Scope:Name:           %s:%s
+  Type:                 %s
+  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
+
+--
+THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
+                                                 str(rule.rse_expression),
+                                                 str(rule.comments),
+                                                 str(rule.id),
+                                                 rule.scope,
+                                                 rule.name,
+                                                 str(rule.did_type),
+                                                 rule.scope,
+                                                 rule.name)
+                add_message(event_type='email',
+                            payload={'body': text,
+                                     'to': [email],
+                                     'subject': 'Replication rule has been denied'},
+                            session=session)
             delete_rule(rule_id=rule_id, session=session)
             return
     except NoResultFound:
