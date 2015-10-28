@@ -140,6 +140,7 @@ class RequestState(DeclEnum):
     ONLY_TAPE_SOURCES = 'O', 'ONLY_TAPE_SOURCES'
     SUBMISSION_FAILED = 'A', 'SUBMISSION_FAILED'
     SUSPEND = 'U', 'SUSPEND'
+    WAITING = 'W', 'WAITING'
 
 
 class RuleNotification(DeclEnum):

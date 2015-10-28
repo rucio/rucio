@@ -28,7 +28,7 @@ from rucio.common.closeness_sorter import sort_sources
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, InvalidRSEExpression, InvalidRequest
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.utils import construct_surl, chunks
-from rucio.core import did, replica, request, rse as rse_core
+from rucio.core import config as config_core, did, replica, request, rse as rse_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.constants import DIDType, RequestType, RequestState, RSEType
@@ -1332,3 +1332,66 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
         except:
             logging.error("%s:%s Failed to cancel transfers %s on %s with error: %s" % (process, thread, eid, external_host, traceback.format_exc()))
             update_transfer_file(eid, 'cancelfailed', cachedir=cachedir, process=process, thread=thread)
+
+
+def get_config_limits():
+    default_threshold = None
+    config_limits = {}
+    items = config_core.items('throttler')
+    for opt, value in items:
+        try:
+            if opt == 'default':
+                default_threshold = int(value)
+            else:
+                activity, rsename = opt.split(',')
+                rse_id = rse_core.get_rse_id(rsename)
+                if activity not in config_limits:
+                    config_limits[activity] = {}
+                config_limits[activity][rse_id] = int(value)
+        except:
+            logging.warning("Failed to parse throttler config %s:%s, error: %s" % (opt, value, traceback.format_exc()))
+    return default_threshold, config_limits
+
+
+def schedule_requests():
+    try:
+        logging.info("Throttler load configs")
+        default_threshold, config_limits = get_config_limits()
+
+        logging.info("Throttler retrieve requests statistics")
+        results = request.get_stats_by_activity_dest_state(state=[RequestState.QUEUED, RequestState.SUBMITTING, RequestState.SUBMITTED, RequestState.WAITING])
+        result_dict = {}
+        for activity, dest_rse_id, state, counter in results:
+            threshold = None
+            if activity in config_limits.keys() and dest_rse_id in config_limits[activity].keys():
+                threshold = config_limits[activity][dest_rse_id]
+            elif default_threshold:
+                threshold = default_threshold
+
+            if threshold:
+                if activity not in result_dict:
+                    result_dict[activity] = {}
+                if dest_rse_id not in result_dict[activity]:
+                    result_dict[activity][dest_rse_id] = {'waiting': 0, 'transfer': 0, 'threshold': threshold}
+                if state == RequestState.WAITING:
+                    result_dict[activity][dest_rse_id]['waiting'] += counter
+                else:
+                    result_dict[activity][dest_rse_id]['transfer'] += counter
+
+        for activity in result_dict:
+            for dest_rse_id in result_dict[activity]:
+                threshold = result_dict[activity][dest_rse_id]['threshold']
+                transfer = result_dict[activity][dest_rse_id]['transfer']
+                waiting = result_dict[activity][dest_rse_id]['waiting']
+                if transfer + waiting > threshold:
+                    logging.debug("Throttler set limits for acitivity %s, rse_id %s" % (activity, dest_rse_id))
+                    rse_core.set_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id, max_transfers=threshold, transfers=transfer, waitings=waiting)
+                    if transfer < 0.8 * threshold:
+                        logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s" % (threshold-transfer, activity, dest_rse_id))
+                        request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, count=threshold-transfer)
+                elif waiting > 0:
+                    logging.debug("Throttler remove limits and release all waiting requests for acitivity %s, rse_id %s" % (activity, dest_rse_id))
+                    rse_core.delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
+                    request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id)
+    except:
+        logging.warning("Failed to schedule requests, error: %s" % (traceback.format_exc()))
