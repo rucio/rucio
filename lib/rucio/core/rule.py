@@ -2212,13 +2212,18 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
             models.RSEFileAssociation.name == lock.name,
             models.RSEFileAssociation.rse_id == lock.rse_id).with_for_update(nowait=nowait).one()
         replica.lock_cnt -= 1
+        if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
+            replica.state = ReplicaState.UNAVAILABLE
         if replica.lock_cnt == 0:
             if purge_replicas:
                 replica.tombstone = OBSOLETE
+            elif replica.state == ReplicaState.UNAVAILABLE:
+                replica.tombstone = OBSOLETE
+            elif replica.accessed_at is not None:
+                replica.tombstone = replica.accessed_at
             else:
-                replica.tombstone = datetime.utcnow()
+                replica.tombstone = replica.created_at
         if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
-            replica.state = ReplicaState.UNAVAILABLE
             return True
     except NoResultFound:
         logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found" % (lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session)))
