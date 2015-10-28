@@ -56,3 +56,5 @@ rucio.egg-info
 
 # Conveyor test files
 tools/test.file.1G
+
+.gitlabkey
