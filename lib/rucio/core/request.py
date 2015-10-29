@@ -17,6 +17,9 @@ import logging
 import time
 import traceback
 
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
+
 from sqlalchemy import and_, func
 from sqlalchemy.orm import aliased
 from sqlalchemy.exc import IntegrityError
@@ -25,11 +28,39 @@ from sqlalchemy.sql.expression import asc, bindparam, text
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_id, get_rse_name
+from rucio.core.rse import get_rse_id, get_rse_name, get_rse_transfer_limits
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.transfertool import fts3
+
+
+REGION_SHORT = make_region().configure('dogpile.cache.memory',
+                                       expiration_time=600)
+
+
+def get_transfer_limits(activity, rse_id):
+    """
+    Get RSE transfer limits with memory cache.
+
+    :param activity: The activity.
+    :param rse_id: The RSE id.
+
+    :returns: max_transfers if exists else None.
+    """
+    key = 'rse_transfer_limits'
+    result = REGION_SHORT.get(key)
+    if type(result) is NoValue:
+        try:
+            logging.debug("Refresh rse transfer limits")
+            result = get_rse_transfer_limits()
+            REGION_SHORT.set(key, result)
+        except:
+            logging.warning("Failed to retrieve rse transfer limits: %s" % (traceback.format_exc()))
+            result = None
+    if result and activity in result and rse_id in result[activity]:
+        return result[activity][rse_id]
+    return None
 
 
 def should_retry_request(req):
@@ -118,12 +149,14 @@ def queue_requests(requests, session=None):
                 except:
                     pass
 
+            transfer_limit = get_transfer_limits(req['attributes']['activity'], req['dest_rse_id'])
+
             new_request = models.Request(request_type=req['request_type'],
                                          scope=req['scope'],
                                          name=req['name'],
                                          dest_rse_id=req['dest_rse_id'],
                                          attributes=json.dumps(req['attributes']),
-                                         state=RequestState.QUEUED,
+                                         state=RequestState.WAITING if transfer_limit else RequestState.QUEUED,
                                          rule_id=req['rule_id'],
                                          activity=req['attributes']['activity'],
                                          bytes=req['attributes']['bytes'],
@@ -137,7 +170,7 @@ def queue_requests(requests, session=None):
                                              name=req['name'],
                                              dest_rse_id=req['dest_rse_id'],
                                              attributes=json.dumps(req['attributes']),
-                                             state=RequestState.QUEUED,
+                                             state=RequestState.WAITING if transfer_limit else RequestState.QUEUED,
                                              previous_attempt_id=req['previous_attempt_id'],
                                              retry_count=req['retry_count'],
                                              rule_id=req['rule_id'],
@@ -1051,6 +1084,7 @@ def archive_request(request_id, session=None):
                                                                 scope=req['scope'],
                                                                 name=req['name'],
                                                                 dest_rse_id=req['dest_rse_id'],
+                                                                source_rse_id=req['source_rse_id'],
                                                                 attributes=req['attributes'],
                                                                 state=req['state'],
                                                                 external_id=req['external_id'],
@@ -1065,6 +1099,7 @@ def archive_request(request_id, session=None):
                                                                 adler32=req['adler32'],
                                                                 dest_url=req['dest_url'],
                                                                 submitted_at=req['submitted_at'],
+                                                                started_at=req['started_at'],
                                                                 transferred_at=req['transferred_at'])
         hist_request.save(session=session)
         try:
@@ -1441,3 +1476,61 @@ def stats(session=None):
         group_by(source.rse, destination.rse)
 
     return [row._asdict() for row in query]
+
+
+@read_session
+def get_stats_by_activity_dest_state(state, session=None):
+    """
+    Retrieve statistics about per destination by activity and state.
+
+    :param session: Database session to use.
+    :returns List of (activity, dest_rse_id, state, counter).
+    """
+
+    if type(state) is not list:
+        state = [state, state]
+
+    try:
+        results = session.query(models.Request.activity, models.Request.dest_rse_id, models.Request.state, func.count(1).label('counter'))\
+                         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+                         .filter(models.Request.state.in_(state))\
+                         .group_by(models.Request.activity, models.Request.dest_rse_id, models.Request.state).all()
+        return results
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@transactional_session
+def release_waiting_requests(rse, activity=None, rse_id=None, count=None, session=None):
+    """
+    Release waiting requests.
+
+    :param rse: The RSE name.
+    :param activity: The activity.
+    :param rse_id: The RSE id.
+    :param count: The count to be released. If None, release all waiting requests.
+    """
+    try:
+        if not rse_id:
+            rse_id = get_rse_id(rse=rse, session=session)
+        rowcount = 0
+
+        if count is None:
+            query = session.query(models.Request).filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
+            if activity:
+                query = query.filter_by(activity=activity)
+            rowcount = query.update({'state': RequestState.QUEUED}, synchronize_session=False)
+        elif count > 0:
+            subquery = session.query(models.Request.id)\
+                              .filter(models.Request.dest_rse_id == rse_id)\
+                              .filter(models.Request.state == RequestState.WAITING)
+            if activity:
+                subquery = subquery.filter(models.Request.activity == activity)
+            subquery = subquery.limit(count).with_for_update()
+
+            rowcount = session.query(models.Request)\
+                              .filter(models.Request.id.in_(subquery))\
+                              .update({'state': RequestState.QUEUED}, synchronize_session=False)
+        return rowcount
+    except IntegrityError, e:
+        raise RucioException(e.args)
