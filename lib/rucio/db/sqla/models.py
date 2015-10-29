@@ -871,6 +871,7 @@ class Request(BASE, ModelBase, Versioned):
     submitted_at = Column(DateTime)
     started_at = Column(DateTime)
     transferred_at = Column(DateTime)
+    estimated_at = Column(DateTime)
     submitter_id = Column(Integer)
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
@@ -883,7 +884,7 @@ class Request(BASE, ModelBase, Versioned):
                    Index('REQUESTS_EXTERNALID_UQ', 'external_id'))
 
 
-class Source(BASE, ModelBase):
+class Source(BASE, ModelBase, Versioned):
     """Represents source files for transfers"""
     __tablename__ = 'sources'
     request_id = Column(GUID())
