@@ -12,6 +12,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2015
 
 from re import match
 from StringIO import StringIO
@@ -420,6 +421,88 @@ def get_rse_limits(rse, name=None, rse_id=None, session=None):
     for limit in query:
         limits[limit.name] = limit.value
     return limits
+
+
+@transactional_session
+def set_rse_transfer_limits(rse, activity, rse_id=None, rse_expression=None, max_transfers=0, transfers=0, waitings=0, session=None):
+    """
+    Set RSE transfer limits.
+
+    :param rse: The RSE name.
+    :param activity: The activity.
+    :param rse_expression: RSE expression string.
+    :param max_transfers: Maximum transfers.
+    :param transfers: Current number of tranfers.
+    :param waitings: Current number of waitings.
+    :param session: The database session in use.
+
+    :returns: True if successful, otherwise false.
+    """
+    try:
+        if not rse_id:
+            rse_id = get_rse_id(rse=rse, session=session)
+
+        rse_tr_limit = models.RSETransferLimit(rse_id=rse_id, activity=activity, rse_expression=rse_expression, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
+        rse_tr_limit = session.merge(rse_tr_limit)
+        rowcount = rse_tr_limit.save(session=session)
+        return rowcount
+    except IntegrityError, e:
+        raise exception.RucioException(e.args)
+
+
+@read_session
+def get_rse_transfer_limits(rse=None, activity=None, rse_id=None, session=None):
+    """
+    Get RSE transfer limits.
+
+    :param rse: The RSE name.
+    :param activity: The activity.
+    :param rse_id: The RSE id.
+
+    :returns: A dictionary with the limits {'limit.activity': {'limit.rse_id': limit.max_transfers}}.
+    """
+    try:
+        if not rse_id and rse:
+            rse_id = get_rse_id(rse=rse, session=session)
+
+        query = session.query(models.RSETransferLimit)
+        if rse_id:
+            query = query.filter_by(rse_id=rse_id)
+        if activity:
+            query = query.filter_by(activity=activity)
+
+        limits = {}
+        for limit in query:
+            if limit.activity not in limits:
+                limits[limit.activity] = {}
+            limits[limit.activity][limit.rse_id] = {'max_transfers': limit.max_transfers,
+                                                    'transfers': limit.transfers,
+                                                    'waitings': limit.waitings}
+        return limits
+    except IntegrityError, e:
+        raise exception.RucioException(e.args)
+
+
+@transactional_session
+def delete_rse_transfer_limits(rse, activity=None, rse_id=None, session=None):
+    """
+    Delete RSE transfer limits.
+
+    :param rse: The RSE name.
+    :param activity: The activity.
+    :param rse_id: The RSE id.
+    """
+    try:
+        if not rse_id:
+            rse_id = get_rse_id(rse=rse, session=session)
+
+        query = session.query(models.RSETransferLimit).filter_by(rse_id=rse_id)
+        if activity:
+            query = query.filter_by(activity=activity)
+        rowcount = query.delete()
+        return rowcount
+    except IntegrityError, e:
+        raise exception.RucioException(e.args)
 
 
 @stream_session

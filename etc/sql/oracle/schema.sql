@@ -879,6 +879,28 @@ CREATE TABLE rse_limits (
 
 
 
+-- ========================================= RSE_TRANSFER_LIMITS (physical structure IOT) =========================================
+-- Description: Table to store the transfer limits of a RSE
+-- Estimated volume: ~700 RSEs *  ~10 activities
+-- Access pattern: by rse_id, activity
+
+CREATE TABLE rse_transfer_limits (
+    rse_id RAW(16),
+    activity VARCHAR2(50 CHAR),
+    rse_expressionVARCHAR2(3000 CHAR),
+    max_transfers NUMBER(19),
+    transfers NUMBER(19),
+    waitings NUMBER(19),
+    updated_at DATE,
+    created_at DATE,
+    CONSTRAINT "RSE_TRANSFER_LIMITS_PK" PRIMARY KEY (rse_id, activity),
+    CONSTRAINT "RSE_TRANSFER_LIMITS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
+    CONSTRAINT "RSE_TRANSFER_LIMITS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
+    CONSTRAINT "RSE_TRANSFER_LIMITS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
+) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+
+
+
 -- ========================================= RSE_PROTOCOLS (physical structure IOT) =========================================
 -- Description: Table to store the list of protocols per RSE
 -- Estimated volume: ~700 RSEs *  ~3 protocols = ~ ~2100
@@ -1008,6 +1030,7 @@ CREATE TABLE REQUESTS
     "NAME" VARCHAR2(255 CHAR),
     "DID_TYPE" CHAR(1 CHAR) DEFAULT 'F',
     "DEST_RSE_ID" RAW(16),
+    "SOURCE_RSE_ID" RAW(16),
     "EXTERNAL_ID" VARCHAR2(64 CHAR),
     "EXTERNAL_HOST" VARCHAR2(256 CHAR),
     "RETRY_COUNT" NUMBER(3,0) DEFAULT '0',
@@ -1030,7 +1053,7 @@ CREATE TABLE REQUESTS
      CONSTRAINT "REQUESTS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL) ,
      CONSTRAINT "REQUESTS_RSE_ID_NN" CHECK (dest_rse_id IS NOT NULL) ,
      CONSTRAINT "REQUESTS_TYPE_CHK" CHECK (request_type IN ('U', 'D', 'T','I','0')) ,
-     CONSTRAINT "REQUESTS_STATE_CHK" CHECK (state IN ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')),
+     CONSTRAINT "REQUESTS_STATE_CHK" CHECK (state IN ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W')),
      CONSTRAINT "REQUESTS_DIDTYPE_CHK" CHECK (did_type IN ('C', 'F', 'D'))
        ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
 
@@ -1049,13 +1072,16 @@ CREATE INDEX "REQUESTS_RULEID_IDX" ON "REQUESTS" ("RULE_ID") COMPRESS 1 ONLINE t
 CREATE INDEX "REQUESTS_EXTERNALID_UQ" ON "REQUESTS" ("EXTERNAL_ID") ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
 
 ALTER TABLE REQUESTS ADD submitted_at DATE;
+ALTER TABLE REQUESTS ADD started_at DATE;
 ALTER TABLE REQUESTS ADD transferred_at  DATE;
 
 ALTER TABLE REQUESTS_HISTORY ADD submitted_at DATE;
+ALTER TABLE REQUESTS_HISTORY ADD started_at DATE;
 ALTER TABLE REQUESTS_HISTORY ADD transferred_at  DATE;
 
 ALTER TABLE REQUESTS ADD submitter_id NUMBER(10);
 
+ALTER session set DDL_LOCK_TIMEOUT=300;
 
 
 -- ========================================= SOURCES =========================================
@@ -1314,6 +1340,7 @@ CREATE TABLE requests_history
     scope VARCHAR2(25 CHAR) CONSTRAINT SCOPE_NN NOT NULL,
     name VARCHAR2(255 CHAR),
     dest_rse_id RAW(16),
+    source_rse_id RAW(16),
     id RAW(16),
     previous_attempt_id RAW(16),
     retry_count NUMBER(3,0),

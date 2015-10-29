@@ -31,7 +31,7 @@ from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
 
-from rucio.daemons.conveyor.submitter_utils import get_rses, get_transfer_transfers, bulk_group_transfer, submit_transfer
+from rucio.daemons.conveyor.submitter_utils import get_rses, get_transfer_transfers, bulk_group_transfer, submit_transfer, schedule_requests
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -142,13 +142,65 @@ def submitter(once=False, rses=[], mock=False,
             logging.critical('%s:%s %s' % (process, hb['assign_thread'], traceback.format_exc()))
 
         if once:
-            return
+            break
 
     logging.info('%s:%s graceful stop requested' % (process, hb['assign_thread']))
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
     logging.info('%s:%s graceful stop done' % (process, hb['assign_thread']))
+
+
+def throttler(once=False, sleep_time=600):
+    """
+    Main loop to check rse transfer limits.
+    """
+
+    logging.info('Throttler starting')
+
+    executable = 'throttler'
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+    heartbeat.sanity_check(executable=executable, hostname=hostname)
+    hb = heartbeat.live(executable, hostname, pid, hb_thread)
+
+    logging.info('Throttler started - thread (%i/%i) timeout (%s)' % (hb['assign_thread'], hb['nr_threads'], sleep_time))
+
+    current_time = time.time()
+    while not graceful_stop.is_set():
+
+        try:
+            hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
+            logging.info('Throttler - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
+            if hb['assign_thread'] != 0:
+                logging.info('Throttler thread id is not 0, will sleep. Only thread 0 will work')
+                while time.time() < current_time + sleep_time:
+                    time.sleep(1)
+                    if graceful_stop.is_set() or once:
+                        break
+                current_time = time.time()
+                continue
+
+            logging.info("Throttler thread %s - schedule requests" % hb['assign_thread'])
+            schedule_requests()
+
+            while time.time() < current_time + sleep_time:
+                time.sleep(1)
+                if graceful_stop.is_set() or once:
+                    break
+            current_time = time.time()
+        except:
+            logging.critical('Throtter thread %s - %s' % (hb['assign_thread'], traceback.format_exc()))
+
+        if once:
+            break
+
+    logging.info('Throtter thread %s - graceful stop requested' % (hb['assign_thread']))
+
+    heartbeat.die(executable, hostname, pid, hb_thread)
+
+    logging.info('Throtter thread %s - graceful stop done' % (hb['assign_thread']))
 
 
 def stop(signum=None, frame=None):
@@ -162,7 +214,7 @@ def stop(signum=None, frame=None):
 def run(once=False,
         process=0, total_processes=1, total_threads=1, group_bulk=1, group_policy='rule',
         mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100, fts_source_strategy='auto',
-        activities=[], sleep_time=600, max_sources=4, retry_other_fts=False):
+        activities=None, sleep_time=600, max_sources=4, retry_other_fts=False):
     """
     Starts up the conveyer threads.
     """
@@ -179,39 +231,30 @@ def run(once=False,
     else:
         logging.info("RSE selection: automatic")
 
-    if once:
-        logging.info('executing one submitter iteration only')
-        submitter(once,
-                  rses=working_rses,
-                  mock=mock,
-                  bulk=bulk,
-                  group_bulk=group_bulk,
-                  group_policy=group_policy,
-                  max_sources=max_sources,
-                  fts_source_strategy=fts_source_strategy,
-                  activities=activities,
-                  retry_other_fts=retry_other_fts)
+    logging.info('starting submitter threads')
+    threads = [threading.Thread(target=submitter, kwargs={'once': once,
+                                                          'process': process,
+                                                          'total_processes': total_processes,
+                                                          'total_threads': total_threads,
+                                                          'rses': working_rses,
+                                                          'bulk': bulk,
+                                                          'group_bulk': group_bulk,
+                                                          'group_policy': group_policy,
+                                                          'activities': activities,
+                                                          'mock': mock,
+                                                          'sleep_time': sleep_time,
+                                                          'max_sources': max_sources,
+                                                          'fts_source_strategy': fts_source_strategy,
+                                                          'retry_other_fts': retry_other_fts})]
 
-    else:
-        logging.info('starting submitter threads')
-        threads = [threading.Thread(target=submitter, kwargs={'process': process,
-                                                              'total_processes': total_processes,
-                                                              'total_threads': total_threads,
-                                                              'rses': working_rses,
-                                                              'bulk': bulk,
-                                                              'group_bulk': group_bulk,
-                                                              'group_policy': group_policy,
-                                                              'activities': activities,
-                                                              'mock': mock,
-                                                              'sleep_time': sleep_time,
-                                                              'max_sources': max_sources,
-                                                              'fts_source_strategy': fts_source_strategy,
-                                                              'retry_other_fts': retry_other_fts})]
+    logging.info('starting throttler thread')
+    throttler_thread = threading.Thread(target=throttler, kwargs={'once': once, 'sleep_time': sleep_time})
 
-        [t.start() for t in threads]
+    threads.append(throttler_thread)
+    [t.start() for t in threads]
 
-        logging.info('waiting for interrupts')
+    logging.info('waiting for interrupts')
 
-        # Interruptible joins require a timeout.
-        while len(threads) > 0:
-            [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+    # Interruptible joins require a timeout.
+    while len(threads) > 0:
+        threads = [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
