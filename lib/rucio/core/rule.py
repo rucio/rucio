@@ -765,21 +765,6 @@ def repair_rule(rule_id, session=None):
             logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
             return
 
-        # Get the did
-        did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == rule.scope,
-                                                          models.DataIdentifier.name == rule.name).one()
-
-        # Resolve the did to its contents
-        datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
-                                                                                             nowait=True,
-                                                                                             restrict_rses=[rse['id'] for rse in rses],
-                                                                                             source_rses=[rse['id'] for rse in source_rses],
-                                                                                             session=session)
-
-        if session.bind.dialect.name != 'sqlite':
-            session.commit()
-            session.begin_nested()
-
         # Reset the counters
         logging.debug("Resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
         rule_counts = session.query(models.ReplicaLock.state, func.count(models.ReplicaLock.state)).filter(models.ReplicaLock.rule_id == rule.id).group_by(models.ReplicaLock.state).all()
@@ -792,8 +777,37 @@ def repair_rule(rule_id, session=None):
                 rule.locks_stuck_cnt = count[1]
         logging.debug("Finished resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
+        # Get the did
+        did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == rule.scope,
+                                                          models.DataIdentifier.name == rule.name).one()
+
+        # Detect if there is something wrong with the dataset and
+        # make the decisison on soft or hard repair.
+        hard_repair = False
+        nr_files = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)['length']
+        if nr_files * rule.copies != (rule.locks_ok_cnt + rule.locks_stuck_cnt + rule.locks_replicating_cnt):
+            hard_repair = True
+            logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
+        elif rule.locks_stuck_cnt > 200:
+            hard_repair = True
+            logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
+
+        # Resolve the did to its contents
+        datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
+                                                                                             nowait=True,
+                                                                                             restrict_rses=[rse['id'] for rse in rses],
+                                                                                             source_rses=[rse['id'] for rse in source_rses],
+                                                                                             only_stuck=not hard_repair,
+                                                                                             session=session)
+
+        if session.bind.dialect.name != 'sqlite':
+            session.commit()
+            session.begin_nested()
+
+        session.flush()
+
         # 1. Try to find missing locks and create them based on grouping
-        if did.did_type != DIDType.FILE:
+        if did.did_type != DIDType.FILE and hard_repair:
             try:
                 __find_missing_locks_and_create_them(datasetfiles=datasetfiles,
                                                      locks=locks,
@@ -819,19 +833,20 @@ def repair_rule(rule_id, session=None):
                     session.commit()
                 return
 
-        session.flush()
+            session.flush()
 
         # 2. Try to find surplus locks and remove them
-        __find_surplus_locks_and_remove_them(datasetfiles=datasetfiles,
-                                             locks=locks,
-                                             replicas=replicas,
-                                             source_replicas=source_replicas,
-                                             rseselector=rseselector,
-                                             rule=rule,
-                                             source_rses=[rse['id'] for rse in source_rses],
-                                             session=session)
+        if hard_repair:
+            __find_surplus_locks_and_remove_them(datasetfiles=datasetfiles,
+                                                 locks=locks,
+                                                 replicas=replicas,
+                                                 source_replicas=source_replicas,
+                                                 rseselector=rseselector,
+                                                 rule=rule,
+                                                 source_rses=[rse['id'] for rse in source_rses],
+                                                 session=session)
 
-        session.flush()
+            session.flush()
 
         # 3. Try to find STUCK locks and repair them based on grouping
         try:
@@ -2039,7 +2054,7 @@ def __evaluate_did_attach(eval_did, session=None):
 
 
 @transactional_session
-def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, source_rses=None, session=None):
+def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, source_rses=None, only_stuck=False, session=None):
     """
     Resolves a did to its constituent childs and reads the locks and replicas of all the constituent files.
 
@@ -2047,6 +2062,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
     :param nowait:         Nowait parameter for the FOR UPDATE statement.
     :param restrict_rses:  Possible rses of the rule, so only these replica/locks should be considered.
     :param source_rses:    Source rses for this rule. These replicas are not row-locked.
+    :param only_stuck:     Get results only for STUCK locks, if True.
     :param session:        Session of the db.
     :returns:              (datasetfiles, locks, replicas)
     """
@@ -2070,13 +2086,43 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
         if source_rses:
             source_replicas[(did.scope, did.name)] = rucio.core.replica.get_source_replicas(scope=did.scope, name=did.name, source_rses=source_rses, session=session)
 
+    elif did.did_type == DIDType.DATASET and only_stuck:
+        files = []
+        locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, only_stuck=True, session=session)
+        for file in locks:
+            file_did = rucio.core.did.get_did(scope=file[0], name=file[1], session=session)
+            files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32']})
+            replicas[(file[0], file[1])] = rucio.core.replica.get_and_lock_file_replicas(scope=file[0], name=file[1], nowait=nowait, restrict_rses=restrict_rses, session=session)
+            if source_rses:
+                source_replicas[(file[0], file[1])] = rucio.core.replica.get_source_replicas(scope=file[0], name=file[1], source_rses=source_rses, session=session)
+        datasetfiles = [{'scope': did.scope,
+                         'name': did.name,
+                         'files': files}]
+
     elif did.did_type == DIDType.DATASET:
         files, replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
-        source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=did.scope, name=did.name, source_rses=source_rses, session=session)
+        if source_rses:
+            source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=did.scope, name=did.name, source_rses=source_rses, session=session)
         datasetfiles = [{'scope': did.scope,
                          'name': did.name,
                          'files': files}]
         locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
+
+    elif did.did_type == DIDType.CONTAINER and only_stuck:
+
+        for dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
+            files = []
+            tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, only_stuck=True, session=session)
+            locks = dict(locks.items() + tmp_locks.items())
+            for file in tmp_locks:
+                file_did = rucio.core.did.get_did(scope=file[0], name=file[1], session=session)
+                files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32']})
+                replicas[(file[0], file[1])] = rucio.core.replica.get_and_lock_file_replicas(scope=file[0], name=file[1], nowait=nowait, restrict_rses=restrict_rses, session=session)
+                if source_rses:
+                    source_replicas[(file[0], file[1])] = rucio.core.replica.get_source_replicas(scope=file[0], name=file[1], source_rses=source_rses, session=session)
+            datasetfiles = [{'scope': dataset['scope'],
+                             'name': dataset['name'],
+                             'files': files}]
 
     elif did.did_type == DIDType.CONTAINER:
 
