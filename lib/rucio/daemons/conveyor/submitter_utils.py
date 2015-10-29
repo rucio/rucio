@@ -817,6 +817,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'dst_type': transfer_dst_type,
                                  'src_rse': rse,
                                  'dst_rse': rses_info[dest_rse_id]['rse'],
+                                 'src_rse_id': source_rse_id,
                                  'dest_rse_id': dest_rse_id,
                                  'filesize': bytes,
                                  'md5': md5,
@@ -1095,6 +1096,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                  'dst_type': "DISK",
                                  'src_rse': rse,
                                  'dst_rse': rse,
+                                 'src_rse_id': source_rse_id,
                                  'dest_rse_id': dest_rse_id,
                                  'filesize': bytes,
                                  'md5': md5,
@@ -1229,6 +1231,7 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
             transfers[request_id]['sources'].append((rse, source_url, source_rse_id, ranking))
 
         transfers[request_id]['file_metadata']['src_rse'] = sources[0][0]
+        transfers[request_id]['file_metadata']['src_rse_id'] = sources[0][2]
         logging.debug("Transfer for request(%s): %s" % (request_id, transfers[request_id]))
     return transfers
 
