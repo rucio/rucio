@@ -883,7 +883,7 @@ class Request(BASE, ModelBase, Versioned):
                    Index('REQUESTS_EXTERNALID_UQ', 'external_id'))
 
 
-class Source(BASE, ModelBase):
+class Source(BASE, ModelBase, Versioned):
     """Represents source files for transfers"""
     __tablename__ = 'sources'
     request_id = Column(GUID())
