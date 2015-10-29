@@ -1286,7 +1286,7 @@ def get_source_replicas(scope, name, source_rses=None, session=None):
                 rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
             if rse_clause:
                 query = query.filter(or_(*rse_clause))
-    return query.all()
+    return [a[0] for a in query.all()]
 
 
 @transactional_session
