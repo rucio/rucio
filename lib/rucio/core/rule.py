@@ -784,7 +784,10 @@ def repair_rule(rule_id, session=None):
         # Detect if there is something wrong with the dataset and
         # make the decisison on soft or hard repair.
         hard_repair = False
-        nr_files = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)['length']
+        if did.did_type != DIDType.FILE:
+            nr_files = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)['length']
+        else:
+            nr_files = 1
         if nr_files * rule.copies != (rule.locks_ok_cnt + rule.locks_stuck_cnt + rule.locks_replicating_cnt):
             hard_repair = True
             logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
