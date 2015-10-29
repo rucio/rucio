@@ -20,6 +20,7 @@ from re import match
 
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, bindparam, text
 
 import rucio.core.did
@@ -33,12 +34,12 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound)
 from rucio.common.schema import validate_schema
-from rucio.common.utils import str_to_date
+from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
-from rucio.core.rse import get_rse_name
+from rucio.core.rse import get_rse_name, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
@@ -172,7 +173,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             if ask_approval:
                 new_rule.state = RuleState.WAITING_APPROVAL
                 logging.debug("Created rule %s in waiting for approval" % (str(new_rule.id)))
-                # TODO: eMail notification?
+                __create_rule_approval_email(rule=new_rule, session=session)
                 continue
 
             if asynchronous:
@@ -361,7 +362,7 @@ def add_rules(dids, rules, session=None):
                     if rule.get('ask_approval', False):
                         new_rule.state = RuleState.WAITING_APPROVAL
                         logging.debug("Created rule %s in waiting for approval" % str(new_rule.id))
-                        # TODO: eMail notification?
+                        __create_rule_approval_email(rule=new_rule, session=session)
                         continue
 
                     if rule.get('asynchronous', False):
@@ -764,30 +765,49 @@ def repair_rule(rule_id, session=None):
             logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
             return
 
+        # Reset the counters
+        logging.debug("Resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+        rule_counts = session.query(models.ReplicaLock.state, func.count(models.ReplicaLock.state)).filter(models.ReplicaLock.rule_id == rule.id).group_by(models.ReplicaLock.state).all()
+        for count in rule_counts:
+            if count[0] == LockState.OK:
+                rule.locks_ok_cnt = count[1]
+            elif count[0] == LockState.REPLICATING:
+                rule.locks_replicating_cnt = count[1]
+            elif count[0] == LockState.STUCK:
+                rule.locks_stuck_cnt = count[1]
+        logging.debug("Finished resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+
         # Get the did
         did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == rule.scope,
                                                           models.DataIdentifier.name == rule.name).one()
+
+        # Detect if there is something wrong with the dataset and
+        # make the decisison on soft or hard repair.
+        hard_repair = False
+        nr_files = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)['length']
+        if nr_files * rule.copies != (rule.locks_ok_cnt + rule.locks_stuck_cnt + rule.locks_replicating_cnt):
+            hard_repair = True
+            logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
+        elif rule.locks_stuck_cnt > 200:
+            hard_repair = True
+            logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
 
         # Resolve the did to its contents
         datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
                                                                                              nowait=True,
                                                                                              restrict_rses=[rse['id'] for rse in rses],
                                                                                              source_rses=[rse['id'] for rse in source_rses],
+                                                                                             only_stuck=not hard_repair,
                                                                                              session=session)
 
         if session.bind.dialect.name != 'sqlite':
             session.commit()
             session.begin_nested()
 
-        # Reset the counters
-        logging.debug("Resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
-        rule.locks_ok_cnt = len([lock for sublist in locks.values() for lock in sublist if lock.state == LockState.OK and lock.rule_id == rule.id])
-        rule.locks_replicating_cnt = len([lock for sublist in locks.values() for lock in sublist if lock.state == LockState.REPLICATING and lock.rule_id == rule.id])
-        rule.locks_stuck_cnt = len([lock for sublist in locks.values() for lock in sublist if lock.state == LockState.STUCK and lock.rule_id == rule.id])
-        logging.debug("Finished resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+        session.flush()
 
         # 1. Try to find missing locks and create them based on grouping
-        if did.did_type != DIDType.FILE:
+        if did.did_type != DIDType.FILE and hard_repair:
             try:
                 __find_missing_locks_and_create_them(datasetfiles=datasetfiles,
                                                      locks=locks,
@@ -813,19 +833,20 @@ def repair_rule(rule_id, session=None):
                     session.commit()
                 return
 
-        session.flush()
+            session.flush()
 
         # 2. Try to find surplus locks and remove them
-        __find_surplus_locks_and_remove_them(datasetfiles=datasetfiles,
-                                             locks=locks,
-                                             replicas=replicas,
-                                             source_replicas=source_replicas,
-                                             rseselector=rseselector,
-                                             rule=rule,
-                                             source_rses=[rse['id'] for rse in source_rses],
-                                             session=session)
+        if hard_repair:
+            __find_surplus_locks_and_remove_them(datasetfiles=datasetfiles,
+                                                 locks=locks,
+                                                 replicas=replicas,
+                                                 source_replicas=source_replicas,
+                                                 rseselector=rseselector,
+                                                 rule=rule,
+                                                 source_rses=[rse['id'] for rse in source_rses],
+                                                 session=session)
 
-        session.flush()
+            session.flush()
 
         # 3. Try to find STUCK locks and repair them based on grouping
         try:
@@ -1515,6 +1536,37 @@ def approve_rule(rule_id, session=None):
         if rule.state == RuleState.WAITING_APPROVAL:
             rule.ignore_account_limit = True
             rule.state = RuleState.INJECT
+            email = get_account(account=rule.account, session=session).email
+            if email:
+                text = """The replication rule has been APPROVED
+
+Rule description:
+  ID:                   %s
+  RSE Expression:       %s
+  Comment:              %s
+  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
+
+DID description:
+
+  Scope:Name:           %s:%s
+  Type:                 %s
+  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
+
+--
+THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
+                                                 str(rule.rse_expression),
+                                                 str(rule.comments),
+                                                 str(rule.id),
+                                                 rule.scope,
+                                                 rule.name,
+                                                 str(rule.did_type),
+                                                 rule.scope,
+                                                 rule.name)
+                add_message(event_type='email',
+                            payload={'body': text,
+                                     'to': [email],
+                                     'subject': 'Replication rule has been approved'},
+                            session=session)
             return
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
@@ -1535,6 +1587,37 @@ def deny_rule(rule_id, session=None):
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
         if rule.state == RuleState.WAITING_APPROVAL:
+            email = get_account(account=rule.account, session=session).email
+            if email:
+                text = """The replication rule has been DENIED
+
+Rule description:
+  ID:                   %s
+  RSE Expression:       %s
+  Comment:              %s
+  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
+
+DID description:
+
+  Scope:Name:           %s:%s
+  Type:                 %s
+  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
+
+--
+THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
+                                                 str(rule.rse_expression),
+                                                 str(rule.comments),
+                                                 str(rule.id),
+                                                 rule.scope,
+                                                 rule.name,
+                                                 str(rule.did_type),
+                                                 rule.scope,
+                                                 rule.name)
+                add_message(event_type='email',
+                            payload={'body': text,
+                                     'to': [email],
+                                     'subject': 'Replication rule has been denied'},
+                            session=session)
             delete_rule(rule_id=rule_id, session=session)
             return
     except NoResultFound:
@@ -1971,7 +2054,7 @@ def __evaluate_did_attach(eval_did, session=None):
 
 
 @transactional_session
-def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, source_rses=None, session=None):
+def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, source_rses=None, only_stuck=False, session=None):
     """
     Resolves a did to its constituent childs and reads the locks and replicas of all the constituent files.
 
@@ -1979,6 +2062,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
     :param nowait:         Nowait parameter for the FOR UPDATE statement.
     :param restrict_rses:  Possible rses of the rule, so only these replica/locks should be considered.
     :param source_rses:    Source rses for this rule. These replicas are not row-locked.
+    :param only_stuck:     Get results only for STUCK locks, if True.
     :param session:        Session of the db.
     :returns:              (datasetfiles, locks, replicas)
     """
@@ -2002,13 +2086,43 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
         if source_rses:
             source_replicas[(did.scope, did.name)] = rucio.core.replica.get_source_replicas(scope=did.scope, name=did.name, source_rses=source_rses, session=session)
 
+    elif did.did_type == DIDType.DATASET and only_stuck:
+        files = []
+        locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, only_stuck=True, session=session)
+        for file in locks:
+            file_did = rucio.core.did.get_did(scope=file[0], name=file[1], session=session)
+            files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32']})
+            replicas[(file[0], file[1])] = rucio.core.replica.get_and_lock_file_replicas(scope=file[0], name=file[1], nowait=nowait, restrict_rses=restrict_rses, session=session)
+            if source_rses:
+                source_replicas[(file[0], file[1])] = rucio.core.replica.get_source_replicas(scope=file[0], name=file[1], source_rses=source_rses, session=session)
+        datasetfiles = [{'scope': did.scope,
+                         'name': did.name,
+                         'files': files}]
+
     elif did.did_type == DIDType.DATASET:
         files, replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
-        source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=did.scope, name=did.name, source_rses=source_rses, session=session)
+        if source_rses:
+            source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=did.scope, name=did.name, source_rses=source_rses, session=session)
         datasetfiles = [{'scope': did.scope,
                          'name': did.name,
                          'files': files}]
         locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
+
+    elif did.did_type == DIDType.CONTAINER and only_stuck:
+
+        for dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
+            files = []
+            tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, only_stuck=True, session=session)
+            locks = dict(locks.items() + tmp_locks.items())
+            for file in tmp_locks:
+                file_did = rucio.core.did.get_did(scope=file[0], name=file[1], session=session)
+                files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32']})
+                replicas[(file[0], file[1])] = rucio.core.replica.get_and_lock_file_replicas(scope=file[0], name=file[1], nowait=nowait, restrict_rses=restrict_rses, session=session)
+                if source_rses:
+                    source_replicas[(file[0], file[1])] = rucio.core.replica.get_source_replicas(scope=file[0], name=file[1], source_rses=source_rses, session=session)
+            datasetfiles = [{'scope': dataset['scope'],
+                             'name': dataset['name'],
+                             'files': files}]
 
     elif did.did_type == DIDType.CONTAINER:
 
@@ -2228,3 +2342,84 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
     except NoResultFound:
         logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found" % (lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session)))
     return False
+
+
+@transactional_session
+def __create_rule_approval_email(rule, session=None):
+    """
+    Create the rule notification email.
+
+    :param rule:      The rule object.
+    :param session:   The database session in use.
+    """
+
+    did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)
+    rses = [rep['rse'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
+
+    # Resolve recipents:
+    recipents = []  # (eMail, account)
+    # LOCALGROUPDISK
+    for rse in parse_expression(rule.rse_expression, session=session):
+        rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+        if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+            accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
+                                                                                      value='admin').all()
+            for account in accounts:
+                email = get_account(account=account, session=session).email
+                if email:
+                    recipents.append((email, account))
+    # DDMADMIN as default
+    if not recipents:
+        recipents = [('atlas-adc-ddm-support@cern.ch', 'root')]
+
+    for recipent in recipents:
+        text = """A new rule has been requested for approval in Rucio.
+
+Rule description:
+
+  ID:                   %s
+  Creation date:        %s
+  Expiration date:      %s
+  Rule owner:           %s (%s)
+  RSE Expression:       %s
+  Comment:              %s
+  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
+
+DID description:
+
+  Scope:Name:           %s:%s
+  Type:                 %s
+  Number of files:      %s
+  Total size:           %s
+  Complete replicas:    %s
+  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
+
+Action:
+
+  Approve:              https://rucio-ui.cern.ch/rule?rule_id=%s&action=approve&ui_account=%s
+  Deny:                 https://rucio-ui.cern.ch/rule?rule_id=%s&action=deny&ui_account=%s
+
+--
+THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
+                                                 str(rule.created_at),
+                                                 str(rule.expires_at),
+                                                 rule.account, get_account(account=rule.account, session=session).email,
+                                                 rule.rse_expression,
+                                                 rule.comments,
+                                                 str(rule.id),
+                                                 rule.scope, rule.name,
+                                                 rule.did_type,
+                                                 '0' if did['length'] is None else str(did['length']),
+                                                 '0' if did['bytes'] is None else sizefmt(did['bytes']),
+                                                 ', '.join(rses),
+                                                 rule.scope, rule.name,
+                                                 str(rule.id),
+                                                 recipent[1],
+                                                 str(rule.id),
+                                                 recipent[1])
+
+        add_message(event_type='email',
+                    payload={'body': text,
+                             'to': [recipent[0]],
+                             'subject': 'Request to approve replication rule'},
+                    session=session)

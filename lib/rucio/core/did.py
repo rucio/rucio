@@ -840,9 +840,9 @@ def get_did(scope, name, dynamic=False, session=None):
         result = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
             with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
         if result.did_type == DIDType.FILE:
-            did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type, 'account': result.account}
+            did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type, 'account': result.account, 'bytes': result.bytes, 'md5': result.md5, 'adler32': result.adler32}
         else:
-            if result.bytes is None and dynamic:
+            if result.length is None and dynamic:
                 bytes, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
             else:
                 bytes = result.bytes
