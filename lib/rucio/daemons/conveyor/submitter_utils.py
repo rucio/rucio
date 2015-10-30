@@ -1338,38 +1338,43 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
 
 
 def get_config_limits():
-    default_threshold = None
     config_limits = {}
     items = config_core.items('throttler')
     for opt, value in items:
         try:
-            if opt == 'default':
-                default_threshold = int(value)
+            activity, rsename = opt.split(',')
+            if rsename == 'all_rses':
+                rse_id = 'all_rses'
             else:
-                activity, rsename = opt.split(',')
                 rse_id = rse_core.get_rse_id(rsename)
-                if activity not in config_limits:
-                    config_limits[activity] = {}
-                config_limits[activity][rse_id] = int(value)
+            if activity not in config_limits:
+                config_limits[activity] = {}
+            config_limits[activity][rse_id] = int(value)
         except:
             logging.warning("Failed to parse throttler config %s:%s, error: %s" % (opt, value, traceback.format_exc()))
-    return default_threshold, config_limits
+    return config_limits
 
 
 def schedule_requests():
     try:
         logging.info("Throttler load configs")
-        default_threshold, config_limits = get_config_limits()
+        config_limits = get_config_limits()
 
         logging.info("Throttler retrieve requests statistics")
         results = request.get_stats_by_activity_dest_state(state=[RequestState.QUEUED, RequestState.SUBMITTING, RequestState.SUBMITTED, RequestState.WAITING])
         result_dict = {}
         for activity, dest_rse_id, state, counter in results:
             threshold = None
-            if activity in config_limits.keys() and dest_rse_id in config_limits[activity].keys():
-                threshold = config_limits[activity][dest_rse_id]
-            elif default_threshold:
-                threshold = default_threshold
+            if activity in config_limits.keys():
+                if dest_rse_id in config_limits[activity].keys():
+                    threshold = config_limits[activity][dest_rse_id]
+                elif 'all_rses' in config_limits[activity].keys():
+                    threshold = config_limits[activity]['all_rses']
+            elif 'all_activities' in config_limits.keys():
+                if dest_rse_id in config_limits['all_activities'].keys():
+                    threshold = config_limits['all_activities'][dest_rse_id]
+                elif 'all_rses' in config_limits['all_activities'].keys():
+                    threshold = config_limits['all_activities']['all_rses']
 
             if threshold:
                 if activity not in result_dict:
