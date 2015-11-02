@@ -1058,6 +1058,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
                           models.DataIdentifier.name,
                           models.DataIdentifier.did_type).\
         filter(models.DataIdentifier.scope == scope)
+
     if type == 'all':
         query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
                                  models.DataIdentifier.did_type == DIDType.DATASET,
@@ -1079,6 +1080,8 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
             raise exception.KeyNotFound(k)
 
         if (isinstance(v, unicode) or isinstance(v, str)) and ('*' in v or '%' in v):
+            if v in ('*', '%', u'*', u'%'):
+                continue
             if session.bind.dialect.name == 'postgresql':  # PostgreSQL escapes automatically
                 query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%')))
             else:
@@ -1089,6 +1092,9 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
         elif k == 'created_after':
             created_after = str_to_date(v)
             query = query.filter(models.DataIdentifier.created_at >= created_after)
+        elif k == 'guid':
+            query = query.filter_by(guid=v, did_type=DIDType.FILE).\
+                with_hint(models.ReplicaLock, "INDEX(DIDS_GUIDS_IDX)", 'oracle')
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
 
