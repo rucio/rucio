@@ -1039,11 +1039,9 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
 
-    # query = query.limit(limit)
-
     needed_space = bytes
     total_bytes, total_files = 0, 0
-    rows = list()
+    rows = []
     for (scope, name, path, bytes, tombstone, state) in query.yield_per(1000):
         if state != ReplicaState.UNAVAILABLE:
             if tombstone != OBSOLETE:
