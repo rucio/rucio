@@ -1093,7 +1093,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
             created_after = str_to_date(v)
             query = query.filter(models.DataIdentifier.created_at >= created_after)
         elif k == 'guid':
-            query = query.filter_by(guid=v, did_type=DIDType.FILE).\
+            query = query.filter_by(guid=v).\
                 with_hint(models.ReplicaLock, "INDEX(DIDS_GUIDS_IDX)", 'oracle')
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
