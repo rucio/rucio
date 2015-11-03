@@ -438,15 +438,18 @@ def sizefmt(num, human=True):
     """
     Print human readable file sizes
     """
-    num = int(num)
-    if human:
-        for unit in ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z']:
-            if abs(num) < 1000.0:
-                return "%3.1f %sB" % (num, unit)
-            num /= 1000.0
-        return "%.1f %sB" % (num, 'Y')
-    else:
-        return str(num)
+    try:
+        num = int(num)
+        if human:
+            for unit in ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z']:
+                if abs(num) < 1000.0:
+                    return "%3.1f %sB" % (num, unit)
+                num /= 1000.0
+            return "%.1f %sB" % (num, 'Y')
+        else:
+            return str(num)
+    except OverflowError:
+        return 'Inf'
 
 
 class Color:
