@@ -1533,7 +1533,7 @@ def list_account_usage(args):
     else:
         usage = client.get_account_usage(account=args.usage_account)
     for item in usage:
-        remaining = 0 if int(item['bytes_remaining']) < 0 else int(item['bytes_remaining'])
+        remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
         table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
     print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'])
