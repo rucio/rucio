@@ -23,8 +23,10 @@ class TestConveyorSubmitter:
         """ CONVEYOR (DAEMON): Test the conveyor submitter daemon."""
         src = 'ATLASSCRATCHDISK://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasscratchdisk/rucio/'
         dest = 'ATLASSCRATCHDISK://dcache-se-atlas.desy.de:8443/srm/managerv2?SFN=/pnfs/desy.de/atlas/dq2/atlasscratchdisk/rucio/'
-        request_transfer(loop=1, src=src, dst=dest, upload=False, same_src=True, same_dst=True)
+        request_transfer(loop=10, src=src, dst=dest, upload=False, same_src=True, same_dst=True)
 
+        submitter_transfer.throttler(once=True)
+        submitter_transfer.submitter(once=True)
         submitter_transfer.run(once=True)
         time.sleep(5)
         poller.run(once=True)
