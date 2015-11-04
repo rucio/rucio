@@ -1226,8 +1226,8 @@ def __resolve_bytes_length_events_did(scope, name, session):
             except NoResultFound:
                 tmp_length, tmp_bytes, tmp_events = 0, 0, 0
 
-            bytes += tmp_bytes
-            length += tmp_length
-            events += tmp_events
+            bytes += tmp_bytes or 0
+            length += tmp_length or 0
+            events += tmp_events or 0
 
     return (bytes, length, events)
