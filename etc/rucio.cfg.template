@@ -145,6 +145,5 @@ usercert = /opt/rucio/etc/web/usercert.pem
 proxy = /opt/rucio/etc/ddmadmin.proxy.nagios
 
 [auditor]
-rses = SARA-MATRIX_DATADISK, TAIWAN-LCG2_DATADISK
 cache = /opt/rucio/auditor-cache
 results = /opt/rucio/auditor-results
