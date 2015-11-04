@@ -1376,7 +1376,7 @@ def schedule_requests():
                 elif 'all_rses' in config_limits['all_activities'].keys():
                     threshold = config_limits['all_activities']['all_rses']
 
-            if threshold:
+            if threshold or (counter and (state == RequestState.WAITING)):
                 if activity not in result_dict:
                     result_dict[activity] = {}
                 if dest_rse_id not in result_dict[activity]:
@@ -1391,7 +1391,13 @@ def schedule_requests():
                 threshold = result_dict[activity][dest_rse_id]['threshold']
                 transfer = result_dict[activity][dest_rse_id]['transfer']
                 waiting = result_dict[activity][dest_rse_id]['waiting']
-                if transfer + waiting > threshold:
+                if threshold is None:
+                    logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for acitivity %s, rse_id %s" % (threshold, activity, dest_rse_id))
+                    rse_core.delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
+                    request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id)
+                    rse_name = rse_core.get_rse_name(rse_id=dest_rse_id)
+                    record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
+                elif transfer + waiting > threshold:
                     logging.debug("Throttler set limits for acitivity %s, rse_id %s" % (activity, dest_rse_id))
                     rse_core.set_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id, max_transfers=threshold, transfers=transfer, waitings=waiting)
                     rse_name = rse_core.get_rse_name(rse_id=dest_rse_id)
@@ -1403,7 +1409,7 @@ def schedule_requests():
                         request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, count=threshold-transfer)
                         record_counter('daemons.conveyor.throttler.release_waiting_requests.%s.%s' % (activity, rse_name), threshold - transfer)
                 elif waiting > 0:
-                    logging.debug("Throttler remove limits and release all waiting requests for acitivity %s, rse_id %s" % (activity, dest_rse_id))
+                    logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for acitivity %s, rse_id %s" % (threshold, activity, dest_rse_id))
                     rse_core.delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
                     request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id)
                     rse_name = rse_core.get_rse_name(rse_id=dest_rse_id)
