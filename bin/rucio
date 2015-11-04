@@ -46,9 +46,9 @@ from rucio import version
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
-                                    RuleNotFound, CannotAuthenticate, MissingDependency, RSEOperationNotSupported, UnsupportedOperation, FileConsistencyMismatch,
+                                    RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException)
-from rucio.common.utils import adler32, generate_uuid, execute, construct_surl, chunks, sizefmt, Color
+from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -1578,44 +1578,10 @@ def list_pfns(args):
     List the possible PFN for a file at a site.
 
     """
-    client = get_client(args)
-    dids = args.dids.split(',')
-    rse = args.rse
-    protocol = args.protocol
-    for input_did in dids:
-        scope, name = extract_scope(input_did)
-        replicas = [rep for rep in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[protocol, ])]
-        if rse in replicas[0]['rses']:
-            print replicas[0]['rses'][rse][0]
-        logger.warning('The file has no replica on the specified RSE')
-        rse_info = rsemgr.get_rse_info(rse)
-        proto = rsemgr.create_protocol(rse_info, 'read', scheme=protocol)
-        pfn = proto.lfns2pfns(lfns={'scope': scope, 'name': name})
-        result = pfn.values()[0]
-        if isinstance(result, RSEOperationNotSupported):
-            if not rse_info['deterministic']:
-                logger.warning('This is a non-deterministic site, so the real PFN might be different from the on suggested')
-                rse_attr = client.list_rse_attributes(rse)
-                naming_convention = rse_attr.get('naming_convention', None)
-                parents = [did for did in client.list_parent_dids(scope, name)]
-                if len(parents) > 1:
-                    logger.warning('The file has multiple parents')
-                for did in parents:
-                    if did['type'] == 'DATASET':
-                        path = construct_surl(did['name'], name, naming_convention=naming_convention)
-                        pfn = ''.join([proto.attributes['scheme'],
-                                       '://',
-                                       proto.attributes['hostname'],
-                                       ':',
-                                       str(proto.attributes['port']),
-                                       proto.attributes['prefix'],
-                                       path if not path.startswith('/') else path[1:]])
-                        print pfn
-            else:
-                logger.error('Unexpected error')
-                return FAILURE
-        print result
-    return SUCCESS
+    print ''
+    print 'The functionality of this command has been moved to ' + Color.BOLD + 'rucio-admin' + Color.END + ' tool. In order to get the pfns of a replica, '\
+          + Color.BOLD + 'rucio list-file-replicas' + Color.END + ' command must be used.'
+    print ''
 
 
 @exception_handler
@@ -1860,12 +1826,9 @@ Commands:
     get_metadata_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The list-pfns subparser
-    list_pfns_parser = subparsers.add_parser('list-pfns', help='This command gets the expected PFNs for a list of DIDs.', description='This command gets the expected PFNs for a list of DIDs, even if the replica is not there yet.\
-        This command doesn\'t work with all the protocols. If you want the actual PFN for a replica, you should use ' + Color.BOLD + 'rucio list-file-replicas' + Color.END + ' instead.')
+    list_pfns_parser = subparsers.add_parser('list-pfns', help=Color.BOLD + 'DEPRECATED: ' + Color.END + 'Please use rucio list-file-replicas instead.',
+                                             description='The functionality of this command has been moved to rucio-admin. If you want the actual PFN for a replica, you should use ' + Color.BOLD + 'rucio list-file-replicas' + Color.END + ' instead.')
     list_pfns_parser.set_defaults(which='list-pfns')
-    list_pfns_parser.add_argument(dest='dids', action='store', help='List of DIDs (coma separated)')
-    list_pfns_parser.add_argument(dest='rse', action='store', help='RSE')
-    list_pfns_parser.add_argument(dest='protocol', action='store', default='srm', help='The protocol, by default srm, can be one of [root|srm|http(s)].')
 
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
