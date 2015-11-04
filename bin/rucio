@@ -1827,7 +1827,7 @@ Commands:
 
     # The list-pfns subparser
     list_pfns_parser = subparsers.add_parser('list-pfns', help=Color.BOLD + 'DEPRECATED: ' + Color.END + 'Please use rucio list-file-replicas instead.',
-                                             description='The funcionality of this command has been moved to rucio-admin. If you want the actual PFN for a replica, you should use ' + Color.BOLD + 'rucio list-file-replicas' + Color.END + ' instead.')
+                                             description='The functionality of this command has been moved to rucio-admin. If you want the actual PFN for a replica, you should use ' + Color.BOLD + 'rucio list-file-replicas' + Color.END + ' instead.')
     list_pfns_parser.set_defaults(which='list-pfns')
 
     # The set-metadata subparser
