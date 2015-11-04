@@ -1135,7 +1135,7 @@ def touch_replicas(replicas, session=None):
 
     :returns: True, if successful, False otherwise.
     """
-    rse_ids, now = {}, datetime.utcnow()
+    rse_ids, now, none_value = {}, datetime.utcnow(), None
     for replica in replicas:
         if 'rse_id' not in replica:
             if replica['rse'] not in rse_ids:
@@ -1144,7 +1144,9 @@ def touch_replicas(replicas, session=None):
 
         try:
             session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
-                update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+                update({'accessed_at': replica.get('accessed_at') or now,
+                        'tombstone': case([(models.RSEFileAssociation.tombstone != none_value, replica.get('accessed_at') or now)], else_=models.RSEFileAssociation.tombstone)},
+                       synchronize_session=False)
 
             session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
                 update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
@@ -1171,16 +1173,33 @@ def touch_replica_no_wait(replica, session=None):
 
     :returns: True, if successful, False otherwise.
     """
-    now = datetime.utcnow()
     if 'rse_id' not in replica:
         replica['rse_id'] = get_rse_id(rse=replica['rse'], session=session)
 
     try:
-        replica_db = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).with_for_update(nowait=True).one()
-        replica_db.accessed_at = replica.get('accessed_at') or now
+        accessed_at, none_value = replica.get('accessed_at') or datetime.utcnow(), None
 
-        file_did = session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).with_for_update(nowait=True).one()
-        file_did.accessed_at = replica.get('accessed_at') or now
+        session.query(models.RSEFileAssociation).\
+            filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
+            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
+            with_for_update(nowait=True).one()
+
+        session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
+            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
+            update({'accessed_at': accessed_at,
+                    'tombstone': case([(models.RSEFileAssociation.tombstone != none_value, accessed_at)], else_=models.RSEFileAssociation.tombstone)},
+                   synchronize_session=False)
+
+        session.query(models.DataIdentifier).\
+            filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+            with_for_update(nowait=True).one()
+
+        session.query(models.DataIdentifier).\
+            filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+            update({'accessed_at': accessed_at}, synchronize_session=False)
+
     except DatabaseError:
         return False
 
