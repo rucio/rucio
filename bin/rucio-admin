@@ -39,10 +39,10 @@ from functools import wraps
 from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
-                                    RSENotFound, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate)
-from rucio.common.utils import chunks
+                                    RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate)
+from rucio.common.utils import chunks, construct_surl
 from rucio import version
-
+from rucio.rse import rsemanager as rsemgr
 
 # If ../lib/rucio/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
@@ -734,6 +734,54 @@ def declare_bad_file_replicas(args):
     return SUCCESS
 
 
+@exception_handler
+def list_pfns(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List the possible PFN for a file at a site.
+
+    """
+    client = get_client(args)
+    dids = args.dids.split(',')
+    rse = args.rse
+    protocol = args.protocol
+    for input_did in dids:
+        scope, name = extract_scope(input_did)
+        replicas = [rep for rep in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[protocol, ])]
+        if rse in replicas[0]['rses']:
+            print replicas[0]['rses'][rse][0]
+        logger.warning('The file has no replica on the specified RSE')
+        rse_info = rsemgr.get_rse_info(rse)
+        proto = rsemgr.create_protocol(rse_info, 'read', scheme=protocol)
+        pfn = proto.lfns2pfns(lfns={'scope': scope, 'name': name})
+        result = pfn.values()[0]
+        if isinstance(result, RSEOperationNotSupported):
+            if not rse_info['deterministic']:
+                logger.warning('This is a non-deterministic site, so the real PFN might be different from the on suggested')
+                rse_attr = client.list_rse_attributes(rse)
+                naming_convention = rse_attr.get('naming_convention', None)
+                parents = [did for did in client.list_parent_dids(scope, name)]
+                if len(parents) > 1:
+                    logger.warning('The file has multiple parents')
+                for did in parents:
+                    if did['type'] == 'DATASET':
+                        path = construct_surl(did['name'], name, naming_convention=naming_convention)
+                        pfn = ''.join([proto.attributes['scheme'],
+                                       '://',
+                                       proto.attributes['hostname'],
+                                       ':',
+                                       str(proto.attributes['port']),
+                                       proto.attributes['prefix'],
+                                       path if not path.startswith('/') else path[1:]])
+                        print pfn
+            else:
+                logger.error('Unexpected error')
+                return FAILURE
+        print result
+    return SUCCESS
+
+
 if __name__ == '__main__':
     usage = """
 %(prog)s
@@ -992,6 +1040,13 @@ Commands:
     declare_bad_file_replicas_parser.add_argument('--reason', dest='reason', required=True, action='store', help='Reason')
     declare_bad_file_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='Reason')
 
+    # The list-pfns command
+    list_pfns_parser = rep_subparser.add_parser('list-pfns', help='List the possible PFN for a file at a site.')
+    list_pfns_parser.set_defaults(which='list_pfns')
+    list_pfns_parser.add_argument(dest='dids', action='store', help='List of DIDs (coma separated)')
+    list_pfns_parser.add_argument(dest='rse', action='store', help='RSE')
+    list_pfns_parser.add_argument(dest='protocol', action='store', default='srm', help='The protocol, by default srm, can be one of [root|srm|http(s)].')
+
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
                 'list_account_attributes': list_account_attributes,
@@ -1023,7 +1078,8 @@ Commands:
                 'list_subscriptions': list_subscriptions,
                 'update_subscription': update_subscription,
                 'reevaluate_did_for_subscription': reevaluate_did_for_subscription,
-                'declare_bad_file_replicas': declare_bad_file_replicas}
+                'declare_bad_file_replicas': declare_bad_file_replicas,
+                'list_pfns': list_pfns}
 
     argcomplete.autocomplete(oparser)
 
