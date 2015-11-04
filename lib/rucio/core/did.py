@@ -1202,27 +1202,32 @@ def __resolve_bytes_length_events_did(scope, name, session):
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
 
-    bytes, length, events = None, 0, None
+    bytes, length, events = 0, 0, 0
     if did.did_type == DIDType.FILE:
-        bytes = did.bytes
-        length = 1
-        events = did.events
+        bytes, length, events = did.bytes, 1, did.events
     elif did.did_type == DIDType.DATASET:
-        length, bytes, events = session.query(func.count(models.DataIdentifierAssociation.scope),
-                                              func.sum(models.DataIdentifierAssociation.bytes),
-                                              func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=scope, name=name).one()
+        try:
+            length, bytes, events = session.query(func.count(models.DataIdentifierAssociation.scope),
+                                                  func.sum(models.DataIdentifierAssociation.bytes),
+                                                  func.sum(models.DataIdentifierAssociation.events)).\
+                filter_by(scope=scope, name=name).\
+                one()
+        except NoResultFound:
+            length, bytes, events = 0, 0, 0
+
     elif did.did_type == DIDType.CONTAINER:
         for dataset in list_child_datasets(scope=scope, name=name, session=session):
-            tmp_length, tmp_bytes, tmp_events = session.query(func.count(models.DataIdentifierAssociation.scope),
-                                                              func.sum(models.DataIdentifierAssociation.bytes),
-                                                              func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=dataset['scope'], name=dataset['name']).one()
-            if tmp_bytes:
-                if not bytes:
-                    bytes = 0
-                bytes += tmp_bytes
+            try:
+                tmp_length, tmp_bytes, tmp_events = session.query(func.count(models.DataIdentifierAssociation.scope),
+                                                                  func.sum(models.DataIdentifierAssociation.bytes),
+                                                                  func.sum(models.DataIdentifierAssociation.events)).\
+                    filter_by(scope=dataset['scope'], name=dataset['name']).\
+                    one()
+            except NoResultFound:
+                tmp_length, tmp_bytes, tmp_events = 0, 0, 0
+
+            bytes += tmp_bytes
             length += tmp_length
-            if tmp_events:
-                if not events:
-                    events = 0
-                events += tmp_events
+            events += tmp_events
+
     return (bytes, length, events)
