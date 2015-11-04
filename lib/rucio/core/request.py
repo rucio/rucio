@@ -820,7 +820,7 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
         if started_at:
             update_items['started_at'] = started_at
         if src_rse_id:
-            update_items['src_rse_id'] = src_rse_id
+            update_items['source_rse_id'] = src_rse_id
 
         if transfer_id:
             rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update(update_items, synchronize_session=False)
