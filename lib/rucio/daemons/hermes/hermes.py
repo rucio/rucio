@@ -69,7 +69,7 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
     live(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
     graceful_stop.wait(1)
 
-    email_from = config_get('hermes', 'email_from')
+    email_from = config_get('messaging-hermes', 'email_from')
 
     while not graceful_stop.is_set():
 
