@@ -148,3 +148,21 @@ proxy = /opt/rucio/etc/ddmadmin.proxy.nagios
 rses = SARA-MATRIX_DATADISK, TAIWAN-LCG2_DATADISK
 cache = /opt/rucio/auditor-cache
 results = /opt/rucio/auditor-results
+
+[hermes]
+email_from = Rucio <atlas-adc-ddm-support@cern.ch>
+email_test = spamspamspam@cern.ch
+
+[c3po]
+placement_algorithm = simple
+elastic_url = http://aianalytics01.cern.ch:9200
+
+[c3po-workload]
+panda_url = http://bigpanda.cern.ch/jobs/?category=production&jobstatus=running&cloud=DE
+window = 3600
+redis_host = localhost
+redis_port = 6379
+
+[c3po-site-mapper]
+panda_url = http://atlas-agis-api.cern.ch/request/pandaqueue/query/list/?json
+ddm_url = http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json
