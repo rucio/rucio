@@ -744,17 +744,74 @@ def list_files(scope, name, long=False, session=None):
     :param session:    The database session in use.
     """
     try:
-        did = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.bytes, models.DataIdentifier.adler32, models.DataIdentifier.guid,
-                            models.DataIdentifier.events, models.DataIdentifier.lumiblocknr, models.DataIdentifier.did_type).filter_by(scope=scope, name=name).\
-            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
+        did = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
+                            models.DataIdentifier.bytes, models.DataIdentifier.adler32,
+                            models.DataIdentifier.guid, models.DataIdentifier.events,
+                            models.DataIdentifier.lumiblocknr,
+                            models.DataIdentifier.did_type).\
+            filter_by(scope=scope, name=name).\
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+            one()
         if did[7] == DIDType.FILE:
             if long:
-                yield {'scope': did[0], 'name': did[1], 'bytes': did[2], 'adler32': did[3], 'guid': did[4] and did[4].upper(), 'events': did[5], 'lumiblocknr': did[6]}
+                yield {'scope': did[0], 'name': did[1], 'bytes': did[2],
+                       'adler32': did[3], 'guid': did[4] and did[4].upper(),
+                       'events': did[5], 'lumiblocknr': did[6]}
             else:
-                yield {'scope': did[0], 'name': did[1], 'bytes': did[2], 'adler32': did[3], 'guid': did[4] and did[4].upper(), 'events': did[5]}
+                yield {'scope': did[0], 'name': did[1], 'bytes': did[2],
+                       'adler32': did[3], 'guid': did[4] and did[4].upper(),
+                       'events': did[5]}
+        elif did[7] == DIDType.DATASET:
+            if long:
+                query = session.query(models.DataIdentifierAssociation.child_scope,
+                                      models.DataIdentifierAssociation.child_name,
+                                      models.DataIdentifierAssociation.child_type,
+                                      models.DataIdentifierAssociation.bytes,
+                                      models.DataIdentifierAssociation.adler32,
+                                      models.DataIdentifierAssociation.guid,
+                                      models.DataIdentifierAssociation.events,
+                                      models.DataIdentifier.lumiblocknr
+                                      ).\
+                    with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
+                    with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+                    filter(and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
+                                models.DataIdentifier.name == models.DataIdentifierAssociation.child_name)).\
+                    filter(and_(models.DataIdentifierAssociation.scope == scope,
+                                models.DataIdentifierAssociation.name == name))
+            else:
+                query = session.query(models.DataIdentifierAssociation.child_scope,
+                                      models.DataIdentifierAssociation.child_name,
+                                      models.DataIdentifierAssociation.child_type,
+                                      models.DataIdentifierAssociation.bytes,
+                                      models.DataIdentifierAssociation.adler32,
+                                      models.DataIdentifierAssociation.guid,
+                                      models.DataIdentifierAssociation.events).\
+                    with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
+                    filter(and_(models.DataIdentifierAssociation.scope == scope,
+                                models.DataIdentifierAssociation.name == name))
+
+            for row in query.yield_per(1000):
+                if long:
+                    child_scope, child_name, child_type, bytes, adler32, guid, events, lumiblocknr = row
+                    yield {'scope': child_scope, 'name': child_name,
+                           'bytes': bytes, 'adler32': adler32,
+                           'guid': guid and guid.upper(),
+                           'events': events,
+                           'lumiblocknr': lumiblocknr}
+                else:
+                    child_scope, child_name, child_type, bytes, adler32, guid, events = row
+                    yield {'scope': child_scope, 'name': child_name,
+                           'bytes': bytes, 'adler32': adler32,
+                           'guid': guid and guid.upper(),
+                           'events': events}
         else:
-            query = session.query(models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_type, models.DataIdentifierAssociation.bytes,
-                                  models.DataIdentifierAssociation.adler32, models.DataIdentifierAssociation.guid, models.DataIdentifierAssociation.events).\
+            query = session.query(models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifierAssociation.child_type,
+                                  models.DataIdentifierAssociation.bytes,
+                                  models.DataIdentifierAssociation.adler32,
+                                  models.DataIdentifierAssociation.guid,
+                                  models.DataIdentifierAssociation.events).\
                 with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
             dids = [(scope, name), ]
             while dids:
@@ -764,10 +821,15 @@ def list_files(scope, name, long=False, session=None):
                         if long:
                             child_did_query = session.query(models.DataIdentifier).filter_by(scope=child_scope, name=child_name).one()
                             yield {'scope': child_scope, 'name': child_name,
-                                   'bytes': bytes, 'adler32': adler32, 'guid': guid and guid.upper(), 'events': events, 'lumiblocknr': child_did_query.lumiblocknr}
+                                   'bytes': bytes, 'adler32': adler32,
+                                   'guid': guid and guid.upper(),
+                                   'events': events,
+                                   'lumiblocknr': child_did_query.lumiblocknr}
                         else:
                             yield {'scope': child_scope, 'name': child_name,
-                                   'bytes': bytes, 'adler32': adler32, 'guid': guid and guid.upper(), 'events': events}
+                                   'bytes': bytes, 'adler32': adler32,
+                                   'guid': guid and guid.upper(),
+                                   'events': events}
                     else:
                         dids.append((child_scope, child_name))
     except NoResultFound:
