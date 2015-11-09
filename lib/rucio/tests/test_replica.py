@@ -259,9 +259,9 @@ class TestReplicaClients:
         self.replica_client.add_replicas(rse='MOCK', files=files)
 
         # Listing replicas on deterministic RSE
-        replicas = []
-        list_rep = []
-        for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+        replicas, list_rep = [], []
+        # self.replica_client
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK'])
             list_rep.append(replica)
         r = self.replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
@@ -292,9 +292,8 @@ class TestReplicaClients:
         self.replica_client.add_replicas(rse='MOCK2', files=files)
 
         # Listing replicas on non-deterministic RSE
-        replicas = []
-        list_rep = []
-        for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+        replicas, list_rep = [], []
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK2'])
             list_rep.append(replica)
         r = self.replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
@@ -480,14 +479,18 @@ class TestReplicaMetalink:
     def test_list_replicas_metalink_3(self):
         """ REPLICA (METALINK): List replicas as metalink version 3 """
         ml = xmltodict.parse(self.replica_client.list_replicas(self.files,
-                                                               metalink=3, unavailable=True),
+                                                               metalink=3,
+                                                               unavailable=True,
+                                                               schemes=['https', 'sftp', 'file']),
                              xml_attribs=False)
         assert_equal(3, len(ml['metalink']['files']['file']['resources']['url']))
 
     def test_list_replicas_metalink_4(self):
         """ REPLICA (METALINK): List replicas as metalink version 4 """
         ml = xmltodict.parse(self.replica_client.list_replicas(self.files,
-                                                               metalink=4, unavailable=True),
+                                                               metalink=4,
+                                                               unavailable=True,
+                                                               schemes=['https', 'sftp', 'file']),
                              xml_attribs=False)
         assert_equal(3, len(ml['metalink']['file']['url']))
 
