@@ -1,0 +1,4 @@
+[EXAMPLE-RSE-2]
+
+EXAMPLE-RSE-2_DATADISK=srm://srm.example-2-rse.com:8443/atlas/dumps/EXAMPLE-2_SE_DUMP_%Y_%m_%d/atlasdatadisk.dump.gz
+EXAMPLE-RSE-2_SCRATCHDISK=srm://srm.example-2-rse.com:8443/atlas/dumps/EXAMPLE-2_SE_DUMP_%Y_%m_%d/atlasscratchdisk.dump.gz

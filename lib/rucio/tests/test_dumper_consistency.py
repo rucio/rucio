@@ -1,0 +1,391 @@
+
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Fernando Lopez, <felopez@cern.ch>, 2015
+from datetime import datetime
+from nose.tools import eq_
+from nose.tools import ok_
+from rucio.common import dumper
+from rucio.common.dumper.consistency import Consistency
+from rucio.common.dumper.consistency import _try_to_advance
+from rucio.common.dumper.consistency import compare3
+from rucio.common.dumper.consistency import gnu_sort
+from rucio.common.dumper.consistency import min3
+from rucio.common.dumper.consistency import parse_and_filter_file
+from rucio.tests.common import make_temp_file
+from rucio.tests.common import stubbed
+import os
+import requests
+import shutil
+import tempfile
+
+
+class TestConsistency(object):
+    case_mixed_rrd_1 = [
+        'path1,A',
+        'path20,U',
+        'path01,U',
+        'path23,U',
+        'path26,A',
+        'path6,A',
+    ]
+    case_mixed_sed = [
+        'path1',
+        'path66',
+        'path46',
+        'path20',
+        'pathsda',
+    ]
+    case_mixed_rrd_2 = [
+        'path1,A',
+        'path26,A',
+        'path01,U',
+        'path6,A',
+        'path20,A',
+    ]
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        self.fake_agis_data = lambda _: [{
+            'name': 'MOCK_SCRATCHDISK',
+            'se': 'srm://example.com:8446/',
+            'endpoint': '/pnfs/example.com/atlas/atlasdatadisk/'
+        }]
+
+    def teardown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def test_consistency_manual_correct_file_default_args(self):
+        rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
+        storage_dump = 'user/someuser/aa/bb/user.someuser.filename\n'
+
+        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump)
+        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
+        sdf = make_temp_file(self.tmp_dir, storage_dump)
+
+        with stubbed(dumper.agis_endpoints_data, self.fake_agis_data):
+            consistency = Consistency.dump(
+                'consistency-manual',
+                'MOCK_SCRATCHDISK',
+                sdf,
+                prev_date_fname=rrdf1,
+                next_date_fname=rrdf2,
+                cache_dir=self.tmp_dir,
+            )
+            eq_(len(list(consistency)), 0)
+
+    def test_consistency_manual_lost_file(self):
+        rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
+        rucio_dump += 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename2\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename2\t2015-09-20 21:22:17\tA\n'
+        storage_dump = 'user/someuser/aa/bb/user.someuser.filename\n'
+
+        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump)
+        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
+        sdf = make_temp_file(self.tmp_dir, storage_dump)
+
+        with stubbed(dumper.agis_endpoints_data, self.fake_agis_data):
+            consistency = Consistency.dump(
+                'consistency-manual',
+                'MOCK_SCRATCHDISK',
+                sdf,
+                prev_date_fname=rrdf1,
+                next_date_fname=rrdf2,
+                cache_dir=self.tmp_dir,
+            )
+            consistency = list(consistency)
+        eq_(len(consistency), 1)
+        eq_(consistency[0].apparent_status, 'LOST')
+        eq_(consistency[0].path, 'user/someuser/aa/bb/user.someuser.filename2')
+
+    def test_consistency_manual_transient_file_is_not_lost(self):
+        rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
+        rucio_dump_1 = rucio_dump + 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename2\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename2\t2015-09-20 21:22:17\tU\n'
+        rucio_dump_2 = rucio_dump + 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename2\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename2\t2015-09-20 21:22:17\tA\n'
+        storage_dump = 'user/someuser/aa/bb/user.someuser.filename\n'
+
+        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump_1)
+        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump_2)
+        sdf = make_temp_file(self.tmp_dir, storage_dump)
+
+        with stubbed(dumper.agis_endpoints_data, self.fake_agis_data):
+            consistency = Consistency.dump(
+                'consistency-manual',
+                'MOCK_SCRATCHDISK',
+                sdf,
+                prev_date_fname=rrdf1,
+                next_date_fname=rrdf2,
+                cache_dir=self.tmp_dir,
+            )
+            eq_(len(list(consistency)), 0)
+
+    def test_consistency_manual_dark_file(self):
+        rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
+        storage_dump = 'user/someuser/aa/bb/user.someuser.filename\n'
+        storage_dump += 'user/someuser/aa/bb/user.someuser.filename2\n'
+
+        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump)
+        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
+        sdf = make_temp_file(self.tmp_dir, storage_dump)
+        with stubbed(dumper.agis_endpoints_data, self.fake_agis_data):
+            consistency = Consistency.dump(
+                'consistency-manual',
+                'MOCK_SCRATCHDISK',
+                sdf,
+                prev_date_fname=rrdf1,
+                next_date_fname=rrdf2,
+                cache_dir=self.tmp_dir,
+            )
+            consistency = list(consistency)
+
+        eq_(len(consistency), 1)
+        eq_(consistency[0].apparent_status, 'DARK')
+        eq_(consistency[0].path, 'user/someuser/aa/bb/user.someuser.filename2')
+
+    def test_consistency_manual_multiple_slashes_in_storage_dump_do_not_generate_false_positive(self):
+        rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
+        storage_dump = '/pnfs/example.com/atlas///atlasdatadisk/rucio//user/someuser/aa/bb/user.someuser.filename\n'
+
+        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump)
+        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
+        sdf = make_temp_file(self.tmp_dir, storage_dump)
+        with stubbed(dumper.agis_endpoints_data, self.fake_agis_data):
+            consistency = Consistency.dump(
+                'consistency-manual',
+                'MOCK_SCRATCHDISK',
+                sdf,
+                prev_date_fname=rrdf1,
+                next_date_fname=rrdf2,
+                cache_dir=self.tmp_dir,
+            )
+            consistency = list(consistency)
+
+        eq_(len(consistency), 0, [e.csv() for e in consistency])
+
+    def test_consistency(self):
+        rucio_dump_1 = (
+            'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
+            'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.lost\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.lost\t2015-09-20 21:22:17\tA\n'
+        )
+        rucio_dump_2 = (
+            'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
+            'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.lost\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.lost\t2015-09-20 21:22:17\tA\n'
+        )
+        storage_dump = (
+            '/pnfs/example.com/atlas///atlasdatadisk/rucio//user/someuser/aa/bb/user.someuser.filename\n'
+            '/pnfs/example.com/atlas///atlasdatadisk/rucio//user/someuser/aa/bb/user.someuser.dark\n'
+        )
+        sd = make_temp_file(self.tmp_dir, storage_dump)
+
+        def fake_get(slf, url, stream=False):
+            response = requests.Response()
+            response.status_code = 200
+            if '29-09-2015' in url:
+                response.iter_content = lambda _: [rucio_dump_1]
+            else:
+                response.iter_content = lambda _: [rucio_dump_2]
+            return response
+
+        def fake_head(slf, url):
+            response = requests.Response()
+            response.status_code = 200
+            return response
+
+        agisdata = [{
+            'name': 'MOCK_SCRATCHDISK',
+            'se': 'srm://example.com/',
+            'endpoint': 'pnfs/example.com/atlas/atlasdatadisk/',
+        }]
+        with stubbed(dumper.agis_endpoints_data, lambda: agisdata):
+            with stubbed(requests.Session.get, fake_get):
+                with stubbed(requests.Session.head, fake_head):
+                        consistency = Consistency.dump(
+                            'consistency',
+                            'MOCK_SCRATCHDISK',
+                            storage_dump=sd,
+                            prev_date=datetime(2015, 9, 29),
+                            next_date=datetime(2015, 10, 4),
+                            cache_dir=self.tmp_dir,
+                        )
+                        consistency = list(consistency)
+
+        eq_(len(consistency), 2)
+        dark = next(
+            entry.path for entry in consistency if entry.apparent_status == 'DARK'
+        )
+        lost = next(
+            entry.path for entry in consistency if entry.apparent_status == 'LOST'
+        )
+        ok_('user.someuser.dark' in dark)
+        ok_('user.someuser.lost' in lost)
+
+    def test__try_to_advance(self):
+        i = iter(['   abc  '])
+        eq_(_try_to_advance(i), 'abc')
+        eq_(_try_to_advance(i), None)
+        eq_(_try_to_advance(i, 42), 42)
+
+    def test_compare3(self):
+        sorted_rdd_1 = sorted(self.case_mixed_rrd_1, key=lambda s: s.split(',')[0])
+        sorted_rdd_2 = sorted(self.case_mixed_rrd_2, key=lambda s: s.split(',')[0])
+        sorted_sed = sorted(self.case_mixed_sed)
+
+        comp = list(compare3(sorted_rdd_1, sorted_sed, sorted_rdd_2))
+
+        eq_(
+            sorted(comp),
+            sorted([
+                ('path1', (True, True, True), ('A', 'A')),
+                ('path20', (True, True, True), ('U', 'A')),
+                ('path01', (True, False, True), ('U', 'U')),
+                ('path23', (True, False, False), ('U', None)),
+                ('path26', (True, False, True), ('A', 'A')),
+                ('path6', (True, False, True), ('A', 'A')),
+                ('path66', (False, True, False), (None, None)),
+                ('path46', (False, True, False), (None, None)),
+                ('pathsda', (False, True, False), (None, None)),
+            ]),
+        )
+
+    def test_compare3_file_name_with_comma_in_storage_dump_ATLDDMOPS_4105(self):
+        rucio_replica_dump = 'user/mfauccig/8d/46/user.mfauccig.410000.PowhegPythiaEvtGen.DAOD_TOPQ1.e3698_s2608_s2183_r6630_r6264_p2377.v1.log.6466214.000001.log.tgz,A'
+        storage_dump = 'user/mdobre/01/6b/user.mdobre.C1C1bkg.WWVBH,nometcut.0711.log.4374089.000029.log.tgz'
+        results = list(compare3([rucio_replica_dump], [storage_dump], [rucio_replica_dump]))
+        eq_(
+            results,
+            [
+                (
+                    'user/mdobre/01/6b/user.mdobre.C1C1bkg.WWVBH,nometcut.0711.log.4374089.000029.log.tgz',
+                    (False, True, False),
+                    (None, None),
+                ),
+                (
+                    'user/mfauccig/8d/46/user.mfauccig.410000.PowhegPythiaEvtGen.DAOD_TOPQ1.e3698_s2608_s2183_r6630_r6264_p2377.v1.log.6466214.000001.log.tgz',
+                    (True, False, True),
+                    ('A', 'A'),
+                ),
+            ],
+        )
+
+    def test_min3_simple_strings(self):
+        eq_(min3('a', 'b', 'c'), 'a')
+
+    def test_min3_repeated_strings(self):
+        eq_(min3('b', 'a', 'a'), 'a')
+
+    def test_min3_parsing_the_strings_is_not_a_responsability_of_this_function(self):
+        # FIXME: Remove
+        eq_(min3('a,b', 'cab', 'b,a'), 'a,b')
+
+    def test_parse_and_filter_file_default_parameters(self):
+        fake_data = 'asd\nasda\n'
+        path = make_temp_file(self.tmp_dir, fake_data)
+
+        parsed_file = parse_and_filter_file(path, cache_dir=self.tmp_dir)
+        with open(parsed_file) as f:
+            data = f.read()
+
+        eq_(fake_data.replace('\n', '\n\n'), data)
+
+        os.unlink(path)
+        os.unlink(parsed_file)
+
+    def test_parse_and_filter_file_parser_function(self):
+        fake_data = 'asd\nasda\n'
+        path = make_temp_file(self.tmp_dir, fake_data)
+
+        parsed_file = parse_and_filter_file(path, parser=str.strip, cache_dir=self.tmp_dir)
+        with open(parsed_file) as f:
+            data = f.read()
+        eq_(fake_data, data)
+
+        os.unlink(path)
+        os.unlink(parsed_file)
+
+    def test_parse_and_filter_file_filter_function(self):
+        fake_data = 'asd\nasda\n'
+        path = make_temp_file(self.tmp_dir, fake_data)
+
+        parsed_file = parse_and_filter_file(path, filter_=lambda s: s == 'asd\n', cache_dir=self.tmp_dir)
+        with open(parsed_file) as f:
+            data = f.read()
+
+        eq_('asd\n\n', data)
+
+        os.unlink(path)
+        os.unlink(parsed_file)
+
+    def test_parse_and_filter_file_default_naming(self):
+        path = make_temp_file(self.tmp_dir, 'x\n')
+
+        parsed_file = parse_and_filter_file(path, cache_dir=self.tmp_dir)
+
+        eq_(parsed_file, os.path.join(self.tmp_dir, os.path.basename(path) + '_parsed'))
+
+        os.unlink(path)
+        os.unlink(parsed_file)
+
+    def test_parse_and_filter_file_prefix_specified(self):
+        path = make_temp_file(self.tmp_dir, 'x\n')
+
+        parsed_file = parse_and_filter_file(path, prefix=path + 'X', cache_dir=self.tmp_dir)
+
+        eq_(parsed_file, path + 'X_parsed')
+
+        os.unlink(path)
+        os.unlink(parsed_file)
+
+    def test_parse_and_filter_file_prefix_and_postfix_specified(self):
+        path = make_temp_file(self.tmp_dir, 'x\n')
+
+        parsed_file = parse_and_filter_file(path, prefix=path + 'X', postfix='Y', cache_dir=self.tmp_dir)
+
+        eq_(parsed_file, path + 'X_Y')
+
+        os.unlink(path)
+        os.unlink(parsed_file)
+
+    def test_gnu_sort_and_the_current_version_of_python_sort_strings_using_byte_value(self):
+        unsorted_data_list = ['z\n', 'a\n', '\xc3\xb1\n']
+        unsorted_data = ''.join(unsorted_data_list)
+        sorted_data = ''.join(['a\n', 'z\n', '\xc3\xb1\n'])
+
+        path = make_temp_file(self.tmp_dir, unsorted_data)
+        sorted_file = gnu_sort(path, cache_dir=self.tmp_dir)
+
+        with open(sorted_file) as f:
+            eq_(
+                f.read(),
+                sorted_data,
+                'GNU Sort must sort comparing byte by byte (export '
+                'LC_ALL=C) to be faster and consistent with Python 2.'
+            )
+
+        os.unlink(path)
+        os.unlink(sorted_file)
+
+        python_sort = ''.join(sorted(unsorted_data_list))
+        eq_(
+            python_sort,
+            sorted_data,
+            'Current Python interpreter must sort strings comparing byte by '
+            'byte, it is important to use the same ordering as the one used '
+            'with GNU Sort. Note Python 3 uses unicode by default.'
+        )
+
+    def test_gnu_sort_can_sort_by_field(self):
+        unsorted_data = ''.join(['1,z\n', '2,a\n', '3,\xc3\xb1\n'])
+        sorted_data = ''.join(['2,a\n', '1,z\n', '3,\xc3\xb1\n'])
+
+        path = make_temp_file(self.tmp_dir, unsorted_data)
+        sorted_file = gnu_sort(path, delimiter=',', fieldspec='2', cache_dir=self.tmp_dir)
+
+        with open(sorted_file) as f:
+            eq_(f.read(), sorted_data)
+
+        os.unlink(path)
+        os.unlink(sorted_file)
