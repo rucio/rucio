@@ -235,8 +235,8 @@ class TestReplicaCore:
         replica_cpt = 0
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], all_states=True):
             assert_in('states', replica)
-            assert_equal(replica['states']['MOCK'], ReplicaState.COPYING)
-            assert_equal(replica['states']['MOCK3'], ReplicaState.AVAILABLE)
+            assert_equal(replica['states']['MOCK'], str(ReplicaState.COPYING))
+            assert_equal(replica['states']['MOCK3'], str(ReplicaState.AVAILABLE))
             replica_cpt += 1
 
         assert_equal(nbfiles, replica_cpt)
