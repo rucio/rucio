@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
@@ -260,8 +260,7 @@ class TestReplicaClients:
 
         # Listing replicas on deterministic RSE
         replicas, list_rep = [], []
-        # self.replica_client
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+        for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK'])
             list_rep.append(replica)
         r = self.replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
@@ -293,7 +292,7 @@ class TestReplicaClients:
 
         # Listing replicas on non-deterministic RSE
         replicas, list_rep = [], []
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+        for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK2'])
             list_rep.append(replica)
         r = self.replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
