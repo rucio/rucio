@@ -686,7 +686,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
             if 'scope' in file and 'name' in file:
                 if file['scope'] == scope and file['name'] == name:
                     file['rses'][rse] += pfns
-                    file['states'][rse] = state
+                    file['states'][rse] = str(state)
                     for pfn in pfns:
                         file['pfns'][pfn] = {'rse': rse, 'type': str(rse_type)}
                 else:
@@ -697,7 +697,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                 file = {'scope': scope, 'name': name, 'bytes': bytes,
                         'md5': md5, 'adler32': adler32,
                         'pfns': {}, 'rses': defaultdict(list),
-                        'states': {rse: state}}
+                        'states': {rse: str(state)}}
                 if rse:
                     file['rses'][rse] = pfns
                     for pfn in pfns:
