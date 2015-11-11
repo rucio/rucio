@@ -79,6 +79,8 @@ ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/rucio.events
 brokers = atlas-test-mb.cern.ch
 voname = atlas
+email_from = Rucio <atlas-adc-ddm-support@cern.ch>
+email_test = spamspamspam@cern.ch
 
 [transmogrifier]
 maxdids = 100000
@@ -141,7 +143,3 @@ usercert = /opt/rucio/etc/web/usercert.pem
 
 [nagios]
 proxy = /opt/rucio/etc/ddmadmin.proxy.nagios
-
-[hermes]
-email_from = Rucio <atlas-adc-ddm-support@cern.ch>
-email_test = spamspamspam@cern.ch
