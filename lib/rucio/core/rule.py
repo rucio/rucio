@@ -100,7 +100,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise StagingAreaRuleRequiresLifetime()
 
             # Auto-lock rules for TAPE rses
-            if not locked:
+            if not locked and lifetime is None:
                 if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
                     locked = True
 
@@ -301,7 +301,7 @@ def add_rules(dids, rules, session=None):
                             raise StagingAreaRuleRequiresLifetime()
 
                     # Auto-lock rules for TAPE rses
-                    if not rule.get('locked', False):
+                    if not rule.get('locked', False) and rule.get('lifetime', None) is None:
                         if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
                             rule['locked'] = True
 
@@ -436,7 +436,7 @@ def inject_rule(rule_id, session=None):
                 raise StagingAreaRuleRequiresLifetime()
 
         # Auto-lock rules for TAPE rses
-        if not rule.locked:
+        if not rule.locked and rule.expires_at is None:
             if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
                 rule.locked = True
 
