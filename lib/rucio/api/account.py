@@ -23,12 +23,14 @@ from rucio.common.schema import validate_schema
 from rucio.db.sqla.constants import AccountType
 
 
-def add_account(account, type, issuer):
+def add_account(account, type, email, issuer):
     """
     Creates an account with the provided account name, contact information, etc.
 
     :param account: The account name.
     :param type: The account type
+    :param email: The Email address associated with the account.
+
     :param issuer: The issuer account_core.
 
     """
@@ -39,7 +41,7 @@ def add_account(account, type, issuer):
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_account', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add account' % (issuer))
 
-    account_core.add_account(account, AccountType.from_sym(type))
+    account_core.add_account(account, AccountType.from_sym(type), email)
 
 
 def del_account(account, issuer):

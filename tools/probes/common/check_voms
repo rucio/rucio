@@ -146,7 +146,8 @@ if __name__ == '__main__':
                                 account = nickname
                                 if account not in accounts:
                                     try:
-                                        client.add_account(account=account, type='USER')
+                                        client.add_account(account=account, type='USER',
+                                                           email=email)
                                         print 'Account %(account)s added' % locals()
                                     except Duplicate:
                                         pass

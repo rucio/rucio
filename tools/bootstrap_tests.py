@@ -18,7 +18,7 @@ from rucio.core.account import add_account_attribute
 if __name__ == '__main__':
     c = Client()
     try:
-        c.add_account('jdoe', 'SERVICE')
+        c.add_account('jdoe', 'SERVICE', 'jdoe@email.com')
     except Duplicate:
         print 'Account jdoe already added' % locals()
 
@@ -28,7 +28,7 @@ if __name__ == '__main__':
         print e
 
     try:
-        c.add_account('panda', 'SERVICE')
+        c.add_account('panda', 'SERVICE', 'panda@email.com')
         add_account_attribute(account='panda', key='admin', value=True)
     except Duplicate:
         print 'Account panda already added' % locals()
