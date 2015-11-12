@@ -772,8 +772,9 @@ def list_files(scope, name, long=False, session=None):
                                       models.DataIdentifierAssociation.events,
                                       models.DataIdentifier.lumiblocknr
                                       ).\
-                    with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
-                    with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+                    with_hint(models.DataIdentifierAssociation,
+                              "INDEX(DIDS DIDS_PK) INDEX(CONTENTS CONTENTS_PK)",
+                              "oracle").\
                     filter(and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
                                 models.DataIdentifier.name == models.DataIdentifierAssociation.child_name)).\
                     filter(and_(models.DataIdentifierAssociation.scope == scope,
