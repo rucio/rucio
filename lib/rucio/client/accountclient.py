@@ -30,16 +30,19 @@ class AccountClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
         super(AccountClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
-    def add_account(self, account, type):
+    def add_account(self, account, type, email):
         """
         Sends the request to create a new account.
 
         :param account: the name of the account.
+        :param type: The account type
+        :param email: The Email address associated with the account.
+
         :return: True if account was created successfully else False.
         :raises Duplicate: if account already exists.
         """
 
-        data = dumps({'type': type})
+        data = dumps({'type': type, 'email': email})
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
         url = build_url(choice(self.list_hosts), path=path)
 
