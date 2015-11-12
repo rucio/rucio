@@ -54,13 +54,21 @@ class MappingCollector:
             MappingCollector.instance = MappingCollector.__MappingCollector()
 
     def ddm_to_site(self, ddm):
+        if ddm not in self.instance._ddm_to_site:
+            return None
         return self.instance._ddm_to_site[ddm]
 
     def panda_to_site(self, panda):
+        if panda not in self.instance._panda_to_site:
+            return None
         return self.instance._panda_to_site[panda]
 
     def site_to_ddm(self, site):
+        if site not in self.instance._site_to_ddm:
+            return None
         return self.instance._site_to_ddm[site]
 
     def site_to_panda(self, site):
+        if site not in self.instance._site_to_panda:
+            return None
         return self.instance._site_to_panda[site]
