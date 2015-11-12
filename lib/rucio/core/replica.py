@@ -573,7 +573,6 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, session):
     if state_clause is not None:
         replica_query.filter(and_(state_clause))
 
-    # ToDo: Hint
     for replica in replica_query.yield_per(500):
         yield replica
 
