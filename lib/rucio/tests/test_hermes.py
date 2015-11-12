@@ -22,7 +22,7 @@ class TestHermes:
         ''' HERMES (DAEMON): Test the messaging daemon. '''
         for i in xrange(1, 4):
             add_message('test-type_%i' % i, {'test': i})
-            add_message('email', {'to': config_get('hermes', 'email_test').split(','),
+            add_message('email', {'to': config_get('messaging-hermes', 'email_test').split(','),
                                   'subject': 'Half-Life %i' % i,
                                   'body': '''
                                   Good morning, and welcome to the Black Mesa Transit System.
