@@ -233,7 +233,7 @@ class TestAccountRestApi():
 
         acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER', 'email': 'rucio@gmail.com'})
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
