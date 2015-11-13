@@ -16,6 +16,7 @@
   - Wen Guan, <wen.guan@cern.ch>, 2015
 """
 
+from collections import defaultdict
 from datetime import datetime, timedelta
 from re import match
 from traceback import format_exc
@@ -478,8 +479,241 @@ def get_did_from_pfns(pfns, rse=None, session=None):
                 yield {pfndict[pfn]: {'scope': scope, 'name': name}}
 
 
+def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
+    """
+    resolve list of dids into a list of conditions.
+
+    :param dids: The list of data identifiers (DIDs).
+    :param unavailable: Also include unavailable replicas in the list.
+    :param ignore_availability: Ignore the RSE blacklisting.
+    :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
+    :param session: The database session in use.
+    """
+    did_clause, dataset_clause, file_clause, files = [], [], [], []
+    for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
+        if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):
+            files.append({'scope': did['scope'], 'name': did['name']})
+            file_clause.append(and_(models.RSEFileAssociation.scope == did['scope'],
+                                    models.RSEFileAssociation.name == did['name']))
+
+        else:
+            did_clause.append(and_(models.DataIdentifier.scope == did['scope'],
+                                   models.DataIdentifier.name == did['name']))
+
+    if did_clause:
+        for scope, name, did_type in session.query(models.DataIdentifier.scope,
+                                                   models.DataIdentifier.name, models.DataIdentifier.did_type).filter(or_(*did_clause)):
+            if did_type == DIDType.FILE:
+                files.append({'scope': scope, 'name': name})
+                file_clause.append(and_(models.RSEFileAssociation.scope == scope,
+                                        models.RSEFileAssociation.name == name))
+
+            elif did_type == DIDType.DATASET:
+                dataset_clause.append(and_(models.DataIdentifierAssociation.scope == scope,
+                                           models.DataIdentifierAssociation.name == name))
+
+            else:  # Container
+                content_query = session.query(models.DataIdentifierAssociation.child_scope,
+                                              models.DataIdentifierAssociation.child_name,
+                                              models.DataIdentifierAssociation.child_type)
+                content_query = content_query.with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
+                child_dids = [(scope, name)]
+                while child_dids:
+                    s, n = child_dids.pop()
+                    for tmp_did in content_query.filter_by(scope=s, name=n):
+                        if tmp_did.child_type == DIDType.DATASET:
+                            dataset_clause.append(and_(models.DataIdentifierAssociation.scope == tmp_did.child_scope,
+                                                       models.DataIdentifierAssociation.name == tmp_did.child_name))
+
+                        else:
+                            child_dids.append((tmp_did.child_scope, tmp_did.child_name))
+
+    state_clause = None
+    if not all_states:
+        if not unavailable:
+            if file_clause:
+                state_clause = models.RSEFileAssociation.state == ReplicaState.AVAILABLE
+        else:
+            state_clause = or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                               models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
+                               models.RSEFileAssociation.state == ReplicaState.COPYING)
+
+    return file_clause, dataset_clause, state_clause, files
+
+
+def _list_replicas_for_datasets(dataset_clause, state_clause, session):
+    """
+    List file replicas for a list of datasets.
+
+    :param session: The database session in use.
+    """
+    is_false = False
+    replica_query = session.query(models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifierAssociation.bytes,
+                                  models.DataIdentifierAssociation.md5,
+                                  models.DataIdentifierAssociation.adler32,
+                                  models.RSEFileAssociation.path,
+                                  models.RSEFileAssociation.state,
+                                  models.RSE.rse,
+                                  models.RSE.rse_type).\
+        with_hint(models.RSEFileAssociation,
+                  text="INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK)",
+                  dialect_name='oracle').\
+        outerjoin(models.RSEFileAssociation,
+                  and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                       models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).\
+        join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id).\
+        filter(models.RSE.deleted == is_false).\
+        filter(models.RSE.staging_area == is_false).\
+        filter(or_(*dataset_clause)).\
+        order_by(models.DataIdentifierAssociation.child_scope,
+                 models.DataIdentifierAssociation.child_name)
+
+    if state_clause is not None:
+        replica_query.filter(and_(state_clause))
+
+    for replica in replica_query.yield_per(500):
+        yield replica
+
+
+def _list_replicas_for_files(file_clause, state_clause, files, session):
+    """
+    List file replicas for a list of files.
+
+    :param session: The database session in use.
+    """
+    is_false = False
+    for replica_condition in chunks(file_clause, 50):
+        if state_clause is None:
+            replica_query = select(columns=(models.RSEFileAssociation.scope,
+                                            models.RSEFileAssociation.name,
+                                            models.RSEFileAssociation.bytes,
+                                            models.RSEFileAssociation.md5,
+                                            models.RSEFileAssociation.adler32,
+                                            models.RSEFileAssociation.path,
+                                            models.RSEFileAssociation.state,
+                                            models.RSE.rse,
+                                            models.RSE.rse_type),
+                                   whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id,
+                                                    models.RSE.deleted == is_false,
+                                                    models.RSE.staging_area == is_false,
+                                                    or_(*replica_condition)),
+                                   order_by=(models.RSEFileAssociation.scope,
+                                             models.RSEFileAssociation.name)).\
+                with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
+                compile()
+        else:
+            replica_query = select(columns=(models.RSEFileAssociation.scope,
+                                            models.RSEFileAssociation.name,
+                                            models.RSEFileAssociation.bytes,
+                                            models.RSEFileAssociation.md5,
+                                            models.RSEFileAssociation.adler32,
+                                            models.RSEFileAssociation.path,
+                                            models.RSEFileAssociation.state,
+                                            models.RSE.rse,
+                                            models.RSE.rse_type),
+                                   whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id,
+                                                    models.RSE.deleted == is_false,
+                                                    models.RSE.staging_area == is_false,
+                                                    state_clause,
+                                                    or_(*replica_condition)),
+                                   order_by=(models.RSEFileAssociation.scope,
+                                             models.RSEFileAssociation.name)).\
+                with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
+                compile()
+
+        for replica in session.execute(replica_query.statement, replica_query.params).fetchall():
+            {'scope': replica[0], 'name': replica[1]} in files and files.remove({'scope': replica[0], 'name': replica[1]})
+            yield replica
+
+    for file in files:
+        yield file['scope'], file['name'], None, None, None, None, None, None, None
+
+
+def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, session):
+
+    files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, session),
+             file_clause and _list_replicas_for_files(file_clause, state_clause, files, session)]
+
+    file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
+    for replicas in filter(None, files):
+        for scope, name, bytes, md5, adler32, path, state, rse, rse_type in replicas:
+
+            pfns = []
+            if show_pfns and rse:
+
+                if rse not in rse_info:
+                    rse_info[rse] = rsemgr.get_rse_info(rse, session=session)
+
+                if rse not in tmp_protocols:
+
+                    if not schemes:
+                        schemes = [rsemgr.select_protocol(rse_settings=rse_info[rse],
+                                                          operation='read')['scheme']]
+                    protocols = []
+                    for s in schemes:
+                        try:
+                            protocols.append(rsemgr.create_protocol(rse_settings=rse_info[rse],
+                                                                    operation='read',
+                                                                    scheme=s))
+                        except exception.RSEProtocolNotSupported:
+                            pass  # no need to be verbose
+                        except:
+                            print format_exc()
+                    tmp_protocols[rse] = protocols
+
+                # get pfns
+                for protocol in tmp_protocols[rse]:
+                    if 'determinism_type' in protocol.attributes:  # PFN is cachable
+                        try:
+                            path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)]
+                        except KeyError:  # No cache entry scope:name found for this protocol
+                            path = protocol._get_path(scope, name)
+                            pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)] = path
+
+                    if protocol.attributes['scheme'] in schemes:
+                        try:
+                            pfn = protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                            pfns.append(pfn)
+                        except:
+                            # temporary protection
+                            print format_exc()
+                        if protocol.attributes['scheme'] == 'srm':
+                            try:
+                                file['space_token'] = protocol.attributes['extended_attributes']['space_token']
+                            except KeyError:
+                                file['space_token'] = None
+
+            if 'scope' in file and 'name' in file:
+                if file['scope'] == scope and file['name'] == name:
+                    file['rses'][rse] += pfns
+                    file['states'][rse] = str(state)
+                    for pfn in pfns:
+                        file['pfns'][pfn] = {'rse': rse, 'type': str(rse_type)}
+                else:
+                    yield file
+                    file = {}
+
+            if not ('scope' in file and 'name' in file):
+                file = {'scope': scope, 'name': name, 'bytes': bytes,
+                        'md5': md5, 'adler32': adler32,
+                        'pfns': {}, 'rses': defaultdict(list),
+                        'states': {rse: str(state)}}
+                if rse:
+                    file['rses'][rse] = pfns
+                    for pfn in pfns:
+                        file['pfns'][pfn] = {'rse': rse, 'type': str(rse_type)}
+
+    if 'scope' in file and 'name' in file:
+        yield file
+        file = {}
+
+
 @stream_session
-def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore_availability=True, all_states=False, session=None):
+def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
+                  ignore_availability=True, all_states=False, pfns=True,
+                  session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -491,185 +725,12 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param session: The database session in use.
     """
-    # Get the list of files
-    rseinfo = {}
-    replicas = {}
-    replica_conditions, did_conditions = [], []
-    # remove duplicate did from the list
-    for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
-        if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):
-            if all_states:
-                condition = and_(models.RSEFileAssociation.scope == did['scope'],
-                                 models.RSEFileAssociation.name == did['name'])
-            else:
-                if not unavailable:
-                    condition = and_(models.RSEFileAssociation.scope == did['scope'],
-                                     models.RSEFileAssociation.name == did['name'],
-                                     models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
-                else:
-                    condition = and_(models.RSEFileAssociation.scope == did['scope'],
-                                     models.RSEFileAssociation.name == did['name'],
-                                     or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                         models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
-                                         models.RSEFileAssociation.state == ReplicaState.COPYING))
-            replicas['%s:%s' % (did['scope'], did['name'])] = {'scope': did['scope'], 'name': did['name'], 'rses': {}}
-            replica_conditions.append(condition)
-        else:
-            did_conditions.append(and_(models.DataIdentifier.scope == did['scope'],
-                                       models.DataIdentifier.name == did['name']))
+    file_clause, dataset_clause, state_clause, files = _resolve_dids(dids=dids, unavailable=unavailable,
+                                                                     ignore_availability=ignore_availability,
+                                                                     all_states=all_states, session=session)
 
-    if did_conditions:
-        # Get files
-        for scope, name, did_type in session.query(models.DataIdentifier.scope,
-                                                   models.DataIdentifier.name,
-                                                   models.DataIdentifier.did_type).filter(or_(*did_conditions)):
-            if did_type == DIDType.FILE:
-                replicas['%s:%s' % (scope, name)] = {'scope': scope, 'name': name, 'rses': {}}
-                if all_states:
-                    condition = and_(models.RSEFileAssociation.scope == scope,
-                                     models.RSEFileAssociation.name == name)
-                else:
-                    if not unavailable:
-                        condition = and_(models.RSEFileAssociation.scope == scope,
-                                         models.RSEFileAssociation.name == name,
-                                         models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
-                    else:
-                        condition = and_(models.RSEFileAssociation.scope == scope,
-                                         models.RSEFileAssociation.name == name,
-                                         or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                             models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
-                                             models.RSEFileAssociation.state == ReplicaState.COPYING))
-                replica_conditions.append(condition)
-            else:
-                # for dataset/container
-                content_query = session.query(models.DataIdentifierAssociation.child_scope,
-                                              models.DataIdentifierAssociation.child_name,
-                                              models.DataIdentifierAssociation.child_type)
-                content_query = content_query.with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
-                child_dids = [(scope, name)]
-                while child_dids:
-                    s, n = child_dids.pop()
-                    for tmp_did in content_query.filter_by(scope=s, name=n):
-                        if tmp_did.child_type == DIDType.FILE:
-                            replicas['%s:%s' % (tmp_did.child_scope, tmp_did.child_name)] = {'scope': tmp_did.child_scope,
-                                                                                             'name': tmp_did.child_name,
-                                                                                             'rses': {}}
-                            if all_states:
-                                condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
-                                                 models.RSEFileAssociation.name == tmp_did.child_name)
-                            else:
-                                if not unavailable:
-                                    condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
-                                                     models.RSEFileAssociation.name == tmp_did.child_name,
-                                                     models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
-                                else:
-                                    condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
-                                                     models.RSEFileAssociation.name == tmp_did.child_name,
-                                                     or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                         models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
-                                                         models.RSEFileAssociation.state == ReplicaState.COPYING))
-                            replica_conditions.append(condition)
-                        else:
-                            child_dids.append((tmp_did.child_scope, tmp_did.child_name))
-
-    # Get the list of replicas
-    is_false = False
-    tmp_protocols = {}
-    key = None
-    for replica_condition in chunks(replica_conditions, 50):
-
-        replica_query = select(columns=(models.RSEFileAssociation.scope,
-                                        models.RSEFileAssociation.name,
-                                        models.RSEFileAssociation.bytes,
-                                        models.RSEFileAssociation.md5,
-                                        models.RSEFileAssociation.adler32,
-                                        models.RSEFileAssociation.path,
-                                        models.RSEFileAssociation.state,
-                                        models.RSE.rse,
-                                        models.RSE.rse_type),
-                               whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                                models.RSE.deleted == is_false,
-                                                or_(*replica_condition)),
-                               order_by=(models.RSEFileAssociation.scope,
-                                         models.RSEFileAssociation.name)).\
-            with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
-            compile()
-        # models.RSE.availability.op(avail_op)(0x100) != 0
-        for scope, name, bytes, md5, adler32, path, state, rse, rse_type in session.execute(replica_query.statement, replica_query.params).fetchall():
-            if rse not in rseinfo:
-                rseinfo[rse] = rsemgr.get_rse_info(rse, session=session)
-            if not rseinfo[rse]['staging_area']:
-                if not key:
-                    key = '%s:%s' % (scope, name)
-                elif key != '%s:%s' % (scope, name):
-                    yield replicas[key]
-                    del replicas[key]
-                    key = '%s:%s' % (scope, name)
-
-                if 'bytes' not in replicas[key]:
-                    replicas[key]['bytes'] = bytes
-                    replicas[key]['md5'] = md5
-                    replicas[key]['adler32'] = adler32
-
-                if 'pfns' not in replicas[key]:
-                    replicas[key]['pfns'] = {}
-
-                if rse not in replicas[key]['rses']:
-                    replicas[key]['rses'][rse] = []
-
-                if all_states:
-                    if 'states' not in replicas[key]:
-                        replicas[key]['states'] = {}
-                    replicas[key]['states'][rse] = state
-                # get protocols
-                if rse not in tmp_protocols:
-                    protocols = list()
-                    if not schemes:
-                        try:
-                            protocols.append(rsemgr.create_protocol(rseinfo[rse], 'read'))
-                        except exception.RSEProtocolNotSupported:
-                            pass  # no need to be verbose
-                        except:
-                            print format_exc()
-                    else:
-                        for s in schemes:
-                            try:
-                                protocols.append(rsemgr.create_protocol(rse_settings=rseinfo[rse], operation='read', scheme=s))
-                            except exception.RSEProtocolNotSupported:
-                                pass  # no need to be verbose
-                            except:
-                                print format_exc()
-                    tmp_protocols[rse] = protocols
-
-                # get pfns
-                pfns_cache = dict()
-                for protocol in tmp_protocols[rse]:
-                    if 'determinism_type' in protocol.attributes:  # PFN is cachable
-                        try:
-                            path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)]
-                        except KeyError:  # No cache entry scope:name found for this protocol
-                            path = protocol._get_path(scope, name)
-                            pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)] = path
-                    if not schemes or protocol.attributes['scheme'] in schemes:
-                        try:
-                            pfn = protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
-                            replicas[key]['rses'][rse].append(pfn)
-                            replicas[key]['pfns'][pfn] = {'rse': rse, 'type': str(rse_type)}
-                        except:
-                            # temporary protection
-                            print format_exc()
-                        if protocol.attributes['scheme'] == 'srm':
-                            try:
-                                replicas[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
-                            except KeyError:
-                                replicas[key]['space_token'] = None
-    if key:
-        yield replicas[key]
-
-    # Files with no replicas
-    for replica in replicas:
-        if not replicas[replica]['rses']:
-            yield replicas[replica]
+    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, session):
+        yield file
 
 
 @transactional_session

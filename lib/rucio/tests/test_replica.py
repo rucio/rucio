@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
@@ -235,8 +235,8 @@ class TestReplicaCore:
         replica_cpt = 0
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], all_states=True):
             assert_in('states', replica)
-            assert_equal(replica['states']['MOCK'], ReplicaState.COPYING)
-            assert_equal(replica['states']['MOCK3'], ReplicaState.AVAILABLE)
+            assert_equal(replica['states']['MOCK'], str(ReplicaState.COPYING))
+            assert_equal(replica['states']['MOCK3'], str(ReplicaState.AVAILABLE))
             replica_cpt += 1
 
         assert_equal(nbfiles, replica_cpt)
@@ -259,8 +259,7 @@ class TestReplicaClients:
         self.replica_client.add_replicas(rse='MOCK', files=files)
 
         # Listing replicas on deterministic RSE
-        replicas = []
-        list_rep = []
+        replicas, list_rep = [], []
         for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK'])
             list_rep.append(replica)
@@ -292,8 +291,7 @@ class TestReplicaClients:
         self.replica_client.add_replicas(rse='MOCK2', files=files)
 
         # Listing replicas on non-deterministic RSE
-        replicas = []
-        list_rep = []
+        replicas, list_rep = [], []
         for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK2'])
             list_rep.append(replica)
@@ -480,14 +478,18 @@ class TestReplicaMetalink:
     def test_list_replicas_metalink_3(self):
         """ REPLICA (METALINK): List replicas as metalink version 3 """
         ml = xmltodict.parse(self.replica_client.list_replicas(self.files,
-                                                               metalink=3, unavailable=True),
+                                                               metalink=3,
+                                                               unavailable=True,
+                                                               schemes=['https', 'sftp', 'file']),
                              xml_attribs=False)
         assert_equal(3, len(ml['metalink']['files']['file']['resources']['url']))
 
     def test_list_replicas_metalink_4(self):
         """ REPLICA (METALINK): List replicas as metalink version 4 """
         ml = xmltodict.parse(self.replica_client.list_replicas(self.files,
-                                                               metalink=4, unavailable=True),
+                                                               metalink=4,
+                                                               unavailable=True,
+                                                               schemes=['https', 'sftp', 'file']),
                              xml_attribs=False)
         assert_equal(3, len(ml['metalink']['file']['url']))
 
