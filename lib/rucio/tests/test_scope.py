@@ -9,7 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 
 from json import dumps, loads
 
@@ -64,7 +64,7 @@ class TestScope():
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
-        data = dumps({'type': 'USER'})
+        data = dumps({'type': 'USER', 'email': 'rucio.email.com'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -100,7 +100,7 @@ class TestScope():
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
-        data = dumps({'type': 'USER'})
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -123,7 +123,7 @@ class TestScope():
 
         tmp_val = account_name_generator()
         headers2 = {'Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER'})
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/%s' % tmp_val, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -170,7 +170,7 @@ class TestScope():
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
-        data = dumps({'type': 'USER'})
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -237,5 +237,5 @@ class TestScopeClient():
     def test_list_scopes_no_scopes(self):
         """ SCOPE (CLIENTS): try to list scopes for an account without scopes."""
         account = account_name_generator()
-        self.account_client.add_account(account, 'USER')
+        self.account_client.add_account(account, 'USER', 'rucio@email.com')
         self.scope_client.list_scopes_for_account(account)

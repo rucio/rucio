@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
@@ -690,7 +690,7 @@ class TestReplicationRuleCore():
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         usr = account_name_generator()
-        add_account(usr, 'USER', 'root')
+        add_account(usr, 'USER', 'rucio@email.com', 'root')
 
         with assert_raises(AccessDenied):
             rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr)
