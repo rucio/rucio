@@ -558,7 +558,7 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, session):
                                   models.RSE.rse,
                                   models.RSE.rse_type).\
         with_hint(models.RSEFileAssociation,
-                  text="INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK)",
+                  text="INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
                   dialect_name='oracle').\
         outerjoin(models.RSEFileAssociation,
                   and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
