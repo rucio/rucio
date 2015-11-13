@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
@@ -317,7 +317,7 @@ class AccountParameter(RucioController):
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
 
-        type = None
+        type, email = None, None
         try:
             type = parameter['type']
         except KeyError, e:
@@ -325,9 +325,16 @@ class AccountParameter(RucioController):
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+        try:
+            email = parameter['email']
+        except KeyError, e:
+            if e.args[0] == 'email':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except TypeError:
+            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account(account, type, issuer=ctx.env.get('issuer'))
+            add_account(account, type, email, issuer=ctx.env.get('issuer'))
         except Duplicate as e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccessDenied, e:
