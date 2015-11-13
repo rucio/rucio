@@ -31,14 +31,16 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 
 
 @transactional_session
-def add_account(account, type, session=None):
+def add_account(account, type, email, session=None):
     """ Add an account with the given account name and type.
 
     :param account: the name of the new account.
     :param type: the type of the new account.
+    :param email: The Email address associated with the account.
     :param session: the database session in use.
     """
-    new_account = models.Account(account=account, account_type=type, status=AccountStatus.ACTIVE)
+    new_account = models.Account(account=account, account_type=type, email=email,
+                                 status=AccountStatus.ACTIVE)
     try:
         new_account.save(session=session)
     except IntegrityError:

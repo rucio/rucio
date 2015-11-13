@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 
 import string
 import random
@@ -27,7 +28,7 @@ class TestCoreAccountLimits():
     def setUpClass(cls):
         # Add test account
         cls.account = ''.join(random.choice(string.ascii_uppercase) for x in range(10))
-        add_account(account=cls.account, type=AccountType.USER)
+        add_account(account=cls.account, type=AccountType.USER, email='rucio@email.com')
 
         # Add test RSE
         cls.rse1 = 'MOCK'
@@ -50,7 +51,7 @@ class TestAccountClient():
     def setUpClass(cls):
         # Add test account
         cls.account = ''.join(random.choice(string.ascii_uppercase) for x in range(10))
-        add_account(account=cls.account, type=AccountType.USER)
+        add_account(account=cls.account, type=AccountType.USER, email='rucio@email.com')
 
         # Add test RSE
         cls.rse1 = 'MOCK'
