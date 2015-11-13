@@ -9,7 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
@@ -35,7 +35,7 @@ class TestAccountCoreApi():
         """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """
         usr = account_name_generator()
         invalid_usr = account_name_generator()
-        add_account(usr, 'USER', 'root')
+        add_account(usr, 'USER', 'rucio@email.com', 'root')
         assert_equal(account_exists(usr), True)
         assert_equal(account_exists(invalid_usr), False)
         del_account(usr, 'root')
@@ -43,7 +43,7 @@ class TestAccountCoreApi():
     def test_account_status(self):
         """ ACCOUNT (CORE): Test changing and quering account status """
         usr = account_name_generator()
-        add_account(usr, 'USER', 'root')
+        add_account(usr, 'USER', 'rucio@email.com', 'root')
         assert_equal(get_account_status(usr), AccountStatus.ACTIVE)  # Should be active by default
         set_account_status(usr, AccountStatus.SUSPENDED)
         assert_equal(get_account_status(usr), AccountStatus.SUSPENDED)
@@ -66,7 +66,7 @@ class TestAccountRestApi():
 
         acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER'})
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -81,7 +81,7 @@ class TestAccountRestApi():
         token = str(r1.header('X-Rucio-Auth-Token'))
 
         headers = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER'})
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
         r1 = TestApp(account_app.wsgifunc(*mw)).post('/jdoe', headers=headers, params=data, expect_errors=True)
         r1 = TestApp(account_app.wsgifunc(*mw)).post('/jdoe', headers=headers, params=data, expect_errors=True)
 
@@ -146,7 +146,7 @@ class TestAccountRestApi():
 
         acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER'})
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -180,7 +180,7 @@ class TestAccountRestApi():
 
         acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER'})
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -233,7 +233,7 @@ class TestAccountRestApi():
 
         acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER'})
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -258,18 +258,18 @@ class TestAccountClient():
     def test_add_account_success(self):
         """ ACCOUNT (CLIENTS): create a new account and get information about account."""
         account = account_name_generator()
-        type = 'USER'
-        ret = self.client.add_account(account, type)
+        type, email = 'USER', 'rucio@email.com'
+        ret = self.client.add_account(account, type, email)
         assert_true(ret)
 
         with assert_raises(Duplicate):
-            self.client.add_account(account, type)
+            self.client.add_account(account, type, email)
 
         with assert_raises(InvalidObject):
-            self.client.add_account('BAD_ACCOUNT_NAME', type)
+            self.client.add_account('BAD_ACCOUNT_NAME', type, email)
 
         with assert_raises(InvalidObject):
-            self.client.add_account('toooooooloooooonaccounnnnnnnntnammmmme', type)
+            self.client.add_account('toooooooloooooonaccounnnnnnnntnammmmme', type, email)
 
         acc_info = self.client.get_account(account)
         assert_equal(acc_info['account'], account)
@@ -285,7 +285,7 @@ class TestAccountClient():
         dn = '/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch'
         acc_list = [account_name_generator() for i in xrange(5)]
         for account in acc_list:
-            self.client.add_account(account, 'USER')
+            self.client.add_account(account, 'USER', 'rucio@email.com')
 
         svr_list = [a['account'] for a in self.client.list_accounts(account_type='SERVICE', identity=dn)]
         assert_true('root' in svr_list)
@@ -297,8 +297,8 @@ class TestAccountClient():
     def test_ban_unban_account(self):
         """ ACCOUNT (CLIENTS): create a new account and ban/unban it."""
         account = account_name_generator()
-        type = 'USER'
-        ret = self.client.add_account(account, type)
+        type, email = 'USER', 'rucio@email.com'
+        ret = self.client.add_account(account, type, email)
         assert_true(ret)
         self.client.set_account_status(account=account, status='SUSPENDED')
         status = self.client.get_account(account=account)['status']

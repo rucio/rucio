@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 
 from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
@@ -19,7 +19,7 @@ class TestIdentity():
 
     def setup(self):
         self.account = account_name_generator()
-        add_account(self.account, AccountType.USER)
+        add_account(self.account, AccountType.USER, 'rucio@email.com')
 
     def tearDown(self):
         del_account(self.account)
