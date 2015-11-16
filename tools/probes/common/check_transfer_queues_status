@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2015
 
 '''
 Probe to check the queues of the transfer service
@@ -28,6 +29,7 @@ CASE
  WHEN state = 'F' THEN 'queues.requests.failed.' || replace(activity, ' ', '_') || '.' || nvl(replace(substr(external_host, 9, length(external_host)-13), '.', '_'), 'no_fts_host')
  WHEN state = 'D' THEN 'queues.requests.done.' || replace(activity, ' ', '_') || '.' || nvl(replace(substr(external_host, 9, length(external_host)-13), '.', '_'), 'no_fts_host')
  WHEN state = 'L' THEN 'queues.requests.lost.' || replace(activity, ' ', '_') || '.' || nvl(replace(substr(external_host, 9, length(external_host)-13), '.', '_'), 'no_fts_host')
+ WHEN state = 'W' THEN 'queues.requests.waiting.' || replace(activity, ' ', '_') || '.' || nvl(replace(substr(external_host, 9, length(external_host)-13), '.', '_'), 'null_fts_host')
  ELSE state
 END state_desc,
 num_rows
