@@ -29,7 +29,7 @@ from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupport
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.utils import construct_surl, chunks
 from rucio.core import config as config_core, did, replica, request, rse as rse_core
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import record_counter, record_timer, record_gauge
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.constants import DIDType, RequestType, RequestState, RSEType
 from rucio.db.sqla.session import read_session
@@ -1401,13 +1401,13 @@ def schedule_requests():
                     logging.debug("Throttler set limits for acitivity %s, rse_id %s" % (activity, dest_rse_id))
                     rse_core.set_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id, max_transfers=threshold, transfers=transfer, waitings=waiting)
                     rse_name = rse_core.get_rse_name(rse_id=dest_rse_id)
-                    record_counter('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.max_transfers' % (activity, rse_name), threshold)
-                    record_counter('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.transfers' % (activity, rse_name), transfer)
-                    record_counter('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.waitings' % (activity, rse_name), waiting)
+                    record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.max_transfers' % (activity, rse_name), threshold)
+                    record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.transfers' % (activity, rse_name), transfer)
+                    record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.waitings' % (activity, rse_name), waiting)
                     if transfer < 0.8 * threshold:
                         logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s" % (threshold-transfer, activity, dest_rse_id))
                         request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, count=threshold-transfer)
-                        record_counter('daemons.conveyor.throttler.release_waiting_requests.%s.%s' % (activity, rse_name), threshold - transfer)
+                        record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s' % (activity, rse_name), threshold - transfer)
                 elif waiting > 0:
                     logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for acitivity %s, rse_id %s" % (threshold, activity, dest_rse_id))
                     rse_core.delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
