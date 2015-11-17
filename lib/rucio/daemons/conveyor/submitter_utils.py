@@ -28,7 +28,7 @@ from rucio.common.closeness_sorter import sort_sources
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, InvalidRSEExpression, InvalidRequest
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.utils import construct_surl, chunks
-from rucio.core import config as config_core, did, replica, request, rse as rse_core
+from rucio.core import did, replica, request, rse as rse_core
 from rucio.core.monitor import record_counter, record_timer, record_gauge
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.constants import DIDType, RequestType, RequestState, RSEType
@@ -1337,44 +1337,13 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
             update_transfer_file(eid, 'cancelfailed', cachedir=cachedir, process=process, thread=thread)
 
 
-def get_config_limits():
-    config_limits = {}
-    items = config_core.items('throttler')
-    for opt, value in items:
-        try:
-            activity, rsename = opt.split(',')
-            if rsename == 'all_rses':
-                rse_id = 'all_rses'
-            else:
-                rse_id = rse_core.get_rse_id(rsename)
-            if activity not in config_limits:
-                config_limits[activity] = {}
-            config_limits[activity][rse_id] = int(value)
-        except:
-            logging.warning("Failed to parse throttler config %s:%s, error: %s" % (opt, value, traceback.format_exc()))
-    return config_limits
-
-
 def schedule_requests():
     try:
-        logging.info("Throttler load configs")
-        config_limits = get_config_limits()
-
         logging.info("Throttler retrieve requests statistics")
         results = request.get_stats_by_activity_dest_state(state=[RequestState.QUEUED, RequestState.SUBMITTING, RequestState.SUBMITTED, RequestState.WAITING])
         result_dict = {}
         for activity, dest_rse_id, state, counter in results:
-            threshold = None
-            if activity in config_limits.keys():
-                if dest_rse_id in config_limits[activity].keys():
-                    threshold = config_limits[activity][dest_rse_id]
-                elif 'all_rses' in config_limits[activity].keys():
-                    threshold = config_limits[activity]['all_rses']
-            if not threshold and 'all_activities' in config_limits.keys():
-                if dest_rse_id in config_limits['all_activities'].keys():
-                    threshold = config_limits['all_activities'][dest_rse_id]
-                elif 'all_rses' in config_limits['all_activities'].keys():
-                    threshold = config_limits['all_activities']['all_rses']
+            threshold = request.get_config_limit(activity, dest_rse_id)
 
             if threshold or (counter and (state == RequestState.WAITING)):
                 if activity not in result_dict:
