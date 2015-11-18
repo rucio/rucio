@@ -438,6 +438,8 @@ def sizefmt(num, human=True):
     """
     Print human readable file sizes
     """
+    if num is None:
+        return '0.0 B'
     try:
         num = int(num)
         if human:
