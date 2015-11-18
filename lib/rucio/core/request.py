@@ -1645,7 +1645,8 @@ def release_waiting_requests(rse, activity=None, rse_id=None, count=None, sessio
         elif count > 0:
             subquery = session.query(models.Request.id)\
                               .filter(models.Request.dest_rse_id == rse_id)\
-                              .filter(models.Request.state == RequestState.WAITING)
+                              .filter(models.Request.state == RequestState.WAITING)\
+                              .order_by(asc(models.Request.created_at))
             if activity:
                 subquery = subquery.filter(models.Request.activity == activity)
             subquery = subquery.limit(count).with_for_update()
