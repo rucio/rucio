@@ -2123,9 +2123,9 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
                 replicas[(file[0], file[1])] = rucio.core.replica.get_and_lock_file_replicas(scope=file[0], name=file[1], nowait=nowait, restrict_rses=restrict_rses, session=session)
                 if source_rses:
                     source_replicas[(file[0], file[1])] = rucio.core.replica.get_source_replicas(scope=file[0], name=file[1], source_rses=source_rses, session=session)
-            datasetfiles = [{'scope': dataset['scope'],
-                             'name': dataset['name'],
-                             'files': files}]
+            datasetfiles.append({'scope': dataset['scope'],
+                                 'name': dataset['name'],
+                                 'files': files})
 
     elif did.did_type == DIDType.CONTAINER:
 
