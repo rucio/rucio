@@ -137,6 +137,7 @@ def poller(once=False,
 
     logging.info('%i:%i - graceful stop requests' % (process, hb['assign_thread']))
 
+    threadPool.dismissWorkers(total_threads, do_join=True)
     heartbeat.die(executable, hostname, pid, hb_thread)
 
     logging.info('%i:%i - graceful stop done' % (process, hb['assign_thread']))
