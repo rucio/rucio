@@ -144,4 +144,4 @@ def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_thr
 
         # Interruptible joins require a timeout.
         while len(threads) > 0:
-            [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+            threads = [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
