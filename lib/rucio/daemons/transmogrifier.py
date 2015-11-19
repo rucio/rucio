@@ -403,7 +403,7 @@ def run(threads=1, bulk=100, once=False):
         logging.info('waiting for interrupts')
         # Interruptible joins require a timeout.
         while len(thread_list) > 0:
-            [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
+            thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
 
 
 def stop(signum=None, frame=None):
