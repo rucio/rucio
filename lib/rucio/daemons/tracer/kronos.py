@@ -384,4 +384,4 @@ def run(once=False, threads=1):
     logging.info('waiting for interrupts')
 
     while len(thread_list) > 0:
-        [t.join(timeout=3) for t in thread_list if t and t.isAlive()]
+        thread_list = [t.join(timeout=3) for t in thread_list if t and t.isAlive()]
