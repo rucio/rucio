@@ -338,4 +338,4 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10):
 
         # Interruptible joins require a timeout.
         while len(thread_list) > 0:
-            [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
+            thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
