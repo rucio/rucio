@@ -239,4 +239,4 @@ def run(once=False, total_threads=1):
 
     # Interruptible joins require a timeout.
     while len(threads) > 0:
-        [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+        threads = [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
