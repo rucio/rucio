@@ -200,6 +200,16 @@ $var script: <script src="/static/request_rule.js"></script>
         </div>
         <div class="row">
           <div class="large-2 columns">
+            <label>Asynchronous Mode
+            <div class="switch">
+              <input id="async_mode" type="checkbox">
+              <label for="async_mode">Asynchronous Mode</label>
+            </div>
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="large-2 columns">
             <label style="visibility: hidden;">.</label>
             <div class="button postfix" id="options_continue">Continue</div>
           </div>
@@ -252,6 +262,7 @@ $var script: <script src="/static/request_rule.js"></script>
         <li>Copies: The copies also only work with RSE expression and it defines the number of replicas that should be created.</li>
         <li>Comment: The comment is optional unless you want to ask for approval. Then you have to give a justification here.</li>
         <li>Create Sample: Create a sample dataset with the given number of random files from the selected dataset.</li>
+        <li>Asynchronous Mode: If you have a large requests with a lot of datasets/files you might check this box. In this mode you don't have to wait until the server has fully evaluated your request, but you will have to check after some time on your rule list if the request has been successful.</li>
       </ol>
     </text>
   </div>
