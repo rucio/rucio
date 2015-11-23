@@ -34,7 +34,7 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.lock import touch_dataset_locks
-from rucio.core.replica import touch_replica_no_wait, touch_collection_replicas
+from rucio.core.replica import touch_replica, touch_collection_replicas
 from rucio.db.sqla.constants import DIDType
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -167,7 +167,7 @@ class AMQConsumer(object):
             ts = time()
             for replica in replicas:
                 # if touch replica hits a locked row put the trace back into queue for later retry
-                if not touch_replica_no_wait(replica):
+                if not touch_replica(replica):
                     resubmit = {'filename': replica['name'], 'scope': replica['scope'], 'remoteSite': replica['rse'], 'traceTimeentryUnix': replica['traceTimeentryUnix'], 'eventType': 'get', 'usrdn': 'someuser', 'clientState': 'DONE'}
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     record_counter('daemons.tracer.kronos.sent_resubmitted')

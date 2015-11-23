@@ -1378,7 +1378,8 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
                                                    sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
         .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.staging_area == is_false))\
+                                    models.RSE.staging_area == is_false,
+                                    models.RSE.deleted == is_false))\
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
                                        models.RSE.id == models.Source.rse_id))\
         .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')\
@@ -1486,7 +1487,8 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
                                                    sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
         .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.staging_area == is_false))\
+                                    models.RSE.staging_area == is_false,
+                                    models.RSE.deleted == is_false))\
         .outerjoin(models.RSEAttrAssociation, and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
                                                    models.RSEAttrAssociation.key == 'staging_buffer'))\
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
