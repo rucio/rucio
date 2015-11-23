@@ -27,8 +27,11 @@ from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound, AccessDenied, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
-from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter,\
-    get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas, touch_replicas, update_replicas_paths, update_replica_state, get_replica_atime
+from rucio.core.replica import (add_replica, add_replicas, delete_replicas,
+                                update_replica_lock_counter, get_replica, list_replicas,
+                                declare_bad_file_replicas, list_bad_replicas,
+                                update_replicas_paths, update_replica_state,
+                                get_replica_atime, touch_replica)
 from rucio.daemons.necromancer import run
 from rucio.rse import rsemanager as rsemgr
 from rucio.web.rest.authentication import app as auth_app
@@ -209,7 +212,8 @@ class TestReplicaCore:
         assert_equal(None, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK'}))
         assert_equal(None, get_did_atime(scope=tmp_scope, name=files1[0]['name']))
 
-        touch_replicas(replicas=[{'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK', 'accessed_at': now}])
+        for r in [{'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK', 'accessed_at': now}]:
+            touch_replica(r)
 
         assert_equal(now, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK'}))
         assert_equal(now, get_did_atime(scope=tmp_scope, name=files1[0]['name']))
