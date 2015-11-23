@@ -57,7 +57,7 @@ print 'OK'
 
 # Get the gitlab id of the user
 print 'Retrieving the private (forked) git repository id ...',
-resp = requests.get(url='https://gitlab.cern.ch/api/v3/projects',
+resp = requests.get(url='https://gitlab.cern.ch/api/v3/projects/owned',
                     params={'private_token': private_token})
 proj_list = json.loads(resp.text)
 personal_project_id = None
