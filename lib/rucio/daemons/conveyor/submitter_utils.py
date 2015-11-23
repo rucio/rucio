@@ -963,7 +963,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 transfers[id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
 
         except:
-            logging.error("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
+            logging.critical("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
             break
 
     return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
@@ -1119,7 +1119,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                  'file_metadata': file_metadata}
                 logging.debug("Transfer for request(%s): %s" % (id, transfers[id]))
         except:
-            logging.error("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
+            logging.critical("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
             break
 
     return transfers, reqs_no_source
