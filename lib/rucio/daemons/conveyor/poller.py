@@ -133,7 +133,7 @@ def poller(once=False,
             logging.critical("%i:%i - %s" % (process, hb['assign_thread'], traceback.format_exc()))
 
         if once:
-            return
+            break
 
     logging.info('%i:%i - graceful stop requests' % (process, hb['assign_thread']))
 
