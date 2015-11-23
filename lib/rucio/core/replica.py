@@ -1187,45 +1187,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
 
 
 @transactional_session
-def touch_replicas(replicas, session=None):
-    """
-    Update the accessed_at timestamp of the given file replicas/dids.
-
-    :param replicas: the list of replicas.
-    :param session: The database session in use.
-
-    :returns: True, if successful, False otherwise.
-    """
-    rse_ids, now, none_value = {}, datetime.utcnow(), None
-    for replica in replicas:
-        if 'rse_id' not in replica:
-            if replica['rse'] not in rse_ids:
-                rse_ids[replica['rse']] = get_rse_id(rse=replica['rse'], session=session)
-            replica['rse_id'] = rse_ids[replica['rse']]
-
-        try:
-            session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
-                update({'accessed_at': replica.get('accessed_at') or now,
-                        'tombstone': case([(models.RSEFileAssociation.tombstone != none_value, replica.get('accessed_at') or now)], else_=models.RSEFileAssociation.tombstone)},
-                       synchronize_session=False)
-
-            session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
-                update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
-
-        except DatabaseError:
-            return False
-        # resolve_datasets = session.query(models.DataIdentifierAssociation).filter_by(child_scope=replica['scope'], child_name=replica['name'], did_type=DIDType.DATASET)
-        # for dataset in resolve_datasets:
-        #    session.query(models.DataIdentifier).filter_by(scope=dataset['scope'], name=dataset['name'], did_type=DIDType.DATASET).\
-        #        update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
-        #    session.query(models.DatasetLock).filter_by(scope=dataset['scope'], name=dataset['name'], rse_id=replica['rse_id']).\
-        #        update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
-
-    return True
-
-
-@transactional_session
-def touch_replica_no_wait(replica, session=None):
+def touch_replica(replica, session=None):
     """
     Update the accessed_at timestamp of the given file replica/did but don't wait if row is locked.
 
@@ -1248,7 +1210,10 @@ def touch_replica_no_wait(replica, session=None):
         session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
             with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
             update({'accessed_at': accessed_at,
-                    'tombstone': case([(models.RSEFileAssociation.tombstone != none_value, accessed_at)], else_=models.RSEFileAssociation.tombstone)},
+                    'tombstone': case([(and_(models.RSEFileAssociation.tombstone != none_value,
+                                             models.RSEFileAssociation.tombstone != OBSOLETE),
+                                      accessed_at)],
+                                      else_=models.RSEFileAssociation.tombstone)},
                    synchronize_session=False)
 
         session.query(models.DataIdentifier).\
