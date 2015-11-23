@@ -129,10 +129,11 @@ def submitter(once=False, rses=[], mock=False,
             logging.critical('%s:%s %s' % (process, hb['assign_thread'], traceback.format_exc()))
 
         if once:
-            return
+            break
 
     logging.info('%s:%s graceful stop requested' % (process, hb['assign_thread']))
 
+    threadPool.dismissWorkers(total_threads, do_join=True)
     heartbeat.die(executable, hostname, pid, hb_thread)
 
     logging.info('%s:%s graceful stop done' % (process, hb['assign_thread']))
