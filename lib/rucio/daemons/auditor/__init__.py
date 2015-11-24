@@ -12,6 +12,7 @@ from datetime import timedelta
 from rucio.common import config
 from rucio.common.dumper import LogPipeHandler
 from rucio.common.dumper import mkdir
+from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
 from rucio.common.dumper.data_models import Replica
 from rucio.daemons.auditor import srmdumps
@@ -49,12 +50,12 @@ def consistency(rse, delta, configuration, cache_dir, results_dir):
         cache_dir=cache_dir,
     )
     mkdir(results_dir)
-    with open(results_path, 'w') as output:
+    with temp_file(results_dir, results_path) as (output, _):
         for result in results:
             output.write('{0}\n'.format(result.csv()))
 
 
-def check(queue, terminate, logpipe, cache_dir, results_dir):
+def check(queue, retry, terminate, logpipe, cache_dir, results_dir):
     logger = logging.getLogger('auditor-worker')
     lib_logger = logging.getLogger('dumper')
 
@@ -77,7 +78,7 @@ def check(queue, terminate, logpipe, cache_dir, results_dir):
 
     while not terminate.is_set():
         try:
-            rse, retry = queue.get(timeout=30)
+            rse, attemps = queue.get(timeout=30)
         except Queue.Empty:
             continue
 
@@ -94,10 +95,8 @@ def check(queue, terminate, logpipe, cache_dir, results_dir):
                 elapsed = total_seconds(datetime.now() - start) / 60
                 if success:
                     logger.info('SUCCESS checking "%s" in %d minutes', rse, elapsed)
-                elif retry > 0:
-                    logger.warn('Check of "%s" failed in %d minutes, %d remaining attemps: (%s)', rse, elapsed, retry, e)
                 else:
-                    logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s)', rse, elapsed, retry, e)
+                    logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s)', rse, elapsed, attemps, e)
                 remove = glob.glob(os.path.join(cache_dir, 'replica_{0}_*'.format(rse)))
                 remove.extend(glob.glob(os.path.join(cache_dir, 'ddmendpoint_{0}_*'.format(rse))))
                 logger.debug('Removing: %s', remove)
@@ -105,7 +104,10 @@ def check(queue, terminate, logpipe, cache_dir, results_dir):
                     os.remove(f)
         except:
             elapsed = total_seconds(datetime.now() - start) / 60
-            logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s)', rse, elapsed, retry, sys.exc_info()[0])
+            logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s)', rse, elapsed, attemps, sys.exc_info()[0])
+
+        if not success and attemps > 0:
+            retry.put((rse, attemps - 1))
 
 
 def activity_logger(logpipes, logfilename, terminate):

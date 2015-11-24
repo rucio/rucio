@@ -14,11 +14,13 @@ import argparse
 import logging
 import logging.handlers
 import os
-import rucio.common.dumper as dumper
+import rucio.client
 import rucio.common.config as config
+import rucio.common.dumper as dumper
 import rucio.daemons.auditor
 import signal
 import sys
+import textwrap
 import time
 
 
@@ -36,13 +38,21 @@ def setup_pipe_logger(pipe, loglevel):
 
 
 def main(args):
-    RETRY_AFTER = 60 * 60 * 24 * 15  # Two weeks
+    RETRY_AFTER = 60 * 60 * 24 * 14  # Two weeks
 
     nprocs = args.nprocs
     assert nprocs >= 1
+    if args.rses is None:
+        rses_gen = rucio.client.RSEClient().list_rses()
+    else:
+        rses_gen = rucio.client.RSEClient().list_rses(args.rses)
+
+    rses = [entry['rse'] for entry in rses_gen]
+    assert len(rses) > 0
 
     procs = []
     queue = Queue()
+    retry = Queue()
     terminate = Event()
     logpipes = []
 
@@ -55,8 +65,6 @@ def main(args):
     assert config.config_has_section('auditor')
     cache_dir = config.config_get('auditor', 'cache')
     results_dir = config.config_get('auditor', 'results')
-    rses = config.config_get('auditor', 'rses')
-    rses = [rse.strip() for rse in rses.split(',')]
 
     logfilename = os.path.join(config.config_get('common', 'logdir'), 'auditor.log')
     logger.info('Starting auditor')
@@ -75,6 +83,7 @@ def main(args):
             target=partial(
                 rucio.daemons.auditor.check,
                 queue,
+                retry,
                 terminate,
                 logpipew,
                 cache_dir,
@@ -109,6 +118,16 @@ def main(args):
                 queue.put((rse, 1))
 
             time.sleep(RETRY_AFTER)
+
+            # Avoid infinite loop if an alternative check() implementation doesn't
+            # decrement the number of attemps and keeps pushing failed checks.
+            tmp_list = []
+            while not retry.empty():
+                tmp_list.append(retry.get())
+
+            for each in tmp_list:
+                queue.put(each)
+
     except:
         logging.error('Main process failed: %s', sys.exc_info()[0])
 
@@ -118,13 +137,34 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         '--nprocs',
-        help='Number subprocess, each subprocess check a fraction of the DDM Endpoints in sequence.',
+        help='Number subprocess, each subprocess check a fraction of the DDM '
+             'Endpoints in sequence (default: 1).',
         default=1,
         type=int,
     )
+    parser.add_argument(
+        '--rses',
+        help='RSEs to check specified as a RSE expression, defaults to check '
+             'all the RSEs known to Rucio (default: check all RSEs).',
+        default=None,
+        type=str,
+    )
+    parser.epilog = textwrap.dedent('''
+        examples:
+            # Check all RSEs using only 1 subprocess
+            %(prog)s
+
+            # Check all SCRATCHDISKs with 4 subprocesses
+            %(prog)s --nprocs 4 --rses "type=SCRATCHDISK"
+
+            # Check all Tier 2 DATADISKs, except "BLUE_DATADISK" and "RED_DATADISK"
+            %(prog)s --rses "tier=1&type=DATADISK\(BLUE_DATADISK|RED_DATADISK)"
+    ''')
     args = parser.parse_args()
 
     main(args)

@@ -67,7 +67,7 @@ command=/opt/rucio/bin/rucio-reaper
 stdout_logfile=/tmp/reaper.log
 
 [program:auditor]
-command=/opt/rucio/bin/rucio-auditor --nprocs 4
+command=/opt/rucio/bin/rucio-auditor --nprocs 4 --rses 'type=DATADISK|type=SCRATCHDISK|type=GROUPDISK|type=PRODDISK'
 stdout_logfile=/tmp/auditor.log
 
 ;[program:theprogramname]
