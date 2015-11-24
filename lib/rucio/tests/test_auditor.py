@@ -7,6 +7,8 @@ from rucio.common.dumper import data_models
 from rucio.daemons import auditor
 from rucio.daemons.auditor import srmdumps
 from rucio.tests.common import stubbed
+import collections
+import multiprocessing
 import tempfile
 
 
@@ -51,30 +53,31 @@ def test_auditor_download_dumps_with_expected_dates():
     )
 
 
-# def test_auditor_check_survives_failures():
-#     queue = Queue.Queue()
-#     queue.put(('RSE_WITH_EXCEPTION', 0))
-#     queue.put(('RSE_SHOULD_WORK', 0))
-#     queue.put(('RSE_WITH_ERROR', 0))
-#     rd_pipe, wr_pipe = multiprocessing.Pipe(False)
-#
-#     def fake_consistency(rse, delta, configuration, cache_dir, results_dir):
-#         if rse == 'RSE_WITH_EXCEPTION':
-#             raise Exception
-#         elif rse == 'RSE_SHOULD_WORK':
-#             pass
-#         else:
-#             return 1 / 0
-#
-#     state = {'call': 0}
-#
-#     def fake_event_is_set(slf):
-#         state['call'] += 1
-#         if state['call'] < 4:
-#             return False
-#         return True
-#
-#     terminate = multiprocessing.Event()
-#     with stubbed(auditor.consistency, fake_consistency):
-#         with stubbed(terminate.is_set, fake_event_is_set):
-#             auditor.check(queue, terminate, wr_pipe, None, None)
+def test_auditor_check_survives_failures_and_queues_failed_rses():
+    queue = multiprocessing.Queue()
+    retry = multiprocessing.Queue()
+    queue.put(('RSE_WITH_EXCEPTION', 1))
+    queue.put(('RSE_SHOULD_WORK', 1))
+    queue.put(('RSE_WITH_ERROR', 1))
+    wr_pipe = collections.namedtuple('FakePipe', ('send', 'close'))(
+        lambda _: None,
+        lambda: None,
+    )
+
+    def fake_consistency(rse, delta, configuration, cache_dir, results_dir):
+        if rse == 'RSE_WITH_EXCEPTION':
+            raise Exception
+        elif rse == 'RSE_SHOULD_WORK':
+            pass
+        else:
+            return 1 / 0
+
+    terminate = multiprocessing.Event()
+    with stubbed(auditor.consistency, fake_consistency):
+        with stubbed(terminate.is_set, lambda slf: queue.empty()):
+            auditor.check(queue, retry, terminate, wr_pipe, None, None)
+
+    ok_(queue.empty())
+    eq_(retry.get(0), ('RSE_WITH_EXCEPTION', 0))
+    eq_(retry.get(1), ('RSE_WITH_ERROR', 0))
+    ok_(retry.empty())
