@@ -30,4 +30,17 @@ $var script: <script src="/static/rse_account_usage.js"></script>
 
   <div class="row" id="results">
   </div>
+  <div class="row collapse">
+    <div class="columns large-1">
+      <a class="button postfix" id="save_quota" style="display:none">Save Changes</a>
+    </div>
+  </div>
+</div>
+
+<div id="bulk_editor" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+  <h2 id="modalTitle">Set all accounts for this site</h2>
+  Set quota: <input type="text"/>
+  <a id="bulk_apply" href="#" class="button success">Apply</a>
+  <a id="bulk_cancel" href="#" class="button alert">Cancel</a>
+  <a class="close-reveal-modal" aria-label="Close">&#215;</a>
 </div>
