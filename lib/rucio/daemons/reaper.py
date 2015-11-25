@@ -30,7 +30,8 @@ from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get
 from rucio.common.exception import (SourceNotFound, ServiceUnavailable, RSEAccessDenied,
                                     ReplicaUnAvailable, ResourceTemporaryUnavailable,
-                                    DatabaseException, UnsupportedOperation, ReplicaNotFound)
+                                    DatabaseException, UnsupportedOperation,
+                                    ReplicaNotFound, RSENotFound)
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core import rse as rse_core
@@ -279,6 +280,9 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                             logging.warning('Reaper %s-%s: UnsupportedOperation %s', worker_number, child_number, str(error))
                         except:
                             logging.critical(traceback.format_exc())
+
+                except RSENotFound as error:
+                    logging.warning('Reaper %s-%s: RSE not found %s', worker_number, child_number, str(error))
 
                 except:
                     logging.critical(traceback.format_exc())
