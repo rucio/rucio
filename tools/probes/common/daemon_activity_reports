@@ -32,7 +32,7 @@ locale.setlocale(locale.LC_ALL, '')
 
 def execute_query(selectors=[]):
     query = {"size": 0, "query": {"filtered": {"filter": {"range": {"@timestamp": {"gte": "now-2d/d", "lte": "now-1d/d"}}}}},
-             "aggs": {"daemons": {"terms": {"field": "daemon.raw", "size": 0, "order": {"_term": "asc"}},
+             "aggs": {"daemons": {"terms": {"field": "daemon_raw", "size": 0, "order": {"_term": "asc"}},
                                   "aggs": {"days": {"date_histogram": {"field": "@timestamp", "interval": "day", "format": "yyyy-MM-dd"},
                                                     "aggs": {"severity": {"terms": {"field": "severity_label", "size": 0},
                                                                           "aggs": {"hosts": {"terms": {"field": "host", "size": 0}}}}}}}}}}
