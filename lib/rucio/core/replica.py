@@ -648,11 +648,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 
                 if rse not in tmp_protocols:
 
-                    if not schemes:
+                    rse_schemes = schemes
+                    if not rse_schemes:
                         rse_schemes = [rsemgr.select_protocol(rse_settings=rse_info[rse],
                                                               operation='read')['scheme']]
-                    else:
-                        rse_schemes = schemes
 
                     protocols = []
                     for s in rse_schemes:
