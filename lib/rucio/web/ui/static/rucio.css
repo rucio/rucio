@@ -98,6 +98,10 @@ a.button.reset {
   margin: 0rem 1rem 0rem 0rem
 }
 
+a.info {
+  margin-left: 1em;
+}
+
 /* Used to vertical elign elements in the same grid row */
 
 .valign-middle {
