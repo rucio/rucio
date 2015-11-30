@@ -58,6 +58,11 @@ td.details-control {
     cursor: pointer;
 }
 
+.select-checkbox {
+    background: red;
+    text-align: center;
+}
+
 .size-12 { font-size: 12px; }
 .size-14 { font-size: 14px; }
 .size-16 { font-size: 16px; }
@@ -68,3 +73,51 @@ td.details-control {
 .size-48 { font-size: 48px; }
 .size-60 { font-size: 60px; }
 .size-72 { font-size: 72px; }
+
+/* Inline DataTable Editing */
+
+.updated {
+  color: rgba(62, 60, 205, 1);
+  font-weight: bold;
+}
+
+.error {
+  background: rgba(215, 44, 44, 0.5);
+}
+
+
+td[data-info]::after {
+  content: "  " attr(data-info);
+}
+
+td:not(.updated) a.button.reset {
+  display: none;
+}
+
+a.button.reset {
+  margin: 0rem 1rem 0rem 0rem
+}
+
+a.info {
+  margin-left: 1em;
+}
+
+/* Used to vertical elign elements in the same grid row */
+
+.valign-middle {
+  display: table;
+}
+
+.valign-middle .columns {
+  display: table-cell;
+  vertical-align: middle;
+}
+
+.valign-middle .columns .button{
+  margin-top: 1em;
+}
+
+.valign-middle .columns,
+.valign-middle [class*="column"] + [class*="column"]:last-child {
+  float: none;
+}
