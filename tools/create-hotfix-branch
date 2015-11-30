@@ -1,0 +1,20 @@
+#!/bin/bash
+
+if [[ $# -ne 3 ]] ; then
+    echo 'usage: tools/create-hotfix-branch <version> <ticketnumber> <branchname>'
+    echo
+    echo 'examples: tools/create-patch-branch 1.2.3 1234 fancypatch'
+    echo '          tools/create-patch-branch 1.2.3 1234 "my fancy patch"'
+    exit 1
+fi
+
+echo "Switching to master"
+git checkout master
+
+echo "Updating all"
+git pull --all --prune --progress
+
+echo "Creating hotfix branch"
+git checkout -b hotfix-$2-${3//[^a-zA-Z0-9]/_} $1
+
+echo "Done"
