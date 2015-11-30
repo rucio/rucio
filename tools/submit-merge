@@ -39,19 +39,19 @@ except:
     sys.exit(-1)
 
 # Check if current branch is not master or next
-print 'Checking if current branch is a patch/feature branch ...',
+print 'Checking if current branch is a patch/feature/hotfix branch ...',
 current_branch = commands.getstatusoutput('git rev-parse --abbrev-ref HEAD')[1]
 commit_msg = current_branch
 for line in commands.getstatusoutput('git show')[1].splitlines():
     if line.strip().startswith('[RUCIO-'):
         commit_msg = line.strip()
-if current_branch == 'master' or current_branch == 'next':
+if current_branch == 'master' or current_branch == 'next' or current_branch == 'hotfix':
     print 'ERROR'
-    print 'You are currently on branch \'%s\'. Please change to a feature/patch branch.' % current_branch
+    print 'You are currently on branch \'%s\'. Please change to a feature/patch/hotfix branch.' % current_branch
     sys.exit(-1)
-if not current_branch.startswith('patch') and not current_branch.startswith('feature'):
+if not current_branch.startswith('patch') and not current_branch.startswith('feature') and not current_branch.startswith('hotfix'):
     print 'ERROR'
-    print 'You are currently on branch \'%s\'. This is not a feature/patch/branch.' % current_branch
+    print 'You are currently on branch \'%s\'. This is not a feature/patch/hotfix branch.' % current_branch
     sys.exit(-1)
 print 'OK'
 
@@ -72,7 +72,7 @@ if not personal_project_id:
     sys.exit(-1)
 
 # Push the branch to origin
-print 'Pushing the feature/patch branch to origin ...',
+print 'Pushing the feature/patch/hotfix branch to origin ...',
 op = commands.getstatusoutput('git push origin %s' % current_branch)
 if op[0] == 0:
     print 'OK'
@@ -82,7 +82,7 @@ else:
     sys.exit(-1)
 
 # Check if there is already a merge request for this:
-print 'Checking if there already exists a merge request for this feature/patch ...',
+print 'Checking if there already exists a merge request for this feature/patch/hotfix ...',
 resp = requests.get(url='https://gitlab.cern.ch/api/v3/projects/651/merge_requests',
                     params={'private_token': private_token})
 mr_list = json.loads(resp.text)
@@ -93,43 +93,53 @@ for mr in mr_list:
         sys.exit(-1)
 print 'OK'
 
+# Set the correct labels
+if current_branch.startswith('hotfix'):
+    labels = ['Hotfix']
+elif current_branch.startswith('patch'):
+    labels = ['Patch']
+else:
+    labels = ['Feature']
+
 # Create the Merge-requests
-if current_branch.startswith('patch'):
-    print 'Submitting merge request against next ...',
+if current_branch.startswith('hotfix'):
+    print 'Submitting merge request against hotfix ...',
     result = submit_merge_request(proj_id=personal_project_id,
                                   data={'source_branch': current_branch,
-                                        'target_branch': 'next',
+                                        'target_branch': 'hotfix',
                                         'title': commit_msg,
                                         'target_project_id': 651,
-                                        'labels': ['Patch']})
+                                        'labels': labels})
     if result.status_code == 200 or result.status_code == 201:
         print 'OK'
     else:
         print 'ERROR'
         print result.content
+
+if current_branch.startswith('patch') or current_branch.startswith('hotfix'):
     print 'Submitting merge request against master ...',
     result = submit_merge_request(proj_id=personal_project_id,
                                   data={'source_branch': current_branch,
                                         'target_branch': 'master',
                                         'title': commit_msg,
                                         'target_project_id': 651,
-                                        'labels': ['Patch']})
+                                        'labels': labels})
     if result.status_code == 200 or result.status_code == 201:
         print 'OK'
     else:
         print 'ERROR'
         print result.content
+
+# Submit against NEXT
+print 'Submitting merge request against next ...',
+result = submit_merge_request(proj_id=personal_project_id,
+                              data={'source_branch': current_branch,
+                                    'target_branch': 'next',
+                                    'title': commit_msg,
+                                    'target_project_id': 651,
+                                    'labels': labels})
+if result.status_code == 200 or result.status_code == 201:
+    print 'OK'
 else:
-    # Submit against NEXT
-    print 'Submitting merge request against next ...',
-    result = submit_merge_request(proj_id=personal_project_id,
-                                  data={'source_branch': current_branch,
-                                        'target_branch': 'next',
-                                        'title': commit_msg,
-                                        'target_project_id': 651,
-                                        'labels': ['Feature']})
-    if result.status_code == 200 or result.status_code == 201:
-        print 'OK'
-    else:
-        print 'ERROR'
-        print result.content
+    print 'ERROR'
+    print result.content
