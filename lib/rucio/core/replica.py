@@ -648,11 +648,13 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 
                 if rse not in tmp_protocols:
 
-                    if not schemes:
-                        schemes = [rsemgr.select_protocol(rse_settings=rse_info[rse],
-                                                          operation='read')['scheme']]
+                    rse_schemes = schemes
+                    if not rse_schemes:
+                        rse_schemes = [rsemgr.select_protocol(rse_settings=rse_info[rse],
+                                                              operation='read')['scheme']]
+
                     protocols = []
-                    for s in schemes:
+                    for s in rse_schemes:
                         try:
                             protocols.append(rsemgr.create_protocol(rse_settings=rse_info[rse],
                                                                     operation='read',
@@ -672,7 +674,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                             path = protocol._get_path(scope, name)
                             pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)] = path
 
-                    if protocol.attributes['scheme'] in schemes:
+                    if protocol.attributes['scheme'] in rse_schemes:
                         try:
                             pfn = protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
                             pfns.append(pfn)
