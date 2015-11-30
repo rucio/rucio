@@ -9,10 +9,11 @@
 # Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
+/bin/cp setup_rucio.py setup.py
 /bin/cp README.rucio.rst README.rst
 /bin/cp MANIFEST.in.rucio MANIFEST.in
 # Push on pypi@cern
-python setup_rucio.py--release register -r https://voatlasrucio-pip.cern.ch/ sdist upload -r https://voatlasrucio-pip.cern.ch/
+python setup_rucio.py --release register -r https://voatlasrucio-pip.cern.ch/ sdist upload -r https://voatlasrucio-pip.cern.ch/
 # Push on pypi@org
 python setup_rucio.py --release register sdist upload
 
