@@ -14,7 +14,7 @@ from rucio.common.dumper import LogPipeHandler
 from rucio.common.dumper import mkdir
 from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
-from rucio.common.dumper.data_models import Replica
+from rucio.daemons.auditor.hdfs import ReplicaFromHDFS
 from rucio.daemons.auditor import srmdumps
 import Queue
 import glob
@@ -38,8 +38,8 @@ def consistency(rse, delta, configuration, cache_dir, results_dir):
         logger.warn('Consistency check for "%s" (dump dated %s) already done, skipping check', rse, rsedate.strftime('%Y%m%d'))
         return
 
-    rrdump_prev = Replica.download(rse, rsedate - delta, cache_dir=cache_dir)
-    rrdump_next = Replica.download(rse, rsedate + delta, cache_dir=cache_dir)
+    rrdump_prev = ReplicaFromHDFS.download(rse, rsedate - delta, cache_dir=cache_dir)
+    rrdump_next = ReplicaFromHDFS.download(rse, rsedate + delta, cache_dir=cache_dir)
     results = Consistency.dump(
         'consistency-manual',
         rse,
@@ -55,7 +55,7 @@ def consistency(rse, delta, configuration, cache_dir, results_dir):
             output.write('{0}\n'.format(result.csv()))
 
 
-def check(queue, retry, terminate, logpipe, cache_dir, results_dir):
+def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, delta_in_days):
     logger = logging.getLogger('auditor-worker')
     lib_logger = logging.getLogger('dumper')
 
@@ -72,7 +72,7 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir):
     )
     handler.setFormatter(formatter)
 
-    delta = timedelta(days=3)
+    delta = timedelta(days=delta_in_days)
 
     configuration = srmdumps.parse_configuration()
 
@@ -84,27 +84,25 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir):
 
         start = datetime.now()
         try:
-            try:
-                logger.debug('Checking "%s"', rse)
-                consistency(rse, delta, configuration, cache_dir, results_dir)
-            except Exception, e:
-                success = False
-            else:
-                success = True
-            finally:
-                elapsed = total_seconds(datetime.now() - start) / 60
-                if success:
-                    logger.info('SUCCESS checking "%s" in %d minutes', rse, elapsed)
-                else:
-                    logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s)', rse, elapsed, attemps, e)
-                remove = glob.glob(os.path.join(cache_dir, 'replica_{0}_*'.format(rse)))
-                remove.extend(glob.glob(os.path.join(cache_dir, 'ddmendpoint_{0}_*'.format(rse))))
-                logger.debug('Removing: %s', remove)
-                for f in remove:
-                    os.remove(f)
+            logger.debug('Checking "%s"', rse)
+            consistency(rse, delta, configuration, cache_dir, results_dir)
         except:
+            success = False
+        else:
+            success = True
+        finally:
             elapsed = total_seconds(datetime.now() - start) / 60
-            logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s)', rse, elapsed, attemps, sys.exc_info()[0])
+            if success:
+                logger.info('SUCCESS checking "%s" in %d minutes', rse, elapsed)
+            else:
+                logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s)', rse, elapsed, attemps, sys.exc_info()[0])
+
+        if not keep_dumps:
+            remove = glob.glob(os.path.join(cache_dir, 'replicafromhdfs_{0}_*'.format(rse)))
+            remove.extend(glob.glob(os.path.join(cache_dir, 'ddmendpoint_{0}_*'.format(rse))))
+            logger.debug('Removing: %s', remove)
+            for f in remove:
+                os.remove(f)
 
         if not success and attemps > 0:
             retry.put((rse, attemps - 1))
