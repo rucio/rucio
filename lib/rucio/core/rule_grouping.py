@@ -20,6 +20,7 @@ from sqlalchemy import func
 
 from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
+from rucio.core.account import has_account_attribute
 from rucio.core.rse import get_rse
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
@@ -146,7 +147,8 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, so
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None, retry_count=None):
+@transactional_session
+def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None, retry_count=None, session=None):
     """
     This method creates a transfer dictionary and returns it
 
@@ -162,6 +164,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=Non
     :param ds_name:       Dataset the file belongs to.
     :param lifetime:      Lifetime in the case of STAGIN requests.
     :param activity:      Activity to be used.
+    :param session:       Session of the db.
     :returns:             Request dictionary.
     """
     attributes = {'activity': activity or rule.activity or 'default',
@@ -171,7 +174,8 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=Non
                   'ds_name': ds_name,
                   'bytes': bytes,
                   'md5': md5,
-                  'adler32': adler32}
+                  'adler32': adler32,
+                  'allow_tape_source': has_account_attribute(account=rule.account, key='admin', session=session)}
 
     return {'dest_rse_id': dest_rse_id,
             'scope': scope,
@@ -232,7 +236,8 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
                                           replicas_to_create=replicas_to_create,
                                           replicas=replicas,
                                           source_replicas=source_replicas,
-                                          transfers_to_create=transfers_to_create)
+                                          transfers_to_create=transfers_to_create,
+                                          session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
@@ -302,7 +307,8 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
                                           replicas_to_create=replicas_to_create,
                                           replicas=replicas,
                                           source_replicas=source_replicas,
-                                          transfers_to_create=transfers_to_create)
+                                          transfers_to_create=transfers_to_create,
+                                          session=session)
             # Add a DatasetLock to the DB
             if dataset['scope'] is not None:
                 try:
@@ -415,7 +421,8 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
                                           replicas_to_create=replicas_to_create,
                                           replicas=replicas,
                                           source_replicas=source_replicas,
-                                          transfers_to_create=transfers_to_create)
+                                          transfers_to_create=transfers_to_create,
+                                          session=session)
             # Add a DatasetLock to the DB
             if dataset['scope'] is not None:
                 try:
@@ -544,7 +551,8 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                                                       replicas_to_create=replicas_to_create,
                                                       replicas=replicas,
                                                       source_replicas=source_replicas,
-                                                      transfers_to_create=transfers_to_create)
+                                                      transfers_to_create=transfers_to_create,
+                                                      session=session)
                             rule.locks_stuck_cnt -= 1
                             __set_replica_unavailable(replica=[replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0],
                                                       session=session)
@@ -653,7 +661,8 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                                                       replicas_to_create=replicas_to_create,
                                                       replicas=replicas,
                                                       source_replicas=source_replicas,
-                                                      transfers_to_create=transfers_to_create)
+                                                      transfers_to_create=transfers_to_create,
+                                                      session=session)
                             rule.locks_stuck_cnt -= 1
                             __set_replica_unavailable(replica=[replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0],
                                                       session=session)
@@ -762,7 +771,8 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                                                       replicas_to_create=replicas_to_create,
                                                       replicas=replicas,
                                                       source_replicas=source_replicas,
-                                                      transfers_to_create=transfers_to_create)
+                                                      transfers_to_create=transfers_to_create,
+                                                      session=session)
                             rule.locks_stuck_cnt -= 1
                             __set_replica_unavailable(replica=[replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0],
                                                       session=session)
@@ -806,7 +816,8 @@ def __is_retry_required(lock):
     return False
 
 
-def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_to_create, locks, source_rses, replicas_to_create, replicas, source_replicas, transfers_to_create):
+@transactional_session
+def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_to_create, locks, source_rses, replicas_to_create, replicas, source_replicas, transfers_to_create, session=None):
     """
     This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
 
@@ -822,6 +833,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
     :param replicas:             Dictionary of the replicas.
     :param source_replicas:      Dictionary of the source replicas.
     :param transfers_to_create:  List of transfers to create.
+    :param session:              The db session in use.
     :returns:                    True, if the created lock is replicating, False otherwise.
     :attention:                  This method modifies the contents of the locks, locks_to_create, replicas_to_create and replicas input parameters.
     """
@@ -840,7 +852,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                                         adler32=file['adler32'],
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
-                                                        lifetime=lifetime))
+                                                        lifetime=lifetime,
+                                                        session=session))
 
     existing_replicas = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == rse_id]
 
@@ -891,7 +904,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                                                 md5=file['md5'],
                                                                 adler32=file['adler32'],
                                                                 ds_scope=dataset['scope'],
-                                                                ds_name=dataset['name']))
+                                                                ds_name=dataset['name'],
+                                                                session=session))
                 return True
             return False
         # Replica is not available at the rse yet -- COPYING
@@ -951,7 +965,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                                                 md5=file['md5'],
                                                                 adler32=file['adler32'],
                                                                 ds_scope=dataset['scope'],
-                                                                ds_name=dataset['name']))
+                                                                ds_name=dataset['name'],
+                                                                session=session))
 
         if available_source_replica:
             return True
@@ -1061,7 +1076,8 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
                                                         lifetime=lifetime,
-                                                        request_type=RequestType.STAGEIN))
+                                                        request_type=RequestType.STAGEIN,
+                                                        session=session))
     else:
         transfers_to_create.append(create_transfer_dict(dest_rse_id=lock.rse_id,
                                                         scope=lock.scope,
@@ -1073,7 +1089,8 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
                                                         request_type=RequestType.TRANSFER,
-                                                        retry_count=1),)
+                                                        retry_count=1,
+                                                        session=session))
 
 
 @transactional_session
