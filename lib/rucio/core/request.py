@@ -29,7 +29,7 @@ from sqlalchemy.sql.expression import asc, bindparam, text
 from rucio.common.config import config_get
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.utils import generate_uuid
-from rucio.core import config as config_core
+from rucio.core import config as config_core, message as message_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_id, get_rse_name, get_rse_transfer_limits
 from rucio.db.sqla import models
@@ -248,6 +248,7 @@ def queue_requests(requests, session=None):
 
     logging.debug("queue requests")
     try:
+        rse_names = {}
         for req in requests:
             if isinstance(req['attributes'], (str, unicode)):
                 req['attributes'] = json.loads(req['attributes'])
@@ -311,6 +312,29 @@ def queue_requests(requests, session=None):
                                   url=source['url'],
                                   is_using=source['is_using']).\
                         save(session=session, flush=False)
+
+            if new_request['dest_rse_id'] not in rse_names:
+                rse_names[new_request['dest_rse_id']] = get_rse_name(new_request['dest_rse_id'])
+            msg = {'request-id': new_request['id'],
+                   'request-type': str(new_request['request_type']).lower(),
+                   'scope': new_request['scope'],
+                   'name': new_request['name'],
+                   'dest-rse-id': new_request['dest_rse_id'],
+                   'dest-rse': rse_names[new_request['dest_rse_id']],
+                   'state': str(new_request['state']),
+                   'retry-count': new_request['retry_count'],
+                   'rule-id': str(new_request['rule_id']),
+                   'activity': new_request['activity'],
+                   'bytes': new_request['bytes'],
+                   'checksum-md5': new_request['md5'],
+                   'checksum-adler': new_request['adler32'],
+                   'queued-at': str(datetime.datetime.utcnow())}
+            if msg['request-type']:
+                transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
+            else:
+                transfer_status = 'transfer-%s' % msg['state']
+            transfer_status = transfer_status.lower()
+            message_core.add_message(transfer_status, msg, session=session)
 
         session.flush()
     except IntegrityError:
@@ -459,6 +483,21 @@ def set_request_transfers_state(transfers, session=None):
                                       synchronize_session=False)
             if rowcount == 0:
                 raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % (request_id, transfers[request_id]))
+
+            request_type = transfers[request_id].get('request-type', None)
+            msg = {'request-id': request_id,
+                   'request-type': str(request_type).lower() if request_type else request_type,
+                   'state': str(transfers[request_id]['state']),
+                   'external-id': transfers[request_id]['external_id'],
+                   'external-host': transfers[request_id]['external_host'],
+                   'submitted-at': str(datetime.datetime.utcnow())}
+            if msg['request-type']:
+                transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
+            else:
+                transfer_status = 'transfer-%s' % msg['state']
+            transfer_status = transfer_status.lower()
+            message_core.add_message(transfer_status, msg, session=session)
+
     except IntegrityError, e:
         raise RucioException(e.args)
 
