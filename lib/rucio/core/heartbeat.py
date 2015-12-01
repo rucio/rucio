@@ -28,12 +28,17 @@ def sanity_check(executable, hostname, hash_executable=None, session=None):
     :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch.
     :param hash_executable: Hash of the executable.
     """
-    if not hash_executable:
-        hash_executable = hashlib.sha256(executable).hexdigest()
+    if executable:
+        if not hash_executable:
+            hash_executable = hashlib.sha256(executable).hexdigest()
 
-    for pid, in session.query(distinct(Heartbeats.pid)).filter_by(executable=hash_executable, hostname=hostname):
-        if not pid_exists(pid):
-            session.query(Heartbeats).filter_by(executable=hash_executable, hostname=hostname, pid=pid).delete()
+        for pid, in session.query(distinct(Heartbeats.pid)).filter_by(executable=hash_executable, hostname=hostname):
+            if not pid_exists(pid):
+                session.query(Heartbeats).filter_by(executable=hash_executable, hostname=hostname, pid=pid).delete()
+    else:
+        for pid, in session.query(distinct(Heartbeats.pid)).filter_by(hostname=hostname):
+            if not pid_exists(pid):
+                session.query(Heartbeats).filter_by(hostname=hostname, pid=pid).delete()
 
 
 @transactional_session
