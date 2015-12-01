@@ -559,6 +559,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 'filesize': int(transfer['file_metadata']['filesize']),
                 'checksum': None,
                 'selection_strategy': fts_source_strategy,
+                'request_type': transfer['file_metadata'].get('request_type', None),
                 'activity': str(transfer['file_metadata']['activity'])}
         if 'md5' in file['metadata'].keys() and file['metadata']['md5']:
             file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
@@ -813,6 +814,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'scope': scope,
                                  'name': name,
                                  'activity': activity,
+                                 'request_type': RequestType.TRANSFER,
                                  'src_type': transfer_src_type,
                                  'dst_type': transfer_dst_type,
                                  'src_rse': rse,
@@ -1092,6 +1094,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                  'scope': scope,
                                  'name': name,
                                  'activity': activity,
+                                 'request_type': RequestType.STAGEIN,
                                  'src_type': "TAPE",
                                  'dst_type': "DISK",
                                  'src_rse': rse,
@@ -1313,11 +1316,11 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
             request_id = file_metadata['request_id']
             log_str = '%s:%s COPYING REQUEST %s DID %s:%s USING %s' % (process, thread, file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host)
             if eid:
-                xfers_ret[request_id] = {'state': RequestState.SUBMITTED, 'external_host': external_host, 'external_id': eid}
+                xfers_ret[request_id] = {'state': RequestState.SUBMITTED, 'external_host': external_host, 'external_id': eid, 'request_type': file.get('request_type', None)}
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
                 logging.info("%s" % (log_str))
             else:
-                xfers_ret[request_id] = {'state': RequestState.SUBMISSION_FAILED, 'external_host': external_host, 'external_id': None}
+                xfers_ret[request_id] = {'state': RequestState.SUBMISSION_FAILED, 'external_host': external_host, 'external_id': None, 'request_type': file.get('request_type', None)}
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMISSION_FAILED, None)
                 logging.warn("%s" % (log_str))
         logging.debug("%s:%s start to register transfer state" % (process, thread))
