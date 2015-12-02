@@ -479,15 +479,19 @@ def set_request_transfers_state(transfers, session=None):
                               .update({'state': transfers[request_id]['state'],
                                        'external_id': transfers[request_id]['external_id'],
                                        'external_host': transfers[request_id]['external_host'],
+                                       'source_rse_id': transfers[request_id]['src_rse_id'],
                                        'submitted_at': datetime.datetime.utcnow()},
                                       synchronize_session=False)
             if rowcount == 0:
                 raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % (request_id, transfers[request_id]))
 
             request_type = transfers[request_id].get('request-type', None)
-            msg = {'request-id': request_id,
+            msg = {'scope': transfers[request_id]['scope'],
+                   'name': transfers[request_id]['name'],
+                   'request-id': request_id,
                    'request-type': str(request_type).lower() if request_type else request_type,
                    'state': str(transfers[request_id]['state']),
+                   'dest-rse': transfers[request_id].get('dest-rse', None),
                    'external-id': transfers[request_id]['external_id'],
                    'external-host': transfers[request_id]['external_host'],
                    'submitted-at': str(datetime.datetime.utcnow())}
