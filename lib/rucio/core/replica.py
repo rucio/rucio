@@ -1176,7 +1176,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
         elif replica['state'] == ReplicaState.UNAVAILABLE:
-            rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
+            rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], broken_rule_id=replica.get('broken_rule_id', None), broken_message=replica.get('broken_message', None), nowait=nowait, session=session)
 
         if 'path' in replica and replica['path']:
             values['path'] = replica['path']
