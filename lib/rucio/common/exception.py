@@ -564,6 +564,15 @@ class RuleReplaceFailed(RucioException):
         self._message = "The replace operation for the rule failed."
 
 
+class ScratchDiskLifetimeConflict(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(ScratchDiskLifetimeConflict, self).__init__(args, kwargs)
+        self._message = "The requested replication rule exceeds the maximum SCRATCHDISK lifetime of 15 days."
+
+
 class ServiceUnavailable(RucioException):
     """
     RucioException
