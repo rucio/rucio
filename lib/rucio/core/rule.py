@@ -1546,6 +1546,7 @@ def approve_rule(rule_id, session=None):
 Rule description:
   ID:                   %s
   RSE Expression:       %s
+  Expires at:           %s
   Comment:              %s
   Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
 
@@ -1558,6 +1559,7 @@ DID description:
 --
 THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                                                  str(rule.rse_expression),
+                                                 str(rule.expires_at),
                                                  str(rule.comments),
                                                  str(rule.id),
                                                  rule.scope,
@@ -2373,7 +2375,7 @@ def __create_rule_approval_email(rule, session=None):
                     recipents.append((email, account))
     # DDMADMIN as default
     if not recipents:
-        recipents = [('atlas-adc-ddm-support@cern.ch', 'root')]
+        recipents = [('atlas-adc-ddm-support@cern.ch', 'ddmadmin')]
 
     for recipent in recipents:
         text = """A new rule has been requested for approval in Rucio.
