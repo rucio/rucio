@@ -26,7 +26,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RuleReplaceFailed
+from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RuleReplaceFailed, ScratchDiskLifetimeConflict
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
@@ -726,6 +726,22 @@ class TestReplicationRuleCore():
 
         with assert_raises(RuleReplaceFailed):
             reduce_rule(rule_id=rule_id, copies=1, exclude_expression=self.rse1+'|'+self.rse3)
+
+    def test_add_rule_with_scratchdisk(self):
+        """ REPLICATION RULE (CORE): Add a replication rule for scratchdisk"""
+        rse = rse_name_generator()
+        add_rse(rse)
+        add_rse_attribute(rse, 'type', 'SCRATCHDISK')
+        set_account_limit('jdoe', get_rse_id(rse), -1)
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        with assert_raises(ScratchDiskLifetimeConflict):
+            add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression='MOCK|%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
 
 class TestReplicationRuleClient():

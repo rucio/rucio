@@ -22,7 +22,7 @@ from rucio.api.rule import add_replication_rule, delete_replication_rule, get_re
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
-                                    DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed)
+                                    DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
@@ -90,6 +90,8 @@ class Rule:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except ScratchDiskLifetimeConflict, e:
+            raise generate_http_error(409, 'ScratchDiskLifetimeConflict', e.args[0])
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         except RucioException, e:
@@ -252,6 +254,8 @@ class AllRule:
             raise generate_http_error(409, 'InvalidRuleWeight', e.args[0][0])
         except StagingAreaRuleRequiresLifetime, e:
             raise generate_http_error(409, 'StagingAreaRuleRequiresLifetime', e.args[0])
+        except ScratchDiskLifetimeConflict, e:
+            raise generate_http_error(409, 'ScratchDiskLifetimeConflict', e.args[0])
         except InvalidObject, e:
             raise generate_http_error(409, 'InvalidObject', e.args[0])
         except RucioException, e:
