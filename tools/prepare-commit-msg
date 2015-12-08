@@ -21,10 +21,10 @@
 # still be edited.  This is rarely a good idea.
 
 
-NUMBER=$(git branch | grep '*'|grep 'patch\|feature'|cut -d- -f2)
+NUMBER=$(git branch | grep '*'|grep 'patch\|feature\|hotfix'|cut -d- -f2)
 if [ -z $NUMBER ]
 then
-    echo "Not a patch or feature branch"
+    echo "Not a patch or feature or hotfix branch"
 else
     sed -i "1s/^/\[RUCIO-$NUMBER\] /" $1
 fi

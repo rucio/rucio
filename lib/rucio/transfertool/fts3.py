@@ -302,7 +302,11 @@ def query_latest(transfer_host, state, last_nhours=1):
 
     if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
         record_counter('transfertool.fts3.%s.query_latest.success' % __extract_host(transfer_host))
-        return jobs.json()
+        try:
+            jobs_json = jobs.json()
+            return jobs_json
+        except:
+            logging.error("Failed to parse the jobs status %s" % str(traceback.format_exc()))
 
     record_counter('transfertool.fts3.%s.query.failure' % __extract_host(transfer_host))
 
