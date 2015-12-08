@@ -1032,6 +1032,11 @@ def update_rule(rule_id, options, session=None):
                             l.state = LockState.STUCK
                             rule_ids_to_stuck.add(l.rule_id)
                         cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                        replica = session.query(models.RSEFileAssociation).filter(
+                            models.RSEFileAssociation.scope == lock.scope,
+                            models.RSEFileAssociation.name == lock.name,
+                            models.RSEFileAssociation.rse_id == lock.rse_id).one()
+                        replica.state = ReplicaState.UNAVAILABLE
                     # Set rules and DATASETLOCKS to STUCK:
                     for rid in rule_ids_to_stuck:
                         session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rid,
@@ -1040,6 +1045,7 @@ def update_rule(rule_id, options, session=None):
 
                 if options['state'].lower() == 'suspended':
                     rule.state = RuleState.SUSPENDED
+
                 elif options['state'].lower() == 'stuck':
                     rule.state = RuleState.STUCK
                     rule.stuck_at = datetime.utcnow()
