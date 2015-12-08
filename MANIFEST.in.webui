@@ -1,0 +1,20 @@
+include MANIFEST.in pylintrc
+include AUTHORS
+include LICENSE
+include ChangeLog
+include README.rst
+include setup.py
+include setup.cfg
+recursive-include lib/rucio/web/ui *
+prune dist
+prune examples
+prune .coverage
+prune build/
+prune covhtml
+prune doc/build/
+prune lib/rucio*egg-info/
+prune tools/patches
+prune .tox
+prune .venv
+prune .DS_Store
+global-exclude *.pyc *.log *.db *.swp *.proxy *~ rse-accounts.cfg rucio*.cfg emulation.cfg

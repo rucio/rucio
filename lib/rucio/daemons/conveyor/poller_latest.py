@@ -72,7 +72,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                 try:
                     resps = request.query_latest(external_host, state=state, last_nhours=last_nhours)
                 except:
-                    logging.critical(traceback.format_exc())
+                    logging.error(traceback.format_exc())
                 record_timer('daemons.conveyor.poller_latest.000-query_latest', (time.time()-ts)*1000)
 
                 if resps:
@@ -91,7 +91,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                         # if True, really update request content; if False, only touch request
                         record_counter('daemons.conveyor.poller_latest.update_request_state.%s' % ret)
                     except:
-                        logging.critical(traceback.format_exc())
+                        logging.error(traceback.format_exc())
             if once:
                 break
 

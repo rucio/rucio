@@ -2368,9 +2368,10 @@ def __create_rule_approval_email(rule, session=None):
             accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
                                                                                       value='admin').all()
             for account in accounts:
-                email = get_account(account=account, session=session).email
+                email = get_account(account=account[0], session=session).email
                 if email:
-                    recipents.append((email, account))
+                    recipents.append((email, account[0]))
+
     # DDMADMIN as default
     if not recipents:
         recipents = [('atlas-adc-ddm-support@cern.ch', 'root')]
