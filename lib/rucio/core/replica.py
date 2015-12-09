@@ -531,8 +531,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
     state_clause = None
     if not all_states:
         if not unavailable:
-            if file_clause:
-                state_clause = models.RSEFileAssociation.state == ReplicaState.AVAILABLE
+            state_clause = models.RSEFileAssociation.state == ReplicaState.AVAILABLE
         else:
             state_clause = or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
                                models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,

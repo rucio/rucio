@@ -12,6 +12,7 @@
 /bin/cp setup_rucio.py setup.py
 /bin/cp README.rucio.rst README.rst
 /bin/cp MANIFEST.in.rucio MANIFEST.in
+/bin/cp setup_rucio.py setup.py
 # Push on pypi@cern
 python setup_rucio.py --release register -r https://voatlasrucio-pip.cern.ch/ sdist upload -r https://voatlasrucio-pip.cern.ch/
 # Push on pypi@org
