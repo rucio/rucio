@@ -673,18 +673,17 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                             path = protocol._get_path(scope, name)
                             pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)] = path
 
-                    if protocol.attributes['scheme'] in rse_schemes:
+                    try:
+                        pfn = protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                        pfns.append(pfn)
+                    except:
+                        # temporary protection
+                        print format_exc()
+                    if protocol.attributes['scheme'] == 'srm':
                         try:
-                            pfn = protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
-                            pfns.append(pfn)
-                        except:
-                            # temporary protection
-                            print format_exc()
-                        if protocol.attributes['scheme'] == 'srm':
-                            try:
-                                file['space_token'] = protocol.attributes['extended_attributes']['space_token']
-                            except KeyError:
-                                file['space_token'] = None
+                            file['space_token'] = protocol.attributes['extended_attributes']['space_token']
+                        except KeyError:
+                            file['space_token'] = None
 
             if 'scope' in file and 'name' in file:
                 if file['scope'] == scope and file['name'] == name:
@@ -1078,18 +1077,19 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
     # filter(models.RSEFileAssociation.state != ReplicaState.BEING_DELETED).\
     none_value = None  # Hack to get pep8 happy...
     query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path, models.RSEFileAssociation.bytes, models.RSEFileAssociation.tombstone, models.RSEFileAssociation.state).\
+        with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE)),
                    and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
-        order_by(models.RSEFileAssociation.tombstone).\
-        with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
+        order_by(models.RSEFileAssociation.tombstone)
 
     # do no delete files used as sources
-    stmt = exists([1]).where(and_(models.RSEFileAssociation.scope == models.Source.scope,
-                                  models.RSEFileAssociation.name == models.Source.name,
-                                  models.RSEFileAssociation.rse_id == models.Source.rse_id))
+    stmt = exists(select([1]).prefix_with("/*+ INDEX_RS_ASC(sources SOURCES_SC_NM_DST_IDX) NO_INDEX_FFS(sources SOURCES_SC_NM_DST_IDX) */", dialect='oracle')).\
+        where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                   models.RSEFileAssociation.name == models.Source.name,
+                   models.RSEFileAssociation.rse_id == models.Source.rse_id))
     query = query.filter(not_(stmt))
 
     if worker_number and total_workers and total_workers - 1 > 0:
