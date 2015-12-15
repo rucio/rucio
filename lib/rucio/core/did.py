@@ -708,7 +708,7 @@ def list_all_parent_dids(scope, name, session=None):
         list_all_parent_dids(scope=did.scope, name=did.name, session=session)
 
 
-@stream_session
+@transactional_session
 def list_child_datasets(scope, name, session=None):
     """
     List all child datasets of a container.
@@ -720,6 +720,7 @@ def list_child_datasets(scope, name, session=None):
     :rtype:           Generator
     """
 
+    result = []
     query = session.query(models.DataIdentifierAssociation.child_scope,
                           models.DataIdentifierAssociation.child_name,
                           models.DataIdentifierAssociation.child_type).filter(models.DataIdentifierAssociation.scope == scope,
@@ -728,9 +729,10 @@ def list_child_datasets(scope, name, session=None):
     query = query.with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
     for child_scope, child_name, child_type in query.yield_per(5):
         if child_type == DIDType.CONTAINER:
-            list_child_datasets(scope=child_scope, name=child_name, session=session)
+            result.extend(list_child_datasets(scope=child_scope, name=child_name, session=session))
         else:
-            yield {'scope': child_scope, 'name': child_name, 'type': child_type}
+            result.append({'scope': child_scope, 'name': child_name, 'type': child_type})
+    return result
 
 
 @stream_session
