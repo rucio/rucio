@@ -11,19 +11,13 @@
 import logging
 from operator import itemgetter
 from random import shuffle
-from sys import stdout
 
 from rucio.daemons.c3po.collectors.agis import MappingCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
-from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.replica import list_dataset_replicas
 from rucio.core.did import get_did
 from rucio.db.sqla.constants import ReplicaState
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 class PlacementAlgorithm:
@@ -51,6 +45,10 @@ class PlacementAlgorithm:
         except DataIdentifierNotFound:
             decision['error_reason'] = 'did does not exist'
             return decision
+        if meta['length'] is None:
+            meta['length'] = 0
+        if meta['bytes'] is None:
+            meta['bytes'] = 0
         logging.debug('got %s:%s, num_files: %d, bytes: %d' % (did[0], did[1], meta['length'], meta['bytes']))
 
         decision['length'] = meta['length']
@@ -62,7 +60,6 @@ class PlacementAlgorithm:
 
         num_reps = 0
         for rep in reps:
-            logging.debug(rep)
             if rep['state'] == ReplicaState.AVAILABLE:
                 available_rses.append(rep['rse'])
                 available_sites.append(self._mc.ddm_to_site(rep['rse']))
