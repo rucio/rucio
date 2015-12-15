@@ -18,7 +18,7 @@ recursive-include lib/rucio/db/migrate_repo/versions *.py
 recursive-include tools/probes *
 recursive-include  etc/schemas *.json
 graft doc
-prune lib/rucio/web/ui *
+prune lib/rucio/web/ui
 prune dist
 prune examples
 prune .coverage
