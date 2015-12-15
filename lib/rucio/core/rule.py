@@ -2403,6 +2403,7 @@ DID description:
   Type:                 %s
   Number of files:      %s
   Total size:           %s
+  Closed:               %s
   Complete replicas:    %s
   Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
 
@@ -2423,6 +2424,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                                                  rule.did_type,
                                                  '0' if did['length'] is None else str(did['length']),
                                                  '0' if did['bytes'] is None else sizefmt(did['bytes']),
+                                                 not did['open'],
                                                  ', '.join(rses),
                                                  rule.scope, rule.name,
                                                  str(rule.id),
