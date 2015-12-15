@@ -11,15 +11,10 @@
 import logging
 from json import loads
 from requests import get
-from sys import stdout
 from time import time
 
 from rucio.common.config import config_get, config_get_int
 from rucio.daemons.c3po.utils.timeseries import RedisTimeSeries
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 class WorkloadCollector():
@@ -29,7 +24,7 @@ class WorkloadCollector():
     """
 
     class __WorkloadCollector():
-        def __init__(self):
+        def __init__(self, delete_keys=False):
             self._avg_jobs = {}
             self._cur_jobs = {}
             self._max_jobs = {}
@@ -37,7 +32,8 @@ class WorkloadCollector():
 
             self._request_headers = {"Accept": "application/json", "Content-Type": "application/json"}
             self._request_url = config_get('c3po-workload', 'panda_url')
-            # self._tms.delete_keys()
+            if delete_keys:
+                self._tms.delete_keys()
             self.reload_cache()
 
         def reload_cache(self):
@@ -58,7 +54,7 @@ class WorkloadCollector():
             logging.debug("PanDA response took %fs" % (time() - start))
 
             start = time()
-            jobs = loads(resp.text)
+            jobs = loads(resp.text)['jobs']
             logging.debug("decoding JSON response took %fs" % (time() - start))
             sites = {}
 

@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 [common]
@@ -157,8 +157,8 @@ placement_algorithm = simple
 elastic_url = http://aianalytics01.cern.ch:9200
 
 [c3po-workload]
-panda_url = http://bigpanda.cern.ch/jobs/?category=production&jobstatus=running&cloud=DE
-window = 3600
+panda_url = http://bigpanda.cern.ch/jobs/?category=analysis&jobstatus=running
+window = 604800
 redis_host = localhost
 redis_port = 6379
 
