@@ -51,13 +51,13 @@ def rule_injector(once=False):
     paused_rules = {}  # {rule_id: datetime}
 
     # Make an initial heartbeat so that all judge-inectors have the correct worker number on the next try
-    live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=60*60)
+    live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=2*60*60)
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=60*60)
+            heartbeat = live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=2*60*60)
 
             start = time.time()
             rules = get_injected_rules(total_workers=heartbeat['nr_threads']-1,
@@ -136,7 +136,7 @@ def run(once=False, threads=1):
     """
 
     hostname = socket.gethostname()
-    sanity_check(executable='rucio-judge-evaluator', hostname=hostname)
+    sanity_check(executable='rucio-judge-injector', hostname=hostname)
 
     if once:
         rule_injector(once)
