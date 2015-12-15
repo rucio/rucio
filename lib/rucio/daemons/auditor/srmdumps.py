@@ -14,11 +14,10 @@ import requests
 
 try:
     import gfal2
-except ImportError as e:
+except ImportError:
     import sys
     if 'nose' not in sys.modules and 'py.test' not in sys.modules:
-        e.msg = e.msg + ' gfal2 is required by this module (except for testing).'
-        raise e
+        raise
 
 CHUNK_SIZE = 10485760
 
