@@ -88,6 +88,8 @@ def main(args):
                 logpipew,
                 cache_dir,
                 results_dir,
+                args.keep_dumps,
+                args.delta,
             ),
             name='auditor-worker'
         )
@@ -153,6 +155,19 @@ if __name__ == '__main__':
              'all the RSEs known to Rucio (default: check all RSEs).',
         default=None,
         type=str,
+    )
+    parser.add_argument(
+        '--keep-dumps',
+        help='Keep RSE and Rucio Replica Dumps on cache '
+             '(default: False).',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--delta',
+        help='How many days older/newer than the RSE dump must the Rucio replica dumps be '
+             '(default: 3).',
+        default=3,
+        type=int,
     )
     parser.epilog = textwrap.dedent('''
         examples:

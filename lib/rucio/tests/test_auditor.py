@@ -3,9 +3,9 @@ from datetime import timedelta
 from nose.tools import eq_
 from nose.tools import ok_
 from rucio.common.dumper import consistency
-from rucio.common.dumper import data_models
 from rucio.daemons import auditor
 from rucio.daemons.auditor import srmdumps
+from rucio.daemons.auditor import hdfs
 from rucio.tests.common import stubbed
 import collections
 import multiprocessing
@@ -38,7 +38,7 @@ def test_auditor_download_dumps_with_expected_dates():
     tmp_dir = tempfile.mkdtemp()
 
     with stubbed(srmdumps.download_rse_dump, fake_srm_download):
-        with stubbed(data_models.Replica.download, fake_rrd_download):
+        with stubbed(hdfs.ReplicaFromHDFS.download, fake_rrd_download):
             with stubbed(consistency.Consistency.dump, fake_consistency_dump):
                 auditor.consistency('RSENAME', timedelta(days=3), None, cache_dir=tmp_dir, results_dir=tmp_dir)
 
@@ -75,9 +75,9 @@ def test_auditor_check_survives_failures_and_queues_failed_rses():
     terminate = multiprocessing.Event()
     with stubbed(auditor.consistency, fake_consistency):
         with stubbed(terminate.is_set, lambda slf: queue.empty()):
-            auditor.check(queue, retry, terminate, wr_pipe, None, None)
+            auditor.check(queue, retry, terminate, wr_pipe, None, None, 3, False)
 
     ok_(queue.empty())
-    eq_(retry.get(0), ('RSE_WITH_EXCEPTION', 0))
-    eq_(retry.get(1), ('RSE_WITH_ERROR', 0))
+    eq_(retry.get(), ('RSE_WITH_EXCEPTION', 0))
+    eq_(retry.get(), ('RSE_WITH_ERROR', 0))
     ok_(retry.empty())
