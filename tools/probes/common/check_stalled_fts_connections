@@ -51,7 +51,7 @@ def check_connections(services):
                     fd = items[3].replace('u', '')
                     file = "/proc/%s/fd/%s" % (pid, fd)
                     if os.path.exists(file):
-                        mtime = os.path.getmtime(file)
+                        mtime = os.lstat(file).st_mtime
                         if (time.time() - mtime) > 3600:
                             services[pid]['stalled'] += 1
                 except:
