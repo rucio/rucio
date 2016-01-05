@@ -84,6 +84,7 @@ if __name__ == "__main__":
                 g.write('%s\t%s : Connections stalled for more than 60 minutes\t%i\tNo stalled connections\n' % (hostname, name, OK))
             else:
                 g.write('%s\t%s : Connections stalled for more than 60 minutes\t%i\t%i stalled connections\n' % (hostname, name, CRITICAL, stalled))
+                status, output = commands.getstatusoutput('/usr/bin/supervisorctl reload')
             g.close()
             for i in xrange(0, 10):
                 s, o = commands.getstatusoutput('/usr/sbin/send_nsca rucio-nagios-prod.cern.ch -c /etc/nagios/send_nsca.cfg < %s' % (fileoutput))
