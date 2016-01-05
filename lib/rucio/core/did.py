@@ -535,7 +535,7 @@ def detach_dids(scope, name, dids, session=None):
         child_events = associ_did.events
         if did.length:
             did.length -= 1
-        if did.bytes:
+        if did.bytes and child_size:
             did.bytes -= child_size
         if did.events and child_events:
             did.events -= child_events
