@@ -570,7 +570,7 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, session):
                  models.DataIdentifierAssociation.child_name)
 
     if state_clause is not None:
-        replica_query.filter(and_(state_clause))
+        replica_query = replica_query.filter(and_(state_clause))
 
     for replica in replica_query.yield_per(500):
         yield replica
