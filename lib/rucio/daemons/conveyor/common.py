@@ -239,7 +239,7 @@ def handle_requests(reqs):
                         protocols[dest_rse_id_scheme] = rsemanager.create_protocol(rses_info[req['dest_rse_id']], 'write', scheme)
                     path = protocols[dest_rse_id_scheme].parse_pfns([pfn])[pfn]['path']
                     replica['path'] = os.path.join(path, os.path.basename(pfn))
-            elif req['state'] == RequestState.FAILED or req['state'] == RequestState.LOST:
+            elif req['state'] == RequestState.FAILED:
                 if request_core.should_retry_request(req):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
@@ -257,7 +257,7 @@ def handle_requests(reqs):
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = False
                     replicas[req['request_type']][req['rule_id']].append(replica)
-            elif req['state'] == RequestState.SUBMITTING or req['state'] == RequestState.SUBMISSION_FAILED:
+            elif req['state'] == RequestState.SUBMITTING or req['state'] == RequestState.SUBMISSION_FAILED or req['state'] == RequestState.LOST:
                 if req['updated_at'] > (datetime.datetime.utcnow()-datetime.timedelta(minutes=120)):
                     continue
 
