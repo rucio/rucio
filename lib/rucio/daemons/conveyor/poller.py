@@ -99,7 +99,7 @@ def poller(once=False,
                 ts = time.time()
                 logging.debug('%i:%i - start to poll transfers older than %i seconds for activity %s' % (process, hb['assign_thread'], older_than, activity))
                 transfs = request.get_next_transfers(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                                     state=RequestState.SUBMITTED,
+                                                     state=[RequestState.SUBMITTED, RequestState.LOST],
                                                      limit=db_bulk,
                                                      older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
                                                      process=process, total_processes=total_processes,
