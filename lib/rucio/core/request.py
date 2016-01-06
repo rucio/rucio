@@ -719,7 +719,7 @@ def query_request(request_id, transfertool='fts3', session=None):
         except Exception:
             raise
 
-        if not response:
+        if response is None:
             req_status['new_state'] = RequestState.LOST
         else:
             if 'job_state' not in response:
@@ -849,7 +849,7 @@ def bulk_query_requests(request_host, request_ids, transfertool='fts3'):
         responses = {}
         for request_id, external_id in request_ids:
             fts_resp = fts_resps[external_id]
-            if not fts_resp:
+            if fts_resp is None:
                 req_status = {}
                 req_status['new_state'] = RequestState.LOST
                 req_status['request_id'] = request_id
