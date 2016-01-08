@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 
 """
 Conveyor is a daemon to manage file transfers.
