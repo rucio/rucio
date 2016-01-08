@@ -942,7 +942,7 @@ def query_request_details(request_id, transfertool='fts3', session=None):
 
 
 @transactional_session
-def set_requests_external(transfer_ids, session=None):
+def set_requests_external(transfer_ids, submitted_at=None, session=None):
     """
     Update all requests with the according external id from the transfertool.
 
@@ -957,7 +957,7 @@ def set_requests_external(transfer_ids, session=None):
                         'external_id': transfer_ids[transfer_id]['external_id'],
                         'external_host': transfer_ids[transfer_id]['external_host'],
                         'dest_url': transfer_ids[transfer_id]['dest_urls'][0],
-                        'submitted_at': datetime.datetime.utcnow()},
+                        'submitted_at': submitted_at},
                        synchronize_session=False)
 
 
