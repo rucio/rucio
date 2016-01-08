@@ -9,11 +9,12 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 
 """
 Methods common to different conveyor submitter daemons.
 """
-
+import datetime
 import json
 import logging
 import os
@@ -1338,7 +1339,7 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMISSION_FAILED, None)
                 logging.warn("%s" % (log_str))
         logging.debug("%s:%s start to register transfer state" % (process, thread))
-        request.set_request_transfers_state(xfers_ret)
+        request.set_request_transfers_state(xfers_ret, datetime.datetime.utcnow())
         logging.debug("%s:%s finished to register transfer state" % (process, thread))
         if eid:
             update_transfer_file(eid, 'delete', cachedir=cachedir, process=process, thread=thread)
