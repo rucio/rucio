@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 
 """
 Methods common to different conveyor daemons.

@@ -106,6 +106,7 @@ def submitter(once=False, rses=[],
                         transfer = transfers[request_id]
                         ts = time.time()
                         tmp_metadata = transfer['file_metadata']
+                        # Submition time should be calculated before call to submit_transfers()
                         submitted_at = datetime.datetime.utcnow()
                         transfer_ids = fts3.submit_transfers([transfer, ], tmp_metadata)
                         request.set_requests_external(transfer_ids, submitted_at)
