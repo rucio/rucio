@@ -15,6 +15,7 @@
 Conveyor is a daemon to manage file transfers.
 """
 
+import datetime
 import json
 import logging
 import os
@@ -105,8 +106,9 @@ def submitter(once=False, rses=[],
                         transfer = transfers[request_id]
                         ts = time.time()
                         tmp_metadata = transfer['file_metadata']
+                        submitted_at = datetime.datetime.utcnow()
                         transfer_ids = fts3.submit_transfers([transfer, ], tmp_metadata)
-                        request.set_requests_external(transfer_ids)
+                        request.set_requests_external(transfer_ids, submitted_at)
                         record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
                         if 'previous_attempt_id' in transfer['file_metadata']:
