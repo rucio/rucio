@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 
 import datetime
 import json
@@ -463,7 +464,7 @@ def prepare_request_transfers(transfers, session=None):
 
 
 @transactional_session
-def set_request_transfers_state(transfers, session=None):
+def set_request_transfers_state(transfers, submitted_at, session=None):
     """
     Update the transfer info of a request.
 
@@ -480,7 +481,7 @@ def set_request_transfers_state(transfers, session=None):
                                        'external_id': transfers[request_id]['external_id'],
                                        'external_host': transfers[request_id]['external_host'],
                                        'source_rse_id': transfers[request_id]['src_rse_id'],
-                                       'submitted_at': datetime.datetime.utcnow()},
+                                       'submitted_at': submitted_at},
                                       synchronize_session=False)
             if rowcount == 0:
                 raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % (request_id, transfers[request_id]))
@@ -494,7 +495,7 @@ def set_request_transfers_state(transfers, session=None):
                    'dest-rse': transfers[request_id].get('dest-rse', None),
                    'external-id': transfers[request_id]['external_id'],
                    'external-host': transfers[request_id]['external_host'],
-                   'submitted-at': str(datetime.datetime.utcnow())}
+                   'submitted-at': str(submitted_at)}
             if msg['request-type']:
                 transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
             else:
@@ -942,7 +943,7 @@ def query_request_details(request_id, transfertool='fts3', session=None):
 
 
 @transactional_session
-def set_requests_external(transfer_ids, session=None):
+def set_requests_external(transfer_ids, submitted_at, session=None):
     """
     Update all requests with the according external id from the transfertool.
 
@@ -957,7 +958,7 @@ def set_requests_external(transfer_ids, session=None):
                         'external_id': transfer_ids[transfer_id]['external_id'],
                         'external_host': transfer_ids[transfer_id]['external_host'],
                         'dest_url': transfer_ids[transfer_id]['dest_urls'][0],
-                        'submitted_at': datetime.datetime.utcnow()},
+                        'submitted_at': submitted_at},
                        synchronize_session=False)
 
 
