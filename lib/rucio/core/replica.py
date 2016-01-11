@@ -626,8 +626,25 @@ def _list_replicas_for_files(file_clause, state_clause, files, session):
             {'scope': replica[0], 'name': replica[1]} in files and files.remove({'scope': replica[0], 'name': replica[1]})
             yield replica
 
-    for file in files:
-        yield file['scope'], file['name'], None, None, None, None, None, None, None
+    if files:
+        file_wo_clause = []
+        for file in files:
+            file_wo_clause.append(and_(models.DataIdentifier.scope == file['scope'],
+                                       models.DataIdentifier.name == file['name']))
+        files_wo_replicas_query = session.query(models.DataIdentifier.scope,
+                                                models.DataIdentifier.name,
+                                                models.DataIdentifier.bytes,
+                                                models.DataIdentifier.md5,
+                                                models.DataIdentifier.adler32).\
+            filter_by(did_type=DIDType.FILE).filter(or_(*file_wo_clause)).\
+            with_hint(models.DataIdentifier, text="INDEX(DIDS DIDS_PK)", dialect_name='oracle')
+
+        for scope, name, bytes, md5, adler32 in files_wo_replicas_query:
+            yield scope, name, bytes, md5, adler32, None, None, None, None
+            {'scope': scope, 'name': name} in files and files.remove({'scope': scope, 'name': name})
+
+        # if files:
+        #    raise exception.DataIdentifierNotFound("Files not found %s", str(files))
 
 
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, session):
