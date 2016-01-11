@@ -32,11 +32,11 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound)
+                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound, ScratchDiskLifetimeConflict)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter
-from rucio.core.account import get_account
+from rucio.core.account import get_account, has_account_attribute
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name, list_rse_attributes
@@ -83,7 +83,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param asynchronous:               Create replication rule asynchronously by the judge-injector.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
-    :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted
+    :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
+                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict
     """
     rule_ids = []
 
@@ -98,6 +99,15 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
                     raise StagingAreaRuleRequiresLifetime()
+
+            # Check SCRATCHDISK Polciy
+            if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60*60*24*15):
+                # Check if one of the rses is a SCRATCHDISK:
+                if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
+                    if len(rses) == 1:
+                        lifetime = 60*60*24*15 - 1
+                    else:
+                        raise ScratchDiskLifetimeConflict()
 
             # Auto-lock rules for TAPE rses
             if not locked and lifetime is None:
@@ -244,7 +254,8 @@ def add_rules(dids, rules, session=None):
                      {account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notifiy, purge_replicas}
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
-    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted
+    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
+                     StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict
     """
 
     with record_timer_block('rule.add_rules'):
@@ -299,6 +310,15 @@ def add_rules(dids, rules, session=None):
                     if rule.get('lifetime', None) is None:  # Check if one of the rses is a staging area
                         if [rse for rse in rses if rse.get('staging_area', False)]:
                             raise StagingAreaRuleRequiresLifetime()
+
+                    # Check SCRATCHDISK Polciy
+                    if not has_account_attribute(account=rule.get('account'), key='admin', session=session) and (rule.get('lifetime', None) is None or rule.get('lifetime', None) > 60*60*24*15):
+                        # Check if one of the rses is a SCRATCHDISK:
+                        if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
+                            if len(rses) == 1:
+                                rule['lifetime'] = 60*60*24*15 - 1
+                            else:
+                                raise ScratchDiskLifetimeConflict()
 
                     # Auto-lock rules for TAPE rses
                     if not rule.get('locked', False) and rule.get('lifetime', None) is None:
@@ -430,15 +450,6 @@ def inject_rule(rule_id, session=None):
             rses = parse_expression(rule.rse_expression, session=session)
         else:
             rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
-
-        if rule.expires_at is None:  # Check if one of the rses is a staging area
-            if [rse for rse in rses if rse.get('staging_area', False)]:
-                raise StagingAreaRuleRequiresLifetime()
-
-        # Auto-lock rules for TAPE rses
-        if not rule.locked and rule.expires_at is None:
-            if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
-                rule.locked = True
 
         if rule.source_replica_expression:
             source_rses = parse_expression(rule.source_replica_expression, session=session)
@@ -953,7 +964,7 @@ def update_rule(rule_id, options, session=None):
     :param rule_id:     The rule_id to lock.
     :param options:     Dictionary of options
     :param session:     The database session in use.
-    :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used.
+    :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
     valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests']
@@ -966,6 +977,12 @@ def update_rule(rule_id, options, session=None):
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
         for key in options:
             if key == 'lifetime':
+                # Check SCRATCHDISK Polciy
+                if not has_account_attribute(account=rule.account, key='admin', session=session) and (options['lifetime'] is None or options['lifetime'] > 60*60*24*15):
+                    # Check if one of the rses is a SCRATCHDISK:
+                    rses = parse_expression(rule.rse_expression, session=session)
+                    if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
+                        raise ScratchDiskLifetimeConflict()
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
@@ -983,7 +1000,7 @@ def update_rule(rule_id, options, session=None):
                     queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
                                                                   request_type=RequestType.TRANSFER,
                                                                   scope=lock.scope, name=lock.name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
-                                                                  ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity)], session=session)
+                                                                  ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity, session=session)], session=session)
 
             elif key == 'account':
                 # Check if the account exists
@@ -1442,7 +1459,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
             queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
                                                           request_type=RequestType.TRANSFER,
                                                           scope=scope, name=name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
-                                                          ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery')], session=session)
+                                                          ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery', session=session)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
             pass
