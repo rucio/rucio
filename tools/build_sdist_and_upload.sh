@@ -8,32 +8,24 @@
 # Authors:
 # Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# Martin Barisits, <martin.barisits@cern.ch>, 2016
 
-/bin/cp setup_rucio.py setup.py
 /bin/cp README.rucio.rst README.rst
 /bin/cp MANIFEST.in.rucio MANIFEST.in
-/bin/cp setup_rucio.py setup.py
-# Push on pypi@cern
-python setup_rucio.py --release register -r https://voatlasrucio-pip.cern.ch/ sdist upload -r https://voatlasrucio-pip.cern.ch/
+# Pre-build one time to ensure correct vcversion file
+python setup.py --release build sdist
 # Push on pypi@org
 python setup_rucio.py --release register sdist upload
 
 
-/bin/cp setup_rucio_client.py setup.py
 /bin/cp README.client.rst README.rst
 /bin/cp MANIFEST.in.client MANIFEST.in
-# Push on pypi@cern
-python setup_rucio_client.py  --release register -r https://voatlasrucio-pip.cern.ch/ sdist upload -r https://voatlasrucio-pip.cern.ch/
 # Push on pypi@org
 python setup_rucio_client.py  --release register sdist upload
 
 
-/bin/cp setup_webui.py setup.py
 /bin/cp README.webui.rst README.rst
 /bin/cp MANIFEST.in.webui MANIFEST.in
-# Push on pypi@cern
-python setup.py register -r https://voatlasrucio-pip.cern.ch/ sdist upload -r https://voatlasrucio-pip.cern.ch/
 # Push on pypi@org
-python setup.py register sdist upload
+python setup_webui.py register sdist upload
 
-/bin/cp setup_rucio.py setup.py
