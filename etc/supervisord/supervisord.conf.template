@@ -66,6 +66,10 @@ stdout_logfile=/tmp/conveyor.log
 command=/opt/rucio/bin/rucio-reaper
 stdout_logfile=/tmp/reaper.log
 
+[program:auditor]
+command=/opt/rucio/bin/rucio-auditor --nprocs 4 --rses 'type=DATADISK|type=SCRATCHDISK|type=GROUPDISK|type=PRODDISK'
+stdout_logfile=/tmp/auditor.log
+
 ;[program:theprogramname]
 ;command=/bin/cat              ; the program (relative uses PATH, can take args)
 ;process_name=%(program_name)s ; process_name expr (default %(program_name)s)
