@@ -6,14 +6,23 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 
-try:
-    import hadoopy
-except ImportError:
-    import sys
-    if 'nose' not in sys.modules and 'py.test' not in sys.modules:
-        raise
+
+def _hdfs_get(src_url, dst_path):
+    cmd = ['hadoop', 'fs', '-get', src_url, dst_path]
+    get = subprocess.Popen(
+        cmd,
+        stderr=subprocess.PIPE,
+    )
+    _, stderr = get.communicate()
+    if get.returncode != 0:
+        raise IOError('_hdfs_get(): "{0}": {1}. Return code {2}'.format(
+            ' '.join(cmd),
+            stderr,
+            get.returncode,
+        ))
 
 
 class ReplicaFromHDFS(Replica):
@@ -44,7 +53,7 @@ class ReplicaFromHDFS(Replica):
         try:
             logging.debug('Trying to download: %s for %s', url, rse)
 
-            hadoopy.get(cls.BASE_URL.format(date.strftime('%Y-%m-%d'), rse), tmp_dir)
+            _hdfs_get(cls.BASE_URL.format(date.strftime('%Y-%m-%d'), rse), tmp_dir)
             files = (os.path.join(tmp_dir, file_) for file_ in sorted(os.listdir(tmp_dir)))
 
             with temp_file(cache_dir, filename) as (full_dump, _):
