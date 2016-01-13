@@ -40,4 +40,3 @@ geoip2==2.2.0 # GeoIP2 API (for IPv6 support)
 maxminddb==1.2.0 # extension for reading the MaxMind DB format
 # python-ldap==2.4.15        # needed for LDAP integration
 threadpool==1.3.2 # threadpool
-# -e git+https://github.com/bwhite/hadoopy@ff39b4e6d4e6efaf1f571cf0f2c0e0d7ab28c2d6#egg=hadoopy # Needed for auditor to access the dumps directly
