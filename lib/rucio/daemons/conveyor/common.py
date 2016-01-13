@@ -460,20 +460,11 @@ def get_source_rse(request_id, scope, name, src_url, session=None):
 
 @read_session
 def add_monitor_message(request, response, session=None):
-    if request['request_type'] == RequestType.STAGEIN:
-        if response['new_state'] == RequestState.DONE:
-            transfer_status = 'stagein-done'
-        elif response['new_state'] == RequestState.FAILED:
-            transfer_status = 'stagein-failed'
-        elif response['new_state'] == RequestState.LOST:
-            transfer_status = 'stagein-lost'
+    if request['request_type']:
+        transfer_status = '%s-%s' % (request['request_type'], response['new_state'])
     else:
-        if response['new_state'] == RequestState.DONE:
-            transfer_status = 'transfer-done'
-        elif response['new_state'] == RequestState.FAILED:
-            transfer_status = 'transfer-failed'
-        elif response['new_state'] == RequestState.LOST:
-            transfer_status = 'transfer-lost'
+        transfer_status = 'transfer-%s' % (response['new_state'])
+    transfer_status = transfer_status.lower()
 
     activity = response.get('activity', None)
     src_type = response.get('src_type', None)

@@ -200,24 +200,24 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                                                          'created_at': str(t['created_at'])}),
                                                         destination=destination,
                                                         headers={'persistent': 'true'})
+                        to_delete.append(t['id'])
                     except ValueError:
                         logging.warn('Cannot serialize payload to JSON: %s' % str(t['payload']))
+                        to_delete.append(t['id'])
                         continue
                     except Exception, e:
                         logging.warn('Could not deliver message: %s' % str(e))
                         continue
 
-                    to_delete.append(t['id'])
-
-                    if str(t['event_type']).lower().startswith('transfer'):
+                    if str(t['event_type']).lower().startswith('transfer') or str(t['event_type']).lower().startswith('stagein'):
                         logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s' % (hb['assign_thread'],
                                                                                                                                                           hb['nr_threads'],
                                                                                                                                                           str(t['event_type']).lower(),
-                                                                                                                                                          t['payload']['scope'],
-                                                                                                                                                          t['payload']['name'],
-                                                                                                                                                          t['payload']['dst-rse'],
-                                                                                                                                                          t['payload']['request-id'],
-                                                                                                                                                          t['payload']['transfer-id'],
+                                                                                                                                                          t['payload'].get('scope', None),
+                                                                                                                                                          t['payload'].get('name', None),
+                                                                                                                                                          t['payload'].get('dst-rse', None),
+                                                                                                                                                          t['payload'].get('request-id', None),
+                                                                                                                                                          t['payload'].get('transfer-id', None),
                                                                                                                                                           str(t['created_at'])))
                     elif str(t['event_type']).lower().startswith('dataset'):
                         logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)' % (hb['assign_thread'],
