@@ -1,0 +1,89 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+-->
+
+$var title: Rules in Approval State
+$var script: <script src="/static/approve_rules.js"></script>
+
+<div id="results" class="row">
+
+  <div id="t_data" class="columns panel">
+    <h4>Rules</h4>
+    <form>
+      <div id="selector_row" class="row collapse">
+        <div class="large-2 columns">
+          <label>Account<input type="text" id="account_input" placeholder="Account"></input></label>
+        </div>
+        <div class="large-2 columns">
+          <label>RSE<input type="text" id="rse_input" placeholder="RSE"></input></label>
+        </div>
+        <div class="large-2 columns">
+          <label>Activity<input type="text" id="activity_input" value="User Subscriptions"></input></label>
+        </div>
+        <div class="large-1 columns">
+          <label>Interval
+            <input type="text" id="age_input" placeholder=""></input>
+          </label>
+        </div>
+        <div class="large-1 columns">
+          <label><text style="visibility:hidden">.</text>
+            <select id="age_selector">
+              <option value="days">days</option>
+              <option value="hours">hours</option>
+              <option value="minutes">minutes</option>
+            </select>
+          </label>
+        </div>
+        <div class="large-2 columns">
+          <label><text style="visibility:hidden">.</text>
+            <div class="row">
+              <div class="large-12 large-centered columns">
+                <i title="Custom Range" id="custom_dates" class="step fi-clock size-24"></i>
+              </div>
+            </div>
+          </label>
+        </div>
+        <div class="large-2 columns">
+          <label><text style="visibility:hidden">.</text>
+          <a class="button postfix" id="apply_button">Apply</a>
+          </label>
+        </div>
+      </div>
+    </form>
+    <div class="row">
+    <div id="date_panel" class="columns large-12" style="display:none;">
+      <table id="datepicker" style="table-layout:fixed; width:auto;">
+        <thead>
+          <tr>
+            <th>Start date</th>
+            <th>End date</th>
+          <tr>
+        </thead>
+        <tfoot>
+          <tr>
+            <th><div id="datepicker1" style="font-size:14px; height: 250px;"></div></th>
+            <th><div id="datepicker2" style="font-size:14px; height: 250px;"></div></th>
+          <tr>
+        </tfoot>
+      </table>
+    </div>
+    </div>
+    <div id="loader"></div>
+    <div id="results_panel" style="visibility:false;">
+      <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
+        <thead><tr><th>Name</th><th>Account</th><th>RSE Expression</th><th>Creation Date</th><th>Expires At</th><th>Filesize</th><th>Length</th><th>Open</th><th>DID Type</th><th>Grouping</th><th>Comment</th><th></th><th></th></tr></thead>
+        <tfoot><tr><th>Name</th><th>Account</th><th>RSE Expression</th><th>Creation Date</th><th>Expires At</th><th>Filesize</th><th>Length</th><th>Open</th><th>DID Type</th><th>Grouping</th><th>Comment</th><th></th><th></th></tr></tfoot>
+    </table>
+    </div>
+  </div>
+
+</div>
+<div id="problem"></div>

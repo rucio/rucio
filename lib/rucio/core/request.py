@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 
 import datetime
 import json
@@ -29,7 +30,7 @@ from sqlalchemy.sql.expression import asc, bindparam, text
 from rucio.common.config import config_get
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.utils import generate_uuid
-from rucio.core import config as config_core
+from rucio.core import config as config_core, message as message_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_id, get_rse_name, get_rse_transfer_limits
 from rucio.db.sqla import models
@@ -248,6 +249,7 @@ def queue_requests(requests, session=None):
 
     logging.debug("queue requests")
     try:
+        rse_names = {}
         for req in requests:
             if isinstance(req['attributes'], (str, unicode)):
                 req['attributes'] = json.loads(req['attributes'])
@@ -311,6 +313,29 @@ def queue_requests(requests, session=None):
                                   url=source['url'],
                                   is_using=source['is_using']).\
                         save(session=session, flush=False)
+
+            if new_request['dest_rse_id'] not in rse_names:
+                rse_names[new_request['dest_rse_id']] = get_rse_name(new_request['dest_rse_id'])
+            msg = {'request-id': new_request['id'],
+                   'request-type': str(new_request['request_type']).lower(),
+                   'scope': new_request['scope'],
+                   'name': new_request['name'],
+                   'dest-rse-id': new_request['dest_rse_id'],
+                   'dest-rse': rse_names[new_request['dest_rse_id']],
+                   'state': str(new_request['state']),
+                   'retry-count': new_request['retry_count'],
+                   'rule-id': str(new_request['rule_id']),
+                   'activity': new_request['activity'],
+                   'bytes': new_request['bytes'],
+                   'checksum-md5': new_request['md5'],
+                   'checksum-adler': new_request['adler32'],
+                   'queued-at': str(datetime.datetime.utcnow())}
+            if msg['request-type']:
+                transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
+            else:
+                transfer_status = 'transfer-%s' % msg['state']
+            transfer_status = transfer_status.lower()
+            message_core.add_message(transfer_status, msg, session=session)
 
         session.flush()
     except IntegrityError:
@@ -439,7 +464,7 @@ def prepare_request_transfers(transfers, session=None):
 
 
 @transactional_session
-def set_request_transfers_state(transfers, session=None):
+def set_request_transfers_state(transfers, submitted_at, session=None):
     """
     Update the transfer info of a request.
 
@@ -455,10 +480,29 @@ def set_request_transfers_state(transfers, session=None):
                               .update({'state': transfers[request_id]['state'],
                                        'external_id': transfers[request_id]['external_id'],
                                        'external_host': transfers[request_id]['external_host'],
-                                       'submitted_at': datetime.datetime.utcnow()},
+                                       'source_rse_id': transfers[request_id]['src_rse_id'],
+                                       'submitted_at': submitted_at},
                                       synchronize_session=False)
             if rowcount == 0:
                 raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % (request_id, transfers[request_id]))
+
+            request_type = transfers[request_id].get('request-type', None)
+            msg = {'scope': transfers[request_id]['scope'],
+                   'name': transfers[request_id]['name'],
+                   'request-id': request_id,
+                   'request-type': str(request_type).lower() if request_type else request_type,
+                   'state': str(transfers[request_id]['state']),
+                   'dest-rse': transfers[request_id].get('dest-rse', None),
+                   'external-id': transfers[request_id]['external_id'],
+                   'external-host': transfers[request_id]['external_host'],
+                   'submitted-at': str(submitted_at)}
+            if msg['request-type']:
+                transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
+            else:
+                transfer_status = 'transfer-%s' % msg['state']
+            transfer_status = transfer_status.lower()
+            message_core.add_message(transfer_status, msg, session=session)
+
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -676,7 +720,7 @@ def query_request(request_id, transfertool='fts3', session=None):
         except Exception:
             raise
 
-        if not response:
+        if response is None:
             req_status['new_state'] = RequestState.LOST
         else:
             if 'job_state' not in response:
@@ -806,7 +850,7 @@ def bulk_query_requests(request_host, request_ids, transfertool='fts3'):
         responses = {}
         for request_id, external_id in request_ids:
             fts_resp = fts_resps[external_id]
-            if not fts_resp:
+            if fts_resp is None:
                 req_status = {}
                 req_status['new_state'] = RequestState.LOST
                 req_status['request_id'] = request_id
@@ -899,7 +943,7 @@ def query_request_details(request_id, transfertool='fts3', session=None):
 
 
 @transactional_session
-def set_requests_external(transfer_ids, session=None):
+def set_requests_external(transfer_ids, submitted_at, session=None):
     """
     Update all requests with the according external id from the transfertool.
 
@@ -914,7 +958,7 @@ def set_requests_external(transfer_ids, session=None):
                         'external_id': transfer_ids[transfer_id]['external_id'],
                         'external_host': transfer_ids[transfer_id]['external_host'],
                         'dest_url': transfer_ids[transfer_id]['dest_urls'][0],
-                        'submitted_at': datetime.datetime.utcnow()},
+                        'submitted_at': submitted_at},
                        synchronize_session=False)
 
 

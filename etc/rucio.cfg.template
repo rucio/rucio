@@ -143,3 +143,7 @@ usercert = /opt/rucio/etc/web/usercert.pem
 
 [nagios]
 proxy = /opt/rucio/etc/ddmadmin.proxy.nagios
+
+[auditor]
+cache = /opt/rucio/auditor-cache
+results = /opt/rucio/auditor-results

@@ -9,6 +9,7 @@
 # Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
+/bin/cp setup_rucio.py setup.py
 /bin/cp README.rucio.rst README.rst
 /bin/cp MANIFEST.in.rucio MANIFEST.in
 /bin/cp setup_rucio.py setup.py

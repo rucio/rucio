@@ -120,7 +120,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     # Generate a hash just for the subset of RSEs
     rse_names = [rse['rse'] for rse in rses]
     hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rse_names)).hexdigest()
-    sanity_check(executable=executable, hostname=hostname, hash_executable=hash_executable)
+    sanity_check(executable=None, hostname=hostname)
 
     while not GRACEFUL_STOP.is_set():
         try:
@@ -293,6 +293,9 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
             if nothing_to_do:
                 logging.info('Reaper %s-%s: Nothing to do. I will sleep for 60s', worker_number, child_number)
                 time.sleep(60)
+
+        except DatabaseException, error:
+            logging.warning('Reaper:  %s', str(error))
         except:
             logging.critical(traceback.format_exc())
 

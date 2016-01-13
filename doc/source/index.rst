@@ -6,7 +6,7 @@
       You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
 .. ATTENTION::
-    **ATLAS users should refer to https://twiki.cern.ch/twiki/bin/viewauth/AtlasComputing/RucioClientsHowTo instead of this page. This twiki is the entry point for ATLAS users learning the Rucio client. The ATLAS-specific information on this page will be removed.**
+    **ATLAS users should refer to** `https://twiki.cern.ch/twiki/bin/viewauth/AtlasComputing/RucioClientsHowTo <https://twiki.cern.ch/twiki/bin/viewauth/AtlasComputing/RucioClientsHowTo>`_ **instead of this page. This twiki is the entry point for ATLAS users learning the Rucio client. The ATLAS-specific information on this page will be removed.**
 
 Welcome to Rucio's documentation!
 =================================
@@ -128,7 +128,6 @@ Rucio CLI
     cli_examples
     cli_admin_examples
     client_tutorial
-    client_howto
 
 Appendices
 ==========
