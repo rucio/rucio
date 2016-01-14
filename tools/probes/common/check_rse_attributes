@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - David Cameron, <david.cameron@cern.ch>, 2014-2015
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
 
 import json
 import requests
@@ -88,6 +89,11 @@ if __name__ == '__main__':
                 r.add_rse_attribute(name, 'datapolicyt0disk', 'T0Disk' in rse['datapolicies'], 'root')
                 r.add_rse_attribute(name, 'datapolicyt0tape', 'T0Tape' in rse['datapolicies'], 'root')
                 r.add_rse_attribute(name, 'datapolicyt0taskoutput', 'T0TaskOutput' in rse['datapolicies'], 'root')
+
+            space_used = r.get_rse_usage(rse=name, issuer='root', source='srm')
+            if space_used and space_used[0]['free']:
+                freespace = space_used[0]['free']/1000/1000/1000/1000
+                r.add_rse_attribute(name, 'freespace', freespace, 'root')
 
         except RucioException as e:
             print str(e)
