@@ -845,13 +845,15 @@ def upload(args):
             return FAILURE
         except DataIdentifierNotFound:
             try:
-                logger.info('Adding replicas in Rucio catalog')
-                client.add_replicas(files=[f], rse=args.rse)
-                logger.info('Replicas successfully added')
-                if not dsscope:
-                    # only need to add rules for files if no dataset is given
-                    logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
-                    client.add_replication_rule([f], copies=1, rse_expression=args.rse, lifetime=args.lifetime)
+                if args.no_register is False:
+                    # Skiping registration for pilot
+                    logger.info('Adding replicas in Rucio catalog')
+                    client.add_replicas(files=[f], rse=args.rse)
+                    logger.info('Replicas successfully added')
+                    if not dsscope:
+                        # only need to add rules for files if no dataset is given
+                        logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
+                        client.add_replication_rule([f], copies=1, rse_expression=args.rse, lifetime=args.lifetime)
                 directory = revert_dict[f['scope'], f['name']]
                 trace['remoteSite'] = rse_settings['rse']
                 trace['protocol'] = rse_settings['protocols'][0]['scheme']
@@ -1799,6 +1801,9 @@ Commands:
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True)
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
+    # The --no-register option is hidden. This is pilot ONLY. Users should not used. Can lead to dark data increase and data loss
+    # No replicas are registered for files, nor rules created.
+    upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download subparser
