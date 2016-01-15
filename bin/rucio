@@ -208,7 +208,8 @@ def get_client(args):
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.account,
                         auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
+                        ca_cert=args.ca_certificate, timeout=args.timeout,
+                        user_agent=args.user_agent)
     except CannotAuthenticate, error:
         logger.error(error)
         if not args.auth_strategy:
@@ -1667,6 +1668,7 @@ Commands:
     oparser.add_argument('-S', '--auth-strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509)")
     oparser.add_argument('-T', '--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to seconds.")
     oparser.add_argument('--robot', '-R', dest="human", default=True, action='store_false', help="All output in bytes and without the units. This output format is preferred by parsers and scripts.")
+    oparser.add_argument('--user-agent', '-U', dest="user_agent", default='rucio-clients', action='store', help="Rucio User Agent")
 
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
