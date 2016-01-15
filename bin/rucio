@@ -1366,6 +1366,12 @@ def list_rules(args):
     elif args.file:
         scope, name = extract_scope(args.file)
         rules = client.list_associated_rules_for_file(scope=scope, name=name)
+    elif args.traverse:
+        scope, name = extract_scope(args.did)
+        locks = client.get_dataset_locks(scope=scope, name=name)
+        rules = []
+        for rule_id in list(set([lock['rule_id'] for lock in locks])):
+            rules.append(client.get_replication_rule(rule_id))
     elif args.did:
         scope, name = extract_scope(args.did)
         meta = client.get_metadata(scope=scope, name=name)
@@ -1894,8 +1900,9 @@ Commands:
     # The list_rules command
     list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules.')
     list_rules_parser.set_defaults(which='list_rules')
-    list_rules_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='List by did')
-    list_rules_parser.add_argument('--rule', dest='rule_id', action='store', help='List by rule id')
+    list_rules_parser.add_argument(dest='did', action='store', default=None, help='List by did')
+    list_rules_parser.add_argument('--id', dest='rule_id', action='store', help='List by rule id')
+    list_rules_parser.add_argument('--traverse', dest='traverse', action='store_true', help='Traverse the did tree and search for rules affecting this did')
     list_rules_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Coma Separated Value output')
     list_rules_parser.add_argument('--file', dest='file', action='store', help='List associated rules of an affected file')
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
