@@ -1019,10 +1019,10 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
     sys.exit(0)
 
 
-def _file_exists(type, scope, name, directory, dsn=None, dir_direct=False):
+def _file_exists(type, scope, name, directory, dsn=None, no_subdir=False):
     file_exists = False
     dest_dir = None
-    if dir_direct:
+    if no_subdir:
         dest_dir = '%s' % (directory)
     else:
         if type != 'FILE':
@@ -1108,7 +1108,7 @@ def download(args):
                     dict_files_to_download[i] = []
             for file in files_to_download:
                 dest_dir = None
-                file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name, dir_direct=args.dir_direct)
+                file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name, no_subdir=args.no_subdir)
                 if file_exists:
                     logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
@@ -1137,7 +1137,7 @@ def download(args):
                     logger.debug('Will start downloading file %s:%s' % (file['scope'], file['name']))
                     if not os.path.isdir(dest_dir):
                         os.mkdir(dest_dir)
-                    if args.dir_direct is True and os.path.isfile('%s/%s' % (dest_dir, file['name'])):
+                    if args.no_subdir is True and os.path.isfile('%s/%s' % (dest_dir, file['name'])):
                         # Overwrite the files
                         os.remove("%s/%s" % (dest_dir, file['name']))
                     hash_md5 = hashlib.md5()
@@ -1155,8 +1155,8 @@ def download(args):
                 time.sleep(2)
                 for worker in dict_files_to_download:
                     for file in dict_files_to_download[worker]:
-                        file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name, dir_direct=args.dir_direct)
-                        # If dir_direct is set, "Files already found locally" should be 0, truly existing files will be overwriten...
+                        file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name, no_subdir=args.no_subdir)
+                        # If no_subdir is set, "Files already found locally" should be 0, truly existing files will be overwriten...
                         if file_exists:
                             summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
                         elif os.path.isfile('%s/%s' % (dest_dir, file['name'])):
@@ -1819,7 +1819,7 @@ Commands:
     get_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
     get_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download')
-    get_parser.add_argument('--dir-direct', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwriten.")
+    get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwriten.")
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
@@ -1829,7 +1829,7 @@ Commands:
     download_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
     download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
     download_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download.')
-    download_parser.add_argument('--dir-direct', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwriten.")
+    download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwriten.")
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
