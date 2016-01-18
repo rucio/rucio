@@ -1819,7 +1819,7 @@ Commands:
     get_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
     get_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download')
-    get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwriten.")
+    get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
@@ -1829,7 +1829,7 @@ Commands:
     download_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
     download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
     download_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download.')
-    download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwriten.")
+    download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
