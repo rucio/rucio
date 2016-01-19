@@ -95,7 +95,8 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
             if success:
                 logger.info('SUCCESS checking "%s" in %d minutes', rse, elapsed)
             else:
-                logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s)', rse, elapsed, attemps, sys.exc_info()[0])
+                class_, desc = sys.exc_info()[0:2]
+                logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s: %s)', rse, elapsed, attemps, class_.__name__, desc)
 
         if not keep_dumps:
             remove = glob.glob(os.path.join(cache_dir, 'replicafromhdfs_{0}_*'.format(rse)))
