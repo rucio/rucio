@@ -6,16 +6,16 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2016
 
 from redis import StrictRedis
 from time import time
 
 
 class RedisTimeSeries():
-    def __init__(self, redis_host, redis_port, window):
+    def __init__(self, redis_host, redis_port, window, prefix):
         self._r = StrictRedis(host=redis_host, port=redis_port)
-        self._prefix = "jobs_"
+        self._prefix = prefix
         self._window = window * 1000000
 
     def add_point(self, site, jobs):
@@ -40,7 +40,7 @@ class RedisTimeSeries():
             self._r.zremrangebyscore(key, 0, max_score)
 
     def get_keys(self):
-        return self._r.keys(pattern="jobs_*")
+        return self._r.keys(pattern=self._prefix + "*")
 
     def delete_keys(self):
         for key in self.get_keys():
