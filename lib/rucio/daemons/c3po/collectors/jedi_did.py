@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
 import logging
 
@@ -30,11 +30,14 @@ class JediDIDCollector():
         tasks = session.execute(query)
 
         for t in tasks.fetchall():
-            logging.debug("Received tasks: " + str(t))
+            status = t[2]
+            if status == 'running':
+                continue
             tid = t[0]
             if tid < self.max_tid:
                 continue
 
+            logging.debug("Received task: " + str(t))
             did = t[3].split(':')
             self.queue.put((did[0], did[1]))
             self.max_tid = tid

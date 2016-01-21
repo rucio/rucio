@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2016
 
 import logging
 from json import loads
@@ -17,18 +17,18 @@ from rucio.common.config import config_get, config_get_int
 from rucio.daemons.c3po.utils.timeseries import RedisTimeSeries
 
 
-class WorkloadCollector():
+class WorkloadCollector:
     """
     Collector to retrieve the workload from PanDA. It stores it as a time series in Redis and provides
     the average and maximum number of running jobs for a sliding window.
     """
 
-    class __WorkloadCollector():
+    class __WorkloadCollector:
         def __init__(self, delete_keys=False):
             self._avg_jobs = {}
             self._cur_jobs = {}
             self._max_jobs = {}
-            self._tms = RedisTimeSeries(config_get('c3po-workload', 'redis_host'), config_get_int('c3po-workload', 'redis_port'), config_get_int('c3po-workload', 'window'))
+            self._tms = RedisTimeSeries(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), config_get_int('c3po-workload', 'window'), 'jobs_')
 
             self._request_headers = {"Accept": "application/json", "Content-Type": "application/json"}
             self._request_url = config_get('c3po-workload', 'panda_url')
