@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2016
 
 """
 Dynamic data placement daemon.
@@ -15,14 +15,15 @@ Dynamic data placement daemon.
 import logging
 from datetime import datetime
 from json import dumps
+from Queue import Queue
 from requests import post
 from sys import stdout
 from time import sleep
-from Queue import Queue
 
 from threading import Event, Thread
 
 from rucio.common.config import config_get
+from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
 
@@ -33,7 +34,29 @@ logging.basicConfig(stream=stdout,
 graceful_stop = Event()
 
 
+def read_free_space(once=False, thread=0, waiting_time=1800):
+    """
+    Thread to collect the space usage information for RSEs.
+    """
+
+    free_space_collector = FreeSpaceCollector()
+    w = waiting_time
+    while not graceful_stop.is_set():
+        if w < waiting_time:
+            w += 10
+            sleep(10)
+            continue
+
+        logging.info('collecting free space')
+        free_space_collector.collect_free_space()
+        w = 0
+
+
 def read_workload(once=False, thread=0, waiting_time=1800):
+    """
+    Thread to collect the workload information from PanDA.
+    """
+
     workload_collector = WorkloadCollector()
     w = waiting_time
     while not graceful_stop.is_set():
@@ -48,6 +71,10 @@ def read_workload(once=False, thread=0, waiting_time=1800):
 
 
 def print_workload(once=False, thread=0, waiting_time=600):
+    """
+    Thread to regularly output the workload to logs for debugging.
+    """
+
     workload_collector = WorkloadCollector()
     w = waiting_time
     while not graceful_stop.is_set():
@@ -63,6 +90,10 @@ def print_workload(once=False, thread=0, waiting_time=600):
 
 
 def read_dids(once=False, thread=0, did_collector=None, waiting_time=60):
+    """
+    Thread to collect DIDs for the placement algorithm.
+    """
+
     w = waiting_time
     while not graceful_stop.is_set():
         if w < waiting_time:
@@ -75,6 +106,10 @@ def read_dids(once=False, thread=0, did_collector=None, waiting_time=60):
 
 
 def place_replica(once=False, thread=0, did_queue=None, waiting_time=100):
+    """
+    Thread to run the placement algorithm to decide if and where to put new replicas.
+    """
+
     algorithm = config_get('c3po', 'placement_algorithm')
     module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
     module = __import__(module_path, globals(), locals(), ['PlacementAlgorithm'])
@@ -88,6 +123,7 @@ def place_replica(once=False, thread=0, did_queue=None, waiting_time=100):
             sleep(10)
             continue
         len_dids = did_queue.qsize()
+
         if len_dids > 0:
             logging.debug('%d did(s) in queue' % len_dids)
         else:
@@ -98,11 +134,14 @@ def place_replica(once=False, thread=0, did_queue=None, waiting_time=100):
             logging.info('Retrieved %s:%s from queue. Run placement algorithm' % (did[0], did[1]))
             decision = instance.place(did)
             decision['@timestamp'] = datetime.utcnow().isoformat()
+
+            # write the output to ES for further analysis
             index_url = elastic_url + '/rucio-c3po-decisions-' + datetime.utcnow().strftime('%Y-%m-%d') + '/record/'
             r = post(index_url, data=dumps(decision))
             if r.status_code != 201:
                 logging.error(r)
                 logging.error('could not write to ElasticSearch')
+
             if 'error_reason' in decision:
                 logging.error('The placement algorithm ran into an error: %s' % decision['error_reason'])
             else:
@@ -126,6 +165,7 @@ def run(once=False, threads=1, only_workload=False):
     logging.info('activating C-3PO')
 
     thread_list = []
+
     if only_workload:
         logging.info('running in workload-collector-only mode')
         thread_list.append(Thread(target=read_workload, name='read_workload', kwargs={'thread': 0, 'waiting_time': 1800}))
@@ -135,8 +175,9 @@ def run(once=False, threads=1, only_workload=False):
         did_queue = Queue()
         dc = JediDIDCollector(did_queue)
 
+        thread_list.append(Thread(target=read_free_space, name='read_free_space', kwargs={'thread': 0, 'waiting_time': 1800}))
         thread_list.append(Thread(target=read_dids, name='read_dids', kwargs={'thread': 0, 'did_collector': dc}))
-        thread_list.append(Thread(target=place_replica, name='place_replica', kwargs={'thread': 0, 'did_queue': did_queue}))
+        thread_list.append(Thread(target=place_replica, name='place_replica', kwargs={'thread': 0, 'did_queue': did_queue, 'waiting_time': 100}))
 
     [t.start() for t in thread_list]
 
