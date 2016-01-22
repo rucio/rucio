@@ -110,10 +110,13 @@ def place_replica(once=False, thread=0, did_queue=None, waiting_time=100):
     Thread to run the placement algorithm to decide if and where to put new replicas.
     """
 
-    algorithm = config_get('c3po', 'placement_algorithm')
-    module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
-    module = __import__(module_path, globals(), locals(), ['PlacementAlgorithm'])
-    instance = module.PlacementAlgorithm()
+    algorithms = config_get('c3po', 'placement_algorithm').strip().split(',')
+    instances = {}
+    for algorithm in algorithms:
+        module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
+        module = __import__(module_path, globals(), locals(), ['PlacementAlgorithm'])
+        instance = module.PlacementAlgorithm()
+        instances[algorithm] = instance
 
     elastic_url = config_get('c3po', 'elastic_url')
     w = waiting_time
@@ -131,22 +134,24 @@ def place_replica(once=False, thread=0, did_queue=None, waiting_time=100):
 
         for i in xrange(0, len_dids):
             did = did_queue.get()
-            logging.info('Retrieved %s:%s from queue. Run placement algorithm' % (did[0], did[1]))
-            decision = instance.place(did)
-            decision['@timestamp'] = datetime.utcnow().isoformat()
+            for algorithm, instance in instances.items():
+                logging.info('(%s) Retrieved %s:%s from queue. Run placement algorithm' % (algorithm, did[0], did[1]))
+                decision = instance.place(did)
+                decision['@timestamp'] = datetime.utcnow().isoformat()
+                decision['algorithm'] = algorithm
 
-            # write the output to ES for further analysis
-            index_url = elastic_url + '/rucio-c3po-decisions-' + datetime.utcnow().strftime('%Y-%m-%d') + '/record/'
-            r = post(index_url, data=dumps(decision))
-            if r.status_code != 201:
-                logging.error(r)
-                logging.error('could not write to ElasticSearch')
+                # write the output to ES for further analysis
+                index_url = elastic_url + '/rucio-c3po-decisions-' + datetime.utcnow().strftime('%Y-%m-%d') + '/record/'
+                r = post(index_url, data=dumps(decision))
+                if r.status_code != 201:
+                    logging.error(r)
+                    logging.error('(%s) could not write to ElasticSearch' % (algorithm))
 
-            if 'error_reason' in decision:
-                logging.error('The placement algorithm ran into an error: %s' % decision['error_reason'])
-            else:
-                logging.info('Decided to place a new replica for %s on %s' % (decision['did'], decision['destination_rse']))
-            logging.debug(decision)
+                if 'error_reason' in decision:
+                    logging.error('(%s) The placement algorithm ran into an error: %s' % (algorithm, decision['error_reason']))
+                else:
+                    logging.info('(%s) Decided to place a new replica for %s on %s' % (algorithm, decision['did'], decision['destination_rse']))
+                logging.debug(decision)
 
         w = 0
 
@@ -177,7 +182,7 @@ def run(once=False, threads=1, only_workload=False):
 
         thread_list.append(Thread(target=read_free_space, name='read_free_space', kwargs={'thread': 0, 'waiting_time': 1800}))
         thread_list.append(Thread(target=read_dids, name='read_dids', kwargs={'thread': 0, 'did_collector': dc}))
-        thread_list.append(Thread(target=place_replica, name='place_replica', kwargs={'thread': 0, 'did_queue': did_queue, 'waiting_time': 100}))
+        thread_list.append(Thread(target=place_replica, name='place_replica', kwargs={'thread': 0, 'did_queue': did_queue, 'waiting_time': 10}))
 
     [t.start() for t in thread_list]
 
