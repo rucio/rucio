@@ -8,14 +8,15 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015
 
 import commands
+import datetime
+import dateutil.parser
 import json
+import os
+import pytz
 import requests
 import sys
 import subprocess
-import os
-import dateutil.parser
-import datetime
-import pytz
+import time
 
 requests.packages.urllib3.disable_warnings()
 
@@ -204,7 +205,12 @@ def start_test(mr):
 
 print 'Checking if a job is currently running ...'
 if os.path.isfile('/tmp/rucio_test.pid'):
-    sys.exit(-1)
+    # Check if the pid file is older than 90 minutes
+    if os.stat('/tmp/rucio_test.pid').st_mtime < time.time()-60*90:
+        os.remove('/tmp/rucio_test.pid')
+        open('/tmp/rucio_test.pid', 'a').close()
+    else:
+        sys.exit(-1)
 else:
     open('/tmp/rucio_test.pid', 'a').close()
 
