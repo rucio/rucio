@@ -320,13 +320,13 @@ def queue_requests(requests, session=None):
                    'request-type': str(new_request['request_type']).lower(),
                    'scope': new_request['scope'],
                    'name': new_request['name'],
-                   'dest-rse-id': new_request['dest_rse_id'],
-                   'dest-rse': rse_names[new_request['dest_rse_id']],
+                   'dst-rse-id': new_request['dest_rse_id'],
+                   'dst-rse': rse_names[new_request['dest_rse_id']],
                    'state': str(new_request['state']),
                    'retry-count': new_request['retry_count'],
                    'rule-id': str(new_request['rule_id']),
                    'activity': new_request['activity'],
-                   'bytes': new_request['bytes'],
+                   'file-size': new_request['bytes'],
                    'checksum-md5': new_request['md5'],
                    'checksum-adler': new_request['adler32'],
                    'queued-at': str(datetime.datetime.utcnow())}
@@ -486,16 +486,22 @@ def set_request_transfers_state(transfers, submitted_at, session=None):
             if rowcount == 0:
                 raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % (request_id, transfers[request_id]))
 
-            request_type = transfers[request_id].get('request-type', None)
-            msg = {'scope': transfers[request_id]['scope'],
-                   'name': transfers[request_id]['name'],
-                   'request-id': request_id,
+            request_type = transfers[request_id].get('request_type', None)
+            msg = {'request-id': request_id,
                    'request-type': str(request_type).lower() if request_type else request_type,
+                   'scope': transfers[request_id]['scope'],
+                   'name': transfers[request_id]['name'],
+                   'dst-rse-id': transfers[request_id]['metadata'].get('dst_rse_id', None),
+                   'dst-rse': transfers[request_id]['metadata'].get('dst_rse', None),
                    'state': str(transfers[request_id]['state']),
-                   'dest-rse': transfers[request_id].get('dest-rse', None),
+                   'activity': transfers[request_id]['metadata'].get('activity', None),
+                   'file-size': transfers[request_id]['metadata'].get('filesize', None),
+                   'checksum-md5': transfers[request_id]['metadata'].get('md5', None),
+                   'checksum-adler': transfers[request_id]['metadata'].get('adler32', None),
                    'external-id': transfers[request_id]['external_id'],
                    'external-host': transfers[request_id]['external_host'],
-                   'submitted-at': str(submitted_at)}
+                   'queued-at': str(submitted_at)}
+
             if msg['request-type']:
                 transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
             else:
