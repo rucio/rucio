@@ -8,7 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
-from rucio.db.sqla import models
+from rucio.db.sqla.models import RSE, RSEUsage, RSEAttrAssociation
 from rucio.db.sqla.session import read_session
 
 
@@ -22,10 +22,10 @@ class FreeSpaceCollector():
 
         @read_session
         def _collect_free_space(self, session=None):
-            query = session.query(models.RSE.rse, models.RSEUsage.free, models.RSEUsage.used).\
-                join(models.RSEUsage, models.RSE.id == models.RSEUsage.rse_id).\
-                join(models.RSEAttrAssociation, models.RSE.id == models.RSEAttrAssociation.rse_id).\
-                filter(models.RSEUsage.source == 'srm').filter(models.RSEAttrAssociation.key == 'type', models.RSEAttrAssociation.value == 'DATADISK')
+            query = session.query(RSE.rse, RSEUsage.free, RSEUsage.used).\
+                join(RSEUsage, RSE.id == RSEUsage.rse_id).\
+                join(RSEAttrAssociation, RSE.id == RSEAttrAssociation.rse_id).\
+                filter(RSEUsage.source == 'srm').filter(RSEAttrAssociation.key == 'type', RSEAttrAssociation.value == 'DATADISK')
             for rse, free, used in query:
                 self.rses[rse] = {'total': used+free, 'used': used, 'free': free}
 
