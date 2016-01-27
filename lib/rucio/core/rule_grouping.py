@@ -20,7 +20,6 @@ from sqlalchemy import func
 
 from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
-from rucio.core.account import has_account_attribute
 from rucio.core.rse import get_rse
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
@@ -175,7 +174,8 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=Non
                   'bytes': bytes,
                   'md5': md5,
                   'adler32': adler32,
-                  'allow_tape_source': has_account_attribute(account=rule.account, key='admin', session=session)}
+                  # 'allow_tape_source': has_account_attribute(account=rule.account, key='admin', session=session)}
+                  'allow_tape_source': True}
 
     return {'dest_rse_id': dest_rse_id,
             'scope': scope,
