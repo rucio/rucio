@@ -696,7 +696,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             continue
 
                 # parse allow tape source expression, not finally version.
-                allow_tape_source = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
+                # allow_tape_source = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
+                allow_tape_source = True
 
                 # Get protocol
                 if dest_rse_id not in protocols:
