@@ -17,7 +17,8 @@ from rucio.core.replica import list_dataset_replicas
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
-from rucio.daemons.c3po.utils.dataset_cache import DatasetCache
+from rucio.daemons.c3po.collectors.network_metrics import NetworkMetricsCollector
+from rucio.daemons.c3po.utils.expiring_list import ExpiringList
 from rucio.daemons.c3po.utils.popularity import get_popularity
 from rucio.db.sqla.constants import ReplicaState
 
@@ -28,20 +29,25 @@ class PlacementAlgorithm:
     """
     def __init__(self):
         self._fsc = FreeSpaceCollector()
-        self._dc = DatasetCache()
+        self._nmc = NetworkMetricsCollector()
+        self._added_reps = ExpiringList(timeout=86400)
 
         rse_expr = "tier=2&type=DATADISK"
-        rse_attrs = parse_expression(rse_expr)
+        rses = parse_expression(rse_expr)
 
-        self._rses = []
-        for rse in rse_attrs:
-            self._rses.append(rse['rse'])
+        self._rses = {}
+        self._sites = {}
+        for rse in rses:
+            rse_attrs = list_rse_attributes(rse['rse'])
+            rse_attrs['rse'] = rse['rse']
+            self._rses[rse['rse']] = rse_attrs
+            self._sites[rse_attrs['site']] = rse_attrs
 
         self.__setup_penalties()
 
     def __setup_penalties(self):
         self._penalties = {}
-        for rse in self._rses:
+        for rse, _ in self._rses.items():
             self._penalties[rse] = 1.0
 
     def __update_penalties(self):
@@ -52,6 +58,10 @@ class PlacementAlgorithm:
     def place(self, did):
         self.__update_penalties()
         decision = {'did': ':'.join(did)}
+        if (':'.join(did) in self._added_reps.to_set()):
+            decision['error_reason'] = 'already added replica for this did in the last 24h'
+            return decision
+
         if (not did[0].startswith('data')) and (not did[0].startswith('mc')):
             decision['error_reason'] = 'not a data or mc dataset'
             return decision
@@ -70,22 +80,18 @@ class PlacementAlgorithm:
         decision['length'] = meta['length']
         decision['bytes'] = meta['bytes']
 
-        last_accesses = self._dc.get_did(did)
-        self._dc.add_did(did)
-
-        decision['last_accesses'] = last_accesses
-
         pop = get_popularity(did)
         decision['popularity'] = pop or 0.0
 
-        if (last_accesses < 5) and (pop < 10.0):
+        if (pop < 10.0):
             decision['error_reason'] = 'did not popular enough'
             return decision
 
-        free_rses = self._rses
-        available_reps = []
+        available_reps = {}
         reps = list_dataset_replicas(did[0], did[1])
         num_reps = 0
+        space_info = self._fsc.get_rse_space()
+        max_mbps = 0.0
         for rep in reps:
             rse_attr = list_rse_attributes(rep['rse'])
             if 'type' not in rse_attr:
@@ -93,27 +99,41 @@ class PlacementAlgorithm:
             if rse_attr['type'] != 'DATADISK':
                 continue
             if rep['state'] == ReplicaState.AVAILABLE:
-                if rep['rse'] in free_rses:
-                    free_rses.remove(rep['rse'])
-                available_reps.append(rep['rse'])
+                net_metrics = self._nmc.getConnections(rse_attr['site'])
+                available_reps[rep['rse']] = {}
+                for dst_site, mbps in net_metrics.items():
+                    if dst_site in self._sites:
+                        if float(mbps) > max_mbps:
+                            max_mbps = float(mbps)
+                        dst_rse = self._sites[dst_site]['rse']
+                        rse_space = space_info[dst_rse]
+                        penalty = self._penalties[dst_rse]
+                        free_space = float(rse_space['free']) / float(rse_space['total']) * 100.0
+                        available_reps[rep['rse']][dst_rse] = {'free_space': free_space, 'penalty': penalty, 'mbps': float(mbps)}
+
                 num_reps += 1
 
-        decision['replica_rses'] = available_reps
+        # decision['replica_rses'] = available_reps
         decision['num_replicas'] = num_reps
+
         if num_reps >= 5:
             decision['error_reason'] = 'more than 4 replicas already exist'
             return decision
 
-        rse_ratios = {}
-        space_info = self._fsc.get_rse_space()
-        for rse in free_rses:
-            rse_space = space_info[rse]
-            penalty = self._penalties[rse]
-            rse_ratios[rse] = float(rse_space['free']) / float(rse_space['total']) * 100.0 / penalty
+        src_dst_ratios = []
 
-        sorted_rses = sorted(rse_ratios.items(), key=itemgetter(1), reverse=True)
-        decision['destination_rse'] = sorted_rses[0][0]
-        decision['rse_ratios'] = sorted_rses
-        self._penalties[sorted_rses[0][0]] = 10.0
+        for src, dsts in available_reps.items():
+            for dst, metrics in dsts.items():
+                bdw = metrics['mbps'] / max_mbps * 100.0
+                ratio = metrics['free_space'] * bdw * penalty
+                src_dst_ratios.append((src, dst, ratio))
+
+        sorted_ratios = sorted(src_dst_ratios, key=itemgetter(2), reverse=True)
+        decision['destination_rse'] = sorted_ratios[0][0]
+        decision['source_rse'] = sorted_ratios[0][1]
+        decision['rse_ratios'] = src_dst_ratios
+        self._penalties[sorted_ratios[0][0]] = 10.0
+
+        self._added_reps.add(':'.join(did))
 
         return decision
