@@ -1324,8 +1324,9 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
                                          'external_host': external_host,
                                          'external_id': eid,
                                          'request_type': file.get('request_type', None),
-                                         'dest_rse': file_metadata.get('dst_rse', None),
-                                         'src_rse_id': file_metadata['src_rse_id']}
+                                         'dst_rse': file_metadata.get('dst_rse', None),
+                                         'src_rse_id': file_metadata['src_rse_id'],
+                                         'metadata': file_metadata}
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
                 logging.info("%s" % (log_str))
             else:
@@ -1335,8 +1336,9 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
                                          'external_host': external_host,
                                          'external_id': None,
                                          'request_type': file.get('request_type', None),
-                                         'dest_rse': file_metadata.get('dst_rse', None),
-                                         'src_rse_id': file_metadata['src_rse_id']}
+                                         'dst_rse': file_metadata.get('dst_rse', None),
+                                         'src_rse_id': file_metadata['src_rse_id'],
+                                         'metadata': file_metadata}
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMISSION_FAILED, None)
                 logging.warn("%s" % (log_str))
         logging.debug("%s:%s start to register transfer state" % (process, thread))
