@@ -88,9 +88,9 @@
     "backend_type": "S3",
     "deterministic": true,
     "protocols": {
-      "default": "s3http",
+      "default": "s3",
       "supported": {
-        "s3http": {
+        "s3": {
           "impl": "rucio.rse.protocols.s3http.Default",
           "hostname": "cephgw.usatlas.bnl.gov",
           "port": 8443,
