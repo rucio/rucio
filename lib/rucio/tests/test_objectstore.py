@@ -23,12 +23,16 @@ class TestObjectStoreCommon:
         ret = objectstore.get_signed_urls([self.url], operation='write')
         if isinstance(ret[self.url], Exception):
             raise ret[self.url]
-        command = 'curl --request PUT --upload-file /bin/hostname "%s"' % ret[self.url]
+        command = 'curl --request PUT --upload-file /bin/hostname "%s"' % str(ret[self.url])
         status, output = commands.getstatusoutput(command)
         if status:
             raise Exception(output)
         if 'AccessDenied' in output:
             raise Exception(output)
+
+    def test_connect(self):
+        """ OBJECTSTORE (COMMON): Connect """
+        objectstore.connect(self.url)
 
     def test_get_signed_urls_read(self):
         """ OBJECTSTORE (COMMON): Get signed urls for read """
@@ -43,7 +47,7 @@ class TestObjectStoreCommon:
             raise Exception(output)
 
         # write
-        command = 'curl --request PUT --upload-file /bin/hostname "%s"' % ret[self.url]
+        command = 'curl --request PUT --upload-file /bin/hostname "%s"' % str(ret[self.url])
         status, output = commands.getstatusoutput(command)
         if status:
             raise Exception(output)
@@ -57,7 +61,7 @@ class TestObjectStoreCommon:
             raise ret[self.url]
 
         # write
-        command = 'curl --request PUT --upload-file /bin/hostname "%s"' % ret[self.url]
+        command = 'curl --request PUT --upload-file /bin/hostname "%s"' % str(ret[self.url])
         status, output = commands.getstatusoutput(command)
         if status:
             raise Exception(output)
@@ -83,11 +87,10 @@ class TestObjectStoreCommon:
         """ OBJECTSTORE (COMMON): Get metadata """
         url = self.url
         ret = objectstore.get_metadata([url])
-        print ret
         if isinstance(ret[url], Exception):
             raise ret[url]
-        if 'bytes' not in ret[url]:
-            raise Exception("Respone not as expected: should return {'adler32': adler32, 'bytes': bytes}, but it returns: %s" % ret[url])
+        if 'filesize' not in ret[url]:
+            raise Exception("Respone not as expected: should return {'filesize': filesize}, but it returns: %s" % ret[url])
 
     def test_rename(self):
         """ OBJECTSTORE (COMMON): Rename """
@@ -95,22 +98,19 @@ class TestObjectStoreCommon:
         new_url = '%s_new' % url
         objectstore.rename(url, new_url)
         ret = objectstore.get_metadata([url])
-        print ret
         if not isinstance(ret[url], exception.SourceNotFound):
             raise ret[url]
         ret = objectstore.get_metadata([new_url])
-        print ret
         if isinstance(ret[new_url], Exception):
             raise ret[new_url]
-        if 'bytes' not in ret[new_url]:
-            raise Exception("Respone not as expected: should return {'adler32': adler32, 'bytes': bytes}, but it returns: %s" % ret[url])
+        if 'filesize' not in ret[new_url]:
+            raise Exception("Respone not as expected: should return {'filesize': filesize}, but it returns: %s" % ret[url])
 
     @raises(exception.SourceNotFound)
     def test_get_metadata_not_exist(self):
         """ OBJECTSTORE (COMMON): Get metadata for not exist url """
         url = '%s_not_exist' % (self.url)
         ret = objectstore.get_metadata([url])
-        print ret
         if isinstance(ret[url], Exception):
             raise ret[url]
         raise Exception("Respone not as expected: should catch SourceNotFound")
@@ -135,7 +135,6 @@ class TestObjectStoreCommon:
                 raise Exception(output)
 
         ret = objectstore.delete(urls)
-        print ret
         for url in urls:
             if isinstance(ret[url], Exception):
                 raise ret[url]
@@ -179,6 +178,10 @@ class TestObjectStoreClients:
         if 'AccessDenied' in output:
             raise Exception(output)
 
+    def test_connect(self):
+        """ OBJECTSTORE (COMMON): Connect """
+        self.os_client.connect(self.url)
+
     def test_get_signed_url_read(self):
         """ OBJECTSTORE (CLIENT): Get signed url for read """
         ret = self.os_client.get_signed_url(self.url, operation='read')
@@ -186,7 +189,7 @@ class TestObjectStoreClients:
             raise Exception("Return %s is not as expected.")
 
         # read
-        command = 'curl "%s" > /dev/null' % ret
+        command = 'curl "%s" > /dev/null' % str(ret)
         status, output = commands.getstatusoutput(command)
         if status:
             raise Exception(output)
@@ -279,8 +282,8 @@ class TestObjectStoreClients:
         ret = self.os_client.get_metadata([url])
         if isinstance(ret[url], Exception):
             raise ret[url]
-        if 'bytes' not in ret[url]:
-            raise Exception("Respone not as expected: should return {'adler32': adler32, 'bytes': bytes}, but it returns: %s" % ret[url])
+        if 'filesize' not in ret[url]:
+            raise Exception("Respone not as expected: should return {'filesize': filesize}, but it returns: %s" % ret[url])
 
     @raises(exception.SourceNotFound)
     def test_get_metadata_not_exist(self):
@@ -300,8 +303,7 @@ class TestObjectStoreClients:
             pass
 
         ret = self.os_client.get_metadata([new_url])
-        print ret
         if isinstance(ret[new_url], Exception):
             raise ret[new_url]
-        if 'bytes' not in ret[new_url]:
-            raise Exception("Respone not as expected: should return {'adler32': adler32, 'bytes': bytes}, but it returns: %s" % ret[url])
+        if 'filesize' not in ret[new_url]:
+            raise Exception("Respone not as expected: should return {'filesize': filesize}, but it returns: %s" % ret[new_url])
