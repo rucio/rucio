@@ -14,6 +14,7 @@ import os
 import os.path
 import tempfile
 
+from exceptions import NotImplementedError
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager as mgr
 
@@ -147,7 +148,10 @@ class MgrTestCases():
         """(RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
         status, details = mgr.delete(self.rse_settings, [{'name': '1_rse_remote_delete.raw', 'scope': 'user.%s' % self.user}, {'name': '2_rse_remote_delete.raw', 'scope': 'user.%s' % self.user}])
         if not (status and details['user.%s:1_rse_remote_delete.raw' % self.user] and details['user.%s:2_rse_remote_delete.raw' % self.user]):
-            raise Exception('Return not as expected: %s, %s' % (status, details))
+            if isinstance(details['user.%s:1_rse_remote_delete.raw' % self.user], NotImplementedError) and isinstance(details['user.%s:2_rse_remote_delete.raw' % self.user], NotImplementedError):
+                pass
+            else:
+                raise Exception('Return not as expected: %s, %s' % (status, details))
 
     def test_delete_mgr_ok_single(self):
         """(RSE/PROTOCOLS): Delete a single file from storage (Success)"""

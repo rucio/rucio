@@ -9,7 +9,8 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2016
 
 import traceback
-from web import application, ctx, header, data, loadhook, unloadhook, InternalError, found, OK
+from web import application, header, data, loadhook, unloadhook, InternalError, OK
+# from web import application, ctx, header, data, loadhook, unloadhook, InternalError, found, OK
 
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error, parse_response, render_json
@@ -20,7 +21,7 @@ from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioControl
 urls = ('/info', 'ObjectStoreInfo',
         '/rename', 'ObjectStoreRename',
         '/([a-z]+)/(.+)$', 'ObjectStoreGet',
-        '/([a-z]+)', 'ObjectStore')
+        '/(.+)$', 'ObjectStore')
 
 
 class ObjectStoreGet(RucioController):
@@ -39,10 +40,10 @@ class ObjectStoreGet(RucioController):
         :returns: A URL refering to the file.
         """
 
-        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
-        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
-        header('Access-Control-Allow-Methods', '*')
-        header('Access-Control-Allow-Credentials', 'true')
+        # header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        # header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        # header('Access-Control-Allow-Methods', '*')
+        # header('Access-Control-Allow-Credentials', 'true')
 
         try:
             pos = url.index('/')
@@ -51,7 +52,8 @@ class ObjectStoreGet(RucioController):
             result = objectstore.get_signed_urls([url], operation=operation)
             if isinstance(result[url], Exception):
                 raise result[url]
-            return found(result[url])
+            # return found(result[url])
+            return result[url]
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
@@ -60,6 +62,34 @@ class ObjectStoreGet(RucioController):
 
 
 class ObjectStore(RucioController):
+
+    def GET(self, url):
+        """
+        Connect to the url.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :returns: OK.
+        """
+        header('Content-Type', 'application/json')
+
+        try:
+            pos = url.index('/')
+            url = ''.join([url[:pos], '/', url[pos:]])
+
+            objectstore.connect(url)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print traceback.format_exc()
+            raise InternalError(e)
+
+        raise OK()
 
     def POST(self, operation):
         """
