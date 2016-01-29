@@ -12,6 +12,7 @@ import os
 import requests
 import urlparse
 
+from exceptions import NotImplementedError
 from progressbar import ProgressBar
 from sys import stdout
 
@@ -84,6 +85,27 @@ class Default(protocol.RSEProtocol):
         self.timeout = 300
         self.cert = None
 
+    def path2pfn(self, path):
+        """
+            Returns a fully qualified PFN for the file referred by path.
+
+            :param path: The path to the file.
+
+            :returns: Fully qualified PFN.
+
+        """
+        if path.startswith("s3:") or path.startswith("http"):
+            return path
+
+        prefix = self.attributes['prefix']
+
+        if not prefix.startswith('/'):
+            prefix = ''.join(['/', prefix])
+        if not prefix.endswith('/'):
+            prefix = ''.join([prefix, '/'])
+
+        return ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, path])
+
     def lfns2pfns(self, lfns, operation='read'):
         """
             Retruns a fully qualified PFN for the file referred by path.
@@ -93,38 +115,20 @@ class Default(protocol.RSEProtocol):
             :returns: Fully qualified PFN.
         """
         pfns = {}
-        prefix = self.attributes['prefix']
-
-        if not prefix.startswith('/'):
-            prefix = ''.join(['/', prefix])
-        if not prefix.endswith('/'):
-            prefix = ''.join([prefix, '/'])
-
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
             if 'prefix' in lfn and lfn['prefix'] is not None:
-                pfn = ''.join([self.attributes['scheme'],
-                               '://',
-                               self.attributes['hostname'],
-                               ':',
-                               str(self.attributes['port']),
-                               prefix,
-                               os.path.join(lfn['prefix'], name)
-                               ])
+                path = os.path.join(lfn['prefix'], scope + '/' + name)
             else:
-                pfn = ''.join([self.attributes['scheme'],
-                               '://',
-                               self.attributes['hostname'],
-                               ':',
-                               str(self.attributes['port']),
-                               prefix,
-                               name
-                               ])
+                path = scope + '/' + name
+            pfn = self.path2pfn(path)
+
             if rsemanager.SERVER_MODE:
                 pfns['%s:%s' % (scope, name)] = pfn
             else:
-                pfns['%s:%s' % (scope, name)] = '/'.join([self.REDIRECT_URL, operation, pfn])
+                # pfns['%s:%s' % (scope, name)] = '/'.join([self.REDIRECT_URL, operation, pfn])
+                pfns['%s:%s' % (scope, name)] = pfn
         return pfns
 
     def _get_unredirector_pfn(self, pfn):
@@ -192,6 +196,14 @@ class Default(protocol.RSEProtocol):
 
         return ret
 
+    def _connect(self):
+        url = self.path2pfn('')
+        if rsemanager.CLIENT_MODE:
+            client = ObjectStoreClient()
+            return client.connect(url)
+        if rsemanager.SERVER_MODE:
+            return objectstore.connect(url)
+
     def _get_signed_urls(self, urls, operation='read'):
         urls = [self._get_unredirector_pfn(url) for url in urls]
         if rsemanager.CLIENT_MODE:
@@ -219,14 +231,14 @@ class Default(protocol.RSEProtocol):
     def _delete(self, urls):
         urls = [self._get_unredirector_pfn(url) for url in urls]
         if rsemanager.CLIENT_MODE:
-            raise exception.NotImplementedError
+            raise NotImplementedError
         if rsemanager.SERVER_MODE:
             return objectstore.delete(urls)
 
     def _delete_dir(self, url):
         url = self._get_unredirector_pfn(url)
         if rsemanager.CLIENT_MODE:
-            raise exception.NotImplementedError
+            raise NotImplementedError
         if rsemanager.SERVER_MODE:
             return objectstore.delete_dir(url)
 
@@ -257,7 +269,7 @@ class Default(protocol.RSEProtocol):
                 else:
                     return True
             else:
-                raise exception.RucioException('Failed to check file state: %s' % metadata)
+                raise exception.RucioException('Failed to check file %s state: %s' % (pfn, metadata))
         except exception.SourceNotFound:
             return False
         except Exception as e:
@@ -271,7 +283,7 @@ class Default(protocol.RSEProtocol):
 
             :raises RSEAccessDenied: if no connection could be established.
         """
-        pass
+        self._connect()
 
     def close(self):
         """ Closes the connection to RSE."""
@@ -288,9 +300,10 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
          """
-        print path
         path = self._get_signed_url(path, 'read')
-        print path
+        if isinstance(path, Exception):
+            raise path
+
         chunksize = 1024
         try:
             result = self.session.get(path, verify=False, stream=True, timeout=self.timeout)
@@ -338,13 +351,8 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         full_name = source_dir + '/' + source if source_dir else source
-        print source
-        print target
         path = self._get_signed_url(target, operation='write')
-        print path
         full_name = source_dir + '/' + source if source_dir else source
-        directories = path.split('/')
-        # Try the upload without testing the existence of the destination directory
         try:
             if not os.path.exists(full_name):
                 raise exception.SourceNotFound()
@@ -355,10 +363,6 @@ class Default(protocol.RSEProtocol):
             if result.status_code in [409, ]:
                 raise exception.FileReplicaAlreadyExists()
             else:
-                # Create the directories before issuing the PUT
-                for directory_level in reversed(xrange(1, 4)):
-                    upper_directory = "/".join(directories[:-directory_level])
-                    self.mkdir(upper_directory)
                 try:
                     if not os.path.exists(full_name):
                         raise exception.SourceNotFound()
@@ -386,13 +390,33 @@ class Default(protocol.RSEProtocol):
         """
             Deletes a file from the connected RSE.
 
-            :param path: path to the to be deleted file
+            :param pfn: path to the to be deleted file
 
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         try:
             self._delete([pfn])
+        except NotImplementedError:
+            raise NotImplementedError
+        except exception.SourceNotFound, e:
+            raise exception.SourceNotFound(e)
+        except Exception as e:
+            raise exception.RucioException(e)
+
+    def delete_dir(self, pfn_dir):
+        """
+            Deletes a directory from the connected RSE.
+
+            :param pfn_dir: path to the to be deleted directory
+
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+        """
+        try:
+            self._delete_dir(pfn_dir)
+        except NotImplementedError:
+            raise NotImplementedError
         except exception.SourceNotFound, e:
             raise exception.SourceNotFound(e)
         except Exception as e:
@@ -409,8 +433,6 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         try:
-            print pfn
-            print new_pfn
             self._rename(pfn, new_pfn)
         except exception.SourceNotFound as e:
             raise exception.SourceNotFound(e)

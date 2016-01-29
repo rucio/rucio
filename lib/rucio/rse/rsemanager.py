@@ -196,15 +196,11 @@ def download(rse_settings, files, dest_dir=None, printstatements=False):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
     protocol = create_protocol(rse_settings, 'read')
-    print protocol
     protocol.connect()
 
     files = [files] if not type(files) is list else files
-    print files
     for f in files:
-        print f
         pfn = f['pfn'] if 'pfn' in f else protocol.lfns2pfns(f).values()[0]
-        print pfn
         target_dir = "./%s" % f['scope'] if dest_dir is None else dest_dir
         try:
             if not os.path.exists(target_dir):
@@ -212,7 +208,6 @@ def download(rse_settings, files, dest_dir=None, printstatements=False):
             # Each scope is stored into a separate folder
             finalfile = '%s/%s' % (target_dir, f['name'])
             # Check if the file already exists, if not download and validate it
-            print finalfile
             if not os.path.isfile(finalfile):
                 if 'adler32' in f:
                     tempfile = '%s/%s.part' % (target_dir, f['name'])
@@ -232,7 +227,6 @@ def download(rse_settings, files, dest_dir=None, printstatements=False):
                         os.unlink(tempfile)
                         raise exception.FileConsistencyMismatch('Checksum mismatch : local %s vs recorded %s' % (str(localchecksum), str(f['adler32'])))
                 else:
-                    print 'test_%s' % pfn
                     protocol.get(pfn, '%s/%s' % (target_dir, f['name']))
                 ret['%s:%s' % (f['scope'], f['name'])] = True
             else:
@@ -331,7 +325,6 @@ def upload(rse_settings, lfns, source_dir=None):
 
         pfn = protocol.lfns2pfns(lfn).values()[0]
         # Check if file replica is already on the storage system
-        print pfn
         if protocol.exists(pfn):
             ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
             gs = False
@@ -351,11 +344,8 @@ def upload(rse_settings, lfns, source_dir=None):
             valid = None
             try:  # Get metadata of file to verify if upload was successful
                 stats = protocol.stat('%s.rucio.upload' % pfn)
-                print stats
-                print lfn
                 if ('adler32' in stats) and ('adler32' in lfn):
                     valid = stats['adler32'] == lfn['adler32']
-                print valid
                 if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
                     valid = stats['filesize'] == lfn['filesize']
             except NotImplementedError:

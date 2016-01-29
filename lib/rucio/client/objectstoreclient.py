@@ -23,6 +23,20 @@ class ObjectStoreClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
         super(ObjectStoreClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
+    def connect(self, url):
+        """
+        :param url: URL string.
+
+        :returns: OK.
+        """
+        url = build_url(self.host, path='/'.join([self.OBJECTSTORE_BASEURL, url]))
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return
+
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
     def get_signed_url(self, url, operation='read'):
         """
         :param url: URL string.

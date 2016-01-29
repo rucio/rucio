@@ -14,15 +14,14 @@ methods of objectstore
 
 import boto
 import boto.s3.connection
-import json
 import logging
-import os
 import traceback
 import urlparse
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
+from rucio.common import config
 from rucio.common import exception
 
 logging.getLogger("boto").setLevel(logging.WARNING)
@@ -49,16 +48,12 @@ def _get_credentials(endpoint):
     if type(result) is NoValue:
         try:
             logging.debug("Loading account credentials")
-            result = None
-            if 'RUCIO_HOME' in os.environ:
-                dir = os.environ['RUCIO_HOME']
+            result = config.get_rse_credentials(None)
+            if result and endpoint in result:
+                result = result[endpoint]
+                REGION.set(endpoint, result)
             else:
-                dir = '/opt/rucio'
-            with open(os.path.join(dir, 'etc/rse-accounts.cfg')) as f:
-                data = json.load(f)
-            result = data[endpoint]
-
-            REGION.set(endpoint, result)
+                raise Exception("Failed to load account credentials")
             logging.debug("Loaded account credentials")
         except KeyError, e:
             raise exception.CannotAuthenticate('endpoint % not in rse account cfg: %s' % e)
@@ -160,6 +155,15 @@ def _get_endpoint_bucket_key(url):
         return endpoint, bucket_name, key_name
     except:
         raise exception.RucioException("Failed to parse url %s, error: %s" % (url, traceback.format_exc()))
+
+
+def connect(url):
+    try:
+        endpoint, bucket_name, key_name = _get_endpoint_bucket_key(url)
+        conn = _get_connection(endpoint)
+        conn.create_bucket(bucket_name)
+    except:
+        raise exception.RucioException("Failed to connect url %s, error: %s" % (url, traceback.format_exc()))
 
 
 def get_signed_urls(urls, operation='read'):
@@ -290,7 +294,6 @@ def delete(urls):
                 if url not in result:
                     result[url] = ret
 
-    print result
     return result
 
 
@@ -307,20 +310,20 @@ def delete_dir(url_prefix):
         i = 0
         keys = []
         for key in bucket.list(prefix=key_name):
-            keys.append(key)
+            keys.append(key.name)
             i += 1
             if i == 1000:
                 ret = _delete_keys(bucket, keys)
                 for ret_key in ret:
                     if ret[ret_key]['status'] != 0:
-                        return ret[ret_key]
+                        return ret[ret_key]['status'], ret[ret_key]['output']
                 i = 0
                 keys = []
         if len(keys):
             ret = _delete_keys(bucket, keys)
             for ret_key in ret:
                 if ret[ret_key]['status'] != 0:
-                    return ret[ret_key]
+                    return ret[ret_key]['status'], ret[ret_key]['output']
         return 0, None
     except:
         return -1, "Failed to delete dir: %s, error: %s" % (url_prefix, traceback.format_exc())
