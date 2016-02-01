@@ -12,20 +12,23 @@
 
 /bin/cp README.rucio.rst README.rst
 /bin/cp MANIFEST.in.rucio MANIFEST.in
+/bin/cp setup_rucio.py setup.py
 # Pre-build one time to ensure correct vcversion file
 python setup.py --release build sdist
 # Push on pypi@org
-python setup_rucio.py --release register sdist upload
+python setup.py --release register sdist upload
 
 
 /bin/cp README.client.rst README.rst
 /bin/cp MANIFEST.in.client MANIFEST.in
+/bin/cp setup_rucio_client.py setup.py
 # Push on pypi@org
-python setup_rucio_client.py  --release register sdist upload
+python setup.py  --release register sdist upload
 
 
 /bin/cp README.webui.rst README.rst
 /bin/cp MANIFEST.in.webui MANIFEST.in
+/bin/cp setup_webui.py setup.py
 # Push on pypi@org
-python setup_webui.py register sdist upload
+python setup.py register sdist upload
 
