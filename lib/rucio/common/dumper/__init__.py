@@ -21,6 +21,7 @@ import tempfile
 
 try:
     import gfal2
+    from gfal2 import GError
 except ImportError as e:
     if 'nose' not in sys.modules and 'py.test' not in sys.modules:
         raise e
@@ -299,10 +300,21 @@ def srm_download_to_file(url, file_):
     Download the file in `url` storing it in the `file_` file-like
     object.
     '''
+    logger = logging.getLogger('dumper.__init__')
     ctx = gfal2.creat_context()
     infile = ctx.open(url, 'r')
 
-    chunk = infile.read(CHUNK_SIZE)
+    try:
+        chunk = infile.read(CHUNK_SIZE)
+    except GError as e:
+        if e[1] == 70:
+            logger.debug('GError(70) raised, using GRIDFTP PLUGIN:STAT_ON_OPEN=False workarround to download %s', url)
+            ctx.set_opt_boolean('GRIDFTP PLUGIN', 'STAT_ON_OPEN', False)
+            infile = ctx.open(url, 'r')
+            chunk = infile.read(CHUNK_SIZE)
+        else:
+            raise
+
     while chunk:
         file_.write(chunk)
         chunk = infile.read(CHUNK_SIZE)

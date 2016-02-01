@@ -1593,7 +1593,20 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
-                                     'subject': 'Replication rule has been approved'},
+                                     'subject': 'Replication rule %s has been approved' % (str(rule.id))},
+                            session=session)
+            # Also notify the other approvers
+            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+            for recipent in recipents:
+                text = """Replication rule %s has been approved.
+
+--
+THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
+
+                add_message(event_type='email',
+                            payload={'body': text,
+                                     'to': [recipent[0]],
+                                     'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
                             session=session)
             return
     except NoResultFound:
@@ -1644,9 +1657,22 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
-                                     'subject': 'Replication rule has been denied'},
+                                     'subject': 'Replication rule %s has been denied' % (str(rule.id))},
                             session=session)
             delete_rule(rule_id=rule_id, session=session)
+            # Also notify the other approvers
+            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+            for recipent in recipents:
+                text = """Replication rule %s has been denied.
+
+--
+THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
+
+                add_message(event_type='email',
+                            payload={'body': text,
+                                     'to': [recipent[0]],
+                                     'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                            session=session)
             return
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
@@ -1923,7 +1949,9 @@ def __evaluate_did_attach(eval_did, session=None):
                                          models.ReplicationRule.name == eval_did.name))
                 rules = session.query(models.ReplicationRule).filter(
                     or_(*rule_clauses),
-                    models.ReplicationRule.state != RuleState.SUSPENDED).with_for_update(nowait=True).all()
+                    models.ReplicationRule.state != RuleState.SUSPENDED,
+                    models.ReplicationRule.state != RuleState.WAITING_APPROVAL,
+                    models.ReplicationRule.state != RuleState.INJECT).with_for_update(nowait=True).all()
 
             if rules:
                 # Resolve the new_child_dids to its locks
@@ -2385,21 +2413,7 @@ def __create_rule_approval_email(rule, session=None):
     rses = [rep['rse'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
     # Resolve recipents:
-    recipents = []  # (eMail, account)
-    # LOCALGROUPDISK
-    for rse in parse_expression(rule.rse_expression, session=session):
-        rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
-        if rse_attr.get('type', '') == 'LOCALGROUPDISK':
-            accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
-                                                                                      value='admin').all()
-            for account in accounts:
-                email = get_account(account=account[0], session=session).email
-                if email:
-                    recipents.append((email, account[0]))
-
-    # DDMADMIN as default
-    if not recipents:
-        recipents = [('atlas-adc-ddm-support@cern.ch', 'ddmadmin')]
+    recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
 
     for recipent in recipents:
         text = """A new rule has been requested for approval in Rucio.
@@ -2452,5 +2466,34 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
         add_message(event_type='email',
                     payload={'body': text,
                              'to': [recipent[0]],
-                             'subject': 'Request to approve replication rule'},
+                             'subject': 'Request to approve replication rule %s' % (str(rule.id))},
                     session=session)
+
+
+@transactional_session
+def __create_recipents_list(rse_expression, session=None):
+    """
+    Create a list of recipents for a notification email based on rse_expression.
+
+    :param rse_exoression:  The rse_expression.
+    :param session:         The database session in use.
+    """
+
+    recipents = []  # (eMail, account)
+
+    # LOCALGROUPDISK
+    for rse in parse_expression(rse_expression, session=session):
+        rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+        if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+            accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
+                                                                                      value='admin').all()
+            for account in accounts:
+                email = get_account(account=account[0], session=session).email
+                if email:
+                    recipents.append((email, account[0]))
+
+    # DDMADMIN as default
+    if not recipents:
+        recipents = [('atlas-adc-ddm-support@cern.ch', 'ddmadmin')]
+
+    return recipents

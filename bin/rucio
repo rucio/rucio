@@ -208,7 +208,8 @@ def get_client(args):
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.account,
                         auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
+                        ca_cert=args.ca_certificate, timeout=args.timeout,
+                        user_agent=args.user_agent)
     except CannotAuthenticate, error:
         logger.error(error)
         if not args.auth_strategy:
@@ -845,13 +846,15 @@ def upload(args):
             return FAILURE
         except DataIdentifierNotFound:
             try:
-                logger.info('Adding replicas in Rucio catalog')
-                client.add_replicas(files=[f], rse=args.rse)
-                logger.info('Replicas successfully added')
-                if not dsscope:
-                    # only need to add rules for files if no dataset is given
-                    logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
-                    client.add_replication_rule([f], copies=1, rse_expression=args.rse, lifetime=args.lifetime)
+                if args.no_register is False:
+                    # Skiping registration for pilot
+                    logger.info('Adding replicas in Rucio catalog')
+                    client.add_replicas(files=[f], rse=args.rse)
+                    logger.info('Replicas successfully added')
+                    if not dsscope:
+                        # only need to add rules for files if no dataset is given
+                        logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
+                        client.add_replication_rule([f], copies=1, rse_expression=args.rse, lifetime=args.lifetime)
                 directory = revert_dict[f['scope'], f['name']]
                 trace['remoteSite'] = rse_settings['rse']
                 trace['protocol'] = rse_settings['protocols'][0]['scheme']
@@ -1019,17 +1022,20 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
     sys.exit(0)
 
 
-def _file_exists(type, scope, name, directory, dsn=None):
+def _file_exists(type, scope, name, directory, dsn=None, no_subdir=False):
     file_exists = False
     dest_dir = None
-    if type != 'FILE':
-        dest_dir = '%s/%s' % (directory, dsn)
-        if os.path.isfile('%s/%s' % (dest_dir, name)):
-            file_exists = True
+    if no_subdir:
+        dest_dir = '%s' % (directory)
     else:
-        dest_dir = '%s/%s' % (directory, scope)
-        if os.path.isfile('%s/%s' % (dest_dir, name)):
-            file_exists = True
+        if type != 'FILE':
+            dest_dir = '%s/%s' % (directory, dsn)
+            if os.path.isfile('%s/%s' % (dest_dir, name)):
+                file_exists = True
+        else:
+            dest_dir = '%s/%s' % (directory, scope)
+            if os.path.isfile('%s/%s' % (dest_dir, name)):
+                file_exists = True
     return file_exists, dest_dir
 
 
@@ -1105,7 +1111,7 @@ def download(args):
                     dict_files_to_download[i] = []
             for file in files_to_download:
                 dest_dir = None
-                file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name)
+                file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name, no_subdir=args.no_subdir)
                 if file_exists:
                     logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
@@ -1134,6 +1140,9 @@ def download(args):
                     logger.debug('Will start downloading file %s:%s' % (file['scope'], file['name']))
                     if not os.path.isdir(dest_dir):
                         os.mkdir(dest_dir)
+                    if args.no_subdir is True and os.path.isfile('%s/%s' % (dest_dir, file['name'])):
+                        # Overwrite the files
+                        os.remove("%s/%s" % (dest_dir, file['name']))
                     hash_md5 = hashlib.md5()
                     hash_md5.update('%s:%s' % (file['scope'], file['name']))
                     worker_number = int(hash_md5.hexdigest(), 16) % total_workers
@@ -1149,8 +1158,11 @@ def download(args):
                 time.sleep(2)
                 for worker in dict_files_to_download:
                     for file in dict_files_to_download[worker]:
-                        file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name)
+                        file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name, no_subdir=args.no_subdir)
+                        # If no_subdir is set, "Files already found locally" should be 0, truly existing files will be overwriten...
                         if file_exists:
+                            summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
+                        elif os.path.isfile('%s/%s' % (dest_dir, file['name'])):
                             summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
                 active_workers = [worker for worker in pool_list if worker.is_alive()]
         except DataIdentifierAlreadyExists, error:
@@ -1366,6 +1378,12 @@ def list_rules(args):
     elif args.file:
         scope, name = extract_scope(args.file)
         rules = client.list_associated_rules_for_file(scope=scope, name=name)
+    elif args.traverse:
+        scope, name = extract_scope(args.did)
+        locks = client.get_dataset_locks(scope=scope, name=name)
+        rules = []
+        for rule_id in list(set([lock['rule_id'] for lock in locks])):
+            rules.append(client.get_replication_rule(rule_id))
     elif args.did:
         scope, name = extract_scope(args.did)
         meta = client.get_metadata(scope=scope, name=name)
@@ -1661,6 +1679,7 @@ Commands:
     oparser.add_argument('-S', '--auth-strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509)")
     oparser.add_argument('-T', '--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to seconds.")
     oparser.add_argument('--robot', '-R', dest="human", default=True, action='store_false', help="All output in bytes and without the units. This output format is preferred by parsers and scripts.")
+    oparser.add_argument('--user-agent', '-U', dest="user_agent", default='rucio-clients', action='store', help="Rucio User Agent")
 
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
@@ -1799,6 +1818,9 @@ Commands:
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True)
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
+    # The --no-register option is hidden. This is pilot ONLY. Users should not used. Can lead to dark data increase and data loss
+    # No replicas are registered for files, nor rules created.
+    upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download subparser
@@ -1810,6 +1832,7 @@ Commands:
     get_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
     get_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download')
+    get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
@@ -1819,6 +1842,7 @@ Commands:
     download_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
     download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
     download_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download.')
+    download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
@@ -1894,8 +1918,9 @@ Commands:
     # The list_rules command
     list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules.')
     list_rules_parser.set_defaults(which='list_rules')
-    list_rules_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='List by did')
-    list_rules_parser.add_argument('--rule', dest='rule_id', action='store', help='List by rule id')
+    list_rules_parser.add_argument(dest='did', action='store', default=None, help='List by did')
+    list_rules_parser.add_argument('--id', dest='rule_id', action='store', help='List by rule id')
+    list_rules_parser.add_argument('--traverse', dest='traverse', action='store_true', help='Traverse the did tree and search for rules affecting this did')
     list_rules_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Coma Separated Value output')
     list_rules_parser.add_argument('--file', dest='file', action='store', help='List associated rules of an affected file')
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
