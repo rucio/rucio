@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
@@ -38,8 +38,8 @@ urls = (
     '/list_rules', 'ListRulesRedirect',
     '/r2d2/approve', 'ApproveRules',
     '/r2d2/request', 'RequestRule',
+    '/r2d2/manage_quota', 'RSEAccountUsage',
     '/r2d2', 'ListRules',
-    '/rse_account_usage', 'RSEAccountUsage',
     '/rse_usage', 'RSEUsage',
     '/rse_locks', 'RSELocks',
     '/rule', 'Rule',
