@@ -1949,7 +1949,9 @@ def __evaluate_did_attach(eval_did, session=None):
                                          models.ReplicationRule.name == eval_did.name))
                 rules = session.query(models.ReplicationRule).filter(
                     or_(*rule_clauses),
-                    models.ReplicationRule.state != RuleState.SUSPENDED).with_for_update(nowait=True).all()
+                    models.ReplicationRule.state != RuleState.SUSPENDED,
+                    models.ReplicationRule.state != RuleState.WAITING_APPROVAL,
+                    models.ReplicationRule.state != RuleState.INJECT).with_for_update(nowait=True).all()
 
             if rules:
                 # Resolve the new_child_dids to its locks
