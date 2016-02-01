@@ -576,7 +576,7 @@ def list_files(args):
             table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), file['events']])
         print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'])
         print 'Total files : %s' % totfiles
-        print 'Total size : %s' % totsize
+        print 'Total size : %s' % sizefmt(totsize, args.human)
         if totevents:
             print 'Total events : %s' % totevents
     return SUCCESS
