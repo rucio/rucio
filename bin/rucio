@@ -1055,7 +1055,7 @@ def download(args):
     trace['uuid'] = trace_uuid
     nbfiles_to_download = {}
     try:
-        tape_endpoints = [str(rse['rse']) for rse in client.list_rses('istape=True')]
+        tape_endpoints = [str(rse['rse']) for rse in client.list_rses('rse_type=TAPE')]
     except InvalidRSEExpression, error:
         logger.warning(error)
         tape_endpoints = []
