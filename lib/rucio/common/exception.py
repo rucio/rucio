@@ -285,7 +285,7 @@ class InsufficientAccountLimit(RucioException):
     """
     def __init__(self, *args, **kwargs):
         super(InsufficientAccountLimit, self).__init__(args, kwargs)
-        self._message = "There is not enough space left to fulfil the operation."
+        self._message = "There is not enough quota left to fulfil the operation."
 
 
 class InsufficientTargetRSEs(RucioException):
