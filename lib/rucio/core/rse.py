@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
@@ -29,8 +29,10 @@ from sqlalchemy.sql.expression import or_
 import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter
+
 from rucio.common import exception, utils
 from rucio.db.sqla import models
+from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
@@ -217,7 +219,10 @@ def list_rses(filters={}, session=None):
 
         for (k, v) in filters.items():
             if hasattr(models.RSE, k):
-                query = query.filter(getattr(models.RSE, k) == v)
+                if k == 'rse_type':
+                    query = query.filter(getattr(models.RSE, k) == RSEType.from_sym(v))
+                else:
+                    query = query.filter(getattr(models.RSE, k) == v)
             elif k in ['availability_read', 'availability_write', 'availability_delete']:
                 if v:
                     availability_mask1 = availability_mask1 | availability_mapping[k]
