@@ -1169,7 +1169,6 @@ def download(args):
                     time.sleep(2)
                     active_workers = [worker for worker in pool_list if worker.is_alive()]
 
-            print dict_files_to_download
             for worker in dict_files_to_download:
                 for file in dict_files_to_download[worker]:
                     file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name, no_subdir=args.no_subdir)
