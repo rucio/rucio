@@ -6,13 +6,14 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2015 - 2016
 
 '''
 Probe to check stalled fts connections.
 '''
 
 import commands
+import datetime
 import os
 import socket
 import sys
@@ -99,8 +100,11 @@ if __name__ == "__main__":
             os.remove(fileoutput)
 
             if stalled > 0:
-                status, output = commands.getstatusoutput("/usr/bin/supervisorctl restart %s" % name)
-                pass
+                dt = datetime.datetime.now()
+                if dt.hour > 8 and dt.hour < 18 and dt.isoweekday():
+                    pass
+                else:
+                    status, output = commands.getstatusoutput("/usr/bin/supervisorctl restart %s" % name)
     except:
         print traceback.format_exc()
         sys.exit(UNKNOWN)
