@@ -2445,10 +2445,8 @@ Action:
 
 
 
-
-To update the quotas of this RSE goto: https://rucio-ui.cern.ch/r2d2/manage_quota?rse=%s
-
 --
+To update the quotas of this RSE goto: https://rucio-ui.cern.ch/r2d2/manage_quota?rse=%s
 THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                                                  str(rule.created_at),
                                                  str(rule.expires_at),
