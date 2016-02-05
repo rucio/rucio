@@ -7,16 +7,19 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 
 import os
+import urlparse
 
 import boto
 import boto.s3.connection
+
 from boto.s3.key import Key
 
-import urlparse
-
 from rucio.common import exception
+from rucio.common.config import get_rse_credentials
+
 from rucio.rse.protocols import protocol
 
 
@@ -104,6 +107,8 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied: if no connection could be established.
         """
         try:
+            credentials = get_rse_credentials()
+            self.rse['credentials'] = credentials.get(self.rse['rse'])
             self.__conn = boto.connect_s3(host=self.attributes['hostname'],
                                           port=int(self.attributes.get('port', 80)),
                                           aws_access_key_id=self.rse['credentials']['access_key'],
