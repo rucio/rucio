@@ -182,6 +182,22 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             if ask_approval:
                 new_rule.state = RuleState.WAITING_APPROVAL
+                if len(rses) == 1 and not did.is_open and did.bytes is not None and did.length is not None:
+                    # This rule can be considered for auto-approval:
+                    rse_attr = list_rse_attributes(rse=None, rse_id=rses[0]['id'], session=session)
+                    auto_approve = False
+                    if 'auto_approve_bytes' in rse_attr and 'auto_approve_files' in rse_attr:
+                        if did.bytes < int(rse_attr.get('auto_approve_bytes')) and did.length < int(rse_attr.get('auto_approve_bytes')):
+                            auto_approve = True
+                    elif did.bytes < int(rse_attr.get('auto_approve_bytes', -1)):
+                        auto_approve = True
+                    elif did.length < int(rse_attr.get('auto_approve_files', -1)):
+                        auto_approve = True
+                    if auto_approve:
+                        logging.debug("Auto approving rule %s" % str(new_rule.id))
+                        logging.debug("Created rule %s for injection" % str(new_rule.id))
+                        approve_rule(rule_id=new_rule.id, notify_approvers=False, session=session)
+                        continue
                 logging.debug("Created rule %s in waiting for approval" % (str(new_rule.id)))
                 __create_rule_approval_email(rule=new_rule, session=session)
                 continue
@@ -381,6 +397,22 @@ def add_rules(dids, rules, session=None):
 
                     if rule.get('ask_approval', False):
                         new_rule.state = RuleState.WAITING_APPROVAL
+                        if len(rses) == 1 and not did.is_open and did.bytes is not None and did.length is not None:
+                            # This rule can be considered for auto-approval:
+                            rse_attr = list_rse_attributes(rse=None, rse_id=rses[0]['id'], session=session)
+                            auto_approve = False
+                            if 'auto_approve_bytes' in rse_attr and 'auto_approve_files' in rse_attr:
+                                if did.bytes < int(rse_attr.get('auto_approve_bytes')) and did.length < int(rse_attr.get('auto_approve_bytes')):
+                                    auto_approve = True
+                            elif did.bytes < int(rse_attr.get('auto_approve_bytes', -1)):
+                                auto_approve = True
+                            elif did.length < int(rse_attr.get('auto_approve_files', -1)):
+                                auto_approve = True
+                            if auto_approve:
+                                logging.debug("Auto approving rule %s" % str(new_rule.id))
+                                logging.debug("Created rule %s for injection" % str(new_rule.id))
+                                approve_rule(rule_id=new_rule.id, notify_approvers=False, session=session)
+                                continue
                         logging.debug("Created rule %s in waiting for approval" % str(new_rule.id))
                         __create_rule_approval_email(rule=new_rule, session=session)
                         continue
@@ -1548,13 +1580,14 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
 
 
 @transactional_session
-def approve_rule(rule_id, session=None):
+def approve_rule(rule_id, notify_approvers=True, session=None):
     """
     Approve a specific replication rule.
 
-    :param rule_id: The rule_id to approve.
-    :param session: The database session in use.
-    :raises:        RuleNotFound if no Rule can be found.
+    :param rule_id:           The rule_id to approve.
+    :param notify_approvers:  Notify the other approvers.
+    :param session:           The database session in use.
+    :raises:                  RuleNotFound if no Rule can be found.
     """
 
     try:
@@ -1596,19 +1629,20 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                                      'subject': 'Replication rule %s has been approved' % (str(rule.id))},
                             session=session)
             # Also notify the other approvers
-            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
-            for recipent in recipents:
-                text = """Replication rule %s has been approved.
+            if notify_approvers:
+                recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+                for recipent in recipents:
+                    text = """Replication rule %s has been approved.
 
 --
 THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
 
-                add_message(event_type='email',
-                            payload={'body': text,
-                                     'to': [recipent[0]],
-                                     'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
-                            session=session)
-            return
+                    add_message(event_type='email',
+                                payload={'body': text,
+                                         'to': [recipent[0]],
+                                         'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                session=session)
+                return
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
