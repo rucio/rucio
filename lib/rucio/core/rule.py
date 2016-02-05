@@ -2443,6 +2443,11 @@ Action:
   Approve:              https://rucio-ui.cern.ch/rule?rule_id=%s&action=approve&ui_account=%s
   Deny:                 https://rucio-ui.cern.ch/rule?rule_id=%s&action=deny&ui_account=%s
 
+
+
+
+To update the quotas of this RSE goto: https://rucio-ui.cern.ch/r2d2/manage_quota?rse=%s
+
 --
 THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                                                  str(rule.created_at),
@@ -2461,7 +2466,8 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                                                  str(rule.id),
                                                  recipent[1],
                                                  str(rule.id),
-                                                 recipent[1])
+                                                 recipent[1],
+                                                 rule.rse_expression)
 
         add_message(event_type='email',
                     payload={'body': text,
