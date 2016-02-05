@@ -1931,7 +1931,7 @@ Commands:
     # The list_rules command
     list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules.')
     list_rules_parser.set_defaults(which='list_rules')
-    list_rules_parser.add_argument(dest='did', action='store', default=None, help='List by did')
+    list_rules_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='List by did')
     list_rules_parser.add_argument('--id', dest='rule_id', action='store', help='List by rule id')
     list_rules_parser.add_argument('--traverse', dest='traverse', action='store_true', help='Traverse the did tree and search for rules affecting this did')
     list_rules_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Coma Separated Value output')
