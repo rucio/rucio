@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 """
@@ -84,7 +84,7 @@ def get_schema_dir():
             return jsonschemadir
 
 
-def get_rse_credentials(path_to_credentials_file):
+def get_rse_credentials(path_to_credentials_file=None):
     """ Returns credentials for RSEs. """
 
     path = ''

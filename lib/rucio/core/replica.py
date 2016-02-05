@@ -664,10 +664,13 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 
                 if rse not in tmp_protocols:
 
-                    rse_schemes = schemes
+                    rse_schemes = schemes or []
                     if not rse_schemes:
-                        rse_schemes = [rsemgr.select_protocol(rse_settings=rse_info[rse],
-                                                              operation='read')['scheme']]
+                        try:
+                            rse_schemes = [rsemgr.select_protocol(rse_settings=rse_info[rse],
+                                                                  operation='read')['scheme']]
+                        except:
+                            print format_exc()
 
                     protocols = []
                     for s in rse_schemes:
@@ -696,6 +699,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                     except:
                         # temporary protection
                         print format_exc()
+
                     if protocol.attributes['scheme'] == 'srm':
                         try:
                             file['space_token'] = protocol.attributes['extended_attributes']['space_token']
