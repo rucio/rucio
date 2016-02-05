@@ -1,5 +1,5 @@
-Rucio Client Lite Package
-=========================
+Rucio WebUI Package
+===================
 
 
 Development takes place via the usual Rucio processes as outlined in `<http://rucio.cern.ch/>`_.
