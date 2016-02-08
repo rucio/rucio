@@ -36,47 +36,51 @@ REGION = make_region().configure('dogpile.cache.memory',
                                  expiration_time=3600)
 
 
-def _get_credentials(endpoint):
+def _get_credentials(rse, endpoint):
     """
     Pass an endpoint and return its credentials.
 
     :param endpoint:      URL endpoint string.
+    :param rse:           RSE name.
     :returns:             Dictionary of credentials.
     """
 
-    result = REGION.get(endpoint)
+    key = '%s_%s' % (rse, endpoint)
+    result = REGION.get(key)
     if type(result) is NoValue:
         try:
             logging.debug("Loading account credentials")
             result = config.get_rse_credentials(None)
-            if result and endpoint in result:
-                result = result[endpoint]
-                REGION.set(endpoint, result)
+            if result and rse in result:
+                result = result[rse]
+                result['is_secure'] = result['is_secure'][endpoint]
+                REGION.set(key, result)
             else:
                 raise Exception("Failed to load account credentials")
             logging.debug("Loaded account credentials")
         except KeyError, e:
-            raise exception.CannotAuthenticate('endpoint % not in rse account cfg: %s' % e)
+            raise exception.CannotAuthenticate('RSE %s endpoint % not in rse account cfg: %s' % (rse, endpoint, e))
         except:
-            raise exception.RucioException("Failed to load credentials for endpoint: %s, error: %s" % (endpoint, traceback.format_exc()))
+            raise exception.RucioException("Failed to load credentials for RSE(%s) endpoint(%s), error: %s" % (rse, endpoint, traceback.format_exc()))
     return result
 
 
-def _get_connection(endpoint):
+def _get_connection(rse, endpoint):
     """
     Pass an endpoint and return a connection to object store.
 
+    :param rse:           RSE name.
     :param endpoint:      URL endpoint string.
     :returns:             Connection object.
     """
 
-    key = "connection:%s" % (endpoint)
+    key = "connection:%s_%s" % (rse, endpoint)
     result = REGION.get(key)
     if type(result) is NoValue:
         try:
             logging.debug("Creating connection object")
             result = None
-            credentials = _get_credentials(endpoint)
+            credentials = _get_credentials(rse, endpoint)
             if 'access_key' in credentials and credentials['access_key'] and \
                'secret_key' in credentials and credentials['secret_key'] and \
                'is_secure' in credentials and credentials['is_secure'] is not None:
@@ -95,40 +99,41 @@ def _get_connection(endpoint):
                 REGION.set(key, result)
                 logging.debug("Created connection object")
             else:
-                raise exception.CannotAuthenticate("Either access_key, secret_key or is_secure is not defined for %s" % endpoint)
+                raise exception.CannotAuthenticate("Either access_key, secret_key or is_secure is not defined for RSE %s endpoint %s" % (rse, endpoint))
         except exception.RucioException, e:
             raise e
         except:
-            raise exception.RucioException("Failed to get connection for endpoint: %s, error: %s" % (endpoint, traceback.format_exc()))
+            raise exception.RucioException("Failed to get connection for RSE(%s) endpoint(%s), error: %s" % (rse, endpoint, traceback.format_exc()))
     return result
 
 
-def _get_bucket(endpoint, bucket_name):
+def _get_bucket(rse, endpoint, bucket_name):
     """
     Pass an endpoint and return a connection to object store.
 
+    :param rse:           RSE name.
     :param endpoint:      URL endpoint string.
     :returns:             Connection object.
     """
 
-    key = "%s:%s" % (endpoint, bucket_name)
+    key = "%s:%s:%s" % (rse, endpoint, bucket_name)
     result = REGION.get(key)
     if type(result) is NoValue:
         try:
             logging.debug("Creating bucket object")
             result = None
 
-            conn = _get_connection(endpoint)
+            conn = _get_connection(rse, endpoint)
             bucket = conn.get_bucket(bucket_name)
             if bucket is None:
-                raise exception.SourceNotFound('Bucket %s not found on %s' % (bucket_name, endpoint))
+                raise exception.SourceNotFound('Bucket %s not found on %s' % (bucket_name, rse))
             else:
                 result = bucket
                 REGION.set(key, result)
         except exception.RucioException, e:
             raise e
         except:
-            raise exception.RucioException("Failed to get connection for endpoint: %s, error: %s" % (endpoint, traceback.format_exc()))
+            raise exception.RucioException("Failed to get bucket on RSE(%s), error: %s" % (rse, traceback.format_exc()))
     return result
 
 
@@ -157,20 +162,27 @@ def _get_endpoint_bucket_key(url):
         raise exception.RucioException("Failed to parse url %s, error: %s" % (url, traceback.format_exc()))
 
 
-def connect(url):
+def connect(rse, url):
+    """
+    connect to RSE.
+
+    :param url:           URL string.
+    :param rse:           RSE name.
+    """
     try:
         endpoint, bucket_name, key_name = _get_endpoint_bucket_key(url)
-        conn = _get_connection(endpoint)
+        conn = _get_connection(rse, endpoint)
         conn.create_bucket(bucket_name)
     except:
         raise exception.RucioException("Failed to connect url %s, error: %s" % (url, traceback.format_exc()))
 
 
-def get_signed_urls(urls, operation='read'):
+def get_signed_urls(urls, rse, operation='read'):
     """
     Pass list of urls and return their signed urls.
 
     :param urls:          A list of URL string.
+    :param rse:           RSE name.
     :returns:             Dictionary of Signed URLs.
     """
     result = {}
@@ -181,14 +193,14 @@ def get_signed_urls(urls, operation='read'):
             signed_url = None
             if operation == 'read':
                 # signed_url = conn.generate_url(3600, 'GET', bucket_name, key_name, query_auth=True, force_http=False)
-                bucket = _get_bucket(endpoint, bucket_name)
+                bucket = _get_bucket(rse, endpoint, bucket_name)
                 key = bucket.get_key(key_name)
                 if key is None:
                     signed_url = exception.SourceNotFound('Key %s not found on %s' % (key_name, endpoint))
                 else:
                     signed_url = key.generate_url(3600, 'GET', query_auth=True, force_http=False)
             else:
-                conn = _get_connection(endpoint)
+                conn = _get_connection(rse, endpoint)
                 signed_url = conn.generate_url(3600, 'PUT', bucket_name, key_name, query_auth=True, force_http=False)
             result[url] = signed_url
         except boto.exception.S3ResponseError as e:
@@ -203,18 +215,19 @@ def get_signed_urls(urls, operation='read'):
     return result
 
 
-def get_metadata(urls):
+def get_metadata(urls, rse):
     """
     Pass list of urls and return their metadata.
 
     :param urls:          A list of URL string.
+    :param rse:           RSE name.
     :returns:             Dictonary of metadatas.
     """
     result = {}
     for url in urls:
         try:
             endpoint, bucket_name, key_name = _get_endpoint_bucket_key(url)
-            bucket = _get_bucket(endpoint, bucket_name)
+            bucket = _get_bucket(rse, endpoint, bucket_name)
             metadata = None
             key = bucket.get_key(key_name)
             if key is None:
@@ -261,11 +274,12 @@ def _delete_keys(bucket, keys):
     return result
 
 
-def delete(urls):
+def delete(urls, rse):
     """
     Delete objects.
 
     :param urls:          A list of URL string.
+    :param rse:           RSE name.
     :returns:             Dictonary of {'status': status, 'output': output}.
     """
     result = {}
@@ -283,7 +297,7 @@ def delete(urls):
     for bucket_key in bucket_keys:
         try:
             endpoint, bucket_name = bucket_key.split('+')
-            bucket = _get_bucket(endpoint, bucket_name)
+            bucket = _get_bucket(rse, endpoint, bucket_name)
             ret = _delete_keys(bucket, bucket_keys[bucket_key].keys())
             for key in ret:
                 result[bucket_keys[bucket_key][key]] = ret[key]
@@ -297,16 +311,17 @@ def delete(urls):
     return result
 
 
-def delete_dir(url_prefix):
+def delete_dir(url_prefix, rse):
     """
     Delete objects starting with prefix.
 
     :param url_prefix:          URL string.
+    :param rse:           RSE name.
     :returns                    {'status': status, 'output': output}
     """
     try:
         endpoint, bucket_name, key_name = _get_endpoint_bucket_key(url_prefix)
-        bucket = _get_bucket(endpoint, bucket_name)
+        bucket = _get_bucket(rse, endpoint, bucket_name)
         i = 0
         keys = []
         for key in bucket.list(prefix=key_name):
@@ -329,16 +344,17 @@ def delete_dir(url_prefix):
         return -1, "Failed to delete dir: %s, error: %s" % (url_prefix, traceback.format_exc())
 
 
-def rename(url, new_url):
+def rename(url, new_url, rse):
     """
     Rename object.
 
     :param url:          URL string.
     :param new_url:      URL string.
+    :param rse:           RSE name.
     """
     try:
         endpoint, bucket_name, key_name = _get_endpoint_bucket_key(url)
-        bucket = _get_bucket(endpoint, bucket_name)
+        bucket = _get_bucket(rse, endpoint, bucket_name)
         key = bucket.get_key(key_name)
         if key is None:
             raise exception.SourceNotFound('Key %s not found on %s' % (key_name, endpoint))

@@ -30,16 +30,16 @@ class TestRseS3Http():
     @classmethod
     def setupClass(cls):
         """S3Http (RSE/PROTOCOLS): Creating necessary directories and files """
-        cls.site = 'BNL-S3-LOGS'
+        cls.site = 'BNL-OSG2_ES'
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
         cls.user = 'jdoe'
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
-        scheme = data[cls.site]['protocols']['supported']['s3']['scheme']
-        prefix = data[cls.site]['protocols']['supported']['s3']['prefix']
-        hostname = data[cls.site]['protocols']['supported']['s3']['hostname']
-        port = data[cls.site]['protocols']['supported']['s3']['port']
+        scheme = data[cls.site]['protocols']['supported']['s3+https']['scheme']
+        prefix = data[cls.site]['protocols']['supported']['s3+https']['prefix']
+        hostname = data[cls.site]['protocols']['supported']['s3+https']['hostname']
+        port = data[cls.site]['protocols']['supported']['s3+https']['port']
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
             out.seek((1024) - 1)  # 1 kB
@@ -50,17 +50,17 @@ class TestRseS3Http():
         cls.static_file = '%s://%s:%s/%s/user.%s/data.raw' % (scheme, hostname, port, prefix, cls.user)
 
         rse_settings = rsemanager.get_rse_info(cls.site)
-        storage = rsemanager.create_protocol(rse_settings, operation='write', scheme='s3')
+        storage = rsemanager.create_protocol(rse_settings, operation='write', scheme='s3+https')
         storage.connect()
         for f in MgrTestCases.files_remote:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
-            destfile = rsemanager.lfns2pfns(rse_settings, [{'name': f, 'scope': 'user.%s' % (cls.user)}, ], operation='write', scheme='s3').values()[0]
+            destfile = rsemanager.lfns2pfns(rse_settings, [{'name': f, 'scope': 'user.%s' % (cls.user)}, ], operation='write', scheme='s3+https').values()[0]
             try:
                 storage.put('%s/%s' % (cls.tmpdir, f), destfile)
             except FileReplicaAlreadyExists, e:
                 print e
         f = 'data.raw'
-        destfile = rsemanager.lfns2pfns(rse_settings, [{'name': f, 'scope': 'user.%s' % (cls.user)}, ], operation='write', scheme='s3').values()[0]
+        destfile = rsemanager.lfns2pfns(rse_settings, [{'name': f, 'scope': 'user.%s' % (cls.user)}, ], operation='write', scheme='s3+https').values()[0]
         try:
             storage.put('%s/%s' % (cls.tmpdir, f), destfile)
         except FileReplicaAlreadyExists, e:
@@ -72,11 +72,11 @@ class TestRseS3Http():
         rse_settings = rsemanager.get_rse_info(cls.site)
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
-        scheme = data[cls.site]['protocols']['supported']['s3']['scheme']
-        prefix = data[cls.site]['protocols']['supported']['s3']['prefix']
-        hostname = data[cls.site]['protocols']['supported']['s3']['hostname']
-        port = data[cls.site]['protocols']['supported']['s3']['port']
-        storage = rsemanager.create_protocol(rse_settings, operation='write', scheme='s3')
+        scheme = data[cls.site]['protocols']['supported']['s3+https']['scheme']
+        prefix = data[cls.site]['protocols']['supported']['s3+https']['prefix']
+        hostname = data[cls.site]['protocols']['supported']['s3+https']['hostname']
+        port = data[cls.site]['protocols']['supported']['s3+https']['port']
+        storage = rsemanager.create_protocol(rse_settings, operation='write', scheme='s3+https')
         storage.connect()
         try:
             storage.delete_dir('%s://%s:%s/%s/%s' % (scheme, hostname, port, prefix, 'user'))
@@ -90,8 +90,8 @@ class TestRseS3Http():
     def setup(self):
         """S3Http (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseS3Http.tmpdir
-        self.rse_id = 'BNL-S3-LOGS'
-        self.mtc = MgrTestCases(self.tmpdir, 'BNL-S3-LOGS', TestRseS3Http.user, TestRseS3Http.static_file)
+        self.rse_id = 'BNL-OSG2_ES'
+        self.mtc = MgrTestCases(self.tmpdir, 'BNL-OSG2_ES', TestRseS3Http.user, TestRseS3Http.static_file)
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):

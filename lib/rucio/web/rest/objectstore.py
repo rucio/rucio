@@ -18,15 +18,15 @@ from rucio.common import objectstore
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
 
 
-urls = ('/info', 'ObjectStoreInfo',
-        '/rename', 'ObjectStoreRename',
-        '/([a-z]+)/(.+)$', 'ObjectStoreGet',
-        '/(.+)$', 'ObjectStore')
+urls = ('/info/(.+)$', 'ObjectStoreInfo',
+        '/rename/(.+)$', 'ObjectStoreRename',
+        '/(.+)/(.+)/(.+)$', 'ObjectStoreGet',
+        '/(.+)/(.+)$', 'ObjectStore')
 
 
 class ObjectStoreGet(RucioController):
 
-    def GET(self, operation, url):
+    def GET(self, url, rse, operation):
         """
         GET redirect URL.
 
@@ -49,49 +49,25 @@ class ObjectStoreGet(RucioController):
             pos = url.index('/')
             url = ''.join([url[:pos], '/', url[pos:]])
 
-            result = objectstore.get_signed_urls([url], operation=operation)
-            if isinstance(result[url], Exception):
-                raise result[url]
-            # return found(result[url])
-            return result[url]
+            if operation == 'connect':
+                objectstore.connect(rse, url)
+            else:
+                result = objectstore.get_signed_urls([url], rse=rse, operation=operation)
+                if isinstance(result[url], Exception):
+                    raise result[url]
+                # return found(result[url])
+                return result[url]
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
             print traceback.format_exc()
             raise InternalError(e)
+        raise OK()
 
 
 class ObjectStore(RucioController):
 
-    def GET(self, url):
-        """
-        Connect to the url.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
-        :returns: OK.
-        """
-        header('Content-Type', 'application/json')
-
-        try:
-            pos = url.index('/')
-            url = ''.join([url[:pos], '/', url[pos:]])
-
-            objectstore.connect(url)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
-            print traceback.format_exc()
-            raise InternalError(e)
-
-        raise OK()
-
-    def POST(self, operation):
+    def POST(self, rse, operation):
         """
         Get URLs for files at a given RSE.
 
@@ -110,7 +86,7 @@ class ObjectStore(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            result = objectstore.get_signed_urls(parameters, operation=operation)
+            result = objectstore.get_signed_urls(parameters, rse=rse, operation=operation)
             for url in result:
                 if isinstance(result[url], Exception):
                     raise result[url]
@@ -124,7 +100,7 @@ class ObjectStore(RucioController):
 
 class ObjectStoreInfo(RucioController):
 
-    def POST(self):
+    def POST(self, rse):
         """
         Get files metadata at a given RSE.
 
@@ -143,7 +119,7 @@ class ObjectStoreInfo(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            result = objectstore.get_metadata(parameters)
+            result = objectstore.get_metadata(parameters, rse=rse)
             for url in result:
                 if isinstance(result[url], Exception):
                     raise result[url]
@@ -157,7 +133,7 @@ class ObjectStoreInfo(RucioController):
 
 class ObjectStoreRename(RucioController):
 
-    def POST(self):
+    def POST(self, rse):
         """
         Get files metadata at a given RSE.
 
@@ -178,7 +154,7 @@ class ObjectStoreRename(RucioController):
         try:
             url = parameters['url']
             new_url = parameters['new_url']
-            objectstore.rename(url, new_url)
+            objectstore.rename(url, new_url, rse=rse)
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:

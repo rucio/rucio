@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2016
 
 import os
 import requests
@@ -200,56 +200,56 @@ class Default(protocol.RSEProtocol):
         url = self.path2pfn('')
         if rsemanager.CLIENT_MODE:
             client = ObjectStoreClient()
-            return client.connect(url)
+            return client.connect(self.rse['rse'], url)
         if rsemanager.SERVER_MODE:
-            return objectstore.connect(url)
+            return objectstore.connect(self.rse['rse'], url)
 
     def _get_signed_urls(self, urls, operation='read'):
         urls = [self._get_unredirector_pfn(url) for url in urls]
         if rsemanager.CLIENT_MODE:
             client = ObjectStoreClient()
-            return client.get_signed_urls(urls, operation=operation)
+            return client.get_signed_urls(urls, rse=self.rse['rse'], operation=operation)
         if rsemanager.SERVER_MODE:
-            return objectstore.get_signed_urls(urls, operation=operation)
+            return objectstore.get_signed_urls(urls, rse=self.rse['rse'], operation=operation)
 
     def _get_signed_url(self, url, operation='read'):
         url = self._get_unredirector_pfn(url)
         if rsemanager.CLIENT_MODE:
             client = ObjectStoreClient()
-            return client.get_signed_url(url, operation=operation)
+            return client.get_signed_url(url, rse=self.rse['rse'], operation=operation)
         if rsemanager.SERVER_MODE:
-            return objectstore.get_signed_urls([url], operation=operation)[url]
+            return objectstore.get_signed_urls([url], rse=self.rse['rse'], operation=operation)[url]
 
     def _get_metadata(self, urls):
         urls = [self._get_unredirector_pfn(url) for url in urls]
         if rsemanager.CLIENT_MODE:
             client = ObjectStoreClient()
-            return client.get_metadata(urls)
+            return client.get_metadata(urls, rse=self.rse['rse'])
         if rsemanager.SERVER_MODE:
-            return objectstore.get_metadata(urls)
+            return objectstore.get_metadata(urls, rse=self.rse['rse'])
 
     def _delete(self, urls):
         urls = [self._get_unredirector_pfn(url) for url in urls]
         if rsemanager.CLIENT_MODE:
             raise NotImplementedError
         if rsemanager.SERVER_MODE:
-            return objectstore.delete(urls)
+            return objectstore.delete(urls, rse=self.rse['rse'])
 
     def _delete_dir(self, url):
         url = self._get_unredirector_pfn(url)
         if rsemanager.CLIENT_MODE:
             raise NotImplementedError
         if rsemanager.SERVER_MODE:
-            return objectstore.delete_dir(url)
+            return objectstore.delete_dir(url, rse=self.rse['rse'])
 
     def _rename(self, url, new_url):
         url = self._get_unredirector_pfn(url)
         new_url = self._get_unredirector_pfn(new_url)
         if rsemanager.CLIENT_MODE:
             client = ObjectStoreClient()
-            return client.rename(url, new_url)
+            return client.rename(url, new_url, rse=self.rse['rse'])
         if rsemanager.SERVER_MODE:
-            return objectstore.rename(url, new_url)
+            return objectstore.rename(url, new_url, rse=self.rse['rse'])
 
     def exists(self, pfn):
         """
