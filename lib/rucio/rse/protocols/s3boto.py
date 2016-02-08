@@ -107,13 +107,18 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied: if no connection could be established.
         """
         try:
+            scheme, prefix = self.attributes.get('scheme'), self.attributes.get('prefix')
+            netloc, port = self.attributes['hostname'], self.attributes.get('port', 80)
+            service_url = '%(scheme)s://%(netloc)s:%(port)s%(prefix)s' % locals()
             credentials = get_rse_credentials()
             self.rse['credentials'] = credentials.get(self.rse['rse'])
+            is_secure = self.rse['credentials'].get('is_secure', {}).\
+                get(service_url, False)
             self.__conn = boto.connect_s3(host=self.attributes['hostname'],
-                                          port=int(self.attributes.get('port', 80)),
+                                          port=int(port),
                                           aws_access_key_id=self.rse['credentials']['access_key'],
                                           aws_secret_access_key=self.rse['credentials']['secret_key'],
-                                          is_secure=self.rse['credentials'].get('is_secure', False),
+                                          is_secure=is_secure,
                                           calling_format=boto.s3.connection.OrdinaryCallingFormat())
         except Exception as e:
             raise exception.RSEAccessDenied(e)
