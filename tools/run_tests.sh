@@ -11,7 +11,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Evangelia Liotiri, <evangelia.liotiri@cern.ch>, 2015
 
-noseopts="--exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server"
+noseopts="--exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_objectstore"
 dq2opts=""
 
 function usage {
