@@ -91,7 +91,7 @@
       "default": "s3",
       "supported": {
         "s3": {
-          "impl": "rucio.rse.protocols.s3http.Default",
+          "impl": "rucio.rse.protocols.signeds3.Default",
           "hostname": "cephgw.usatlas.bnl.gov",
           "port": 8443,
           "scheme": "s3",
@@ -120,7 +120,7 @@
       "default": "s3+https",
       "supported": {
         "s3+https": {
-          "impl": "rucio.rse.protocols.s3http.Default",
+          "impl": "rucio.rse.protocols.signeds3.Default",
           "hostname": "cephgw.usatlas.bnl.gov",
           "port": 8443,
           "scheme": "s3+https",
