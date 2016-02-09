@@ -12,18 +12,12 @@ import os
 import requests
 import urlparse
 
-from exceptions import NotImplementedError
 from progressbar import ProgressBar
 from sys import stdout
 
+from rucio.client.objectstoreclient import ObjectStoreClient
 from rucio.common import exception
 from rucio.rse.protocols import protocol
-from rucio.rse import rsemanager
-
-if rsemanager.CLIENT_MODE:
-    from rucio.client.objectstoreclient import ObjectStoreClient
-if rsemanager.SERVER_MODE:
-    from rucio.common import objectstore
 
 
 class UploadInChunks(object):
@@ -77,8 +71,6 @@ class IterableToFileAdapter(object):
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the S3 protocol."""
 
-    REDIRECT_URL = 'https://pcuwvirt5.cern.ch:8443/objectstore'
-
     def __init__(self, protocol_attr, rse_settings):
         super(Default, self).__init__(protocol_attr, rse_settings)
         self.session = requests.session()
@@ -121,30 +113,10 @@ class Default(protocol.RSEProtocol):
             if 'prefix' in lfn and lfn['prefix'] is not None:
                 path = os.path.join(lfn['prefix'], scope + '/' + name)
             else:
-                path = scope + '/' + name
-            pfn = self.path2pfn(path)
+                path = self._get_path(scope=scope, name=name)
 
-            if rsemanager.SERVER_MODE:
-                pfns['%s:%s' % (scope, name)] = pfn
-            else:
-                # pfns['%s:%s' % (scope, name)] = '/'.join([self.REDIRECT_URL, operation, pfn])
-                pfns['%s:%s' % (scope, name)] = pfn
+            pfns['%s:%s' % (scope, name)] = self.path2pfn(path)
         return pfns
-
-    def _get_unredirector_pfn(self, pfn):
-        """
-            Parse redirected PFN to get the original PFN.
-
-            :param pfn: a redirected PFN.
-
-            :returns: a original PFN.
-        """
-        if pfn.startswith(self.REDIRECT_URL):
-            pfn = pfn.replace(self.REDIRECT_URL, '')
-            pfn = pfn[1:]
-            pos = pfn.index('/')
-            pfn = pfn[pos+1:]
-        return pfn
 
     def parse_pfns(self, pfns):
         """
@@ -159,8 +131,7 @@ class Default(protocol.RSEProtocol):
         ret = dict()
         pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
 
-        for redirect_pfn in pfns:
-            pfn = self._get_unredirector_pfn(redirect_pfn)
+        for pfn in pfns:
 
             parsed = urlparse(pfn)
             scheme = parsed.scheme
@@ -198,82 +169,24 @@ class Default(protocol.RSEProtocol):
 
     def _connect(self):
         url = self.path2pfn('')
-        if rsemanager.CLIENT_MODE:
-            client = ObjectStoreClient()
-            return client.connect(self.rse['rse'], url)
-        if rsemanager.SERVER_MODE:
-            return objectstore.connect(self.rse['rse'], url)
+        client = ObjectStoreClient()
+        return client.connect(self.rse['rse'], url)
 
     def _get_signed_urls(self, urls, operation='read'):
-        urls = [self._get_unredirector_pfn(url) for url in urls]
-        if rsemanager.CLIENT_MODE:
-            client = ObjectStoreClient()
-            return client.get_signed_urls(urls, rse=self.rse['rse'], operation=operation)
-        if rsemanager.SERVER_MODE:
-            return objectstore.get_signed_urls(urls, rse=self.rse['rse'], operation=operation)
+        client = ObjectStoreClient()
+        return client.get_signed_urls(urls, rse=self.rse['rse'], operation=operation)
 
     def _get_signed_url(self, url, operation='read'):
-        url = self._get_unredirector_pfn(url)
-        if rsemanager.CLIENT_MODE:
-            client = ObjectStoreClient()
-            return client.get_signed_url(url, rse=self.rse['rse'], operation=operation)
-        if rsemanager.SERVER_MODE:
-            return objectstore.get_signed_urls([url], rse=self.rse['rse'], operation=operation)[url]
+        client = ObjectStoreClient()
+        return client.get_signed_url(url, rse=self.rse['rse'], operation=operation)
 
     def _get_metadata(self, urls):
-        urls = [self._get_unredirector_pfn(url) for url in urls]
-        if rsemanager.CLIENT_MODE:
-            client = ObjectStoreClient()
-            return client.get_metadata(urls, rse=self.rse['rse'])
-        if rsemanager.SERVER_MODE:
-            return objectstore.get_metadata(urls, rse=self.rse['rse'])
-
-    def _delete(self, urls):
-        urls = [self._get_unredirector_pfn(url) for url in urls]
-        if rsemanager.CLIENT_MODE:
-            raise NotImplementedError
-        if rsemanager.SERVER_MODE:
-            return objectstore.delete(urls, rse=self.rse['rse'])
-
-    def _delete_dir(self, url):
-        url = self._get_unredirector_pfn(url)
-        if rsemanager.CLIENT_MODE:
-            raise NotImplementedError
-        if rsemanager.SERVER_MODE:
-            return objectstore.delete_dir(url, rse=self.rse['rse'])
+        client = ObjectStoreClient()
+        return client.get_metadata(urls, rse=self.rse['rse'])
 
     def _rename(self, url, new_url):
-        url = self._get_unredirector_pfn(url)
-        new_url = self._get_unredirector_pfn(new_url)
-        if rsemanager.CLIENT_MODE:
-            client = ObjectStoreClient()
-            return client.rename(url, new_url, rse=self.rse['rse'])
-        if rsemanager.SERVER_MODE:
-            return objectstore.rename(url, new_url, rse=self.rse['rse'])
-
-    def exists(self, pfn):
-        """
-            Checks if the requested file is known by the referred RSE.
-
-            :param path: Physical file name
-
-            :returns: True if the file exists, False if it doesn't
-
-            :raises SourceNotFound: if the source file was not found on the referred storage.
-        """
-        try:
-            metadata = self._get_metadata([pfn])
-            if pfn in metadata and metadata[pfn]:
-                if isinstance(metadata[pfn], Exception):
-                    raise metadata[pfn]
-                else:
-                    return True
-            else:
-                raise exception.RucioException('Failed to check file %s state: %s' % (pfn, metadata))
-        except exception.SourceNotFound:
-            return False
-        except Exception as e:
-            raise exception.RucioException(e)
+        client = ObjectStoreClient()
+        return client.rename(url, new_url, rse=self.rse['rse'])
 
     def connect(self):
         """
@@ -386,59 +299,6 @@ class Default(protocol.RSEProtocol):
         except IOError as error:
             raise exception.SourceNotFound(error)
 
-    def delete(self, pfn):
-        """
-            Deletes a file from the connected RSE.
-
-            :param pfn: path to the to be deleted file
-
-            :raises ServiceUnavailable: if some generic error occured in the library.
-            :raises SourceNotFound: if the source file was not found on the referred storage.
-        """
-        try:
-            self._delete([pfn])
-        except NotImplementedError:
-            raise NotImplementedError
-        except exception.SourceNotFound, e:
-            raise exception.SourceNotFound(e)
-        except Exception as e:
-            raise exception.RucioException(e)
-
-    def delete_dir(self, pfn_dir):
-        """
-            Deletes a directory from the connected RSE.
-
-            :param pfn_dir: path to the to be deleted directory
-
-            :raises ServiceUnavailable: if some generic error occured in the library.
-            :raises SourceNotFound: if the source file was not found on the referred storage.
-        """
-        try:
-            self._delete_dir(pfn_dir)
-        except NotImplementedError:
-            raise NotImplementedError
-        except exception.SourceNotFound, e:
-            raise exception.SourceNotFound(e)
-        except Exception as e:
-            raise exception.RucioException(e)
-
-    def rename(self, pfn, new_pfn):
-        """ Allows to rename a file stored inside the connected RSE.
-
-            :param path: path to the current file on the storage
-            :param new_path: path to the new file on the storage
-
-            :raises DestinationNotAccessible: if the destination storage was not accessible.
-            :raises ServiceUnavailable: if some generic error occured in the library.
-            :raises SourceNotFound: if the source file was not found on the referred storage.
-        """
-        try:
-            self._rename(pfn, new_pfn)
-        except exception.SourceNotFound as e:
-            raise exception.SourceNotFound(e)
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
-
     def stat(self, pfn):
         """ Determines the file size in bytes  of the provided file.
 
@@ -455,6 +315,47 @@ class Default(protocol.RSEProtocol):
                     return metadata[pfn]
             else:
                 raise exception.RucioException('Failed to check file state: %s' % metadata)
+        except exception.SourceNotFound as e:
+            raise exception.SourceNotFound(e)
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+
+    def exists(self, pfn):
+        """
+            Checks if the requested file is known by the referred RSE.
+
+            :param path: Physical file name
+
+            :returns: True if the file exists, False if it doesn't
+
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+        """
+        try:
+            metadata = self._get_metadata([pfn])
+            if pfn in metadata and metadata[pfn]:
+                if isinstance(metadata[pfn], Exception):
+                    raise metadata[pfn]
+                else:
+                    return True
+            else:
+                raise exception.RucioException('Failed to check file %s state: %s' % (pfn, metadata))
+        except exception.SourceNotFound:
+            return False
+        except Exception as e:
+            raise exception.RucioException(e)
+
+    def rename(self, pfn, new_pfn):
+        """ Allows to rename a file stored inside the connected RSE.
+
+            :param path: path to the current file on the storage
+            :param new_path: path to the new file on the storage
+
+            :raises DestinationNotAccessible: if the destination storage was not accessible.
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+        """
+        try:
+            self._rename(pfn, new_pfn)
         except exception.SourceNotFound as e:
             raise exception.SourceNotFound(e)
         except Exception as e:

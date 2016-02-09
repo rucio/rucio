@@ -12,7 +12,6 @@ import json
 import os
 import tempfile
 
-from exceptions import NotImplementedError
 from nose.tools import raises
 
 from rucio.common import exception
@@ -21,7 +20,7 @@ from rsemgr_api_test import MgrTestCases
 from rucio.common.exception import FileReplicaAlreadyExists
 
 
-class TestRseS3Http():
+class TestRseSignedS3():
     tmpdir = None
     user = None
 
@@ -29,7 +28,7 @@ class TestRseS3Http():
 
     @classmethod
     def setupClass(cls):
-        """S3Http (RSE/PROTOCOLS): Creating necessary directories and files """
+        """SignedS3 (RSE/PROTOCOLS): Creating necessary directories and files """
         cls.site = 'BNL-OSG2_ES'
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
@@ -68,7 +67,7 @@ class TestRseS3Http():
 
     @classmethod
     def tearDownClass(cls):
-        """S3Http (RSE/PROTOCOLS): Removing created directories and files """
+        """SignedS3 (RSE/PROTOCOLS): Removing created directories and files """
         rse_settings = rsemanager.get_rse_info(cls.site)
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
@@ -79,127 +78,100 @@ class TestRseS3Http():
         storage = rsemanager.create_protocol(rse_settings, operation='write', scheme='s3+https')
         storage.connect()
         try:
-            storage.delete_dir('%s://%s:%s/%s/%s' % (scheme, hostname, port, prefix, 'user'))
+            storage.delete('%s://%s:%s/%s/%s' % (scheme, hostname, port, prefix, 'user'))
         except Exception, e:
             print e
         try:
-            storage.delete_dir('%s://%s:%s/%s/%s' % (scheme, hostname, port, prefix, 'group'))
+            storage.delete('%s://%s:%s/%s/%s' % (scheme, hostname, port, prefix, 'group'))
         except Exception, e:
             print e
 
     def setup(self):
-        """S3Http (RSE/PROTOCOLS): Creating Mgr-instance """
-        self.tmpdir = TestRseS3Http.tmpdir
+        """SignedS3 (RSE/PROTOCOLS): Creating Mgr-instance """
+        self.tmpdir = TestRseSignedS3.tmpdir
         self.rse_id = 'BNL-OSG2_ES'
-        self.mtc = MgrTestCases(self.tmpdir, 'BNL-OSG2_ES', TestRseS3Http.user, TestRseS3Http.static_file)
+        self.mtc = MgrTestCases(self.tmpdir, 'BNL-OSG2_ES', TestRseSignedS3.user, TestRseSignedS3.static_file)
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
-        """S3Http (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
+        """SignedS3 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
         self.mtc.test_multi_get_mgr_ok()
 
     def test_get_mgr_ok_single_lfn(self):
-        """S3Http (RSE/PROTOCOLS): Get a single file from storage providing LFN (Success)"""
+        """SignedS3 (RSE/PROTOCOLS): Get a single file from storage providing LFN (Success)"""
         self.mtc.test_get_mgr_ok_single_lfn()
 
     def test_get_mgr_ok_single_pfn(self):
-        """S3Http (RSE/PROTOCOLS): Get a single file from storage providing PFN (Success)"""
+        """SignedS3 (RSE/PROTOCOLS): Get a single file from storage providing PFN (Success)"""
         self.mtc.test_get_mgr_ok_single_pfn()
 
     @raises(exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_multi(self):
-        """S3Http (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
+        """SignedS3 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_multi()
 
     @raises(exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_lfn(self):
-        """S3Http (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
+        """SignedS3 (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_single_lfn()
 
     @raises(exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_pfn(self):
-        """S3Http (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
+        """SignedS3 (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_single_pfn()
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
-        """S3Http (RSE/PROTOCOLS): Put multiple files to storage (Success)"""
+        """SignedS3 (RSE/PROTOCOLS): Put multiple files to storage (Success)"""
         self.mtc.test_put_mgr_ok_multi()
 
     def test_put_mgr_ok_single(self):
-        """S3Http (RSE/PROTOCOLS): Put a single file to storage (Success)"""
+        """SignedS3 (RSE/PROTOCOLS): Put a single file to storage (Success)"""
         self.mtc.test_put_mgr_ok_single()
 
     @raises(exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_multi(self):
-        """S3Http (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
+        """SignedS3 (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
         self.mtc.test_put_mgr_SourceNotFound_multi()
 
     @raises(exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_single(self):
-        """S3Http (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
+        """SignedS3 (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
         self.mtc.test_put_mgr_SourceNotFound_single()
 
     @raises(exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_multi(self):
-        """S3Http (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
+        """SignedS3 (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
         self.mtc.test_put_mgr_FileReplicaAlreadyExists_multi()
 
     @raises(exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_single(self):
-        """S3Http (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
+        """SignedS3 (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
         self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
-
-    # MGR-Tests: DELETE
-    def test_delete_mgr_ok_multi(self):
-        """S3Http (RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
-        try:
-            self.mtc.test_delete_mgr_ok_multi()
-        except NotImplementedError:
-            pass
-
-    def test_delete_mgr_ok_single(self):
-        """S3Http (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
-        try:
-            self.mtc.test_delete_mgr_ok_single()
-        except NotImplementedError:
-            pass
-
-    @raises(exception.SourceNotFound)
-    def test_delete_mgr_SourceNotFound_multi(self):
-        """S3Http (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
-        # self.mtc.test_delete_mgr_SourceNotFound_multi()
-        raise exception.SourceNotFound('S3 will return True for no-exist file')
-
-    @raises(exception.SourceNotFound)
-    def test_delete_mgr_SourceNotFound_single(self):
-        """S3Http (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
-        # self.mtc.test_delete_mgr_SourceNotFound_single()
-        raise exception.SourceNotFound('S3 will return True for no-exist file')
 
     # MGR-Tests: EXISTS
     def test_exists_mgr_ok_multi(self):
-        """S3Http (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
+        """SignedS3 (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
         self.mtc.test_exists_mgr_ok_multi()
 
     def test_exists_mgr_ok_single_lfn(self):
-        """S3Http (RSE/PROTOCOLS): Check a single file on storage using LFN (Success)"""
+        """SignedS3 (RSE/PROTOCOLS): Check a single file on storage using LFN (Success)"""
         self.mtc.test_exists_mgr_ok_single_lfn()
 
     def test_exists_mgr_ok_single_pfn(self):
-        """S3Http (RSE/PROTOCOLS): Check a single file on storage using PFN (Success)"""
+        """SignedS3 (RSE/PROTOCOLS): Check a single file on storage using PFN (Success)"""
         self.mtc.test_exists_mgr_ok_single_pfn()
 
     def test_exists_mgr_false_multi(self):
-        """S3Http (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
+        """SignedS3 (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
         self.mtc.test_exists_mgr_false_multi()
 
     def test_exists_mgr_false_single_lfn(self):
-        """S3Http (RSE/PROTOCOLS): Check a single file on storage using LFN (Fail)"""
+        """SignedS3 (RSE/PROTOCOLS): Check a single file on storage using LFN (Fail)"""
         self.mtc.test_exists_mgr_false_single_lfn()
 
     def test_exists_mgr_false_single_pfn(self):
-        """S3Http (RSE/PROTOCOLS): Check a single file on storage using PFN (Fail)"""
+        """SignedS3 (RSE/PROTOCOLS): Check a single file on storage using PFN (Fail)"""
         self.mtc.test_exists_mgr_false_single_pfn()
 
     # MGR-Tests: RENAME
@@ -244,11 +216,3 @@ class TestRseS3Http():
     def test_rename_mgr_SourceNotFound_single_pfn(self):
         """S3Http (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_single_pfn()
-
-    def test_change_scope_mgr_ok_single_lfn(self):
-        """S3Http (RSE/PROTOCOLS): Change the scope of a single file on storage using LFN (Success)"""
-        self.mtc.test_change_scope_mgr_ok_single_lfn()
-
-    def test_change_scope_mgr_ok_single_pfn(self):
-        """S3Http (RSE/PROTOCOLS): Change the scope of a single file on storage using PFN (Success)"""
-        self.mtc.test_change_scope_mgr_ok_single_pfn()
