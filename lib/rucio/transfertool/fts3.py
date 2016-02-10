@@ -8,17 +8,19 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 
 import datetime
 import json
 import logging
+import requests
 import sys
 import time
 import urlparse
+import uuid
 import traceback
 
-import requests
+from ConfigParser import NoOptionError
 
 from rucio.common.config import config_get
 from rucio.core.monitor import record_counter, record_timer
@@ -32,6 +34,15 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 __USERCERT = config_get('conveyor', 'usercert')
+try:
+    __BASEFTSID = config_get('conveyor', 'baseftsid')
+except NoOptionError:
+    __BASEFTSID = None
+
+try:
+    __VONAME = config_get('conveyor', 'voname')
+except NoOptionError:
+    __VONAME = None
 
 
 def __extract_host(transfer_host):
@@ -152,6 +163,21 @@ def submit_transfers(transfers, job_metadata):
     return transfer_ids
 
 
+def get_deterministic_id(sid):
+    """
+    Get deterministic FTS job id.
+
+    :param sid: FTS seed id.
+    :returns: FTS transfer identifier.
+    """
+    if __BASEFTSID is None or __VONAME is None:
+        return None
+    root = uuid.UUID(__BASEFTSID)
+    atlas = uuid.uuid5(root, __VONAME)
+    jobid = uuid.uuid5(atlas, sid)
+    return jobid
+
+
 def submit_bulk_transfers(external_host, files, job_params, timeout=None):
     """
     Submit a transfer to FTS3 via JSON.
@@ -184,6 +210,7 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
         file['destinations'] = new_dst_urls
 
     transfer_id = None
+    sid = job_params['sid']
 
     # bulk submission
     params_dict = {'files': files, 'params': job_params}
@@ -217,7 +244,8 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
         record_counter('transfertool.fts3.%s.submission.success' % __extract_host(external_host), len(files))
         transfer_id = str(r.json()['job_id'])
     else:
-        logging.warn("Failed to submit transfer to %s, error: %s" % (external_host, r.text if r is not None else r))
+        transfer_id = get_deterministic_id(sid)
+        logging.warn("Failed to submit transfer to %s, will use deterministic id %s, error: %s" % (external_host, transfer_id, r.text if r is not None else r))
         record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(external_host), len(files))
 
     return transfer_id
