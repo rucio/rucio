@@ -169,7 +169,18 @@ def perm_add_rse_attribute(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+    if kwargs['key'] == 'auto_approve_bytes' or kwargs['keys'] == 'auto_approve_files':
+        # Check if user is a country admin
+        admin_in_country = []
+        for kv in list_account_attributes(account=issuer):
+            if kv['key'].startswith('country-') and kv['value'] == 'admin':
+                admin_in_country.append(kv['key'].partition('-')[2])
+        if admin_in_country:
+            if list_rse_attributes(rse=kwargs['rse']).get('country') in admin_in_country:
+                return True
+    return False
 
 
 def perm_del_rse_attribute(issuer, kwargs):
@@ -180,7 +191,18 @@ def perm_del_rse_attribute(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+    if kwargs['key'] == 'auto_approve_bytes' or kwargs['keys'] == 'auto_approve_files':
+        # Check if user is a country admin
+        admin_in_country = []
+        for kv in list_account_attributes(account=issuer):
+            if kv['key'].startswith('country-') and kv['value'] == 'admin':
+                admin_in_country.append(kv['key'].partition('-')[2])
+        if admin_in_country:
+            if list_rse_attributes(rse=kwargs['rse']).get('country') in admin_in_country:
+                return True
+    return False
 
 
 def perm_del_rse(issuer, kwargs):
