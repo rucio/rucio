@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 
 """
 methods of objectstore
@@ -59,7 +60,7 @@ def _get_credentials(rse, endpoint):
                 raise Exception("Failed to load account credentials")
             logging.debug("Loaded account credentials")
         except KeyError, e:
-            raise exception.CannotAuthenticate('RSE %s endpoint % not in rse account cfg: %s' % (rse, endpoint, e))
+            raise exception.CannotAuthenticate('RSE %s endpoint %s not in rse account cfg: %s' % (rse, endpoint, e))
         except:
             raise exception.RucioException("Failed to load credentials for RSE(%s) endpoint(%s), error: %s" % (rse, endpoint, traceback.format_exc()))
     return result

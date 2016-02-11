@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+
 
 import traceback
 from web import application, header, data, loadhook, unloadhook, InternalError, OK
@@ -55,10 +57,9 @@ class ObjectStoreGet(RucioController):
                 result = objectstore.get_signed_urls([url], rse=rse, operation=operation)
                 if isinstance(result[url], Exception):
                     raise result[url]
-                # return found(result[url])
                 return result[url]
         except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             print traceback.format_exc()
             raise InternalError(e)
