@@ -11,13 +11,14 @@
 import logging
 from operator import itemgetter
 
+from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.did import get_did
 from rucio.core.replica import list_dataset_replicas
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
-from rucio.daemons.c3po.utils.expiring_list import ExpiringList
+from rucio.daemons.c3po.utils.expiring_dataset_cache import ExpiringDatasetCache
 from rucio.daemons.c3po.utils.popularity import get_popularity
 from rucio.db.sqla.constants import ReplicaState
 
@@ -28,7 +29,7 @@ class PlacementAlgorithm:
     """
     def __init__(self):
         self._fsc = FreeSpaceCollector()
-        self._added_reps = ExpiringList(timeout=86400)
+        self._added_cache = ExpiringDatasetCache(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), timeout=86400)
 
         rse_expr = "tier=2&type=DATADISK"
         rse_attrs = parse_expression(rse_expr)
@@ -52,6 +53,10 @@ class PlacementAlgorithm:
     def place(self, did):
         self.__update_penalties()
         decision = {'did': ':'.join(did)}
+        if (self._added_cache.check_dataset(':'.join(did))):
+            decision['error_reason'] = 'already added replica for this did in the last 24h'
+            return decision
+
         if (not did[0].startswith('data')) and (not did[0].startswith('mc')):
             decision['error_reason'] = 'not a data or mc dataset'
             return decision
@@ -96,9 +101,6 @@ class PlacementAlgorithm:
         decision['replica_rses'] = available_reps
         decision['num_replicas'] = num_reps
 
-        if (':'.join(did) in self._added_reps.to_set()):
-            decision['error_reason'] = 'already added replica for this did in the last 24h'
-            return decision
         if num_reps >= 5:
             decision['error_reason'] = 'more than 4 replicas already exist'
             return decision
@@ -115,6 +117,6 @@ class PlacementAlgorithm:
         decision['rse_ratios'] = sorted_rses
         self._penalties[sorted_rses[0][0]] = 10.0
 
-        self._added_reps.add(':'.join(did))
+        self._added_cache.add_dataset(':'.join(did))
 
         return decision

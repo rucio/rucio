@@ -8,7 +8,8 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
-from rucio.common.config import config_get, config_get_int
+from uuid import uuid4
+
 from rucio.daemons.c3po.utils.timeseries import RedisTimeSeries
 
 
@@ -16,8 +17,9 @@ class DatasetCache:
     """
     Utility to count the accesses of the datasets during the last day.
     """
-    def __init__(self, delete_keys=False):
-        self._tms = RedisTimeSeries(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), 86400, 'dids_')
+    def __init__(self, redis_host, redis_port, timeout=1, prefix='did_cache', delete_keys=False):
+        self._prefix = prefix + '_' + str(uuid4()).split('-')[0]
+        self._tms = RedisTimeSeries(redis_host, redis_port, timeout, self._prefix)
 
         if delete_keys:
             self._tms.delete_keys()
