@@ -21,6 +21,8 @@ import uuid
 import traceback
 
 from ConfigParser import NoOptionError
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_get
 from rucio.core.monitor import record_counter, record_timer
@@ -35,14 +37,62 @@ logging.basicConfig(stream=sys.stdout,
 
 __USERCERT = config_get('conveyor', 'usercert')
 try:
-    __BASEFTSID = config_get('conveyor', 'baseftsid')
+    __USE_DETERMINISTIC_ID = config_get('conveyor', 'use_deterministic_id')
 except NoOptionError:
-    __BASEFTSID = None
+    __USE_DETERMINISTIC_ID = False
 
-try:
-    __VONAME = config_get('conveyor', 'voname')
-except NoOptionError:
-    __VONAME = None
+REGION_SHORT = make_region().configure('dogpile.cache.memory',
+                                       expiration_time=1800)
+
+
+def get_transfer_baseid_voname(external_host):
+    """
+    Get transfer VO name from external host.
+
+    :param external_host: FTS server as a string.
+
+    :returns base id as a string and VO name as a string.
+    """
+    result = (None, None)
+    try:
+        key = 'voname: %s' % external_host
+        result = REGION_SHORT.get(key)
+        if type(result) is NoValue:
+            logging.debug("Refresh transfer baseid and voname for %s" % external_host)
+
+            r = None
+            if external_host.startswith('https://'):
+                try:
+                    r = requests.get('%s/whoami' % external_host,
+                                     verify=False,
+                                     cert=(__USERCERT, __USERCERT),
+                                     headers={'Content-Type': 'application/json'},
+                                     timeout=5)
+                except:
+                    logging.warn('Could not get baseid and voname from %s - %s' % (external_host, str(traceback.format_exc())))
+            else:
+                try:
+                    r = requests.get('%s/whoami' % external_host,
+                                     headers={'Content-Type': 'application/json'},
+                                     timeout=5)
+                except:
+                    logging.warn('Could not get baseid and voname from %s - %s' % (external_host, str(traceback.format_exc())))
+
+            if r and r.status_code == 200:
+                baseid = str(r.json()['base_id'])
+                voname = str(r.json()['vos'][0])
+                result = (baseid, voname)
+
+                REGION_SHORT.set(key, result)
+
+                logging.debug("Get baseid %s and voname %s from %s" % (baseid, voname, external_host))
+            else:
+                logging.warn("Failed to get baseid and voname from %s, error: %s" % (external_host, r.text if r is not None else r))
+                result = (None, None)
+    except:
+        logging.warning("Failed to get baseid and voname from %s: %s" % (external_host, traceback.format_exc()))
+        result = (None, None)
+    return result
 
 
 def __extract_host(transfer_host):
@@ -163,17 +213,19 @@ def submit_transfers(transfers, job_metadata):
     return transfer_ids
 
 
-def get_deterministic_id(sid):
+def get_deterministic_id(external_host, sid):
     """
     Get deterministic FTS job id.
 
+    :param external_host: FTS server as a string.
     :param sid: FTS seed id.
     :returns: FTS transfer identifier.
     """
-    if __BASEFTSID is None or __VONAME is None:
+    baseid, voname = get_transfer_baseid_voname(external_host)
+    if baseid is None or voname is None:
         return None
-    root = uuid.UUID(__BASEFTSID)
-    atlas = uuid.uuid5(root, __VONAME)
+    root = uuid.UUID(baseid)
+    atlas = uuid.uuid5(root, voname)
     jobid = uuid.uuid5(atlas, sid)
     return jobid
 
@@ -244,7 +296,8 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
         record_counter('transfertool.fts3.%s.submission.success' % __extract_host(external_host), len(files))
         transfer_id = str(r.json()['job_id'])
     else:
-        transfer_id = get_deterministic_id(sid)
+        if __USE_DETERMINISTIC_ID:
+            transfer_id = get_deterministic_id(external_host, sid)
         logging.warn("Failed to submit transfer to %s, will use deterministic id %s, error: %s" % (external_host, transfer_id, r.text if r is not None else r))
         record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(external_host), len(files))
 
