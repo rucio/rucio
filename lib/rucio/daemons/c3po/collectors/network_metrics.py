@@ -23,16 +23,19 @@ class NetworkMetricsCollector():
         self._r = StrictRedis(host=config_get('c3po-network_metrics', 'redis_host'), port=config_get_int('c3po-network_metrics', 'redis_port'))
         self._prefix = config_get('c3po-network_metrics', 'prefix')
 
-    def getConnections(self, src):
+    def getConnections(self, src, type):
         pattern = "%s#%s:*" % (self._prefix, src)
         keys = self._r.keys(pattern=pattern)
         if len(keys) == 0:
             return None
         ret = {}
+
         vals = self._r.mget(keys)
 
         for i in xrange(len(keys)):
             dst = keys[i].split(':')[1]
-            ret[dst] = loads(vals[i])['mbps']
+            mbps = loads(vals[i]).get('mbps', {}).get(type, {}).get('latest')
+            if mbps:
+                ret[dst] = float(mbps)
 
         return ret
