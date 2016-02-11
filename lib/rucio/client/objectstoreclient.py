@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 
 import json
 from requests.status_codes import codes
@@ -18,7 +19,7 @@ from rucio.common.utils import build_url
 class ObjectStoreClient(BaseClient):
     """Replica client class for working with replicas"""
 
-    OBJECTSTORE_BASEURL = 'objectstore'
+    OBJECTSTORE_BASEURL = 'objectstores'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
         super(ObjectStoreClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
