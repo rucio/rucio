@@ -171,7 +171,7 @@ def perm_add_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] == 'auto_approve_bytes' or kwargs['keys'] == 'auto_approve_files':
+    if kwargs['key'] == 'auto_approve_bytes' or kwargs['keys'] == 'auto_approve_files' or kwargs['keys'] == 'rule_approvers':
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer):
@@ -193,7 +193,7 @@ def perm_del_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] == 'auto_approve_bytes' or kwargs['keys'] == 'auto_approve_files':
+    if kwargs['key'] == 'auto_approve_bytes' or kwargs['keys'] == 'auto_approve_files' or kwargs['keys'] == 'rule_approvers':
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer):
@@ -468,6 +468,13 @@ def perm_approve_rule(issuer, kwargs):
 
     rule = get_rule(rule_id=kwargs['rule_id'])
     rses = parse_expression(rule['rse_expression'])
+
+    # APPROVERS can approve the rule
+    for rse in rses:
+        rse_attr = list_rse_attributes(rse=rse['rse'])
+        if rse_attr.get('rule_approvers'):
+            if issuer in rse_attr.get('rule_approvers').split(','):
+                return True
 
     # LOCALGROUPDISK admins can approve the rule
     admin_in_country = []
