@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
@@ -32,7 +32,8 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound, ScratchDiskLifetimeConflict)
+                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound, ScratchDiskLifetimeConflict,
+                                    ManualRuleApprovalBlocked)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter
@@ -84,7 +85,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
-                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict
+                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
     """
     rule_ids = []
 
@@ -113,6 +114,12 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             if not locked and lifetime is None:
                 if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
                     locked = True
+
+            # Block manual approval if RSE does not allow it
+            if ask_approval:
+                for rse in rses:
+                    if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('block_manual_approval', False):
+                        raise ManualRuleApprovalBlocked()
 
             if source_replica_expression:
                 source_rses = parse_expression(source_replica_expression, session=session)
@@ -271,7 +278,7 @@ def add_rules(dids, rules, session=None):
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
     :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
-                     StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict
+                     StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
     """
 
     with record_timer_block('rule.add_rules'):
@@ -340,6 +347,12 @@ def add_rules(dids, rules, session=None):
                     if not rule.get('locked', False) and rule.get('lifetime', None) is None:
                         if [rse for rse in rses if rse.get('rse_type', RSEType.DISK) == RSEType.TAPE]:
                             rule['locked'] = True
+
+                    # Block manual approval if RSE does not allow it
+                    if rule.get('ask_approval', False):
+                        for rse in rses:
+                            if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('block_manual_approval', False):
+                                raise ManualRuleApprovalBlocked()
 
                     if rule.get('source_replica_expression'):
                         source_rses = parse_expression(rule.get('source_replica_expression'), session=session)

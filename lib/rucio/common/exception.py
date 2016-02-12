@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
@@ -385,6 +385,15 @@ class KeyNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(KeyNotFound, self).__init__(args, kwargs)
         self._message = "Key does not exist."
+
+
+class ManualRuleApprovalBlocked(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(ManualRuleApprovalBlocked, self).__init__(args, kwargs)
+        self._message = "Manual rule approval is blocked on this RSE."
 
 
 class MissingClientParameter(RucioException):
