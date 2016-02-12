@@ -171,7 +171,7 @@ def perm_add_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] == 'auto_approve_bytes' or kwargs['keys'] == 'auto_approve_files' or kwargs['keys'] == 'rule_approvers':
+    if kwargs['key'] in ['auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files']:
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer):
@@ -193,7 +193,7 @@ def perm_del_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] == 'auto_approve_bytes' or kwargs['keys'] == 'auto_approve_files' or kwargs['keys'] == 'rule_approvers':
+    if kwargs['key'] in ['auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files']:
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer):
