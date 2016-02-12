@@ -22,6 +22,7 @@ from time import sleep
 
 from threading import Event, Thread
 
+from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
@@ -105,12 +106,24 @@ def read_dids(once=False, thread=0, did_collector=None, waiting_time=60):
         w = 0
 
 
-def place_replica(once=False, thread=0, did_queue=None, waiting_time=100):
+def create_rule(client, did, src_rse, dst_rse):
+    logging.debug('create rule for %s from %s to %s' % (did, src_rse, dst_rse))
+
+    r = client.add_replication_rule([did, ], 1, dst_rse, lifetime=604800, account='c3po', source_replica_expression=src_rse, activity='Data Consolidation', asynchronous=True)
+
+    logging.debug(r)
+
+
+def place_replica(once=False, thread=0, did_queue=None, waiting_time=100, dry_run=False):
     """
     Thread to run the placement algorithm to decide if and where to put new replicas.
     """
+    client = None
 
-    algorithms = config_get('c3po', 'placement_algorithm').strip().split(',')
+    if not dry_run:
+        client = Client(auth_type='x509_proxy', account='c3po', creds={'client_proxy': '/opt/rucio/etc/ddmadmin.long.proxy'})
+
+    algorithms = config_get('c3po', 'algorithms').strip().split(',')
     instances = {}
     for algorithm in algorithms:
         module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
@@ -147,11 +160,16 @@ def place_replica(once=False, thread=0, did_queue=None, waiting_time=100):
                     logging.error(r)
                     logging.error('(%s) could not write to ElasticSearch' % (algorithm))
 
+                logging.debug(decision)
                 if 'error_reason' in decision:
                     logging.error('(%s) The placement algorithm ran into an error: %s' % (algorithm, decision['error_reason']))
-                else:
-                    logging.info('(%s) Decided to place a new replica for %s on %s' % (algorithm, decision['did'], decision['destination_rse']))
-                logging.debug(decision)
+                    continue
+
+                logging.info('(%s) Decided to place a new replica for %s on %s' % (algorithm, decision['did'], decision['destination_rse']))
+
+                if not dry_run:
+                    # DO IT!
+                    create_rule(client, {'scope': did[0], 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
 
         w = 0
 
@@ -163,7 +181,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1, only_workload=False):
+def run(once=False, threads=1, only_workload=False, dry_run=False):
     """
     Starts up the main thread
     """
@@ -182,7 +200,7 @@ def run(once=False, threads=1, only_workload=False):
 
         thread_list.append(Thread(target=read_free_space, name='read_free_space', kwargs={'thread': 0, 'waiting_time': 1800}))
         thread_list.append(Thread(target=read_dids, name='read_dids', kwargs={'thread': 0, 'did_collector': dc}))
-        thread_list.append(Thread(target=place_replica, name='place_replica', kwargs={'thread': 0, 'did_queue': did_queue, 'waiting_time': 10}))
+        thread_list.append(Thread(target=place_replica, name='place_replica', kwargs={'thread': 0, 'did_queue': did_queue, 'waiting_time': 10, 'dry_run': dry_run}))
 
     [t.start() for t in thread_list]
 
