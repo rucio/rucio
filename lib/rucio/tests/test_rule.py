@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 import string
@@ -26,7 +26,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RuleReplaceFailed, ScratchDiskLifetimeConflict
+from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
@@ -771,6 +771,22 @@ class TestReplicationRuleCore():
         add_rse_attribute(rse, 'auto_approve_bytes', 1000)
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
         assert(get_rule(rule_id)['state'] == RuleState.INJECT)
+
+    def test_add_rule_with_manual_approval_block(self):
+        """ REPLICATION RULE (CORE): Add a replication rule for a RSE with manual approval block"""
+        rse = rse_name_generator()
+        add_rse(rse)
+        add_rse_attribute(rse, 'block_manual_approval', '1')
+        set_account_limit('jdoe', get_rse_id(rse), -1)
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        with assert_raises(ManualRuleApprovalBlocked):
+            add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
 
 
 class TestReplicationRuleClient():
