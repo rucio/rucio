@@ -20,8 +20,8 @@ class NetworkMetricsCollector():
     """
 
     def __init__(self):
-        self._r = StrictRedis(host=config_get('c3po-network_metrics', 'redis_host'), port=config_get_int('c3po-network_metrics', 'redis_port'))
-        self._prefix = config_get('c3po-network_metrics', 'prefix')
+        self._r = StrictRedis(host=config_get('c3po-network-metrics', 'redis_host'), port=config_get_int('c3po-network-metrics', 'redis_port'))
+        self._prefix = config_get('c3po-network-metrics', 'prefix')
 
     def getConnections(self, src, type):
         pattern = "%s#%s:*" % (self._prefix, src)

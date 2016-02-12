@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2016
 
 """
 C-3PO is a dynamic data placement daemon.
@@ -25,9 +25,10 @@ if __name__ == "__main__":
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--only-workload", action="store_true", default=False, help='Only run the workload collector')
+    parser.add_argument("--dry_run", action="store_true", default=False, help='Do not create any rules')
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once, threads=args.threads, only_workload=args.only_workload)
+        run(once=args.run_once, threads=args.threads, only_workload=args.only_workload, dry_run=args.dry_run)
     except KeyboardInterrupt:
         stop()
