@@ -124,6 +124,7 @@ def place_replica(once=False, thread=0, did_queue=None, waiting_time=100, dry_ru
         client = Client(auth_type='x509_proxy', account='c3po', creds={'client_proxy': '/opt/rucio/etc/ddmadmin.long.proxy'})
 
     algorithms = config_get('c3po', 'algorithms').strip().split(',')
+
     instances = {}
     for algorithm in algorithms:
         module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
