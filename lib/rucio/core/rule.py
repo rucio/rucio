@@ -2519,19 +2519,36 @@ def __create_recipents_list(rse_expression, session=None):
 
     recipents = []  # (eMail, account)
 
-    # LOCALGROUPDISK
+    # APPROVERS-LIST
+    # If there are accounts in the approvers-list of any of the RSEs only these should be used
     for rse in parse_expression(rse_expression, session=session):
         rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
-        if rse_attr.get('type', '') == 'LOCALGROUPDISK':
-            accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
-                                                                                      value='admin').all()
-            for account in accounts:
-                email = get_account(account=account[0], session=session).email
-                if email:
-                    recipents.append((email, account[0]))
+        if rse_attr.get('rule_approvers'):
+            for account in rse_attr.get('rule_approvers').split(','):
+                try:
+                    email = get_account(account=account, session=session).email
+                    if email:
+                        recipents.append((email, account))
+                except:
+                    pass
+
+    # LOCALGROUPDISK
+    if not recipents:
+        for rse in parse_expression(rse_expression, session=session):
+            rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+            if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+                accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
+                                                                                          value='admin').all()
+                for account in accounts:
+                    try:
+                        email = get_account(account=account[0], session=session).email
+                        if email:
+                            recipents.append((email, account[0]))
+                    except:
+                        pass
 
     # DDMADMIN as default
     if not recipents:
         recipents = [('atlas-adc-ddm-support@cern.ch', 'ddmadmin')]
 
-    return recipents
+    return list(set(recipents))
