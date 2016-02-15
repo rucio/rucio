@@ -15,6 +15,8 @@ import os
 import requests
 import ssl
 
+import xml.etree.ElementTree as ET
+
 from progressbar import ProgressBar
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.poolmanager import PoolManager
@@ -78,7 +80,8 @@ class IterableToFileAdapter(object):
         self.length = len(iterable)
 
     def read(self, size=-1):   # TBD: add buffer for `len(data) > size` case
-        return next(self.iterator, b'')
+        nextvar = next(self.iterator, b'')
+        return nextvar
 
     def __len__(self):
         return self.length
@@ -287,7 +290,7 @@ class Default(protocol.RSEProtocol):
         try:
             if not os.path.exists(full_name):
                 raise exception.SourceNotFound()
-            it = UploadInChunks(full_name, 10000000, progressbar)
+            it = UploadInChunks(full_name, 10000000, True)
             result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
             if result.status_code in [200, 201]:
                 return
@@ -471,4 +474,24 @@ class Default(protocol.RSEProtocol):
             p.close()
             return dict
         except requests.exceptions.ConnectionError, error:
+            raise exception.ServiceUnavailable(error)
+
+    def get_space_usage(self):
+        """
+        Get RSE space usage information.
+
+        :returns: a list with dict containing 'totalsize' and 'unusedsize'
+
+        :raises ServiceUnavailable: if some generic error occured in the library.
+        """
+        endpoint_basepath = self.path2pfn('')
+        headers = {'Depth': '0'}
+
+        try:
+            root = ET.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)
+            usedsize = root[0][1][0].find('{DAV:}quota-used-bytes').text
+            unusedsize = 0
+            totalsize = int(usedsize) + int(unusedsize)
+            return totalsize, unusedsize
+        except Exception as error:
             raise exception.ServiceUnavailable(error)
