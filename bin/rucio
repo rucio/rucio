@@ -502,6 +502,10 @@ def list_dids(args):
     if scope not in client.list_scopes():
         logger.error('Scope not found')
         return FAILURE
+
+    if name.find('%') > -1:
+        name = name.replace('%', '*')
+
     if name.find('*') > -1:
         if args.recursive:
             logger.error('Option recursive cannot be used with wildcards')
