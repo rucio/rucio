@@ -145,11 +145,11 @@ def get_account_usage(account, rse_id=None, session=None):
     if not rse_id:
         # All RSESs
         limits = get_account_limits(account=account, session=session)
-        counters = session.query(models.AccountCounter).filter_by(account=account).all()
+        counters = session.query(models.AccountUsage).filter_by(account=account).all()
     else:
         # One RSE
         limits = get_account_limits(account=account, rse_ids=[rse_id], session=session)
-        counters = session.query(models.AccountCounter).filter_by(account=account, rse_id=rse_id).all()
+        counters = session.query(models.AccountUsage).filter_by(account=account, rse_id=rse_id).all()
     result_list = []
     for counter in counters:
         if counter.bytes > 0 or counter.files > 0 or rse_id in limits.keys():
