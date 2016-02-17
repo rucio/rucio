@@ -8,7 +8,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2016
 
 """
 Client class for callers of the Rucio system
@@ -25,9 +25,10 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
+from rucio.client.configclient import ConfigClient
 
 
-class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient, SubscriptionClient, LockClient):
+class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient, SubscriptionClient, LockClient, ConfigClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
