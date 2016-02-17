@@ -27,14 +27,14 @@ def get_popularity(did):
     query = {
         "query": {
             "bool": {
-                "must": [],
-                "filter": {
-                    "range": {
-                        "timestamp": {
-                            "gt": "now-7d",
-                            "lt": "now"
-                        }
-                    }
+                "must": []
+            }
+        },
+        "filter": {
+            "range": {
+                "timestamp": {
+                    "gt": "now-7d",
+                    "lt": "now"
                 }
             }
         },

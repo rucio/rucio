@@ -18,18 +18,18 @@ class RedisTimeSeries():
         self._prefix = prefix
         self._window = window * 1000000
 
-    def add_point(self, site, jobs):
-        name = self._prefix + site
+    def add_point(self, key, value):
+        r_key = self._prefix + key
         score = int(time()*1000000)
-        self._r.zadd(name, score, "%d:%d" % (jobs, score))
+        self._r.zadd(r_key, score, "%d:%d" % (value, score))
 
-    def get_series(self, site):
-        name = self._prefix + site
-        r_series = self._r.zrange(name, 0, -1)
+    def get_series(self, key):
+        r_key = self._prefix + key
+        r_series = self._r.zrange(r_key, 0, -1)
         series = []
         for val in r_series:
-            jobs, _ = val.split(':')
-            series.append(int(jobs))
+            values, _ = val.split(':')
+            series.append(int(values))
 
         return tuple(series)
 

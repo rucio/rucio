@@ -22,18 +22,26 @@ from rucio.daemons.c3po.collectors.network_metrics import NetworkMetricsCollecto
 from rucio.daemons.c3po.utils.dataset_cache import DatasetCache
 from rucio.daemons.c3po.utils.expiring_dataset_cache import ExpiringDatasetCache
 from rucio.daemons.c3po.utils.popularity import get_popularity
+from rucio.daemons.c3po.utils.timeseries import RedisTimeSeries
 from rucio.db.sqla.constants import ReplicaState
 
 
 class PlacementAlgorithm:
     """
-    Placement algorithm that focusses on free space on T2 DATADISK RSEs.
+    Placement algorithm that focusses on free space on T2 DATADISK RSEs. It incorporates network metrics for placement decisions.
     """
     def __init__(self):
         self._fsc = FreeSpaceCollector()
         self._nmc = NetworkMetricsCollector()
         self._added_cache = ExpiringDatasetCache(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), timeout=86400)
         self._dc = DatasetCache(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), timeout=86400)
+        self._added_bytes = RedisTimeSeries(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), window=3600, prefix="added_bytes_")
+        self._added_files = RedisTimeSeries(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), window=3600, prefix="added_files_")
+
+        self._total_bytes_limit = 500 * (1000**4)
+        self._total_files_limit = 100000
+        self._site_bytes_limit = 50 * (1000**4)
+        self._site_files_limit = 10000
 
         rse_expr = "tier=2&type=DATADISK"
         rses = parse_expression(rse_expr)
@@ -60,6 +68,9 @@ class PlacementAlgorithm:
 
     def place(self, did):
         self.__update_penalties()
+        self._added_bytes.trim()
+        self._added_files.trim()
+
         decision = {'did': ':'.join(did)}
         if (self._added_cache.check_dataset(':'.join(did))):
             decision['error_reason'] = 'already added replica for this did in the last 24h'
@@ -82,6 +93,19 @@ class PlacementAlgorithm:
 
         decision['length'] = meta['length']
         decision['bytes'] = meta['bytes']
+
+        total_added_bytes = sum(self._added_bytes.get_series('total'))
+        total_added_files = sum(self._added_files.get_series('total'))
+
+        logging.debug("total_added_bytes: %d" % total_added_bytes)
+        logging.debug("total_added_files: %d" % total_added_files)
+
+        if ((total_added_bytes + meta['bytes']) > self._total_bytes_limit):
+            decision['error_reason'] = 'above bytes limit of %d bytes' % self._total_bytes_limit
+            return decision
+        if ((total_added_files + meta['length']) > self._total_files_limit):
+            decision['error_reason'] = 'above files limit of %d files' % self._total_files_limit
+            return decision
 
         last_accesses = self._dc.get_did(did)
         self._dc.add_did(did)
@@ -120,6 +144,14 @@ class PlacementAlgorithm:
                         if mbps > max_mbps:
                             max_mbps = mbps
                         dst_rse = self._sites[dst_site]['rse']
+                        site_added_bytes = sum(self._added_bytes.get_series(dst_rse))
+                        site_added_files = sum(self._added_files.get_series(dst_rse))
+
+                        if ((site_added_bytes + meta['bytes']) > self._site_bytes_limit):
+                            continue
+                        if ((site_added_files + meta['length']) > self._site_files_limit):
+                            continue
+
                         rse_space = space_info[dst_rse]
                         penalty = self._penalties[dst_rse]
                         free_space = float(rse_space['free']) / float(rse_space['total']) * 100.0
@@ -148,11 +180,19 @@ class PlacementAlgorithm:
 
         sorted_ratios = sorted(src_dst_ratios, key=itemgetter(2), reverse=True)
         logging.debug(sorted_ratios)
-        decision['destination_rse'] = sorted_ratios[0][1]
-        decision['source_rse'] = sorted_ratios[0][0]
+        destination_rse = sorted_ratios[0][1]
+        source_rse = sorted_ratios[0][0]
+        decision['destination_rse'] = destination_rse
+        decision['source_rse'] = source_rse
         decision['rse_ratios'] = src_dst_ratios
-        self._penalties[sorted_ratios[0][0]] = 10.0
+        self._penalties[destination_rse] = 10.0
 
         self._added_cache.add_dataset(':'.join(did))
+
+        self._added_bytes.add_point(destination_rse, meta['bytes'])
+        self._added_files.add_point(destination_rse, meta['length'])
+
+        self._added_bytes.add_point('total', meta['bytes'])
+        self._added_files.add_point('total', meta['length'])
 
         return decision
