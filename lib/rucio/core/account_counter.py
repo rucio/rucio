@@ -32,7 +32,7 @@ def add_counter(rse_id, account, session=None):
     :param session: The database session in use
     """
 
-    models.AccountCounter(rse_id=rse_id, account=account, files=0, bytes=0).save(session=session)
+    models.AccountUsage(rse_id=rse_id, account=account, files=0, bytes=0).save(session=session)
 
 
 @transactional_session
@@ -101,7 +101,7 @@ def del_counter(rse_id, account, session=None):
     :param session: The database session in use.
     """
 
-    session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account).delete(synchronize_session=False)
+    session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).delete(synchronize_session=False)
 
 
 @read_session
@@ -116,7 +116,7 @@ def get_counter(rse_id, account, session=None):
     """
 
     try:
-        counter = session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account).one()
+        counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one()
         return {'bytes': counter.bytes, 'files': counter.files, 'updated_at':  counter.updated_at}
     except NoResultFound:
         return {'bytes': 0, 'files': 0, 'updated_at': None}
@@ -161,14 +161,14 @@ def update_account_counter(account, rse_id, session=None):
     updated_account_counters = session.query(models.UpdatedAccountCounter).filter_by(account=account, rse_id=rse_id).all()
 
     try:
-        account_counter = session.query(models.AccountCounter).filter_by(account=account, rse_id=rse_id).one()
+        account_counter = session.query(models.AccountUsage).filter_by(account=account, rse_id=rse_id).one()
         account_counter.bytes += sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])
         account_counter.files += sum([updated_account_counter.files for updated_account_counter in updated_account_counters])
     except NoResultFound:
-        models.AccountCounter(rse_id=rse_id,
-                              account=account,
-                              files=sum([updated_account_counter.files for updated_account_counter in updated_account_counters]),
-                              bytes=sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])).save(session=session)
+        models.AccountUsage(rse_id=rse_id,
+                            account=account,
+                            files=sum([updated_account_counter.files for updated_account_counter in updated_account_counters]),
+                            bytes=sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])).save(session=session)
 
     for update in updated_account_counters:
         update.delete(flush=False, session=session)
