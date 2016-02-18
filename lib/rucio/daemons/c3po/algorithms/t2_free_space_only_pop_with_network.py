@@ -15,7 +15,7 @@ from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.did import get_did
 from rucio.core.replica import list_dataset_replicas
-from rucio.core.rse import list_rse_attributes
+from rucio.core.rse import list_rse_attributes, get_rse
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.network_metrics import NetworkMetricsCollector
@@ -126,11 +126,18 @@ class PlacementAlgorithm:
         max_mbps = 0.0
         for rep in reps:
             rse_attr = list_rse_attributes(rep['rse'])
+            src_rse_info = get_rse(rep['rse'])
+
             if 'type' not in rse_attr:
                 continue
             if rse_attr['type'] != 'DATADISK':
                 continue
+            if src_rse_info['availability'] & 4 == 0:
+                continue
+
             if rep['state'] == ReplicaState.AVAILABLE:
+                if rep['available_length'] == 0:
+                    continue
                 net_metrics = {}
                 for metric_type in ('fts', 'fax', 'perfsonar'):
                     net_metrics = self._nmc.getConnections(rse_attr['site'], metric_type)
@@ -144,6 +151,11 @@ class PlacementAlgorithm:
                         if mbps > max_mbps:
                             max_mbps = mbps
                         dst_rse = self._sites[dst_site]['rse']
+                        dst_rse_info = get_rse(dst_rse)
+
+                        if dst_rse_info['availability'] & 2 == 0:
+                            continue
+
                         site_added_bytes = sum(self._added_bytes.get_series(dst_rse))
                         site_added_files = sum(self._added_files.get_series(dst_rse))
 
