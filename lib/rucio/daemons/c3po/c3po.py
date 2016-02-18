@@ -109,7 +109,7 @@ def read_dids(once=False, thread=0, did_collector=None, waiting_time=60):
 def create_rule(client, did, src_rse, dst_rse):
     logging.debug('create rule for %s from %s to %s' % (did, src_rse, dst_rse))
 
-    r = client.add_replication_rule([did, ], 1, dst_rse, lifetime=604800, account='c3po', source_replica_expression=src_rse, activity='Data Consolidation', asynchronous=True)
+    r = client.add_replication_rule([did, ], 1, dst_rse, lifetime=604800, account='c3po', source_replica_expression=src_rse, activity='Data Brokering', asynchronous=True)
 
     logging.debug(r)
 
