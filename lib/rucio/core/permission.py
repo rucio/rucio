@@ -11,7 +11,7 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
@@ -171,7 +171,7 @@ def perm_add_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] in ['auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files']:
+    if kwargs['key'] in ['auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files', 'block_manual_approve']:
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer):
@@ -193,7 +193,7 @@ def perm_del_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] in ['auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files']:
+    if kwargs['key'] in ['auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files', 'block_manual_approve']:
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer):
