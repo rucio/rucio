@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
@@ -18,6 +18,7 @@ from web import application, ctx, header, notfound, found, InternalError
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.api.replica import list_replicas
+from rucio.common import objectstore
 from rucio.common.exception import RucioException
 from rucio.common.replicas_selector import random_order, geoIP_order, site_selector
 from rucio.common.utils import generate_http_error
@@ -56,11 +57,9 @@ class Redirector(RucioController):
         header('Access-Control-Allow-Credentials', 'true')
 
         try:
-            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=['http', 'https'])]
+            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=['http', 'https', 's3+rucio'])]
 
-            select = 'random'
-            rse = None
-            site = None
+            select, rse, site = 'random', None, None
             if ctx.query:
                 params = parse_qs(ctx.query[1:])
                 if 'select' in params:
@@ -70,24 +69,31 @@ class Redirector(RucioController):
                 if 'site' in params:
                     site = params['site'][0]
 
+            selected_url, selected_rse = None, None
             for r in replicas:
                 if r['rses']:
                     replicadict = {}
                     if rse:
                         if rse in r['rses'] and r['rses'][rse]:
-                            return found(r['rses'][rse][0])
-                        return notfound("Sorry, the replica you were looking for was not found.")
+                            selected_url = r['rses'][rse][0]
+                            selected_rse = rse
+                        else:
+                            return notfound("Sorry, the replica you were looking for was not found.")
                     else:
+
                         for rep in r['rses']:
                             for replica in r['rses'][rep]:
                                 replicadict[replica] = rep
+
                         if not replicadict:
                             return notfound("Sorry, the replica you were looking for was not found.")
+
                         elif site:
                             rep = site_selector(replicadict, site)
                             if rep:
-                                return found(rep[0])
-                            return notfound("Sorry, the replica you were looking for was not found.")
+                                selected_url = rep[0]
+                            else:
+                                return notfound("Sorry, the replica you were looking for was not found.")
                         else:
                             client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
                             if client_ip is None:
@@ -96,7 +102,23 @@ class Redirector(RucioController):
                                 rep = geoIP_order(replicadict, client_ip)
                             else:
                                 rep = random_order(replicadict, client_ip)
-                            return found(rep[0])
+
+                            selected_url = rep[0]
+
+                        for rep in r['rses']:
+                            for replica in r['rses'][rep]:
+                                if selected_url == replica:
+                                    selected_rse = rep
+
+            if selected_url:
+                if selected_url.startswith('s3+rucio://'):
+                    objectstore.connect(selected_rse, selected_url)
+                    signed_urls = objectstore.get_signed_urls([selected_url],
+                                                              rse=selected_rse,
+                                                              operation='read')
+                    return found(signed_urls[selected_url])
+
+                return found(selected_url)
 
             return notfound("Sorry, the replica you were looking for was not found.")
 
