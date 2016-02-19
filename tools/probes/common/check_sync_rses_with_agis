@@ -9,7 +9,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - David Cameron, <david.cameron@cern.ch>, 2015
 
 import json
@@ -85,9 +85,18 @@ if __name__ == '__main__':
                 else:
                     continue
 
+                port = 8443
                 netloc = o.netloc
                 if o.port and str(o.port) in o.netloc:
                     netloc = o.netloc[:-len(':' + str(o.port))]
+                    port = o.port
+                else:
+                    if o.scheme == 'https':
+                        port = 443
+                    elif o.scheme == 'gsiftp':
+                        port = 2811
+                    elif o.scheme == 'root':
+                        port = 1094
 
                 # For disk end-points not for tape
                 prefix = rse['protocols'][protocol][0][2]
@@ -96,7 +105,7 @@ if __name__ == '__main__':
 
                 params = {'hostname': netloc,
                           'scheme': o.scheme,
-                          'port': o.port or 443,
+                          'port': port,
                           'prefix': prefix,
                           'impl': impl,
                           'extended_attributes': extended_attributes,
