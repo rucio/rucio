@@ -53,6 +53,8 @@ from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
 FAILURE = 1
+# return warning if no complete failure (download)
+WARNING = 2
 
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
@@ -1204,6 +1206,8 @@ def download(args):
         print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
         print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
         print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
+    if not_downloaded_files > 0:
+        return WARNING
     return SUCCESS
 
 
