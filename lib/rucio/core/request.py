@@ -1709,3 +1709,27 @@ def release_waiting_requests(rse, activity=None, rse_id=None, count=None, sessio
         return rowcount
     except IntegrityError, e:
         raise RucioException(e.args)
+
+
+@read_session
+def update_requests_priority(priority, filter, session=None):
+    """
+    Update priority of requests.
+
+    :param priority: The priority as an integer from 1 to 5.
+    :param filter: Dictionary such as {'rule_id': rule_id, 'request_id': request_id}.
+    """
+    try:
+        query = session.query(models.Request.id, models.Request.external_id, models.Request.external_host)\
+                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+                       .filter_by(state=RequestState.SUBMITTED)
+        if 'rule_id' in filter:
+            query = query.filter_by(rule_id=filter['rule_id'])
+        if 'request_id' in filter:
+            query = query.filter_by(id=filter['request_id'])
+
+        for item in query.all():
+            res = fts3.update_priority(item[1], item[2], priority)
+            logging.debug("Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
+    except IntegrityError, e:
+        raise RucioException(e.args)
