@@ -490,7 +490,11 @@ class Default(protocol.RSEProtocol):
         try:
             root = ET.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)
             usedsize = root[0][1][0].find('{DAV:}quota-used-bytes').text
-            unusedsize = 0
+            try:
+                unusedsize = root[0][1][0].find('{DAV:}quota-available-bytes').text
+            except Exception as error:
+                print 'No free space given, return -999'
+                unusedsize = -999
             totalsize = int(usedsize) + int(unusedsize)
             return totalsize, unusedsize
         except Exception as error:
