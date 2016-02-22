@@ -737,6 +737,39 @@ def cancel(transfer_id, transfer_host):
     raise Exception('Could not cancel transfer: %s', job.content)
 
 
+def update_priority(transfer_id, transfer_host, priority):
+    """
+    Update the priority of a transfer that has been submitted to FTS via JSON.
+
+    :param transfer_id: FTS transfer identifier as a string.
+    :param transfer_host: FTS server as a string.
+    :param priority: FTS job priority as an integer from 1 to 5.
+    """
+
+    job = None
+    params_dict = {"params": {"priority": priority}}
+    params_str = json.dumps(params_dict)
+
+    if transfer_host.startswith('https://'):
+        job = requests.post('%s/jobs/%s' % (transfer_host, transfer_id),
+                            verify=False,
+                            data=params_str,
+                            cert=(__USERCERT, __USERCERT),
+                            headers={'Content-Type': 'application/json'},
+                            timeout=3)
+    else:
+        job = requests.post('%s/jobs/%s' % (transfer_host, transfer_id),
+                            data=params_str,
+                            headers={'Content-Type': 'application/json'},
+                            timeout=3)
+    if job and job.status_code == 200:
+        record_counter('transfertool.fts3.%s.update_priority.success' % __extract_host(transfer_host))
+        return job.json()
+
+    record_counter('transfertool.fts3.%s.update_priority.failure' % __extract_host(transfer_host))
+    raise Exception('Could not update priority of transfer: %s', job.content)
+
+
 def whoami(transfer_host):
     """
     Returns credential information from the FTS3 server.
