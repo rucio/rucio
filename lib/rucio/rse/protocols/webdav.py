@@ -290,7 +290,7 @@ class Default(protocol.RSEProtocol):
         try:
             if not os.path.exists(full_name):
                 raise exception.SourceNotFound()
-            it = UploadInChunks(full_name, 10000000, True)
+            it = UploadInChunks(full_name, 10000000, progressbar)
             result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
             if result.status_code in [200, 201]:
                 return
