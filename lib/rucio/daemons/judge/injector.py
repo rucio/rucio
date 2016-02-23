@@ -27,7 +27,7 @@ from random import randint
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException, RuleNotFound
+from rucio.common.exception import DatabaseException, RuleNotFound, RSEBlacklisted
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rule import inject_rule, get_injected_rules
 from rucio.core.monitor import record_counter
@@ -101,6 +101,10 @@ def rule_injector(once=False):
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                    except RSEBlacklisted, e:
+                        paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
+                        logging.warning('rule_injector[%s/%s]: RSEBlacklisted for rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
+                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                     except RuleNotFound, e:
                         pass
         except (DatabaseException, DatabaseError), e:
