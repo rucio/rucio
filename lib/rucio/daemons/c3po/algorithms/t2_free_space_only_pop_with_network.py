@@ -126,7 +126,9 @@ class PlacementAlgorithm:
         max_mbps = 0.0
         for rep in reps:
             rse_attr = list_rse_attributes(rep['rse'])
-            src_rse_info = get_rse(rep['rse'])
+            src_rse = rep['rse']
+            src_site = rse_attr['site']
+            src_rse_info = get_rse(src_rse)
 
             if 'type' not in rse_attr:
                 continue
@@ -140,13 +142,15 @@ class PlacementAlgorithm:
                     continue
                 net_metrics = {}
                 for metric_type in ('fts', 'fax', 'perfsonar'):
-                    net_metrics = self._nmc.getConnections(rse_attr['site'], metric_type)
+                    net_metrics = self._nmc.getMbps(src_site, metric_type)
                     if net_metrics:
                         break
                 if len(net_metrics) == 0:
                     continue
-                available_reps[rep['rse']] = {}
+                available_reps[src_rse] = {}
                 for dst_site, mbps in net_metrics.items():
+                    if src_site == dst_site:
+                        continue
                     if dst_site in self._sites:
                         if mbps > max_mbps:
                             max_mbps = mbps
@@ -164,10 +168,15 @@ class PlacementAlgorithm:
                         if ((site_added_files + meta['length']) > self._site_files_limit):
                             continue
 
-                        rse_space = space_info[dst_rse]
+                        queued = self._nmc.getQueuedFiles(src_site, dst_site)
+
+                        logging.debug('queued %s -> %s: %d' % (src_site, dst_site, queued))
+                        if queued > 0:
+                            continue
+                        rse_space = space_info.get(dst_rse, 0)
                         penalty = self._penalties[dst_rse]
                         free_space = float(rse_space['free']) / float(rse_space['total']) * 100.0
-                        available_reps[rep['rse']][dst_rse] = {'free_space': free_space, 'penalty': penalty, 'mbps': float(mbps)}
+                        available_reps[src_rse][dst_rse] = {'free_space': free_space, 'penalty': penalty, 'mbps': float(mbps)}
 
                 num_reps += 1
 
@@ -182,6 +191,8 @@ class PlacementAlgorithm:
 
         for src, dsts in available_reps.items():
             for dst, metrics in dsts.items():
+                if dst in available_reps:
+                    continue
                 bdw = metrics['mbps'] / max_mbps * 100.0
                 ratio = metrics['free_space'] * bdw * penalty
                 src_dst_ratios.append((src, dst, ratio))

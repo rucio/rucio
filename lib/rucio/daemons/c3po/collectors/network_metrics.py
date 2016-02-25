@@ -23,7 +23,7 @@ class NetworkMetricsCollector():
         self._r = StrictRedis(host=config_get('c3po-network-metrics', 'redis_host'), port=config_get_int('c3po-network-metrics', 'redis_port'))
         self._prefix = config_get('c3po-network-metrics', 'prefix')
 
-    def getConnections(self, src, type):
+    def getMbps(self, src, type):
         pattern = "%s#%s:*" % (self._prefix, src)
         keys = self._r.keys(pattern=pattern)
         if len(keys) == 0:
@@ -39,3 +39,13 @@ class NetworkMetricsCollector():
                 ret[dst] = float(mbps)
 
         return ret
+
+    def getQueuedFiles(self, src, dst):
+        key = "%s#%s:%s" % (self._prefix, src, dst)
+        activities = loads(self._r.get(key)).get('files', {}).get('queued', {}).get('total', {})
+
+        total = 0
+        for _, values in activities.items():
+            total += values['total']
+
+        return total
