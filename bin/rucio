@@ -1094,15 +1094,9 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                     rse_dict[rse]['protocols'] = [protocol, ]
                 if rse_dict[rse]['availability_read']:
                     logger.debug('Thread %s/%s : Getting file %s:%s from %s' % (threadnb, total_threads, file['scope'], file['name'], rse))
-                    trace['remoteSite'] = rse_dict[rse]['rse']
-                    trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
-                    trace['transferStart'] = time.time()
-                    trace['clientState'] = 'DOWNLOAD_ATTEMPT'
+                    trace.update({'remoteSite': rse_dict[rse]['rse'], 'protocol': rse_dict[rse]['protocols'][0]['scheme'], 'transferStart': time.time(), 'clientState': 'DOWNLOAD_ATTEMPT'})
                     success = False
                     retries = 5
-                    for protocol in rse_dict[rse]['protocols']:
-                        if rse.find('RAL-LCG2') == -1 and str(protocol['impl']) == 'rucio.rse.protocols.srm.Default' or str(protocol['impl']) == 'rucio.rse.protocols.gsiftp.Default':
-                            protocol['impl'] = 'rucio.rse.protocols.gfal.Default'
                     for attempt in xrange(0, retries):
                         try:
                             rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=dest_dir, printstatements=True)
@@ -1202,6 +1196,7 @@ def download1(args):
             is_admin = True
             break
 
+    # Extract the scope, name from the did(s)
     dids = []
     for did in args.dids:
         try:
@@ -1316,7 +1311,6 @@ def download1(args):
         not_downloaded_files = 0
         local_files = 0
         for file in summary[did]:
-            # nbfiles_to_download[did] += 1
             if summary[did][file] == 'DONE':
                 downloaded_files += 1
             elif summary[did][file] == 'ALREADY_DONE':
