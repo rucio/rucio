@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
 #
 import os
 import sys
