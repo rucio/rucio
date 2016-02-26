@@ -9,6 +9,7 @@
   Authors:
   - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2015
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+  - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
 '''
 
 import os
