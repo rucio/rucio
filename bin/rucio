@@ -11,7 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2015
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
@@ -38,8 +38,11 @@ import traceback
 import uuid
 
 from ConfigParser import NoOptionError, NoSectionError
+from copy import deepcopy
 from functools import wraps
 from multiprocessing import Process
+from Queue import Queue, Empty
+from threading import Thread, Event
 
 from rucio.client import Client
 from rucio import version
@@ -53,12 +56,11 @@ from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
 FAILURE = 1
-# return warning if no complete failure (download)
-WARNING = 2
 
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
 
+STOP_REQUEST = Event()
 
 logger = logging.getLogger("user")
 tablefmt = 'psql'
@@ -105,6 +107,7 @@ def signal_handler(sig, frame):
             os.kill(int(pid), signal.SIGTERM)
         except Exception:
             print 'Cannot kill child process'
+    STOP_REQUEST.set()
     sys.exit(1)
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -113,6 +116,8 @@ signal.signal(signal.SIGINT, signal_handler)
 def extract_scope(did):
     # Try to extract the scope from the DSN
     if did.find(':') > -1:
+        if len(did.split(':')) > 2:
+            raise RucioException('Too many colons. Cannot extract scope and name')
         scope, name = did.split(':')[0], did.split(':')[1]
         if name.endswith('/'):
             name = name[:-1]
@@ -124,6 +129,16 @@ def extract_scope(did):
         if did.endswith('/'):
             did = did[:-1]
         return scope, did
+
+
+def send_trace(trace, trace_endpoint, retries=5):
+    for dummy in xrange(retries):
+        try:
+            requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
+            return 0
+        except Exception, error:
+            logger.debug(error)
+    return 1
 
 
 def exception_handler(function):
@@ -504,10 +519,6 @@ def list_dids(args):
     if scope not in client.list_scopes():
         logger.error('Scope not found')
         return FAILURE
-
-    if name.find('%') > -1:
-        name = name.replace('%', '*')
-
     if name.find('*') > -1:
         if args.recursive:
             logger.error('Option recursive cannot be used with wildcards')
@@ -920,7 +931,7 @@ def upload(args):
     return SUCCESS
 
 
-def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client, exit=False):
+def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client, exit=False):
     for file in files:
         logger.info('Starting the download of %s:%s' % (file['scope'], file['name']))
         stime = time.time()
@@ -1030,6 +1041,108 @@ def _downloader(total_number, scope, name, files, tape_endpoints, is_admin, last
     return
 
 
+def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoints, is_admin, trace_endpoint, trace_pattern):
+    last_chosen_rse = None
+    rse_dict = {}
+    try:
+        while(True):
+            trace = deepcopy(trace_pattern)
+            stime = time.time()
+            file = input_queue.get_nowait()
+            logger.info('Thread %s/%s : Starting the download of %s:%s' % (threadnb, total_threads, file['scope'], file['name']))
+            trace.update({'scope': file['scope'], 'name': file['name'], 'datasetScope': file['datasetScope'], 'dataset': file['datasetName'], 'eventType': 'download', 'eventVersion': version.RUCIO_VERSION[0], 'filesize': file['bytes']})
+            rses = file['rses'].keys()
+            dest_dir = file['dest_dir']
+            if rses == []:
+                logger.warning('Thread %s/%s : File %s:%s has no available replicas. Cannot be downloaded.' % (threadnb, total_threads, file['scope'], file['name']))
+                trace['clientState'] = 'FILE_NOT_FOUND'
+                if send_trace(trace, trace_endpoint, retries=5):
+                    logger.warning('Thread %s/%s : Problem sending traces' % (threadnb, total_threads))
+            rse_to_remove = []
+            for rse in rses:
+                if str(rse) in tape_endpoints:
+                    rse_to_remove.append(rse)
+            if len(rses) == len(rse_to_remove):
+                if not is_admin:
+                    logger.warning('Thread %s/%s : File %s:%s has no replicas available on disk endpoints and cannot be downloaded. Please ask for a replication' % (threadnb, total_threads, file['scope'], file['name']))
+                    sys.exit(1)
+                else:
+                    logger.warning('Thread %s/%s : File %s:%s has no replicas available on disk endpoints. Will be downloaded from TAPE.' % (threadnb, total_threads, file['scope'], file['name']))
+            if last_chosen_rse and last_chosen_rse in rses:
+                idx = rses.index(last_chosen_rse)
+                rses[idx], rses[0] = rses[0], rses[idx]
+            else:
+                random.shuffle(rses)
+            logger.debug('Thread %s/%s : Choosing RSE' % (threadnb, total_threads))
+            index = 0
+            download_ok = 0
+            if args.rse:
+                if args.rse in rses:
+                    rses = [args.rse]
+                else:
+                    rses = []
+            for rse in rses:
+                if rse not in rse_dict:
+                    rse_dict[rse] = rsemgr.get_rse_info(rse)
+                if args.protocol:
+                    try:
+                        protocol = rsemgr.select_protocol(rse_dict[rse], operation='read', scheme=args.protocol)
+                    except RSEProtocolNotSupported, error:
+                        logger.error('Thread %s/%s : The protocol specfied (%s) is not supported by the RSE %s' % (threadnb, total_threads, args.protocol, rse))
+                        logger.debug(error)
+                        return FAILURE
+                    rse_dict[rse]['protocols'] = [protocol, ]
+                if rse_dict[rse]['availability_read']:
+                    logger.debug('Thread %s/%s : Getting file %s:%s from %s' % (threadnb, total_threads, file['scope'], file['name'], rse))
+                    trace.update({'remoteSite': rse_dict[rse]['rse'], 'protocol': rse_dict[rse]['protocols'][0]['scheme'], 'transferStart': time.time(), 'clientState': 'DOWNLOAD_ATTEMPT'})
+                    success = False
+                    retries = 5
+                    for attempt in xrange(0, retries):
+                        try:
+                            rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=dest_dir, printstatements=True)
+                            logger.info('Thread %s/%s : File %s:%s successfully downloaded from %s' % (threadnb, total_threads, file['scope'], file['name'], rse))
+                            download_ok = 1
+                            success = True
+                            last_chosen_rse = rse
+                            break
+                        except KeyboardInterrupt:
+                            logger.warning('You pressed Ctrl+C! Exiting gracefully')
+                            os.kill(os.getpgid(), signal.SIGINT)
+                            break
+                        except FileConsistencyMismatch, error:
+                            logger.warning(str(error))
+                            try:
+                                pfns_dict = rsemgr.lfns2pfns(rse_dict[rse], lfns=[{'name': file['name'], 'scope': file['scope']}, ], operation='read', scheme=args.protocol)
+                                pfn = pfns_dict['%s:%s' % (file['scope'], file['name'])]
+                                output_queue.put({'dataset_scope': file['datasetScope'], 'dataset_name': file['datasetName'], 'scope': file['scope'], 'name': file['name'], 'clientState': 'CORRUPTED', 'attemptnr': attempt + 1, 'pfn': pfn})
+                            except Exception, error:
+                                logger.debug(str(error))
+                            trace['clientState'] = 'FAIL_VALIDATE'
+                            logger.debug('Thread %s/%s : Failed attempt %s/%s' % (threadnb, total_threads, attempt + 1, retries))
+                        except Exception, error:
+                            logger.warning(str(error))
+                            trace['clientState'] = str(type(error).__name__)
+                            logger.debug('Thread %s/%s : Failed attempt %s/%s' % (threadnb, total_threads, attempt + 1, retries))
+                    if success:
+                        trace['clientState'] = 'DONE'
+                        output_queue.put({'dataset_scope': file['datasetScope'], 'dataset_name': file['datasetName'], 'scope': file['scope'], 'name': file['name'], 'clientState': 'DONE', 'attemptnr': attempt + 1})
+                    trace['transferEnd'] = time.time()
+                    if send_trace(trace, trace_endpoint, retries=5):
+                        logger.warning('You pressed Ctrl+C! Exiting gracefully')
+                    if success:
+                        break
+                    index += 1
+                    if index != len(rses):
+                        logger.debug('Thread %s/%s : Will retry download on an other RSE' % (threadnb, total_threads))
+            if not download_ok:
+                logger.error('Thread %s/%s : Cannot download file %s:%s' % (threadnb, total_threads, file['scope'], file['name']))
+            else:
+                logger.info('Thread %s/%s : File %s:%s successfully downloaded. %s bytes downloaded in %s seconds' % (threadnb, total_threads, file['scope'], file['name'], sizefmt(file['bytes'], args.human), time.time() - stime))
+            input_queue.task_done()
+    except Empty:
+        return
+
+
 def _file_exists(type, scope, name, directory, dsn=None, no_subdir=False):
     file_exists = False
     dest_dir = None
@@ -1048,6 +1161,169 @@ def _file_exists(type, scope, name, directory, dsn=None, no_subdir=False):
 
 
 def download(args):
+    """
+    %(prog)s download [options] <field1=value1 field2=value2 ...>
+
+    Download files from Rucio
+    """
+    if args.new:
+        return download1(args)
+    else:
+        return download2(args)
+
+
+def download1(args):
+    """
+    %(prog)s download [options] <field1=value1 field2=value2 ...>
+
+    Download files from Rucio
+    """
+    client = get_client(args)
+    trace_endpoint = client.host
+    summary = {}
+    trace_pattern = {'hostname': socket.getfqdn(), 'account': client.account, 'uuid': generate_uuid(), 'eventType': 'download', 'eventVersion': version.RUCIO_VERSION[0]}
+    nbfiles_to_download = {}
+    try:
+        tape_endpoints = [str(rse['rse']) for rse in client.list_rses('rse_type=TAPE')]
+    except InvalidRSEExpression, error:
+        logger.warning(error)
+        tape_endpoints = []
+    account_attributes = [acc for acc in client.list_account_attributes(client.account)]
+    is_admin = False
+    for attr in account_attributes[0]:
+        logger.debug(attr)
+        if attr['key'] == 'admin' and attr['value'] is True:
+            is_admin = True
+            break
+
+    # Extract the scope, name from the did(s)
+    dids = []
+    for did in args.dids:
+        try:
+            scope, name = extract_scope(did)
+            if name.find('*') > -1:
+                for dsn in client.list_dids(scope, filters={'name': name}):
+                    dids.append((scope, dsn))
+            else:
+                dids.append((scope, name))
+        except ValueError, error:
+            logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, error))
+            return FAILURE
+
+    total_workers = 1
+    if args.ndownloader:
+        total_workers = args.ndownloader
+        nlimit = 5
+        if total_workers > nlimit:
+            logger.warning('Cannot use more than %s parallel downloader.' % nlimit)
+            total_workers = nlimit
+
+    input_queue = Queue()
+    output_queue = Queue()
+    for scope, name in dids:
+        try:
+            summary['%s:%s' % (scope, name)] = {}
+            did_info = client.get_did(scope, name)
+            did_type = did_info['type']
+            dataset_scope = '' if did_type == 'FILE' else scope
+            dataset_name = '' if did_type == 'FILE' else name
+            logger.debug('Getting the list of replicas')
+            replicas = [f for f in client.list_replicas([{'scope': scope, 'name': name}])]
+            if args.nrandom:
+                files_to_download = replicas
+                random.shuffle(files_to_download)
+                files_to_download = files_to_download[0:args.nrandom]
+            else:
+                files_to_download = replicas
+            nbfiles_to_download['%s:%s' % (scope, name)] = len(files_to_download)
+            logger.info('Starting download for %s:%s with %s files' % (scope, name, len(files_to_download)))
+            for file in files_to_download:
+                file_download = file
+                dest_dir = None
+                file_exists, dest_dir = _file_exists(did_type, file['scope'], file['name'], args.dir, dsn=name, no_subdir=args.no_subdir)
+                if file_exists:
+                    logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
+                    summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
+                    trace = deepcopy(trace_pattern)
+                    # Filling and sending the trace
+                    trace.update({'scope': file['scope'], 'filename': file['name'], 'datasetScope': dataset_scope, 'datasetName': dataset_name,
+                                 'filesize': file['bytes'], 'transferStart': time.time(), 'transferEnd': time.time(), 'clientState': 'ALREADY_DONE'})
+                    if send_trace(trace, trace_endpoint, retries=5):
+                        logger.warning('Problem sending traces')
+                    output_queue.put({'dataset_scope': dataset_scope, 'dataset_name': dataset_name, 'scope': file['scope'], 'name': file['name'], 'clientState': 'ALREADY_DONE'})
+                else:
+                    logger.debug('Will start downloading file %s:%s' % (file['scope'], file['name']))
+                    if not os.path.isdir(dest_dir):
+                        os.mkdir(dest_dir)
+                    if args.no_subdir is True and os.path.isfile('%s/%s' % (dest_dir, file['name'])):
+                        # Overwrite the files
+                        os.remove("%s/%s" % (dest_dir, file['name']))
+                    file_download['datasetScope'] = dataset_scope
+                    file_download['datasetName'] = dataset_name
+                    file_download['dest_dir'] = dest_dir
+                    input_queue.put(file_download)
+
+        except Exception, error:
+            logger.error('Failed to download %(scope)s:%(name)s' % locals())
+            logger.error(error)
+
+    threads = []
+    for worker in range(total_workers):
+        thread = Thread(target=_downloader1, kwargs={'input_queue': input_queue, 'output_queue': output_queue, 'threadnb': worker + 1, 'total_threads': total_workers,
+                        'tape_endpoints': tape_endpoints, 'is_admin': is_admin, 'trace_endpoint': trace_endpoint, 'trace_pattern': trace_pattern})
+        thread.daemon = True
+        thread.start()
+        threads.append(thread)
+
+    graceful_stop = None
+    while not input_queue.empty():
+        try:
+            pass
+        except KeyboardInterrupt:
+            graceful_stop = True
+            for thread in threads:
+                thread.kill_received = True
+            break
+
+    if graceful_stop:
+        logger.warning('You pressed Ctrl+C! Exiting gracefully')
+    else:
+        input_queue.join()
+
+    while(True):
+        try:
+            item = output_queue.get_nowait()
+            print item
+            output_queue.task_done()
+            if '%s:%s' % (item['dataset_scope'], item['dataset_name']) in summary:
+                summary['%s:%s' % (item['dataset_scope'], item['dataset_name'])]['%s:%s' % (item['scope'], item['name'])] = item['clientState']
+                if item['clientState'] == 'CORRUPTED':
+                    client.declare_suspicious_file_replicas([item['pfn'], ], reason='Corrupted')
+        except Empty:
+            break
+
+    print '----------------------------------'
+    print 'Download summary'
+    for did in summary:
+        print '-' * 40
+        print 'DID %s' % (did)
+        downloaded_files = 0
+        not_downloaded_files = 0
+        local_files = 0
+        for file in summary[did]:
+            if summary[did][file] == 'DONE':
+                downloaded_files += 1
+            elif summary[did][file] == 'ALREADY_DONE':
+                local_files += 1
+
+        not_downloaded_files = nbfiles_to_download[did] - downloaded_files - local_files
+        print '{0:40} {1:6d}'.format('Total files : ', nbfiles_to_download[did])
+        print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
+        print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
+        print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
+
+
+def download2(args):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
 
@@ -1157,13 +1433,13 @@ def download(args):
                     dict_files_to_download[worker_number].append(file)
 
             if total_workers == 1 and dict_files_to_download:
-                _downloader(total_workers, scope, name, dict_files_to_download[0],
-                            tape_endpoints, is_admin, last_chosen_rse,
-                            rse_dict, dest_dir, trace, client, exit=False)
+                _downloader2(total_workers, scope, name, dict_files_to_download[0],
+                             tape_endpoints, is_admin, last_chosen_rse,
+                             rse_dict, dest_dir, trace, client, exit=False)
             else:
                 pool_list = []
                 for worker_number in dict_files_to_download:
-                    proc = Process(target=_downloader, args=(total_workers, scope, name,
+                    proc = Process(target=_downloader2, args=(total_workers, scope, name,
                                    dict_files_to_download[worker_number], tape_endpoints,
                                    is_admin, last_chosen_rse, rse_dict, dest_dir, trace,
                                    client))
@@ -1210,8 +1486,6 @@ def download(args):
         print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
         print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
         print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
-    if not_downloaded_files > 0:
-        return WARNING
     return SUCCESS
 
 
@@ -1862,8 +2136,9 @@ Commands:
     download_parser.add_argument('--rse', action='store', help='Force the RSE from where the DID is downloaded.')
     download_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
     download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
-    download_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download.')
+    download_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
     download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
+    download_parser.add_argument('--new', action='store_true', default=False, help="Choose the new download thread model.")
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
