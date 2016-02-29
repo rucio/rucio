@@ -9,7 +9,7 @@
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
@@ -17,6 +17,7 @@
 """
 
 from collections import defaultdict
+from curses.ascii import isprint
 from datetime import datetime, timedelta
 from re import match
 from traceback import format_exc
@@ -95,6 +96,7 @@ def __exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
     :param session: The database session in use.
     """
 
+    already_declared = False
     if path:
         query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
@@ -105,9 +107,14 @@ def __exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
     if query.count():
         result = query.first()
         path, scope, name, rse_id = result[0], result[1], result[2], result[3]
-        return True, scope, name
+        # Now we check that the replica is not already declared bad
+        query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id, models.BadReplicas.state).\
+            filter_by(rse_id=rse_id, scope=scope, name=name, state=BadFilesStatus.BAD)
+        if query.count():
+            already_declared = True
+        return True, scope, name, already_declared
     else:
-        return False, None, None
+        return False, None, None, already_declared
 
 
 @read_session
@@ -204,16 +211,27 @@ def update_bad_replicas_history(dids, rse_id, session=None):
         # Check if the replica is still there
         try:
             result = session.query(models.RSEFileAssociation.state).filter_by(rse_id=rse_id, scope=did['scope'], name=did['name']).one()
-            # If yes, and replica state is AVAILABLE, update BadReplicas
             state = result.state
             if state == ReplicaState.AVAILABLE:
+                # If yes, and replica state is AVAILABLE, update BadReplicas
                 query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
                 query.update({'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
+            elif state != ReplicaState.BAD:
+                # If the replica state is not AVAILABLE check if other replicas for the same file are still there.
+                try:
+                    session.query(models.RSEFileAssociation.state).filter_by(rse_id=rse_id, scope=did['scope'], name=did['name'], state=ReplicaState.AVAILABLE).one()
+                except NoResultFound:
+                    # No replicas are available for this file. Reset the replica state to BAD
+                    update_replicas_states([{'scope': did['scope'], 'name': did['name'], 'rse_id': rse_id, 'state': ReplicaState.BAD}], session=session)
+                    session.query(models.Source).filter_by(scope=did['scope'], name=did['name'], rse_id=rse_id).delete(synchronize_session=False)
+            else:
+                # Here that means that the file has not been processed by the necro. Just pass
+                pass
         except NoResultFound:
-            # If no, check if the did still exists
+            # We end-up here if the replica is not registered anymore on the RSE
             try:
                 result = session.query(models.DataIdentifier.availability).filter_by(scope=did['scope'], name=did['name'], did_type=DIDType.FILE).one()
-                # If yes, the state depends on DIDAvailability
+                # If yes, the final state depends on DIDAvailability
                 state = result.availability
                 final_state = None
                 if state == DIDAvailability.LOST:
@@ -266,14 +284,25 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
             else:
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
-            __exists, scope, name = __exists_replicas(rse_id, scope, name, path=None, session=session)
-            if __exists:
+            __exists, scope, name, already_declared = __exists_replicas(rse_id, scope, name, path=None, session=session)
+            if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
                 new_bad_replica.save(session=session, flush=False)
+                session.query(models.Source).filter_by(scope=scope, name=name, rse_id=rse_id).delete(synchronize_session=False)
                 declared_replicas.append(pfn)
             else:
-                unknown_replicas.append(pfn)
+                if already_declared:
+                    unknown_replicas.append('%s %s' % (pfn, 'Already declared'))
+                else:
+                    no_hidden_char = True
+                    for char in str(pfn):
+                        if not isprint(char):
+                            unknown_replicas.append('%s %s' % (pfn, 'PFN contains hidden chars'))
+                            no_hidden_char = False
+                            break
+                    if no_hidden_char:
+                        unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
         if status == BadFilesStatus.BAD:
             # For BAD file, we modify the replica state, not for suspicious
             try:
@@ -286,14 +315,25 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
         parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
-            __exists, scope, name = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
-            if __exists:
+            __exists, scope, name, already_declared = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
+            if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
                 new_bad_replica.save(session=session, flush=False)
+                session.query(models.Source).filter_by(scope=scope, name=name, rse_id=rse_id).delete(synchronize_session=False)
                 declared_replicas.append(pfn)
             else:
-                unknown_replicas.append(pfn)
+                if already_declared:
+                    unknown_replicas.append('%s %s' % (pfn, 'Already declared'))
+                else:
+                    no_hidden_char = True
+                    for char in str(pfn):
+                        if not isprint(char):
+                            unknown_replicas.append('%s %s' % (pfn, 'PFN contains hidden chars'))
+                            no_hidden_char = False
+                            break
+                    if no_hidden_char:
+                        unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
             path_clause.append(models.RSEFileAssociation.path == path)
         if status == BadFilesStatus.BAD:
             # For BAD file, we modify the replica state, not for suspicious
@@ -303,6 +343,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
             rowcount = query.update({'state': ReplicaState.BAD})
             if rowcount != len(declared_replicas):
                 # there shouldn't be any exceptions since all replicas exist
+                print rowcount, len(declared_replicas), declared_replicas
                 raise exception.ReplicaNotFound("One or several replicas don't exist.")
     try:
         session.flush()
