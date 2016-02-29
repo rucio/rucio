@@ -8,17 +8,21 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 
 import datetime
 import json
 import logging
+import requests
 import sys
 import time
 import urlparse
+import uuid
 import traceback
 
-import requests
+from ConfigParser import NoOptionError
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_get
 from rucio.core.monitor import record_counter, record_timer
@@ -32,6 +36,63 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 __USERCERT = config_get('conveyor', 'usercert')
+try:
+    __USE_DETERMINISTIC_ID = config_get('conveyor', 'use_deterministic_id')
+except NoOptionError:
+    __USE_DETERMINISTIC_ID = False
+
+REGION_SHORT = make_region().configure('dogpile.cache.memory',
+                                       expiration_time=1800)
+
+
+def get_transfer_baseid_voname(external_host):
+    """
+    Get transfer VO name from external host.
+
+    :param external_host: FTS server as a string.
+
+    :returns base id as a string and VO name as a string.
+    """
+    result = (None, None)
+    try:
+        key = 'voname: %s' % external_host
+        result = REGION_SHORT.get(key)
+        if type(result) is NoValue:
+            logging.debug("Refresh transfer baseid and voname for %s" % external_host)
+
+            r = None
+            if external_host.startswith('https://'):
+                try:
+                    r = requests.get('%s/whoami' % external_host,
+                                     verify=False,
+                                     cert=(__USERCERT, __USERCERT),
+                                     headers={'Content-Type': 'application/json'},
+                                     timeout=5)
+                except:
+                    logging.warn('Could not get baseid and voname from %s - %s' % (external_host, str(traceback.format_exc())))
+            else:
+                try:
+                    r = requests.get('%s/whoami' % external_host,
+                                     headers={'Content-Type': 'application/json'},
+                                     timeout=5)
+                except:
+                    logging.warn('Could not get baseid and voname from %s - %s' % (external_host, str(traceback.format_exc())))
+
+            if r and r.status_code == 200:
+                baseid = str(r.json()['base_id'])
+                voname = str(r.json()['vos'][0])
+                result = (baseid, voname)
+
+                REGION_SHORT.set(key, result)
+
+                logging.debug("Get baseid %s and voname %s from %s" % (baseid, voname, external_host))
+            else:
+                logging.warn("Failed to get baseid and voname from %s, error: %s" % (external_host, r.text if r is not None else r))
+                result = (None, None)
+    except:
+        logging.warning("Failed to get baseid and voname from %s: %s" % (external_host, traceback.format_exc()))
+        result = (None, None)
+    return result
 
 
 def __extract_host(transfer_host):
@@ -152,6 +213,23 @@ def submit_transfers(transfers, job_metadata):
     return transfer_ids
 
 
+def get_deterministic_id(external_host, sid):
+    """
+    Get deterministic FTS job id.
+
+    :param external_host: FTS server as a string.
+    :param sid: FTS seed id.
+    :returns: FTS transfer identifier.
+    """
+    baseid, voname = get_transfer_baseid_voname(external_host)
+    if baseid is None or voname is None:
+        return None
+    root = uuid.UUID(baseid)
+    atlas = uuid.uuid5(root, voname)
+    jobid = uuid.uuid5(atlas, sid)
+    return jobid
+
+
 def submit_bulk_transfers(external_host, files, job_params, timeout=None):
     """
     Submit a transfer to FTS3 via JSON.
@@ -184,6 +262,7 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
         file['destinations'] = new_dst_urls
 
     transfer_id = None
+    sid = job_params['sid']
 
     # bulk submission
     params_dict = {'files': files, 'params': job_params}
@@ -217,7 +296,9 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
         record_counter('transfertool.fts3.%s.submission.success' % __extract_host(external_host), len(files))
         transfer_id = str(r.json()['job_id'])
     else:
-        logging.warn("Failed to submit transfer to %s, error: %s" % (external_host, r.text if r is not None else r))
+        if __USE_DETERMINISTIC_ID:
+            transfer_id = get_deterministic_id(external_host, sid)
+        logging.warn("Failed to submit transfer to %s, will use deterministic id %s, error: %s" % (external_host, transfer_id, r.text if r is not None else r))
         record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(external_host), len(files))
 
     return transfer_id
@@ -654,6 +735,39 @@ def cancel(transfer_id, transfer_host):
 
     record_counter('transfertool.fts3.%s.cancel.failure' % __extract_host(transfer_host))
     raise Exception('Could not cancel transfer: %s', job.content)
+
+
+def update_priority(transfer_id, transfer_host, priority):
+    """
+    Update the priority of a transfer that has been submitted to FTS via JSON.
+
+    :param transfer_id: FTS transfer identifier as a string.
+    :param transfer_host: FTS server as a string.
+    :param priority: FTS job priority as an integer from 1 to 5.
+    """
+
+    job = None
+    params_dict = {"params": {"priority": priority}}
+    params_str = json.dumps(params_dict)
+
+    if transfer_host.startswith('https://'):
+        job = requests.post('%s/jobs/%s' % (transfer_host, transfer_id),
+                            verify=False,
+                            data=params_str,
+                            cert=(__USERCERT, __USERCERT),
+                            headers={'Content-Type': 'application/json'},
+                            timeout=3)
+    else:
+        job = requests.post('%s/jobs/%s' % (transfer_host, transfer_id),
+                            data=params_str,
+                            headers={'Content-Type': 'application/json'},
+                            timeout=3)
+    if job and job.status_code == 200:
+        record_counter('transfertool.fts3.%s.update_priority.success' % __extract_host(transfer_host))
+        return job.json()
+
+    record_counter('transfertool.fts3.%s.update_priority.failure' % __extract_host(transfer_host))
+    raise Exception('Could not update priority of transfer: %s', job.content)
 
 
 def whoami(transfer_host):
