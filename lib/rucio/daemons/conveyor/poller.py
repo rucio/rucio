@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -99,7 +99,7 @@ def poller(once=False,
                 ts = time.time()
                 logging.debug('%i:%i - start to poll transfers older than %i seconds for activity %s' % (process, hb['assign_thread'], older_than, activity))
                 transfs = request.get_next_transfers(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                                     state=[RequestState.SUBMITTED, RequestState.LOST],
+                                                     state=[RequestState.SUBMITTED],
                                                      limit=db_bulk,
                                                      older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
                                                      process=process, total_processes=total_processes,

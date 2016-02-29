@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 from logging import getLogger, StreamHandler, DEBUG
@@ -22,7 +22,8 @@ from rucio.api.rule import add_replication_rule, delete_replication_rule, get_re
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
-                                    DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict)
+                                    DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
+                                    ManualRuleApprovalBlocked)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
@@ -256,6 +257,8 @@ class AllRule:
             raise generate_http_error(409, 'StagingAreaRuleRequiresLifetime', e.args[0])
         except ScratchDiskLifetimeConflict, e:
             raise generate_http_error(409, 'ScratchDiskLifetimeConflict', e.args[0])
+        except ManualRuleApprovalBlocked, e:
+            raise generate_http_error(409, 'ManualRuleApprovalBlocked', e.args[0])
         except InvalidObject, e:
             raise generate_http_error(409, 'InvalidObject', e.args[0])
         except RucioException, e:
