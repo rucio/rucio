@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import xmltodict
@@ -116,7 +116,8 @@ class TestReplicaCore:
         # Now adding non-existing bad replicas
         files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
         r = declare_bad_file_replicas(files, 'This is a good reason', 'root')
-        assert_equal(r, {'MOCK2': files})
+        output = ['%s Unknown replica' % rep for rep in files]
+        assert_equal(r, {'MOCK2': output})
 
     def test_add_list_replicas(self):
         """ REPLICA (CORE): Add and list file replicas """
@@ -299,7 +300,9 @@ class TestReplicaClients:
         for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK2'])
             list_rep.append(replica)
+        print replicas, list_rep
         r = self.replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
+        print r
         assert_equal(r, {})
         bad_replicas = list_bad_replicas()
         nbbadrep = 0
@@ -313,7 +316,8 @@ class TestReplicaClients:
         # Now adding non-existing bad replicas
         files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
         r = self.replica_client.declare_bad_file_replicas(files, 'This is a good reason')
-        assert_equal(r, {'MOCK2': files})
+        output = ['%s Unknown replica' % rep for rep in files]
+        assert_equal(r, {'MOCK2': output})
 
     def test_add_suspicious_replicas(self):
         """ REPLICA (CLIENT): Add suspicious replicas"""
@@ -349,7 +353,8 @@ class TestReplicaClients:
         # Now adding non-existing bad replicas
         files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
         r = self.replica_client.declare_suspicious_file_replicas(files, 'This is a good reason')
-        assert_equal(r, {'MOCK2': files})
+        output = ['%s Unknown replica' % rep for rep in files]
+        assert_equal(r, {'MOCK2': output})
 
     def test_bad_replica_methods_for_UI(self):
         """ REPLICA (REST): Test the listing of bad and suspicious replicas """
