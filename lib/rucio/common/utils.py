@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 
@@ -17,6 +17,7 @@ import datetime
 import errno
 import json
 import os
+import pwd
 import re
 import subprocess
 import zlib
@@ -452,6 +453,24 @@ def sizefmt(num, human=True):
             return str(num)
     except OverflowError:
         return 'Inf'
+
+
+def get_tmp_dir():
+    """
+    Get a path where to store temporary files.
+
+    :return: A path.
+    """
+    tmp_dir, user = None, pwd.getpwuid(os.getuid()).pw_name
+    for env_var in ('TMP', 'TMPDIR', 'TEMP'):
+        if env_var in os.environ:
+            tmp_dir = os.environ[env_var]
+            break
+
+    if not tmp_dir:
+        return os.getcwd() + '/' + user + '/'
+
+    return tmp_dir + '/' + user + '/'
 
 
 class Color:
