@@ -543,7 +543,8 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
 
     if did_clause:
         for scope, name, did_type in session.query(models.DataIdentifier.scope,
-                                                   models.DataIdentifier.name, models.DataIdentifier.did_type).filter(or_(*did_clause)):
+                                                   models.DataIdentifier.name,
+                                                   models.DataIdentifier.did_type).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*did_clause)):
             if did_type == DIDType.FILE:
                 files.append({'scope': scope, 'name': name})
                 file_clause.append(and_(models.RSEFileAssociation.scope == scope,
