@@ -11,13 +11,17 @@
 import logging
 
 from requests import post
+from requests.auth import HTTPBasicAuth
 from json import dumps, loads
 
 from rucio.common.config import config_get
 
 elastic_url = config_get('c3po-popularity', 'elastic_url')
 
-url = elastic_url + '/rucio-popularity-*/_search'
+elastic_username = config_get('c3po-popularity', 'elastic_username')
+elastic_password = config_get('c3po-popularity', 'elastic_password')
+
+url = elastic_url + '/atlas_rucio-popularity-*/_search'
 
 
 def get_popularity(did):
@@ -48,7 +52,10 @@ def get_popularity(did):
     query['query']['bool']['must'].append({"term": {"name": did[1]}})
 
     logging.debug(query)
-    r = post(url, data=dumps(query))
+    if elastic_username:
+        r = post(url, data=dumps(query), auth=HTTPBasicAuth(elastic_username, elastic_password))
+    else:
+        r = post(url, data=dumps(query))
 
     if r.status_code != 200:
         return None
