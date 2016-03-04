@@ -491,6 +491,8 @@ def set_request_transfers_state(transfers, submitted_at, session=None):
                    'request-type': str(request_type).lower() if request_type else request_type,
                    'scope': transfers[request_id]['scope'],
                    'name': transfers[request_id]['name'],
+                   'src-rse-id': transfers[request_id]['metadata'].get('src_rse_id', None),
+                   'src-rse': transfers[request_id]['metadata'].get('src_rse', None),
                    'dst-rse-id': transfers[request_id]['metadata'].get('dst_rse_id', None),
                    'dst-rse': transfers[request_id]['metadata'].get('dst_rse', None),
                    'state': str(transfers[request_id]['state']),
