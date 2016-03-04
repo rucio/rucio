@@ -289,7 +289,9 @@ def __add_collections_to_container(scope, name, collections, account, session):
 
     available_dids = {}
     child_type = None
-    for row in session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter(condition):
+    for row in session.query(models.DataIdentifier.scope,
+                             models.DataIdentifier.name,
+                             models.DataIdentifier.did_type).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(condition):
 
         if row.did_type == DIDType.FILE:
             raise exception.UnsupportedOperation("Adding a file (%s:%s) to a container (%s:%s) is forbidden" % (row.scope, row.name, scope, name))
@@ -1152,8 +1154,13 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
 
-    if 'name' in filters and '*' in filters['name']:
-        query = query.with_hint(models.DataIdentifier, "NO_INDEX(dids(SCOPE,NAME))", 'oracle')
+    if 'name' in filters:
+        if '*' in filters['name']:
+            query = query.\
+                with_hint(models.DataIdentifier, "NO_INDEX(dids(SCOPE,NAME))", 'oracle')
+        else:
+            query = query.\
+                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')
 
     if limit:
         query = query.limit(limit)
