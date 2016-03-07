@@ -12,6 +12,7 @@
 [common]
 logdir = /var/log/rucio
 loglevel = DEBUG
+mailtemplatedir=/opt/rucio/etc/mail_templates
 
 [client]
 rucio_host = https://voatlasrucio-server-prod.cern.ch:443
