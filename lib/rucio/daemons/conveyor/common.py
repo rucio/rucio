@@ -158,26 +158,35 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
             reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
             for req in reqs:
                 logging.info('REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
+                src_rse_id = req.get('source_rse_id', None)
+                dst_rse_id = req.get('dest_rse_id', None)
+                src_rse = None
+                dst_rse = None
+                if src_rse_id:
+                    src_rse = rse_core.get_rse_name(src_rse_id, session=session)
+                if dst_rse_id:
+                    dst_rse = rse_core.get_rse_name(dst_rse_id, session=session)
                 response = {'new_state': state,
                             'transfer_id': transfer_id,
                             'job_state': state,
-                            'src_url': None,
-                            'dst_url': req['dest_url'],
+                            'src-url': None,
+                            'dst-url': req['dest_url'],
                             'duration': 0,
                             'reason': "The FTS job lost",
                             'scope': req.get('scope', None),
                             'name': req.get('name', None),
-                            'src_rse': req.get('src_rse', None),  # Todo for multiple source replicas
-                            'dst_rse': req.get('dst_rse', None),
-                            'request_id': req.get('request_id', None),
+                            'src-rse': src_rse,
+                            'dst-rse': dst_rse,
+                            'request-id': req.get('request_id', None),
                             'activity': req.get('activity', None),
-                            'dest_rse_id': req.get('dest_rse_id', None),
-                            'previous_attempt_id': req.get('previous_attempt_id', None),
+                            'src-rse-id': req.get('source_rse_id', None),
+                            'dst-rse-id': req.get('dest_rse_id', None),
+                            'previous-attempt-id': req.get('previous_attempt_id', None),
                             'adler32': req.get('adler32', None),
                             'md5': req.get('md5', None),
                             'filesize': req.get('filesize', None),
-                            'external_host': external_host,
-                            'job_m_replica': None,
+                            'external-host': external_host,
+                            'job-m-replica': None,
                             'details': None}
 
                 add_monitor_message(req, response, session=session)
