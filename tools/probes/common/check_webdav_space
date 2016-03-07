@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
+#
+import os
+import sys
+
+
+from rucio.client import Client
+from rucio.common.config import config_get
+from rucio.rse import rsemanager as rsemgr
+
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
+
+
+if __name__ == "__main__":
+
+    rsename = sys.argv[1]
+
+    retvalue = OK
+    usedsize = 0
+    freesize = 0
+
+    try:
+        proxy = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = proxy
+    except Exception as e:
+        retvalue = WARNING
+
+    c = Client()
+
+    rse_settings = rsemgr.get_rse_info(rsename)
+    for protocol in rse_settings['protocols']:
+        if protocol['scheme'] == "https":
+            rse_settings['protocols'].remove(protocol)
+            protocol['impl'] = "rucio.rse.protocols.webdav.Default"
+            rse_settings['protocols'].append(protocol)
+    try:
+        gs, ret = rsemgr.get_space_usage(rse_settings, "https")
+        if gs:
+            totalsize = long(ret["totalsize"])
+            freesize = long(ret["unusedsize"])
+            usedsize = totalsize - freesize
+        else:
+            print "Failed to get rse(%s) space information: %s" % (rsename, str(ret))
+            retvalue = WARNING
+    except Exception as e:
+        print "Failed to get rse(%s) space information: %s" % (rsename, str(e))
+        retvalue = WARNING
+
+    if retvalue == OK:
+        print "Update RSE %s space usage (usedsize: %s, freesize: %s)" % (rsename, usedsize, freesize)
+        c.set_rse_usage(rsename, "https", usedsize, freesize)
+
+    sys.exit(retvalue)
