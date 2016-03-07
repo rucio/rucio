@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
@@ -26,7 +26,7 @@ import rucio.core.did
 from rucio.common.config import config_get
 from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType
+from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
@@ -275,6 +275,8 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                     ds_lock.state = LockState.OK
                 session.flush()
                 rucio.core.rule.generate_message_for_dataset_ok_callback(rule=rule, session=session)
+            if rule.notification == RuleNotification.YES:
+                rucio.core.rule.generate_email_for_rule_ok_notification(rule=rule, session=session)
 
         # Insert rule history
         rucio.core.rule.insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
