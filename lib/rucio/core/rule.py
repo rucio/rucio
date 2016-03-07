@@ -256,6 +256,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.OK})
                     session.flush()
                     generate_message_for_dataset_ok_callback(rule=new_rule, session=session)
+                if new_rule.notification == RuleNotification.YES:
+                    generate_email_for_rule_ok_notification(rule=new_rule, session=session)
             else:
                 new_rule.state = RuleState.REPLICATING
                 if new_rule.grouping != RuleGrouping.NONE:
@@ -463,6 +465,8 @@ def add_rules(dids, rules, session=None):
                             session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.OK})
                             session.flush()
                             generate_message_for_dataset_ok_callback(rule=new_rule, session=session)
+                        if new_rule.notification == RuleNotification.YES:
+                            generate_email_for_rule_ok_notification(rule=new_rule, session=session)
                     else:
                         new_rule.state = RuleState.REPLICATING
                         if new_rule.grouping != RuleGrouping.NONE:
@@ -552,6 +556,8 @@ def inject_rule(rule_id, session=None):
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                 session.flush()
                 generate_message_for_dataset_ok_callback(rule=rule, session=session)
+            if rule.notification == RuleNotification.YES:
+                generate_email_for_rule_ok_notification(rule=rule, session=session)
         else:
             rule.state = RuleState.REPLICATING
             if rule.grouping != RuleGrouping.NONE:
@@ -972,6 +978,8 @@ def repair_rule(rule_id, session=None):
             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
             session.flush()
             generate_message_for_dataset_ok_callback(rule=rule, session=session)
+        if rule.notification == RuleNotification.YES:
+            generate_email_for_rule_ok_notification(rule=rule, session=session)
 
         return
 
@@ -1430,6 +1438,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
                 session.flush()
                 if rule_state_before != RuleState.OK:
                     generate_message_for_dataset_ok_callback(rule=rule, session=session)
+                    generate_email_for_rule_ok_notification(rule=rule, session=session)
         # Insert rule history
         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
@@ -1564,6 +1573,40 @@ def generate_message_for_dataset_ok_callback(rule, session=None):
                                         session=session)
                 except DataIdentifierNotFound:
                     pass
+
+
+@transactional_session
+def generate_email_for_rule_ok_notification(rule, session=None):
+    """
+    Generate (If necessary) an eMail for a rule with notification mode Y.
+
+    :param rule:     The rule object.
+    :param session:  The Database session
+    """
+
+    session.flush()
+
+    if rule.state == RuleState.OK and rule.notification == RuleNotification.YES:
+        try:
+            with open('%s/rule_ok_notification.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                template = Template(templatefile.read())
+            email = get_account(account=rule.account, session=session).email
+            if email:
+                text = template.safe_substitute({'rule_id': str(rule.id),
+                                                 'created_at': str(rule.created_at),
+                                                 'expires_at': str(rule.expires_at),
+                                                 'rse_expression': rule.rse_expression,
+                                                 'comment': rule.comments,
+                                                 'scope': rule.scope,
+                                                 'name': rule.name,
+                                                 'did_type': rule.did_type})
+                add_message(event_type='email',
+                            payload={'body': text,
+                                     'to': [email],
+                                     'subject': 'Replication rule %s has been succesfully transferred' % (str(rule.id))},
+                            session=session)
+        except (IOError, NoOptionError):
+            pass
 
 
 @transactional_session
@@ -1924,6 +1967,7 @@ def __evaluate_did_detach(eval_did, session=None):
                     session.flush()
                     if rule_locks_ok_cnt_before != rule.locks_ok_cnt:
                         generate_message_for_dataset_ok_callback(rule=rule, session=session)
+                        generate_email_for_rule_ok_notification(rule=rule, session=session)
 
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -2118,6 +2162,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                 session.flush()
                                 if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
                                     generate_message_for_dataset_ok_callback(rule=rule, session=session)
+                                    generate_email_for_rule_ok_notification(rule=rule, session=session)
 
                         # Insert rule history
                         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
