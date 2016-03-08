@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -82,7 +82,6 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                     if once:
                         break
                     logging.info("no requests found. will sleep 60 seconds")
-                    time.sleep(60)
                     continue
 
                 for resp in resps:
