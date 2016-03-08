@@ -8,10 +8,12 @@
 #
 # Authors:
 # - David Cameron, <david.cameron@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
 #
 # Get country groups from VOMS, get DNs with production role,
 # map to Rucio account and set country-<country>: admin
 # Get all DNs in country and set country-<country>: user
+# Get all DNs in phys/perf group with production role and set group-<group>: admin
 # Get all names in cloud support e-group and set cloud-<cloud>: admin
 
 import os
@@ -34,10 +36,10 @@ OK = 0
 result = OK
 
 
-def add_country_attributes(dns, country, role):
+def set_account_attributes(dns, value, role, account_type):
 
     if not dns:
-        print 'No user with %s role in country %s' % (role, country)
+        print 'No user with %s role in %s %s' % (role, account_type, value)
         return
 
     accounts_done = []
@@ -51,10 +53,10 @@ def add_country_attributes(dns, country, role):
         for acc in accounts:
             account = acc['account']
             if account not in accounts_done:
-                print 'Set %s role for country-%s for %s' % (role, country, account)
+                print 'Set %s role for %s-%s for %s' % (role, account_type, value, account)
                 try:
                     attrs = dict([(u['key'], u['value']) for u in list_account_attributes(account)])
-                    key = 'country-%s' % country
+                    key = '%s-%s' % (account_type, value)
                     if key in attrs and attrs[key] == role:
                         print 'Account %s already has the role %s' % (account, role)
                         continue
@@ -64,8 +66,8 @@ def add_country_attributes(dns, country, role):
                     add_account_attribute(key, role, account, 'root')
                 except Duplicate:
                     pass
-                except RucioException, e:
-                    print "Failed to add account attribute: %s" % str(e)
+                except RucioException, error:
+                    print "Failed to add account attribute: %s" % str(error)
                     result = WARNING  # NOQA
                 accounts_done.append(account)
 
@@ -78,9 +80,9 @@ def add_cloud_admins():
             egroup = 'atlas-adc-cloud-ru'
         cmd = "/usr/bin/ldapsearch -x -h xldap.cern.ch -b 'CN=%s,OU=e-groups,OU=Workgroups,DC=cern,DC=ch' member" % egroup
 
-        p = subprocess.Popen(shlex.split(cmd), stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
-        (stdout, stderr) = p.communicate()
-        if p.returncode != 0:
+        proc = subprocess.Popen(shlex.split(cmd), stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+        (stdout, stderr) = proc.communicate()
+        if proc.returncode != 0:
             print "Warning: Failed to run ldapsearch: %s" % stdout
             result = WARNING
             continue
@@ -89,9 +91,9 @@ def add_cloud_admins():
         cloud = cloud.replace('t0', 'cern')
         cloud = cloud.replace('ng', 'nd')
         for line in stdout.split('\n'):
-            m = re.match('member: CN=(\w+),OU=Users', line)
-            if m:
-                account = m.group(1)
+            match = re.match('member: CN=(\w+),OU=Users', line)
+            if match:
+                account = match.group(1)
                 print 'Set admin role for cloud-%s for %s' % (cloud, account)
                 try:
                     add_account_attribute('cloud-%s' % cloud, 'admin', account, 'root')
@@ -100,43 +102,51 @@ def add_cloud_admins():
                 except AccountNotFound:
                     print 'Warning: Account %s not in Rucio' % account
                     result = WARNING
-                except RucioException, e:
-                    print "Failed to add account attribute: %s" % str(e)
+                except RucioException, error:
+                    print "Failed to add account attribute: %s" % str(error)
                     result = WARNING  # NOQA
 
 if __name__ == '__main__':
     result = OK
     try:
-        proxy = config_get('nagios', 'proxy')
-        os.environ["X509_USER_PROXY"] = proxy
-        cert, key = os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']
-    except Exception as e:
+        PROXY = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = PROXY
+        CERT, KEY = os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']
+    except Exception as error:
         print "Failed to get proxy from rucio.cfg"
         sys.exit(CRITICAL)
 
     admin = VOMSAdminProxy(vo='atlas', host='voms2.cern.ch', port=8443,
-                           user_cert=cert, user_key=key)
+                           user_cert=CERT, user_key=KEY)
     res = admin.call_method('list-sub-groups', '/atlas')
     if not res:
         print 'Could not list VOMS groups'
         sys.exit(CRITICAL)
 
     for group in res:
-        m = re.match('/atlas/(\w\w)$', group) or re.match('/atlas/(cern)$', group) or re.match('/atlas/(usatlas)$', group)
-        if not m:
+        match_pattern = re.match('/atlas/(\w\w)$', group) or re.match('/atlas/(cern)$', group) or re.match('/atlas/(usatlas)$', group)
+        if not match_pattern:
+            match_pattern = re.match('/atlas/(.*-.*)$', group)
+            if not match_pattern:
+                continue
+            vomsgroup = match_pattern.group(0)
+            phys_group = match_pattern.group(1)
+            dns = admin.call_method('list-users-with-role', vomsgroup, 'Role=production')
+            set_account_attributes(dns, phys_group, 'admin', account_type='group')
             continue
-        vomsgroup = m.group(0)
-        country = m.group(1)
+
+        vomsgroup = match_pattern.group(0)
+        country = match_pattern.group(1)
         if country == 'usatlas':
             country = 'us'
 
         # Get DNs in country group
         dns = admin.call_method('list-members', vomsgroup)
-        add_country_attributes(dns, country, 'user')
+        set_account_attributes(dns, country, 'user', account_type='country')
 
         # Get DNs with production role in each country (upgrades the role from user to admin if applicable)
         dns = admin.call_method('list-users-with-role', vomsgroup, 'Role=production')
-        add_country_attributes(dns, country, 'admin')
+        set_account_attributes(dns, country, 'admin', account_type='country')
 
     # Add cloud admins from ldap egroups
     add_cloud_admins()
