@@ -574,7 +574,7 @@ class TestReplicationRuleCore():
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
 
         # Check if rule exists
-        assert(True == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(check_dataset_ok_callback(scope, dataset, self.rse3, rule_id) is True)
 
     def test_dataset_callback_no(self):
         """ REPLICATION RULE (CORE): Test dataset callback should not be sent"""
@@ -593,7 +593,7 @@ class TestReplicationRuleCore():
         successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
 
         # Check if rule exists
-        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(check_dataset_ok_callback(scope, dataset, self.rse3, rule_id) is False)
 
     def test_dataset_callback_close_late(self):
         """ REPLICATION RULE (CORE): Test dataset callback with late close"""
@@ -611,9 +611,9 @@ class TestReplicationRuleCore():
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
 
         # Check if rule exists
-        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(check_dataset_ok_callback(scope, dataset, self.rse3, rule_id) is False)
         set_status(scope=scope, name=dataset, open=False)
-        assert(True == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(check_dataset_ok_callback(scope, dataset, self.rse3, rule_id) is True)
 
     def test_dataset_callback_with_evaluator(self):
         """ REPLICATION RULE (CORE): Test dataset callback with judge evaluator"""
@@ -625,11 +625,11 @@ class TestReplicationRuleCore():
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='C')[0]
 
-        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(check_dataset_ok_callback(scope, dataset, self.rse3, rule_id) is False)
 
         attach_dids(scope, dataset, files, 'jdoe')
         set_status(scope=scope, name=dataset, open=False)
-        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(check_dataset_ok_callback(scope, dataset, self.rse3, rule_id) is False)
 
         re_evaluator(once=True)
 
@@ -637,7 +637,7 @@ class TestReplicationRuleCore():
         successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
 
-        assert(True == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(check_dataset_ok_callback(scope, dataset, self.rse3, rule_id) is True)
 
     def test_add_rule_with_purge(self):
         """ REPLICATION RULE (CORE): Add a replication rule with purge setting"""
