@@ -14,9 +14,11 @@
 import logging
 import sys
 
+from ConfigParser import NoOptionError
 from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
+from string import Template
 
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
@@ -1608,54 +1610,41 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
         if rule.state == RuleState.WAITING_APPROVAL:
             rule.ignore_account_limit = True
             rule.state = RuleState.INJECT
-            email = get_account(account=rule.account, session=session).email
-            if email:
-                text = """The replication rule has been APPROVED
-
-Rule description:
-  ID:                   %s
-  RSE Expression:       %s
-  Expires at:           %s
-  Comment:              %s
-  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
-
-DID description:
-
-  Scope:Name:           %s:%s
-  Type:                 %s
-  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
-
---
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
-                                                 str(rule.rse_expression),
-                                                 str(rule.expires_at),
-                                                 str(rule.comments),
-                                                 str(rule.id),
-                                                 rule.scope,
-                                                 rule.name,
-                                                 str(rule.did_type),
-                                                 rule.scope,
-                                                 rule.name)
-                add_message(event_type='email',
-                            payload={'body': text,
-                                     'to': [email],
-                                     'subject': 'Replication rule %s has been approved' % (str(rule.id))},
-                            session=session)
-            # Also notify the other approvers
-            if notify_approvers:
-                recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
-                for recipent in recipents:
-                    text = """Replication rule %s has been approved.
-
---
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
-
+            try:
+                with open('%s/rule_approved_user.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                    template = Template(templatefile.read())
+                email = get_account(account=rule.account, session=session).email
+                if email:
+                    text = template.safe_substitute({'rule_id': str(rule.id),
+                                                     'expires_at': str(rule.expires_at),
+                                                     'rse_expression': rule.rse_expression,
+                                                     'comment': rule.comments,
+                                                     'scope': rule.scope,
+                                                     'name': rule.name,
+                                                     'did_type': rule.did_type})
                     add_message(event_type='email',
                                 payload={'body': text,
-                                         'to': [recipent[0]],
-                                         'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                         'to': [email],
+                                         'subject': 'Replication rule %s has been approved' % (str(rule.id))},
                                 session=session)
-                return
+            except (IOError, NoOptionError):
+                pass
+
+            # Also notify the other approvers
+            if notify_approvers:
+                try:
+                    with open('%s/rule_approved_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                        template = Template(templatefile.read())
+                    text = template.safe_substitute({'rule_id': str(rule.id)})
+                    recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+                    for recipent in recipents:
+                        add_message(event_type='email',
+                                    payload={'body': text,
+                                             'to': [recipent[0]],
+                                             'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                    session=session)
+                except (IOError, NoOptionError):
+                    pass
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
@@ -1675,52 +1664,40 @@ def deny_rule(rule_id, session=None):
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
         if rule.state == RuleState.WAITING_APPROVAL:
-            email = get_account(account=rule.account, session=session).email
-            if email:
-                text = """The replication rule has been DENIED
-
-Rule description:
-  ID:                   %s
-  RSE Expression:       %s
-  Comment:              %s
-  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
-
-DID description:
-
-  Scope:Name:           %s:%s
-  Type:                 %s
-  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
-
---
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
-                                                 str(rule.rse_expression),
-                                                 str(rule.comments),
-                                                 str(rule.id),
-                                                 rule.scope,
-                                                 rule.name,
-                                                 str(rule.did_type),
-                                                 rule.scope,
-                                                 rule.name)
-                add_message(event_type='email',
-                            payload={'body': text,
-                                     'to': [email],
-                                     'subject': 'Replication rule %s has been denied' % (str(rule.id))},
-                            session=session)
+            try:
+                with open('%s/rule_denied_user.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                    template = Template(templatefile.read())
+                email = get_account(account=rule.account, session=session).email
+                if email:
+                    text = template.safe_substitute({'rule_id': str(rule.id),
+                                                     'rse_expression': rule.rse_expression,
+                                                     'comment': rule.comments,
+                                                     'scope': rule.scope,
+                                                     'name': rule.name,
+                                                     'did_type': rule.did_type})
+                    add_message(event_type='email',
+                                payload={'body': text,
+                                         'to': [email],
+                                         'subject': 'Replication rule %s has been denied' % (str(rule.id))},
+                                session=session)
+            except (IOError, NoOptionError):
+                pass
             delete_rule(rule_id=rule_id, session=session)
+
             # Also notify the other approvers
-            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
-            for recipent in recipents:
-                text = """Replication rule %s has been denied.
-
---
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
-
-                add_message(event_type='email',
-                            payload={'body': text,
-                                     'to': [recipent[0]],
-                                     'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
-                            session=session)
-            return
+            try:
+                with open('%s/rule_denied_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                    template = Template(templatefile.read())
+                text = template.safe_substitute({'rule_id': str(rule.id)})
+                recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+                for recipent in recipents:
+                    add_message(event_type='email',
+                                payload={'body': text,
+                                         'to': [recipent[0]],
+                                         'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                session=session)
+            except (IOError, NoOptionError):
+                pass
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
@@ -2335,7 +2312,8 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
 
         if source_rses:
             for replica_clause_chunk in replica_clause_chunks:
-                tmp_source_replicas = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).filter(or_(*replica_clause_chunk), or_(*source_replicas_rse_clause), models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
+                tmp_source_replicas = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+                    filter(or_(*replica_clause_chunk), or_(*source_replicas_rse_clause), models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
                     .with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').all()
                 for scope, name, rse_id in tmp_source_replicas:
                     if (scope, name) not in source_replicas:
@@ -2456,6 +2434,12 @@ def __create_rule_approval_email(rule, session=None):
     :param session:   The database session in use.
     """
 
+    try:
+        with open('%s/rule_approval_request.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+            template = Template(templatefile.read())
+    except (IOError, NoOptionError):
+        return
+
     did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)
     rses = [rep['rse'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
@@ -2463,56 +2447,21 @@ def __create_rule_approval_email(rule, session=None):
     recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
 
     for recipent in recipents:
-        text = """A new rule has been requested for approval in Rucio.
-
-Rule description:
-
-  ID:                   %s
-  Creation date:        %s
-  Expiration date:      %s
-  Rule owner:           %s (%s)
-  RSE Expression:       %s
-  Comment:              %s
-  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
-
-DID description:
-
-  Scope:Name:           %s:%s
-  Type:                 %s
-  Number of files:      %s
-  Total size:           %s
-  Closed:               %s
-  Complete replicas:    %s
-  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
-
-Action:
-
-  Approve:              https://rucio-ui.cern.ch/rule?rule_id=%s&action=approve&ui_account=%s
-  Deny:                 https://rucio-ui.cern.ch/rule?rule_id=%s&action=deny&ui_account=%s
-
-
-
---
-To update the quotas of this RSE goto: https://rucio-ui.cern.ch/r2d2/manage_quota?rse=%s
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
-                                                 str(rule.created_at),
-                                                 str(rule.expires_at),
-                                                 rule.account, get_account(account=rule.account, session=session).email,
-                                                 rule.rse_expression,
-                                                 rule.comments,
-                                                 str(rule.id),
-                                                 rule.scope, rule.name,
-                                                 rule.did_type,
-                                                 '0' if did['length'] is None else str(did['length']),
-                                                 '0' if did['bytes'] is None else sizefmt(did['bytes']),
-                                                 not did['open'],
-                                                 ', '.join(rses),
-                                                 rule.scope, rule.name,
-                                                 str(rule.id),
-                                                 recipent[1],
-                                                 str(rule.id),
-                                                 recipent[1],
-                                                 rule.rse_expression)
+        text = template.safe_substitute({'rule_id': str(rule.id),
+                                         'created_at': str(rule.created_at),
+                                         'expires_at': str(rule.expires_at),
+                                         'account': rule.account,
+                                         'email': get_account(account=rule.account, session=session).email,
+                                         'rse_expression': rule.rse_expression,
+                                         'comment': rule.comments,
+                                         'scope': rule.scope,
+                                         'name': rule.name,
+                                         'did_type': rule.did_type,
+                                         'length': '0' if did['length'] is None else str(did['length']),
+                                         'bytes': '0' if did['bytes'] is None else sizefmt(did['bytes']),
+                                         'closed': not did['open'],
+                                         'complete_rses': ', '.join(rses),
+                                         'approver': recipent[1]})
 
         add_message(event_type='email',
                     payload={'body': text,
