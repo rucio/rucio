@@ -40,6 +40,7 @@ from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
 
 
+
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)
 
