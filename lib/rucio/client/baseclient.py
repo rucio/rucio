@@ -6,7 +6,7 @@
   You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
@@ -17,7 +17,6 @@ Client class for callers of the Rucio system
 import random
 import sys
 
-from getpass import getuser
 from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs
 from shutil import move
@@ -37,7 +36,7 @@ disable_warnings()
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter
-from rucio.common.utils import build_url, my_key_generator, parse_response
+from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response
 from rucio import version
 
 LOG = getLogger(__name__)
@@ -67,9 +66,8 @@ class BaseClient(object):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    AUTH_RETRIES = 2
-    REQUEST_RETRIES = 3
-    TOKEN_PATH_PREFIX = '/tmp/' + getuser() + '/.rucio_'
+    AUTH_RETRIES, REQUEST_RETRIES = 2, 3
+    TOKEN_PATH_PREFIX = get_tmp_dir() + '/.rucio_'
     TOKEN_PREFIX = 'auth_token_'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
@@ -171,7 +169,6 @@ class BaseClient(object):
 
         token_path = self.TOKEN_PATH_PREFIX + self.account
         self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
-
         self.__authenticate()
 
         try:
