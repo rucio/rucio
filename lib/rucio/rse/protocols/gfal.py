@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wguan@cern.ch>, 2014-2015
+# - Wen Guan, <wguan@cern.ch>, 2014-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 import errno
@@ -314,7 +314,7 @@ class Default(protocol.RSEProtocol):
         if src_spacetoken:
             params.src_spacetoken = str(src_spacetoken)
         if dest_spacetoken:
-            params.dest_spacetoken = str(dest_spacetoken)
+            params.dst_spacetoken = str(dest_spacetoken)
         params.timeout = 3600
 
         dir_name = os.path.dirname(dest)
