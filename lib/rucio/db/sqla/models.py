@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
@@ -375,6 +375,18 @@ class BadReplicas(BASE, ModelBase):
                    CheckConstraint('RSE_ID IS NOT NULL', name='BAD_REPLICAS_RSE_ID_NN'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_REPLICAS_ACCOUNT_FK'),
                    Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state'))
+
+
+class QuarantinedReplica(BASE, ModelBase, Versioned):
+    """Represents the quarantined replicas"""
+    __tablename__ = 'quarantined_replicas'
+    rse_id = Column(GUID())
+    path = Column(String(1024))
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
+    bytes = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('rse_id', 'path', name='QURD_REPLICAS_STATE_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'))
 
 
 class DIDKey(BASE, ModelBase):
@@ -1037,6 +1049,7 @@ def register_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
               RSECounter,
@@ -1088,6 +1101,7 @@ def unregister_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
               RSECounter,
