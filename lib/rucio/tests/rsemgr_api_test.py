@@ -157,6 +157,10 @@ class MgrTestCases():
         """(RSE/PROTOCOLS): Delete a single file from storage (Success)"""
         mgr.delete(self.rse_settings, {'name': '3_rse_remote_delete.raw', 'scope': 'user.%s' % self.user})
 
+    def test_delete_mgr_ok_dir(self):
+        """(RSE/PROTOCOLS): Delete a directory from storage (Success)"""
+        mgr.delete(self.rse_settings, {'path': 'user/%s' % self.user, 'name': 'user.%s' % self.user, 'scope': 'user.%s' % self.user})
+
     def test_delete_mgr_SourceNotFound_multi(self):
         """(RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
         status, details = mgr.delete(self.rse_settings, [{'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user}, {'name': '4_rse_remote_delete.raw', 'scope': 'user.%s' % self.user}])
