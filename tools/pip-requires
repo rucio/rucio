@@ -3,11 +3,11 @@
 #cx_Oracle==5.1.2           # Oracle connector
 # MySQL-python==1.2.5      # MySQL connector
 # psycopg2==2.5.2          # PostgreSQL
-SQLAlchemy==1.0.9 # db backend
-alembic==0.8.3 # Lightweight database migration tool for SQLAlchemy
+SQLAlchemy==1.0.12 # db backend
+alembic==0.8.5 # Lightweight database migration tool for SQLAlchemy
 Mako==1.0.3 # Templating language
-python-editor==0.4 # Programmatically open an editor, capture the result.
-flup==1.0.3.dev-20110405 # Needed to deploy web.py in lighthttpd
+python-editor==0.5 # Programmatically open an editor, capture the result.
+flup==1.0.3.dev20110405 # Needed to deploy web.py in lighthttpd
 web.py==0.37 # Python web framework
 python-memcached==1.57 # Quick and small memcached client for Python
 ntplib>=0.3.3 # NTPlib
@@ -19,7 +19,7 @@ jsonschema==2.5.1 # JSON Schema
 repoze.lru==0.6 # LRU (least recently used) cache implementation.
 
 # kombu==2.1.2             # AMQP Messaging Framework
-python-dateutil==2.4.2 # Extensions to the standard datetime module
+python-dateutil==2.5.0 # Extensions to the standard datetime module
 ordereddict==1.1 # Ordered Dictionary
 # amqplib==1.0.2           # AMQP Client Library
 meld3==1.0.2 # an HTML/XML templating system for Python 2.3+
@@ -29,10 +29,10 @@ meld3==1.0.2 # an HTML/XML templating system for Python 2.3+
 pysftp==0.2.8 # forces installation of paramikoi and pycrypto
 paramiko==1.16.0 #
 pycrypto==2.6.1 #
-s3cmd==1.6.0 # Package built from http://s3tools.org/download
+s3cmd==1.6.1 # Package built from http://s3tools.org/download
 python-magic==0.4.10 # Dependency for S3, but unfortunately not installed by it automatically
 gearman==2.0.2 # Used only gor emulation framework
-stomp.py==4.1.8 # ActiveMQ Messaging Protocol
+stomp.py==4.1.9 # ActiveMQ Messaging Protocol
 dnspython==1.12.0 # To resolve ActiveMQ broker alias
 pystatsd==0.1.10 # Needed to log into graphite with more than 1 Hz
 pygeoip==0.3.2 # GeoIP API
