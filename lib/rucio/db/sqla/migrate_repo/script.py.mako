@@ -15,13 +15,13 @@ Create Date: ${create_date}
 
 """
 
-# revision identifiers, used by Alembic.
-revision = ${repr(up_revision)}
-down_revision = ${repr(down_revision)}
-
 from alembic import context, op
 import sqlalchemy as sa
 ${imports if imports else ""}
+
+# revision identifiers, used by Alembic.
+revision = ${repr(up_revision)}
+down_revision = ${repr(down_revision)}
 
 def upgrade():
     if context.get_context().dialect.name not in ('sqlite'):
