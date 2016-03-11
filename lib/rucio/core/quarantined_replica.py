@@ -10,6 +10,8 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 """
 
+import datetime
+
 from sqlalchemy import or_
 from sqlalchemy.sql.expression import bindparam, text
 
@@ -54,12 +56,18 @@ def delete_quarantined_replicas(rse, replicas, session=None):
     for replica in replicas:
         conditions.append(models.QuarantinedReplica.path == replica['path'])
 
-    query = session.query(models.QuarantinedReplica)
-    for condition in chunks(conditions, 1000):
-            query.\
-                filter(models.QuarantinedReplica.rse_id == rse_id).\
-                filter(or_(*condition)).\
-                delete(synchronize_session=False)
+    session.query(models.QuarantinedReplica).\
+        filter(models.QuarantinedReplica.rse_id == rse_id).\
+        filter(or_(*conditions)).\
+        delete(synchronize_session=False)
+
+    session.\
+        bulk_insert_mappings(models.QuarantinedReplica.__history_mapper__.class_,
+                             [{'rse_id': rse_id, 'path': replica['path'],
+                               'bytes': replica.get('bytes'),
+                               'created_at': replica.get('created_at'),
+                               'deleted_at': datetime.datetime.utcnow()}
+                              for replica in replicas])
 
 
 @read_session
@@ -78,7 +86,8 @@ def list_quarantined_replicas(rse, limit, worker_number=None, total_workers=None
     rse_id = get_rse_id(rse, session=session)
 
     query = session.query(models.QuarantinedReplica.path,
-                          models.QuarantinedReplica.bytes).\
+                          models.QuarantinedReplica.bytes,
+                          models.QuarantinedReplica.created_at).\
         filter(models.QuarantinedReplica.rse_id == rse_id).\
         limit(limit)
 
@@ -94,5 +103,6 @@ def list_quarantined_replicas(rse, limit, worker_number=None, total_workers=None
     return [{'path': path,
              'rse': rse,
              'rse_id': rse_id,
+             'created_at': created_at,
              'bytes': bytes}
-            for path, bytes in query]
+            for path, bytes, created_at in query]

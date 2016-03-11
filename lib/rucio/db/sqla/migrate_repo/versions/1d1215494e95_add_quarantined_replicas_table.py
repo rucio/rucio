@@ -42,7 +42,8 @@ def upgrade():
                     sa.Column('adler32', sa.String(8)),
                     sa.Column('bytes', sa.BigInteger),
                     sa.Column('updated_at', sa.DateTime),
-                    sa.Column('created_at', sa.DateTime))
+                    sa.Column('created_at', sa.DateTime),
+                    sa.Column('deleted_at', sa.DateTime))
 
     if context.get_context().dialect.name not in ('sqlite'):
         op.create_primary_key('QURD_REPLICAS_STATE_PK', 'quarantined_replicas', ['rse_id', 'path'])
