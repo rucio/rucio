@@ -89,7 +89,7 @@ if __name__ == '__main__':
                 r.add_rse_attribute(name, 'datapolicyt0disk', 'T0Disk' in rse['datapolicies'], 'root')
                 r.add_rse_attribute(name, 'datapolicyt0tape', 'T0Tape' in rse['datapolicies'], 'root')
                 r.add_rse_attribute(name, 'datapolicyt0taskoutput', 'T0TaskOutput' in rse['datapolicies'], 'root')
-                r.add_rse_attribute(name, 'datapolicynucleus', 'Nucleus' in rse['datapolicies'], 'root')                
+                r.add_rse_attribute(name, 'datapolicynucleus', 'Nucleus' in rse['datapolicies'], 'root')
 
             space_used = r.get_rse_usage(rse=name, issuer='root', source='srm')
             if space_used and space_used[0]['free']:
