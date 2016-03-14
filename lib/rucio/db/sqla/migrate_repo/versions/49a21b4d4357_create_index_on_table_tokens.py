@@ -15,7 +15,7 @@ Create Date: 2014-06-11 09:02:49.654877
 
 """
 
-from alembic import op
+from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision = '49a21b4d4357'
@@ -23,12 +23,15 @@ down_revision = '2eef46be23d4'
 
 
 def upgrade():
-    op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
-    op.create_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens', ['account', 'expired_at'])
-    op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
+
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
+        op.create_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens', ['account', 'expired_at'])
+        op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
 
 
 def downgrade():
-    op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
-    op.drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens')
-    op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
+        op.drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens')
+        op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
