@@ -209,6 +209,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
     for dataset in datasetfiles:
+        selected_rse_ids = []
         for file in dataset['files']:
             if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
                 # Nothing to do as the file already has the requested amount of locks
@@ -238,6 +239,27 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
                                           source_replicas=source_replicas,
                                           transfers_to_create=transfers_to_create,
                                           session=session)
+                selected_rse_ids.append(rse_tuple[0])
+        if dataset['scope'] is not None:
+            for rse_id in list(set(selected_rse_ids)):
+                try:
+                    session.query(models.CollectionReplica).filter(models.CollectionReplica.scope == dataset['scope'],
+                                                                   models.CollectionReplica.name == dataset['name'],
+                                                                   models.CollectionReplica.rse_id == rse_id).one()
+                except NoResultFound:
+                    models.CollectionReplica(scope=dataset['scope'],
+                                             name=dataset['name'],
+                                             did_type=DIDType.DATASET,
+                                             rse_id=rse_id,
+                                             bytes=0,
+                                             length=0,
+                                             available_bytes=0,
+                                             available_replicas_cnt=0,
+                                             state=ReplicaState.UNAVAILABLE).save(session=session)
+                    models.UpdatedCollectionReplica(scope=dataset['scope'],
+                                                    name=dataset['name'],
+                                                    rse_id=rse_id,
+                                                    did_type=DIDType.DATASET).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
