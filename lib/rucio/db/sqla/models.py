@@ -76,7 +76,10 @@ def _add_hint(conn, element, multiparams, params):
 
 @event.listens_for(PrimaryKeyConstraint, "after_parent_attach")
 def _pk_constraint_name(const, table):
-    const.name = "%s_PK" % (table.name.upper(),)
+    if table.name.upper() == 'QUARANTINED_REPLICAS_HISTORY':
+        const.name = "QRD_REPLICAS_HISTORY_PK"
+    else:
+        const.name = "%s_PK" % (table.name.upper(),)
 
 
 @event.listens_for(ForeignKeyConstraint, "after_parent_attach")
@@ -110,6 +113,10 @@ def _ck_constraint_name(const, table):
         const.name = "SUBS_HISTORY_RETROACTIVE_CHK"
     elif const.name == 'SUBSCRIPTIONS_STATE_CHK' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
         const.name = "SUBS_HISTORY_STATE_CHK"
+    elif const.name == 'QUARANTINED_REPLICAS_CREATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS':
+        const.name = "QURD_REPLICAS_CREATED_NN"
+    elif const.name == 'QUARANTINED_REPLICAS_UPDATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS':
+        const.name = "QURD_REPLICAS_UPDATED_NN"
 
     # SQLAlchemy sometimes does not propagate Enum names properly to subclassed objects,
     # so we have to uniquify them - hopefully fixed in SQLA v9
