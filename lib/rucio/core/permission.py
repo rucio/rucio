@@ -492,7 +492,7 @@ def perm_approve_rule(issuer, kwargs):
     # GROUPDISK admins can approve the rule
     admin_for_phys_group = []
     for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('physgroup-') and kv['value'] == 'admin':
+        if kv['key'].startswith('group-') and kv['value'] == 'admin':
             admin_for_phys_group.append(kv['key'].partition('-')[2])
     if admin_for_phys_group:
         for rse in rses:
