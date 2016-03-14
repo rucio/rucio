@@ -56,18 +56,19 @@ def delete_quarantined_replicas(rse, replicas, session=None):
     for replica in replicas:
         conditions.append(models.QuarantinedReplica.path == replica['path'])
 
-    session.query(models.QuarantinedReplica).\
-        filter(models.QuarantinedReplica.rse_id == rse_id).\
-        filter(or_(*conditions)).\
-        delete(synchronize_session=False)
+    if conditions:
+        session.query(models.QuarantinedReplica).\
+            filter(models.QuarantinedReplica.rse_id == rse_id).\
+            filter(or_(*conditions)).\
+            delete(synchronize_session=False)
 
-    session.\
-        bulk_insert_mappings(models.QuarantinedReplica.__history_mapper__.class_,
-                             [{'rse_id': rse_id, 'path': replica['path'],
-                               'bytes': replica.get('bytes'),
-                               'created_at': replica.get('created_at'),
-                               'deleted_at': datetime.datetime.utcnow()}
-                              for replica in replicas])
+        session.\
+            bulk_insert_mappings(models.QuarantinedReplica.__history_mapper__.class_,
+                                 [{'rse_id': rse_id, 'path': replica['path'],
+                                   'bytes': replica.get('bytes'),
+                                   'created_at': replica.get('created_at'),
+                                   'deleted_at': datetime.datetime.utcnow()}
+                                  for replica in replicas])
 
 
 @read_session
