@@ -94,7 +94,7 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
 
                 msg['From'] = email_from
                 msg['To'] = ', '.join(t['payload']['to'])
-                msg['Subject'] = '[RUCIO] %s' % t['payload']['subject']
+                msg['Subject'] = t['payload']['subject']
 
                 if send_email:
                     s = smtplib.SMTP()

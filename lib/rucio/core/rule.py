@@ -1684,7 +1684,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
-                                     'subject': 'Replication rule %s has been approved' % (str(rule.id))},
+                                     'subject': '[RUCIO] Replication rule %s has been approved' % (str(rule.id))},
                             session=session)
             # Also notify the other approvers
             if notify_approvers:
@@ -1698,7 +1698,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
                     add_message(event_type='email',
                                 payload={'body': text,
                                          'to': [recipent[0]],
-                                         'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                         'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                                 session=session)
                 return
     except NoResultFound:
@@ -1749,7 +1749,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
-                                     'subject': 'Replication rule %s has been denied' % (str(rule.id))},
+                                     'subject': '[RUCIO] Replication rule %s has been denied' % (str(rule.id))},
                             session=session)
             delete_rule(rule_id=rule_id, session=session)
             # Also notify the other approvers
@@ -1763,7 +1763,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [recipent[0]],
-                                     'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                     'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                             session=session)
             return
     except NoResultFound:
@@ -2564,7 +2564,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
         add_message(event_type='email',
                     payload={'body': text,
                              'to': [recipent[0]],
-                             'subject': 'Request to approve replication rule %s' % (str(rule.id))},
+                             'subject': '[RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                     session=session)
 
 
