@@ -2607,6 +2607,21 @@ def __create_recipents_list(rse_expression, session=None):
                     except:
                         pass
 
+    # GROUPDISK
+    if not recipents:
+        for rse in parse_expression(rse_expression, session=session):
+            rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+            if rse_attr.get('type', '') == 'GROUPDISK':
+                accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),
+                                                                                          value='admin').all()
+                for account in accounts:
+                    try:
+                        email = get_account(account=account[0], session=session).email
+                        if email:
+                            recipents.append((email, account[0]))
+                    except:
+                        pass
+
     # DDMADMIN as default
     if not recipents:
         recipents = [('atlas-adc-ddm-support@cern.ch', 'ddmadmin')]
