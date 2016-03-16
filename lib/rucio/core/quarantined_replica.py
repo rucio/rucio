@@ -37,6 +37,7 @@ def add_quarantined_replicas(rse, replicas, session=None):
         session.bulk_insert_mappings(
             models.QuarantinedReplica,
             [{'rse_id': rse_id, 'path': file['path'],
+              'scope': file.get('scope'), 'name': file.get('name'),
               'bytes': file.get('bytes')} for file in files])
 
 
@@ -62,13 +63,13 @@ def delete_quarantined_replicas(rse, replicas, session=None):
             filter(or_(*conditions)).\
             delete(synchronize_session=False)
 
-        session.\
-            bulk_insert_mappings(models.QuarantinedReplica.__history_mapper__.class_,
-                                 [{'rse_id': rse_id, 'path': replica['path'],
-                                   'bytes': replica.get('bytes'),
-                                   'created_at': replica.get('created_at'),
-                                   'deleted_at': datetime.datetime.utcnow()}
-                                  for replica in replicas])
+    session.\
+        bulk_insert_mappings(models.QuarantinedReplica.__history_mapper__.class_,
+                             [{'rse_id': rse_id, 'path': replica['path'],
+                               'bytes': replica.get('bytes'),
+                               'created_at': replica.get('created_at'),
+                               'deleted_at': datetime.datetime.utcnow()}
+                              for replica in replicas])
 
 
 @read_session
@@ -88,9 +89,10 @@ def list_quarantined_replicas(rse, limit, worker_number=None, total_workers=None
 
     query = session.query(models.QuarantinedReplica.path,
                           models.QuarantinedReplica.bytes,
+                          models.QuarantinedReplica.scope,
+                          models.QuarantinedReplica.name,
                           models.QuarantinedReplica.created_at).\
-        filter(models.QuarantinedReplica.rse_id == rse_id).\
-        limit(limit)
+        filter(models.QuarantinedReplica.rse_id == rse_id)
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
@@ -105,5 +107,7 @@ def list_quarantined_replicas(rse, limit, worker_number=None, total_workers=None
              'rse': rse,
              'rse_id': rse_id,
              'created_at': created_at,
+             'scope': scope,
+             'name': name,
              'bytes': bytes}
-            for path, bytes, created_at in query]
+            for path, bytes, scope, name, created_at in query.limit(limit)]
