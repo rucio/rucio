@@ -2126,7 +2126,7 @@ Commands:
     get_parser.add_argument('--rse', action='store', help='Force the RSE from where the DID is downloaded')
     get_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
-    get_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download')
+    get_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download')
     get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
     get_parser.add_argument('--new', action='store_true', default=False, help="Choose the new download thread model.")
 
