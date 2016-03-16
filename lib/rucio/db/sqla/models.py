@@ -389,9 +389,11 @@ class QuarantinedReplica(BASE, ModelBase, Versioned):
     __tablename__ = 'quarantined_replicas'
     rse_id = Column(GUID())
     path = Column(String(1024))
+    bytes = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
-    bytes = Column(BigInteger)
+    scope = Column(String(25))
+    name = Column(String(255))
     _table_args = (PrimaryKeyConstraint('rse_id', 'path', name='QURD_REPLICAS_STATE_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'))
 
