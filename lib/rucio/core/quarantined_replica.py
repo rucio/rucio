@@ -12,8 +12,8 @@
 
 import datetime
 
-from sqlalchemy import or_
-from sqlalchemy.sql.expression import bindparam, text
+from sqlalchemy import and_, or_, exists, not_
+from sqlalchemy.sql.expression import bindparam, text, select
 
 from rucio.common.utils import chunks
 from rucio.core.rse import get_rse_id
@@ -93,6 +93,13 @@ def list_quarantined_replicas(rse, limit, worker_number=None, total_workers=None
                           models.QuarantinedReplica.name,
                           models.QuarantinedReplica.created_at).\
         filter(models.QuarantinedReplica.rse_id == rse_id)
+
+    # do no delete valid replicas
+    stmt = exists(select([1]).prefix_with("/*+ index(REPLICAS REPLICAS_PK) */", dialect='oracle')).\
+        where(and_(models.RSEFileAssociation.scope == models.QuarantinedReplica.scope,
+                   models.RSEFileAssociation.name == models.QuarantinedReplica.name,
+                   models.RSEFileAssociation.rse_id == models.QuarantinedReplica.rse_id))
+    query = query.filter(not_(stmt))
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
