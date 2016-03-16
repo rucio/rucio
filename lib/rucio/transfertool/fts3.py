@@ -227,7 +227,7 @@ def get_deterministic_id(external_host, sid):
     root = uuid.UUID(baseid)
     atlas = uuid.uuid5(root, voname)
     jobid = uuid.uuid5(atlas, sid)
-    return jobid
+    return str(jobid)
 
 
 def submit_bulk_transfers(external_host, files, job_params, timeout=None):
