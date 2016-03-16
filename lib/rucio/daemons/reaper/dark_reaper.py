@@ -104,6 +104,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                             deleted_replicas.append(replica)
                         except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                             err_msg = 'Dark Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, str(error))
+                            logging.warning(err_msg)
                             add_message('deletion-failed', {'scope': replica['scope'],
                                                             'name': replica['name'],
                                                             'rse': rse,
