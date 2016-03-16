@@ -108,6 +108,9 @@ def check_token(rendered_tpl):
                     def_account = account
                     break
 
+            selected_account = cookies().get('rucio-selected-account')
+            if (selected_account):
+                def_account = selected_account
             try:
                 token = authentication.get_auth_token_x509(def_account,
                                                            dn,
