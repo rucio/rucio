@@ -9,7 +9,7 @@ $def with (token, account, rucio_ui_version, content)
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
  - Martin Barisits, <martin.barisits@cern.ch>, 2014
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
@@ -30,6 +30,7 @@ $def with (token, account, rucio_ui_version, content)
     <link rel="stylesheet" href="/static/rucio.css?version=46fac23ad7ccb02940ff4fb598c24470">
     <link rel="stylesheet" href="/static/foundation-icons.css">
     <link rel="stylesheet" href="//code.jquery.com/ui/1.11.3/themes/smoothness/jquery-ui.css">
+    <link rel="stylesheet" href="/static/chosen.min.css">
     <script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
     <script src="//code.jquery.com/ui/1.11.1/jquery-ui.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
@@ -40,6 +41,7 @@ $def with (token, account, rucio_ui_version, content)
     <script src="//code.highcharts.com/modules/exporting.js"></script>
     <script src="/static/jquery.storageapi.min.js"></script>
     <script src="/static/filesize.min.js"></script>
+    <script src="/static/chosen.jquery.min.js"></script>
     <script src="/static/rucio.js?version=f2c300a9e79edd12b1ddf4a33c59014c"></script>
     <script src="/static/base.js?version=0a2f68b5e8485eae750fd8ce69fb69df"></script>
     $:content.script
