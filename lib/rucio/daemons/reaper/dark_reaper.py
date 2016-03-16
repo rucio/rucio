@@ -14,6 +14,7 @@ Dark Reaper is a daemon to manage quarantined file deletion.
 import hashlib
 import logging
 import os
+import random
 import socket
 import sys
 import threading
@@ -21,9 +22,11 @@ import time
 import traceback
 
 from rucio.common.config import config_get
-from rucio.common.exception import SourceNotFound, DatabaseException
+from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUnavailable,
+                                    RSEAccessDenied, ResourceTemporaryUnavailable)
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
+from rucio.core.message import add_message
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
                                             delete_quarantined_replicas)
 from rucio.rse import rsemanager as rsemgr
@@ -65,6 +68,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
             logging.info('Dark Reaper({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
             nothing_to_do = True
 
+            random.shuffle(rses)
             for rse in rses:
                 replicas = list_quarantined_replicas(rse=rse,
                                                      limit=chunk_size, worker_number=worker_number,
@@ -87,12 +91,26 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                             prot.delete(pfn)
                             duration = time.time() - start
                             logging.info('Dark Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, duration)
-
+                            add_message('deletion-done', {'scope': replica['scope'],
+                                                          'name': replica['name'],
+                                                          'rse': rse,
+                                                          'file-size': replica.get('bytes') or 0,
+                                                          'url': pfn,
+                                                          'duration': duration})
                             deleted_replicas.append(replica)
                         except SourceNotFound:
                             err_msg = 'Dark Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse)
                             logging.warning(err_msg)
                             deleted_replicas.append(replica)
+                        except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
+                            err_msg = 'Dark Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, str(error))
+                            add_message('deletion-failed', {'scope': replica['scope'],
+                                                            'name': replica['name'],
+                                                            'rse': rse,
+                                                            'file-size': replica['bytes'] or 0,
+                                                            'url': pfn,
+                                                            'reason': str(error)})
+
                         except:
                             logging.critical(traceback.format_exc())
                 finally:
