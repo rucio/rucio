@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2016
 
 """${message}
 
