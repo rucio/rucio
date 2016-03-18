@@ -156,7 +156,7 @@ class AMQConsumer(object):
                 if 'remoteSite' not in report:
                     continue
                 if not report['remoteSite']:
-                    return
+                    continue
 
                 rses = report['remoteSite'].strip().split(',')
                 for rse in rses:
