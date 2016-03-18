@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
@@ -112,6 +112,7 @@ class AMQConsumer(object):
         Bulk update atime.
         """
         replicas = []
+        rses = []
         for report in self.__reports:
             try:
                 # check if scope in report. if not skip this one.
@@ -128,26 +129,38 @@ class AMQConsumer(object):
                 if report['eventType'] == 'get':
                     record_counter('daemons.tracer.kronos.dq2clients')
                 elif report['eventType'] == 'get_sm':
-                    record_counter('daemons.tracer.kronos.panda_production')
+                    if report['eventVersion'] == 'aCT':
+                        record_counter('daemons.tracer.kronos.panda_production_act')
+                    else:
+                        record_counter('daemons.tracer.kronos.panda_production')
                 elif report['eventType'] == 'get_sm_a':
-                    record_counter('daemons.tracer.kronos.panda_analysis')
+                    if report['eventVersion'] == 'aCT':
+                        record_counter('daemons.tracer.kronos.panda_analysis_act')
+                    else:
+                        record_counter('daemons.tracer.kronos.panda_analysis')
                 elif report['eventType'] == 'download':
                     record_counter('daemons.tracer.kronos.rucio_download')
                 else:
                     record_counter('daemons.tracer.kronos.other_get')
 
                 # check if the report has the right state.
-                if report['clientState'] in self.__excluded_states:
-                    continue
+                if report['eventVersion'] != 'aCT':
+                    if report['clientState'] in self.__excluded_states:
+                        continue
 
                 if report['eventType'] == 'download':
                     report['usrdn'] = report['account']
 
                 if report['usrdn'] in self.__excluded_usrdns:
                     continue
+                if 'remoteSite' not in report:
+                    continue
                 if not report['remoteSite']:
                     continue
-                replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']), 'traceTimeentryUnix': report['traceTimeentryUnix']})
+
+                rses = report['remoteSite'].strip().split(',')
+                for rse in rses:
+                    replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']), 'traceTimeentryUnix': report['traceTimeentryUnix']})
             except (KeyError, AttributeError):
                 logging.error(format_exc())
                 record_counter('daemons.tracer.kronos.report_error')
@@ -159,7 +172,8 @@ class AMQConsumer(object):
                 # do not update _dis datasets
                 if did['scope'] == 'panda' and '_dis' in did['name']:
                     continue
-                self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+                for rse in rses:
+                    self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
         logging.debug(replicas)
 
