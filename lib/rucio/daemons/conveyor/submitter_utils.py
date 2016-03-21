@@ -1327,6 +1327,7 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
                                          'external_id': eid,
                                          'request_type': file.get('request_type', None),
                                          'dst_rse': file_metadata.get('dst_rse', None),
+                                         'src_rse': file_metadata.get('src_rse', None),
                                          'src_rse_id': file_metadata['src_rse_id'],
                                          'metadata': file_metadata}
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
@@ -1339,6 +1340,7 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
                                          'external_id': None,
                                          'request_type': file.get('request_type', None),
                                          'dst_rse': file_metadata.get('dst_rse', None),
+                                         'src_rse': file_metadata.get('src_rse', None),
                                          'src_rse_id': file_metadata['src_rse_id'],
                                          'metadata': file_metadata}
                 log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMISSION_FAILED, None)
