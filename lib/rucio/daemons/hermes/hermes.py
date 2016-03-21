@@ -8,7 +8,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
+   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2016
    - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
    - Wen Guan, <wen.guan@cern.ch>, 2014
    - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
@@ -40,7 +40,6 @@ from rucio.common.config import config_get, config_get_int
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
-from rucio.db.sqla.session import get_session
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)
@@ -59,7 +58,7 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
 
     logging.info('[email] starting - threads (%i) bulk (%i)' % (thread, bulk))
 
-    executable = '[email] %s' % ' '.join(sys.argv)
+    executable = 'hermes [email]'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
@@ -96,7 +95,7 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
 
                 msg['From'] = email_from
                 msg['To'] = ', '.join(t['payload']['to'])
-                msg['Subject'] = '[RUCIO] %s' % t['payload']['subject']
+                msg['Subject'] = t['payload']['subject']
 
                 if send_email:
                     s = smtplib.SMTP()
@@ -130,13 +129,6 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
     logging.debug('[email] %i:%i - graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
 
 
-class Deliver(object):
-
-    def __init__(self, broker):
-        self.__broker = broker
-        self.__session = get_session()
-
-
 def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10):
     '''
     Main loop to deliver messages to a broker.
@@ -158,7 +150,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                       reconnect_attempts_max=9999))
     destination = config_get('messaging-hermes', 'destination')
 
-    executable = '[broker] %s' % ' '.join(sys.argv)
+    executable = 'hermes [broker]'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
@@ -171,9 +163,6 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
     while not graceful_stop.is_set():
 
         hb = live(executable, hostname, pid, hb_thread)
-        logging.debug('[broker] %i:%i - bulk %i' % (hb['assign_thread'],
-                                                    hb['nr_threads'],
-                                                    bulk))
 
         t_start = time.time()
         try:
@@ -191,6 +180,9 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                     total_threads=hb['nr_threads'])
 
             if tmp != []:
+                logging.debug('[broker] %i:%i - retrieved %i messages' % (hb['assign_thread'],
+                                                                          hb['nr_threads'],
+                                                                          len(tmp)))
                 to_delete = []
                 for t in tmp:
 
