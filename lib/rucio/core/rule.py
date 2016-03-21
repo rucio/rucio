@@ -42,7 +42,7 @@ from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did
+from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did, update_requests_priority
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db.sqla import models
@@ -1012,7 +1012,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority']
 
     for key in options:
         if key not in valid_options:
@@ -1101,6 +1101,9 @@ def update_rule(rule_id, options, session=None):
             elif key == 'cancel_requests':
                 pass
 
+            elif key == 'priority':
+                update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
+
             else:
                 setattr(rule, key, options[key])
 
@@ -1110,6 +1113,8 @@ def update_rule(rule_id, options, session=None):
            or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0]))\
            or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
             raise DuplicateRule()
+        else:
+            raise e
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
@@ -1639,7 +1644,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
-                                     'subject': 'Replication rule %s has been approved' % (str(rule.id))},
+                                     'subject': '[RUCIO] Replication rule %s has been approved' % (str(rule.id))},
                             session=session)
             # Also notify the other approvers
             if notify_approvers:
@@ -1653,7 +1658,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
                     add_message(event_type='email',
                                 payload={'body': text,
                                          'to': [recipent[0]],
-                                         'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                         'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                                 session=session)
                 return
     except NoResultFound:
@@ -1704,7 +1709,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
-                                     'subject': 'Replication rule %s has been denied' % (str(rule.id))},
+                                     'subject': '[RUCIO] Replication rule %s has been denied' % (str(rule.id))},
                             session=session)
             delete_rule(rule_id=rule_id, session=session)
             # Also notify the other approvers
@@ -1718,7 +1723,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [recipent[0]],
-                                     'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                     'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                             session=session)
             return
     except NoResultFound:
@@ -2517,7 +2522,7 @@ THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
         add_message(event_type='email',
                     payload={'body': text,
                              'to': [recipent[0]],
-                             'subject': 'Request to approve replication rule %s' % (str(rule.id))},
+                             'subject': '[RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                     session=session)
 
 
@@ -2551,6 +2556,21 @@ def __create_recipents_list(rse_expression, session=None):
             rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
             if rse_attr.get('type', '') == 'LOCALGROUPDISK':
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
+                                                                                          value='admin').all()
+                for account in accounts:
+                    try:
+                        email = get_account(account=account[0], session=session).email
+                        if email:
+                            recipents.append((email, account[0]))
+                    except:
+                        pass
+
+    # GROUPDISK
+    if not recipents:
+        for rse in parse_expression(rse_expression, session=session):
+            rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+            if rse_attr.get('type', '') == 'GROUPDISK':
+                accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),
                                                                                           value='admin').all()
                 for account in accounts:
                     try:

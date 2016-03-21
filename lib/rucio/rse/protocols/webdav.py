@@ -9,11 +9,14 @@
   Authors:
   - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2015
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+  - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
 '''
 
 import os
 import requests
 import ssl
+
+import xml.etree.ElementTree as ET
 
 from progressbar import ProgressBar
 from requests.adapters import HTTPAdapter
@@ -78,7 +81,8 @@ class IterableToFileAdapter(object):
         self.length = len(iterable)
 
     def read(self, size=-1):   # TBD: add buffer for `len(data) > size` case
-        return next(self.iterator, b'')
+        nextvar = next(self.iterator, b'')
+        return nextvar
 
     def __len__(self):
         return self.length
@@ -471,4 +475,28 @@ class Default(protocol.RSEProtocol):
             p.close()
             return dict
         except requests.exceptions.ConnectionError, error:
+            raise exception.ServiceUnavailable(error)
+
+    def get_space_usage(self):
+        """
+        Get RSE space usage information.
+
+        :returns: a list with dict containing 'totalsize' and 'unusedsize'
+
+        :raises ServiceUnavailable: if some generic error occured in the library.
+        """
+        endpoint_basepath = self.path2pfn('')
+        headers = {'Depth': '0'}
+
+        try:
+            root = ET.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)
+            usedsize = root[0][1][0].find('{DAV:}quota-used-bytes').text
+            try:
+                unusedsize = root[0][1][0].find('{DAV:}quota-available-bytes').text
+            except Exception as error:
+                print 'No free space given, return -999'
+                unusedsize = -999
+            totalsize = int(usedsize) + int(unusedsize)
+            return totalsize, unusedsize
+        except Exception as error:
             raise exception.ServiceUnavailable(error)

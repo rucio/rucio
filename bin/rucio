@@ -1620,6 +1620,8 @@ def update_rule(args):
         options['source_replica_expression'] = None if args.source_replica_expression.lower() == 'none' else args.source_replica_expression
     if args.cancel_requests:
         options['cancel_requests'] = True
+    if args.priority:
+        options['priority'] = int(args.priority)
     client.update_replication_rule(rule_id=args.rule_id, options=options)
     print 'Updated Rule'
     return SUCCESS
@@ -2128,6 +2130,7 @@ Commands:
     get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
     get_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download')
     get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
+    get_parser.add_argument('--new', action='store_true', default=False, help="Choose the new download thread model.")
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
@@ -2239,6 +2242,7 @@ Commands:
     update_rule_parser.add_argument('--activity', dest='rule_activity', action='store', help='Activity of the rule.')
     update_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Source replica expression of the rule.')
     update_rule_parser.add_argument('--cancel-requests', dest='cancel_requests', action='store_true', help='Cancel requests when setting rules to stuck.')
+    update_rule_parser.add_argument('--priority', dest='priority', action='store', help='Priority of the requests of the rule')
 
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='Show the list of all the registered Rucio Storage Elements (RSEs).')
