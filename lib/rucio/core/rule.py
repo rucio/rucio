@@ -42,7 +42,7 @@ from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did
+from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did, update_requests_priority
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db.sqla import models
@@ -1012,7 +1012,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority']
 
     for key in options:
         if key not in valid_options:
@@ -1101,6 +1101,9 @@ def update_rule(rule_id, options, session=None):
             elif key == 'cancel_requests':
                 pass
 
+            elif key == 'priority':
+                update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
+
             else:
                 setattr(rule, key, options[key])
 
@@ -1110,6 +1113,8 @@ def update_rule(rule_id, options, session=None):
            or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0]))\
            or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
             raise DuplicateRule()
+        else:
+            raise e
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
