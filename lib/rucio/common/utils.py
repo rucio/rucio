@@ -468,7 +468,7 @@ def get_tmp_dir():
             break
 
     if not tmp_dir:
-        return os.getcwd() + '/' + user + '/'
+        return '/tmp/' + user + '/'
 
     return tmp_dir + '/' + user + '/'
 
