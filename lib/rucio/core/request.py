@@ -745,8 +745,7 @@ def query_request(request_id, transfertool='fts3', session=None):
     return req_status
 
 
-@read_session
-def query_latest(external_host, state, last_nhours=1, session=None):
+def query_latest(external_host, state, last_nhours=1):
     """
     Query the latest requests in last n hours with state.
 
@@ -777,55 +776,7 @@ def query_latest(external_host, state, last_nhours=1, session=None):
                 set_transfer_update_time(external_host, resp['job_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
             except Exception, e:
                 logging.debug("Exception happened when updating transfer updatetime: %s" % str(e).replace('\n', ''))
-            continue
 
-        request_id = resp['job_metadata']['request_id']
-        try:
-            req = get_request(request_id, session=session)
-        except:
-            logging.warning(traceback.format_exc())
-            continue
-
-        if req:
-            if resp['job_state'] in (str(FTSState.FAILED),
-                                     str(FTSState.FINISHEDDIRTY),
-                                     str(FTSState.CANCELED)):
-                new_state = RequestState.FAILED
-            elif resp['job_state'] == str(FTSState.FINISHED):
-                new_state = RequestState.DONE
-
-            if 'finish_time' in resp and resp['finish_time'] and 'submit_time' in resp and resp['submit_time']:
-                duration = (datetime.datetime.strptime(resp['finish_time'], '%Y-%m-%dT%H:%M:%S') -
-                            datetime.datetime.strptime(resp['submit_time'], '%Y-%m-%dT%H:%M:%S')).seconds
-            else:
-                duration = 0
-
-            response = {'new_state': new_state,
-                        'transfer_id': resp.get('job_id', None),
-                        'job_state': resp.get('job_state', None),
-                        # Todo, "source_se" is just a short se path, for example "srm://srm-atlas.cern.ch". It's not full surl.
-                        # for multiple source replicas, it will be None
-                        'src_url': resp.get('source_se', None),
-                        'dst_url': req['dest_url'],
-                        'transferred_at': datetime.datetime.strptime(resp['finish_time'], '%Y-%m-%dT%H:%M:%S') if resp['finish_time'] else None,
-                        # Todo, should be file start_time, not job start_time
-                        'duration': duration,
-                        'reason': resp.get('reason', None),
-                        'scope': resp['job_metadata'].get('scope', None),
-                        'name': resp['job_metadata'].get('name', None),
-                        'src_rse': resp['job_metadata'].get('src_rse', None),  # Todo for multiple source replicas
-                        'dst_rse': resp['job_metadata'].get('dst_rse', None),
-                        'request_id': resp['job_metadata'].get('request_id', None),
-                        'activity': resp['job_metadata'].get('activity', None),
-                        'dest_rse_id': resp['job_metadata'].get('dest_rse_id', None),
-                        'previous_attempt_id': resp['job_metadata'].get('previous_attempt_id', None),
-                        'adler32': resp['job_metadata'].get('adler32', None),
-                        'md5': resp['job_metadata'].get('md5', None),
-                        'filesize': resp['job_metadata'].get('filesize', None),
-                        'external_host': external_host,
-                        'job_m_replica': None,   # Todo, do we need to set it true? If it's true, common.get_source_rse will not called to correct the src_url and src_rse
-                        'details': {'files': resp['job_metadata']}}
-            ret_resps.append(response)
     return ret_resps
 
 
@@ -1039,12 +990,12 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
     record_counter('core.request.set_transfer_update_time')
 
     try:
-        rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'updated_at': update_time}, synchronize_session=False)
+        rowcount = session.query(models.Request).filter_by(external_id=transfer_id, state=RequestState.SUBMITTED).update({'updated_at': update_time}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 
     if not rowcount:
-        raise UnsupportedOperation("Transfer %s on %s cannot be updated." % (transfer_id, external_host))
+        raise UnsupportedOperation("Transfer %s doesn't exist or its status is not submitted." % (transfer_id))
 
 
 @transactional_session
