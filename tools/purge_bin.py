@@ -10,7 +10,11 @@ def purge_bin():
     try:
         session = get_session()
         sql = "PURGE RECYCLEBIN"
-        session.execute(sql).fetchall()
+        session.execute(sql)
+        sql = "select table_name from user_tables"
+        for table in session.execute(sql):
+            query = "drop table %s cascade constraints" % table[0]
+            session.execute(query)
     except:
         pass
     finally:
