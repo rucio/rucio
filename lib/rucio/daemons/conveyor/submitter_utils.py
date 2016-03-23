@@ -1141,10 +1141,11 @@ def get_stagein_transfers(process=None, total_processes=None, thread=None, total
     return transfers
 
 
-def handle_requests_with_scheme_mismatch(transfers=None, reqs_scheme_mismatch=None):
+def handle_requests_with_scheme_mismatch(transfers=None, reqs_scheme_mismatch=None, schemes=None):
     if not reqs_scheme_mismatch:
         return transfers
     for request_id in reqs_scheme_mismatch:
+        logging.debug("Request %s with schemes %s has mismatched sources, will handle it" % (request_id, schemes))
         found_avail_source = 0
         if request_id in transfers:
             for source in transfers[request_id]['sources']:
@@ -1218,7 +1219,7 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
                                                                                                                        bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
     request.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
     request.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES)
-    transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch)
+    transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch, schemes)
 
     for request_id in transfers:
         sources = transfers[request_id]['sources']

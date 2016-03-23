@@ -8,7 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -31,6 +31,7 @@ import stomp
 from rucio.common.config import config_get, config_get_int
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter
+from rucio.core.request import set_transfer_update_time
 from rucio.daemons.conveyor import common
 from rucio.db.sqla.constants import RequestState, FTSCompleteState
 
@@ -46,10 +47,11 @@ graceful_stop = threading.Event()
 
 class Receiver(object):
 
-    def __init__(self, broker, id, total_threads):
+    def __init__(self, broker, id, total_threads, full_mode=False):
         self.__broker = broker
         self.__id = id
         self.__total_threads = total_threads
+        self.__full_mode = full_mode
 
     def on_error(self, headers, message):
         record_counter('daemons.conveyor.receiver.error')
@@ -139,18 +141,26 @@ class Receiver(object):
                                                                                                               response['transfer_id'],
                                                                                                               response['new_state']))
 
-                        ret = common.update_request_state(response)
-                        record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
+                        if self.__full_mode:
+                            ret = common.update_request_state(response)
+                            record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
+                        else:
+                            try:
+                                logging.debug("Update request %s update time" % response['request_id'])
+                                set_transfer_update_time(response['external_host'], response['transfer_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
+                                record_counter('daemons.conveyor.receiver.set_transfer_update_time')
+                            except Exception, e:
+                                logging.debug("Failed to update transfer's update time: %s" % str(e))
                 except:
                     logging.critical(traceback.format_exc())
 
 
-def receiver(id, total_threads=1):
+def receiver(id, total_threads=1, full_mode=False):
     """
     Main loop to consume messages from the FTS3 producer.
     """
 
-    logging.info('receiver starting')
+    logging.info('receiver starting in full mode: %s' % full_mode)
 
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
@@ -194,7 +204,7 @@ def receiver(id, total_threads=1):
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
-                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads))
+                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads, full_mode=full_mode))
                 conn.start()
                 conn.connect()
                 conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
@@ -224,13 +234,14 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, total_threads=1):
+def run(once=False, total_threads=1, full_mode=False):
     """
     Starts up the receiver thread
     """
 
     logging.info('starting receiver thread')
     threads = [threading.Thread(target=receiver, kwargs={'id': i,
+                                                         'full_mode': full_mode,
                                                          'total_threads': total_threads}) for i in xrange(0, total_threads)]
 
     [t.start() for t in threads]
