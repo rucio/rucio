@@ -461,6 +461,14 @@ def get_tmp_dir():
     """
     Get a path where to store temporary files.
 
+    Rucio searches a standard list of temporary directories. The list is:
+
+        The directory named by the TMP environment variable.
+        The directory named by the TMPDIR environment variable.
+        The directory named by the TEMP environment variable.
+
+        As a last resort, the /tmp/ directory.
+
     :return: A path.
     """
     user, tmp_dir = None, None
