@@ -22,6 +22,8 @@ import re
 import subprocess
 import zlib
 
+
+from getpass import getuser
 from itertools import izip_longest
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
@@ -459,16 +461,32 @@ def get_tmp_dir():
     """
     Get a path where to store temporary files.
 
+    Rucio searches a standard list of temporary directories. The list is:
+
+        The directory named by the TMP environment variable.
+        The directory named by the TMPDIR environment variable.
+        The directory named by the TEMP environment variable.
+
+        As a last resort, the /tmp/ directory.
+
     :return: A path.
     """
-    tmp_dir, user = None, pwd.getpwuid(os.getuid()).pw_name
+    user, tmp_dir = None, None
+    try:
+        user = pwd.getpwuid(os.getuid()).pw_name
+    except:
+        pass
+
     for env_var in ('TMP', 'TMPDIR', 'TEMP'):
         if env_var in os.environ:
             tmp_dir = os.environ[env_var]
             break
 
+    if not user:
+        user = getuser()
+
     if not tmp_dir:
-        return os.getcwd() + '/' + user + '/'
+        return '/tmp/' + user + '/'
 
     return tmp_dir + '/' + user + '/'
 
