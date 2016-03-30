@@ -88,7 +88,6 @@ class Default(protocol.RSEProtocol):
         """
         return '%s:%s' % (scope, name)
 
-
     def path2pfn(self, path):
         """
             Returns a fully qualified PFN for the file referred by path.
