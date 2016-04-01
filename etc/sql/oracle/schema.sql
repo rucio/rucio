@@ -40,7 +40,6 @@ REPLICAS
 RULES
 LOCKS
 DATASET_LOCKS
-ACCOUNT_COUNTERS
 ACCOUNT_LIMITS
 RSE_COUNTERS
 RSE_LIMITS
@@ -752,27 +751,6 @@ CREATE TABLE dataset_locks (
 CREATE INDEX "DATASET_LOCKS_RULE_ID_IDX" ON dataset_locks(rule_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01 ;
 CREATE INDEX "DATASET_LOCKS_RSE_ID_IDX" ON dataset_locks(rse_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01 ;
 
-
-
-
--- ========================================= ACCOUNT_COUNTERS (IOT structure) =========================================
--- Description: Table to store the disk usage per account and rse_id
--- Estimated volume: ~700 RSEs * 2000 accounts
--- Access pattern: by account, rse_id
-
-CREATE TABLE account_counters(
-        account VARCHAR2(25 CHAR),
-        rse_id RAW(16),
-        files NUMBER(19),
-        bytes NUMBER(19),
-        updated_at DATE,
-        created_at DATE,
-        CONSTRAINT "ACCOUNT_COUNTERS_PK" PRIMARY KEY (account, rse_id),
-        CONSTRAINT "ACCOUNT_COUNTERS_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-        CONSTRAINT "ACCOUNT_COUNTERS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-        CONSTRAINT "ACCOUNT_COUNTERS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-        CONSTRAINT "ACCOUNT_COUNTERS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
 
 
