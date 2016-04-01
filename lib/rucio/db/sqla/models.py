@@ -819,18 +819,6 @@ class DatasetLock(BASE, ModelBase):
                    Index('DATASET_LOCKS_RSE_ID_IDX', 'rse_id'))
 
 
-class AccountCounter(BASE, ModelBase):
-    """Represents counters for locks and accounts"""
-    __tablename__ = 'account_counters'
-    account = Column(String(25))
-    rse_id = Column(GUID())
-    files = Column(BigInteger)
-    bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_COUNTERS_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_COUNTERS_ID_FK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_COUNTERS_ACCOUNT_FK'))
-
-
 class UpdatedAccountCounter(BASE, ModelBase):
     """Represents the recently updated Account counters"""
     __tablename__ = 'updated_account_counters'
@@ -1020,7 +1008,6 @@ def register_models(engine):
 
     models = (Account,
               AccountAttrAssociation,
-              AccountCounter,
               AccountLimit,
               AccountUsage,
               AlembicVersion,
@@ -1071,7 +1058,6 @@ def unregister_models(engine):
     """
     models = (Account,
               AccountAttrAssociation,
-              AccountCounter,
               AccountLimit,
               AccountUsage,
               AlembicVersion,
