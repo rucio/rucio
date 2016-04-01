@@ -172,6 +172,7 @@ class Default(protocol.RSEProtocol):
         if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
             space_token = self.attributes['extended_attributes']['space_token']
 
+        dest = os.path.abspath(dest)
         if ':' not in dest:
             dest = "file:" + dest
 
@@ -201,6 +202,7 @@ class Default(protocol.RSEProtocol):
 
         source_url = '%s/%s' % (source_dir, source) if source_dir else source
 
+        source_url = os.path.abspath(source_url)
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
         if ':' not in source_url:
