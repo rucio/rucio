@@ -100,7 +100,7 @@ def submitter(once=False, rses=[], mock=False,
                 ts = time.time()
                 transfers = get_stagein_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'],
                                                   limit=bulk, activity=activity, rses=rse_ids, mock=mock, schemes=scheme, bring_online=bring_online, retry_other_fts=retry_other_fts)
-                record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
+                record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.stager.get_stagein_transfers', len(transfers))
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', len(transfers))
                 logging.info("%s:%s Got %s stagein transfers for %s" % (process, hb['assign_thread'], len(transfers), activity))
@@ -109,7 +109,7 @@ def submitter(once=False, rses=[], mock=False,
                 logging.info("%s:%s Starting to group transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy)
-                record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
+                record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
 
                 logging.info("%s:%s Starting to submit transfers for %s" % (process, hb['assign_thread'], activity))
                 # submit transfers

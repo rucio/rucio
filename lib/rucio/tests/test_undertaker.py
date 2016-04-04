@@ -42,18 +42,18 @@ class TestUndertaker:
                   'type': 'DATASET',
                   'lifetime': -1,
                   'rules': [{'account': 'jdoe', 'copies': 1,
-                             'rse_expression':  'MOCK',
+                             'rse_expression': 'MOCK',
                              'grouping': 'DATASET'}]} for i in xrange(nbdatasets)]
 
         add_dids(dids=dsns1 + dsns2, account='root')
 
         replicas = list()
         for dsn in dsns1 + dsns2:
-            files = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in xrange(nbfiles)]
+            files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in xrange(nbfiles)]
             attach_dids(scope=tmp_scope, name=dsn['name'], rse='MOCK', dids=files, account='root')
             replicas += files
 
-        add_rules(dids=dsns1, rules=[{'account': 'jdoe', 'copies': 1, 'rse_expression':  'MOCK', 'grouping': 'DATASET'}])
+        add_rules(dids=dsns1, rules=[{'account': 'jdoe', 'copies': 1, 'rse_expression': 'MOCK', 'grouping': 'DATASET'}])
 
         undertaker(worker_number=1, total_workers=1, once=True)
         undertaker(worker_number=1, total_workers=1, once=True)
@@ -73,7 +73,7 @@ class TestUndertaker:
                'type': 'DATASET',
                'lifetime': -1,
                'rules': [{'account': 'jdoe', 'copies': 1,
-                          'rse_expression':  'MOCK', 'locked': True,
+                          'rse_expression': 'MOCK', 'locked': True,
                           'grouping': 'DATASET'}]}
 
         add_dids(dids=[dsn], account='root')

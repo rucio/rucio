@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
             space_used = r.get_rse_usage(rse=name, issuer='root', source='srm')
             if space_used and space_used[0]['free']:
-                freespace = space_used[0]['free']/1000/1000/1000/1000
+                freespace = space_used[0]['free'] / 1000 / 1000 / 1000 / 1000
                 r.add_rse_attribute(name, 'freespace', freespace, 'root')
 
         except RucioException as e:

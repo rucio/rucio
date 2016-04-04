@@ -279,7 +279,7 @@ def handle_requests(reqs):
                 if request_core.should_retry_request(req):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
-                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
+                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
                     if new_req:
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
@@ -295,13 +295,13 @@ def handle_requests(reqs):
                     replica['err_msg'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
             elif req['state'] == RequestState.SUBMITTING or req['state'] == RequestState.SUBMISSION_FAILED or req['state'] == RequestState.LOST:
-                if req['updated_at'] > (datetime.datetime.utcnow()-datetime.timedelta(minutes=120)):
+                if req['updated_at'] > (datetime.datetime.utcnow() - datetime.timedelta(minutes=120)):
                     continue
 
                 if request_core.should_retry_request(req):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
-                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
+                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
                     if new_req:
                         logging.warn('REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                 req['name'],
@@ -318,7 +318,7 @@ def handle_requests(reqs):
                 if request_core.should_retry_request(req):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
-                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
+                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
                     if new_req:
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
@@ -467,7 +467,7 @@ def handle_submitting_requests(older_than=1800, process=None, total_processes=No
 
     reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                  state=RequestState.SUBMITTING,
-                                 older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
+                                 older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
                                  process=process, total_processes=total_processes,
                                  thread=thread, total_threads=total_threads,
                                  session=session)
@@ -562,7 +562,7 @@ def poll_transfers(external_host, xfers, process=0, thread=0, timeout=None):
             ts = time.time()
             logging.info('%i:%i - polling %i transfers against %s with timeout %s' % (process, thread, len(xfers), external_host, timeout))
             resps = request_core.bulk_query_transfers(external_host, xfers, 'fts3', timeout)
-            record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time()-ts)*1000/len(xfers))
+            record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - ts) * 1000 / len(xfers))
         except RequestException, e:
             logging.error("Failed to contact FTS server: %s" % (str(e)))
             return

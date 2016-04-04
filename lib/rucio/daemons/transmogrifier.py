@@ -339,7 +339,7 @@ def transmogrifier(bulk=5, once=False):
                                     else:
                                         logging.info('Thread [%i/%i] : %s Rule inserted in %f seconds' % (heart_beat['assign_thread'],
                                                                                                           heart_beat['nr_threads'], str(nb_rule),
-                                                                                                          time.time()-stime))
+                                                                                                          time.time() - stime))
                     except DataIdentifierNotFound, error:
                         logging.warning(error)
 
@@ -369,7 +369,7 @@ def transmogrifier(bulk=5, once=False):
                                                                     heart_beat['nr_threads'],
                                                                     str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)
-            monitor.record_timer(stat='transmogrifier.job.duration', time=1000*tottime)
+            monitor.record_timer(stat='transmogrifier.job.duration', time=1000 * tottime)
         except Exception:
             exc_type, exc_value, exc_traceback = exc_info()
             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
@@ -379,7 +379,7 @@ def transmogrifier(bulk=5, once=False):
         if once is True:
             break
         if tottime < 10:
-            time.sleep(10-tottime)
+            time.sleep(10 - tottime)
     heartbeat.die(executable, hostname, pid, hb_thread)
     logging.info('Thread [%i/%i] : Graceful stop requested' % (heart_beat['assign_thread'],
                                                                heart_beat['nr_threads']))
