@@ -17,6 +17,12 @@ Client class for callers of the Rucio system
 import random
 import sys
 
+from rucio.common import exception
+from rucio.common.config import config_get
+from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter
+from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response
+from rucio import version
+
 from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs
 from shutil import move
@@ -32,12 +38,6 @@ from requests_kerberos import HTTPKerberosAuth
 # See https://github.com/kennethreitz/requests/issues/2214
 from requests.packages.urllib3 import disable_warnings
 disable_warnings()
-
-from rucio.common import exception
-from rucio.common.config import config_get
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter
-from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response
-from rucio import version
 
 LOG = getLogger(__name__)
 SH = StreamHandler()

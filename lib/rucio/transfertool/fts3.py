@@ -278,7 +278,7 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
                               data=params_str,
                               headers={'Content-Type': 'application/json'},
                               timeout=timeout)
-            record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000/len(files))
+            record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000 / len(files))
         except:
             logging.warn('Could not submit transfer to %s - %s' % (external_host, str(traceback.format_exc())))
     else:
@@ -288,7 +288,7 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
                               data=params_str,
                               headers={'Content-Type': 'application/json'},
                               timeout=timeout)
-            record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000/len(files))
+            record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000 / len(files))
         except:
             logging.warn('Could not submit transfer to %s - %s' % (external_host, str(traceback.format_exc())))
 

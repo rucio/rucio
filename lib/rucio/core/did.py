@@ -73,17 +73,17 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number-1), bindparam('total_workers', total_workers-1)]
+            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers-1, worker_number-1))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
         elif session.bind.dialect.name == 'sqlite':
             row_count = 0
             dids = list()
             for scope, name, did_type, created_at in query.yield_per(10):
-                if int(md5(name).hexdigest(), 16) % total_workers == worker_number-1:
+                if int(md5(name).hexdigest(), 16) % total_workers == worker_number - 1:
                     dids.append({'scope': scope,
                                  'name': name,
                                  'did_type': did_type,
@@ -433,7 +433,7 @@ def delete_dids(dids, account, session=None):
                               bindparam("did_created_at", did.get('created_at')),
                               models.DataIdentifierAssociation.created_at,
                               models.DataIdentifierAssociation.updated_at,
-                              bindparam("deleted_at",  datetime.utcnow())).\
+                              bindparam("deleted_at", datetime.utcnow())).\
                 filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
                             models.DataIdentifierAssociation.name == did['name']))
             ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
@@ -606,14 +606,14 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
         elif isinstance(did_type, EnumSymbol):
             query = query.filter_by(did_type=did_type)
 
-    if total_threads and (total_threads-1) > 0:
+    if total_threads and (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_threads - 1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
     row_count = 0
     for chunk in query.yield_per(10):

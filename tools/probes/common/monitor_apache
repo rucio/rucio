@@ -33,7 +33,7 @@ def monitor_apache(uri):
     fqdn = uri
     logger.info('Requesting status from Apache running on %s' % fqdn)
 
-    response = requests.get(fqdn+'/server-status?auto', verify='/etc/pki/tls/certs/CERN-bundle.pem', timeout=5)
+    response = requests.get(fqdn + '/server-status?auto', verify='/etc/pki/tls/certs/CERN-bundle.pem', timeout=5)
     if response.status_code != 200:
         logger.error('Invalid HTTP status code')
         logger.error(response)
@@ -100,7 +100,7 @@ def backend_xsls(fqdn, stats):
     for s in stats:
         if s in ['server_name']:
             continue
-        xml_str += '<numericvalue name="rucio.%s.httpd.%s" desc="#">%s</numericvalue>' % (stats['server_name'], s,  stats[s])
+        xml_str += '<numericvalue name="rucio.%s.httpd.%s" desc="#">%s</numericvalue>' % (stats['server_name'], s, stats[s])
     xml_str += '</data>'
     xml_str += '</serviceupdate>'
     logger.debug(xml_str)
@@ -109,8 +109,8 @@ def backend_xsls(fqdn, stats):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Takes backend classes and Apaches URLs')
-    parser.add_argument('--backend', metavar='B', type=str, nargs='+',  help='a list of type::URL[:port][::scope] to which the script will report to. E.g. --backend graphite::rucio-graphite-int.cern.ch:8025/listen/now::rucio.backends xsls::xsls.cern.ch')
-    parser.add_argument('--server', metavar='S', type=str, nargs='+',  help='a list of type::FQDN tuples. Type is either apache or nginx. E.g. --sever apache::www.example.com nginx::www.example2.net')
+    parser.add_argument('--backend', metavar='B', type=str, nargs='+', help='a list of type::URL[:port][::scope] to which the script will report to. E.g. --backend graphite::rucio-graphite-int.cern.ch:8025/listen/now::rucio.backends xsls::xsls.cern.ch')
+    parser.add_argument('--server', metavar='S', type=str, nargs='+', help='a list of type::FQDN tuples. Type is either apache or nginx. E.g. --sever apache::www.example.com nginx::www.example2.net')
     parser.add_argument('--verbose', help='makes it chatty', action="store_true")
     args = parser.parse_args()
 

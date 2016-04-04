@@ -51,21 +51,21 @@ def rule_repairer(once=False):
     paused_rules = {}  # {rule_id: datetime}
 
     # Make an initial heartbeat so that all judge-repairers have the correct worker number on the next try
-    live(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread, older_than=60*30)
+    live(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread, older_than=60*30)
+            heartbeat = live(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
 
             # Select a bunch of rules for this worker to repair
             start = time.time()
-            rules = get_stuck_rules(total_workers=heartbeat['nr_threads']-1,
+            rules = get_stuck_rules(total_workers=heartbeat['nr_threads'] - 1,
                                     worker_number=heartbeat['assign_thread'],
                                     delta=-1 if once else 1800,
                                     limit=100)
-            logging.debug('rule_repairer[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, time.time() - start, len(rules)))
+            logging.debug('rule_repairer[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(rules)))
 
             # Refresh paused rules
             iter_paused_rules = deepcopy(paused_rules)
@@ -77,22 +77,22 @@ def rule_repairer(once=False):
             rules = [rule for rule in rules if rule[0] not in paused_rules]
 
             if not rules and not once:
-                logging.debug('rule_repairer[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
+                logging.debug('rule_repairer[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
                 graceful_stop.wait(60)
             else:
                 for rule_id in rules:
                     rule_id = rule_id[0]
-                    logging.info('rule_repairer[%s/%s]: Repairing rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
+                    logging.info('rule_repairer[%s/%s]: Repairing rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
                     if graceful_stop.is_set():
                         break
                     try:
                         start = time.time()
                         repair_rule(rule_id=rule_id)
-                        logging.debug('rule_repairer[%s/%s]: repairing of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id, time.time() - start))
+                        logging.debug('rule_repairer[%s/%s]: repairing of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id, time.time() - start))
                     except (DatabaseException, DatabaseError), e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
-                            logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
+                            logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
                             record_counter('rule.judge.exceptions.LocksDetected')
                         elif match('.*QueuePool.*', str(e.args[0])):
                             logging.warning(traceback.format_exc())

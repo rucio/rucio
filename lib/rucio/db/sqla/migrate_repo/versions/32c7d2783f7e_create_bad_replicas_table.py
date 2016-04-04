@@ -16,13 +16,13 @@ Create Date: 2015-02-13 16:22:05.154112
 
 """
 
-# revision identifiers, used by Alembic.
-revision = '32c7d2783f7e'
-down_revision = '384b96aa0f60'
-
 from alembic import op, context
 import sqlalchemy as sa
 from rucio.db.sqla.types import GUID
+
+# revision identifiers, used by Alembic.
+revision = '32c7d2783f7e'
+down_revision = '384b96aa0f60'
 
 
 def upgrade():
