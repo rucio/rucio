@@ -142,7 +142,7 @@ def set_user_quotas(name, accs, fraction, ddm_type, overwrite=True):
         print "%s: no cached info" % name
     elif abs(rse_capacity[name] - srmtotal) > 1000**4:
         # Changes of <1TB are not important enough to change all the quotas
-        print "%s capacity changed from %dTB to %dTB" % (name, rse_capacity[name]/1000**4, srmtotal/1000**4)
+        print "%s capacity changed from %dTB to %dTB" % (name, rse_capacity[name] / 1000**4, srmtotal / 1000**4)
     else:
         print "%s total capacity is unchanged since last run" % name
         # Just change new accounts

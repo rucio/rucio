@@ -32,13 +32,13 @@ if __name__ == "__main__":
         utctimeInt = int(time.mktime(utctime.timetuple()))
         timeStart = utctimeInt - 3600
         timeEnd = timeStart + 3600
-        timezoneoffset = int((datetime.datetime.now()-datetime.datetime.utcnow()).seconds)
+        timezoneoffset = int((datetime.datetime.now() - datetime.datetime.utcnow()).seconds)
 
         # replicas time hourly
         sql = "select t2.rse, t1.created_at, t1.timediff from (select  rse_id, created_at, (cast(updated_at as timestamp)- cast(created_at as timestamp)) timediff \
               from atlas_rucio.replicas where scope='tests' and state='A' and \
-              updated_at>= to_timestamp('"+str(datetime.datetime.fromtimestamp(timeStart))+"','YYYY-MM-dd HH24:MI:SS') \
-              and updated_at <to_timestamp('"+str(datetime.datetime.fromtimestamp(timeEnd))+"','YYYY-MM-dd HH24:MI:SS')) t1 \
+              updated_at>= to_timestamp('" + str(datetime.datetime.fromtimestamp(timeStart)) + "','YYYY-MM-dd HH24:MI:SS') \
+              and updated_at <to_timestamp('" + str(datetime.datetime.fromtimestamp(timeEnd)) + "','YYYY-MM-dd HH24:MI:SS')) t1 \
               join (select id, rse from atlas_rucio.rses where rse not like 'CERN-PROD-RUCIOTEST_DATADISK') t2 on t1.rse_id = t2.id  "
         result = session.execute(sql).fetchall()
         for rse, timeCreate, timeDiff in result:

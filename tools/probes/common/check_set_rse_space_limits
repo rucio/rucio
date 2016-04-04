@@ -52,7 +52,7 @@ max_files_to_delete = 100
 
 
 def TB(size):
-    return size/1000.0**4
+    return size / 1000.0**4
 
 # Get endpoint info from AGIS to know the RSEs in each space token
 try:
@@ -164,7 +164,7 @@ for rse in rses:
     capacity -= used_others
     print "Remaining capacity for %s: %sTB" % (rse, TB(capacity))
 
-    minfree = min(capacity * policy[token][0]/100.0, policy[token][1]*(1000**4))
+    minfree = min(capacity * policy[token][0] / 100.0, policy[token][1] * (1000**4))
     print "RSE %s: calculated minimum free space %sTB" % (rse, TB(minfree))
 
     # Add dark data to minfree (only if positive)

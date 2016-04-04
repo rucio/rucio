@@ -67,7 +67,7 @@ def html_table_row(tmpDaemon, pp_nodes=False):
         html += '<td align="center">%s<br/><font color="%s">%s<br/>(%s)</font></td>' % (locale.format("%.0f", tmpDaemon[current][sl], grouping=True),
                                                                                         color,
                                                                                         locale.format("%+.0f", delta, grouping=True),
-                                                                                        locale.format("%+.1f", (100.0/tmpDaemon[base][sl]*delta), grouping=True)+'%' if tmpDaemon[base][sl] != 0 else '-')
+                                                                                        locale.format("%+.1f", (100.0 / tmpDaemon[base][sl] * delta), grouping=True) + '%' if tmpDaemon[base][sl] != 0 else '-')
     html += '</tr>\n'
     return html
 

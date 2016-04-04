@@ -161,7 +161,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                             logging.info('Reaper %s-%s: free space is above minimum limit for %s', worker_number, child_number, rse['rse'])
                         else:
                             if total_children and total_children > 0:
-                                needed_free_space_per_child = needed_free_space/float(total_children)
+                                needed_free_space_per_child = needed_free_space / float(total_children)
 
                     start = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
@@ -216,7 +216,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                 prot.delete(replica['pfn'])
                                             else:
                                                 logging.warning('Reaper %s-%s: Deletion UNAVAILABLE of %s:%s as %s on %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
-                                        monitor.record_timer('daemons.reaper.delete.%s.%s' % (prot.attributes['scheme'], rse['rse']), (time.time()-start)*1000)
+                                        monitor.record_timer('daemons.reaper.delete.%s.%s' % (prot.attributes['scheme'], rse['rse']), (time.time() - start) * 1000)
                                         duration = time.time() - start
 
                                         deleted_files.append({'scope': replica['scope'], 'name': replica['name']})

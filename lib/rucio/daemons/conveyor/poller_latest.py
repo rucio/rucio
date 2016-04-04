@@ -73,7 +73,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                     resps = request.query_latest(external_host, state=state, last_nhours=last_nhours)
                 except:
                     logging.error(traceback.format_exc())
-                record_timer('daemons.conveyor.poller_latest.000-query_latest', (time.time()-ts)*1000)
+                record_timer('daemons.conveyor.poller_latest.000-query_latest', (time.time() - ts) * 1000)
 
                 if resps:
                     logging.info('poller_latest - polling %i requests' % (len(resps)))
