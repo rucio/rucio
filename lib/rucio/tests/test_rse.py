@@ -89,13 +89,13 @@ class TestRSECoreApi():
         assert_equal(transfers, limits[activity][rse_id]['transfers'])
         assert_equal(waitings, limits[activity][rse_id]['waitings'])
 
-        set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers+1, transfers=transfers+1, waitings=waitings+1)
+        set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
         limits = get_rse_transfer_limits(rse=rse, activity=activity)
         assert_in(activity, limits.keys())
         assert_in(rse_id, limits[activity])
-        assert_equal(max_transfers+1, limits[activity][rse_id]['max_transfers'])
-        assert_equal(transfers+1, limits[activity][rse_id]['transfers'])
-        assert_equal(waitings+1, limits[activity][rse_id]['waitings'])
+        assert_equal(max_transfers + 1, limits[activity][rse_id]['max_transfers'])
+        assert_equal(transfers + 1, limits[activity][rse_id]['transfers'])
+        assert_equal(waitings + 1, limits[activity][rse_id]['waitings'])
 
         delete_rse_transfer_limits(rse=rse, activity=activity)
         limits = get_rse_transfer_limits(rse=rse, activity=activity)

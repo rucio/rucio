@@ -40,13 +40,13 @@ def rse_update(once=False, process=0, total_processes=1, thread=0, threads_per_p
         try:
             # Select a bunch of rses for to update for this worker
             start = time.time()  # NOQA
-            rse_ids = get_updated_rse_counters(total_workers=total_processes*threads_per_process-1,
-                                               worker_number=process*threads_per_process+thread)
+            rse_ids = get_updated_rse_counters(total_workers=total_processes * threads_per_process - 1,
+                                               worker_number=process * threads_per_process + thread)
             logging.debug('Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
 
             # If the list is empty, sent the worker to sleep
             if not rse_ids and not once:
-                logging.info('rse_update[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1))
+                logging.info('rse_update[%s/%s] did not get any work' % (process * threads_per_process + thread, total_processes * threads_per_process - 1))
                 time.sleep(10)
             else:
                 for rse_id in rse_ids:
@@ -54,7 +54,7 @@ def rse_update(once=False, process=0, total_processes=1, thread=0, threads_per_p
                         break
                     start_time = time.time()
                     update_rse_counter(rse_id=rse_id)
-                    logging.debug('rse_update[%s/%s]: update of rse "%s" took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rse_id, time.time() - start_time))
+                    logging.debug('rse_update[%s/%s]: update of rse "%s" took %f' % (process * threads_per_process + thread, total_processes * threads_per_process - 1, rse_id, time.time() - start_time))
         except Exception:
             logging.error(traceback.format_exc())
         if once:

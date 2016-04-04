@@ -51,19 +51,19 @@ def rule_injector(once=False):
     paused_rules = {}  # {rule_id: datetime}
 
     # Make an initial heartbeat so that all judge-inectors have the correct worker number on the next try
-    live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=2*60*60)
+    live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=2*60*60)
+            heartbeat = live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
 
             start = time.time()
-            rules = get_injected_rules(total_workers=heartbeat['nr_threads']-1,
+            rules = get_injected_rules(total_workers=heartbeat['nr_threads'] - 1,
                                        worker_number=heartbeat['assign_thread'],
                                        limit=10)
-            logging.debug('rule_injector[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, time.time() - start, len(rules)))
+            logging.debug('rule_injector[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(rules)))
 
             # Refresh paused rules
             iter_paused_rules = deepcopy(paused_rules)
@@ -75,23 +75,23 @@ def rule_injector(once=False):
             rules = [rule for rule in rules if rule[0] not in paused_rules]
 
             if not rules and not once:
-                logging.debug('rule_injector[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1))
+                logging.debug('rule_injector[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
                 graceful_stop.wait(60)
             else:
                 for rule in rules:
                     rule_id = rule[0]
-                    logging.info('rule_injector[%s/%s]: Injecting rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
+                    logging.info('rule_injector[%s/%s]: Injecting rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
                     if graceful_stop.is_set():
                         break
                     try:
                         start = time.time()
                         inject_rule(rule_id=rule_id)
-                        logging.debug('rule_injector[%s/%s]: injection of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id, time.time() - start))
+                        logging.debug('rule_injector[%s/%s]: injection of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id, time.time() - start))
                     except (DatabaseException, DatabaseError), e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                             record_counter('rule.judge.exceptions.LocksDetected')
-                            logging.warning('rule_injector[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
+                            logging.warning('rule_injector[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
                         elif match('.*QueuePool.*', str(e.args[0])):
                             logging.warning(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
@@ -103,11 +103,11 @@ def rule_injector(once=False):
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                     except RSEBlacklisted, e:
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
-                        logging.warning('rule_injector[%s/%s]: RSEBlacklisted for rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
+                        logging.warning('rule_injector[%s/%s]: RSEBlacklisted for rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                     except ReplicationRuleCreationTemporaryFailed, e:
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
-                        logging.warning('rule_injector[%s/%s]: ReplicationRuleCreationTemporaryFailed for rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads']-1, rule_id))
+                        logging.warning('rule_injector[%s/%s]: ReplicationRuleCreationTemporaryFailed for rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                     except RuleNotFound, e:
                         pass

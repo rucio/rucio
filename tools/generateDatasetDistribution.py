@@ -136,12 +136,12 @@ def populateDB(filename=None):
                     scope = 'group.%s' % (dictGroups[group])
                     group = dictGroups[group]
                 nbfiles = int(dictDistrib[lower, upper][6])
-                filesize = int(int(dictDistrib[lower, upper][7])/float(nbfiles))
+                filesize = int(int(dictDistrib[lower, upper][7]) / float(nbfiles))
                 nbreplicas = int(dictDistrib[lower, upper][8])
                 if group == 'panda' or group == 'tier0':
                     dataset_meta = {'project': project, 'run_number': run_number, 'stream_name': stream_name, 'prod_step': prod_step, 'datatype': datatype, 'provenance': provenance, 'group': group}
                 else:
-                    campaign = int(tag/1000.)
+                    campaign = int(tag / 1000.)
                     dataset_meta = {'project': project, 'run_number': run_number, 'stream_name': stream_name, 'prod_step': prod_step, 'datatype': datatype, 'provenance': provenance, 'group': group, 'campaign': '%s_repro_%i' % (group, campaign)}
                 source_rses = []
                 if nbreplicas:
@@ -160,7 +160,7 @@ def populateDB(filename=None):
                     add_identifier(scope=scope, name=dsn, type='dataset', issuer=account, statuses={'monotonic': True}, meta=dataset_meta)
                     stime2 = time.time()
                     print 'Time to generate a dataset : %s' % str(stime2 - stime1)
-                    monitor.record(timeseries='dbfiller.addnewdataset',  delta=1)
+                    monitor.record(timeseries='dbfiller.addnewdataset', delta=1)
                     files = ['file_%s' % uuid() for i in xrange(nbfiles)]
                     listfiles = []
                     for file in files:
@@ -169,16 +169,16 @@ def populateDB(filename=None):
                             add_file_replica(source_rse, scope, file, filesize, issuer=account)
                     stime3 = time.time()
                     print 'Time to create replicas : %s' % str(stime3 - stime2)
-                    monitor.record(timeseries='dbfiller.addreplicas',  delta=nbfiles*len(source_rses))
+                    monitor.record(timeseries='dbfiller.addreplicas', delta=nbfiles * len(source_rses))
                     attach_identifier(scope, name=dsn, dids=listfiles, issuer=account)
                     stime4 = time.time()
                     print 'Time to attach files : %s' % str(stime4 - stime3)
-                    monitor.record(timeseries='dbfiller.addnewfile',  delta=nbfiles)
+                    monitor.record(timeseries='dbfiller.addnewfile', delta=nbfiles)
                     for source_rse in source_rses:
                         try:
                             add_replication_rule(dids=[{'scope': scope, 'name': dsn}], account=account, copies=1, rse_expression=source_rse,
                                                  grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, issuer='root')
-                            monitor.record(timeseries='dbfiller.addreplicationrules',  delta=1)
+                            monitor.record(timeseries='dbfiller.addreplicationrules', delta=1)
                         except InvalidReplicationRule, e:
                             print e
                     stime5 = time.time()
