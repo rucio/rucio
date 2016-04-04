@@ -65,14 +65,14 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
                               Message.event_type,
                               Message.payload)
 
-        if total_threads and (total_threads-1) > 0:
+        if total_threads and (total_threads - 1) > 0:
             if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
                 query = query.filter(text('ORA_HASH(id, :total_threads) = :thread_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(id), %s) = %s' % (total_threads-1, thread))
+                query = query.filter('mod(md5(id), %s) = %s' % (total_threads - 1, thread))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+                query = query.filter('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
         if event_type:
             query = query.filter_by(event_type=event_type)

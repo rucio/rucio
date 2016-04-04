@@ -178,14 +178,14 @@ def list_bad_replicas_history(limit=10000, thread=None, total_threads=None, sess
     query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
         filter(models.BadReplicas.state == BadFilesStatus.BAD)
 
-    if total_threads and (total_threads-1) > 0:
+    if total_threads and (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_threads - 1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
     query = query.limit(limit)
 
@@ -452,14 +452,14 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
         query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
-    if total_threads and (total_threads-1) > 0:
+    if total_threads and (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_threads - 1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
     query = query.limit(limit)
     rows = []

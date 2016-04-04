@@ -33,7 +33,7 @@ if __name__ == "__main__":
             for line in f:
                 sline = line.split('\t')
                 try:
-                    if abs(now-datetime.strptime(sline[0].split(',')[0], '%Y-%m-%d %H:%M:%S')) < timedelta(hours=1):
+                    if abs(now - datetime.strptime(sline[0].split(',')[0], '%Y-%m-%d %H:%M:%S')) < timedelta(hours=1):
                         count += 1
                         results[sline[2]] += 1
                 except ValueError, e:

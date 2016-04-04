@@ -41,7 +41,7 @@ class Trace(RucioController):
 
             # generate entry timestamp
             payload['traceTimeentry'] = datetime.datetime.utcnow()
-            payload['traceTimeentryUnix'] = calendar.timegm(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond/1e6
+            payload['traceTimeentryUnix'] = calendar.timegm(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond / 1e6
 
             # guess client IP
             payload['traceIp'] = ctx.env.get('HTTP_X_FORWARDED_FOR')
