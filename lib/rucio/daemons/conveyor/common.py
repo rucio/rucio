@@ -8,7 +8,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 """
@@ -34,7 +34,7 @@ from rucio.common.exception import DatabaseException, UnsupportedOperation, Repl
 from rucio.core import replica as replica_core, request as request_core, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer, record_counter
-from rucio.db.sqla.constants import RequestState, ReplicaState, RequestType
+from rucio.db.sqla.constants import RequestState, ReplicaState, RequestType, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
@@ -53,6 +53,21 @@ def update_requests_states(responses, session=None):
 
     for response in responses:
         update_request_state(response=response, session=session)
+
+
+def get_transfer_error(state, reason=None):
+    err_msg = None
+    if state in [RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]:
+        err_msg = '%s:%s' % (RequestErrMsg.NO_SOURCES, state)
+    elif state in [RequestState.SUBMISSION_FAILED]:
+        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, state)
+    elif state in [RequestState.SUBMITTING]:
+        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, "Too long time in submitting state")
+    elif state in [RequestState.LOST]:
+        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, "Transfer job on FTS is lost")
+    elif state in [RequestState.FAILED]:
+        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, reason)
+    return err_msg
 
 
 @transactional_session
@@ -95,6 +110,7 @@ def update_request_state(response, session=None):
                         response['src_rse'] = src_rse_name
                         response['src_rse_id'] = src_rse_id
                         logging.debug('Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
+                err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
 
                 request_core.set_request_state(response['request_id'],
                                                response['new_state'],
@@ -102,6 +118,7 @@ def update_request_state(response, session=None):
                                                started_at=started_at,
                                                transferred_at=transferred_at,
                                                src_rse_id=src_rse_id,
+                                               err_msg=err_msg,
                                                session=session)
 
                 add_monitor_message(request, response, session=session)
@@ -153,7 +170,6 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
     """
 
     try:
-        request_core.set_transfer_state(external_host, transfer_id, state, session=session)
         if state == RequestState.LOST:
             reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
             for req in reqs:
@@ -189,7 +205,17 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
                             'job_m_replica': None,
                             'details': None}
 
+                err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
+                request_core.set_request_state(req['request_id'],
+                                               response['new_state'],
+                                               transfer_id=transfer_id,
+                                               src_rse_id=src_rse_id,
+                                               err_msg=err_msg,
+                                               session=session)
+
                 add_monitor_message(req, response, session=session)
+        else:
+            request_core.set_transfer_state(external_host, transfer_id, state, session=session)
         return True
     except exception.UnsupportedOperation, e:
         logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(e).replace('\n', '')))
@@ -225,6 +251,7 @@ def handle_requests(reqs):
 
             replica['pfn'] = req['dest_url']
             replica['request_type'] = req['request_type']
+            replica['err_msg'] = None
 
             if req['request_type'] not in replicas:
                 replicas[req['request_type']] = {}
@@ -265,6 +292,7 @@ def handle_requests(reqs):
                     logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = False
+                    replica['err_msg'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
             elif req['state'] == RequestState.SUBMITTING or req['state'] == RequestState.SUBMISSION_FAILED or req['state'] == RequestState.LOST:
                 if req['updated_at'] > (datetime.datetime.utcnow()-datetime.timedelta(minutes=120)):
@@ -284,6 +312,7 @@ def handle_requests(reqs):
                     logging.warn('EXCEEDED SUBMITTING DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = False
+                    replica['err_msg'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
             elif req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
                 if request_core.should_retry_request(req):
@@ -302,6 +331,7 @@ def handle_requests(reqs):
                     logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE  # should be broken here
                     replica['archived'] = False
+                    replica['err_msg'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
 
         except:
