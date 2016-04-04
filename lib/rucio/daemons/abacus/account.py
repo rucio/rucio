@@ -40,13 +40,13 @@ def account_update(once=False, process=0, total_processes=1, thread=0, threads_p
         try:
             # Select a bunch of rses for to update for this worker
             start = time.time()  # NOQA
-            account_rse_ids = get_updated_account_counters(total_workers=total_processes*threads_per_process-1,
-                                                           worker_number=process*threads_per_process+thread)
+            account_rse_ids = get_updated_account_counters(total_workers=total_processes * threads_per_process - 1,
+                                                           worker_number=process * threads_per_process + thread)
             logging.debug('Index query time %f size=%d' % (time.time() - start, len(account_rse_ids)))
 
             # If the list is empty, sent the worker to sleep
             if not account_rse_ids and not once:
-                logging.info('account_update[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1))
+                logging.info('account_update[%s/%s] did not get any work' % (process * threads_per_process + thread, total_processes * threads_per_process - 1))
                 time.sleep(10)
             else:
                 for account_rse_id in account_rse_ids:
@@ -54,7 +54,7 @@ def account_update(once=False, process=0, total_processes=1, thread=0, threads_p
                         break
                     start_time = time.time()
                     update_account_counter(account=account_rse_id[0], rse_id=account_rse_id[1])
-                    logging.debug('account_update[%s/%s]: update of account-rse counter "%s-%s" took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, account_rse_id[0], account_rse_id[1], time.time() - start_time))
+                    logging.debug('account_update[%s/%s]: update of account-rse counter "%s-%s" took %f' % (process * threads_per_process + thread, total_processes * threads_per_process - 1, account_rse_id[0], account_rse_id[1], time.time() - start_time))
         except Exception:
             logging.error(traceback.format_exc())
 

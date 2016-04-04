@@ -73,9 +73,9 @@ def populateDB():
                 prod_step = d['prodstep']
                 datatype = d['datatype']
                 nbfiles = int(d['nbfiles'])
-                filesize = int(int(d['totfilesize'])/float(nbfiles))
-                nbfiles = int(random.gauss(nbfiles, nbfiles/10))
-                filesize = int(random.gauss(filesize, filesize/10))
+                filesize = int(int(d['totfilesize']) / float(nbfiles))
+                nbfiles = int(random.gauss(nbfiles, nbfiles / 10))
+                filesize = int(random.gauss(filesize, filesize / 10))
                 nbreplicas = int(d['nbreplicas'])
                 dataset_meta = {'project': project, 'stream_name': 'dummy', 'prod_step': prod_step, 'datatype': datatype}
                 source_rses = []

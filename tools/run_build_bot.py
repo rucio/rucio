@@ -206,7 +206,7 @@ def start_test(mr):
 print 'Checking if a job is currently running ...'
 if os.path.isfile('/tmp/rucio_test.pid'):
     # Check if the pid file is older than 90 minutes
-    if os.stat('/tmp/rucio_test.pid').st_mtime < time.time()-60*90:
+    if os.stat('/tmp/rucio_test.pid').st_mtime < time.time() - 60 * 90:
         os.remove('/tmp/rucio_test.pid')
         open('/tmp/rucio_test.pid', 'a').close()
     else:

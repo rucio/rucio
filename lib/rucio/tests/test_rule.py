@@ -188,7 +188,7 @@ class TestReplicationRuleCore():
         add_rules(dids=[{'scope': scope, 'name': dataset1}, {'scope': scope, 'name': dataset2}],
                   rules=[{'account': 'jdoe',
                           'copies': 1,
-                          'rse_expression':  self.T1,
+                          'rse_expression': self.T1,
                           'grouping': 'NONE',
                           'weight': None,
                           'lifetime': None,
@@ -222,7 +222,7 @@ class TestReplicationRuleCore():
             files = create_files(3, scope, self.rse1)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
-            add_did(scope, dataset,  DIDType.from_sym('DATASET'), 'jdoe')
+            add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
             attach_dids(scope, dataset, files, 'jdoe')
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
 
@@ -472,7 +472,7 @@ class TestReplicationRuleCore():
         # Check if the counter has been updated correctly
         account_update(once=True)
         account_counter_after = get_account_counter(self.rse1_id, 'jdoe')
-        assert(account_counter_before['bytes'] + 3*100 == account_counter_after['bytes'])
+        assert(account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] + 3 == account_counter_after['files'])
 
     def test_account_counter_rule_delete(self):
@@ -494,7 +494,7 @@ class TestReplicationRuleCore():
 
         # Check if the counter has been updated correctly
         account_counter_after = get_account_counter(self.rse1_id, 'jdoe')
-        assert(account_counter_before['bytes'] - 3*100 == account_counter_after['bytes'])
+        assert(account_counter_before['bytes'] - 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 3 == account_counter_after['files'])
 
     def test_account_counter_rule_update(self):
@@ -518,8 +518,8 @@ class TestReplicationRuleCore():
         # Check if the counter has been updated correctly
         account_counter_after_1 = get_account_counter(self.rse1_id, 'jdoe')
         account_counter_after_2 = get_account_counter(self.rse1_id, 'root')
-        assert(account_counter_before_1['bytes'] - 3*100 == account_counter_after_1['bytes'])
-        assert(account_counter_before_2['bytes'] + 3*100 == account_counter_after_2['bytes'])
+        assert(account_counter_before_1['bytes'] - 3 * 100 == account_counter_after_1['bytes'])
+        assert(account_counter_before_2['bytes'] + 3 * 100 == account_counter_after_2['bytes'])
 
     def test_rse_counter_unavailable_replicas(self):
         """ REPLICATION RULE (CORE): Test if creating UNAVAILABLE replicas updates the RSE Counter correctly"""
@@ -538,7 +538,7 @@ class TestReplicationRuleCore():
         # Check if the rse has been updated correctly
         rse_update(once=True)
         rse_counter_after = get_rse_counter(self.rse3_id)
-        assert(rse_counter_before['bytes'] + 3*100 == rse_counter_after['bytes'])
+        assert(rse_counter_before['bytes'] + 3 * 100 == rse_counter_after['bytes'])
         assert(rse_counter_before['files'] + 3 == rse_counter_after['files'])
 
     def test_rule_add_fails_account_limit(self):
@@ -574,7 +574,7 @@ class TestReplicationRuleCore():
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
 
         # Check if rule exists
-        assert(True == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(True is check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
 
     def test_dataset_callback_no(self):
         """ REPLICATION RULE (CORE): Test dataset callback should not be sent"""
@@ -593,7 +593,7 @@ class TestReplicationRuleCore():
         successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
 
         # Check if rule exists
-        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(False is check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
 
     def test_dataset_callback_close_late(self):
         """ REPLICATION RULE (CORE): Test dataset callback with late close"""
@@ -611,9 +611,9 @@ class TestReplicationRuleCore():
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
 
         # Check if rule exists
-        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(False is check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
         set_status(scope=scope, name=dataset, open=False)
-        assert(True == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(True is check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
 
     def test_dataset_callback_with_evaluator(self):
         """ REPLICATION RULE (CORE): Test dataset callback with judge evaluator"""
@@ -625,11 +625,11 @@ class TestReplicationRuleCore():
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='C')[0]
 
-        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(False is check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
 
         attach_dids(scope, dataset, files, 'jdoe')
         set_status(scope=scope, name=dataset, open=False)
-        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(False is check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
 
         re_evaluator(once=True)
 
@@ -637,7 +637,7 @@ class TestReplicationRuleCore():
         successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
 
-        assert(True == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        assert(True is check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
 
     def test_add_rule_with_purge(self):
         """ REPLICATION RULE (CORE): Add a replication rule with purge setting"""
@@ -707,7 +707,7 @@ class TestReplicationRuleCore():
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.rse1+'|'+self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.rse1 + '|' + self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         assert(get_rule(rule_id)['state'] == RuleState.OK)
 
@@ -722,10 +722,10 @@ class TestReplicationRuleCore():
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.rse1+'|'+self.rse3+'|'+self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.rse1 + '|' + self.rse3 + '|' + self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         with assert_raises(RuleReplaceFailed):
-            reduce_rule(rule_id=rule_id, copies=1, exclude_expression=self.rse1+'|'+self.rse3)
+            reduce_rule(rule_id=rule_id, copies=1, exclude_expression=self.rse1 + '|' + self.rse3)
 
     def test_add_rule_with_scratchdisk(self):
         """ REPLICATION RULE (CORE): Add a replication rule for scratchdisk"""

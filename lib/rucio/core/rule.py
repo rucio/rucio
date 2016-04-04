@@ -102,11 +102,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise StagingAreaRuleRequiresLifetime()
 
             # Check SCRATCHDISK Polciy
-            if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60*60*24*15):
+            if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * 15):
                 # Check if one of the rses is a SCRATCHDISK:
                 if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
                     if len(rses) == 1:
-                        lifetime = 60*60*24*15 - 1
+                        lifetime = 60 * 60 * 24 * 15 - 1
                     else:
                         raise ScratchDiskLifetimeConflict()
 
@@ -335,11 +335,11 @@ def add_rules(dids, rules, session=None):
                             raise StagingAreaRuleRequiresLifetime()
 
                     # Check SCRATCHDISK Polciy
-                    if not has_account_attribute(account=rule.get('account'), key='admin', session=session) and (rule.get('lifetime', None) is None or rule.get('lifetime', None) > 60*60*24*15):
+                    if not has_account_attribute(account=rule.get('account'), key='admin', session=session) and (rule.get('lifetime', None) is None or rule.get('lifetime', None) > 60 * 60 * 24 * 15):
                         # Check if one of the rses is a SCRATCHDISK:
                         if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
                             if len(rses) == 1:
-                                rule['lifetime'] = 60*60*24*15 - 1
+                                rule['lifetime'] = 60 * 60 * 24 * 15 - 1
                             else:
                                 raise ScratchDiskLifetimeConflict()
 
@@ -1023,7 +1023,7 @@ def update_rule(rule_id, options, session=None):
         for key in options:
             if key == 'lifetime':
                 # Check SCRATCHDISK Polciy
-                if not has_account_attribute(account=rule.account, key='admin', session=session) and (options['lifetime'] is None or options['lifetime'] > 60*60*24*15):
+                if not has_account_attribute(account=rule.account, key='admin', session=session) and (options['lifetime'] is None or options['lifetime'] > 60 * 60 * 24 * 15):
                     # Check if one of the rses is a SCRATCHDISK:
                     rses = parse_expression(rule.rse_expression, session=session)
                     if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
@@ -1248,9 +1248,9 @@ def get_updated_dids(total_workers, worker_number, limit=10, session=None):
                           bindparam('total_workers', total_workers)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
     return query.order_by(models.UpdatedDID.created_at).limit(limit).all()
 
@@ -1275,9 +1275,9 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
     return query.limit(limit).all()
 
@@ -1310,9 +1310,9 @@ def get_injected_rules(total_workers, worker_number, limit=10, session=None):
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
     return query.limit(limit).all()
 
@@ -1354,9 +1354,9 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
     return query.limit(limit).all()
 
 
@@ -2294,8 +2294,8 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                                      models.ReplicaLock.name == did.child_name))
             replica_clauses.append(and_(models.RSEFileAssociation.scope == did.child_scope,
                                         models.RSEFileAssociation.name == did.child_name))
-        lock_clause_chunks = [lock_clauses[x:x+10] for x in xrange(0, len(lock_clauses), 10)]
-        replica_clause_chunks = [replica_clauses[x:x+10] for x in xrange(0, len(replica_clauses), 10)]
+        lock_clause_chunks = [lock_clauses[x:x + 10] for x in xrange(0, len(lock_clauses), 10)]
+        replica_clause_chunks = [replica_clauses[x:x + 10] for x in xrange(0, len(replica_clauses), 10)]
 
         replicas_rse_clause = []
         source_replicas_rse_clause = []
@@ -2340,7 +2340,8 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
 
         if source_rses:
             for replica_clause_chunk in replica_clause_chunks:
-                tmp_source_replicas = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).filter(or_(*replica_clause_chunk), or_(*source_replicas_rse_clause), models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
+                tmp_source_replicas = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name,
+                                                    models.RSEFileAssociation.rse_id).filter(or_(*replica_clause_chunk), or_(*source_replicas_rse_clause), models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
                     .with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').all()
                 for scope, name, rse_id in tmp_source_replicas:
                     if (scope, name) not in source_replicas:

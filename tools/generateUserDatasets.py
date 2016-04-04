@@ -27,7 +27,7 @@ from rucio.core import monitor
 
 def fitfunc(x):
     if x < 100:
-        return 33292.8-3115.44 * x + 151.836 * pow(x, 2) - 3.90351 * pow(x, 3) + 0.0539087 * pow(x, 4) - 0.00037816 * pow(x, 5) + 1.05717e-06 * pow(x, 6)
+        return 33292.8 - 3115.44 * x + 151.836 * pow(x, 2) - 3.90351 * pow(x, 3) + 0.0539087 * pow(x, 4) - 0.00037816 * pow(x, 5) + 1.05717e-06 * pow(x, 6)
     else:
         return exp(8.23051e+00 + (-4.04271e-03) * x)
 
@@ -37,18 +37,18 @@ def generatePDF():
     pdf = []
     cumul.append(0)
     for i in xrange(1, 2000):
-        cumul.append(cumul[i-1] + fitfunc(i))
+        cumul.append(cumul[i - 1] + fitfunc(i))
     print cumul[1999]
     print pdf
     for i in cumul:
-        pdf.append(i/cumul[1999])
+        pdf.append(i / cumul[1999])
     return pdf
 
 
 def getRandomScope(pdf):
     rnd = random.random()
     for i in xrange(0, 2001):
-        if (rnd >= pdf[i]) and (rnd < pdf[i+1]):
+        if (rnd >= pdf[i]) and (rnd < pdf[i + 1]):
             return i
 
 
@@ -84,19 +84,19 @@ def populateDB(filename=None):
         rnd_site = random.choice(listrses)
         print '%i Creating %s with %i files of size %i located at %s' % (index, dsn, nbfiles, filesize, rnd_site)
         add_identifier(scope=scope, name=dsn, type='dataset', issuer=account, statuses={'monotonic': True})
-        monitor.record(timeseries='dbfiller.addnewdataset',  delta=1)
+        monitor.record(timeseries='dbfiller.addnewdataset', delta=1)
         files = ['file_%s' % uuid() for i in xrange(nbfiles)]
         listfiles = []
         for file in files:
             listfiles.append({'scope': scope, 'name': file, 'size': filesize})
             add_file_replica(rnd_site, scope, file, filesize, issuer=account)
-        monitor.record(timeseries='dbfiller.addreplicas',  delta=nbfiles)
+        monitor.record(timeseries='dbfiller.addreplicas', delta=nbfiles)
         attach_identifier(scope, name=dsn, dids=listfiles, issuer=account)
-        monitor.record(timeseries='dbfiller.addnewfile',  delta=nbfiles)
+        monitor.record(timeseries='dbfiller.addnewfile', delta=nbfiles)
         try:
             add_replication_rule(dids=[{'scope': scope, 'name': dsn}], account=account, copies=1, rse_expression=rnd_site,
                                  grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, issuer=account)
-            monitor.record(timeseries='dbfiller.addreplicationrules',  delta=1)
+            monitor.record(timeseries='dbfiller.addreplicationrules', delta=1)
         except InvalidReplicationRule, e:
             print e
 
