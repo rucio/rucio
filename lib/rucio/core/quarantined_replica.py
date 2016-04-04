@@ -33,12 +33,30 @@ def add_quarantined_replicas(rse, replicas, session=None):
     :returns: True is successful.
     """
     rse_id = get_rse_id(rse, session=session)
-    for files in chunks(replicas, 1000):
-        session.bulk_insert_mappings(
-            models.QuarantinedReplica,
-            [{'rse_id': rse_id, 'path': file['path'],
-              'scope': file.get('scope'), 'name': file.get('name'),
-              'bytes': file.get('bytes')} for file in files])
+
+    file_clause = []
+    for replica in replicas:
+        file_clause.append(and_(models.RSEFileAssociation.scope == replica.get('scope', None),
+                                models.RSEFileAssociation.name == replica.get('name', None),
+                                models.RSEFileAssociation.rse_id == rse_id))
+
+    if file_clause:
+        file_query = session.query(models.RSEFileAssociation.scope,
+                                   models.RSEFileAssociation.name,
+                                   models.RSEFileAssociation.rse_id).\
+            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
+            filter(or_(*file_clause))
+
+        existing_replicas = [(scope, name, rseid) for scope, name, rseid in file_query]
+
+        replicas = [replica for replica in replicas if (replica.get('scope', None), replica.get('name', None), rse_id) not in existing_replicas]
+
+        for files in chunks(replicas, 1000):
+            session.bulk_insert_mappings(
+                models.QuarantinedReplica,
+                [{'rse_id': rse_id, 'path': file['path'],
+                  'scope': file.get('scope'), 'name': file.get('name'),
+                  'bytes': file.get('bytes')} for file in files])
 
 
 @transactional_session
