@@ -175,7 +175,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
                       'once': once,
                       'chunk_size': chunk_size,
                       'scheme': scheme}
-            threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (worker,  total_workers)))
+            threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (worker, total_workers)))
     [t.start() for t in threads]
     while threads[0].is_alive():
         [t.join(timeout=3.14) for t in threads]
