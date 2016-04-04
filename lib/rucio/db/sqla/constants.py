@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
-
+# - Wen Guan, <wen.guan>, 2016
 
 """
 Constants.
@@ -141,6 +141,13 @@ class RequestState(DeclEnum):
     SUBMISSION_FAILED = 'A', 'SUBMISSION_FAILED'
     SUSPEND = 'U', 'SUSPEND'
     WAITING = 'W', 'WAITING'
+
+
+class RequestErrMsg(DeclEnum):
+    NO_SOURCES = 'NO_SOURCES', 'NO_SOURCES'
+    SUBMISSION_FAILED = 'SUBMISSION_FAILED', 'SUBMISSION_FAILED'
+    TRANSFER_FAILED = 'TRANSFER_FAILED', 'TRANSFER_FAILED'
+    OTHER = 'OTHER', 'OTHER'
 
 
 class RuleNotification(DeclEnum):
