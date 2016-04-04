@@ -81,19 +81,19 @@ if __name__ == '__main__':
     report_to_graphite('avail_diskspace', free_disk_space)
 
     if free_disk_space < THRESHOLD_GB * (1024):  # GB to bytes
-        debug_cutoff = server.llen('rucio.debug')/2
+        debug_cutoff = server.llen('rucio.debug') / 2
         server.ltrim('rucio.debug', debug_cutoff, -1)
         time.sleep(120)  # Sleeping two minutes to wait for the effects on queue trimming on disk
         free_disk_space_after = get_free_disk_space()
         report_to_graphite('avail_diskspace', free_disk_space_after)
         status = WARNING if status == OK else status
         if free_disk_space_after < THRESHOLD_CRITICAL_GB * (1024):
-            print '[%s] Cleaning debug queue wasn\'t sufficient to free enough disk space. Last gain: %d mb (%d entries)' % (HOST, (free_disk_space_after-free_disk_space), debug_cutoff)
+            print '[%s] Cleaning debug queue wasn\'t sufficient to free enough disk space. Last gain: %d mb (%d entries)' % (HOST, (free_disk_space_after - free_disk_space), debug_cutoff)
             server.ltrim('rucio.daemons', TRIM_CRITICAL_EVENTS, -1)
             time.sleep(120)  # Sleeping two minutes to wait for the effects on queue trimming on disk
             crit_free_disk_space = get_free_disk_space()
             report_to_graphite('avail_diskspace', crit_free_disk_space)
-            print '[%s] Remvoing %s events from daemon queue to gain %d mb of disk space.' % (HOST, TRIM_CRITICAL_EVENTS, (crit_free_disk_space-free_disk_space_after))
+            print '[%s] Remvoing %s events from daemon queue to gain %d mb of disk space.' % (HOST, TRIM_CRITICAL_EVENTS, (crit_free_disk_space - free_disk_space_after))
             status = CRITICAL
 
     sys.exit(status)

@@ -76,7 +76,7 @@ def get_account_limits(account, rse_ids=None, session=None):
         rse_id_clauses = []
         for rse_id in rse_ids:
             rse_id_clauses.append(and_(models.AccountLimit.rse_id == rse_id, models.AccountLimit.account == account))
-        rse_id_clause_chunks = [rse_id_clauses[x:x+10] for x in xrange(0, len(rse_id_clauses), 10)]
+        rse_id_clause_chunks = [rse_id_clauses[x:x + 10] for x in xrange(0, len(rse_id_clauses), 10)]
         for rse_id_chunk in rse_id_clause_chunks:
             tmp_limits = session.query(models.AccountLimit).filter(or_(*rse_id_chunk)).all()
             for limit in tmp_limits:

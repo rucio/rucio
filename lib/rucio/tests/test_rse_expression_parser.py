@@ -28,7 +28,7 @@ def tag_generator(size_s=10, size_d=2):
 
 
 def attribute_name_generator(size=10):
-    return ''.join(choice(ascii_uppercase)).join(choice(ascii_lowercase) for x in xrange(size-1))
+    return ''.join(choice(ascii_uppercase)).join(choice(ascii_lowercase) for x in xrange(size - 1))
 
 
 class TestRSEExpressionParserCore():

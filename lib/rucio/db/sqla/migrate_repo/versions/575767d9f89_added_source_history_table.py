@@ -29,7 +29,7 @@ def upgrade():
     if context.get_context().dialect.name not in ('sqlite'):
         op.create_table('sources_history',
                         sa.Column('request_id', GUID()),
-                        sa.Column('scope',  sa.String(25)),
+                        sa.Column('scope', sa.String(25)),
                         sa.Column('name', sa.String(255)),
                         sa.Column('rse_id', GUID()),
                         sa.Column('dest_rse_id', GUID()),
