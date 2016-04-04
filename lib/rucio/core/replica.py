@@ -572,8 +572,10 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
 
     state_clause = None
     if not all_states:
+        # models.RSE.volatile == is_false
         if not unavailable:
-            state_clause = models.RSEFileAssociation.state == ReplicaState.AVAILABLE
+            state_clause = and_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+
         else:
             state_clause = or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
                                models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
@@ -925,6 +927,9 @@ def add_replicas(rse, files, account, rse_id=None, ignore_availability=True, ses
         replica_rse = get_rse(rse=rse, session=session)
     else:
         replica_rse = get_rse(rse=None, rse_id=rse_id, session=session)
+
+    if replica_rse.volatile is True:
+        raise exception.UnsupportedOperation('Cannot add replicas on volatile RSE %(rse)s ' % locals())
 
     if not (replica_rse.availability & 2) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % rse)
