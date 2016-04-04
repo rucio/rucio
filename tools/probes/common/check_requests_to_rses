@@ -32,7 +32,7 @@ if __name__ == "__main__":
         utctime = datetime.datetime.utcnow()
         utctimeInt = int(time.mktime(utctime.timetuple()))
         timeEnd = utctimeInt
-        timezoneoffset = int((datetime.datetime.now()-datetime.datetime.utcnow()).seconds)
+        timezoneoffset = int((datetime.datetime.now() - datetime.datetime.utcnow()).seconds)
 
         # check requests to different sites
         sql = "select /*+ index_ffs(REQUESTS REQUESTS_TYP_STA_CRE_IDX) */ atlas_rucio.id2rse(dest_rse_id) rse, state, count(*) \
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         # check left requests which are 12 hours old to different sites
         timeLimit = datetime.datetime.utcnow() - datetime.timedelta(hours=12)
         sql = "select /*+ index_ffs(REQUESTS REQUESTS_TYP_STA_CRE_IDX) */ atlas_rucio.id2rse(dest_rse_id) rse, state, count(*) \
-              from atlas_rucio.requests where request_type='T' and created_at<=to_timestamp('"+str(timeLimit)+"','YYYY-MM-dd HH24:MI:SS.FF') group by dest_rse_id, state"
+              from atlas_rucio.requests where request_type='T' and created_at<=to_timestamp('" + str(timeLimit) + "','YYYY-MM-dd HH24:MI:SS.FF') group by dest_rse_id, state"
         result = session.execute(sql).fetchall()
         for rse, state, num in result:
             # print 'requests.12Hours_old.%s.%s %s' % (state, rse, num)
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         # check left requests which are 24 hours old to different sites
         timeLimit = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
         sql = "select /*+ index_ffs(REQUESTS REQUESTS_TYP_STA_CRE_IDX) */ atlas_rucio.id2rse(dest_rse_id) rse, state, count(*) \
-              from atlas_rucio.requests where request_type='T' and created_at<=to_timestamp('"+str(timeLimit)+"','YYYY-MM-dd HH24:MI:SS.FF') group by dest_rse_id, state"
+              from atlas_rucio.requests where request_type='T' and created_at<=to_timestamp('" + str(timeLimit) + "','YYYY-MM-dd HH24:MI:SS.FF') group by dest_rse_id, state"
         result = session.execute(sql).fetchall()
         for rse, state, num in result:
             # print 'requests.24Hours_old.%s.%s %s' % (state, rse, num)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
         # check left requests which are 48 hours old to different sites
         timeLimit = datetime.datetime.utcnow() - datetime.timedelta(hours=48)
         sql = "select /*+ index_ffs(REQUESTS REQUESTS_TYP_STA_CRE_IDX) */ atlas_rucio.id2rse(dest_rse_id) rse, state, count(*) from atlas_rucio.requests \
-               where request_type='T' and created_at<=to_timestamp('"+str(timeLimit)+"','YYYY-MM-dd HH24:MI:SS.FF') group by dest_rse_id, state"
+               where request_type='T' and created_at<=to_timestamp('" + str(timeLimit) + "','YYYY-MM-dd HH24:MI:SS.FF') group by dest_rse_id, state"
         result = session.execute(sql).fetchall()
         for rse, state, num in result:
             # print 'requests.48Hours_old.%s.%s %s' % (state, rse, num)

@@ -85,10 +85,10 @@ def monitor_haproxy(socket_name):
                 if headers[column] in INCLUDE_STAT:
                     if (headers[column] == 'status') and (stat[column] in ['UP', 'DOWN', 'MAINT']) and (data['Process_num'] == 1.0):
                         for s in ['UP', 'DOWN', 'MAINT']:
-                            data[prefix+'.'+headers[column]+'.'+s] = 0  # set all status to zero to support gauge values
-                        data[prefix+'.'+headers[column]+'.'+stat[column]] = 1
+                            data[prefix + '.' + headers[column] + '.' + s] = 0  # set all status to zero to support gauge values
+                        data[prefix + '.' + headers[column] + '.' + stat[column]] = 1
                     else:
-                        data[prefix+'.'+headers[column]] = float(stat[column])
+                        data[prefix + '.' + headers[column]] = float(stat[column])
             except Exception as e:
                 logger.debug('Igonring data: %s -> %s' % (headers[column], stat[column]))
     logger.debug('Done parsing stat response.')
@@ -117,8 +117,8 @@ def backend_graphite(url, stats, prefix):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--backend', metavar='B', type=str, nargs=1,  help=' Graphite server URL[:port][::scope] to which the script will report to. E.g. --backend rucio-graphite-int.cern.ch:8025/listen/now::rucio.loadbalancer')
-    parser.add_argument('--sockets', metavar='S', type=str, nargs='+',  help='a list of socket files e.g. /var/run/haproxy_admin_process_no_1.sock')
+    parser.add_argument('--backend', metavar='B', type=str, nargs=1, help=' Graphite server URL[:port][::scope] to which the script will report to. E.g. --backend rucio-graphite-int.cern.ch:8025/listen/now::rucio.loadbalancer')
+    parser.add_argument('--sockets', metavar='S', type=str, nargs='+', help='a list of socket files e.g. /var/run/haproxy_admin_process_no_1.sock')
     parser.add_argument('--verbose', help='makes it chatty', action="store_true")
 
     args = parser.parse_args()

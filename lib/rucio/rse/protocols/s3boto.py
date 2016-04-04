@@ -57,7 +57,7 @@ class Default(protocol.RSEProtocol):
 
             pos = hash_path.index("/")
             bucket_name = hash_path[:pos]
-            key_name = hash_path[pos+1:]
+            key_name = hash_path[pos + 1:]
 
             return bucket_name, key_name
         except Exception as e:

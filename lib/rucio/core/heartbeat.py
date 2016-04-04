@@ -127,7 +127,7 @@ def die(executable, hostname, pid, thread, older_than=None, hash_executable=None
                                                 thread_id=thread.ident)
 
     if older_than:
-        query = query.filter(Heartbeats.updated_at < datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than))
+        query = query.filter(Heartbeats.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))
 
     query.delete()
 
@@ -143,7 +143,7 @@ def cardiac_arrest(older_than=None, session=None):
     query = session.query(Heartbeats)
 
     if older_than:
-        query = query.filter(Heartbeats.updated_at < datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than))
+        query = query.filter(Heartbeats.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))
 
     query.delete()
 

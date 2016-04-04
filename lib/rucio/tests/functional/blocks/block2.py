@@ -16,35 +16,35 @@
 
 commands = [
     # create the files
-    {'cmd': 'rse.add_replica',  'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0001', 'bytes': 'RANDOM:int:bytes1', 'account': 'VAR:ACCOUNT'}},
-    {'cmd': 'rse.add_replica',  'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0002', 'bytes': 'RANDOM:int:bytes2', 'account': 'VAR:ACCOUNT'}},
-    {'cmd': 'rse.add_replica',  'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0003', 'bytes': 'RANDOM:int:bytes3', 'account': 'VAR:ACCOUNT'}},
-    {'cmd': 'rse.add_replica',  'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0004', 'bytes': 'RANDOM:int:bytes4', 'account': 'VAR:ACCOUNT'}},
-    {'cmd': 'rse.add_replica',  'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0005', 'bytes': 'RANDOM:int:bytes5', 'account': 'VAR:ACCOUNT'}},
-    {'cmd': 'rse.add_replica',  'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0006', 'bytes': 'RANDOM:int:bytes6', 'account': 'VAR:ACCOUNT'}},
-    {'cmd': 'rse.add_replica',  'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0007', 'bytes': 'RANDOM:int:bytes7', 'account': 'VAR:ACCOUNT'}},
-    {'cmd': 'rse.add_replica',  'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0008', 'bytes': 'RANDOM:int:bytes8', 'account': 'VAR:ACCOUNT'}},
-    {'cmd': 'rse.add_replica',  'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0009', 'bytes': 'RANDOM:int:bytes9', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'rse.add_replica', 'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0001', 'bytes': 'RANDOM:int:bytes1', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'rse.add_replica', 'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0002', 'bytes': 'RANDOM:int:bytes2', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'rse.add_replica', 'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0003', 'bytes': 'RANDOM:int:bytes3', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'rse.add_replica', 'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0004', 'bytes': 'RANDOM:int:bytes4', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'rse.add_replica', 'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0005', 'bytes': 'RANDOM:int:bytes5', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'rse.add_replica', 'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0006', 'bytes': 'RANDOM:int:bytes6', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'rse.add_replica', 'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0007', 'bytes': 'RANDOM:int:bytes7', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'rse.add_replica', 'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0008', 'bytes': 'RANDOM:int:bytes8', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'rse.add_replica', 'kwargs': {'rse': 'MOCK', 'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0009', 'bytes': 'RANDOM:int:bytes9', 'account': 'VAR:ACCOUNT'}},
 
     # create dataset
-    {'cmd': 'did.add_did',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'type': 'DATASET', 'account': 'VAR:ACCOUNT'}},
+    {'cmd': 'did.add_did', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'type': 'DATASET', 'account': 'VAR:ACCOUNT'}},
 
     # parallel execute
     {'cmd': 'PARALLEL', 'list': [
         [
-            {'cmd': 'did.attach_dids',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0001', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes1'}], 'account': 'VAR:ACCOUNT'}},
-            {'cmd': 'did.attach_dids',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0002', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes2'}], 'account': 'VAR:ACCOUNT'}},
-            {'cmd': 'did.attach_dids',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0003', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes3'}], 'account': 'VAR:ACCOUNT'}},
+            {'cmd': 'did.attach_dids', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0001', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes1'}], 'account': 'VAR:ACCOUNT'}},
+            {'cmd': 'did.attach_dids', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0002', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes2'}], 'account': 'VAR:ACCOUNT'}},
+            {'cmd': 'did.attach_dids', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0003', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes3'}], 'account': 'VAR:ACCOUNT'}},
         ],
         [
-            {'cmd': 'did.attach_dids',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0004', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes4'}], 'account': 'VAR:ACCOUNT'}},
-            {'cmd': 'did.attach_dids',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0005', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes5'}], 'account': 'VAR:ACCOUNT'}},
-            {'cmd': 'did.attach_dids',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0006', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes6'}], 'account': 'VAR:ACCOUNT'}},
+            {'cmd': 'did.attach_dids', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0004', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes4'}], 'account': 'VAR:ACCOUNT'}},
+            {'cmd': 'did.attach_dids', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0005', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes5'}], 'account': 'VAR:ACCOUNT'}},
+            {'cmd': 'did.attach_dids', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0006', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes6'}], 'account': 'VAR:ACCOUNT'}},
         ],
         [
-            {'cmd': 'did.attach_dids',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0007', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes7'}], 'account': 'VAR:ACCOUNT'}},
-            {'cmd': 'did.attach_dids',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0008', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes8'}], 'account': 'VAR:ACCOUNT'}},
-            {'cmd': 'did.attach_dids',  'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0009', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes9'}], 'account': 'VAR:ACCOUNT'}},
+            {'cmd': 'did.attach_dids', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0007', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes7'}], 'account': 'VAR:ACCOUNT'}},
+            {'cmd': 'did.attach_dids', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0008', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes8'}], 'account': 'VAR:ACCOUNT'}},
+            {'cmd': 'did.attach_dids', 'kwargs': {'scope': 'VAR:SCOPE', 'name': 'BLOCK:testdataset1', 'dids': [{'scope': 'VAR:SCOPE', 'name': 'BLOCK:testfile0009', 'type': 'FILE', 'bytes': 'RANDOM:int:bytes9'}], 'account': 'VAR:ACCOUNT'}},
         ], ]
      },
 
