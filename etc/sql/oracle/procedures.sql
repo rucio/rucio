@@ -98,12 +98,13 @@ CREATE OR REPLACE PROCEDURE "ATLAS_RUCIO"."COLLECTION_REPLICAS_UPDATES" AS
     scopes  array_scope;
     names   array_name;
 
-    ds_length           NUMBER(19);
-    ds_bytes            NUMBER(19);
-    available_replicas  NUMBER(19);
-    ds_available_bytes  NUMBER(19);
-    ds_replica_state    VARCHAR2(1);
-    row_exists          NUMBER;
+    ds_length                 NUMBER(19);
+    ds_bytes                  NUMBER(19);
+    available_replicas        NUMBER(19);
+    old_available_replicas    NUMBER(19);
+    ds_available_bytes        NUMBER(19);
+    ds_replica_state          VARCHAR2(1);
+    row_exists                NUMBER;
     
     CURSOR get_upd_col_rep IS SELECT id, scope, name, rse_id FROM ATLAS_RUCIO.updated_col_rep; 
 BEGIN
@@ -123,7 +124,7 @@ BEGIN
             IF rse_ids(i) IS NOT NULL THEN
                 -- Check one specific DATASET_REPLICA
                 BEGIN
-                    SELECT length, bytes INTO ds_length, ds_bytes FROM ATLAS_RUCIO.collection_replicas WHERE scope=scopes(i) and name=names(i) and rse_id=rse_ids(i);
+                    SELECT length, bytes, available_replicas INTO ds_length, ds_bytes, old_available_replicas FROM ATLAS_RUCIO.collection_replicas WHERE scope=scopes(i) and name=names(i) and rse_id=rse_ids(i);
                 EXCEPTION
                     WHEN NO_DATA_FOUND THEN CONTINUE;
                 END; 
@@ -134,9 +135,13 @@ BEGIN
                 ELSE
                     ds_replica_state := 'U';
                 END IF;
-                UPDATE ATLAS_RUCIO.COLLECTION_REPLICAS 
-                SET state=ds_replica_state, available_replicas_cnt=available_replicas, length=ds_length, bytes=ds_bytes, available_bytes=ds_available_bytes, updated_at=sys_extract_utc(systimestamp)
-                WHERE scope = scopes(i) and name = names(i) and rse_id = rse_ids(i);
+                IF old_available_replicas > 0 AND available_replicas = 0 THEN
+                    DELETE FROM ATLAS_RUCIO.COLLECTION_REPLICAS WHERE scope = scopes(i) and name = names(i) and rse_id = rse_ids(i);
+                ELSE               
+                    UPDATE ATLAS_RUCIO.COLLECTION_REPLICAS 
+                    SET state=ds_replica_state, available_replicas_cnt=available_replicas, length=ds_length, bytes=ds_bytes, available_bytes=ds_available_bytes, updated_at=sys_extract_utc(systimestamp)
+                    WHERE scope = scopes(i) and name = names(i) and rse_id = rse_ids(i);
+                END IF;
             ELSE
                 -- Check all DATASET_REPLICAS of this DS     
                 SELECT count(*), SUM(bytes) INTO ds_length, ds_bytes FROM ATLAS_RUCIO.contents WHERE scope=scopes(i) and name=names(i);
