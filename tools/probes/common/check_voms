@@ -65,7 +65,7 @@ def validate_nickname(nickname, email, dn, debug=False):
 
     # Check mail address
     ad_email = ad_email.groups()[0]
-    ad_name = ad_name.groups()[0].replace(' ', '.')+'@cern.ch'
+    ad_name = ad_name.groups()[0].replace(' ', '.') + '@cern.ch'
     is_service_account = 'memberOf: CN=cern-accounts-service,OU=e-groups,OU=Workgroups,DC=cern,DC=ch' in output
 
     if is_service_account:

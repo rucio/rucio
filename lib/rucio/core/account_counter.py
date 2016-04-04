@@ -117,7 +117,7 @@ def get_counter(rse_id, account, session=None):
 
     try:
         counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one()
-        return {'bytes': counter.bytes, 'files': counter.files, 'updated_at':  counter.updated_at}
+        return {'bytes': counter.bytes, 'files': counter.files, 'updated_at': counter.updated_at}
     except NoResultFound:
         return {'bytes': 0, 'files': 0, 'updated_at': None}
 
@@ -141,9 +141,9 @@ def get_updated_account_counters(total_workers, worker_number, session=None):
                           bindparam('total_workers', total_workers)]
             query = query.filter(text('ORA_HASH(CONCAT(account, rse_id), :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(concat(account, rse_id)), %s) = %s' % (total_workers+1, worker_number))
+            query = query.filter('mod(md5(concat(account, rse_id)), %s) = %s' % (total_workers + 1, worker_number))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(concat(account, rse_id)))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+            query = query.filter('mod(abs((\'x\'||md5(concat(account, rse_id)))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
     return query.all()
 
