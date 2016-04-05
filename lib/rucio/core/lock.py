@@ -262,8 +262,6 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
         # Update the rule state
         if (rule.state == RuleState.SUSPENDED):
             pass
-        elif (rule.error is not None):
-            pass
         elif (rule.locks_stuck_cnt > 0):
             pass
         elif (rule.locks_replicating_cnt == 0):
@@ -284,7 +282,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
 
 
 @transactional_session
-def failed_transfer(scope, name, rse_id, broken_rule_id=None, broken_message=None, nowait=True, session=None):
+def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None, broken_message=None, nowait=True, session=None):
     """
     Update the state of all replica locks because of a failed transfer.
     If a transfer is permanently broken for a rule, the broken_rule_id should be filled which puts this rule into the SUSPENDED state.
@@ -292,6 +290,7 @@ def failed_transfer(scope, name, rse_id, broken_rule_id=None, broken_message=Non
     :param scope:           Scope of the did.
     :param name:            Name of the did.
     :param rse_id:          RSE id.
+    :param error_message:   The error why this transfer failed.
     :param broken_rule_id:  Id of the rule which will be suspended.
     :param broken_message:  Error message for the suspended rule.
     :param nowait:          Nowait parameter for the for_update queries.
@@ -317,8 +316,6 @@ def failed_transfer(scope, name, rse_id, broken_rule_id=None, broken_message=Non
         # Update the rule state
         if rule.state == RuleState.SUSPENDED:
             pass
-        elif rule.error is not None:
-            pass
         elif lock.rule_id == broken_rule_id:
             rule.state = RuleState.SUSPENDED
             rule.error = broken_message
@@ -335,6 +332,8 @@ def failed_transfer(scope, name, rse_id, broken_rule_id=None, broken_message=Non
                     ds_locks = session.query(models.DatasetLock).with_for_update(nowait=nowait).filter_by(rule_id=rule.id)
                     for ds_lock in ds_locks:
                         ds_lock.state = LockState.STUCK
+            if rule.error != error_message:
+                rule.error = error_message
 
         # Insert rule history
         rucio.core.rule.insert_rule_history(rule=rule, recent=True, longterm=False, session=session)

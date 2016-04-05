@@ -20,7 +20,7 @@ class RedisTimeSeries():
 
     def add_point(self, key, value):
         r_key = self._prefix + key
-        score = int(time()*1000000)
+        score = int(time() * 1000000)
         self._r.zadd(r_key, score, "%d:%d" % (value, score))
 
     def get_series(self, key):
@@ -35,7 +35,7 @@ class RedisTimeSeries():
 
     def trim(self):
         now = time()
-        max_score = int(now*1000000 - self._window)
+        max_score = int(now * 1000000 - self._window)
         for key in self.get_keys():
             self._r.zremrangebyscore(key, 0, max_score)
 
