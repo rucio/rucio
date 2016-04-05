@@ -818,28 +818,6 @@ CREATE TABLE account_limits (
 
 
 
-
--- ========================================= RSE_COUNTERS (physical structure IOT) =========================================
--- Description: Table to store incrementally the disk usage of a RSE
--- Estimated volume: ~700 RSEs: ~ 700
--- Access pattern: by rse_id
-
-CREATE TABLE rse_counters(
-        rse_id RAW(16),
-        files NUMBER(19),
-        bytes NUMBER(19),
-        updated_at DATE,
-        created_at DATE,
-        CONSTRAINT "RSE_COUNTERS_PK" PRIMARY KEY (rse_id),
-        CONSTRAINT "RSE_COUNTERS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-        CONSTRAINT "RSE_COUNTERS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-        CONSTRAINT "RSE_COUNTERS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-
-
-
-
 -- ========================================= UPDATED_RSE_COUNTERS =========================================
 
 CREATE TABLE UPDATED_RSE_COUNTERS
