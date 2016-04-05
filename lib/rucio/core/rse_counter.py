@@ -133,7 +133,7 @@ def update_rse_counter(rse_id, session=None):
 
     try:
         rse_counter = session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
-        rse_counter.used += sum([updated_rse_counter.used for updated_rse_counter in updated_rse_counters])
+        rse_counter.used += sum([updated_rse_counter.bytes for updated_rse_counter in updated_rse_counters])
         rse_counter.files += sum([updated_rse_counter.files for updated_rse_counter in updated_rse_counters])
     except NoResultFound:
         pass
