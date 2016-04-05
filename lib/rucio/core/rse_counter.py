@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
@@ -26,8 +26,8 @@ def add_counter(rse_id, session=None):
     :param rse_id:  The id of the RSE.
     :param session: The database session in use.
     """
-
-    models.RSECounter(rse_id=rse_id, files=0, bytes=0).save(session=session)
+    models.RSEUsage(rse_id=rse_id, source='rucio', files=0, used=0).\
+        save(session=session)
 
 
 @transactional_session
@@ -40,8 +40,8 @@ def increase(rse_id, files, bytes, session=None):
     :param bytes:   The number of added bytes.
     :param session: The database session in use.
     """
-
-    models.UpdatedRSECounter(rse_id=rse_id, files=files, bytes=bytes).save(session=session)
+    models.UpdatedRSECounter(rse_id=rse_id, files=files, bytes=bytes).\
+        save(session=session)
 
 
 @transactional_session
@@ -54,7 +54,6 @@ def decrease(rse_id, files, bytes, session=None):
     :param bytes:   The number of removed bytes.
     :param session: The database session in use.
     """
-
     return increase(rse_id=rse_id, files=-files, bytes=-bytes, session=session)
 
 
@@ -67,7 +66,8 @@ def del_counter(rse_id, session=None):
     :param session: The database session in use.
     """
 
-    session.query(models.RSECounter).filter_by(rse_id=rse_id).delete(synchronize_session=False)
+    session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').\
+        delete(synchronize_session=False)
 
 
 @read_session
@@ -83,8 +83,11 @@ def get_counter(rse_id, session=None):
     """
 
     try:
-        counter = session.query(models.RSECounter).filter_by(rse_id=rse_id).one()
-        return {'bytes': counter.bytes, 'files': counter.files, 'updated_at':  counter.updated_at}
+        counter = session.query(models.RSEUsage).\
+            filter_by(rse_id=rse_id, source='rucio').one()
+        return {'bytes': counter.used,
+                'files': counter.files,
+                'updated_at': counter.updated_at}
     except NoResultFound:
         raise CounterNotFound()
 
@@ -99,7 +102,8 @@ def get_updated_rse_counters(total_workers, worker_number, session=None):
     :param session:            Database session in use.
     :returns:                  List of rse_ids whose rse_counters need to be updated.
     """
-    query = session.query(models.UpdatedRSECounter.rse_id).distinct(models.UpdatedRSECounter.rse_id)
+    query = session.query(models.UpdatedRSECounter.rse_id).\
+        distinct(models.UpdatedRSECounter.rse_id)
 
     if total_workers > 0:
         if session.bind.dialect.name == 'oracle':
@@ -124,11 +128,12 @@ def update_rse_counter(rse_id, session=None):
     :param session:  Database session in use.
     """
 
-    updated_rse_counters = session.query(models.UpdatedRSECounter).filter_by(rse_id=rse_id).all()
+    updated_rse_counters = session.query(models.UpdatedRSECounter).\
+        filter_by(rse_id=rse_id).all()
 
     try:
-        rse_counter = session.query(models.RSECounter).filter_by(rse_id=rse_id).one()
-        rse_counter.bytes += sum([updated_rse_counter.bytes for updated_rse_counter in updated_rse_counters])
+        rse_counter = session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
+        rse_counter.used += sum([updated_rse_counter.used for updated_rse_counter in updated_rse_counters])
         rse_counter.files += sum([updated_rse_counter.files for updated_rse_counter in updated_rse_counters])
     except NoResultFound:
         pass
