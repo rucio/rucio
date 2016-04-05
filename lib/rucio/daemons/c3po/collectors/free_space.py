@@ -27,7 +27,7 @@ class FreeSpaceCollector():
                 join(RSEAttrAssociation, RSE.id == RSEAttrAssociation.rse_id).\
                 filter(RSEUsage.source == 'srm').filter(RSEAttrAssociation.key == 'type', RSEAttrAssociation.value == 'DATADISK')
             for rse, free, used in query:
-                self.rses[rse] = {'total': used+free, 'used': used, 'free': free}
+                self.rses[rse] = {'total': used + free, 'used': used, 'free': free}
 
     instance = None
 
