@@ -63,6 +63,9 @@ VERSION_INFO = {
 }
 """ % (IsRelease, git_version, branch_nick, revid, revno))
     version_file.close()
+    webui_version_file = open("lib/rucio/web/ui/static/webui_version", 'w')
+    webui_version_file.write('%s' % git_version)
+    webui_version_file.close()
 
 # If Sphinx is installed on the box running setup.py,
 # enable setup.py to build the documentation, otherwise,
