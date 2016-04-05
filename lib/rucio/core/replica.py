@@ -1007,8 +1007,12 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     for file in files:
         replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))
 
-        dst_replica_condition.append(and_(models.DataIdentifierAssociation.child_scope == file['scope'],
-                                          models.DataIdentifierAssociation.child_name == file['name']))
+        dst_replica_condition.\
+            append(and_(models.DataIdentifierAssociation.child_scope == file['scope'],
+                        models.DataIdentifierAssociation.child_name == file['name'],
+                        exists(select([1]).prefix_with("/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle')).where(and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
+                                                                                                                                                 models.CollectionReplica.name == models.DataIdentifierAssociation.name,
+                                                                                                                                                 models.CollectionReplica.rse_id == replica_rse.id))))
 
         parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == file['scope'],
                                      models.DataIdentifierAssociation.child_name == file['name'],
@@ -1031,7 +1035,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
-    # Get all collection_replicas, insert them into UpdatedCollectionReplica
+    # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
     if dst_replica_condition:
         query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
             filter(or_(*dst_replica_condition)).\
