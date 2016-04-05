@@ -584,7 +584,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                                 locks_to_delete[lock.rse_id] = [lock]
                     except InsufficientTargetRSEs:
                         # Just retry the already existing lock
-                        if __is_retry_required(lock):
+                        if __is_retry_required(lock=lock, activity=rule.activity):
                             associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                             __update_lock_replica_and_create_transfer(lock=lock,
                                                                       replica=associated_replica,
@@ -694,7 +694,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                                 locks_to_delete[lock.rse_id] = [lock]
                     except InsufficientTargetRSEs:
                         # Just retry the already existing lock
-                        if __is_retry_required(lock):
+                        if __is_retry_required(lock=lock, activity=rule.activity):
                             associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                             __update_lock_replica_and_create_transfer(lock=lock,
                                                                       replica=associated_replica,
@@ -804,7 +804,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                                 locks_to_delete[lock.rse_id] = [lock]
                     except InsufficientTargetRSEs:
                         # Just retry the already existing lock
-                        if __is_retry_required(lock):
+                        if __is_retry_required(lock=lock, activity=rule.activity):
                             associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                             __update_lock_replica_and_create_transfer(lock=lock,
                                                                       replica=associated_replica,
@@ -816,24 +816,32 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
-def __is_retry_required(lock):
+def __is_retry_required(lock, activity):
     """
     :param lock:                 The lock to check.
+    :param activity:             The activity of the rule.
     """
 
     created_at_diff = (datetime.utcnow() - lock.created_at).days * 24 * 3600 + (datetime.utcnow() - lock.created_at).seconds
     updated_at_diff = (datetime.utcnow() - lock.updated_at).days * 24 * 3600 + (datetime.utcnow() - lock.updated_at).seconds
 
-    if created_at_diff < 24 * 3600:  # First Day
+    if activity == 'Express':
+        if updated_at_diff > 3600 * 2:
+            return True
+    elif created_at_diff < 24 * 3600:  # First Day
+        # Retry every 2 hours
+        if updated_at_diff > 3600 * 2:
+            return True
+    elif created_at_diff < 2 * 24 * 3600:  # Second Day
         # Retry every 4 hours
         if updated_at_diff > 3600 * 4:
             return True
-    elif created_at_diff < 2 * 24 * 3600:  # Second Day
-        # Retry every 12 hours
-        if updated_at_diff > 3600 * 12:
+    elif created_at_diff < 3 * 24 * 3600:  # Third Day
+        # Retry every 6 hours
+        if updated_at_diff > 3600 * 6:
             return True
-    else:  # Three and more days
-        if updated_at_diff > 3600 * 24:
+    else:  # Four and more days
+        if updated_at_diff > 3600 * 8:
             return True
     return False
 
