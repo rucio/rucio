@@ -251,7 +251,7 @@ def handle_requests(reqs):
 
             replica['pfn'] = req['dest_url']
             replica['request_type'] = req['request_type']
-            replica['err_msg'] = None
+            replica['error_message'] = None
 
             if req['request_type'] not in replicas:
                 replicas[req['request_type']] = {}
@@ -292,7 +292,7 @@ def handle_requests(reqs):
                     logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = False
-                    replica['err_msg'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
+                    replica['error_message'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
             elif req['state'] == RequestState.SUBMITTING or req['state'] == RequestState.SUBMISSION_FAILED or req['state'] == RequestState.LOST:
                 if req['updated_at'] > (datetime.datetime.utcnow() - datetime.timedelta(minutes=120)):
@@ -312,7 +312,7 @@ def handle_requests(reqs):
                     logging.warn('EXCEEDED SUBMITTING DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = False
-                    replica['err_msg'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
+                    replica['error_message'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
             elif req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
                 if request_core.should_retry_request(req):
@@ -331,7 +331,7 @@ def handle_requests(reqs):
                     logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE  # should be broken here
                     replica['archived'] = False
-                    replica['err_msg'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
+                    replica['error_message'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
 
         except:
