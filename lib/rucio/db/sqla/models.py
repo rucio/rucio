@@ -508,16 +508,6 @@ class RSEUsage(BASE, ModelBase, Versioned):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'), )
 
 
-class RSECounter(BASE, ModelBase):
-    """Represents RSE counters"""
-    __tablename__ = 'rse_counters'
-    rse_id = Column(GUID())
-    files = Column(BigInteger)
-    bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('rse_id', name='RSE_COUNTERS_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_COUNTERS_RSE_ID_FK'))
-
-
 class UpdatedRSECounter(BASE, ModelBase):
     """Represents the recently updated RSE counters"""
     __tablename__ = 'updated_rse_counters'
@@ -1026,7 +1016,6 @@ def register_models(engine):
               NamingConvention,
               RSE,
               RSEAttrAssociation,
-              RSECounter,
               RSEFileAssociation,
               RSEFileAssociationHistory,
               RSELimit,
@@ -1076,7 +1065,6 @@ def unregister_models(engine):
               NamingConvention,
               RSE,
               RSEAttrAssociation,
-              RSECounter,
               RSEFileAssociation,
               RSEFileAssociationHistory,
               RSELimit,
