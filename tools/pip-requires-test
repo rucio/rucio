@@ -20,6 +20,5 @@ virtualenv==15.0.0               # Virtual Python Environment builder
 tox==2.3.1                       # Automate and standardize testing in Python
 pytest==2.9.0
 pytest-xdist==1.14               # py.test xdist plugin for distributed testing and loop-on-failing modes
-tabulate==0.7.5                  # Formating table like outputs
 xmltodict==0.10.1                # Makes working with XML feel like you are working with JSON
 git-review==1.25.0               # Command-line tool for Git / Gerrit
