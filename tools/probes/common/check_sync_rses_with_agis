@@ -33,28 +33,28 @@ OK = 0
 
 if __name__ == '__main__':
 
-    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
-    resp = requests.get(url=url)
-    data = json.loads(resp.content)
-    retvalue = OK
+    URL = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
+    RESP = requests.get(url=URL)
+    DATA = json.loads(RESP.content)
+    RETVALUE = OK
 
-    acc_attrs = [(a['account'], list_account_attributes(a['account'])) for a in list_accounts()]
-    admin_accounts = [x[0] for x in acc_attrs if {'key': 'admin', 'value': True} in x[1]]
-    for rse in data:
+    ACC_ATTRS = [(a['account'], list_account_attributes(a['account'])) for a in list_accounts()]
+    ADMIN_ACCOUNTS = [x[0] for x in ACC_ATTRS if {'key': 'admin', 'value': True} in x[1]]
+    for rse in DATA:
         print rse['name']
         try:
             deterministic = rse['is_deterministic']
             volatile = False
             add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
             # Set infinite quotas for admin accounts
-            for account in admin_accounts:
-                set_account_limit(account, rse['name'], -1, 'root')
+            for account in ADMIN_ACCOUNTS:
+                set_account_limit(account, rse['name'], -1)
             if not rse['is_tape']:
-                set_account_limit('sonar', rse['name'], 10000000000000, 'root')
+                set_account_limit('sonar', rse['name'], 10000000000000)
         except Duplicate, error:
             pass
-        except:
-            retvalue = CRITICAL
+        except Exception:
+            RETVALUE = CRITICAL
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
             print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
@@ -164,11 +164,11 @@ if __name__ == '__main__':
                 pass
             except RSEProtocolPriorityError, error:
                 print 'RSE %s protocol %s: %s' % (rse['name'], o.scheme, error)
-                if retvalue != CRITICAL:
-                    retvalue = WARNING
-            except:
-                retvalue = CRITICAL
+                if RETVALUE != CRITICAL:
+                    RETVALUE = WARNING
+            except Exception:
+                RETVALUE = CRITICAL
                 errno, errstr = sys.exc_info()[:2]
                 trcbck = traceback.format_exc()
                 print 'RSE %s protocol %s : Interrupted processing with %s %s %s.' % (rse['name'], o.scheme, errno, errstr, trcbck)
-    sys.exit(retvalue)
+    sys.exit(RETVALUE)
