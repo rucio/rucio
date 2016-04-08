@@ -39,7 +39,6 @@ from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
 from rucio.core.rse import sort_rses
-from rucio.core.rse_counter import get_counter
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.rse import rsemanager as rsemgr
 
@@ -78,17 +77,8 @@ def __check_rse_usage(rse, rse_id):
         return max_being_deleted_files, needed_free_space, used, free
 
     for var in usage:
-        total = var['total']
+        total, used = var['total'], var['used']
         break
-
-    # Get current used space
-    cnt = get_counter(rse_id=rse_id)
-    if not cnt:
-        return max_being_deleted_files, needed_free_space, used, free
-    used = cnt['bytes']
-
-    # Get current amount of bytes and files waiting for deletion
-    # being_deleted = rse_core.get_sum_count_being_deleted(rse_id=rse_id)
 
     free = total - used
     if min_free_space:
