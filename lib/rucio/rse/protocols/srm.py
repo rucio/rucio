@@ -95,8 +95,6 @@ class Default(protocol.RSEProtocol):
                 hostname = parsed.netloc.partition(':')[0]
                 port = parsed.netloc.partition(':')[2]
                 path = parsed.path
-                if path.startswith('/'):
-                    path = path[1:]
                 service_path = ''
 
             if self.attributes['hostname'] != hostname and\
