@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 
@@ -178,6 +178,8 @@ class RSEProtocol(object):
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
             path = path.partition(name)[0]
+            if not path.startswith('/'):
+                path = '/' + path
             ret[pfn] = {'path': path, 'name': name, 'scheme': scheme, 'prefix': prefix, 'port': port, 'hostname': hostname, }
 
         return ret
