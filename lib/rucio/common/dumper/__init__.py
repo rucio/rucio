@@ -6,10 +6,12 @@
 #
 # Authors:
 # - Fernando Lopez, <felopez@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
 
 from rucio.common import config
 import contextlib
 import datetime
+import gzip
 import json
 import logging
 import magic
@@ -72,8 +74,8 @@ def mkdir(dir):
     '''
     try:
         os.mkdir(dir)
-    except OSError, e:
-        assert e.errno == 17
+    except OSError, error:
+        assert error.errno == 17
 
 
 def cacert_config(config, rucio_home):
@@ -134,7 +136,13 @@ def smart_open(filename):
     if isplaintext(filename):
         f = open(filename, 'rt')
     else:
-        f = bz2file.open(filename, 'rt')
+        file_type = mimetype(filename)
+        if file_type.find('gzip') > -1:
+            f = gzip.GzipFile(filename, 'rt')
+        elif file_type.find('bzip2') > -1:
+            f = bz2file.open(filename, 'rt')
+        else:
+            pass  # Not supported format
     return f
 
 
