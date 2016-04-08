@@ -275,8 +275,8 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
         parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = parsed_pfn[pfn]['path']
-            if path.startswith('user') or path.startswith('group'):
-                scope = '%s.%s' % (path.split('/')[0], path.split('/')[1])
+            if path.startswith('/user') or path.startswith('/group'):
+                scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
                 name = parsed_pfn[pfn]['name']
             elif path.startswith('/'):
                 scope = path.split('/')[1]
@@ -314,7 +314,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
         path_clause = []
         parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
-            path = '/%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
+            path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
             __exists, scope, name, already_declared = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
             if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
@@ -499,8 +499,8 @@ def get_did_from_pfns(pfns, rse=None, session=None):
             parsed_pfn = proto.parse_pfns(pfns=pfns)
             for pfn in parsed_pfn:
                 path = parsed_pfn[pfn]['path']
-                if path.startswith('user') or path.startswith('group'):
-                    scope = '%s.%s' % (path.split('/')[0], path.split('/')[1])
+                if path.startswith('/user') or path.startswith('/group'):
+                    scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
                     name = parsed_pfn[pfn]['name']
                 elif path.startswith('/'):
                     scope = path.split('/')[1]
@@ -513,7 +513,7 @@ def get_did_from_pfns(pfns, rse=None, session=None):
             condition = []
             parsed_pfn = proto.parse_pfns(pfns=pfns)
             for pfn in parsed_pfn:
-                path = '/%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
+                path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
                 pfndict[path] = pfn
                 condition.append(and_(models.RSEFileAssociation.path == path, models.RSEFileAssociation.rse_id == rse_id))
             for scope, name, pfn in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path).filter(or_(*condition)):
