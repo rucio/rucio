@@ -42,5 +42,3 @@ pyasn1-modules==0.0.8            # A collection of ASN.1-based protocols modules
 pycparser==2.14                  # C parser in Python
 rsa==3.4.2                       # Pure-Python RSA implementation
 setuptools==20.6.7               # Easily download, build, install, upgrade, and uninstall Python packages
-
-
