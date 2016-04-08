@@ -7,7 +7,7 @@ python-editor==0.5         # Programmatically open an editor, capture the result
 flup==1.0.3.dev-20110405   # Needed to deploy web.py in lighthttpd
 web.py==0.37               # Python web framework
 python-memcached==1.57     # Quick and small memcached client for Python
-ntplib>=0.3.3 # NTPlib
+ntplib>=0.3.3              # NTP library
 anyjson==0.3.3             # Wraps the best available JSON implementation available in a common interface
 jsonschema==2.5.1          # JSON Schema
 repoze.lru==0.6            # LRU (least recently used) cache implementation.
