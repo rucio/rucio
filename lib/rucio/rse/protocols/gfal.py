@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wguan@cern.ch>, 2014-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 
 import errno
 import json
@@ -112,6 +112,8 @@ class Default(protocol.RSEProtocol):
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
             path = path.partition(name)[0]
+            if not path.startswith('/'):
+                path = '/' + path
             ret[pfn] = {'scheme': scheme, 'port': port, 'hostname': hostname, 'path': path, 'name': name, 'prefix': prefix, 'web_service_path': service_path}
 
         return ret
