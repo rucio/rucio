@@ -174,6 +174,8 @@ class Default(protocol.RSEProtocol):
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
             path = path.partition(name)[0]
+            if not path.startswith('/'):
+                path = '/' + path
             ret[pfn] = {'path': path, 'name': name, 'scheme': scheme, 'prefix': prefix, 'port': port, 'hostname': hostname, }
 
         return ret
