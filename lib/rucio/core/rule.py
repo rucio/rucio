@@ -1739,6 +1739,41 @@ def deny_rule(rule_id, session=None):
 
 
 @transactional_session
+def analyze_rule(rule_id, session=None):
+    """
+    Analyzes a replication rule .
+
+    :param rule_id:            Replication rule id
+    :param session:            Session of the db.
+    :returns:                  Dictionary of informations
+    """
+    result = {'analysis': None}
+
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        if rule.state == RuleState.OK:
+            result['analysis'] = 'This replication rule is OK'
+        elif rule.state == RuleState.REPLICATING:
+            result['analysis'] = 'This replication rule is currently REPLICATING'
+        elif rule.state == RuleState.SUSPENDED:
+            result['analysis'] = 'This replication rule is SUSPENDED'
+        else:
+            # Get the stuck locks
+            stuck_locks = session.query(models.ReplicaLock).filter_by(rule_id=rule_id, state=LockState.STUCK).all()
+            for lock in locks:
+                pass
+                # Get the count of requests in the request_history for each lock
+                # cnt = session.query(func.count(models.Request._history_mapper.class)).filter_by(rule_id=rule_id, scope=lock.scope, name=lock.name).all()[0]
+                # Get the error of the last request that has been tried ans also the SOURCE used for the last request
+                # If the error is NO_SOURCES
+                #    List the sources of the replica and see if the SOURCES are blacklisted
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+
+
+@transactional_session
 def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
     """
     Find missing locks for a rule and create them.
