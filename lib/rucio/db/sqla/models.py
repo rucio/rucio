@@ -704,6 +704,7 @@ class ReplicationRule(BASE, ModelBase):
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
                    ForeignKeyConstraint(['subscription_id'], ['subscriptions.id'], name='RULES_SUBS_ID_FK'),
+                   ForeignKeyConstraint(['child_rule_id'], ['rules.id'], name='RULES_CHILD_RULE_ID_FK'),
                    CheckConstraint('STATE IS NOT NULL', name='RULES_STATE_NN'),
                    CheckConstraint('SCOPE IS NOT NULL', name='RULES_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='RULES_NAME_NN'),
@@ -719,7 +720,8 @@ class ReplicationRule(BASE, ModelBase):
                          unique=True, mysql_length={'rse_expression': 767}),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
                    Index('RULES_EXPIRES_AT_IDX', 'expires_at'),
-                   Index('RULES_STUCKSTATE_IDX', 'state'))  # This Index is only needed for the STUCK state
+                   Index('RULES_STUCKSTATE_IDX', 'state'),  # This Index is only needed for the STUCK state
+                   Index('RULES_CHILD_RULE_ID_IDX', 'child_rule_id'))
 
 
 class ReplicationRuleHistoryRecent(BASE, ModelBase):
