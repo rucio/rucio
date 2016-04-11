@@ -572,8 +572,10 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
 
     state_clause = None
     if not all_states:
+        # models.RSE.volatile == is_false
         if not unavailable:
-            state_clause = models.RSEFileAssociation.state == ReplicaState.AVAILABLE
+            state_clause = and_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+
         else:
             state_clause = or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
                                models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
@@ -926,6 +928,9 @@ def add_replicas(rse, files, account, rse_id=None, ignore_availability=True, ses
     else:
         replica_rse = get_rse(rse=None, rse_id=rse_id, session=session)
 
+    if replica_rse.volatile is True:
+        raise exception.UnsupportedOperation('Cannot add replicas on volatile RSE %(rse)s ' % locals())
+
     if not (replica_rse.availability & 2) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % rse)
 
@@ -1224,7 +1229,11 @@ def update_replicas_states(replicas, nowait=False, session=None):
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
         elif replica['state'] == ReplicaState.UNAVAILABLE:
-            rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], broken_rule_id=replica.get('broken_rule_id', None), broken_message=replica.get('broken_message', None), nowait=nowait, session=session)
+            rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
+                                            error_message=replica.get('error_message', None),
+                                            broken_rule_id=replica.get('broken_rule_id', None),
+                                            broken_message=replica.get('broken_message', None),
+                                            nowait=nowait, session=session)
 
         if 'path' in replica and replica['path']:
             values['path'] = replica['path']

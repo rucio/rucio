@@ -922,7 +922,7 @@ def set_requests_external(transfer_ids, submitted_at, session=None):
 
 
 @transactional_session
-def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, src_rse_id=None, session=None):
+def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, src_rse_id=None, err_msg=None, session=None):
     """
     Update the state of a request. Fails silently if the request_id does not exist.
 
@@ -942,6 +942,8 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
             update_items['started_at'] = started_at
         if src_rse_id:
             update_items['source_rse_id'] = src_rse_id
+        if err_msg:
+            update_items['err_msg'] = err_msg
 
         if transfer_id:
             rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update(update_items, synchronize_session=False)
