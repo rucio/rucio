@@ -73,6 +73,7 @@ def update_request_state(response, session=None):
         else:
             request = request_core.get_request(response['request_id'], session=session)
             if request and request['external_id'] == response['transfer_id'] and request['state'] != response['new_state']:
+                response['submitted_at'] = request.get('submitted_at', None)
                 response['external_host'] = request['external_host']
                 transfer_id = response['transfer_id'] if 'transfer_id' in response else None
                 logging.info('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
@@ -185,8 +186,9 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
                             'adler32': req.get('adler32', None),
                             'md5': req.get('md5', None),
                             'filesize': req.get('filesize', None),
-                            'external+host': external_host,
+                            'external_host': external_host,
                             'job_m_replica': None,
+                            'submitted_at': req.get('submitted_at', None),
                             'details': None}
 
                 add_monitor_message(req, response, session=session)
