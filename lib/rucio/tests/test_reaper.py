@@ -7,13 +7,13 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
 '''
 
 from rucio.common.utils import generate_uuid
 from rucio.core import rse as rse_core
 from rucio.core import replica as replica_core
-from rucio.daemons.reaper import reaper
+from rucio.daemons.reaper.reaper import reaper
 
 
 class TestReaper:

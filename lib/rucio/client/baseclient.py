@@ -13,7 +13,6 @@
 
 Client class for callers of the Rucio system
 """
-
 import random
 import sys
 
@@ -38,6 +37,7 @@ from requests_kerberos import HTTPKerberosAuth
 # See https://github.com/kennethreitz/requests/issues/2214
 from requests.packages.urllib3 import disable_warnings
 disable_warnings()
+
 
 LOG = getLogger(__name__)
 SH = StreamHandler()

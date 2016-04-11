@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -23,10 +23,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--full-mode", action="store_true", default=False, help='Full mode to update request state')
     parser.add_argument("--total-threads", action="store", default=1, type=int, help='Concurrency control: total number of threads per process')
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once, total_threads=args.total_threads)
+        run(once=args.run_once, total_threads=args.total_threads, full_mode=args.full_mode)
     except KeyboardInterrupt:
         stop()
