@@ -15,9 +15,10 @@ Revises: 469d262be19
 Create Date: 2014-04-14 17:05:24.328328
 """
 
+import sqlalchemy as sa
+
 from alembic import context, op
 
-import sqlalchemy as sa
 from rucio.db.sqla.types import GUID
 
 # revision identifiers, used by Alembic.
