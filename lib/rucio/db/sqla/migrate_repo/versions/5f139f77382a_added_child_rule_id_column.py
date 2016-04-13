@@ -31,6 +31,8 @@ def upgrade():
         op.add_column('rules', sa.Column('child_rule_id', GUID()))
         op.add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()))
         op.add_column('rules_history', sa.Column('child_rule_id', GUID()))
+        op.create_foreign_key('RULES_CHILD_RULE_ID_FK', 'rules', 'rules', ['child_rule_id'], ['id'])
+        op.create_index('RULES_CHILD_RULE_ID_IDX', 'rules', ['child_rule_id'])
 
 
 def downgrade():
@@ -38,3 +40,5 @@ def downgrade():
         op.drop_column('rules', 'child_rule_id')
         op.drop_column('rules_hist_recent', 'child_rule_id')
         op.drop_column('rules_history', 'child_rule_id')
+        op.drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules')
+        op.drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
