@@ -37,8 +37,8 @@ def upgrade():
 
 def downgrade():
     if context.get_context().dialect.name != 'sqlite':
+        op.drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules')
+        op.drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
         op.drop_column('rules', 'child_rule_id')
         op.drop_column('rules_hist_recent', 'child_rule_id')
         op.drop_column('rules_history', 'child_rule_id')
-        op.drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules')
-        op.drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
