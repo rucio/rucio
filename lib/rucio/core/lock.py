@@ -318,7 +318,7 @@ def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None
             pass
         elif lock.rule_id == broken_rule_id:
             rule.state = RuleState.SUSPENDED
-            rule.error = broken_message
+            rule.error = (broken_message[:245] + '...') if len(broken_message) > 245 else broken_message
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 ds_locks = session.query(models.DatasetLock).with_for_update(nowait=nowait).filter_by(rule_id=rule.id)
@@ -333,7 +333,7 @@ def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None
                     for ds_lock in ds_locks:
                         ds_lock.state = LockState.STUCK
             if rule.error != error_message:
-                rule.error = error_message
+                rule.error = (error_message[:245] + '...') if len(error_message) > 245 else error_message
 
         # Insert rule history
         rucio.core.rule.insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
