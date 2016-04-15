@@ -185,3 +185,19 @@ class RuleClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def examine_replication_rule(self, rule_id):
+        """
+        Examine a replication rule for errors during transfer.
+
+        :param rule_id:             Rule to be denied.
+        :raises:                    RuleNotFound
+        """
+        path = self.RULE_BASEURL + '/' + rule_id + '/analysis'
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r).next()
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
