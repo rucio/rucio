@@ -574,9 +574,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
                       'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else None,
                       'overwrite': transfer['overwrite'],
-                      'priority': 3,
-                      "id_generator": "deterministic",
-                      "sid": str(request_id)}
+                      'priority': 3}
 
         # for multiple source replicas, no bulk submission
         if len(transfer['sources']) > 1:
