@@ -262,7 +262,9 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
         file['destinations'] = new_dst_urls
 
     transfer_id = None
-    sid = job_params['sid']
+    if __USE_DETERMINISTIC_ID:
+        job_params["id_generator"] = "deterministic"
+        job_params["sid"] = files[0]['metadata']['request_id']
 
     # bulk submission
     params_dict = {'files': files, 'params': job_params}
@@ -297,7 +299,7 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
         transfer_id = str(r.json()['job_id'])
     else:
         if __USE_DETERMINISTIC_ID:
-            transfer_id = get_deterministic_id(external_host, sid)
+            transfer_id = get_deterministic_id(external_host, job_params["sid"])
         logging.warn("Failed to submit transfer to %s, will use deterministic id %s, error: %s" % (external_host, transfer_id, r.text if r is not None else r))
         record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(external_host), len(files))
 
