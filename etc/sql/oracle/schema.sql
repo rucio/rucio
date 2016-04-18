@@ -603,6 +603,8 @@ CREATE TABLE updated_col_rep (
 
 
 CREATE INDEX UPDATED_COL_REP_SNR_IDX ON updated_col_rep ("scope", name, rse_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+CREATE INDEX ATLAS_RUCIO.UPDATED_COL_REP_SCOPE_NAME_IDX on ATLAS_RUCIO.UPDATED_COL_REP(scope, name) COMPRESS 2 tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
+
 
 -- ========================================= RULES ==============================================
 -- Description: Table to store rules
