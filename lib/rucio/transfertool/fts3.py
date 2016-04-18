@@ -24,7 +24,7 @@ from ConfigParser import NoOptionError
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.sqla.constants import FTSState
 
@@ -37,7 +37,7 @@ logging.basicConfig(stream=sys.stdout,
 
 __USERCERT = config_get('conveyor', 'usercert')
 try:
-    __USE_DETERMINISTIC_ID = config_get('conveyor', 'use_deterministic_id')
+    __USE_DETERMINISTIC_ID = config_get_bool('conveyor', 'use_deterministic_id')
 except NoOptionError:
     __USE_DETERMINISTIC_ID = False
 
@@ -262,7 +262,12 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
         file['destinations'] = new_dst_urls
 
     transfer_id = None
-    sid = job_params['sid']
+    expected_transfer_id = None
+    if __USE_DETERMINISTIC_ID:
+        job_params["id_generator"] = "deterministic"
+        job_params["sid"] = files[0]['metadata']['request_id']
+        expected_transfer_id = get_deterministic_id(external_host, job_params["sid"])
+        logging.debug("Submit bulk transfers in deterministic mode, sid %s, expected transfer id: %s" % (job_params["sid"], expected_transfer_id))
 
     # bulk submission
     params_dict = {'files': files, 'params': job_params}
@@ -296,9 +301,11 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
         record_counter('transfertool.fts3.%s.submission.success' % __extract_host(external_host), len(files))
         transfer_id = str(r.json()['job_id'])
     else:
-        if __USE_DETERMINISTIC_ID:
-            transfer_id = get_deterministic_id(external_host, sid)
-        logging.warn("Failed to submit transfer to %s, will use deterministic id %s, error: %s" % (external_host, transfer_id, r.text if r is not None else r))
+        if expected_transfer_id:
+            transfer_id = expected_transfer_id
+            logging.warn("Failed to submit transfer to %s, will use expected transfer id %s, error: %s" % (external_host, transfer_id, r.text if r is not None else r))
+        else:
+            logging.warn("Failed to submit transfer to %s, error: %s" % (external_host, r.text if r is not None else r))
         record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(external_host), len(files))
 
     return transfer_id
