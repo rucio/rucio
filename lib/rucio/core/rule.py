@@ -42,7 +42,7 @@ from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account, has_account_attribute
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
-from rucio.core.rse import get_rse_name, list_rse_attributes
+from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did, update_requests_priority
 from rucio.core.rse_selector import RSESelector
@@ -1732,6 +1732,60 @@ def deny_rule(rule_id, session=None):
                                      'to': [recipent[0]],
                                      'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                             session=session)
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+
+
+@transactional_session
+def examine_rule(rule_id, session=None):
+    """
+    Examine a replication rule for transfer errors.
+
+    :param rule_id:            Replication rule id
+    :param session:            Session of the db.
+    :returns:                  Dictionary of informations
+    """
+    result = {'rule_error': None,
+              'transfers': []}
+
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        if rule.state == RuleState.OK:
+            result['rule_error'] = 'This replication rule is OK'
+        elif rule.state == RuleState.REPLICATING:
+            result['rule_error'] = 'This replication rule is currently REPLICATING'
+        elif rule.state == RuleState.SUSPENDED:
+            result['rule_error'] = 'This replication rule is SUSPENDED'
+        else:
+            result['rule_error'] = rule.error
+            # Get the stuck locks
+            stuck_locks = session.query(models.ReplicaLock).filter_by(rule_id=rule_id, state=LockState.STUCK).all()
+            for lock in stuck_locks:
+                # Get the count of requests in the request_history for each lock
+                transfers = session.query(models.Request.__history_mapper__.class_).filter_by(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id).order_by(models.Request.__history_mapper__.class_.created_at.desc()).all()
+                transfer_cnt = len(transfers)
+                # Get the error of the last request that has been tried and also the SOURCE used for the last request
+                last_error, last_source, last_time, sources = None, None, None, []
+                if transfers:
+                    last_request = transfers[0]
+                    last_error = last_request.state
+                    last_time = last_request.created_at
+                    last_source = None if last_request.source_rse_id is None else get_rse_name(last_request.source_rse_id, session=session)
+                    available_replicas = session.query(models.RSEFileAssociation).filter_by(scope=lock.scope, name=lock.name, state=ReplicaState.AVAILABLE).all()
+                    for replica in available_replicas:
+                        sources.append((get_rse(None, rse_id=replica.rse_id, session=session).rse,
+                                        True if get_rse(None, rse_id=replica.rse_id, session=session) >= 7 else False))
+                result['transfers'].append({'scope': lock.scope,
+                                            'name': lock.name,
+                                            'rse': get_rse_name(lock.rse_id, session=session),
+                                            'attempts': transfer_cnt,
+                                            'last_error': str(last_error),
+                                            'last_source': last_source,
+                                            'sources': sources,
+                                            'last_time': last_time})
+        return result
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
