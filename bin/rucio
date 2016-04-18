@@ -1635,30 +1635,45 @@ def info_rule(args):
     Retrieve information about a rule.
     """
     client = get_client(args)
-    rule = client.get_replication_rule(rule_id=args.rule_id)
-    print "Id:                         %s" % rule['id']
-    print "Account:                    %s" % rule['account']
-    print "Scope:                      %s" % rule['scope']
-    print "Name:                       %s" % rule['name']
-    print "RSE Expression:             %s" % rule['rse_expression']
-    print "Copies:                     %s" % rule['copies']
-    print "State:                      %s" % rule['state']
-    print "Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'])
-    print "Grouping:                   %s" % rule['grouping']
-    print "Expires at:                 %s" % rule['expires_at']
-    print "Locked:                     %s" % rule['locked']
-    print "Weight:                     %s" % rule['weight']
-    print "Created at:                 %s" % rule['created_at']
-    print "Updated at:                 %s" % rule['updated_at']
-    print "Error:                      %s" % rule['error']
-    print "Subscription Id:            %s" % rule['subscription_id']
-    print "Source replica expression:  %s" % rule['source_replica_expression']
-    print "Activity:                   %s" % rule['activity']
-    print "Comment:                    %s" % rule['comments']
-    print "Ignore Quota:               %s" % rule['ignore_account_limit']
-    print "Ignore Availability:        %s" % rule['ignore_availability']
-    print "Purge replicas:             %s" % rule['purge_replicas']
-    print "Notification:               %s" % rule['notification']
+    if args.examine:
+        analysis = client.examine_replication_rule(rule_id=args.rule_id)
+        print 'Status of the replication rule: %s' % analysis['rule_error']
+        if analysis['transfers']:
+            print 'STUCK Requests:'
+            for transfer in analysis['transfers']:
+                print '  %s:%s' % (transfer['scope'], transfer['name'])
+                print '    RSE:                  %s' % str(transfer['rse'])
+                print '    Attempts:             %s' % str(transfer['attempts'])
+                print '    Last Retry:           %s' % str(transfer['last_time'])
+                print '    Last error:           %s' % str(transfer['last_error'])
+                print '    Last source:          %s' % str(transfer['last_source'])
+                print '    Available sources:    %s' % ', '.join([source for source in transfer['sources'] if source[1]])
+                print '    Blacklisted sources:  %s' % ', '.join([source for source in transfer['sources'] if not source[1]])
+    else:
+        rule = client.get_replication_rule(rule_id=args.rule_id)
+        print "Id:                         %s" % rule['id']
+        print "Account:                    %s" % rule['account']
+        print "Scope:                      %s" % rule['scope']
+        print "Name:                       %s" % rule['name']
+        print "RSE Expression:             %s" % rule['rse_expression']
+        print "Copies:                     %s" % rule['copies']
+        print "State:                      %s" % rule['state']
+        print "Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'])
+        print "Grouping:                   %s" % rule['grouping']
+        print "Expires at:                 %s" % rule['expires_at']
+        print "Locked:                     %s" % rule['locked']
+        print "Weight:                     %s" % rule['weight']
+        print "Created at:                 %s" % rule['created_at']
+        print "Updated at:                 %s" % rule['updated_at']
+        print "Error:                      %s" % rule['error']
+        print "Subscription Id:            %s" % rule['subscription_id']
+        print "Source replica expression:  %s" % rule['source_replica_expression']
+        print "Activity:                   %s" % rule['activity']
+        print "Comment:                    %s" % rule['comments']
+        print "Ignore Quota:               %s" % rule['ignore_account_limit']
+        print "Ignore Availability:        %s" % rule['ignore_availability']
+        print "Purge replicas:             %s" % rule['purge_replicas']
+        print "Notification:               %s" % rule['notification']
     return SUCCESS
 
 
@@ -2213,6 +2228,7 @@ Commands:
     info_rule_parser = subparsers.add_parser('rule-info', help='Retrieve information about a rule.')
     info_rule_parser.set_defaults(which='info_rule')
     info_rule_parser.add_argument(dest='rule_id', action='store', help='The rule ID')
+    info_rule_parser.add_argument('--examine', dest='examine', action='store_true', help='Detailed analysis of transfer errors')
 
     # The list_rules command
     list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules.')

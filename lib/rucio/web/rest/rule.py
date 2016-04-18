@@ -18,7 +18,9 @@ from urlparse import parse_qsl
 from web import application, ctx, data, header, Created, InternalError, OK, loadhook
 
 from rucio.api.lock import get_replica_locks_for_rule_id
-from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule, list_replication_rule_history, list_replication_rule_full_history, list_replication_rules
+from rucio.api.rule import (add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule,
+                            reduce_replication_rule, list_replication_rule_history, list_replication_rule_full_history,
+                            list_replication_rules, examine_replication_rule)
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
@@ -36,6 +38,7 @@ urls = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
         '/(.+)/(.+)/history', 'RuleHistoryFull',
         '/(.+)/history', 'RuleHistory',
+        '/(.+)/analysis', 'RuleAnalysis',
         '/', 'AllRule',
         '/(.+)', 'Rule',)
 
@@ -398,6 +401,32 @@ class RuleHistoryFull:
 
         for hist in history:
             yield dumps(hist, cls=APIEncoder) + '\n'
+
+
+class RuleAnalysis:
+    """ REST APIs for rule analysis. """
+
+    def GET(self, rule_id):
+        """ get analysis for given rule.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            404 Not Found
+            500 InternalError
+
+        :returns: JSON dict containing informations about the requested user.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            analysis = examine_replication_rule(rule_id)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            raise InternalError(e)
+
+        return render_json(**analysis)
 
 
 """----------------------
