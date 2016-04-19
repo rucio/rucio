@@ -28,7 +28,8 @@ from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
-                                            delete_quarantined_replicas)
+                                            delete_quarantined_replicas,
+                                            list_rses)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -148,7 +149,7 @@ def stop(signum=None, frame=None):
 
 
 def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
-        exclude_rses=None, include_rses=None, delay_seconds=0):
+        exclude_rses=None, include_rses=None, delay_seconds=0, all_rses=False):
     """
     Starts up the reaper threads.
 
@@ -164,7 +165,9 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
     """
     logging.info('main: starting processes')
 
-    if not rses:
+    if all_rses:
+        rses = list_rses()
+    elif not rses:
         rses = [rse['rse'] for rse in rse_core.list_rses()]
 
     threads = []
