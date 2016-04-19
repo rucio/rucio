@@ -136,3 +136,19 @@ def list_quarantined_replicas(rse, limit, worker_number=None, total_workers=None
              'name': name,
              'bytes': bytes}
             for path, bytes, scope, name, created_at in query.limit(limit)]
+
+
+@read_session
+def list_rses(session=None):
+    """
+    List RSEs in the Quarantined Queues.
+
+    :param session: The database session in use.
+
+    :returns: a list of RSEs.
+    """
+    is_false = False
+    query = session.query(models.RSE.rse).distinct(models.RSE.rse).\
+        filter(models.QuarantinedReplica.rse_id == models.RSE.id).\
+        filter(models.RSE.deleted == is_false)
+    return [rse for (rse,) in query]
