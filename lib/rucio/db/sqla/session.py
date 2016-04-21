@@ -8,7 +8,7 @@
   Authors:
   - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-  - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2015
+  - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2016
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 '''
 
@@ -17,12 +17,12 @@ import sys
 from ConfigParser import NoOptionError
 from functools import wraps
 from inspect import isgeneratorfunction
+from retrying import retry
 from threading import Lock
-from time import sleep
 from os.path import basename
 
 from sqlalchemy import create_engine, event
-from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, DBAPIError, TimeoutError
+from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 
@@ -105,10 +105,6 @@ def get_engine(echo=True):
             event.listen(_ENGINE, 'connect', _fk_pragma_on_connect)
         elif 'oracle' in sql_connection:
             event.listen(_ENGINE, 'connect', my_on_connect)
-        # Override engine.connect method with db error wrapper
-        # To have auto_reconnect (will come in next sqlalchemy releases)
-        _ENGINE.connect = wrap_db_error(_ENGINE.connect)
-        # _ENGINE.connect()
     assert _ENGINE
     return _ENGINE
 
@@ -137,52 +133,6 @@ def get_dump_engine(echo=False):
 
     engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
     return engine
-
-
-def is_db_connection_error(args):
-    """Return True if error in connecting to db."""
-    conn_err_codes = ('2002', '2003', '2006',  # MySQL
-                      'ORA-00028',  # Oracle session has been killed
-                      'ORA-01012',  # not logged on
-                      'ORA-03113',  # end-of-file on communication channel
-                      'ORA-03114',  # not connected to ORACLE
-                      'ORA-03135',  # connection lost contact
-                      'ORA-25408',)  # can not safely replay call
-
-    for err_code in conn_err_codes:
-        if args.find(err_code) != -1:
-            return True
-    return False
-
-
-def wrap_db_error(f):
-    """Retry DB connection."""
-    def _wrap(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except OperationalError, error:
-            if not is_db_connection_error(error.args[0]):
-                raise
-            # To Do: Should come from the configuration
-            remaining_attempts = 10
-            retry_interval = 0.5
-            while True:
-                print 'SQL connection failed. %d attempts left.' % remaining_attempts
-                remaining_attempts -= 1
-                sleep(retry_interval)
-                try:
-                    return f(*args, **kwargs)
-                except OperationalError, error:
-                    if remaining_attempts == 0 or not is_db_connection_error(error.args[0]):
-                        raise
-                except DBAPIError:
-                    raise
-        except DatabaseError, error:
-            raise RucioException(error.args[0])
-        except DBAPIError:
-            raise
-    _wrap.func_name = f.func_name
-    return _wrap
 
 
 def get_maker():
@@ -214,6 +164,22 @@ def get_session():
     return session
 
 
+def retry_if_db_connection_error(exception):
+    """Return True if error in connecting to db."""
+    if isinstance(exception, OperationalError):
+        conn_err_codes = ('2002', '2003', '2006',  # MySQL
+                          'ORA-00028',  # Oracle session has been killed
+                          'ORA-01012',  # not logged on
+                          'ORA-03113',  # end-of-file on communication channel
+                          'ORA-03114',  # not connected to ORACLE
+                          'ORA-03135',  # connection lost contact
+                          'ORA-25408',)  # can not safely replay call
+        for err_code in conn_err_codes:
+            if exception.args[0].find(err_code) != -1:
+                return True
+    return False
+
+
 def read_session(function):
     '''
     decorator that set the session variable to use inside a function.
@@ -224,28 +190,36 @@ def read_session(function):
     INSERTs, UPDATEs etc should use transactional_session.
     '''
     @wraps(function)
+    @retry(retry_on_exception=retry_if_db_connection_error,
+           wait_fixed=0.5,
+           stop_max_attempt_number=2,
+           wrap_exception=True)
     def new_funct(*args, **kwargs):
 
         if isgeneratorfunction(function):
             raise RucioException('read_session decorator should not be used with generator. Use stream_session instead.')
 
+        session = None
         if not kwargs.get('session'):
             session = get_session()
-            try:
-                kwargs['session'] = session
-                return function(*args, **kwargs)
-            except TimeoutError, error:
-                session.rollback()  # pylint: disable=maybe-no-member
-                raise DatabaseException(str(error))
-            except DatabaseError, error:
-                session.rollback()  # pylint: disable=maybe-no-member
-                raise DatabaseException(str(error))
-            except:
-                session.rollback()  # pylint: disable=maybe-no-member
-                raise
-            finally:
-                session.remove()
-        return function(*args, **kwargs)
+            kwargs['session'] = session
+
+        try:
+            return function(*args, **kwargs)
+        except TimeoutError, error:
+            session and session.rollback()  # pylint: disable=maybe-no-member
+            raise DatabaseException(str(error))
+        except OperationalError, error:
+            session and session.rollback()  # pylint: disable=maybe-no-member
+            raise
+        except DatabaseError, error:
+            session and session.rollback()  # pylint: disable=maybe-no-member
+            raise DatabaseException(str(error))
+        except:
+            session and session.rollback()  # pylint: disable=maybe-no-member
+            raise
+        finally:
+            session and session.remove()
     new_funct.__doc__ = function.__doc__
     return new_funct
 
@@ -269,7 +243,6 @@ def stream_session(function):
             session = get_session()
             try:
                 kwargs['session'] = session
-                # print isgeneratorfunction(function)
                 for row in function(*args, **kwargs):
                     yield row
             except TimeoutError, error:
