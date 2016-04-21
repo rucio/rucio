@@ -234,33 +234,34 @@ def stream_session(function):
     INSERTs, UPDATEs etc should use transactional_session.
     '''
     @wraps(function)
+    @retry(retry_on_exception=retry_if_db_connection_error,
+           wait_fixed=0.5,
+           stop_max_attempt_number=2,
+           wrap_exception=True)
     def new_funct(*args, **kwargs):
 
-        if not isgeneratorfunction(function):
-            raise RucioException('stream_session decorator should be used only with generator. Use read_session instead.')
-
+        session = None
         if not kwargs.get('session'):
             session = get_session()
-            try:
-                kwargs['session'] = session
-                for row in function(*args, **kwargs):
-                    yield row
-            except TimeoutError, error:
-                print error
-                session.rollback()  # pylint: disable=maybe-no-member
-                raise DatabaseException(str(error))
-            except DatabaseError, error:
-                print error
-                session.rollback()  # pylint: disable=maybe-no-member
-                raise DatabaseException(str(error))
-            except:
-                session.rollback()  # pylint: disable=maybe-no-member
-                raise
-            finally:
-                session.remove()
-        else:
+            kwargs['session'] = session
+
+        try:
             for row in function(*args, **kwargs):
                 yield row
+        except TimeoutError, error:
+            session and session.rollback()  # pylint: disable=maybe-no-member
+            raise DatabaseException(str(error))
+        except OperationalError, error:
+            session and session.rollback()  # pylint: disable=maybe-no-member
+            raise
+        except DatabaseError, error:
+            session and session.rollback()  # pylint: disable=maybe-no-member
+            raise DatabaseException(str(error))
+        except:
+            session and session.rollback()  # pylint: disable=maybe-no-member
+            raise
+        finally:
+            session and session.remove()
     new_funct.__doc__ = function.__doc__
     return new_funct
 
