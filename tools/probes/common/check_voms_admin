@@ -134,7 +134,8 @@ if __name__ == '__main__':
             phys_group = match_pattern.group(1)
             dns = {}
             print 'Working on group-%s' % (phys_group)
-            for dn in admin.call_method('list-users-with-role', vomsgroup, 'Role=production'):
+            list_dns = admin.call_method('list-users-with-role', vomsgroup, 'Role=production') or []
+            for dn in list_dns:
                 dns[dn._DN] = 'group-%s:admin' % (phys_group)
             set_account_attributes(dns)
             continue
@@ -147,11 +148,13 @@ if __name__ == '__main__':
         print 'Working on country-%s' % (country)
         dns = {}
         # Get DNs in country group
-        for dn in admin.call_method('list-members', vomsgroup):
+        list_dns = admin.call_method('list-members', vomsgroup) or []
+        for dn in list_dns:
             dns[dn._DN] = 'country-%s:user' % (country)
 
         # Get DNs with production role in each country (upgrades the role from user to admin if applicable)
-        for dn in admin.call_method('list-users-with-role', vomsgroup, 'Role=production'):
+        list_dns = admin.call_method('list-users-with-role', vomsgroup, 'Role=production') or []
+        for dn in list_dns:
             dns[dn._DN] = 'country-%s:admin' % (country)
         set_account_attributes(dns)
 
