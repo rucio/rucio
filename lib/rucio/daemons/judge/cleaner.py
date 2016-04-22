@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2015
 
 """
@@ -29,7 +29,7 @@ from random import randint
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException, AccessDenied, RuleNotFound
+from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.core.monitor import record_counter
@@ -90,7 +90,7 @@ def rule_cleaner(once=False):
                         start = time.time()
                         delete_rule(rule_id=rule_id, nowait=True)
                         logging.debug('rule_cleaner[%s/%s]: deletion of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id, time.time() - start))
-                    except (DatabaseException, DatabaseError, AccessDenied), e:
+                    except (DatabaseException, DatabaseError, UnsupportedOperation), e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
                             record_counter('rule.judge.exceptions.LocksDetected')
