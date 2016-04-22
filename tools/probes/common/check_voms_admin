@@ -36,34 +36,35 @@ OK = 0
 result = OK
 
 
-def set_account_attributes(dns, value, role, account_type):
+def set_account_attributes(dns):
 
     if not dns:
-        print 'No user with %s role in %s %s' % (role, account_type, value)
+        print 'No user'
         return
 
     accounts_done = []
     for dn in dns:
         # Get Rucio account
-        accounts = list_accounts(filter={'identity': dn._DN, 'account_type': 'USER'})
+        accounts = list_accounts(filter={'identity': dn, 'account_type': 'USER'})
         if not accounts:
-            print "Warning: no user accounts for %s" % dn._DN
+            print "Warning: no user accounts for %s" % dn
             continue
 
         for acc in accounts:
             account = acc['account']
+            account_type, role = dns[dn].split(':')
             if account not in accounts_done:
-                print 'Set %s role for %s-%s for %s' % (role, account_type, value, account)
+                print 'Set %s role for %s for %s' % (role, account_type, account)
                 try:
-                    attrs = dict([(u['key'], u['value']) for u in list_account_attributes(account)])
-                    key = '%s-%s' % (account_type, value)
-                    if key in attrs and attrs[key] == role:
-                        print 'Account %s already has the role %s' % (account, role)
+                    attrs = dict([(dummy['key'], dummy['value']) for dummy in list_account_attributes(account)])
+                    if account_type in attrs and attrs[account_type] == role:
+                        print 'Account %s already has the role %s for %s' % (account, role, account_type)
                         continue
-                    elif key in attrs:
-                        print 'Removing attribute %s:%s from account %s' % (key, role, account)
-                        del_account_attribute(key, account, 'root')
-                    add_account_attribute(key, role, account, 'root')
+                    elif account_type in attrs:
+                        print 'Removing attribute %s from account %s' % (account_type, account)
+                        del_account_attribute(account_type, account, 'root')
+                    print 'Adding attribute %s for %s from account %s' % (role, account_type, account)
+                    add_account_attribute(account_type, role, account, 'root')
                 except Duplicate:
                     pass
                 except RucioException, error:
@@ -131,8 +132,11 @@ if __name__ == '__main__':
                 continue
             vomsgroup = match_pattern.group(0)
             phys_group = match_pattern.group(1)
-            dns = admin.call_method('list-users-with-role', vomsgroup, 'Role=production')
-            set_account_attributes(dns, phys_group, 'admin', account_type='group')
+            dns = {}
+            print 'Working on group-%s' % (phys_group)
+            for dn in admin.call_method('list-users-with-role', vomsgroup, 'Role=production'):
+                dns[dn._DN] = 'group-%s:admin' % (phys_group)
+            set_account_attributes(dns)
             continue
 
         vomsgroup = match_pattern.group(0)
@@ -140,13 +144,16 @@ if __name__ == '__main__':
         if country == 'usatlas':
             country = 'us'
 
+        print 'Working on country-%s' % (country)
+        dns = {}
         # Get DNs in country group
-        dns = admin.call_method('list-members', vomsgroup)
-        set_account_attributes(dns, country, 'user', account_type='country')
+        for dn in admin.call_method('list-members', vomsgroup):
+            dns[dn._DN] = 'country-%s:user' % (country)
 
         # Get DNs with production role in each country (upgrades the role from user to admin if applicable)
-        dns = admin.call_method('list-users-with-role', vomsgroup, 'Role=production')
-        set_account_attributes(dns, country, 'admin', account_type='country')
+        for dn in admin.call_method('list-users-with-role', vomsgroup, 'Role=production'):
+            dns[dn._DN] = 'country-%s:admin' % (country)
+        set_account_attributes(dns)
 
     # Add cloud admins from ldap egroups
     add_cloud_admins()
