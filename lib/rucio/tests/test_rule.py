@@ -26,7 +26,8 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
+from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted,
+                                    RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
@@ -451,7 +452,7 @@ class TestReplicationRuleCore():
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
 
-        assert_raises(AccessDenied, delete_rule, rule_id_1)
+        assert_raises(UnsupportedOperation, delete_rule, rule_id_1)
         update_rule(rule_id=rule_id_1, options={'locked': False})
         delete_rule(rule_id=rule_id_1)
 
@@ -914,7 +915,7 @@ class TestReplicationRuleClient():
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
 
-        assert_raises(AccessDenied, delete_rule, rule_id_1)
+        assert_raises(UnsupportedOperation, delete_rule, rule_id_1)
         self.rule_client.update_replication_rule(rule_id=rule_id_1, options={'locked': False})
         delete_rule(rule_id=rule_id_1)
 
