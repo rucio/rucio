@@ -124,7 +124,7 @@ BEGIN
             IF rse_ids(i) IS NOT NULL THEN
                 -- Check one specific DATASET_REPLICA
                 BEGIN
-                    SELECT length, bytes, available_replicas INTO ds_length, ds_bytes, old_available_replicas FROM ATLAS_RUCIO.collection_replicas WHERE scope=scopes(i) and name=names(i) and rse_id=rse_ids(i);
+                    SELECT length, bytes, available_replicas_cnt INTO ds_length, ds_bytes, old_available_replicas FROM ATLAS_RUCIO.collection_replicas WHERE scope=scopes(i) and name=names(i) and rse_id=rse_ids(i);
                 EXCEPTION
                     WHEN NO_DATA_FOUND THEN CONTINUE;
                 END;
