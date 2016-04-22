@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - David Cameron, <david.cameron@cern.ch>, 2014-2015
+# - David Cameron, <david.cameron@cern.ch>, 2014-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 # Sets the minimum free space on RSEs according to the policy, which is set in
@@ -167,14 +167,6 @@ for rse in rses:
     minfree = min(capacity * policy[token][0] / 100.0, policy[token][1] * (1000**4))
     print "RSE %s: calculated minimum free space %sTB" % (rse, TB(minfree))
 
-    # Add dark data to minfree (only if positive)
-    darkdata = srmused - used_others - rucioused
-    if darkdata > 0:
-        print "RSE %s: adding %sTB of dark data" % (rse, TB(darkdata))
-        minfree += darkdata
-
-    # Now add the space used in other tokens to the limit
-    minfree += used_others
     try:
         if server:
             c.set_rse_limits(rse, 'MinFreeSpace', minfree, 'root')
