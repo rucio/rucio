@@ -25,7 +25,7 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
                                     DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
-                                    ManualRuleApprovalBlocked)
+                                    ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
@@ -127,6 +127,8 @@ class Rule:
             delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except UnsupportedOperation, e:
+            raise generate_http_error(401, 'UnsupportedOperation', e.args[0][0])
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
         except Exception, e:
