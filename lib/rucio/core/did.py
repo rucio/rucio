@@ -458,7 +458,7 @@ def delete_dids(dids, account, session=None):
                                                                           models.ReplicationRule.name,
                                                                           models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
                 logging.debug('Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
-                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=True, nowait=True, session=session)
+                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=True, delete_parent=True, nowait=True, session=session)
 
     # Detach from parent dids:
     existing_parent_dids = False
