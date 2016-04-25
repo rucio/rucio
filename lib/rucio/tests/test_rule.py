@@ -27,13 +27,14 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted,
-                                    RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, UnsupportedOperation)
+                                    RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, InputValidationError,
+                                    UnsupportedOperation)
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
 from rucio.core.account import add_account_attribute
-from rucio.core.account_limit import set_account_limit, delete_account_limit
+from rucio.core.account_limit import set_account_limit
 from rucio.core.request import get_request_by_did
 from rucio.core.replica import add_replica, get_replica
 from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse, get_rse_id, del_rse_attribute
@@ -555,7 +556,7 @@ class TestReplicationRuleCore():
 
         assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        delete_account_limit(account='jdoe', rse_id=self.rse1_id)
+        set_account_limit(account='jdoe', rse_id=self.rse1_id, bytes=-1)
 
     def test_dataset_callback(self):
         """ REPLICATION RULE (CORE): Test dataset callback"""
@@ -788,6 +789,52 @@ class TestReplicationRuleCore():
 
         with assert_raises(ManualRuleApprovalBlocked):
             add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
+
+    def test_update_rule_child_rule(self):
+        """ REPLICATION RULE (CORE): Update a replication rule with a child_rule"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset1 = 'dataset_' + str(uuid())
+        dataset2 = 'dataset_' + str(uuid())
+        add_did(scope, dataset1, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset1, files, 'jdoe')
+        add_did(scope, dataset2, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset2, files, 'jdoe')
+
+        rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset1}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id_2 = add_rule(dids=[{'scope': scope, 'name': dataset2}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id_3 = add_rule(dids=[{'scope': scope, 'name': dataset1}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        with assert_raises(InputValidationError):
+            update_rule(rule_id_1, options={'child_rule_id': rule_id_2})
+        update_rule(rule_id_1, options={'child_rule_id': rule_id_3})
+        with assert_raises(UnsupportedOperation):
+            delete_rule(rule_id_1)
+
+    def test_release_rule(self):
+        """ REPLICATION RULE (CORE): Test to release a parent rule after child rule is OK"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id_2 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        update_rule(rule_id_1, options={'child_rule_id': rule_id_2})
+
+        with assert_raises(UnsupportedOperation):
+            delete_rule(rule_id_1)
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
+        with assert_raises(UnsupportedOperation):
+            delete_rule(rule_id_1)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
+        with assert_raises(UnsupportedOperation):
+            delete_rule(rule_id_1)
+        successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
+        delete_rule(rule_id_1)
 
 
 class TestReplicationRuleClient():
