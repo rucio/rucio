@@ -166,6 +166,7 @@ def get_session():
 
 def retry_if_db_connection_error(exception):
     """Return True if error in connecting to db."""
+    print exception
     if isinstance(exception, OperationalError):
         conn_err_codes = ('2002', '2003', '2006',  # MySQL
                           'ORA-00028',  # Oracle session has been killed
@@ -189,37 +190,36 @@ def read_session(function):
     This is useful if only SELECTs and the like are being done; anything involving
     INSERTs, UPDATEs etc should use transactional_session.
     '''
-    @wraps(function)
     @retry(retry_on_exception=retry_if_db_connection_error,
            wait_fixed=0.5,
            stop_max_attempt_number=2,
-           wrap_exception=True)
+           wrap_exception=False)
+    @wraps(function)
     def new_funct(*args, **kwargs):
 
         if isgeneratorfunction(function):
             raise RucioException('read_session decorator should not be used with generator. Use stream_session instead.')
 
-        session = None
         if not kwargs.get('session'):
             session = get_session()
-            kwargs['session'] = session
-
+            try:
+                kwargs['session'] = session
+                return function(*args, **kwargs)
+            except TimeoutError, error:
+                session.rollback()  # pylint: disable=maybe-no-member
+                raise DatabaseException(str(error))
+            except DatabaseError, error:
+                session.rollback()  # pylint: disable=maybe-no-member
+                raise DatabaseException(str(error))
+            except:
+                session.rollback()  # pylint: disable=maybe-no-member
+                raise
+            finally:
+                session.remove()
         try:
             return function(*args, **kwargs)
-        except TimeoutError, error:
-            session and session.rollback()  # pylint: disable=maybe-no-member
-            raise DatabaseException(str(error))
-        except OperationalError, error:
-            session and session.rollback()  # pylint: disable=maybe-no-member
-            raise
-        except DatabaseError, error:
-            session and session.rollback()  # pylint: disable=maybe-no-member
-            raise DatabaseException(str(error))
         except:
-            session and session.rollback()  # pylint: disable=maybe-no-member
             raise
-        finally:
-            session and session.remove()
     new_funct.__doc__ = function.__doc__
     return new_funct
 
@@ -233,35 +233,41 @@ def stream_session(function):
     This is useful if only SELECTs and the like are being done; anything involving
     INSERTs, UPDATEs etc should use transactional_session.
     '''
-    @wraps(function)
     @retry(retry_on_exception=retry_if_db_connection_error,
            wait_fixed=0.5,
            stop_max_attempt_number=2,
-           wrap_exception=True)
+           wrap_exception=False)
+    @wraps(function)
     def new_funct(*args, **kwargs):
 
-        session = None
+        if not isgeneratorfunction(function):
+            raise RucioException('stream_session decorator should be used only with generator. Use read_session instead.')
+
         if not kwargs.get('session'):
             session = get_session()
-            kwargs['session'] = session
-
-        try:
-            for row in function(*args, **kwargs):
-                yield row
-        except TimeoutError, error:
-            session and session.rollback()  # pylint: disable=maybe-no-member
-            raise DatabaseException(str(error))
-        except OperationalError, error:
-            session and session.rollback()  # pylint: disable=maybe-no-member
-            raise
-        except DatabaseError, error:
-            session and session.rollback()  # pylint: disable=maybe-no-member
-            raise DatabaseException(str(error))
-        except:
-            session and session.rollback()  # pylint: disable=maybe-no-member
-            raise
-        finally:
-            session and session.remove()
+            try:
+                kwargs['session'] = session
+                for row in function(*args, **kwargs):
+                    yield row
+            except TimeoutError, error:
+                print error
+                session.rollback()  # pylint: disable=maybe-no-member
+                raise DatabaseException(str(error))
+            except DatabaseError, error:
+                print error
+                session.rollback()  # pylint: disable=maybe-no-member
+                raise DatabaseException(str(error))
+            except:
+                session.rollback()  # pylint: disable=maybe-no-member
+                raise
+            finally:
+                session.remove()
+        else:
+            try:
+                for row in function(*args, **kwargs):
+                    yield row
+            except:
+                raise
     new_funct.__doc__ = function.__doc__
     return new_funct
 
