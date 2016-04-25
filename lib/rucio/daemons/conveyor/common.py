@@ -520,6 +520,7 @@ def add_monitor_message(request, response, session=None):
     filesize = response.get('filesize', None)
     md5 = response.get('md5', None)
     adler32 = response.get('adler32', None)
+    created_at = response.get('created_at', None)
     submitted_at = response.get('submitted_at', None)
     started_at = response.get('started_at', None)
     transferred_at = response.get('transferred_at', None)
@@ -551,6 +552,7 @@ def add_monitor_message(request, response, session=None):
                                   'transfer-endpoint': response['external_host'],
                                   'transfer-id': response['transfer_id'],
                                   'transfer-link': transfer_link,
+                                  'created_at': str(created_at) if created_at else None,
                                   'submitted_at': str(submitted_at) if submitted_at else None,
                                   'started_at': str(started_at) if started_at else None,
                                   'transferred_at': str(transferred_at) if transferred_at else None,
