@@ -393,6 +393,7 @@ def get_pfn_to_rse(pfns, session=None):
     for surl in surls:
         if surl.split(':')[0] != scheme:
             raise exception.InvalidType('The PFNs specified must have the same protocol')
+
         split_se = surl.split('/')[2].split(':')
         storage_element = split_se[0]
 
@@ -1008,7 +1009,8 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     if not (replica_rse.availability & 1) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for deleting' % rse)
 
-    replica_condition, parent_condition, did_condition, dst_replica_condition = [], [], [], []
+    replica_condition, parent_condition, did_condition = [], [], []
+    clt_replica_condition, dst_replica_condition = [], []
     for file in files:
         replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))
 
@@ -1063,11 +1065,19 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                   models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).\
                 filter(or_(*chunk))
             for parent_scope, parent_name, did_type, child_scope, child_name in query:
+
                 child_did_condition.append(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name,
                                                 models.DataIdentifierAssociation.child_scope == child_scope, models.DataIdentifierAssociation.child_name == child_name))
+
+                clt_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope, models.CollectionReplica.name == parent_name,
+                                                 ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False)),  # NOQA
+                                                 ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                                                                                                                                     models.DataIdentifierAssociation.name == parent_name))))
+
                 tmp_parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name,
                                                  ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
                                                                                                                                                      models.DataIdentifierAssociation.name == parent_name))))
+
                 did_condition.append(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False,
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
@@ -1080,6 +1090,11 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
             # update parent counters
 
         parent_condition = tmp_parent_condition
+
+    for chunk in chunks(clt_replica_condition, 10):
+        rowcount = session.query(models.CollectionReplica).\
+            filter(or_(*chunk)).\
+            delete(synchronize_session=False)
 
     for chunk in chunks(did_condition, 10):
         rowcount = session.query(models.DataIdentifier).\
