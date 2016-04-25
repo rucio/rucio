@@ -33,9 +33,9 @@ from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
-                                    AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
+                                    InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound, ScratchDiskLifetimeConflict,
-                                    ManualRuleApprovalBlocked)
+                                    ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter
@@ -690,17 +690,18 @@ def list_associated_rules_for_file(scope, name, session=None):
 
 
 @transactional_session
-def delete_rule(rule_id, purge_replicas=None, soft=False, nowait=False, session=None):
+def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, nowait=False, session=None):
     """
     Delete a replication rule.
 
     :param rule_id:         The rule to delete.
     :param purge_replicas:  Purge the replicas immediately.
     :param soft:            Only perform a soft deletion.
+    :param delete_parent:   Delete rules even if they have a child_rule_id set.
     :param nowait:          Nowait parameter for the FOR UPDATE statement.
     :param session:         The database session in use.
     :raises:                RuleNotFound if no Rule can be found.
-    :raises:                AccessDenied if the Rule is locked.
+    :raises:                UnsupportedOperation if the Rule is locked.
     """
 
     with record_timer_block('rule.delete_rule'):
@@ -709,7 +710,10 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, nowait=False, session=
         except NoResultFound:
             raise RuleNotFound('No rule with the id %s found' % (rule_id))
         if rule.locked:
-            raise AccessDenied('The replication rule is locked and has to be unlocked before it can be deleted.')
+            raise UnsupportedOperation('The replication rule is locked and has to be unlocked before it can be deleted.')
+
+        if rule.child_rule_id is not None and not delete_parent:
+            raise UnsupportedOperation('The replication rule has a child rule and thus cannot be deleted.')
 
         if purge_replicas is not None:
             rule.purge_replicas = purge_replicas
@@ -1276,7 +1280,9 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
     :param session:            Database session in use.
     """
 
-    query = session.query(models.ReplicationRule.id, models.ReplicationRule.rse_expression).filter(models.ReplicationRule.expires_at < datetime.utcnow(), models.ReplicationRule.locked == False).\
+    query = session.query(models.ReplicationRule.id, models.ReplicationRule.rse_expression).filter(models.ReplicationRule.expires_at < datetime.utcnow(),
+                                                                                                   models.ReplicationRule.locked == False,
+                                                                                                   models.ReplicationRule.child_rule_id == None).\
         with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.ReplicationRule.expires_at)  # NOQA
 
