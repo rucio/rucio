@@ -6,16 +6,16 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2016
 
 """
-Judge-Injector is a daemon to asynchronously inject replication rules.
+BB8 is a daemon to rebalance data.
 """
 
 import argparse
 import signal
 
-from rucio.daemons.judge.injector import run, stop
+from rucio.daemons.bb8.bb8 import run, stop
 
 if __name__ == "__main__":
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads for this process')
+    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
     args = parser.parse_args()
 
     try:
