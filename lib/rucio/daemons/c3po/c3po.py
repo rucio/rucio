@@ -24,6 +24,7 @@ from threading import Event, Thread
 
 from rucio.client import Client
 from rucio.common.config import config_get
+from rucio.common.exception import RucioException
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
@@ -114,22 +115,24 @@ def create_rule(client, did, src_rse, dst_rse):
     logging.debug(r)
 
 
-def place_replica(once=False, thread=0, did_queue=None, waiting_time=100, dry_run=False):
+def place_replica(once=False, thread=0, did_queue=None, waiting_time=100, dry_run=False, algorithms='t2_free_space_only_pop_with_network', datatypes='NTUP,DAOD', dest_rse_expr='type=DATADISK', max_bytes_hour=100000000000000, max_files_hour=100000, max_bytes_hour_rse=50000000000000, max_files_hour_rse=10000, min_popularity=8, min_recent_requests=5, max_replicas=5):
     """
     Thread to run the placement algorithm to decide if and where to put new replicas.
     """
     client = None
 
+    algorithms = algorithms.split(',')
     if not dry_run:
+        if len(algorithms) != 1:
+            logging.error('Multiple algorithms are only allowed in dry_run mode')
+            return
         client = Client(auth_type='x509_proxy', account='c3po', creds={'client_proxy': '/opt/rucio/etc/ddmadmin.long.proxy'})
-
-    algorithms = config_get('c3po', 'algorithms').strip().split(',')
 
     instances = {}
     for algorithm in algorithms:
         module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
         module = __import__(module_path, globals(), locals(), ['PlacementAlgorithm'])
-        instance = module.PlacementAlgorithm()
+        instance = module.PlacementAlgorithm(datatypes, dest_rse_expr, max_bytes_hour, max_files_hour, max_bytes_hour_rse, max_files_hour_rse, min_popularity, min_recent_requests, max_replicas)
         instances[algorithm] = instance
 
     elastic_url = config_get('c3po', 'elastic_url')
@@ -170,7 +173,10 @@ def place_replica(once=False, thread=0, did_queue=None, waiting_time=100, dry_ru
 
                 if not dry_run:
                     # DO IT!
-                    create_rule(client, {'scope': did[0], 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
+                    try:
+                        create_rule(client, {'scope': did[0], 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
+                    except RucioException, e:
+                        logging.debug(e)
 
         w = 0
 
@@ -182,7 +188,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1, only_workload=False, dry_run=False):
+def run(once=False, threads=1, only_workload=False, dry_run=False, algorithms='t2_free_space_only_pop_with_network', datatypes='NTUP,DAOD', dest_rse_expr='type=DATADISK', max_bytes_hour=100000000000000, max_files_hour=100000, max_bytes_hour_rse=50000000000000, max_files_hour_rse=10000, min_popularity=8, min_recent_requests=5, max_replicas=5):
     """
     Starts up the main thread
     """
@@ -201,7 +207,7 @@ def run(once=False, threads=1, only_workload=False, dry_run=False):
 
         thread_list.append(Thread(target=read_free_space, name='read_free_space', kwargs={'thread': 0, 'waiting_time': 1800}))
         thread_list.append(Thread(target=read_dids, name='read_dids', kwargs={'thread': 0, 'did_collector': dc}))
-        thread_list.append(Thread(target=place_replica, name='place_replica', kwargs={'thread': 0, 'did_queue': did_queue, 'waiting_time': 10, 'dry_run': dry_run}))
+        thread_list.append(Thread(target=place_replica, name='place_replica', kwargs={'thread': 0, 'did_queue': did_queue, 'waiting_time': 10, 'algorithms': algorithms, 'dry_run': dry_run, 'datatypes': datatypes, 'dest_rse_expr': dest_rse_expr, 'max_bytes_hour': max_bytes_hour, 'max_files_hour': max_files_hour, 'max_bytes_hour_rse': max_bytes_hour_rse, 'max_files_hour_rse': max_files_hour_rse, 'min_popularity': min_popularity, 'min_recent_requests': min_recent_requests, 'max_replicas': max_replicas}))
 
     [t.start() for t in thread_list]
 
