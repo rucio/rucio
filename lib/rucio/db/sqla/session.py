@@ -17,7 +17,7 @@ import sys
 from ConfigParser import NoOptionError
 from functools import wraps
 from inspect import isgeneratorfunction
-from retrying import retry
+# from retrying import retry
 from threading import Lock
 from os.path import basename
 
@@ -190,10 +190,10 @@ def read_session(function):
     This is useful if only SELECTs and the like are being done; anything involving
     INSERTs, UPDATEs etc should use transactional_session.
     '''
-    @retry(retry_on_exception=retry_if_db_connection_error,
-           wait_fixed=0.5,
-           stop_max_attempt_number=2,
-           wrap_exception=False)
+#     @retry(retry_on_exception=retry_if_db_connection_error,
+#            wait_fixed=0.5,
+#            stop_max_attempt_number=2,
+#            wrap_exception=False)
     @wraps(function)
     def new_funct(*args, **kwargs):
 
@@ -233,10 +233,10 @@ def stream_session(function):
     This is useful if only SELECTs and the like are being done; anything involving
     INSERTs, UPDATEs etc should use transactional_session.
     '''
-    @retry(retry_on_exception=retry_if_db_connection_error,
-           wait_fixed=0.5,
-           stop_max_attempt_number=2,
-           wrap_exception=False)
+#     @retry(retry_on_exception=retry_if_db_connection_error,
+#            wait_fixed=0.5,
+#            stop_max_attempt_number=2,
+#            wrap_exception=False)
     @wraps(function)
     def new_funct(*args, **kwargs):
 
