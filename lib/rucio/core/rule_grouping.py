@@ -258,7 +258,6 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
                                              state=ReplicaState.UNAVAILABLE).save(session=session)
                     models.UpdatedCollectionReplica(scope=dataset['scope'],
                                                     name=dataset['name'],
-                                                    rse_id=rse_id,
                                                     did_type=DIDType.DATASET).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
@@ -374,7 +373,6 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
                                              state=ReplicaState.UNAVAILABLE).save(session=session)
                     models.UpdatedCollectionReplica(scope=dataset['scope'],
                                                     name=dataset['name'],
-                                                    rse_id=rse_tuple[0],
                                                     did_type=DIDType.DATASET).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
@@ -489,7 +487,6 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
                                              state=ReplicaState.UNAVAILABLE).save(session=session)
                     models.UpdatedCollectionReplica(scope=dataset['scope'],
                                                     name=dataset['name'],
-                                                    rse_id=rse_tuple[0],
                                                     did_type=DIDType.DATASET).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
