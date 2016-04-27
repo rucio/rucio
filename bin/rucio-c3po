@@ -39,6 +39,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once, threads=args.threads, only_workload=args.only_workload, dry_run=args.dry_run, algorithms=args.algorithms, datatypes=args.datatypes, dest_rse_expr=args.dest_rse_expr, max_bytes_hour=args.max_bytes_hour, max_files_hour=args.max_files_hour, max_bytes_hour_rse=args.max_bytes_hour_rse, max_files_hour_rse=args.max_files_hour_rse, min_popularity=args.min_popularity, min_recent_requests=args.min_recent_requests, max_replicas=args.max_replicas)
+        run(once=args.run_once,
+            threads=args.threads,
+            only_workload=args.only_workload,
+            dry_run=args.dry_run,
+            algorithms=args.algorithms,
+            datatypes=args.datatypes,
+            dest_rse_expr=args.dest_rse_expr,
+            max_bytes_hour=args.max_bytes_hour,
+            max_files_hour=args.max_files_hour,
+            max_bytes_hour_rse=args.max_bytes_hour_rse,
+            max_files_hour_rse=args.max_files_hour_rse,
+            min_popularity=args.min_popularity,
+            min_recent_requests=args.min_recent_requests,
+            max_replicas=args.max_replicas)
     except KeyboardInterrupt:
         stop()
