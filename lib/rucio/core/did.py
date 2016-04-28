@@ -600,7 +600,8 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
     """
 
     stmt = select([1]).\
-        prefix_with("/*+ INDEX(RULES ATLAS_RUCIO.RULES_SCOPE_NAME_IDX) */", dialect='oracle').\
+        prefix_with("/*+ INDEX(RULES ATLAS_RUCIO.RULES_SCOPE_NAME_IDX) */",
+                    dialect='oracle').\
         where(and_(models.DataIdentifier.scope == models.ReplicationRule.scope,
                    models.DataIdentifier.name == models.ReplicationRule.name,
                    models.ReplicationRule.state == RuleState.INJECT))
