@@ -13,7 +13,7 @@ from rucio.rse.protocols import protocol
 from rucio.common.exception import FileAlreadyExists, ServiceUnavailable, SourceNotFound
 
 import errno
-import os, sys
+import os
 
 try:
     import arc
@@ -47,11 +47,11 @@ class Default(protocol.RSEProtocol):
 
         # Arc logging to stdout, uncomment for debugging. Should use root
         # logger level eventually.
-        root_logger = arc.Logger_getRootLogger()
-        stream = arc.LogStream(sys.stdout)
-        root_logger.addDestination(stream)
-        # Set threshold to VERBOSE or DEBUG for more information
-        root_logger.setThreshold(arc.DEBUG)
+#         root_logger = arc.Logger_getRootLogger()
+#         stream = arc.LogStream(sys.stdout)
+#         root_logger.addDestination(stream)
+#         # Set threshold to VERBOSE or DEBUG for more information
+#         root_logger.setThreshold(arc.DEBUG)
 
         self.cfg = arc.UserConfig()
         try:
