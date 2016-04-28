@@ -14,6 +14,7 @@ from exceptions import NotImplementedError
 
 from rucio.rse.protocols import gfal
 
+
 class Default(gfal.Default):
 
     """ Implementing access to RSEs using the ngarc protocol."""
