@@ -598,7 +598,12 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
     :param chunk_size: Number of requests to return per yield.
     :param session: The database session in use.
     """
-    query = session.query(models.DataIdentifier).filter_by(is_new=True).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
+    query = session.query(models.DataIdentifier).\
+        with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle').\
+        filter_by(is_new=True).\
+        filter(~exists(select([1]).prefix_with("/*+ INDEX(RULES ATLAS_RUCIO.RULES_SCOPE_NAME_IDX) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == models.ReplicationRule.scope,
+                                                                                                                                     models.DataIdentifier.name == models.ReplicationRule.name,
+                                                                                                                                     models.ReplicationRule.state ==  RuleState.INJECT)))))
 
     if did_type:
         if isinstance(did_type, str) or isinstance(did_type, unicode):
