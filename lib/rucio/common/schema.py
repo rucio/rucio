@@ -31,7 +31,7 @@ ACTIVITY = {"description": "Activity name",
             "enum": ["Data Brokering", "Data Consolidation", "Data rebalancing",
                      "Debug", "Express", "Functional Test", "Group Subscriptions",
                      "Staging", "Production Input", "Production Output",
-                     "T0 Export", "T0 Tape", "Upload/Download (Job)",
+                     "T0 Export", "T0 Tape", "Upload/Download (Job)", "Default",
                      "Upload/Download (User)", "User Subscriptions"]}
 
 SCOPE = {"description": "Scope name",
