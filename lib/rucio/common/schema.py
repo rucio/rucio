@@ -28,9 +28,9 @@ ACCOUNT_TYPE = {"description": "Account type",
 
 ACTIVITY = {"description": "Activity name",
             "type": "string",
-            "enum": ["default", "Data Brokering", "Data Consolidation", "Debug", "Express",
-                     "Functional Test", "Group Subscriptions", "Staging",
-                     "Production", "Production Input", "Production Output",
+            "enum": ["Data Brokering", "Data Consolidation", , "Data rebalancing",
+                     "Debug", "Express", "Functional Test", "Group Subscriptions",
+                     "Staging", "Production Input", "Production Output",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions"]}
 
