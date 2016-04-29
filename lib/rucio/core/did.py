@@ -1123,7 +1123,9 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
 
     query = session.query(models.DataIdentifier.scope,
                           models.DataIdentifier.name,
-                          models.DataIdentifier.did_type).\
+                          models.DataIdentifier.did_type,
+                          models.DataIdentifier.bytes,
+                          models.DataIdentifier.length).\
         filter(models.DataIdentifier.scope == scope)
 
     if type == 'all':
@@ -1177,10 +1179,14 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
         query = query.limit(limit)
 
     if long:
-        for scope, name, did_type in query.yield_per(5):
-            yield {'scope': scope, 'name': name, 'did_type': str(did_type)}
+        for scope, name, did_type, bytes, length in query.yield_per(5):
+            yield {'scope': scope,
+                   'name': name,
+                   'did_type': str(did_type),
+                   'bytes': bytes,
+                   'length': length}
     else:
-        for scope, name, did_type in query.yield_per(5):
+        for scope, name, did_type, bytes, length in query.yield_per(5):
             yield name
 
 
