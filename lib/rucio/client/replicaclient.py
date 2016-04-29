@@ -6,7 +6,7 @@
   You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 '''
@@ -76,7 +76,8 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_replicas(self, dids, schemes=None, unavailable=False, all_states=False, metalink=None):
+    def list_replicas(self, dids, schemes=None, unavailable=False,
+                      all_states=False, metalink=None, rse_expression=None):
         """
         List file replicas for a list of data identifiers (DIDs).
 
@@ -87,14 +88,21 @@ class ReplicaClient(BaseClient):
         :param metalink: ``None`` (default) retrieves as JSON,
                          ``3`` retrieves as metalink+xml,
                          ``4`` retrieves as metalink4+xml
+        :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
         """
         data = {'dids': dids}
+
         if schemes:
             data['schemes'] = schemes
         if unavailable:
             data['unavailable'] = True
         data['all_states'] = all_states
-        url = build_url(choice(self.list_hosts), path='/'.join([self.REPLICAS_BASEURL, 'list']))
+
+        if rse_expression:
+            data['rse_expression'] = rse_expression
+
+        url = build_url(choice(self.list_hosts),
+                        path='/'.join([self.REPLICAS_BASEURL, 'list']))
 
         headers = {}
         if metalink is not None:
