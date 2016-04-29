@@ -264,6 +264,7 @@ def submit_bulk_transfers(external_host, files, job_params, timeout=None):
     transfer_id = None
     expected_transfer_id = None
     if __USE_DETERMINISTIC_ID:
+        job_params = job_params.copy()
         job_params["id_generator"] = "deterministic"
         job_params["sid"] = files[0]['metadata']['request_id']
         expected_transfer_id = get_deterministic_id(external_host, job_params["sid"])
