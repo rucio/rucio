@@ -12,12 +12,12 @@
 
 from exceptions import NotImplementedError
 
-from rucio.rse.protocols import webdav
+from rucio.rse.protocols import ngarc
 
 
-class Default(webdav.Default):
+class Default(ngarc.Default):
 
-    """ Implementing access to RSEs using the webDAV protocol."""
+    """ Implementing access to RSEs using the ngarc protocol."""
 
     def __init__(self, protocol_attr, rse_settings):
         """ Initializes the object with information about the referred RSE.
@@ -48,7 +48,7 @@ class Default(webdav.Default):
             :returns: Fully qualified PFN.
 
         """
-        return ''.join([self.rse['scheme'], '://%s' % self.rse['hostname'], path])
+        return ''.join([self.attributes['scheme'], '://%s' % self.attributes['hostname'], path])
 
     def put(self, source, target, source_dir=None):
         """ Allows to store files inside the referred RSE.

@@ -364,7 +364,9 @@ def list_file_replicas(args):
     for did in args.dids:
         scope, name = extract_scope(did)
         dids.append({'scope': scope, 'name': name})
-    replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
+    replicas = client.list_replicas(dids, schemes=protocols,
+                                    all_states=args.all_states,
+                                    rse_expression=args.rse_expression)
     if args.missing:
         for replica in replicas:
             rses = replica['rses'].keys()
@@ -2022,6 +2024,8 @@ Commands:
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE', required=False)
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE.', required=False)
+    list_file_replicas_parser.add_argument('--expression', dest='rse_expression', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
+            can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
 
     # The list_parent_datasets command
     list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List the datasets associated to a PFN.')
