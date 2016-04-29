@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
@@ -30,7 +30,7 @@ from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, text, Insert
+from sqlalchemy.sql.expression import bindparam, text, Insert, select
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -42,7 +42,7 @@ from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability
+from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
 from rucio.db.sqla.enum import EnumSymbol
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
@@ -598,7 +598,18 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
     :param chunk_size: Number of requests to return per yield.
     :param session: The database session in use.
     """
-    query = session.query(models.DataIdentifier).filter_by(is_new=True).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
+
+    stmt = select([1]).\
+        prefix_with("/*+ INDEX(RULES ATLAS_RUCIO.RULES_SCOPE_NAME_IDX) */",
+                    dialect='oracle').\
+        where(and_(models.DataIdentifier.scope == models.ReplicationRule.scope,
+                   models.DataIdentifier.name == models.ReplicationRule.name,
+                   models.ReplicationRule.state == RuleState.INJECT))
+
+    query = session.query(models.DataIdentifier).\
+        with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle').\
+        filter_by(is_new=True).\
+        filter(~exists(stmt))
 
     if did_type:
         if isinstance(did_type, str) or isinstance(did_type, unicode):
@@ -1112,7 +1123,9 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
 
     query = session.query(models.DataIdentifier.scope,
                           models.DataIdentifier.name,
-                          models.DataIdentifier.did_type).\
+                          models.DataIdentifier.did_type,
+                          models.DataIdentifier.bytes,
+                          models.DataIdentifier.length).\
         filter(models.DataIdentifier.scope == scope)
 
     if type == 'all':
@@ -1166,10 +1179,14 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
         query = query.limit(limit)
 
     if long:
-        for scope, name, did_type in query.yield_per(5):
-            yield {'scope': scope, 'name': name, 'did_type': str(did_type)}
+        for scope, name, did_type, bytes, length in query.yield_per(5):
+            yield {'scope': scope,
+                   'name': name,
+                   'did_type': str(did_type),
+                   'bytes': bytes,
+                   'length': length}
     else:
-        for scope, name, did_type in query.yield_per(5):
+        for scope, name, did_type, bytes, length in query.yield_per(5):
             yield name
 
 
@@ -1290,5 +1307,4 @@ def __resolve_bytes_length_events_did(scope, name, session):
             bytes += tmp_bytes or 0
             length += tmp_length or 0
             events += tmp_events or 0
-
     return (bytes, length, events)
