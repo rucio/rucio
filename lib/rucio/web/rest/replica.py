@@ -297,8 +297,7 @@ class ListReplicas(RucioController):
                 metalink = 4
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
-        ignore_availability = False
-        all_states = False
+        ignore_availability, rse_expression, all_states = False, None, False
         json_data = data()
         try:
             params = parse_response(json_data)
@@ -311,6 +310,9 @@ class ListReplicas(RucioController):
                 ignore_availability = True
             if 'all_states' in params:
                 all_states = params['all_states']
+            if 'rse_expression' in params:
+                rse_expression = params['rse_expression']
+
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -333,7 +335,12 @@ class ListReplicas(RucioController):
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
             # then, stream the replica information
-            for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=ctx.env.get('request_id'), ignore_availability=ignore_availability, all_states=all_states):
+            for rfile in list_replicas(dids=dids, schemes=schemes,
+                                       unavailable=unavailable,
+                                       request_id=ctx.env.get('request_id'),
+                                       ignore_availability=ignore_availability,
+                                       all_states=all_states,
+                                       rse_expression=rse_expression):
                 client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
                 if client_ip is None:
                     client_ip = ctx.ip
