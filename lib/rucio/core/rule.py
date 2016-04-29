@@ -2554,6 +2554,7 @@ def __create_rule_approval_email(rule, session=None):
                                          'bytes': '0' if did['bytes'] is None else sizefmt(did['bytes']),
                                          'closed': not did['open'],
                                          'complete_rses': ', '.join(rses),
+                                         'approvers': ','.join([r[0] for r in recipents]),
                                          'approver': recipent[1]})
 
         add_message(event_type='email',
