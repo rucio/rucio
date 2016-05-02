@@ -7,6 +7,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
@@ -69,10 +70,12 @@ def re_evaluator(once=False):
             logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(dids)))
 
             # Refresh paused dids
-            iter_paused_dids = deepcopy(paused_dids)
-            for key in iter_paused_dids:
-                if datetime.utcnow() > paused_dids[key]:
-                    del paused_dids[key]
+            paused_dids = dict((k, v) for k, v in paused_dids.iteritems() if datetime.utcnow() > v)
+
+            # iter_paused_dids = deepcopy(paused_dids)
+            # for key in iter_paused_dids:
+            #    if datetime.utcnow() > paused_dids[key]:
+            #        del paused_dids[key]
 
             # Remove paused dids from result set
             dids = [did for did in dids if (did.scope, did.name) not in paused_dids]
@@ -96,13 +99,13 @@ def re_evaluator(once=False):
                             continue
                     else:
                         done_dids['%s:%s' % (did.scope, did.name)] = []
-                    done_dids['%s:%s' % (did.scope, did.name)].append(did.rule_evaluation_action)
 
                     try:
                         start_time = time.time()
                         re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
                         logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name, time.time() - start_time))
                         delete_updated_did(id=did.id)
+                        done_dids['%s:%s' % (did.scope, did.name)].append(did.rule_evaluation_action)
                     except DataIdentifierNotFound, e:
                         delete_updated_did(id=did.id)
                     except (DatabaseException, DatabaseError), e:
@@ -138,6 +141,7 @@ def re_evaluator(once=False):
         except Exception, e:
             logging.critical(traceback.format_exc())
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+
         if once:
             break
 
