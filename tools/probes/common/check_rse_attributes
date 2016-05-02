@@ -100,6 +100,10 @@ if __name__ == '__main__':
             if space_used and space_used[0]['free']:
                 freespace = space_used[0]['free']
                 freespace = float(freespace - unavailable_space) / 1000 / 1000 / 1000 / 1000
+                if freespace < 0:
+                    freespace = 0
+                else:
+                    freespace = int(freespace)
                 r.add_rse_attribute(name, 'freespace', freespace, 'root')
 
         except RucioException as e:
