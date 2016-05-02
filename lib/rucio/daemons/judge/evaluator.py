@@ -21,7 +21,6 @@ import threading
 import time
 import traceback
 
-from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
 from random import randint
@@ -71,11 +70,6 @@ def re_evaluator(once=False):
 
             # Refresh paused dids
             paused_dids = dict((k, v) for k, v in paused_dids.iteritems() if datetime.utcnow() > v)
-
-            # iter_paused_dids = deepcopy(paused_dids)
-            # for key in iter_paused_dids:
-            #    if datetime.utcnow() > paused_dids[key]:
-            #        del paused_dids[key]
 
             # Remove paused dids from result set
             dids = [did for did in dids if (did.scope, did.name) not in paused_dids]
