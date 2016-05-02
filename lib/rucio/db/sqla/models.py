@@ -57,6 +57,10 @@ def compile_binary_oracle(type_, compiler, **kw):
 def _psql_rename_type(target, connection, **kw):
     if connection.dialect.name == 'postgresql' and target.name == 'account_map':
         target.columns.identity_type.type.impl.name = 'IDENTITIES_TYPE_CHK'
+    elif connection.dialect.name == 'mysql' and target.name == 'quarantined_replicas_history':
+        target.columns.path.type = String(255)
+    elif connection.dialect.name == 'mysql' and target.name == 'quarantined_replicas':
+        target.columns.path.type = String(255)
 
 
 @event.listens_for(Engine, "before_execute", retval=True)
