@@ -45,7 +45,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
         account = issuer
 
     if activity is None:
-        activity = 'default'
+        activity = 'User Subscriptions'
 
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime,
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
