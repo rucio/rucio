@@ -1411,12 +1411,11 @@ def delete_updated_did(id, scope, name, session=None):
 
     for bytes, length in stmt:
         session.query(models.DataIdentifier).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-            filter(models.DataIdentifier.scope == scope,
-                   models.DataIdentifier.name == name).\
-            update({'bytes': bytes, 'length': length},
-                   synchronize_session=False)
-    session.query(models.UpdatedDID).filter(models.UpdatedDID.id == id).delete(synchronize_session=False)
+             with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+             filter_by(scope=scope,name=name).\
+             update({'bytes': bytes, 'length': length}, synchronize_session=False)
+    session.query(models.UpdatedDID).filter(models.UpdatedDID.id == id).delete()
+
 
 
 @transactional_session

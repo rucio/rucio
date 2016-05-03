@@ -909,7 +909,7 @@ def get_did(scope, name, dynamic=False, session=None):
         if result.did_type == DIDType.FILE:
             did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type, 'account': result.account, 'bytes': result.bytes, 'md5': result.md5, 'adler32': result.adler32}
         else:
-            if result.length is None and dynamic:
+            if dynamic:
                 bytes, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
             else:
                 bytes = result.bytes
