@@ -1395,13 +1395,27 @@ def delete_duplicate_updated_dids(scope, name, rule_evaluation_action, id, sessi
 
 
 @transactional_session
-def delete_updated_did(id, session=None):
+def delete_updated_did(id, scope, name, session=None):
     """
     Delete an updated_did by id.
 
     :param id:                      Id of the row not to delete.
     :param session:                 The database session in use.
     """
+    stmt = session.query(func.sum(models.DataIdentifierAssociation.bytes),
+                         func.count(1)).\
+        with_hint(models.DataIdentifierAssociation,
+                  "index(CONTENTS CONTENTS_PK)", 'oracle').\
+        filter(models.DataIdentifierAssociation.scope == scope,
+               models.DataIdentifierAssociation.name == name)
+
+    for bytes, length in stmt:
+        session.query(models.DataIdentifier).\
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+            filter(models.DataIdentifier.scope == scope,
+                   models.DataIdentifier.name == name).\
+            update({'bytes': bytes, 'length': length},
+                   synchronize_session=False)
     session.query(models.UpdatedDID).filter(models.UpdatedDID.id == id).delete(synchronize_session=False)
 
 
