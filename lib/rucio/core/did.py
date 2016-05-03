@@ -907,17 +907,18 @@ def get_did(scope, name, dynamic=False, session=None):
         result = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
             with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
         if result.did_type == DIDType.FILE:
-            did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type, 'account': result.account, 'bytes': result.bytes, 'md5': result.md5, 'adler32': result.adler32}
+            return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
+                    'account': result.account, 'bytes': result.bytes, 'length': 1,
+                    'md5': result.md5, 'adler32': result.adler32}
         else:
             if dynamic:
                 bytes, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
             else:
-                bytes = result.bytes
-                length = result.length
-            did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type,
-                     'account': result.account, 'open': result.is_open, 'monotonic': result.monotonic, 'expired_at': result.expired_at,
-                     'length': length, 'bytes': bytes}
-        return did_r
+                bytes, length = result.bytes, result.length
+            return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
+                    'account': result.account, 'open': result.is_open,
+                    'monotonic': result.monotonic, 'expired_at': result.expired_at,
+                    'length': length, 'bytes': bytes}
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
