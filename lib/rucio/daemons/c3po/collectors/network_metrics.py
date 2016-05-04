@@ -34,9 +34,15 @@ class NetworkMetricsCollector():
 
         for i in xrange(len(keys)):
             dst = keys[i].split(':')[1]
-            mbps = loads(vals[i]).get('mbps', {}).get(type, {}).get('latest')
-            if mbps:
-                ret[dst] = float(mbps)
+            mbps_all = loads(vals[i]).get('mbps', {}).get(type, {})
+
+            if '1h' in mbps_all:
+                ret[dst] = float(mbps_all['1h'])
+            else:
+                if '1d' in mbps_all:
+                    ret[dst] = float(mbps_all['1d'])
+                else:
+                    ret[dst] = float(mbps_all.get('1w', 0.0))
 
         return ret
 

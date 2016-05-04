@@ -16,10 +16,10 @@ from json import dumps, loads
 
 from rucio.common.config import config_get
 
-elastic_url = config_get('c3po-popularity', 'elastic_url')
+elastic_url = config_get('es-atlas', 'url')
 
-elastic_username = config_get('c3po-popularity', 'elastic_username')
-elastic_password = config_get('c3po-popularity', 'elastic_password')
+elastic_username = config_get('es-atlas', 'username')
+elastic_password = config_get('es-atlas', 'password')
 
 url = elastic_url + '/atlas_rucio-popularity-*/_search'
 
