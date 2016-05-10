@@ -1,0 +1,186 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2015
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Tomas Javurek, Cedric Serfon, 2015
+
+from datetime import datetime
+import os
+import sys
+import smtplib
+from email.mime.text import MIMEText
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEBase import MIMEBase
+from email import Encoders
+
+from rucio.db.sqla.session import get_session
+# from rucio.core import monitor
+
+# Exit statuses
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
+
+users = False
+groups = True
+testmode = False
+
+timestamp = datetime.today().strftime('%Y-%m-%d')
+log_dir = '/var/log/rucio/lost_files/logs/'
+log_path = log_dir + timestamp + '.log'
+tmpdata_dir = '/var/log/rucio/lost_files/tmp/'
+tmpdata_path = tmpdata_dir + 'rse-lost-files.txt'
+reports_dir = '/var/log/rucio/lost_files/reports/'
+
+
+# extracting mails of physgroups from Rucio DB
+def find_mails_groups(rse):
+
+    mails = []
+    session = get_session()
+    try:
+        query = ''' select distinct email from atlas_rucio.identities where identity in
+ (select identity from atlas_rucio.account_map where account in
+ (select value from atlas_rucio.rse_attr_map where key = 'physgroup' and rse_id = atlas_rucio.rse2id('%s'))) ''' % rse
+        result = session.execute(query)
+        for row in result:
+            for col in row:
+                mails.append(str(col))
+    except Exception, e:
+        flog = open(log_path, 'a')
+        flog.write(str(e))
+        sys.exit(CRITICAL)
+
+    return mails
+
+
+# mailing agent
+def send_report(rse):
+
+    if groups:
+        # creating mailing list
+        mail_list = find_mails_groups(rse)
+        if mail_list == []:
+            return
+        report_path = reports_dir + 'report_' + rse
+        fr = open(report_path, 'rb')
+
+        # defining mailing list
+        me = 'atlas-adc-ddm-support@cern.ch'
+        recepients = []
+
+        if testmode:
+            recepients = ['cedric.serfon@cern.ch', 'jaworda.t@seznam.cz', 'tomas.javurek@cern.ch']
+        else:
+            recepients = mail_list
+
+        msg = MIMEMultipart()
+        msg['Subject'] = 'DDMops: lost files that can not be recovered'
+        msg['From'] = me
+        msg['To'] = ", ".join(recepients)
+
+        # email body
+        msg.attach(MIMEText('Please check the attached list of files that have been lost and can not be recovered. These files may affect you. In case of questions contact DDMops.'))
+
+        # attachments
+        part = MIMEBase('application', "octet-stream")
+        part.set_payload(fr.read())
+        Encoders.encode_base64(part)
+        part.add_header('Content-Disposition', 'attachment; filename="%s"' % report_path)
+        msg.attach(part)
+
+        # sending email, s=server
+        s = smtplib.SMTP('localhost')
+        s.sendmail(me, recepients, msg.as_string())
+        s.quit()
+
+
+# make report for each rse
+# call the mailing agent
+def report_by_rses():
+
+    # INIT
+    if not os.path.isfile(tmpdata_path):
+        print "ERROR: lost files not downloaded"
+        sys.exit(CRITICAL)
+    fi = open(tmpdata_path, 'r')
+    data_per_rse = {}
+
+    # loop over lost files from get_bad_files()
+    for line in fi.readlines():
+        scope = line.split(' ')[0]
+        data_name = line.split(' ')[1]
+        dataset = line.split(' ')[3]
+        rse_name = line.split(' ')[4]
+        account = line.split(' ')[5]
+        updated_at = line.split(' ')[6]
+
+        if rse_name not in data_per_rse.keys():
+            data_per_rse[rse_name] = [{'scope': scope, 'name': data_name, 'dataset': dataset, 'account': account, 'time': updated_at}]
+        else:
+            data_per_rse[rse_name].append({'scope': scope, 'name': data_name, 'dataset': dataset, 'account': account, 'time': updated_at})
+
+    # create report per rse
+    for rse in data_per_rse.keys():
+        fo = open(reports_dir + 'report_' + rse, 'w')
+        for bad_file in data_per_rse[rse]:
+            fo.write("%s %s %s %s\n" % (bad_file['scope'], bad_file['dataset'], bad_file['name'], bad_file['time']))
+
+    # send report by mail
+    for rse in data_per_rse.keys():
+        send_report(rse)
+
+    fi.close()
+
+
+# the input
+def get_bad_files():
+
+    session = get_session()
+    f = open(tmpdata_path, 'w')
+    try:
+        query = ''' select a.scope, a.name, b.scope, b.name, atlas_rucio.id2rse(a.rse_id), a.account, a.updated_at from atlas_rucio.bad_replicas a, atlas_rucio.contents_history b
+ where a.state='L' and a.updated_at>sysdate-7 and b.did_type='D'and a.scope=b.child_scope and a.name=b.child_name '''
+
+        result = session.execute(query)
+        for row in result:
+            for col in row:
+                f.write('%s ' % col)
+            f.write('\n')
+
+    except Exception, e:
+        flog = open(log_path, 'a')
+        flog.write(str(e) + "\n")
+        sys.exit(CRITICAL)
+
+
+def main():
+
+    # check folder hierarchy
+    if not os.path.exists(log_dir):
+        sys.exit(CRITICAL)
+    if not os.path.exists(tmpdata_dir):
+        sys.exit(CRITICAL)
+    if not os.path.exists(reports_dir):
+        sys.exit(CRITICAL)
+
+    # get input
+    get_bad_files()
+    # make and sent report to groups
+    if groups:
+        report_by_rses()
+    # make and sent report to users
+    if users:
+        sys.exit(WARNING)
+
+    # clean tmp
+    cmd = 'rm ' + tmpdata_path
+    os.system(cmd)
+
+    sys.exit(OK)
+
+if __name__ == '__main__':
+
+    main()
