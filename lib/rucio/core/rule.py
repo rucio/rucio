@@ -1246,6 +1246,17 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
     else:
         __evaluate_did_detach(did, session=session)
 
+    # Update size and length of did
+    stmt = session.query(func.sum(models.DataIdentifierAssociation.bytes),
+                         func.count(1)).\
+        with_hint(models.DataIdentifierAssociation,
+                  "index(CONTENTS CONTENTS_PK)", 'oracle').\
+        filter(models.DataIdentifierAssociation.scope == scope,
+               models.DataIdentifierAssociation.name == name)
+    for bytes, length in stmt:
+        did.bytes = bytes
+        did.length = length
+
     # Add an updated_col_rep
     if did.did_type == DIDType.DATASET:
         models.UpdatedCollectionReplica(scope=scope,
@@ -1414,18 +1425,6 @@ def delete_updated_did(id, scope, name, session=None):
     :param id:                      Id of the row not to delete.
     :param session:                 The database session in use.
     """
-    stmt = session.query(func.sum(models.DataIdentifierAssociation.bytes),
-                         func.count(1)).\
-        with_hint(models.DataIdentifierAssociation,
-                  "index(CONTENTS CONTENTS_PK)", 'oracle').\
-        filter(models.DataIdentifierAssociation.scope == scope,
-               models.DataIdentifierAssociation.name == name)
-
-    for bytes, length in stmt:
-        session.query(models.DataIdentifier).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-            filter_by(scope=scope, name=name).\
-            update({'bytes': bytes, 'length': length}, synchronize_session=False)
     session.query(models.UpdatedDID).filter(models.UpdatedDID.id == id).delete()
 
 
