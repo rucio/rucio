@@ -131,7 +131,13 @@ def extract_scope(did):
         return scope, did
 
 
-def send_trace(trace, trace_endpoint, retries=5):
+def send_trace(trace, trace_endpoint, user_agent, retries=5):
+    if user_agent.startswith('pilot'):
+        logger.debug('pilot detected - not sending trace')
+        return 0
+    else:
+        logger.debug('sending trace')
+
     for dummy in xrange(retries):
         try:
             requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
@@ -159,7 +165,7 @@ def exception_handler(function):
             return FAILURE
         except DataIdentifierAlreadyExists, error:
             logger.error(error)
-            logger.debug('This means that the data IDentifier you try to add is already registered in Rucio.')
+            logger.debug('This means that the Data IDentifier you try to add is already registered in Rucio.')
             return FAILURE
         except RSENotFound, error:
             logger.error(error)
@@ -196,7 +202,9 @@ def exception_handler(function):
             else:
                 logger.error(error)
                 logger.debug(traceback.format_exc())
-                logger.error("This means that the object doesn't have the property " + str(error) + ". This should never happen. Please rerun the last command with the '-v' option and provide the traceback to the developers.")
+                logger.error("This means that the object doesn't have the property " + str(error) +
+                             ". This should never happen. Please rerun the last command with the '-v'" +
+                             " option and submit a ticket with all the necessary information at https://its.cern.ch/jira/browse/RUCIO")
             return FAILURE
         except RucioException, error:
             logger.error(error)
@@ -206,7 +214,7 @@ def exception_handler(function):
             return FAILURE
         except Exception, error:
             logger.error(error)
-            logger.error('Rucio exited with an unexpected/unknown error. Please re run the last command with "-v" option and provide the traceback below to the developers.')
+            logger.error("Rucio exited with an unexpected/unknown error. Please rerun the last command with the '-v' option and submit a ticket with all the necessary information at https://its.cern.ch/jira/browse/RUCIO")
             logger.debug(traceback.format_exc())
             return FAILURE
     return new_funct
@@ -848,13 +856,7 @@ def upload(args):
                     trace['transferEnd'] = time.time()
                     trace['clientState'] = 'DONE'
                     logger.info('File %s:%s successfully uploaded on the storage' % (f['scope'], f['name']))
-                    retries = 2
-                    for dummy in xrange(retries):
-                        try:
-                            requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                            break
-                        except:
-                            pass
+                    send_trace(trace, client.host, args.user_agent)
                 else:
                     raise DataIdentifierAlreadyExists
         except NotImplementedError, error:
@@ -883,13 +885,7 @@ def upload(args):
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'DONE'
                 logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
-                retries = 2
-                for dummy in xrange(retries):
-                    try:
-                        requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                        break
-                    except:
-                        pass
+                send_trace(trace, client.host, args.user_agent)
             except (Duplicate, FileAlreadyExists), error:
                 logger.warning(error)
                 return FAILURE
@@ -933,7 +929,7 @@ def upload(args):
     return SUCCESS
 
 
-def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client, exit=False):
+def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client, user_agent, exit=False):
     for file in files:
         logger.info('Starting the download of %s:%s' % (file['scope'], file['name']))
         stime = time.time()
@@ -951,7 +947,7 @@ def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, las
             trace['clientState'] = 'FILE_NOT_FOUND'
             trace['eventType'] = 'download'
             trace['eventVersion'] = version.RUCIO_VERSION[0]
-            requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
+            send_trace(trace, client.host, user_agent)
         else:
             trace['filesize'] = file['bytes']
         trace['eventType'] = 'download'
@@ -971,14 +967,9 @@ def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, las
             rses[idx], rses[0] = rses[0], rses[idx]
         else:
             random.shuffle(rses)
-        logger.debug('Choosing RSE')
+        logger.debug('Potential sources : %s' % str(rses))
         index = 0
         download_ok = 0
-        if args.rse:
-            if args.rse in rses:
-                rses = [args.rse]
-            else:
-                rses = []
         for rse in rses:
             if rse not in rse_dict:
                 rse_dict[rse] = rsemgr.get_rse_info(rse)
@@ -1023,12 +1014,7 @@ def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, las
                 if success:
                     trace['clientState'] = 'DONE'
                 trace['transferEnd'] = time.time()
-                for dummy in xrange(retries):
-                    try:
-                        requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                        break
-                    except Exception:
-                        pass
+                send_trace(trace, client.host, args.user_agent)
                 if success:
                     break
                 index += 1
@@ -1043,7 +1029,7 @@ def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, las
     return
 
 
-def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoints, is_admin, trace_endpoint, trace_pattern):
+def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoints, is_admin, trace_endpoint, trace_pattern, user_agent):
     last_chosen_rse = None
     rse_dict = {}
     try:
@@ -1058,7 +1044,7 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
             if rses == []:
                 logger.warning('Thread %s/%s : File %s:%s has no available replicas. Cannot be downloaded.' % (threadnb, total_threads, file['scope'], file['name']))
                 trace['clientState'] = 'FILE_NOT_FOUND'
-                if send_trace(trace, trace_endpoint, retries=5):
+                if send_trace(trace, trace_endpoint, args.user_agent, retries=5):
                     logger.warning('Thread %s/%s : Problem sending traces' % (threadnb, total_threads))
             rse_to_remove = []
             for rse in rses:
@@ -1075,14 +1061,9 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                 rses[idx], rses[0] = rses[0], rses[idx]
             else:
                 random.shuffle(rses)
-            logger.debug('Thread %s/%s : Choosing RSE' % (threadnb, total_threads))
+            logger.debug('Thread %s/%s : Potential sources : %s' % (threadnb, total_threads, str(rses)))
             index = 0
             download_ok = 0
-            if args.rse:
-                if args.rse in rses:
-                    rses = [args.rse]
-                else:
-                    rses = []
             for rse in rses:
                 if rse not in rse_dict:
                     rse_dict[rse] = rsemgr.get_rse_info(rse)
@@ -1129,7 +1110,7 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                         trace['clientState'] = 'DONE'
                         output_queue.put({'dataset_scope': file['datasetScope'], 'dataset_name': file['datasetName'], 'scope': file['scope'], 'name': file['name'], 'clientState': 'DONE', 'attemptnr': attempt + 1})
                     trace['transferEnd'] = time.time()
-                    if send_trace(trace, trace_endpoint, retries=5):
+                    if send_trace(trace, trace_endpoint, user_agent, retries=5):
                         logger.warning('You pressed Ctrl+C! Exiting gracefully')
                     if success:
                         break
@@ -1168,33 +1149,36 @@ def download(args):
 
     Download files from Rucio
     """
-    if args.new:
-        return download1(args)
-    else:
+    if args.old:
+        logger.debug('Using old threaded download model')
         return download2(args)
+
+    return download1(args)
 
 
 def download1(args):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
 
-    Download files from Rucio
+    Download files from Rucio using new threaded model and RSE expression support
     """
     client = get_client(args)
     trace_endpoint = client.host
     summary = {}
     trace_pattern = {'hostname': socket.getfqdn(), 'account': client.account, 'uuid': generate_uuid(), 'eventType': 'download', 'eventVersion': version.RUCIO_VERSION[0]}
     nbfiles_to_download = {}
+
+    tape_endpoints = []
     try:
         tape_endpoints = [str(rse['rse']) for rse in client.list_rses('rse_type=TAPE')]
     except InvalidRSEExpression, error:
         logger.warning(error)
-        tape_endpoints = []
+
     account_attributes = [acc for acc in client.list_account_attributes(client.account)]
     is_admin = False
     for attr in account_attributes[0]:
-        logger.debug(attr)
         if attr['key'] == 'admin' and attr['value'] is True:
+            logger.debug('Admin mode enabled')
             is_admin = True
             break
 
@@ -1225,12 +1209,15 @@ def download1(args):
     for scope, name in dids:
         try:
             summary['%s:%s' % (scope, name)] = {}
+            logger.debug('Checking validity of DID')
             did_info = client.get_did(scope, name)
             did_type = did_info['type']
             dataset_scope = '' if did_type == 'FILE' else scope
             dataset_name = '' if did_type == 'FILE' else name
             logger.debug('Getting the list of replicas')
-            replicas = [f for f in client.list_replicas([{'scope': scope, 'name': name}])]
+            replicas = [f for f in client.list_replicas([{'scope': scope, 'name': name}],
+                                                        rse_expression=args.rse)]
+
             if args.nrandom:
                 files_to_download = replicas
                 random.shuffle(files_to_download)
@@ -1238,6 +1225,7 @@ def download1(args):
             else:
                 files_to_download = replicas
             nbfiles_to_download['%s:%s' % (scope, name)] = len(files_to_download)
+
             logger.info('Starting download for %s:%s with %s files' % (scope, name, len(files_to_download)))
             for file in files_to_download:
                 file_download = file
@@ -1250,7 +1238,7 @@ def download1(args):
                     # Filling and sending the trace
                     trace.update({'scope': file['scope'], 'filename': file['name'], 'datasetScope': dataset_scope, 'datasetName': dataset_name,
                                  'filesize': file['bytes'], 'transferStart': time.time(), 'transferEnd': time.time(), 'clientState': 'ALREADY_DONE'})
-                    if send_trace(trace, trace_endpoint, retries=5):
+                    if send_trace(trace, trace_endpoint, args.user_agent, retries=5):
                         logger.warning('Problem sending traces')
                     output_queue.put({'dataset_scope': dataset_scope, 'dataset_name': dataset_name, 'scope': file['scope'], 'name': file['name'], 'clientState': 'ALREADY_DONE'})
                 else:
@@ -1272,7 +1260,8 @@ def download1(args):
     threads = []
     for worker in range(total_workers):
         thread = Thread(target=_downloader1, kwargs={'input_queue': input_queue, 'output_queue': output_queue, 'threadnb': worker + 1, 'total_threads': total_workers,
-                        'tape_endpoints': tape_endpoints, 'is_admin': is_admin, 'trace_endpoint': trace_endpoint, 'trace_pattern': trace_pattern})
+                                                     'tape_endpoints': tape_endpoints, 'is_admin': is_admin, 'trace_endpoint': trace_endpoint, 'trace_pattern': trace_pattern,
+                                                     'user_agent': args.user_agent})
         thread.daemon = True
         thread.start()
         threads.append(thread)
@@ -1295,7 +1284,6 @@ def download1(args):
     while(True):
         try:
             item = output_queue.get_nowait()
-            print item
             output_queue.task_done()
             if '%s:%s' % (item['dataset_scope'], item['dataset_name']) in summary:
                 summary['%s:%s' % (item['dataset_scope'], item['dataset_name'])]['%s:%s' % (item['scope'], item['name'])] = item['clientState']
@@ -1329,7 +1317,7 @@ def download2(args):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
 
-    Download files from Rucio
+    Download files from Rucio, the ancient way with RSE expression support
     """
     client = get_client(args)
     rse_dict = {}
@@ -1340,11 +1328,13 @@ def download2(args):
     trace['account'] = client.account
     trace['uuid'] = trace_uuid
     nbfiles_to_download = {}
+
     try:
         tape_endpoints = [str(rse['rse']) for rse in client.list_rses('rse_type=TAPE')]
     except InvalidRSEExpression, error:
         logger.warning(error)
         tape_endpoints = []
+
     account_attributes = [acc for acc in client.list_account_attributes(client.account)]
     is_admin = False
     for attr in account_attributes[0]:
@@ -1376,7 +1366,9 @@ def download2(args):
             logger.info('Starting download for %s:%s with %s files' % (scope, name, len(files_to_download)))
             summary['%s:%s' % (scope, name)] = {}
             logger.debug('Getting the list of replicas')
-            files = client.list_replicas([{'scope': scope, 'name': name}])
+            files = client.list_replicas([{'scope': scope, 'name': name}],
+                                         rse_expression=args.rse)
+
             if args.nrandom:
                 files_to_download = [f for f in files]
                 random.shuffle(files_to_download)
@@ -1437,14 +1429,14 @@ def download2(args):
             if total_workers == 1 and dict_files_to_download:
                 _downloader2(total_workers, scope, name, dict_files_to_download[0],
                              tape_endpoints, is_admin, last_chosen_rse,
-                             rse_dict, dest_dir, trace, client, exit=False)
+                             rse_dict, dest_dir, trace, client, args.user_agent, exit=False)
             else:
                 pool_list = []
                 for worker_number in dict_files_to_download:
                     proc = Process(target=_downloader2, args=(total_workers, scope, name,
                                    dict_files_to_download[worker_number], tape_endpoints,
                                    is_admin, last_chosen_rse, rse_dict, dest_dir, trace,
-                                   client))
+                                   client, args.user_agent))
                     proc.start()
                     pool_list.append(proc)
                 active_workers = pool_list
@@ -2134,8 +2126,7 @@ Commands:
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True)
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
-    # The --no-register option is hidden. This is pilot ONLY. Users should not used. Can lead to dark data increase and data loss
-    # No replicas are registered for files, nor rules created.
+    # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
@@ -2144,23 +2135,23 @@ Commands:
     get_parser.set_defaults(which='download')
     get_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
     get_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
-    get_parser.add_argument('--rse', action='store', help='Force the RSE from where the DID is downloaded')
+    get_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')
     get_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
     get_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download')
     get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
-    get_parser.add_argument('--new', action='store_true', default=False, help="Choose the new download thread model.")
+    get_parser.add_argument('--old', action='store_true', default=False, help="Choose the old download thread model.")
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
     download_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
     download_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-    download_parser.add_argument('--rse', action='store', help='Force the RSE from where the DID is downloaded.')
+    download_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')
     download_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
     download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
     download_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
     download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
-    download_parser.add_argument('--new', action='store_true', default=False, help="Choose the new download thread model.")
+    download_parser.add_argument('--old', action='store_true', default=False, help="Choose the old download thread model.")
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
@@ -2301,10 +2292,10 @@ Commands:
                 'close': close,
                 'reopen': reopen,
                 'erase': erase,
-                # 'delete_metadata': delete_metadata,
                 'delete_rule': delete_rule,
                 'detach': detach,
                 'download': download,
+                'get': download,
                 'get_metadata': get_metadata,
                 'list-pfns': list_pfns,
                 'info_rule': info_rule,
