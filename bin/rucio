@@ -202,7 +202,9 @@ def exception_handler(function):
             else:
                 logger.error(error)
                 logger.debug(traceback.format_exc())
-                logger.error("This means that the object doesn't have the property " + str(error) + ". This should never happen. Please rerun the last command with the '-v' option and submit a ticket with all the necessary information at https://its.cern.ch/jira/browse/RUCIO")
+                logger.error("This means that the object doesn't have the property " + str(error) +
+                             ". This should never happen. Please rerun the last command with the '-v'" +
+                             " option and submit a ticket with all the necessary information at https://its.cern.ch/jira/browse/RUCIO")
             return FAILURE
         except RucioException, error:
             logger.error(error)
