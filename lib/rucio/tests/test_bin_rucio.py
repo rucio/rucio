@@ -378,7 +378,7 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
-        search = 'Download operation for {0} done'.format(tmp_dataset)
+        search = '{0} successfully downloaded'.format(tmp_file1[5:])  # triming '/tmp/' from filename
         nose.tools.assert_not_equal(re.search(search, err), None)
 
     def test_create_rule(self):
