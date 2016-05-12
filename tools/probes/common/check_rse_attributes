@@ -77,14 +77,16 @@ if __name__ == '__main__':
                 r.add_rse_attribute(name, 'country', country, 'root')
             if rse['phys_groups']:
                 r.add_rse_attribute(name, 'physgroup', str(rse['phys_groups'][0]), 'root')
-            if isinstance(rse['servedrestfts']['MASTER'], list):
-                r.add_rse_attribute(name, 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
-            else:
-                r.add_rse_attribute(name, 'fts', str(rse['servedrestfts']['MASTER']), 'root')
-            if isinstance(rse['servedrestfts']['TESTING'], list):
-                r.add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
-            else:
-                r.add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
+            if rse['type'] not in ['OS_LOGS', 'OS_ES']:
+                if isinstance(rse['servedrestfts']['MASTER'], list):
+                    r.add_rse_attribute(name, 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
+                else:
+                    r.add_rse_attribute(name, 'fts', str(rse['servedrestfts']['MASTER']), 'root')
+            if rse['type'] not in ['OS_LOGS', 'OS_ES']:
+                if isinstance(rse['servedrestfts']['TESTING'], list):
+                    r.add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
+                else:
+                    r.add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
             if 'datapolicies' in rse:
                 r.add_rse_attribute(name, 'datapolicyt0disk', 'T0Disk' in rse['datapolicies'], 'root')
                 r.add_rse_attribute(name, 'datapolicyt0tape', 'T0Tape' in rse['datapolicies'], 'root')
