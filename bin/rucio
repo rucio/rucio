@@ -779,7 +779,7 @@ def upload(args):
             checksum = adler32(name)
             logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, os.path.basename(name)))
             files_to_list.append({'scope': fscope, 'name': os.path.basename(name)})
-            if 'pool.root' in name.lower():  # is a root file, getting the GUID
+            if not args.guid and 'pool.root' in name.lower():  # is a root file, getting the GUID
                 status, output, err = execute('pool_extractFileIdentifier {0}'.format(name))
                 if status != 0:
                     logger.error('Trying to upload ROOT files but pool_extractFileIdentifier tool can not be found.')
@@ -792,7 +792,11 @@ def upload(args):
                     logger.error('Error during GUID extraction. Failing. None of the files will be uploaded.')
                     return FAILURE
                 list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': guid}})
+            elif args.guid:
+                logger.info('Manually set GUID: %s' % args.guid.replace('-', ''))
+                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': args.guid.replace('-', '')}})
             else:
+                logger.debug('Automatically setting new GUID')
                 list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': generate_uuid()}})
             if not os.path.dirname(name) in lfns:
                 lfns[os.path.dirname(name)] = []
@@ -2128,6 +2132,7 @@ Commands:
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
+    upload_parser.add_argument('--guid', dest='guid', action='store', help="Manually specify the GUID for the file.")
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download subparser
