@@ -604,7 +604,8 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, sessio
                                   models.RSEFileAssociation.path,
                                   models.RSEFileAssociation.state,
                                   models.RSE.rse,
-                                  models.RSE.rse_type).\
+                                  models.RSE.rse_type,
+                                  models.RSE.volatile).\
         with_hint(models.RSEFileAssociation,
                   text="INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
                   dialect_name='oracle').\
@@ -672,7 +673,8 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
                                         models.RSEFileAssociation.path,
                                         models.RSEFileAssociation.state,
                                         models.RSE.rse,
-                                        models.RSE.rse_type),
+                                        models.RSE.rse_type,
+                                        models.RSE.volatile),
                                whereclause=whereclause,
                                order_by=(models.RSEFileAssociation.scope,
                                          models.RSEFileAssociation.name)).\
@@ -711,7 +713,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
     for replicas in filter(None, files):
-        for scope, name, bytes, md5, adler32, path, state, rse, rse_type in replicas:
+        for scope, name, bytes, md5, adler32, path, state, rse, rse_type, volatile in replicas:
 
             pfns = []
             if show_pfns and rse:
@@ -768,7 +770,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                     file['rses'][rse] += pfns
                     file['states'][rse] = str(state)
                     for pfn in pfns:
-                        file['pfns'][pfn] = {'rse': rse, 'type': str(rse_type)}
+                        file['pfns'][pfn] = {'rse': rse,
+                                             'type': str(rse_type),
+                                             'volatile': volatile}
                 else:
                     yield file
                     file = {}
@@ -781,7 +785,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                 if rse:
                     file['rses'][rse] = pfns
                     for pfn in pfns:
-                        file['pfns'][pfn] = {'rse': rse, 'type': str(rse_type)}
+                        file['pfns'][pfn] = {'rse': rse,
+                                             'type': str(rse_type),
+                                             'volatile': volatile}
 
     if 'scope' in file and 'name' in file:
         yield file
