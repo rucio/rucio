@@ -1519,7 +1519,6 @@ def set_metadata(args):
     return SUCCESS
 
 
-
 def delete_metadata(args):
     """
     %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
