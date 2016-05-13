@@ -1116,8 +1116,10 @@ def update_rule(rule_id, options, session=None):
                 pass
 
             elif key == 'priority':
-                update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
-
+                try:
+                    update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
+                except Exception, e:
+                    raise UnsupportedOperation('The FTS Requests are already in a final state.')
             else:
                 setattr(rule, key, options[key])
 
