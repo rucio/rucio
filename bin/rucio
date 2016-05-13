@@ -1513,7 +1513,7 @@ def set_metadata(args):
     client = get_client(args)
     value = args.value
     if args.key == 'lifetime':
-        value = int(args.value)
+        value = float(args.value)
     scope, name = extract_scope(args.did)
     client.set_metadata(scope=scope, name=name, key=args.key, value=value)
     return SUCCESS
