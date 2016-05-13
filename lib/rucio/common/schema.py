@@ -11,6 +11,7 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+  - Martin Barisits, <martin.barisits@cern.ch>, 2016
 '''
 
 from jsonschema import validate, ValidationError
@@ -31,7 +32,7 @@ ACTIVITY = {"description": "Activity name",
             "enum": ["Data Brokering", "Data Consolidation", "Data rebalancing",
                      "Debug", "Express", "Functional Test", "Group Subscriptions",
                      "Staging", "Production Input", "Production Output",
-                     "T0 Export", "T0 Tape", "Upload/Download (Job)", "default",
+                     "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions"]}
 
 SCOPE = {"description": "Scope name",
