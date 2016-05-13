@@ -8,7 +8,7 @@
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
 
 from json import dumps, loads
 
@@ -51,7 +51,7 @@ class TestSubscriptionCoreApi():
                                       replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
 
         result = add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
+                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
         with assert_raises(TypeError):
             result = update_subscription(name=subscription_name, account='root', filter='toto', issuer='root')
         with assert_raises(InvalidObject):
@@ -69,7 +69,7 @@ class TestSubscriptionCoreApi():
         """ SUBSCRIPTION (API): Test the creation of a new subscription and list it by id """
         subscription_name = uuid()
         subscription_id = add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                                           replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
+                                           replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
         subscription_info = get_subscription_by_id(subscription_id)
         assert_equal(loads(subscription_info['filter'])['project'], self.projects)
 
@@ -78,9 +78,9 @@ class TestSubscriptionCoreApi():
         """ SUBSCRIPTION (API): Test the creation of a existing subscription """
         subscription_name = uuid()
         add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
+                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
         add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
+                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
 
     @raises(SubscriptionNotFound)
     def test_update_nonexisting_subscription(self):
@@ -109,7 +109,7 @@ class TestSubscriptionCoreApi():
 
         subscription_name = uuid()
         subid = add_subscription(name=subscription_name, account='root', filter={'account': 'root', 'scope': [tmp_scope, ]},
-                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
+                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
 
         # Add two rules
         add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
@@ -144,7 +144,7 @@ class TestSubscriptionRestApi():
         subscription_name = uuid()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'name': subscription_name, 'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'})
+                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'})
         res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
@@ -169,7 +169,7 @@ class TestSubscriptionRestApi():
         subscription_name = uuid()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'name': subscription_name, 'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'})
+                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'})
         res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
@@ -191,7 +191,7 @@ class TestSubscriptionRestApi():
         subscription_name = uuid()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'name': subscription_name, 'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'We are the knights who say Ni !'})
+                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'We are the knights who say Ni !'})
         res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/' + subscription_name, headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
@@ -239,7 +239,7 @@ class TestSubscriptionRestApi():
 
         subscription_name = uuid()
         subid = add_subscription(name=subscription_name, account='root', filter={'account': 'root', 'scope': [tmp_scope, ]},
-                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='We want a shrubbery', issuer='root')
+                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='We want a shrubbery', issuer='root')
 
         # Add two rules
         add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
@@ -283,7 +283,7 @@ class TestSubscriptionClient():
             subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
                                                      replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         result = [sub['id'] for sub in list_subscriptions(name=subscription_name, account='root')]
         assert_equal(subid, result[0])
         with assert_raises(TypeError):
@@ -302,10 +302,10 @@ class TestSubscriptionClient():
         """ SUBSCRIPTION (CLIENT): Test the creation of a existing subscription """
         subscription_name = uuid()
         result = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         assert_true(result)
         result = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': 'tier0'},
-                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'default'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
 
     @raises(SubscriptionNotFound)
     def test_update_nonexisting_subscription(self):
@@ -322,7 +322,7 @@ class TestSubscriptionClient():
         add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account='root')
 
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope, ], 'pattern': 'dataset-.*', 'split_rule': True},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'default'}],
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'Data Brokering'}],
                                                  lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)
         rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope, name=dsn) if str(rule['subscription_id']) == str(subid)]
