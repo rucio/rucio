@@ -60,8 +60,9 @@ logging.basicConfig(stream=sys.stdout,
 
 @transactional_session
 def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
-             source_replica_expression=None, activity='default', notify=None, purge_replicas=False,
-             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, session=None):
+             source_replica_expression=None, activity='User Subscriptions', notify=None, purge_replicas=False,
+             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, ignore_account_limit=False,
+             session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -84,6 +85,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param comment:                    Comment about the rule.
     :param ask_approval:               Ask for approval for this rule.
     :param asynchronous:               Create replication rule asynchronously by the judge-injector.
+    :param ignore_account_limit:       Ignore quota and create the rule outside of the account limits.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
@@ -130,7 +132,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
         # 2. Create the rse selector
         with record_timer_block('rule.add_rule.create_rse_selector'):
-            rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, ignore_account_limit=ask_approval, session=session)
+            rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, ignore_account_limit=ask_approval or ignore_account_limit, session=session)
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
 
@@ -177,7 +179,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   notification=notify,
                                                   purge_replicas=purge_replicas,
                                                   ignore_availability=ignore_availability,
-                                                  comments=comment)
+                                                  comments=comment,
+                                                  ignore_account_limit=ignore_account_limit)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
@@ -494,6 +497,39 @@ def inject_rule(rule_id, session=None):
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
+
+    # Special R2D2 container handling
+    if rule.did_type == DIDType.CONTAINER and '.r2d2_request.' in rule.name:
+        logging.debug("Creating dataset rules for R2D2 container rule %s" % (str(rule.id)))
+        # Get all child datasets and put rules on them
+        dids = [{'scope': dataset['scope'], 'name': dataset['name']} for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session)]
+        if rule.expires_at:
+            lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
+        else:
+            lifetime = None
+        if rule.notification == RuleNotification.YES:
+            notify = 'Y'
+        elif rule.notification == RuleNotification.CLOSE:
+            notify = 'C'
+        else:
+            notify = 'N'
+        add_rule(dids=dids,
+                 account=rule.account,
+                 copies=rule.copies,
+                 rse_expression=rule.rse_expression,
+                 grouping='DATASET',
+                 weight=None,
+                 lifetime=lifetime,
+                 locked=False,
+                 subscription_id=None,
+                 activity=rule.activity,
+                 notify=notify,
+                 comment=rule.comments,
+                 asynchronous=True,
+                 ignore_account_limit=True,
+                 session=session)
+        rule.delete(session=session)
+        return
 
     # 1. Resolve the rse_expression into a list of RSE-ids
     with record_timer_block('rule.add_rule.parse_rse_expression'):
@@ -1180,7 +1216,7 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
             grouping = 'DATASET'
 
         if rule.expires_at:
-            lifetime = (datetime.utcnow() - rule.expires_at).days * 24 * 3600 + (datetime.utcnow() - rule.expires_at).seconds
+            lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
         else:
             lifetime = None
 
