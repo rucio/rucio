@@ -12,7 +12,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
 
@@ -1580,6 +1580,7 @@ def delete_rule(args):
             account = client.account
         else:
             account = args.rule_account
+        deletion_success = False
         for rule in rules:
             if args.delete_all:
                 account_checked = True
@@ -1587,6 +1588,10 @@ def delete_rule(args):
                 account_checked = rule['account'] == account
             if rule['rse_expression'] == args.rse_expression and account_checked:
                 client.delete_replication_rule(rule_id=rule['id'], purge_replicas=args.purge_replicas)
+                deletion_success = True
+        if not deletion_success:
+            logger.error('No replication rule was deleted from the DID')
+            return FAILURE
     return SUCCESS
 
 
