@@ -1511,8 +1511,11 @@ def set_metadata(args):
     Set data identifier metadata
     """
     client = get_client(args)
+    value = args.value
+    if args.key == 'lifetime':
+        value = float(args.value)
     scope, name = extract_scope(args.did)
-    client.set_metadata(scope=scope, name=name, key=args.key, value=args.value)
+    client.set_metadata(scope=scope, name=name, key=args.key, value=value)
     return SUCCESS
 
 
