@@ -358,6 +358,48 @@ class DataIdentifier(BASE, ModelBase):
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
 
 
+class DeletedDataIdentifier(BASE, ModelBase):
+    """Represents a dataset"""
+    __tablename__ = 'deleted_dids'
+    scope = Column(String(25))
+    name = Column(String(255))
+    account = Column(String(25))
+    did_type = Column(DIDType.db_type(name='DIDS_TYPE_CHK'))
+    is_open = Column(Boolean(name='DIDS_IS_OPEN_CHK'))
+    monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK'), server_default='0')
+    hidden = Column(Boolean(name='DIDS_HIDDEN_CHK'), server_default='0')
+    obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK'), server_default='0')
+    complete = Column(Boolean(name='DIDS_COMPLETE_CHK'))
+    is_new = Column(Boolean(name='DIDS_IS_NEW_CHK'), server_default='1')
+    availability = Column(DIDAvailability.db_type(name='DIDS_AVAILABILITY_CHK'),
+                          default=DIDAvailability.AVAILABLE)
+    suppressed = Column(Boolean(name='FILES_SUPP_CHK'), server_default='0')
+    bytes = Column(BigInteger)
+    length = Column(BigInteger)
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
+    expired_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+    events = Column(BigInteger)
+    guid = Column(GUID())
+    project = Column(String(50))
+    datatype = Column(String(50))
+    run_number = Column(Integer)
+    stream_name = Column(String(70))
+    prod_step = Column(String(50))
+    version = Column(String(50))
+    campaign = Column(String(50))
+    task_id = Column(Integer())
+    panda_id = Column(Integer())
+    lumiblocknr = Column(Integer())
+    provenance = Column(String(2))
+    phys_group = Column(String(25))
+    transient = Column(Boolean(name='DID_TRANSIENT_CHK'), server_default='0')
+    accessed_at = Column(DateTime)
+    closed_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
+
+
 class UpdatedDID(BASE, ModelBase):
     """Represents the recently updated dids"""
     __tablename__ = 'updated_dids'
@@ -1038,6 +1080,7 @@ def register_models(engine):
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
+              DeletedDataIdentifier,
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
@@ -1088,6 +1131,7 @@ def unregister_models(engine):
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
+              DeletedDataIdentifier,
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
