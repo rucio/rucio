@@ -1337,7 +1337,7 @@ def resurrect(dids, session=None):
         kargs = del_did.to_dict()
         kargs.pop("_sa_instance_state", None)
 
-        rowcount = session.query(models.DeletedDataIdentifier).\
+        session.query(models.DeletedDataIdentifier).\
             with_hint(models.DeletedDataIdentifier,
                       "INDEX(DELETED_DIDS DELETED_DIDS_PK)", 'oracle').\
             filter_by(scope=did['scope'], name=did['name']).\
