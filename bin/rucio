@@ -63,6 +63,7 @@ DEFAULT_PORT = 80
 STOP_REQUEST = Event()
 
 logger = logging.getLogger("user")
+gfal2_logger = logging.getLogger("gfal2")
 tablefmt = 'psql'
 
 
@@ -95,7 +96,13 @@ def setup_logger(logger):
     hdlr.emit = emit_decorator(hdlr.emit)
     logger.addHandler(hdlr)
 
+
+def setup_gfal2_logger(logger):
+    logger.setLevel(logging.CRITICAL)
+    logger.addHandler(logging.StreamHandler())
+
 setup_logger(logger)
+setup_gfal2_logger(gfal2_logger)
 
 
 def signal_handler(sig, frame):
