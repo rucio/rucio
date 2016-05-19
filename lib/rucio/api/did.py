@@ -289,9 +289,23 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, issuer
     :param output_name: The name of the output dataset.
     :param account: The account.
     :param nbfiles: The number of files to register in the output dataset.
-    :param session: The database session in use.
+    :param issuer: The issuer account.
     """
     kwargs = {'issuer': issuer, 'scope': output_scope}
     if not rucio.api.permission.has_permission(issuer=issuer, action='create_did_sample', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
     return did.create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, account=issuer, nbfiles=nbfiles)
+
+
+def resurrect(dids, issuer):
+    """
+    Resurrect DIDs.
+
+    :param dids: A list of dids.
+    :param issuer: The issuer account.
+    """
+    kwargs = {'issuer': issuer}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='resurrect', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not resurrect data identifiers' % (issuer))
+    validate_schema(name='dids', obj=dids)
+    return did.resurrect(dids=dids)

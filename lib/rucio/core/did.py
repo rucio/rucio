@@ -1217,7 +1217,8 @@ def get_dataset_by_guid(guid, session=None):
     try:
         r = query.one()
         datasets = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=r.scope, child_name=r.name).\
-            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS_CHILD_SCOPE_NAME_IDX)", 'oracle')
+            with_hint(models.DataIdentifierAssociation,
+                      "INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX)", 'oracle')
     except NoResultFound:
         raise exception.DataIdentifierNotFound("No file associated to GUID : %s" % guid)
     for tmp_did in datasets.yield_per(5):
@@ -1309,3 +1310,38 @@ def __resolve_bytes_length_events_did(scope, name, session):
             length += tmp_length or 0
             events += tmp_events or 0
     return (bytes, length, events)
+
+
+@transactional_session
+def resurrect(dids, session=None):
+    """
+    Resurrect data identifiers.
+
+    :param dids: The list of dids to resurrect.
+    :param session: The database session in use.
+    """
+    for did in dids:
+        try:
+            del_did = session.query(models.DeletedDataIdentifier).\
+                with_hint(models.DeletedDataIdentifier,
+                          "INDEX(DELETED_DIDS DELETED_DIDS_PK)", 'oracle').\
+                filter_by(scope=did['scope'], name=did['name']).\
+                one()
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound("Deleted Data identifier '%(scope)s:%(name)s' not found" % did)
+
+        # Check did_type
+        # if del_did.did_type  == DIDType.FILE:
+        #    raise exception.UnsupportedOperation("File '%(scope)s:%(name)s' cannot be resurrected" % did)
+
+        kargs = del_did.to_dict()
+        kargs.pop("_sa_instance_state", None)
+
+        session.query(models.DeletedDataIdentifier).\
+            with_hint(models.DeletedDataIdentifier,
+                      "INDEX(DELETED_DIDS DELETED_DIDS_PK)", 'oracle').\
+            filter_by(scope=did['scope'], name=did['name']).\
+            delete()
+
+        models.DataIdentifier(**kargs).\
+            save(session=session, flush=False)
