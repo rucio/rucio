@@ -523,12 +523,26 @@ class DIDClient(BaseClient):
         :param output_name: The name of the output dataset.
         :param account: The account.
         :param nbfiles: The number of files to register in the output dataset.
-        :param session: The database session in use.
         """
         path = '/'.join([self.DIDS_BASEURL, input_scope, input_name, output_scope, output_name, str(nbfiles), 'sample'])
         url = build_url(choice(self.list_hosts), path=path)
         print url
         r = self._send_request(url, type='POST', data=dumps({}))
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def resurrect(self, dids):
+        """
+        Resurrect a list of dids.
+
+        :param dids:  A list of dids [{'scope': scope, 'name': name}, ...]
+        """
+        path = '/'.join([self.DIDS_BASEURL, 'resurrect'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='POST', data=dumps(dids))
         if r.status_code == codes.created:
             return True
         else:
