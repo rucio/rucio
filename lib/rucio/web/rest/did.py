@@ -23,7 +23,7 @@ from rucio.api.did import (add_did, add_dids, list_content, list_dids,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
-                           create_did_sample, list_new_dids)
+                           create_did_sample, list_new_dids, resurrect)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -51,7 +51,8 @@ urls = (
     '/(.*)/(.*)', 'DIDs',
     '', 'BulkDIDS',
     '/attachments', 'Attachments',
-    '/new', 'NewDIDs'
+    '/new', 'NewDIDs',
+    '/resurrect', 'Resurrect',
 )
 
 
@@ -724,6 +725,50 @@ class NewDIDs(RucioController):
         except Exception, e:
             raise InternalError(e)
 
+
+class Resurrect(RucioController):
+
+    def POST(self):
+        """
+        Resurrect DIDs.
+
+        HTTP Success:
+            201 Created
+
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+
+        """
+        json_data = data()
+        try:
+            dids = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            resurrect(dids=dids, issuer=ctx.env.get('issuer'))
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except DuplicateContent, e:
+            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
+        except DataIdentifierAlreadyExists, e:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except UnsupportedOperation, e:
+            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except DatabaseException, e:
+            raise generate_http_error(500, 'DatabaseException', e.args)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+        raise Created()
 """----------------------
    Web service startup
 ----------------------"""
