@@ -107,8 +107,8 @@ def set_group_quotas():
                         except AccountNotFound, error:
                             print error
                     elif ddmendpoint['quotas'][vomsgroup] == 999999:
-                        print 'Infinite quota defined in AGIS for group %s on %s' % (group, name)
                         if quotas[(group, name)] != -1:
+                            print 'Infinite quota defined in AGIS for group %s on %s' % (group, name)
                             try:
                                 set_account_limit(group, name, -1, 'root')
                             except AccountNotFound, error:
@@ -194,7 +194,8 @@ def set_localgroupdisk_quotas(fraction):
         RESULT = CRITICAL
 
     try:
-        query = '''select account, key, value, updated_at, created_at from atlas_rucio.account_attr_map where key like 'country-%' '''
+        query = '''select a.account, a.key, a.value, a.updated_at, a.created_at from atlas_rucio.account_attr_map a, atlas_rucio.accounts b
+                   where a.account=b.account and key like 'country-%' and b.status='ACTIVE' '''
         result = session.execute(query)
         for account, key, value, _, _ in result:
             if key not in countries:
@@ -209,7 +210,8 @@ def set_localgroupdisk_quotas(fraction):
         try:
             country_short = country.split('-')[1]
             query = '''select account, atlas_rucio.id2rse(rse_id), bytes from atlas_rucio.account_limits where
-                       account in (select account from atlas_rucio.account_attr_map where key='%s')
+                       account in (select c.account from atlas_rucio.account_attr_map c, atlas_rucio.accounts d where d.status='ACTIVE'
+                       and c.account=d.account and key='%s')
                        and rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b
                        where a.id=b.rse_id and b.key='country' and b.value='%s' and a.rse like '%%LOCALGROUPDISK') ''' % (country, country_short)
             result = session.execute(query)
