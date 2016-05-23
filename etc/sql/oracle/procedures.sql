@@ -146,6 +146,7 @@ BEGIN
             ELSE
                 -- Check all DATASET_REPLICAS of this DS
                 SELECT count(*), SUM(bytes) INTO ds_length, ds_bytes FROM ATLAS_RUCIO.contents WHERE scope=scopes(i) and name=names(i);
+                UPDATE ATLAS_RUCIO.COLLECTION_REPLICAS SET length=nvl(ds_length,0), bytes=nvl(ds_bytes,0) WHERE scope = scopes(i) and name = names(i);
                 FOR rse IN (SELECT rse_id, count(*) as available_replicas, sum(r.bytes) as ds_available_bytes FROM ATLAS_RUCIO.replicas r, ATLAS_RUCIO.contents c WHERE r.scope = c.child_scope and r.name = c.child_name and c.scope = scopes(i) and c.name = names(i) and r.state='A' GROUP BY rse_id)
                 LOOP
                     IF rse.available_replicas >= ds_length THEN
@@ -154,7 +155,7 @@ BEGIN
                         ds_replica_state := 'U';
                     END IF;
                     UPDATE ATLAS_RUCIO.COLLECTION_REPLICAS
-                    SET state=ds_replica_state, available_replicas_cnt=rse.available_replicas, length=ds_length, bytes=ds_bytes, available_bytes=rse.ds_available_bytes, updated_at=sys_extract_utc(systimestamp)
+                    SET state=ds_replica_state, available_replicas_cnt=rse.available_replicas, available_bytes=rse.ds_available_bytes, updated_at=sys_extract_utc(systimestamp)
                     WHERE scope = scopes(i) and name = names(i) and rse_id = rse.rse_id;
                 END LOOP;
             END IF;
