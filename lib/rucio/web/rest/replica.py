@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -78,16 +78,13 @@ class Replicas(RucioController):
 
         dids, schemes, select, limit = [{'scope': scope, 'name': name}], None, None, None
         if ctx.query:
-            try:
-                params = loads(unquote(ctx.query[1:]))
-                if 'schemes' in params:
-                    schemes = params['schemes']
-            except ValueError:
-                params = parse_qs(ctx.query[1:])
-                if 'select' in params:
-                    select = params['select'][0]
-                if 'limit' in params:
-                    limit = int(params['limit'][0])
+            params = parse_qs(ctx.query[1:])
+            if 'schemes' in params:
+                schemes = params['schemes']
+            if 'select' in params:
+                select = params['select'][0]
+            if 'limit' in params:
+                limit = int(params['limit'][0])
 
         try:
             # first, set the appropriate content type, and stream the header
@@ -95,11 +92,9 @@ class Replicas(RucioController):
                 header('Content-Type', 'application/x-json-stream')
             elif metalink == 3:
                 header('Content-Type', 'application/metalink+xml')
-                schemes = ['http', 'https']
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink version="3.0" xmlns="http://www.metalinker.org/">\n<files>\n'
             elif metalink == 4:
                 header('Content-Type', 'application/metalink4+xml')
-                schemes = ['http', 'https']
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
             # then, stream the replica information
