@@ -29,12 +29,13 @@ from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
 from urlparse import urlparse
 
+
 from rucio.common import exception
 from rucio.common.exception import DatabaseException, UnsupportedOperation, ReplicaNotFound
 from rucio.core import replica as replica_core, request as request_core, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer, record_counter
-from rucio.db.sqla.constants import RequestState, ReplicaState, RequestType, RequestErrMsg
+from rucio.db.sqla.constants import RequestState, ReplicaState, RequestType, RequestErrMsg, BadFilesStatus
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
@@ -237,7 +238,40 @@ def get_undeterministic_rses():
     return result
 
 
-def handle_requests(reqs):
+def check_suspicious_files(req, suspicious_patterns):
+    """
+    check suspicious files when a transfer failed.
+
+    :param req: request object.
+    :param suspicious_patterns: a list of regexp pattern object.
+    """
+    if not suspicious_patterns:
+        return
+    is_suspicious = False
+
+    try:
+        logging.debug("Checking suspicious file for request: %s, transfer error: %s" % (req['request_id'], req['err_msg']))
+        for pattern in suspicious_patterns:
+            if pattern.match(req['err_msg']):
+                is_suspicious = True
+                break
+
+        if is_suspicious:
+            reason = 'Reported by conveyor: request-id %s, error: %s' % (req['request_id'], req['err_msg'])
+            urls = request_core.get_sources(req['request_id'], rse_id=req['source_rse_id'])
+            if urls:
+                pfns = []
+                for url in urls:
+                    pfns.append(urls['url'])
+                if pfns:
+                    logging.debug("Found suspicious urls: %s" % pfns)
+                    replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
+    except:
+        logging.warning("Failed to check suspicious file with request: %s" % req['request_id'])
+    return is_suspicious
+
+
+def handle_requests(reqs, suspicious_patterns):
     """
     used by finisher to handle terminated requests,
 
@@ -278,6 +312,7 @@ def handle_requests(reqs):
                     path = protocols[dest_rse_id_scheme].parse_pfns([pfn])[pfn]['path']
                     replica['path'] = os.path.join(path, os.path.basename(pfn))
             elif req['state'] == RequestState.FAILED:
+                check_suspicious_files(req, suspicious_patterns)
                 if request_core.should_retry_request(req):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
