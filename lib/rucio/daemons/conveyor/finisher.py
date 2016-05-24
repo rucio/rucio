@@ -59,7 +59,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
         for pat in patterns:
             suspicious_patterns.append(re.compile(pat.strip()))
     except NoOptionError:
-        suspicious_patterns = None
+        suspicious_patterns = []
     logging.debug("Suspicious patterns: %s" % [pat.pattern for pat in suspicious_patterns])
 
     executable = ' '.join(sys.argv)
