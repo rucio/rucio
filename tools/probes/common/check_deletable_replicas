@@ -24,8 +24,8 @@ if __name__ == "__main__":
     try:
         session = get_session()
         query = '''BEGIN
-        FOR u in (SELECT /*+ FULL(replicas) parallel(4) */   rse_id, count(1) as files, sum(bytes) as bytes, sys_extract_utc(localtimestamp) as updated_at
-                  FROM atlas_rucio.replicas@ADCR_ADG.CERN.CH
+        FOR u in (SELECT  rse_id, count(1) as files, sum(bytes) as bytes, sys_extract_utc(localtimestamp) as updated_at
+                  FROM ATLAS_RUCIO.ADG_ONLY_SCAN_REPLICAS
                   WHERE tombstone is not null AND tombstone < sys_extract_utc(localtimestamp) GROUP BY rse_id)
         LOOP
                 MERGE INTO atlas_rucio.RSE_USAGE
