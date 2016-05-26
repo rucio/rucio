@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Wen Guan, <wen.guan@cern.ch>, 2015-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 
@@ -25,6 +25,7 @@ import threading
 import time
 import traceback
 
+from ConfigParser import NoOptionError
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
@@ -51,6 +52,16 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
     logging.info('finisher starting - process (%i/%i) thread (%i/%i) db_bulk(%i) bulk (%i)' % (process, total_processes,
                                                                                                thread, total_threads,
                                                                                                db_bulk, bulk))
+    try:
+        suspicious_patterns = []
+        pattern = config_get('conveyor', 'suspicious_pattern')
+        patterns = pattern.split(",")
+        for pat in patterns:
+            suspicious_patterns.append(re.compile(pat.strip()))
+    except NoOptionError:
+        suspicious_patterns = []
+    logging.debug("Suspicious patterns: %s" % [pat.pattern for pat in suspicious_patterns])
+
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -92,7 +103,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                 for chunk in chunks(reqs, bulk):
                     try:
                         ts = time.time()
-                        common.handle_requests(chunk)
+                        common.handle_requests(chunk, suspicious_patterns)
                         record_timer('daemons.conveyor.finisher.handle_requests', (time.time() - ts) * 1000 / (len(chunk) if len(chunk) else 1))
                         record_counter('daemons.conveyor.finisher.handle_requests', len(chunk))
                     except:
