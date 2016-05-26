@@ -129,12 +129,13 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        if not self.exists(pfn):
-            raise exception.SourceNotFound()
+
         try:
             cmd = 'xrdcp -f %s %s' % (pfn, dest)
             status, out, err = execute(cmd)
-            if not status == 0:
+            if status == 54:
+                raise exception.SourceNotFound()
+            elif status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
