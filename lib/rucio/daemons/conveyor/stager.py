@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 
 """
 Conveyor stager is a daemon to manage stagein file transfers.
@@ -61,6 +61,19 @@ def submitter(once=False, rses=[], mock=False,
     except NoOptionError:
         bring_online = 43200
 
+    try:
+        max_time_in_queue = {}
+        timelife_conf = config_get('conveyor', 'max_time_in_queue')
+        timelife_confs = timelife_conf.split(",")
+        for conf in timelife_confs:
+            act, timelife = conf.split(":")
+            max_time_in_queue[act.strip()] = int(timelife.strip())
+    except NoOptionError:
+        max_time_in_queue = {}
+    if 'default' not in max_time_in_queue:
+        max_time_in_queue['default'] = 168
+    logging.debug("Maximum time in queue for different activities: %s" % max_time_in_queue)
+
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -108,7 +121,7 @@ def submitter(once=False, rses=[], mock=False,
                 # group transfers
                 logging.info("%s:%s Starting to group transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
-                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy)
+                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy, max_time_in_queue)
                 record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
 
                 logging.info("%s:%s Starting to submit transfers for %s" % (process, hb['assign_thread'], activity))
