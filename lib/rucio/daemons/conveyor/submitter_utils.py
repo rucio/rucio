@@ -17,7 +17,6 @@ Methods common to different conveyor submitter daemons.
 import datetime
 import json
 import logging
-import os
 import random
 import time
 import traceback
@@ -544,7 +543,7 @@ def get_transfers_from_requests(process=0, total_processes=1, thread=0, total_th
     return transfers
 
 
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_strategy='auto'):
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_strategy='auto', max_time_in_queue=None):
     grouped_transfers = {}
     grouped_jobs = {}
     for request_id in transfers:
@@ -576,6 +575,12 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                       'overwrite': transfer['overwrite'],
                       'priority': 3}
 
+        if max_time_in_queue:
+            if transfer['file_metadata']['activity'] in max_time_in_queue:
+                job_params['max_time_in_queue'] = max_time_in_queue[transfer['file_metadata']['activity']]
+            elif 'default' in max_time_in_queue:
+                job_params['max_time_in_queue'] = max_time_in_queue['default']
+
         # for multiple source replicas, no bulk submission
         if len(transfer['sources']) > 1:
             job_params['job_metadata']['multi_sources'] = True
@@ -585,6 +590,9 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
             job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params['spacetoken'], job_params['copy_pin_lifetime'],
                                                    job_params['bring_online'], job_params['job_metadata'], job_params['source_spacetoken'],
                                                    job_params['overwrite'], job_params['priority'])
+            if 'max_time_in_queue' in job_params:
+                job_key = job_key + ',%s' % job_params['max_time_in_queue']
+
             if job_key not in grouped_transfers[external_host]:
                 grouped_transfers[external_host][job_key] = {}
 
@@ -1242,33 +1250,6 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
     return transfers
 
 
-def create_transfer_file(transfer_id, transfer_request, cachedir=None, process=0, thread=0):
-    try:
-        if cachedir:
-            logging.debug("%s:%s Caching transfer %s in %s" % (process, thread, transfer_id, cachedir))
-            if not os.path.exists(cachedir):
-                os.makedirs(cachedir)
-            file_name = os.path.join(cachedir, transfer_id)
-            file_handle = open(file_name, 'w')
-            file_handle.write(str(transfer_request))
-            file_handle.close()
-    except:
-        logging.warn("%s:%s Failed to cache transfer in %s: %s" % (process, thread, cachedir, traceback.format_exc()))
-
-
-def update_transfer_file(transfer_id, state, cachedir=None, process=0, thread=0):
-    try:
-        if cachedir:
-            logging.debug("%s:%s update transfer %s in %s to %s" % (process, thread, transfer_id, cachedir, state))
-            file_name = os.path.join(cachedir, transfer_id)
-            if state == 'delete':
-                os.remove(file_name)
-            else:
-                os.rename(file_name, file_name + state)
-    except:
-        logging.warn("%s:%s Failed to update transfer in %s: %s" % (process, thread, cachedir, traceback.format_exc()))
-
-
 def submit_transfer(external_host, job, submitter='submitter', cachedir=None, process=0, thread=0, timeout=None):
     # prepare submitting
     xfers_ret = {}
@@ -1308,9 +1289,6 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
     except Exception, ex:
         logging.error("Failed to submit a job with error %s: %s" % (str(ex), traceback.format_exc()))
 
-    if eid:
-        create_transfer_file(eid, xfers_ret, cachedir=cachedir, process=process, thread=thread)
-
     # register transfer
     xfers_ret = {}
     try:
@@ -1347,18 +1325,14 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
         logging.debug("%s:%s start to register transfer state" % (process, thread))
         request.set_request_transfers_state(xfers_ret, datetime.datetime.utcnow())
         logging.debug("%s:%s finished to register transfer state" % (process, thread))
-        if eid:
-            update_transfer_file(eid, 'delete', cachedir=cachedir, process=process, thread=thread)
     except:
         logging.error("%s:%s Failed to register transfer state with error: %s" % (process, thread, traceback.format_exc()))
         try:
             if eid:
                 logging.info("%s:%s Cancel transfer %s on %s" % (process, thread, eid, external_host))
                 request.cancel_request_external_id(eid, external_host)
-                update_transfer_file(eid, 'cancel', cachedir=cachedir, process=process, thread=thread)
         except:
             logging.error("%s:%s Failed to cancel transfers %s on %s with error: %s" % (process, thread, eid, external_host, traceback.format_exc()))
-            update_transfer_file(eid, 'cancelfailed', cachedir=cachedir, process=process, thread=thread)
 
 
 def schedule_requests():
