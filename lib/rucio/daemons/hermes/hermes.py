@@ -87,11 +87,11 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
                                                                   hb['nr_threads'],
                                                                   str(t)))
 
-                msg = MIMEText(t['payload']['body'])
+                msg = MIMEText(t['payload']['body'].encode('utf-8'))
 
                 msg['From'] = email_from
                 msg['To'] = ', '.join(t['payload']['to'])
-                msg['Subject'] = t['payload']['subject']
+                msg['Subject'] = t['payload']['subject'].encode('utf-8')
 
                 if send_email:
                     s = smtplib.SMTP()
