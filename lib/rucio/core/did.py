@@ -1036,7 +1036,7 @@ def set_metadata(scope, name, key, value, type=None, did=None,
             content_query = session.query(models.DataIdentifierAssociation.child_scope,
                                           models.DataIdentifierAssociation.child_name).\
                 with_hint(models.DataIdentifierAssociation,
-                          "INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX)", 'oracle').\
+                          "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
                 filter_by(scope=scope, name=name)
 
             for child_scope, child_name in content_query:
