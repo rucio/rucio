@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2016
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
@@ -93,7 +93,8 @@ def has_permission(issuer, action, kwargs):
             'get_account_usage': perm_get_account_usage,
             'add_attribute': perm_add_account_attribute,
             'del_attribute': perm_del_account_attribute,
-            'list_heartbeats': perm_list_heartbeats}
+            'list_heartbeats': perm_list_heartbeats,
+            'resurrect': perm_resurrect}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -437,7 +438,8 @@ def perm_update_rule(issuer, kwargs):
     if 'account' in kwargs['options'] or\
        'state' in kwargs['options'] or\
        'priority' in kwargs['options'] or\
-       'locked' in kwargs['options']:
+       'locked' in kwargs['options'] or\
+       'child_rule_id' in kwargs['options']:
         return False  # Only priv accounts are allowed to change that
 
     # Owner or country admins can change the rest of a rule
@@ -842,3 +844,14 @@ def perm_list_heartbeats(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return issuer == 'root'
+
+
+def perm_resurrect(issuer, kwargs):
+    """
+    Checks if an account can resurrect DIDS.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')

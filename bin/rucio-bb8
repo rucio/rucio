@@ -6,30 +6,27 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2016
 
 """
-Conveyor is a daemon to manage file transfers.
+BB8 is a daemon to rebalance data.
 """
 
 import argparse
 import signal
 
-from rucio.daemons.conveyor.submitter_strawman import run, stop
+from rucio.daemons.bb8.bb8 import run, stop
 
 if __name__ == "__main__":
 
     signal.signal(signal.SIGTERM, stop)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run-once", action="store_true", default=False,
-                        help='One iteration only')
-    parser.add_argument("--total-threads", action="store", default=1, type=int,
-                        help='Total number of threads')
+    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once,
-            total_threads=args.total_threads)
+        run(once=args.run_once, threads=args.threads)
     except KeyboardInterrupt:
         stop()
