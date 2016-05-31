@@ -212,7 +212,7 @@ def get_did(scope, name, dynamic=False):
     return did.get_did(scope=scope, name=name, dynamic=dynamic)
 
 
-def set_metadata(scope, name, key, value, issuer):
+def set_metadata(scope, name, key, value, issuer, recursive=False):
     """
     Add metadata to data did.
 
@@ -221,8 +221,8 @@ def set_metadata(scope, name, key, value, issuer):
     :param key: the key.
     :param value: the value.
     :param issuer: The issuer account.
+    :param recursive: Option to propagate the metadata update to content.
     """
-
     kwargs = {'scope': scope, 'name': name, 'key': key, 'value': value, 'issuer': issuer}
 
     if key in RESERVED_KEYS:
@@ -230,7 +230,7 @@ def set_metadata(scope, name, key, value, issuer):
 
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_metadata', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
-    return did.set_metadata(scope=scope, name=name, key=key, value=value)
+    return did.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive)
 
 
 def get_metadata(scope, name):
