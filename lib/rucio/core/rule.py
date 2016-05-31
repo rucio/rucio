@@ -2637,11 +2637,11 @@ def __create_recipents_list(rse_expression, session=None):
                 except:
                     pass
 
-    # LOCALGROUPDISK
+    # LOCALGROUPDISK/LOCALGROUPTAPE
     if not recipents:
         for rse in parse_expression(rse_expression, session=session):
             rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
-            if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+            if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
                                                                                           value='admin').all()
                 for account in accounts:
