@@ -118,23 +118,42 @@ class Replicas(RucioController):
                     replicas = random_order(dictreplica, client_ip)
                 if metalink is None:
                     yield dumps(rfile) + '\n'
+
                 elif metalink == 3:
                     idx = 0
-                    yield ' <file name="' + rfile['name'] + '">\n  <resources>\n'
+                    yield ' <file name="' + rfile['name'] + '">\n'
+
+                    # To help support the FAX transition period, add the glfn to the metalink:
+                    # AGIS does not expose specific FAX redirectors per DDM Endpoint, so go through top-level redirector
+                    yield '  <glfn name="%s%s">' % ('root://atlas-xrd-eu.cern.ch:1094//atlas/rucio/',
+                                                    '%s:%s' % (rfile['scope'], rfile['name']))
+                    yield '</glfn>\n'
+
+                    yield '  <resources>\n'
                     for replica in replicas:
                         yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break
                     yield '  </resources>\n </file>\n'
+
                 elif metalink == 4:
                     yield ' <file name="' + rfile['name'] + '">\n'
                     yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+
                     if rfile['adler32'] is not None:
                         yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
                     if rfile['md5'] is not None:
                         yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+
+                    # To help support the FAX transition period, add the glfn to the metalink:
+                    # AGIS does not expose specific FAX redirectors per DDM Endpoint, so go through top-level redirector
+                    yield '  <glfn name="%s%s">' % ('root://atlas-xrd-eu.cern.ch:1094//atlas/rucio/',
+                                                    '%s:%s' % (rfile['scope'], rfile['name']))
+                    yield '</glfn>\n'
+
                     idx = 0
                     for replica in replicas:
                         yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + replica + '</url>\n'
