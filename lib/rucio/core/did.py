@@ -1082,7 +1082,7 @@ def set_status(scope, name, session=None, **kwargs):
     statuses = ['open', ]
 
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-        with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one().\
+        with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
         filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     values = {}
     for k in kwargs:
