@@ -479,7 +479,7 @@ def perm_approve_rule(issuer, kwargs):
             if issuer in rse_attr.get('rule_approvers').split(','):
                 return True
 
-    # LOCALGROUPDISK admins can approve the rule
+    # LOCALGROUPDISK/LOCALGROUPTAPE admins can approve the rule
     admin_in_country = []
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
@@ -487,7 +487,7 @@ def perm_approve_rule(issuer, kwargs):
     if admin_in_country:
         for rse in rses:
             rse_attr = list_rse_attributes(rse=rse['rse'])
-            if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+            if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
                 if rse_attr.get('country', '') in admin_in_country:
                     return True
 
