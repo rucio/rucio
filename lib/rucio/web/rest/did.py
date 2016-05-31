@@ -554,10 +554,12 @@ class Meta(RucioController):
         try:
             params = loads(json_data)
             value = params['value']
+            recursive = params.get('recursive', False)
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            set_metadata(scope=scope, name=name, key=key, value=value, issuer=ctx.env.get('issuer'))
+            set_metadata(scope=scope, name=name, key=key, value=value,
+                         issuer=ctx.env.get('issuer'), recursive=recursive)
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except KeyNotFound, e:
