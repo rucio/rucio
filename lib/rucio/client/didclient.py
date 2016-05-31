@@ -357,7 +357,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_metadata(self, scope, name, key, value):
+    def set_metadata(self, scope, name, key, value, recursive=False):
         """
         Set data identifier metadata
 
@@ -365,10 +365,11 @@ class DIDClient(BaseClient):
         :param name: The data identifier name.
         :param key: the key.
         :param value: the value.
+        :param recursive: Option to propagate the metadata change to content.
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'meta', key])
         url = build_url(choice(self.list_hosts), path=path)
-        data = dumps({'value': value})
+        data = dumps({'value': value, 'recursive': recursive})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True
