@@ -905,7 +905,7 @@ def get_did(scope, name, dynamic=False, session=None):
     """
     try:
         result = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
         if result.did_type == DIDType.FILE:
             return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
                     'account': result.account, 'bytes': result.bytes, 'length': 1,
@@ -968,7 +968,8 @@ def get_files(files, session=None):
 
 
 @transactional_session
-def set_metadata(scope, name, key, value, type=None, did=None, session=None):
+def set_metadata(scope, name, key, value, type=None, did=None,
+                 recursive=False, session=None):
     """
     Add metadata to data identifier.
 
@@ -976,7 +977,8 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
     :param name: The data identifier name.
     :param key: the key.
     :param value: the value.
-    :paran did: The data identifier info.
+    :param did: The data identifier info.
+    :param recursive: Option to propagate the metadata change to content.
     :param session: The database session in use.
     """
     if key == 'lifetime':
@@ -1022,9 +1024,29 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
             session.query(models.DatasetLock).filter_by(scope=parent_scope, name=parent_name).update({'length': values['length'], 'bytes': values['bytes']}, synchronize_session=False)
     else:
         try:
-            session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({key: value}, synchronize_session='fetch')  # add DIDtype
+            session.query(models.DataIdentifier).\
+                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+                filter_by(scope=scope, name=name).\
+                update({key: value}, synchronize_session='fetch')
         except CompileError as error:
             raise exception.InvalidMetadata(error)
+
+        # propagate metadata updates to child content
+        if recursive:
+            content_query = session.query(models.DataIdentifierAssociation.child_scope,
+                                          models.DataIdentifierAssociation.child_name).\
+                with_hint(models.DataIdentifierAssociation,
+                          "INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX)", 'oracle').\
+                filter_by(scope=scope, name=name)
+
+            for child_scope, child_name in content_query:
+                try:
+                    session.query(models.DataIdentifier).\
+                        with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+                        filter_by(scope=child_scope, name=child_name).\
+                        update({key: value}, synchronize_session='fetch')
+                except CompileError as error:
+                    raise exception.InvalidMetadata(error)
 
 
 @read_session
@@ -1038,7 +1060,7 @@ def get_metadata(scope, name, session=None):
     """
     try:
         row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
         d = {}
         for column in row.__table__.columns:
             d[column.name] = getattr(row, column.name)
@@ -1060,7 +1082,7 @@ def set_status(scope, name, session=None, **kwargs):
     statuses = ['open', ]
 
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-        with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
+        with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one().\
         filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     values = {}
     for k in kwargs:
