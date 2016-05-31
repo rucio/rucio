@@ -275,6 +275,8 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                 rucio.core.rule.generate_message_for_dataset_ok_callback(rule=rule, session=session)
             if rule.notification == RuleNotification.YES:
                 rucio.core.rule.generate_email_for_rule_ok_notification(rule=rule, session=session)
+            # Try to release potential parent rules
+            rucio.core.rule.release_parent_rule(child_rule_id=rule.id, session=session)
 
         # Insert rule history
         rucio.core.rule.insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
