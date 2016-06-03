@@ -1724,17 +1724,17 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
                                                      'scope': rule.scope,
                                                      'name': rule.name,
                                                      'did_type': rule.did_type})
-                add_message(event_type='email',
-                            payload={'body': text,
-                                     'to': [email],
-                                     'subject': '[RUCIO] Replication rule %s has been approved' % (str(rule.id))},
-                            session=session)
+                    add_message(event_type='email',
+                                payload={'body': text,
+                                         'to': [email],
+                                         'subject': '[RUCIO] Replication rule %s has been approved' % (str(rule.id))},
+                                session=session)
             # Also notify the other approvers
             if notify_approvers:
                 with open('%s/rule_approved_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                     template = Template(templatefile.read())
                 text = template.safe_substitute({'rule_id': str(rule.id)})
-                recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+                recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
                 for recipent in recipents:
                     add_message(event_type='email',
                                 payload={'body': text,
@@ -1780,7 +1780,7 @@ def deny_rule(rule_id, session=None):
             with open('%s/rule_denied_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                 template = Template(templatefile.read())
             text = template.safe_substitute({'rule_id': str(rule.id)})
-            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
             for recipent in recipents:
                 add_message(event_type='email',
                             payload={'body': text,
@@ -2586,7 +2586,7 @@ def __create_rule_approval_email(rule, session=None):
     rses = [rep['rse'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
     # Resolve recipents:
-    recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+    recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
 
     for recipent in recipents:
         text = template.safe_substitute({'rule_id': str(rule.id),
