@@ -16,7 +16,8 @@ include tools/bootstrap.py
 include tools/reset_database.py
 recursive-include lib/rucio/db/migrate_repo/versions *.py
 recursive-include tools/probes *
-recursive-include  etc/schemas *.json
+recursive-include etc/schemas *.json
+recursive-include etc/mail_templates *.tmpl
 graft doc
 prune lib/rucio/web/ui
 prune dist

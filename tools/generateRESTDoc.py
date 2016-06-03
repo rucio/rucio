@@ -67,7 +67,7 @@ class Method():
             return ''
         docstr += ':: ' + self.url
         try:
-            docstr += "\n\n{0}\n\n".format(self.docstring.splitlines()[0]+self.docstring.splitlines()[1])
+            docstr += "\n\n{0}\n\n".format(self.docstring.splitlines()[0] + self.docstring.splitlines()[1])
         except IndexError:
             try:
                 docstr += "  \n\n{0}\n\n".format(self.docstring.splitlines()[0])

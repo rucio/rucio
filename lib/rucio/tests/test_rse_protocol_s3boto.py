@@ -31,7 +31,7 @@ def get_bucket_key_name(pfn):
 
     pos = path.index("/")
     bucket_name = path[:pos]
-    key_name = path[pos+1:]
+    key_name = path[pos + 1:]
     return bucket_name, key_name
 
 

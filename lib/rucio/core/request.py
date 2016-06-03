@@ -376,7 +376,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                     job_file[key] = file[key]
             job_files.append(job_file)
         transfer_id = fts3.submit_bulk_transfers(external_host, job_files, job_params, timeout)
-        record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000/len(files))
+        record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000 / len(files))
     return transfer_id
 
 
@@ -573,23 +573,23 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
         elif activity:
             query = query.filter(models.Request.activity == activity)
 
-        if (total_processes-1) > 0:
+        if (total_processes - 1) > 0:
             if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+                bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
                 query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process))
 
-        if (total_threads-1) > 0:
+        if (total_threads - 1) > 0:
             if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
                 query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
         if share:
             query = query.limit(activity_shares[share])
@@ -666,23 +666,23 @@ def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None
         elif activity:
             query = query.filter(models.Request.activity == activity)
 
-        if (total_processes-1) > 0:
+        if (total_processes - 1) > 0:
             if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+                bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
                 query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process))
 
-        if (total_threads-1) > 0:
+        if (total_threads - 1) > 0:
             if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
                 query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
         if share:
             query = query.limit(activity_shares[share])
@@ -745,8 +745,7 @@ def query_request(request_id, transfertool='fts3', session=None):
     return req_status
 
 
-@read_session
-def query_latest(external_host, state, last_nhours=1, session=None):
+def query_latest(external_host, state, last_nhours=1):
     """
     Query the latest requests in last n hours with state.
 
@@ -777,55 +776,7 @@ def query_latest(external_host, state, last_nhours=1, session=None):
                 set_transfer_update_time(external_host, resp['job_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
             except Exception, e:
                 logging.debug("Exception happened when updating transfer updatetime: %s" % str(e).replace('\n', ''))
-            continue
 
-        request_id = resp['job_metadata']['request_id']
-        try:
-            req = get_request(request_id, session=session)
-        except:
-            logging.warning(traceback.format_exc())
-            continue
-
-        if req:
-            if resp['job_state'] in (str(FTSState.FAILED),
-                                     str(FTSState.FINISHEDDIRTY),
-                                     str(FTSState.CANCELED)):
-                new_state = RequestState.FAILED
-            elif resp['job_state'] == str(FTSState.FINISHED):
-                new_state = RequestState.DONE
-
-            if 'finish_time' in resp and resp['finish_time'] and 'submit_time' in resp and resp['submit_time']:
-                duration = (datetime.datetime.strptime(resp['finish_time'], '%Y-%m-%dT%H:%M:%S') -
-                            datetime.datetime.strptime(resp['submit_time'], '%Y-%m-%dT%H:%M:%S')).seconds
-            else:
-                duration = 0
-
-            response = {'new_state': new_state,
-                        'transfer_id': resp.get('job_id', None),
-                        'job_state': resp.get('job_state', None),
-                        # Todo, "source_se" is just a short se path, for example "srm://srm-atlas.cern.ch". It's not full surl.
-                        # for multiple source replicas, it will be None
-                        'src_url': resp.get('source_se', None),
-                        'dst_url': req['dest_url'],
-                        'transferred_at': datetime.datetime.strptime(resp['finish_time'], '%Y-%m-%dT%H:%M:%S') if resp['finish_time'] else None,
-                        # Todo, should be file start_time, not job start_time
-                        'duration': duration,
-                        'reason': resp.get('reason', None),
-                        'scope': resp['job_metadata'].get('scope', None),
-                        'name': resp['job_metadata'].get('name', None),
-                        'src_rse': resp['job_metadata'].get('src_rse', None),  # Todo for multiple source replicas
-                        'dst_rse': resp['job_metadata'].get('dst_rse', None),
-                        'request_id': resp['job_metadata'].get('request_id', None),
-                        'activity': resp['job_metadata'].get('activity', None),
-                        'dest_rse_id': resp['job_metadata'].get('dest_rse_id', None),
-                        'previous_attempt_id': resp['job_metadata'].get('previous_attempt_id', None),
-                        'adler32': resp['job_metadata'].get('adler32', None),
-                        'md5': resp['job_metadata'].get('md5', None),
-                        'filesize': resp['job_metadata'].get('filesize', None),
-                        'external_host': external_host,
-                        'job_m_replica': None,   # Todo, do we need to set it true? If it's true, common.get_source_rse will not called to correct the src_url and src_rse
-                        'details': {'files': resp['job_metadata']}}
-            ret_resps.append(response)
     return ret_resps
 
 
@@ -971,7 +922,7 @@ def set_requests_external(transfer_ids, submitted_at, session=None):
 
 
 @transactional_session
-def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, src_rse_id=None, session=None):
+def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, src_rse_id=None, err_msg=None, session=None):
     """
     Update the state of a request. Fails silently if the request_id does not exist.
 
@@ -991,6 +942,8 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
             update_items['started_at'] = started_at
         if src_rse_id:
             update_items['source_rse_id'] = src_rse_id
+        if err_msg:
+            update_items['err_msg'] = err_msg
 
         if transfer_id:
             rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update(update_items, synchronize_session=False)
@@ -1039,12 +992,12 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
     record_counter('core.request.set_transfer_update_time')
 
     try:
-        rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'updated_at': update_time}, synchronize_session=False)
+        rowcount = session.query(models.Request).filter_by(external_id=transfer_id, state=RequestState.SUBMITTED).update({'updated_at': update_time}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 
     if not rowcount:
-        raise UnsupportedOperation("Transfer %s on %s cannot be updated." % (transfer_id, external_host))
+        raise UnsupportedOperation("Transfer %s doesn't exist or its status is not submitted." % (transfer_id))
 
 
 @transactional_session
@@ -1381,23 +1334,23 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
-    if (total_processes-1) > 0:
+    if (total_processes - 1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
             sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process))
 
-    if (total_threads-1) > 0:
+    if (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
     if limit:
         sub_requests = sub_requests.limit(limit)
@@ -1490,23 +1443,23 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
-    if (total_processes-1) > 0:
+    if (total_processes - 1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
             sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process))
 
-    if (total_threads-1) > 0:
+    if (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
     if limit:
         sub_requests = sub_requests.limit(limit)

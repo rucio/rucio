@@ -34,10 +34,10 @@ if __name__ == "__main__":
     try:
         session = get_session()
         result = session.execute('select  /*+ index_ffs(replicas REPLICAS_TOMBSTONE_IDX) */  count(1) from atlas_rucio.replicas where tombstone is not null').fetchone()[0]
-        monitor.record_gauge(stat='reaper.unlocked_replicas',   value=result)
+        monitor.record_gauge(stat='reaper.unlocked_replicas', value=result)
         print result
         result = session.execute('select  /*+ index_ffs(replicas REPLICAS_TOMBSTONE_IDX) */  count(1) from atlas_rucio.replicas where tombstone is not null and tombstone < sysdate - 2/24').fetchone()[0]
-        monitor.record_gauge(stat='reaper.expired_replicas',   value=result)
+        monitor.record_gauge(stat='reaper.expired_replicas', value=result)
     except:
         sys.exit(UNKNOWN)
     sys.exit(OK)
