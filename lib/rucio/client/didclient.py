@@ -357,7 +357,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_metadata(self, scope, name, key, value):
+    def set_metadata(self, scope, name, key, value, recursive=False):
         """
         Set data identifier metadata
 
@@ -365,10 +365,11 @@ class DIDClient(BaseClient):
         :param name: The data identifier name.
         :param key: the key.
         :param value: the value.
+        :param recursive: Option to propagate the metadata change to content.
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'meta', key])
         url = build_url(choice(self.list_hosts), path=path)
-        data = dumps({'value': value})
+        data = dumps({'value': value, 'recursive': recursive})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True
@@ -523,12 +524,26 @@ class DIDClient(BaseClient):
         :param output_name: The name of the output dataset.
         :param account: The account.
         :param nbfiles: The number of files to register in the output dataset.
-        :param session: The database session in use.
         """
         path = '/'.join([self.DIDS_BASEURL, input_scope, input_name, output_scope, output_name, str(nbfiles), 'sample'])
         url = build_url(choice(self.list_hosts), path=path)
         print url
         r = self._send_request(url, type='POST', data=dumps({}))
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def resurrect(self, dids):
+        """
+        Resurrect a list of dids.
+
+        :param dids:  A list of dids [{'scope': scope, 'name': name}, ...]
+        """
+        path = '/'.join([self.DIDS_BASEURL, 'resurrect'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='POST', data=dumps(dids))
         if r.status_code == codes.created:
             return True
         else:

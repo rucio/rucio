@@ -594,6 +594,8 @@ def inject_rule(rule_id, session=None):
                 generate_message_for_dataset_ok_callback(rule=rule, session=session)
             if rule.notification == RuleNotification.YES:
                 generate_email_for_rule_ok_notification(rule=rule, session=session)
+            # Try to release potential parent rules
+            release_parent_rule(child_rule_id=rule.id, session=session)
         else:
             rule.state = RuleState.REPLICATING
             if rule.grouping != RuleGrouping.NONE:
@@ -1062,7 +1064,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id']
 
     for key in options:
         if key not in valid_options:
@@ -1156,8 +1158,19 @@ def update_rule(rule_id, options, session=None):
                     update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
                 except Exception, e:
                     raise UnsupportedOperation('The FTS Requests are already in a final state.')
+
+            elif key == 'child_rule_id':
+                # Check if the child rule has the same scope/name as the parent rule
+                child_rule = session.query(models.ReplicationRule).filter_by(id=options[key]).one()
+                if rule.scope != child_rule.scope or rule.name != child_rule.name:
+                    raise InputValidationError('Parent and child rule must be set on the same dataset.')
+                if child_rule.state != RuleState.OK:
+                    rule.child_rule_id = options[key]
+
             else:
                 setattr(rule, key, options[key])
+
+            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
     except IntegrityError, e:
         if match('.*ORA-00001.*', str(e.args[0]))\
@@ -1499,6 +1512,8 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
                 if rule_state_before != RuleState.OK:
                     generate_message_for_dataset_ok_callback(rule=rule, session=session)
                     generate_email_for_rule_ok_notification(rule=rule, session=session)
+            # Try to release potential parent rules
+            release_parent_rule(child_rule_id=rule.id, session=session)
         # Insert rule history
         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
@@ -1848,6 +1863,24 @@ def examine_rule(rule_id, session=None):
 
 
 @transactional_session
+def release_parent_rule(child_rule_id, session=None):
+    """
+    Release a potential parent rule, because the child_rule is OK.
+
+    :param child_rule_id:  The child rule id.
+    :param session:        The Database session
+    """
+
+    session.flush()
+
+    parent_rules = session.query(models.ReplicationRule).filter_by(child_rule_id=child_rule_id).\
+        with_hint(models.ReplicationRule, "index(RULES RULES_CHILD_RULE_ID_IDX)", 'oracle').all()
+    for rule in parent_rules:
+        rule.child_rule_id = None
+        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+
+
+@transactional_session
 def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
     """
     Find missing locks for a rule and create them.
@@ -2068,6 +2101,8 @@ def __evaluate_did_detach(eval_did, session=None):
                     if rule_locks_ok_cnt_before != rule.locks_ok_cnt:
                         generate_message_for_dataset_ok_callback(rule=rule, session=session)
                         generate_email_for_rule_ok_notification(rule=rule, session=session)
+                # Try to release potential parent rules
+                release_parent_rule(child_rule_id=rule.id, session=session)
 
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -2637,11 +2672,11 @@ def __create_recipents_list(rse_expression, session=None):
                 except:
                     pass
 
-    # LOCALGROUPDISK
+    # LOCALGROUPDISK/LOCALGROUPTAPE
     if not recipents:
         for rse in parse_expression(rse_expression, session=session):
             rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
-            if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+            if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
                                                                                           value='admin').all()
                 for account in accounts:

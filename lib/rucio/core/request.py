@@ -1512,17 +1512,21 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
 
 
 @read_session
-def get_sources(request_id, session=None):
+def get_sources(request_id, rse_id=None, session=None):
     """
     Retrieve sources by its ID.
 
     :param request_id: Request-ID as a 32 character hex string.
+    :param rse_id: RSE ID as a 32 character hex string.
     :param session: Database session to use.
     :returns: Sources as a dictionary.
     """
 
     try:
-        tmp = session.query(models.Source).filter_by(request_id=request_id).all()
+        if rse_id:
+            tmp = session.query(models.Source).filter_by(request_id=request_id, rse_id=rse_id).all()
+        else:
+            tmp = session.query(models.Source).filter_by(request_id=request_id).all()
 
         if not tmp:
             return
