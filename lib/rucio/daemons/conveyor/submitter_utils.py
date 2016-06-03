@@ -445,7 +445,7 @@ def get_transfer(rse, req, scheme, mock, max_sources=4):
     if mock:
         tmp_sources = []
         for s in sources:
-            tmp_sources.append((s[0], ':'.join(['mock']+s[1].split(':')[1:]), s[2], s[3]))
+            tmp_sources.append((s[0], ':'.join(['mock'] + s[1].split(':')[1:]), s[2], s[3]))
         sources = tmp_sources
 
     source_surls = [s[1] for s in sources]
@@ -574,9 +574,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
                       'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else None,
                       'overwrite': transfer['overwrite'],
-                      'priority': 3,
-                      "id_generator": "deterministic",
-                      "sid": str(request_id)}
+                      'priority': 3}
 
         # for multiple source replicas, no bulk submission
         if len(transfer['sources']) > 1:
@@ -1141,10 +1139,11 @@ def get_stagein_transfers(process=None, total_processes=None, thread=None, total
     return transfers
 
 
-def handle_requests_with_scheme_mismatch(transfers=None, reqs_scheme_mismatch=None):
+def handle_requests_with_scheme_mismatch(transfers=None, reqs_scheme_mismatch=None, schemes=None):
     if not reqs_scheme_mismatch:
         return transfers
     for request_id in reqs_scheme_mismatch:
+        logging.debug("Request %s with schemes %s has mismatched sources, will handle it" % (request_id, schemes))
         found_avail_source = 0
         if request_id in transfers:
             for source in transfers[request_id]['sources']:
@@ -1166,7 +1165,7 @@ def handle_requests_with_scheme_mismatch(transfers=None, reqs_scheme_mismatch=No
 def mock_sources(sources):
     tmp_sources = []
     for s in sources:
-        tmp_sources.append((s[0], ':'.join(['mock']+s[1].split(':')[1:]), s[2], s[3]))
+        tmp_sources.append((s[0], ':'.join(['mock'] + s[1].split(':')[1:]), s[2], s[3]))
     sources = tmp_sources
     return tmp_sources
 
@@ -1218,7 +1217,7 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
                                                                                                                        bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
     request.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
     request.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES)
-    transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch)
+    transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch, schemes)
 
     for request_id in transfers:
         sources = transfers[request_id]['sources']
@@ -1243,7 +1242,7 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
     return transfers
 
 
-def create_transfer_file(transfer_id, transfer_request, cachedir=None,  process=0, thread=0):
+def create_transfer_file(transfer_id, transfer_request, cachedir=None, process=0, thread=0):
     try:
         if cachedir:
             logging.debug("%s:%s Caching transfer %s in %s" % (process, thread, transfer_id, cachedir))
@@ -1257,7 +1256,7 @@ def create_transfer_file(transfer_id, transfer_request, cachedir=None,  process=
         logging.warn("%s:%s Failed to cache transfer in %s: %s" % (process, thread, cachedir, traceback.format_exc()))
 
 
-def update_transfer_file(transfer_id, state, cachedir=None,  process=0, thread=0):
+def update_transfer_file(transfer_id, state, cachedir=None, process=0, thread=0):
     try:
         if cachedir:
             logging.debug("%s:%s update transfer %s in %s to %s" % (process, thread, transfer_id, cachedir, state))
@@ -1299,11 +1298,11 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
     eid = None
     try:
         ts = time.time()
-        logging.info("%s:%s About to submit job to %s with timeout %s" % (process, thread,  external_host, timeout))
+        logging.info("%s:%s About to submit job to %s with timeout %s" % (process, thread, external_host, timeout))
         eid = request.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'], timeout=timeout)
         duration = time.time() - ts
         logging.info("%s:%s Submit job %s to %s in %s seconds" % (process, thread, eid, external_host, duration))
-        record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - ts) * 1000/len(job['files']))
+        record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - ts) * 1000 / len(job['files']))
         record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
     except Exception, ex:
@@ -1399,8 +1398,8 @@ def schedule_requests():
                     record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.transfers' % (activity, rse_name), transfer)
                     record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.waitings' % (activity, rse_name), waiting)
                     if transfer < 0.8 * threshold:
-                        logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s" % (threshold-transfer, activity, dest_rse_id))
-                        request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, count=threshold-transfer)
+                        logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s" % (threshold - transfer, activity, dest_rse_id))
+                        request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, count=threshold - transfer)
                         record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s' % (activity, rse_name), threshold - transfer)
                 elif waiting > 0:
                     logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for acitivity %s, rse_id %s" % (threshold, activity, dest_rse_id))

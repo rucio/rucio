@@ -130,7 +130,7 @@ class TestJudgeEvaluator():
         account_update(once=True)
 
         account_counter_after = get_counter(self.rse1_id, 'jdoe')
-        assert(account_counter_before['bytes'] + 3*100 == account_counter_after['bytes'])
+        assert(account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] + 3 == account_counter_after['files'])
 
     def test_account_counter_judge_evaluate_detach(self):

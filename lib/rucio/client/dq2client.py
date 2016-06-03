@@ -171,7 +171,7 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def deleteDatasetReplicas(self, dsn, locations, version=0, force=False, deep=False, logical=False, ignore_lifetime=False,  all=False, grace_period=None, ignore_pin=False, scope=None):
+    def deleteDatasetReplicas(self, dsn, locations, version=0, force=False, deep=False, logical=False, ignore_lifetime=False, all=False, grace_period=None, ignore_pin=False, scope=None):
         """
         Delete the dataset replica from the given site.
 
@@ -388,7 +388,7 @@ class DQ2Client:
             elif key in metadata_static:
                 result[key] = metadata_static[key]
             elif key in ['duid', 'vuid', 'latestvuid']:
-                result[key] = hashlib.md5(scope+':'+dsn).hexdigest()
+                result[key] = hashlib.md5(scope + ':' + dsn).hexdigest()
             elif key == 'state':
                 result[key] = 2
                 if metadata['is_open']:
@@ -471,7 +471,7 @@ class DQ2Client:
         @rtype: tuple
         """
         metadata = self.client.get_metadata(scope=scope, name=dsn)
-        vuid = hashlib.md5(scope+':'+dsn).hexdigest()
+        vuid = hashlib.md5(scope + ':' + dsn).hexdigest()
         vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
         duid = vuid
         nbfiles = 0
@@ -565,7 +565,7 @@ class DQ2Client:
             for lock in incomplete:
                 if lock not in replicas[1]:
                     replicas[0].append(lock)
-            vuid = hashlib.md5(scope+':'+dsn).hexdigest()
+            vuid = hashlib.md5(scope + ':' + dsn).hexdigest()
             vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
             return {vuid: replicas}
         elif False:
@@ -630,7 +630,7 @@ class DQ2Client:
 
         for i in self.client.list_content(scope, cn):
             if i['type'] == 'DATASET' and i['name'] not in result:
-                vuid = hashlib.md5(scope+':'+i['name']).hexdigest()
+                vuid = hashlib.md5(scope + ':' + i['name']).hexdigest()
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
                 result['%s:%s' % (i['scope'], i['name'])] = {vuid: replicas}
 
@@ -699,7 +699,7 @@ class DQ2Client:
                 collection = 'container'
             filters = {'name': dataset}
             for name in self.client.list_dids(scope, filters, type=collection):
-                vuid = hashlib.md5(scope+':'+name).hexdigest()
+                vuid = hashlib.md5(scope + ':' + name).hexdigest()
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
                 duid = vuid
                 if name not in result:
@@ -1282,8 +1282,8 @@ class DQ2Client:
             for rse in rses:
                 try:
                     d = self.client.get_rse_usage(rse)
-                    result.append({'files': None, 'key': 'srm', 'datasets': None, 'tera': d['total']/1024./1024./1024./1024, 'giga': d['total']/1024./1024./1024,
-                                   'mega': d['total']/1024./1024., 'bytes': d['total'], 'timestamp': str(d['updated_at']), 'value': 'total', 'location': rse})
+                    result.append({'files': None, 'key': 'srm', 'datasets': None, 'tera': d['total'] / 1024. / 1024. / 1024. / 1024, 'giga': d['total'] / 1024. / 1024. / 1024,
+                                   'mega': d['total'] / 1024. / 1024., 'bytes': d['total'], 'timestamp': str(d['updated_at']), 'value': 'total', 'location': rse})
                 except StopIteration:
                     print 'Error'
                 except RSENotFound:
@@ -1605,7 +1605,7 @@ class DQ2Client:
         result = {}
         for dataset in datasets:
             scope, dsn = extract_scope(dataset)
-            vuid = hashlib.md5(scope+':'+dsn).hexdigest()
+            vuid = hashlib.md5(scope + ':' + dsn).hexdigest()
             vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
             result[vuid] = None
             # get file information
@@ -1712,7 +1712,7 @@ class DQ2Client:
                         self.client.add_files_to_dataset(scope=scope, name=dsn, files=[f], rse=rse)
                     except FileAlreadyExists:
                         pass
-        vuid = hashlib.md5(scope+':'+dsn).hexdigest()
+        vuid = hashlib.md5(scope + ':' + dsn).hexdigest()
         vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
         duid = vuid
         if rse:
@@ -1731,7 +1731,7 @@ class DQ2Client:
                 pass
         return {'duid': duid, 'version': 1, 'vuid': vuid}
 
-    def registerNewDataset2(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None,  provenance=None, group=None, hidden=False, ignore=False, scope=None, rse=None):
+    def registerNewDataset2(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None, provenance=None, group=None, hidden=False, ignore=False, scope=None, rse=None):
         """
         Register a brand new dataset and associated files (lists of lfns and guids).
 
@@ -1764,7 +1764,7 @@ class DQ2Client:
             {'duid': '...', 'vuid': '...', 'version': ...}
         """
         self.client.add_dataset(scope=scope, name=dsn)
-        vuid = hashlib.md5(scope+':'+dsn).hexdigest()
+        vuid = hashlib.md5(scope + ':' + dsn).hexdigest()
         vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
         duid = vuid
         statuses = {}
@@ -1994,7 +1994,7 @@ class DQ2Client:
                                 errMsg = 'pin_lifetime must be greater than O!' % locals()
                                 raise InputValidationError(errMsg)
                             pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
-                            if rule['expires_at'] and ((rule['expires_at']-datetime.now()) < timedelta(seconds=pin_lifetime)):
+                            if rule['expires_at'] and ((rule['expires_at'] - datetime.now()) < timedelta(seconds=pin_lifetime)):
                                 self.client.update_replication_rule(rule['id'], {'lifetime': pin_lifetime})
         if not is_at_site:
             raise UnsupportedOperation('Replicas for %s:%s at %s does not exist' % (scope, dsn, location))

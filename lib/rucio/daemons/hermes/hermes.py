@@ -1,21 +1,16 @@
-#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+#  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2016
+#  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+#  - Wen Guan, <wen.guan@cern.ch>, 2014
+#  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 '''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2016
-   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-   - Wen Guan, <wen.guan@cern.ch>, 2014
-   - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-'''
-
-'''
-Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
+   Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
 '''
 
 import json
@@ -40,6 +35,7 @@ from rucio.common.config import config_get, config_get_int
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
+
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)

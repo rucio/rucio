@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
@@ -30,7 +30,7 @@ from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, text, Insert
+from sqlalchemy.sql.expression import bindparam, text, Insert, select
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -42,7 +42,7 @@ from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability
+from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
 from rucio.db.sqla.enum import EnumSymbol
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
@@ -73,17 +73,17 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number-1), bindparam('total_workers', total_workers-1)]
+            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers-1, worker_number-1))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
         elif session.bind.dialect.name == 'sqlite':
             row_count = 0
             dids = list()
             for scope, name, did_type, created_at in query.yield_per(10):
-                if int(md5(name).hexdigest(), 16) % total_workers == worker_number-1:
+                if int(md5(name).hexdigest(), 16) % total_workers == worker_number - 1:
                     dids.append({'scope': scope,
                                  'name': name,
                                  'did_type': did_type,
@@ -433,7 +433,7 @@ def delete_dids(dids, account, session=None):
                               bindparam("did_created_at", did.get('created_at')),
                               models.DataIdentifierAssociation.created_at,
                               models.DataIdentifierAssociation.updated_at,
-                              bindparam("deleted_at",  datetime.utcnow())).\
+                              bindparam("deleted_at", datetime.utcnow())).\
                 filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
                             models.DataIdentifierAssociation.name == did['name']))
             ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
@@ -458,7 +458,7 @@ def delete_dids(dids, account, session=None):
                                                                           models.ReplicationRule.name,
                                                                           models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
                 logging.debug('Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
-                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=True, nowait=True, session=session)
+                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=True, delete_parent=True, nowait=True, session=session)
 
     # Detach from parent dids:
     existing_parent_dids = False
@@ -598,7 +598,18 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
     :param chunk_size: Number of requests to return per yield.
     :param session: The database session in use.
     """
-    query = session.query(models.DataIdentifier).filter_by(is_new=True).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
+
+    stmt = select([1]).\
+        prefix_with("/*+ INDEX(RULES ATLAS_RUCIO.RULES_SCOPE_NAME_IDX) */",
+                    dialect='oracle').\
+        where(and_(models.DataIdentifier.scope == models.ReplicationRule.scope,
+                   models.DataIdentifier.name == models.ReplicationRule.name,
+                   models.ReplicationRule.state == RuleState.INJECT))
+
+    query = session.query(models.DataIdentifier).\
+        with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle').\
+        filter_by(is_new=True).\
+        filter(~exists(stmt))
 
     if did_type:
         if isinstance(did_type, str) or isinstance(did_type, unicode):
@@ -606,14 +617,14 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
         elif isinstance(did_type, EnumSymbol):
             query = query.filter_by(did_type=did_type)
 
-    if total_threads and (total_threads-1) > 0:
+    if total_threads and (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_threads - 1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
     row_count = 0
     for chunk in query.yield_per(10):
@@ -896,17 +907,18 @@ def get_did(scope, name, dynamic=False, session=None):
         result = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
             with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
         if result.did_type == DIDType.FILE:
-            did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type, 'account': result.account, 'bytes': result.bytes, 'md5': result.md5, 'adler32': result.adler32}
+            return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
+                    'account': result.account, 'bytes': result.bytes, 'length': 1,
+                    'md5': result.md5, 'adler32': result.adler32}
         else:
-            if result.length is None and dynamic:
+            if dynamic:
                 bytes, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
             else:
-                bytes = result.bytes
-                length = result.length
-            did_r = {'scope': result.scope, 'name': result.name, 'type': result.did_type,
-                     'account': result.account, 'open': result.is_open, 'monotonic': result.monotonic, 'expired_at': result.expired_at,
-                     'length': length, 'bytes': bytes}
-        return did_r
+                bytes, length = result.bytes, result.length
+            return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
+                    'account': result.account, 'open': result.is_open,
+                    'monotonic': result.monotonic, 'expired_at': result.expired_at,
+                    'length': length, 'bytes': bytes}
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
@@ -971,7 +983,7 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
         try:
             expired_at = None
             if value is not None:
-                expired_at = datetime.utcnow() + timedelta(seconds=value)
+                expired_at = datetime.utcnow() + timedelta(seconds=float(value))
             session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
         except TypeError as error:
             raise exception.InvalidValueForKey(error)
@@ -1112,7 +1124,9 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
 
     query = session.query(models.DataIdentifier.scope,
                           models.DataIdentifier.name,
-                          models.DataIdentifier.did_type).\
+                          models.DataIdentifier.did_type,
+                          models.DataIdentifier.bytes,
+                          models.DataIdentifier.length).\
         filter(models.DataIdentifier.scope == scope)
 
     if type == 'all':
@@ -1166,10 +1180,14 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
         query = query.limit(limit)
 
     if long:
-        for scope, name, did_type in query.yield_per(5):
-            yield {'scope': scope, 'name': name, 'did_type': str(did_type)}
+        for scope, name, did_type, bytes, length in query.yield_per(5):
+            yield {'scope': scope,
+                   'name': name,
+                   'did_type': str(did_type),
+                   'bytes': bytes,
+                   'length': length}
     else:
-        for scope, name, did_type in query.yield_per(5):
+        for scope, name, did_type, bytes, length in query.yield_per(5):
             yield name
 
 
@@ -1290,5 +1308,4 @@ def __resolve_bytes_length_events_did(scope, name, session):
             bytes += tmp_bytes or 0
             length += tmp_length or 0
             events += tmp_events or 0
-
     return (bytes, length, events)

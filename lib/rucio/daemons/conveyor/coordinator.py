@@ -175,7 +175,7 @@ def renew_rse_distance(threshold=5000):
                         if src_rse['rse_type'] == RSEType.TAPE:
                             ranking = 1
                         if src_rse_id in heavy_load_rses.keys():
-                            ranking -= heavy_load_rses[src_rse_id]/threshold
+                            ranking -= heavy_load_rses[src_rse_id] / threshold
                             logging.debug("RSE %s load %s is too heavy, decrease its ranking to %s" % (src_rse_id, heavy_load_rses[src_rse_id], ranking))
 
                 if src_rse_id in old_distances and dest_rse_id in old_distances[src_rse_id]:

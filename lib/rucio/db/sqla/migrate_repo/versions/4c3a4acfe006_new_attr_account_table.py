@@ -14,12 +14,12 @@ Revises: 25fc855625cf
 Create Date: 2015-01-06 15:10:17.976558
 """
 
+from alembic import context, op
+import sqlalchemy as sa
+
 # revision identifiers, used by Alembic.
 revision = '4c3a4acfe006'
 down_revision = '25fc855625cf'
-
-from alembic import context, op
-import sqlalchemy as sa
 
 
 def upgrade():

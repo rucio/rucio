@@ -84,7 +84,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                                         activity=activity,
                                         process=process, total_processes=total_processes,
                                         thread=hb['assign_thread'], total_threads=hb['nr_threads'])
-                record_timer('daemons.conveyor.finisher.000-get_next', (time.time()-ts)*1000)
+                record_timer('daemons.conveyor.finisher.000-get_next', (time.time() - ts) * 1000)
                 if reqs:
                     logging.debug('%i:%i - updating %i requests for activity %s' % (process, hb['assign_thread'], len(reqs), activity))
                     sleeping = False
@@ -93,7 +93,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                     try:
                         ts = time.time()
                         common.handle_requests(chunk)
-                        record_timer('daemons.conveyor.finisher.handle_requests', (time.time()-ts)*1000/(len(chunk) if len(chunk) else 1))
+                        record_timer('daemons.conveyor.finisher.handle_requests', (time.time() - ts) * 1000 / (len(chunk) if len(chunk) else 1))
                         record_counter('daemons.conveyor.finisher.handle_requests', len(chunk))
                     except:
                         logging.warn(str(traceback.format_exc()))
