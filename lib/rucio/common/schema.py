@@ -7,10 +7,11 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+  - Martin Barisits, <martin.barisits@cern.ch>, 2016
 '''
 
 from jsonschema import validate, ValidationError
@@ -28,9 +29,9 @@ ACCOUNT_TYPE = {"description": "Account type",
 
 ACTIVITY = {"description": "Activity name",
             "type": "string",
-            "enum": ["default", "Data Brokering", "Data Consolidation", "Debug", "Express",
-                     "Functional Test", "Group Subscriptions", "Staging",
-                     "Production", "Production Input", "Production Output",
+            "enum": ["Data Brokering", "Data Consolidation", "Data rebalancing",
+                     "Debug", "Express", "Functional Test", "Group Subscriptions",
+                     "Staging", "Production Input", "Production Output",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions"]}
 

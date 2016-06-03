@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
@@ -57,6 +57,10 @@ def compile_binary_oracle(type_, compiler, **kw):
 def _psql_rename_type(target, connection, **kw):
     if connection.dialect.name == 'postgresql' and target.name == 'account_map':
         target.columns.identity_type.type.impl.name = 'IDENTITIES_TYPE_CHK'
+    elif connection.dialect.name == 'mysql' and target.name == 'quarantined_replicas_history':
+        target.columns.path.type = String(255)
+    elif connection.dialect.name == 'mysql' and target.name == 'quarantined_replicas':
+        target.columns.path.type = String(255)
 
 
 @event.listens_for(Engine, "before_execute", retval=True)
@@ -76,7 +80,10 @@ def _add_hint(conn, element, multiparams, params):
 
 @event.listens_for(PrimaryKeyConstraint, "after_parent_attach")
 def _pk_constraint_name(const, table):
-    const.name = "%s_PK" % (table.name.upper(),)
+    if table.name.upper() == 'QUARANTINED_REPLICAS_HISTORY':
+        const.name = "QRD_REPLICAS_HISTORY_PK"
+    else:
+        const.name = "%s_PK" % (table.name.upper(),)
 
 
 @event.listens_for(ForeignKeyConstraint, "after_parent_attach")
@@ -110,6 +117,10 @@ def _ck_constraint_name(const, table):
         const.name = "SUBS_HISTORY_RETROACTIVE_CHK"
     elif const.name == 'SUBSCRIPTIONS_STATE_CHK' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
         const.name = "SUBS_HISTORY_STATE_CHK"
+    elif const.name == 'QUARANTINED_REPLICAS_CREATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS':
+        const.name = "QURD_REPLICAS_CREATED_NN"
+    elif const.name == 'QUARANTINED_REPLICAS_UPDATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS':
+        const.name = "QURD_REPLICAS_UPDATED_NN"
 
     # SQLAlchemy sometimes does not propagate Enum names properly to subclassed objects,
     # so we have to uniquify them - hopefully fixed in SQLA v9
@@ -377,6 +388,20 @@ class BadReplicas(BASE, ModelBase):
                    Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state'))
 
 
+class QuarantinedReplica(BASE, ModelBase, Versioned):
+    """Represents the quarantined replicas"""
+    __tablename__ = 'quarantined_replicas'
+    rse_id = Column(GUID())
+    path = Column(String(1024))
+    bytes = Column(BigInteger)
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
+    scope = Column(String(25))
+    name = Column(String(255))
+    _table_args = (PrimaryKeyConstraint('rse_id', 'path', name='QURD_REPLICAS_STATE_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'))
+
+
 class DIDKey(BASE, ModelBase):
     """Represents Data IDentifier property keys"""
     __tablename__ = 'did_keys'
@@ -506,16 +531,6 @@ class RSEUsage(BASE, ModelBase, Versioned):
     rse = relationship("RSE", backref=backref('rse_usage', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'source', name='RSE_USAGE_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'), )
-
-
-class RSECounter(BASE, ModelBase):
-    """Represents RSE counters"""
-    __tablename__ = 'rse_counters'
-    rse_id = Column(GUID())
-    files = Column(BigInteger)
-    bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('rse_id', name='RSE_COUNTERS_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_COUNTERS_RSE_ID_FK'))
 
 
 class UpdatedRSECounter(BASE, ModelBase):
@@ -688,10 +703,12 @@ class ReplicationRule(BASE, ModelBase):
     ignore_availability = Column(Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False)
     ignore_account_limit = Column(Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False)
     comments = Column(String(255))
+    child_rule_id = Column(GUID())
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
                    ForeignKeyConstraint(['subscription_id'], ['subscriptions.id'], name='RULES_SUBS_ID_FK'),
+                   ForeignKeyConstraint(['child_rule_id'], ['rules.id'], name='RULES_CHILD_RULE_ID_FK'),
                    CheckConstraint('STATE IS NOT NULL', name='RULES_STATE_NN'),
                    CheckConstraint('SCOPE IS NOT NULL', name='RULES_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='RULES_NAME_NN'),
@@ -707,7 +724,8 @@ class ReplicationRule(BASE, ModelBase):
                          unique=True, mysql_length={'rse_expression': 767}),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
                    Index('RULES_EXPIRES_AT_IDX', 'expires_at'),
-                   Index('RULES_STUCKSTATE_IDX', 'state'))  # This Index is only needed for the STUCK state
+                   Index('RULES_STUCKSTATE_IDX', 'state'),  # This Index is only needed for the STUCK state
+                   Index('RULES_CHILD_RULE_ID_IDX', 'child_rule_id'))
 
 
 class ReplicationRuleHistoryRecent(BASE, ModelBase):
@@ -739,6 +757,7 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     ignore_availability = Column(Boolean())
     ignore_account_limit = Column(Boolean())
     comments = Column(String(255))
+    child_rule_id = Column(GUID())
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_RECENT_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HIST_RECENT_ID_IDX', 'id'),
                    Index('RULES_HIST_RECENT_SC_NA_IDX', 'scope', 'name'))
@@ -773,6 +792,7 @@ class ReplicationRuleHistory(BASE, ModelBase):
     ignore_availability = Column(Boolean())
     ignore_account_limit = Column(Boolean())
     comments = Column(String(255))
+    child_rule_id = Column(GUID())
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HISTORY_SCOPENAME_IDX', 'scope', 'name'))
 
@@ -817,18 +837,6 @@ class DatasetLock(BASE, ModelBase):
                    CheckConstraint('ACCOUNT IS NOT NULL', name='DATASET_LOCKS_ACCOUNT_NN'),
                    Index('DATASET_LOCKS_RULE_ID_IDX', 'rule_id'),
                    Index('DATASET_LOCKS_RSE_ID_IDX', 'rse_id'))
-
-
-class AccountCounter(BASE, ModelBase):
-    """Represents counters for locks and accounts"""
-    __tablename__ = 'account_counters'
-    account = Column(String(25))
-    rse_id = Column(GUID())
-    files = Column(BigInteger)
-    bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_COUNTERS_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_COUNTERS_ID_FK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_COUNTERS_ACCOUNT_FK'))
 
 
 class UpdatedAccountCounter(BASE, ModelBase):
@@ -1020,7 +1028,6 @@ def register_models(engine):
 
     models = (Account,
               AccountAttrAssociation,
-              AccountCounter,
               AccountLimit,
               AccountUsage,
               AlembicVersion,
@@ -1037,9 +1044,9 @@ def register_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
-              RSECounter,
               RSEFileAssociation,
               RSEFileAssociationHistory,
               RSELimit,
@@ -1071,7 +1078,6 @@ def unregister_models(engine):
     """
     models = (Account,
               AccountAttrAssociation,
-              AccountCounter,
               AccountLimit,
               AccountUsage,
               AlembicVersion,
@@ -1088,9 +1094,9 @@ def unregister_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
-              RSECounter,
               RSEFileAssociation,
               RSEFileAssociationHistory,
               RSELimit,

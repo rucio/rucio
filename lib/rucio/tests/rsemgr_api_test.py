@@ -157,6 +157,10 @@ class MgrTestCases():
         """(RSE/PROTOCOLS): Delete a single file from storage (Success)"""
         mgr.delete(self.rse_settings, {'name': '3_rse_remote_delete.raw', 'scope': 'user.%s' % self.user})
 
+    def test_delete_mgr_ok_dir(self):
+        """(RSE/PROTOCOLS): Delete a directory from storage (Success)"""
+        mgr.delete(self.rse_settings, {'path': 'user/%s' % self.user, 'name': 'user.%s' % self.user, 'scope': 'user.%s' % self.user})
+
     def test_delete_mgr_SourceNotFound_multi(self):
         """(RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
         status, details = mgr.delete(self.rse_settings, [{'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user}, {'name': '4_rse_remote_delete.raw', 'scope': 'user.%s' % self.user}])
@@ -245,7 +249,7 @@ class MgrTestCases():
                                                          {'name': '5_rse_remote_rename.raw', 'scope': 'user.%s' % self.user, 'new_name': '5_rse_new.raw'},
                                                          {'name': pfn_a, 'new_name': pfn_a_new},
                                                          {'name': pfn_b, 'new_name': pfn_b_new}])
-        if (not status and details['user.%s:5_rse_remote_rename.raw' % self.user] and details[pfn_b]) and (type(details['user.%s:4_rse_remote_rename.raw' % self.user]) == type(details[pfn_a])):
+        if (not status and details['user.%s:5_rse_remote_rename.raw' % self.user] and details[pfn_b]) and isinstance(details['user.%s:4_rse_remote_rename.raw' % self.user], type(details[pfn_a])):
             raise details['user.%s:4_rse_remote_rename.raw' % self.user]
         else:
             raise Exception('Return not as expected: %s, %s' % (status, details))
@@ -266,7 +270,7 @@ class MgrTestCases():
         pfn_b = mgr.lfns2pfns(self.rse_settings, {'name': '1_rse_not_created.raw', 'scope': 'user.%s' % self.user}).values()[0]
         status, details = mgr.rename(self.rse_settings, [{'name': '1_rse_not_existing.raw', 'scope': 'user.%s' % self.user, 'new_name': '1_rse_new_not_created.raw'},
                                                          {'name': pfn_a, 'new_name': pfn_b}])
-        if not status and (type(details['user.%s:1_rse_not_existing.raw' % self.user]) == type(details[pfn_a])):
+        if not status and isinstance(details['user.%s:1_rse_not_existing.raw' % self.user], type(details[pfn_a])):
             raise details['user.%s:1_rse_not_existing.raw' % self.user]
         else:
             raise Exception('Return not as expected: %s, %s' % (status, details))

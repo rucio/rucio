@@ -77,14 +77,16 @@ if __name__ == '__main__':
                 r.add_rse_attribute(name, 'country', country, 'root')
             if rse['phys_groups']:
                 r.add_rse_attribute(name, 'physgroup', str(rse['phys_groups'][0]), 'root')
-            if isinstance(rse['servedrestfts']['MASTER'], list):
-                r.add_rse_attribute(name, 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
-            else:
-                r.add_rse_attribute(name, 'fts', str(rse['servedrestfts']['MASTER']), 'root')
-            if isinstance(rse['servedrestfts']['TESTING'], list):
-                r.add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
-            else:
-                r.add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
+            if rse['type'] not in ['OS_LOGS', 'OS_ES']:
+                if isinstance(rse['servedrestfts']['MASTER'], list):
+                    r.add_rse_attribute(name, 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
+                else:
+                    r.add_rse_attribute(name, 'fts', str(rse['servedrestfts']['MASTER']), 'root')
+            if rse['type'] not in ['OS_LOGS', 'OS_ES']:
+                if isinstance(rse['servedrestfts']['TESTING'], list):
+                    r.add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
+                else:
+                    r.add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
             if 'datapolicies' in rse:
                 r.add_rse_attribute(name, 'datapolicyt0disk', 'T0Disk' in rse['datapolicies'], 'root')
                 r.add_rse_attribute(name, 'datapolicyt0tape', 'T0Tape' in rse['datapolicies'], 'root')
@@ -92,8 +94,18 @@ if __name__ == '__main__':
                 r.add_rse_attribute(name, 'datapolicynucleus', 'Nucleus' in rse['datapolicies'], 'root')
 
             space_used = r.get_rse_usage(rse=name, issuer='root', source='srm')
+            unavailable_space = r.get_rse_usage(rse=name, issuer='root', source='unavailable')
+            if unavailable_space and unavailable_space[0]['total']:
+                unavailable_space = unavailable_space[0]['total']
+            else:
+                unavailable_space = 0
             if space_used and space_used[0]['free']:
-                freespace = space_used[0]['free']/1000/1000/1000/1000
+                freespace = space_used[0]['free']
+                freespace = float(freespace - unavailable_space) / 1000 / 1000 / 1000 / 1000
+                if freespace < 0:
+                    freespace = 0
+                else:
+                    freespace = int(freespace)
                 r.add_rse_attribute(name, 'freespace', freespace, 'root')
 
         except RucioException as e:

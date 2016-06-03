@@ -64,7 +64,7 @@ if __name__ == '__main__':
                            'severity_label': 'info',
                            'facility': 1,
                            'host': socket.getfqdn(),
-                           '@timestamp':  datetime.utcnow()})
+                           '@timestamp': datetime.utcnow()})
         except Exception:
             traceback.print_exc()
             sys.exit(1)  # In Nagios 1 is  WARNING

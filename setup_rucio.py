@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2016
 
 import glob
 import os
@@ -41,7 +42,8 @@ data_files = [('rucio/etc/', glob.glob('etc/*.template')),
               ('rucio/etc/schemas', glob.glob('etc/schemas/*.json')),
               ('rucio/tools/', ['tools/pip-requires', 'tools/pip-requires-client', 'tools/pip-requires-test',
                                 'tools/bootstrap.py', 'tools/reset_database.py']),
-              ('rucio/tools/probes/common/', glob.glob('tools/probes/common/check*'))]
+              ('rucio/tools/probes/common/', glob.glob('tools/probes/common/check*')),
+              ('rucio/etc/mail_templates/', glob.glob('etc/mail_templates/*.tmpl'))]
 
 scripts = glob.glob('bin/rucio*')
 
