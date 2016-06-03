@@ -367,7 +367,6 @@ CREATE TABLE subscriptions (
 CREATE INDEX SUBSCRIPTIONS_STATE_IDX ON subscriptions (STATE) COMPRESS 1 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01 ;
 CREATE INDEX SUBSCRIPTIONS_NAME_IDX ON subscriptions (NAME) TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01 ;
 
-ALTER TABLE rules ADD constraint rules_child_rule_id_fk FOREIGN KEY(child_rule_id) REFERENCES rules(id);
 
 -- ============================================== section FACT data ==============================================================================
 -- to reside in tablespace ATLAS_RUCIO_FACT_DATA01
@@ -679,7 +678,9 @@ CREATE INDEX RULES_STUCKSTATE_IDX ON rules (CASE when state='S' THEN state ELSE 
 CREATE UNIQUE INDEX "RULES_SC_NA_AC_RS_CO_UQ_IDX" ON "RULES" ("SCOPE", "NAME", "ACCOUNT", "RSE_EXPRESSION", "COPIES") COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE INDEX RULES_INJECTSTATE_IDX ON rules (CASE when state='I' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE INDEX RULES_APPROVALSTATE_IDX ON rules (CASE when state='W' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-CREATE INDEX ATLAS_RUCIO.rules_child_rule_id_idx on ATLAS_RUCIO.rules(child_rule_id) tablespace ATLAS_RUCIO_FACT_DATA01;
+CREATE INDEX RULES_CHILD_RULE_ID_IDX on ATLAS_RUCIO.rules(child_rule_id) tablespace ATLAS_RUCIO_FACT_DATA01;
+
+ALTER TABLE rules ADD constraint rules_child_rule_id_fk FOREIGN KEY(child_rule_id) REFERENCES rules(id);
 
 
 -- ========================================= LOCKS (List partitioned table) =========================================

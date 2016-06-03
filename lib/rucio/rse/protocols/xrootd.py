@@ -8,6 +8,7 @@
 # Authors:
 # - WeiJen Chang, <wchang@cern.ch>, 2013
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2016
 
 import os
 
@@ -107,7 +108,9 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied
         """
         try:
-            cmd = 'xrdfs %s:%s query stats %s:%s' % (self.hostname, self.port, self.hostname, self.port)
+            # The query stats call is not implemented on some xroot doors.
+            # Workaround: fail, if server does not reply within 10 seconds for static config query
+            cmd = 'XRD_REQUESTTIMEOUT=10 xrdfs %s:%s query config %s:%s' % (self.hostname, self.port, self.hostname, self.port)
             status, out, err = execute(cmd)
             if not status == 0:
                 raise exception.RSEAccessDenied(err)
@@ -126,12 +129,13 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        if not self.exists(pfn):
-            raise exception.SourceNotFound()
+
         try:
             cmd = 'xrdcp -f %s %s' % (pfn, dest)
             status, out, err = execute(cmd)
-            if not status == 0:
+            if status == 54:
+                raise exception.SourceNotFound()
+            elif status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
