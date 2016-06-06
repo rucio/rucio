@@ -69,7 +69,7 @@ def re_evaluator(once=False):
             logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(dids)))
 
             # Refresh paused dids
-            paused_dids = dict((k, v) for k, v in paused_dids.iteritems() if datetime.utcnow() > v)
+            paused_dids = dict((k, v) for k, v in paused_dids.iteritems() if datetime.utcnow() < v)
 
             # Remove paused dids from result set
             dids = [did for did in dids if (did.scope, did.name) not in paused_dids]
