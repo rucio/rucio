@@ -26,9 +26,32 @@ if __name__ == "__main__":
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--only-workload", action="store_true", default=False, help='Only run the workload collector')
     parser.add_argument("--dry_run", action="store_true", default=False, help='Do not create any rules')
+    parser.add_argument("--algorithms", action="store", default="t2_free_space_only_pop_with_network", type=str, help='The placement algorithm or, if in dry_run, a comma separated list of algorithms')
+    parser.add_argument("--datatypes", action="store", default="NTUP,DAOD", type=str, help='Comma separated list of datatype that should trigger the placement')
+    parser.add_argument("--dest_rse_expr", action="store", default="type=DATADISK", type=str, help='RSE expression defining the allowed destination RSEs')
+    parser.add_argument("--max_bytes_hour", action="store", default=100000000000000, type=int, help='Max number of bytes that c3po is allow to replicate per hour')
+    parser.add_argument("--max_files_hour", action="store", default=100000, type=int, help='Max number of files that c3po is allow to replicate per hour')
+    parser.add_argument("--max_bytes_hour_rse", action="store", default=50000000000000, type=int, help='Max number of bytes that c3po is allow to replicate per hour per rse')
+    parser.add_argument("--max_files_hour_rse", action="store", default=10000, type=int, help='Max number of files that c3po is allow to replicate per hour prse_rse')
+    parser.add_argument("--min_popularity", action="store", default=8, type=int, help='Min number of popularity accesses for a DID in the last 7 days to trigger')
+    parser.add_argument("--min_recent_requests", action="store", default=5, type=int, help='Min number of times a DID has to be requested in the last hour to trigger')
+    parser.add_argument("--max_replicas", action="store", default=5, type=int, help='Max number of replicas above which not to trigger anymore')
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once, threads=args.threads, only_workload=args.only_workload, dry_run=args.dry_run)
+        run(once=args.run_once,
+            threads=args.threads,
+            only_workload=args.only_workload,
+            dry_run=args.dry_run,
+            algorithms=args.algorithms,
+            datatypes=args.datatypes,
+            dest_rse_expr=args.dest_rse_expr,
+            max_bytes_hour=args.max_bytes_hour,
+            max_files_hour=args.max_files_hour,
+            max_bytes_hour_rse=args.max_bytes_hour_rse,
+            max_files_hour_rse=args.max_files_hour_rse,
+            min_popularity=args.min_popularity,
+            min_recent_requests=args.min_recent_requests,
+            max_replicas=args.max_replicas)
     except KeyboardInterrupt:
         stop()

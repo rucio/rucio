@@ -212,7 +212,7 @@ def get_did(scope, name, dynamic=False):
     return did.get_did(scope=scope, name=name, dynamic=dynamic)
 
 
-def set_metadata(scope, name, key, value, issuer):
+def set_metadata(scope, name, key, value, issuer, recursive=False):
     """
     Add metadata to data did.
 
@@ -221,8 +221,8 @@ def set_metadata(scope, name, key, value, issuer):
     :param key: the key.
     :param value: the value.
     :param issuer: The issuer account.
+    :param recursive: Option to propagate the metadata update to content.
     """
-
     kwargs = {'scope': scope, 'name': name, 'key': key, 'value': value, 'issuer': issuer}
 
     if key in RESERVED_KEYS:
@@ -230,7 +230,7 @@ def set_metadata(scope, name, key, value, issuer):
 
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_metadata', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
-    return did.set_metadata(scope=scope, name=name, key=key, value=value)
+    return did.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive)
 
 
 def get_metadata(scope, name):
@@ -289,9 +289,23 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, issuer
     :param output_name: The name of the output dataset.
     :param account: The account.
     :param nbfiles: The number of files to register in the output dataset.
-    :param session: The database session in use.
+    :param issuer: The issuer account.
     """
     kwargs = {'issuer': issuer, 'scope': output_scope}
     if not rucio.api.permission.has_permission(issuer=issuer, action='create_did_sample', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
     return did.create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, account=issuer, nbfiles=nbfiles)
+
+
+def resurrect(dids, issuer):
+    """
+    Resurrect DIDs.
+
+    :param dids: A list of dids.
+    :param issuer: The issuer account.
+    """
+    kwargs = {'issuer': issuer}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='resurrect', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not resurrect data identifiers' % (issuer))
+    validate_schema(name='dids', obj=dids)
+    return did.resurrect(dids=dids)
