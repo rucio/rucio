@@ -14,9 +14,11 @@
 import logging
 import sys
 
+from ConfigParser import NoOptionError
 from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
+from string import Template
 
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
@@ -31,18 +33,18 @@ from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
-                                    AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
+                                    InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound, ScratchDiskLifetimeConflict,
-                                    ManualRuleApprovalBlocked)
+                                    ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account, has_account_attribute
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
-from rucio.core.rse import get_rse_name, list_rse_attributes
+from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did
+from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did, update_requests_priority
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db.sqla import models
@@ -58,8 +60,9 @@ logging.basicConfig(stream=sys.stdout,
 
 @transactional_session
 def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
-             source_replica_expression=None, activity='default', notify=None, purge_replicas=False,
-             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, session=None):
+             source_replica_expression=None, activity='User Subscriptions', notify=None, purge_replicas=False,
+             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, ignore_account_limit=False,
+             session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -82,6 +85,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param comment:                    Comment about the rule.
     :param ask_approval:               Ask for approval for this rule.
     :param asynchronous:               Create replication rule asynchronously by the judge-injector.
+    :param ignore_account_limit:       Ignore quota and create the rule outside of the account limits.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
@@ -102,11 +106,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise StagingAreaRuleRequiresLifetime()
 
             # Check SCRATCHDISK Polciy
-            if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60*60*24*15):
+            if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * 15):
                 # Check if one of the rses is a SCRATCHDISK:
                 if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
                     if len(rses) == 1:
-                        lifetime = 60*60*24*15 - 1
+                        lifetime = 60 * 60 * 24 * 15 - 1
                     else:
                         raise ScratchDiskLifetimeConflict()
 
@@ -128,7 +132,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
         # 2. Create the rse selector
         with record_timer_block('rule.add_rule.create_rse_selector'):
-            rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, ignore_account_limit=ask_approval, session=session)
+            rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, ignore_account_limit=ask_approval or ignore_account_limit, session=session)
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
 
@@ -175,7 +179,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   notification=notify,
                                                   purge_replicas=purge_replicas,
                                                   ignore_availability=ignore_availability,
-                                                  comments=comment)
+                                                  comments=comment,
+                                                  ignore_account_limit=ignore_account_limit)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
@@ -254,6 +259,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.OK})
                     session.flush()
                     generate_message_for_dataset_ok_callback(rule=new_rule, session=session)
+                if new_rule.notification == RuleNotification.YES:
+                    generate_email_for_rule_ok_notification(rule=new_rule, session=session)
             else:
                 new_rule.state = RuleState.REPLICATING
                 if new_rule.grouping != RuleGrouping.NONE:
@@ -335,11 +342,11 @@ def add_rules(dids, rules, session=None):
                             raise StagingAreaRuleRequiresLifetime()
 
                     # Check SCRATCHDISK Polciy
-                    if not has_account_attribute(account=rule.get('account'), key='admin', session=session) and (rule.get('lifetime', None) is None or rule.get('lifetime', None) > 60*60*24*15):
+                    if not has_account_attribute(account=rule.get('account'), key='admin', session=session) and (rule.get('lifetime', None) is None or rule.get('lifetime', None) > 60 * 60 * 24 * 15):
                         # Check if one of the rses is a SCRATCHDISK:
                         if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
                             if len(rses) == 1:
-                                rule['lifetime'] = 60*60*24*15 - 1
+                                rule['lifetime'] = 60 * 60 * 24 * 15 - 1
                             else:
                                 raise ScratchDiskLifetimeConflict()
 
@@ -461,6 +468,8 @@ def add_rules(dids, rules, session=None):
                             session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.OK})
                             session.flush()
                             generate_message_for_dataset_ok_callback(rule=new_rule, session=session)
+                        if new_rule.notification == RuleNotification.YES:
+                            generate_email_for_rule_ok_notification(rule=new_rule, session=session)
                     else:
                         new_rule.state = RuleState.REPLICATING
                         if new_rule.grouping != RuleGrouping.NONE:
@@ -488,6 +497,39 @@ def inject_rule(rule_id, session=None):
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
+
+    # Special R2D2 container handling
+    if rule.did_type == DIDType.CONTAINER and '.r2d2_request.' in rule.name:
+        logging.debug("Creating dataset rules for R2D2 container rule %s" % (str(rule.id)))
+        # Get all child datasets and put rules on them
+        dids = [{'scope': dataset['scope'], 'name': dataset['name']} for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session)]
+        if rule.expires_at:
+            lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
+        else:
+            lifetime = None
+        if rule.notification == RuleNotification.YES:
+            notify = 'Y'
+        elif rule.notification == RuleNotification.CLOSE:
+            notify = 'C'
+        else:
+            notify = 'N'
+        add_rule(dids=dids,
+                 account=rule.account,
+                 copies=rule.copies,
+                 rse_expression=rule.rse_expression,
+                 grouping='DATASET',
+                 weight=None,
+                 lifetime=lifetime,
+                 locked=False,
+                 subscription_id=None,
+                 activity=rule.activity,
+                 notify=notify,
+                 comment=rule.comments,
+                 asynchronous=True,
+                 ignore_account_limit=True,
+                 session=session)
+        rule.delete(session=session)
+        return
 
     # 1. Resolve the rse_expression into a list of RSE-ids
     with record_timer_block('rule.add_rule.parse_rse_expression'):
@@ -550,6 +592,8 @@ def inject_rule(rule_id, session=None):
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                 session.flush()
                 generate_message_for_dataset_ok_callback(rule=rule, session=session)
+            if rule.notification == RuleNotification.YES:
+                generate_email_for_rule_ok_notification(rule=rule, session=session)
         else:
             rule.state = RuleState.REPLICATING
             if rule.grouping != RuleGrouping.NONE:
@@ -682,17 +726,18 @@ def list_associated_rules_for_file(scope, name, session=None):
 
 
 @transactional_session
-def delete_rule(rule_id, purge_replicas=None, soft=False, nowait=False, session=None):
+def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, nowait=False, session=None):
     """
     Delete a replication rule.
 
     :param rule_id:         The rule to delete.
     :param purge_replicas:  Purge the replicas immediately.
     :param soft:            Only perform a soft deletion.
+    :param delete_parent:   Delete rules even if they have a child_rule_id set.
     :param nowait:          Nowait parameter for the FOR UPDATE statement.
     :param session:         The database session in use.
     :raises:                RuleNotFound if no Rule can be found.
-    :raises:                AccessDenied if the Rule is locked.
+    :raises:                UnsupportedOperation if the Rule is locked.
     """
 
     with record_timer_block('rule.delete_rule'):
@@ -701,7 +746,10 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, nowait=False, session=
         except NoResultFound:
             raise RuleNotFound('No rule with the id %s found' % (rule_id))
         if rule.locked:
-            raise AccessDenied('The replication rule is locked and has to be unlocked before it can be deleted.')
+            raise UnsupportedOperation('The replication rule is locked and has to be unlocked before it can be deleted.')
+
+        if rule.child_rule_id is not None and not delete_parent:
+            raise UnsupportedOperation('The replication rule has a child rule and thus cannot be deleted.')
 
         if purge_replicas is not None:
             rule.purge_replicas = purge_replicas
@@ -970,6 +1018,8 @@ def repair_rule(rule_id, session=None):
             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
             session.flush()
             generate_message_for_dataset_ok_callback(rule=rule, session=session)
+        if rule.notification == RuleNotification.YES:
+            generate_email_for_rule_ok_notification(rule=rule, session=session)
 
         return
 
@@ -1012,7 +1062,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority']
 
     for key in options:
         if key not in valid_options:
@@ -1023,7 +1073,7 @@ def update_rule(rule_id, options, session=None):
         for key in options:
             if key == 'lifetime':
                 # Check SCRATCHDISK Polciy
-                if not has_account_attribute(account=rule.account, key='admin', session=session) and (options['lifetime'] is None or options['lifetime'] > 60*60*24*15):
+                if not has_account_attribute(account=rule.account, key='admin', session=session) and (options['lifetime'] is None or options['lifetime'] > 60 * 60 * 24 * 15):
                     # Check if one of the rses is a SCRATCHDISK:
                     rses = parse_expression(rule.rse_expression, session=session)
                     if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
@@ -1101,6 +1151,11 @@ def update_rule(rule_id, options, session=None):
             elif key == 'cancel_requests':
                 pass
 
+            elif key == 'priority':
+                try:
+                    update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
+                except Exception, e:
+                    raise UnsupportedOperation('The FTS Requests are already in a final state.')
             else:
                 setattr(rule, key, options[key])
 
@@ -1110,6 +1165,8 @@ def update_rule(rule_id, options, session=None):
            or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0]))\
            or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
             raise DuplicateRule()
+        else:
+            raise e
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
@@ -1149,7 +1206,7 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
             grouping = 'DATASET'
 
         if rule.expires_at:
-            lifetime = (datetime.utcnow() - rule.expires_at).days * 24 * 3600 + (datetime.utcnow() - rule.expires_at).seconds
+            lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
         else:
             lifetime = None
 
@@ -1215,6 +1272,17 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
     else:
         __evaluate_did_detach(did, session=session)
 
+    # Update size and length of did
+    stmt = session.query(func.sum(models.DataIdentifierAssociation.bytes),
+                         func.count(1)).\
+        with_hint(models.DataIdentifierAssociation,
+                  "index(CONTENTS CONTENTS_PK)", 'oracle').\
+        filter(models.DataIdentifierAssociation.scope == scope,
+               models.DataIdentifierAssociation.name == name)
+    for bytes, length in stmt:
+        did.bytes = bytes
+        did.length = length
+
     # Add an updated_col_rep
     if did.did_type == DIDType.DATASET:
         models.UpdatedCollectionReplica(scope=scope,
@@ -1243,9 +1311,9 @@ def get_updated_dids(total_workers, worker_number, limit=10, session=None):
                           bindparam('total_workers', total_workers)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
     return query.order_by(models.UpdatedDID.created_at).limit(limit).all()
 
@@ -1261,7 +1329,9 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
     :param session:            Database session in use.
     """
 
-    query = session.query(models.ReplicationRule.id, models.ReplicationRule.rse_expression).filter(models.ReplicationRule.expires_at < datetime.utcnow(), models.ReplicationRule.locked == False).\
+    query = session.query(models.ReplicationRule.id, models.ReplicationRule.rse_expression).filter(models.ReplicationRule.expires_at < datetime.utcnow(),
+                                                                                                   models.ReplicationRule.locked == False,
+                                                                                                   models.ReplicationRule.child_rule_id == None).\
         with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.ReplicationRule.expires_at)  # NOQA
 
@@ -1270,9 +1340,9 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
     return query.limit(limit).all()
 
@@ -1305,9 +1375,9 @@ def get_injected_rules(total_workers, worker_number, limit=10, session=None):
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
     return query.limit(limit).all()
 
@@ -1349,9 +1419,9 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers+1, worker_number))
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
     return query.limit(limit).all()
 
 
@@ -1374,14 +1444,14 @@ def delete_duplicate_updated_dids(scope, name, rule_evaluation_action, id, sessi
 
 
 @transactional_session
-def delete_updated_did(id, session=None):
+def delete_updated_did(id, scope, name, session=None):
     """
     Delete an updated_did by id.
 
     :param id:                      Id of the row not to delete.
     :param session:                 The database session in use.
     """
-    session.query(models.UpdatedDID).filter(models.UpdatedDID.id == id).delete(synchronize_session=False)
+    session.query(models.UpdatedDID).filter(models.UpdatedDID.id == id).delete()
 
 
 @transactional_session
@@ -1428,6 +1498,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
                 session.flush()
                 if rule_state_before != RuleState.OK:
                     generate_message_for_dataset_ok_callback(rule=rule, session=session)
+                    generate_email_for_rule_ok_notification(rule=rule, session=session)
         # Insert rule history
         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
@@ -1565,6 +1636,40 @@ def generate_message_for_dataset_ok_callback(rule, session=None):
 
 
 @transactional_session
+def generate_email_for_rule_ok_notification(rule, session=None):
+    """
+    Generate (If necessary) an eMail for a rule with notification mode Y.
+
+    :param rule:     The rule object.
+    :param session:  The Database session
+    """
+
+    session.flush()
+
+    if rule.state == RuleState.OK and rule.notification == RuleNotification.YES:
+        try:
+            with open('%s/rule_ok_notification.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                template = Template(templatefile.read())
+            email = get_account(account=rule.account, session=session).email
+            if email:
+                text = template.safe_substitute({'rule_id': str(rule.id),
+                                                 'created_at': str(rule.created_at),
+                                                 'expires_at': str(rule.expires_at),
+                                                 'rse_expression': rule.rse_expression,
+                                                 'comment': rule.comments,
+                                                 'scope': rule.scope,
+                                                 'name': rule.name,
+                                                 'did_type': rule.did_type})
+                add_message(event_type='email',
+                            payload={'body': text,
+                                     'to': [email],
+                                     'subject': '[RUCIO] Replication rule %s has been succesfully transferred' % (str(rule.id))},
+                            session=session)
+        except (IOError, NoOptionError):
+            pass
+
+
+@transactional_session
 def insert_rule_history(rule, recent=True, longterm=False, session=None):
     """
     Insert rule history to recent/longterm history.
@@ -1608,54 +1713,34 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
         if rule.state == RuleState.WAITING_APPROVAL:
             rule.ignore_account_limit = True
             rule.state = RuleState.INJECT
-            email = get_account(account=rule.account, session=session).email
-            if email:
-                text = """The replication rule has been APPROVED
-
-Rule description:
-  ID:                   %s
-  RSE Expression:       %s
-  Expires at:           %s
-  Comment:              %s
-  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
-
-DID description:
-
-  Scope:Name:           %s:%s
-  Type:                 %s
-  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
-
---
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
-                                                 str(rule.rse_expression),
-                                                 str(rule.expires_at),
-                                                 str(rule.comments),
-                                                 str(rule.id),
-                                                 rule.scope,
-                                                 rule.name,
-                                                 str(rule.did_type),
-                                                 rule.scope,
-                                                 rule.name)
-                add_message(event_type='email',
-                            payload={'body': text,
-                                     'to': [email],
-                                     'subject': 'Replication rule %s has been approved' % (str(rule.id))},
-                            session=session)
+            with open('%s/rule_approved_user.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                template = Template(templatefile.read())
+                email = get_account(account=rule.account, session=session).email
+                if email:
+                    text = template.safe_substitute({'rule_id': str(rule.id),
+                                                     'expires_at': str(rule.expires_at),
+                                                     'rse_expression': rule.rse_expression,
+                                                     'comment': rule.comments,
+                                                     'scope': rule.scope,
+                                                     'name': rule.name,
+                                                     'did_type': rule.did_type})
+                    add_message(event_type='email',
+                                payload={'body': text,
+                                         'to': [email],
+                                         'subject': '[RUCIO] Replication rule %s has been approved' % (str(rule.id))},
+                                session=session)
             # Also notify the other approvers
             if notify_approvers:
-                recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+                with open('%s/rule_approved_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                    template = Template(templatefile.read())
+                text = template.safe_substitute({'rule_id': str(rule.id)})
+                recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
                 for recipent in recipents:
-                    text = """Replication rule %s has been approved.
-
---
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
-
                     add_message(event_type='email',
                                 payload={'body': text,
                                          'to': [recipent[0]],
-                                         'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                         'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                                 session=session)
-                return
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
@@ -1675,52 +1760,87 @@ def deny_rule(rule_id, session=None):
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
         if rule.state == RuleState.WAITING_APPROVAL:
+            with open('%s/rule_denied_user.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                template = Template(templatefile.read())
             email = get_account(account=rule.account, session=session).email
             if email:
-                text = """The replication rule has been DENIED
-
-Rule description:
-  ID:                   %s
-  RSE Expression:       %s
-  Comment:              %s
-  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
-
-DID description:
-
-  Scope:Name:           %s:%s
-  Type:                 %s
-  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
-
---
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
-                                                 str(rule.rse_expression),
-                                                 str(rule.comments),
-                                                 str(rule.id),
-                                                 rule.scope,
-                                                 rule.name,
-                                                 str(rule.did_type),
-                                                 rule.scope,
-                                                 rule.name)
+                text = template.safe_substitute({'rule_id': str(rule.id),
+                                                 'rse_expression': rule.rse_expression,
+                                                 'comment': rule.comments,
+                                                 'scope': rule.scope,
+                                                 'name': rule.name,
+                                                 'did_type': rule.did_type})
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
-                                     'subject': 'Replication rule %s has been denied' % (str(rule.id))},
+                                     'subject': '[RUCIO] Replication rule %s has been denied' % (str(rule.id))},
                             session=session)
             delete_rule(rule_id=rule_id, session=session)
             # Also notify the other approvers
-            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+            with open('%s/rule_denied_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+                template = Template(templatefile.read())
+            text = template.safe_substitute({'rule_id': str(rule.id)})
+            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
             for recipent in recipents:
-                text = """Replication rule %s has been denied.
-
---
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id))
-
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [recipent[0]],
-                                     'subject': 'Re: Request to approve replication rule %s' % (str(rule.id))},
+                                     'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                             session=session)
-            return
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+
+
+@transactional_session
+def examine_rule(rule_id, session=None):
+    """
+    Examine a replication rule for transfer errors.
+
+    :param rule_id:            Replication rule id
+    :param session:            Session of the db.
+    :returns:                  Dictionary of informations
+    """
+    result = {'rule_error': None,
+              'transfers': []}
+
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        if rule.state == RuleState.OK:
+            result['rule_error'] = 'This replication rule is OK'
+        elif rule.state == RuleState.REPLICATING:
+            result['rule_error'] = 'This replication rule is currently REPLICATING'
+        elif rule.state == RuleState.SUSPENDED:
+            result['rule_error'] = 'This replication rule is SUSPENDED'
+        else:
+            result['rule_error'] = rule.error
+            # Get the stuck locks
+            stuck_locks = session.query(models.ReplicaLock).filter_by(rule_id=rule_id, state=LockState.STUCK).all()
+            for lock in stuck_locks:
+                # Get the count of requests in the request_history for each lock
+                transfers = session.query(models.Request.__history_mapper__.class_).filter_by(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id).order_by(models.Request.__history_mapper__.class_.created_at.desc()).all()
+                transfer_cnt = len(transfers)
+                # Get the error of the last request that has been tried and also the SOURCE used for the last request
+                last_error, last_source, last_time, sources = None, None, None, []
+                if transfers:
+                    last_request = transfers[0]
+                    last_error = last_request.state
+                    last_time = last_request.created_at
+                    last_source = None if last_request.source_rse_id is None else get_rse_name(last_request.source_rse_id, session=session)
+                    available_replicas = session.query(models.RSEFileAssociation).filter_by(scope=lock.scope, name=lock.name, state=ReplicaState.AVAILABLE).all()
+                    for replica in available_replicas:
+                        sources.append((get_rse(None, rse_id=replica.rse_id, session=session).rse,
+                                        True if get_rse(None, rse_id=replica.rse_id, session=session) >= 7 else False))
+                result['transfers'].append({'scope': lock.scope,
+                                            'name': lock.name,
+                                            'rse': get_rse_name(lock.rse_id, session=session),
+                                            'attempts': transfer_cnt,
+                                            'last_error': str(last_error),
+                                            'last_source': last_source,
+                                            'sources': sources,
+                                            'last_time': last_time})
+        return result
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
@@ -1947,6 +2067,7 @@ def __evaluate_did_detach(eval_did, session=None):
                     session.flush()
                     if rule_locks_ok_cnt_before != rule.locks_ok_cnt:
                         generate_message_for_dataset_ok_callback(rule=rule, session=session)
+                        generate_email_for_rule_ok_notification(rule=rule, session=session)
 
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -2141,6 +2262,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                 session.flush()
                                 if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
                                     generate_message_for_dataset_ok_callback(rule=rule, session=session)
+                                    generate_email_for_rule_ok_notification(rule=rule, session=session)
 
                         # Insert rule history
                         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -2289,8 +2411,8 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                                      models.ReplicaLock.name == did.child_name))
             replica_clauses.append(and_(models.RSEFileAssociation.scope == did.child_scope,
                                         models.RSEFileAssociation.name == did.child_name))
-        lock_clause_chunks = [lock_clauses[x:x+10] for x in xrange(0, len(lock_clauses), 10)]
-        replica_clause_chunks = [replica_clauses[x:x+10] for x in xrange(0, len(replica_clauses), 10)]
+        lock_clause_chunks = [lock_clauses[x:x + 10] for x in xrange(0, len(lock_clauses), 10)]
+        replica_clause_chunks = [replica_clauses[x:x + 10] for x in xrange(0, len(replica_clauses), 10)]
 
         replicas_rse_clause = []
         source_replicas_rse_clause = []
@@ -2335,7 +2457,8 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
 
         if source_rses:
             for replica_clause_chunk in replica_clause_chunks:
-                tmp_source_replicas = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).filter(or_(*replica_clause_chunk), or_(*source_replicas_rse_clause), models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
+                tmp_source_replicas = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+                    filter(or_(*replica_clause_chunk), or_(*source_replicas_rse_clause), models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
                     .with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').all()
                 for scope, name, rse_id in tmp_source_replicas:
                     if (scope, name) not in source_replicas:
@@ -2456,68 +2579,37 @@ def __create_rule_approval_email(rule, session=None):
     :param session:   The database session in use.
     """
 
+    with open('%s/rule_approval_request.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+        template = Template(templatefile.read())
+
     did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)
     rses = [rep['rse'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
     # Resolve recipents:
-    recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=None)
+    recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
 
     for recipent in recipents:
-        text = """A new rule has been requested for approval in Rucio.
-
-Rule description:
-
-  ID:                   %s
-  Creation date:        %s
-  Expiration date:      %s
-  Rule owner:           %s (%s)
-  RSE Expression:       %s
-  Comment:              %s
-  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=%s
-
-DID description:
-
-  Scope:Name:           %s:%s
-  Type:                 %s
-  Number of files:      %s
-  Total size:           %s
-  Closed:               %s
-  Complete replicas:    %s
-  Rucio UI:             https://rucio-ui.cern.ch/did?scope=%s&name=%s
-
-Action:
-
-  Approve:              https://rucio-ui.cern.ch/rule?rule_id=%s&action=approve&ui_account=%s
-  Deny:                 https://rucio-ui.cern.ch/rule?rule_id=%s&action=deny&ui_account=%s
-
-
-
---
-To update the quotas of this RSE goto: https://rucio-ui.cern.ch/r2d2/manage_quota?rse=%s
-THIS IS AN AUTOMATICALLY GENERATED MESSAGE""" % (str(rule.id),
-                                                 str(rule.created_at),
-                                                 str(rule.expires_at),
-                                                 rule.account, get_account(account=rule.account, session=session).email,
-                                                 rule.rse_expression,
-                                                 rule.comments,
-                                                 str(rule.id),
-                                                 rule.scope, rule.name,
-                                                 rule.did_type,
-                                                 '0' if did['length'] is None else str(did['length']),
-                                                 '0' if did['bytes'] is None else sizefmt(did['bytes']),
-                                                 not did['open'],
-                                                 ', '.join(rses),
-                                                 rule.scope, rule.name,
-                                                 str(rule.id),
-                                                 recipent[1],
-                                                 str(rule.id),
-                                                 recipent[1],
-                                                 rule.rse_expression)
+        text = template.safe_substitute({'rule_id': str(rule.id),
+                                         'created_at': str(rule.created_at),
+                                         'expires_at': str(rule.expires_at),
+                                         'account': rule.account,
+                                         'email': get_account(account=rule.account, session=session).email,
+                                         'rse_expression': rule.rse_expression,
+                                         'comment': rule.comments,
+                                         'scope': rule.scope,
+                                         'name': rule.name,
+                                         'did_type': rule.did_type,
+                                         'length': '0' if did['length'] is None else str(did['length']),
+                                         'bytes': '0' if did['bytes'] is None else sizefmt(did['bytes']),
+                                         'closed': not did['open'],
+                                         'complete_rses': ', '.join(rses),
+                                         'approvers': ','.join([r[0] for r in recipents]),
+                                         'approver': recipent[1]})
 
         add_message(event_type='email',
                     payload={'body': text,
                              'to': [recipent[0]],
-                             'subject': 'Request to approve replication rule %s' % (str(rule.id))},
+                             'subject': '[RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                     session=session)
 
 
@@ -2551,6 +2643,21 @@ def __create_recipents_list(rse_expression, session=None):
             rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
             if rse_attr.get('type', '') == 'LOCALGROUPDISK':
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
+                                                                                          value='admin').all()
+                for account in accounts:
+                    try:
+                        email = get_account(account=account[0], session=session).email
+                        if email:
+                            recipents.append((email, account[0]))
+                    except:
+                        pass
+
+    # GROUPDISK
+    if not recipents:
+        for rse in parse_expression(rse_expression, session=session):
+            rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+            if rse_attr.get('type', '') == 'GROUPDISK':
+                accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),
                                                                                           value='admin').all()
                 for account in accounts:
                     try:

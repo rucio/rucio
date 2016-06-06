@@ -119,11 +119,11 @@ def __resolve_term_expression(expression):
         elif expression[0] == "(":
             if (left_term is None):
                 left_term, termexpression = __resolve_term_expression(__extract_term(expression))
-                expression = expression[len(termexpression)+2:]
+                expression = expression[len(termexpression) + 2:]
                 continue
             else:
                 right_term, termexpression = __resolve_term_expression(__extract_term(expression))
-                expression = expression[len(termexpression)+2:]
+                expression = expression[len(termexpression) + 2:]
                 operator.set_left_term(left_term)
                 operator.set_right_term(right_term)
                 left_term = operator

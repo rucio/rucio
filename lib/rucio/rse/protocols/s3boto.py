@@ -32,6 +32,17 @@ class Default(protocol.RSEProtocol):
             self.attributes['determinism_type'] = 's3'
         self.__conn = None
 
+    def _get_path(self, scope, name):
+        """ Transforms the physical file name into the local URI in the referred RSE.
+            Suitable for sites implementoing the RUCIO naming convention.
+
+            :param name: filename
+            :param scope: scope
+
+            :returns: RSE specific URI of the physical file
+        """
+        return '%s:%s' % (scope, name)
+
     def get_bucket_key_name(self, pfn):
         """
             Gets boto key for a pfn
@@ -46,7 +57,7 @@ class Default(protocol.RSEProtocol):
 
             pos = hash_path.index("/")
             bucket_name = hash_path[:pos]
-            key_name = hash_path[pos+1:]
+            key_name = hash_path[pos + 1:]
 
             return bucket_name, key_name
         except Exception as e:

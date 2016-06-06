@@ -6,8 +6,8 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wguan@cern.ch>, 2014-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Wen Guan, <wguan@cern.ch>, 2014-2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 
 import errno
 import json
@@ -112,6 +112,8 @@ class Default(protocol.RSEProtocol):
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
             path = path.partition(name)[0]
+            if not path.startswith('/'):
+                path = '/' + path
             ret[pfn] = {'scheme': scheme, 'port': port, 'hostname': hostname, 'path': path, 'name': name, 'prefix': prefix, 'web_service_path': service_path}
 
         return ret
@@ -172,6 +174,7 @@ class Default(protocol.RSEProtocol):
         if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
             space_token = self.attributes['extended_attributes']['space_token']
 
+        dest = os.path.abspath(dest)
         if ':' not in dest:
             dest = "file:" + dest
 
@@ -201,6 +204,7 @@ class Default(protocol.RSEProtocol):
 
         source_url = '%s/%s' % (source_dir, source) if source_dir else source
 
+        source_url = os.path.abspath(source_url)
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
         if ':' not in source_url:
@@ -314,7 +318,7 @@ class Default(protocol.RSEProtocol):
         if src_spacetoken:
             params.src_spacetoken = str(src_spacetoken)
         if dest_spacetoken:
-            params.dest_spacetoken = str(dest_spacetoken)
+            params.dst_spacetoken = str(dest_spacetoken)
         params.timeout = 3600
 
         dir_name = os.path.dirname(dest)

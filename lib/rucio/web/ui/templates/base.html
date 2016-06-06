@@ -9,7 +9,7 @@ $def with (token, account, rucio_ui_version, content)
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
  - Martin Barisits, <martin.barisits@cern.ch>, 2014
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
@@ -27,9 +27,10 @@ $def with (token, account, rucio_ui_version, content)
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/3.0.1/normalize.min.css">
     <link rel="stylesheet" href="//cdn.jsdelivr.net/foundation/5.4.4/css/foundation.min.css">
     <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.css">
-    <link rel="stylesheet" href="/static/rucio.css?version=46fac23ad7ccb02940ff4fb598c24470">
+    <link rel="stylesheet" href="/static/rucio.css?version=9fbb2bab0b085dc2065ed24e8e658787">
     <link rel="stylesheet" href="/static/foundation-icons.css">
     <link rel="stylesheet" href="//code.jquery.com/ui/1.11.3/themes/smoothness/jquery-ui.css">
+    <link rel="stylesheet" href="/static/chosen.min.css">
     <script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
     <script src="//code.jquery.com/ui/1.11.1/jquery-ui.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
@@ -40,8 +41,10 @@ $def with (token, account, rucio_ui_version, content)
     <script src="//code.highcharts.com/modules/exporting.js"></script>
     <script src="/static/jquery.storageapi.min.js"></script>
     <script src="/static/filesize.min.js"></script>
-    <script src="/static/rucio.js?version=f2c300a9e79edd12b1ddf4a33c59014c"></script>
-    <script src="/static/base.js?version=0a2f68b5e8485eae750fd8ce69fb69df"></script>
+    <script src="/static/chosen.jquery.min.js"></script>
+    <script src="/static/rucio.js?version=c4c9966296a7478d8156131d9733e002"></script>
+    <script src="/static/base.js?version=c25299da061163ff63c5927f87290e9a"></script>
+    <script src="/static/version.js"></script>
     $:content.script
     <script>
       (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
@@ -154,7 +157,7 @@ $def with (token, account, rucio_ui_version, content)
           You are here: $:content.title <span id="subbar-details"></span>
         </div>
         <div class="right" id="div-subtitle" style="padding-right: 1em;">
-          Rucio Version: <span id="rucio_server_version">[loading]</span>
+          Rucio Version ( WebUI / Server ): <span id="rucio_webui_version"></span> / <span id="rucio_server_version">[loading]</span>
         </div>
       </div>
 
@@ -165,7 +168,7 @@ $def with (token, account, rucio_ui_version, content)
 
     <footer>
       <div class="row">
-        <div class="left" style="padding-left: 1em;">&copy; 2012-2015 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
+        <div class="left" style="padding-left: 1em;">&copy; 2012-2016 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
         <div class="right" style="padding-right: 1em;"><script>document.write(new Date());</script></div>
       </div>
     </footer>

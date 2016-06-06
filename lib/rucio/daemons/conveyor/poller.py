@@ -101,12 +101,12 @@ def poller(once=False,
                 transfs = request.get_next_transfers(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                                      state=[RequestState.SUBMITTED],
                                                      limit=db_bulk,
-                                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
+                                                     older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
                                                      process=process, total_processes=total_processes,
                                                      thread=hb['assign_thread'], total_threads=hb['nr_threads'],
                                                      activity=activity,
                                                      activity_shares=activity_shares)
-                record_timer('daemons.conveyor.poller.000-get_next_transfers', (time.time()-ts)*1000)
+                record_timer('daemons.conveyor.poller.000-get_next_transfers', (time.time() - ts) * 1000)
 
                 if transfs:
                     logging.debug('%i:%i - polling %i transfers for activity %s' % (process, hb['assign_thread'], len(transfs), activity))
@@ -174,7 +174,7 @@ def run(once=False,
             logging.critical('activity shares are not numbers? - aborting')
             return
 
-        activity_shares.update((share, int(percentage*db_bulk)) for share, percentage in activity_shares.items())
+        activity_shares.update((share, int(percentage * db_bulk)) for share, percentage in activity_shares.items())
         logging.info('activity shares enabled: %s' % activity_shares)
 
     if once:

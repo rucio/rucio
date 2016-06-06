@@ -5,19 +5,18 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
-from getpass import getuser
 from os import remove
-
 
 from nose.tools import raises
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.client import Client
 from rucio.common.config import config_get
+from rucio.common.utils import get_tmp_dir
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported
 
 
@@ -26,9 +25,8 @@ class TestBaseClient():
     def setup(self):
         self.cacert = config_get('test', 'cacert')
         self.usercert = config_get('test', 'usercert')
-
         try:
-            remove('/tmp/' + getuser() + '/.rucio_root/auth_token_root')
+            remove(get_tmp_dir() + '/.rucio_root/auth_token_root')
         except OSError, e:
             if e.args[0] != 2:
                 raise e

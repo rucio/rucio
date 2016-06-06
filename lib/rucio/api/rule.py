@@ -45,7 +45,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
         account = issuer
 
     if activity is None:
-        activity = 'default'
+        activity = 'User Subscriptions'
 
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime,
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
@@ -174,3 +174,12 @@ def reduce_replication_rule(rule_id, copies, exclude_expression, issuer):
     if not has_permission(issuer=issuer, action='reduce_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not reduce this replication rule.' % (issuer))
     rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression)
+
+
+def examine_replication_rule(rule_id):
+    """
+    Examine a replication rule.
+
+    :param rule_id: The rule_id to get.
+    """
+    return rule.examine_rule(rule_id)

@@ -92,7 +92,7 @@ def run(once=False, total_workers=1, chunk_size=10):
     Starts up the undertaker threads.
     """
     logging.info('main: starting threads')
-    threads = [threading.Thread(target=undertaker, kwargs={'worker_number': i, 'total_workers': total_workers, 'once': once, 'chunk_size': chunk_size}) for i in xrange(1, total_workers+1)]
+    threads = [threading.Thread(target=undertaker, kwargs={'worker_number': i, 'total_workers': total_workers, 'once': once, 'chunk_size': chunk_size}) for i in xrange(1, total_workers + 1)]
     [t.start() for t in threads]
     logging.info('main: waiting for interrupts')
 

@@ -89,13 +89,13 @@ class TestRSECoreApi():
         assert_equal(transfers, limits[activity][rse_id]['transfers'])
         assert_equal(waitings, limits[activity][rse_id]['waitings'])
 
-        set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers+1, transfers=transfers+1, waitings=waitings+1)
+        set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
         limits = get_rse_transfer_limits(rse=rse, activity=activity)
         assert_in(activity, limits.keys())
         assert_in(rse_id, limits[activity])
-        assert_equal(max_transfers+1, limits[activity][rse_id]['max_transfers'])
-        assert_equal(transfers+1, limits[activity][rse_id]['transfers'])
-        assert_equal(waitings+1, limits[activity][rse_id]['waitings'])
+        assert_equal(max_transfers + 1, limits[activity][rse_id]['max_transfers'])
+        assert_equal(transfers + 1, limits[activity][rse_id]['transfers'])
+        assert_equal(waitings + 1, limits[activity][rse_id]['waitings'])
 
         delete_rse_transfer_limits(rse=rse, activity=activity)
         limits = get_rse_transfer_limits(rse=rse, activity=activity)
@@ -1611,8 +1611,8 @@ class TestRSEClient():
         assert_equal(self.client.set_rse_usage(rse='MOCK', source='srm', used=999200L, free=800L), True)
         usages = self.client.get_rse_usage(rse='MOCK')
         for usage in usages:
-            print usage
-            assert_equal(usage['total'], 1000000)
+            if usage['source'] == 'srm':
+                assert_equal(usage['total'], 1000000)
         assert_equal(self.client.set_rse_usage(rse='MOCK', source='srm', used=999920L, free=80L), True)
         for usage in self.client.list_rse_usage_history(rse='MOCK'):
             assert_equal(usage['free'], 80)
