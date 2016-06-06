@@ -30,7 +30,7 @@ class PlacementAlgorithm:
     """
     Placement algorithm that focusses on free space on T2 DATADISK RSEs. It incorporates network metrics for placement decisions.
     """
-    def __init__(self):
+    def __init__(self, datatypes, dest_rse_expr, max_bytes_hour, max_files_hour, max_bytes_hour_rse, max_files_hour_rse, min_popularity, min_recent_requests, max_replicas):
         self._fsc = FreeSpaceCollector()
         self._nmc = NetworkMetricsCollector()
         self._added_cache = ExpiringDatasetCache(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), timeout=86400)
@@ -38,13 +38,17 @@ class PlacementAlgorithm:
         self._added_bytes = RedisTimeSeries(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), window=3600, prefix="added_bytes_")
         self._added_files = RedisTimeSeries(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), window=3600, prefix="added_files_")
 
-        self._total_bytes_limit = 500 * (1000**4)
-        self._total_files_limit = 100000
-        self._site_bytes_limit = 50 * (1000**4)
-        self._site_files_limit = 10000
+        self._datatypes = datatypes.split(',')
+        self._dest_rse_expr = dest_rse_expr
+        self._max_bytes_hour = max_bytes_hour
+        self._max_files_hour = max_files_hour
+        self._max_bytes_hour_rse = max_bytes_hour_rse
+        self._max_files_hour_rse = max_files_hour_rse
+        self._min_popularity = min_popularity
+        self._min_recent_requests = min_recent_requests
+        self._max_replicas = max_replicas
 
-        rse_expr = "tier=2&type=DATADISK"
-        rses = parse_expression(rse_expr)
+        rses = parse_expression(self._dest_rse_expr)
 
         self._rses = {}
         self._sites = {}
@@ -54,23 +58,30 @@ class PlacementAlgorithm:
             self._rses[rse['rse']] = rse_attrs
             self._sites[rse_attrs['site']] = rse_attrs
 
-        self.__setup_penalties()
+        self._dst_penalties = {}
+        self._src_penalties = {}
 
-    def __setup_penalties(self):
-        self._penalties = {}
-        for rse, _ in self._rses.items():
-            self._penalties[rse] = 1.0
+        self._print_params()
+
+    def _print_params(self):
+        logging.debug('Parameter Overview:')
+        logging.debug('Algorithm: t2_free_space_only_pop_with_network')
+        logging.debug('Datatypes: %s' % ','.join(self._datatypes))
+        logging.debug('Max bytes/files per hour: %d / %d' % (self._max_bytes_hour, self._max_files_hour))
+        logging.debug('Max bytes/files per hour per RSE: %d / %d' % (self._max_bytes_hour_rse, self._max_files_hour_rse))
+        logging.debug('Min recent requests / Min popularity: %d / %d' % (self._min_recent_requests, self._min_popularity))
+        logging.debug('Max existing replicas: %d' % self._max_replicas)
 
     def __update_penalties(self):
-        for rse, penalty in self._penalties.items():
-            if penalty > 1.0:
-                self._penalties[rse] = penalty - 1
+        for rse, penalty in self._dst_penalties.items():
+            if penalty < 100.0:
+                self._dst_penalties[rse] += 10.0
 
-    def place(self, did):
-        self.__update_penalties()
-        self._added_bytes.trim()
-        self._added_files.trim()
+        for rse, penalty in self._src_penalties.items():
+            if penalty < 100.0:
+                self._src_penalties[rse] += 10.0
 
+    def check_did(self, did):
         decision = {'did': ':'.join(did)}
         if (self._added_cache.check_dataset(':'.join(did))):
             decision['error_reason'] = 'already added replica for this did in the last 24h'
@@ -78,6 +89,12 @@ class PlacementAlgorithm:
 
         if (not did[0].startswith('data')) and (not did[0].startswith('mc')):
             decision['error_reason'] = 'not a data or mc dataset'
+            return decision
+
+        datatype = did[1].split('.')[4].split('_')[0]
+
+        if datatype not in self._datatypes:
+            decision['error_reason'] = 'wrong datatype'
             return decision
 
         try:
@@ -100,11 +117,11 @@ class PlacementAlgorithm:
         logging.debug("total_added_bytes: %d" % total_added_bytes)
         logging.debug("total_added_files: %d" % total_added_files)
 
-        if ((total_added_bytes + meta['bytes']) > self._total_bytes_limit):
-            decision['error_reason'] = 'above bytes limit of %d bytes' % self._total_bytes_limit
+        if ((total_added_bytes + meta['bytes']) > self._max_bytes_hour):
+            decision['error_reason'] = 'above bytes limit of %d bytes' % self._max_bytes_hour
             return decision
-        if ((total_added_files + meta['length']) > self._total_files_limit):
-            decision['error_reason'] = 'above files limit of %d files' % self._total_files_limit
+        if ((total_added_files + meta['length']) > self._max_files_hour):
+            decision['error_reason'] = 'above files limit of %d files' % self._max_files_hour
             return decision
 
         last_accesses = self._dc.get_did(did)
@@ -112,13 +129,30 @@ class PlacementAlgorithm:
 
         decision['last_accesses'] = last_accesses
 
-        pop = get_popularity(did)
-        decision['popularity'] = pop or 0.0
+        try:
+            pop = get_popularity(did)
+            decision['popularity'] = pop or 0.0
+        except Exception:
+            decision['error_reason'] = 'problems connecting to ES'
+            return decision
 
-        if (last_accesses < 5) and (pop < 8.0):
+        if (last_accesses < self._min_recent_requests) and (pop < self._min_popularity):
             decision['error_reason'] = 'did not popular enough'
             return decision
 
+        return decision
+
+    def place(self, did):
+        self.__update_penalties()
+        self._added_bytes.trim()
+        self._added_files.trim()
+
+        decision = self.check_did(did)
+
+        if 'error_reason' in decision:
+            return decision
+
+        meta = get_did(did[0], did[1])
         available_reps = {}
         reps = list_dataset_replicas(did[0], did[1])
         num_reps = 0
@@ -127,6 +161,9 @@ class PlacementAlgorithm:
         for rep in reps:
             rse_attr = list_rse_attributes(rep['rse'])
             src_rse = rep['rse']
+            if 'site' not in rse_attr:
+                continue
+
             src_site = rse_attr['site']
             src_rse_info = get_rse(src_rse)
 
@@ -141,7 +178,9 @@ class PlacementAlgorithm:
                 if rep['available_length'] == 0:
                     continue
                 net_metrics = {}
+                net_metrics_type = None
                 for metric_type in ('fts', 'fax', 'perfsonar'):
+                    net_metrics_type = metric_type
                     net_metrics = self._nmc.getMbps(src_site, metric_type)
                     if net_metrics:
                         break
@@ -163,24 +202,29 @@ class PlacementAlgorithm:
                         site_added_bytes = sum(self._added_bytes.get_series(dst_rse))
                         site_added_files = sum(self._added_files.get_series(dst_rse))
 
-                        if ((site_added_bytes + meta['bytes']) > self._site_bytes_limit):
+                        if ((site_added_bytes + meta['bytes']) > self._max_bytes_hour_rse):
                             continue
-                        if ((site_added_files + meta['length']) > self._site_files_limit):
+                        if ((site_added_files + meta['length']) > self._max_files_hour_rse):
                             continue
 
                         queued = self._nmc.getQueuedFiles(src_site, dst_site)
 
-                        logging.debug('queued %s -> %s: %d' % (src_site, dst_site, queued))
+                        # logging.debug('queued %s -> %s: %d' % (src_site, dst_site, queued))
                         if queued > 0:
                             continue
                         rse_space = space_info.get(dst_rse, 0)
-                        penalty = self._penalties[dst_rse]
+                        if src_rse not in self._src_penalties:
+                            self._src_penalties[src_rse] = 100.0
+                        src_penalty = self._src_penalties[src_rse]
+                        if dst_rse not in self._dst_penalties:
+                            self._dst_penalties[dst_rse] = 100.0
+                        dst_penalty = self._dst_penalties[dst_rse]
                         free_space = float(rse_space['free']) / float(rse_space['total']) * 100.0
-                        available_reps[src_rse][dst_rse] = {'free_space': free_space, 'penalty': penalty, 'mbps': float(mbps)}
+                        available_reps[src_rse][dst_rse] = {'free_space': free_space, 'src_penalty': src_penalty, 'dst_penalty': dst_penalty, 'mbps': float(mbps), 'metrics_type': net_metrics_type}
 
                 num_reps += 1
 
-        # decision['replica_rses'] = available_reps
+        decision['replica_rses'] = available_reps
         decision['num_replicas'] = num_reps
 
         if num_reps >= 5:
@@ -193,8 +237,11 @@ class PlacementAlgorithm:
             for dst, metrics in dsts.items():
                 if dst in available_reps:
                     continue
-                bdw = metrics['mbps'] / max_mbps * 100.0
-                ratio = metrics['free_space'] * bdw * penalty
+                bdw = (metrics['mbps'] / max_mbps) * 100.0
+                src_penalty = self._src_penalties[src]
+                dst_penalty = self._dst_penalties[dst]
+
+                ratio = ((metrics['free_space'] / 4.0) + bdw) * src_penalty * dst_penalty
                 src_dst_ratios.append((src, dst, ratio))
 
         if len(src_dst_ratios) == 0:
@@ -208,7 +255,8 @@ class PlacementAlgorithm:
         decision['destination_rse'] = destination_rse
         decision['source_rse'] = source_rse
         decision['rse_ratios'] = src_dst_ratios
-        self._penalties[destination_rse] = 10.0
+        self._dst_penalties[destination_rse] = 10.0
+        self._src_penalties[source_rse] = 10.0
 
         self._added_cache.add_dataset(':'.join(did))
 
