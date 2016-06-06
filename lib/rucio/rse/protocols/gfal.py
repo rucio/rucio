@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wguan@cern.ch>, 2014-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 
 import errno
 import json
@@ -176,7 +177,7 @@ class Default(protocol.RSEProtocol):
 
         dest = os.path.abspath(dest)
         if ':' not in dest:
-            dest = "file:" + dest
+            dest = "file://" + dest
 
         try:
             status = self.__gfal2_copy(path, dest, space_token)
@@ -208,7 +209,7 @@ class Default(protocol.RSEProtocol):
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
         if ':' not in source_url:
-            source_url = "file:" + source_url
+            source_url = "file://" + source_url
 
         space_token = None
         if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
