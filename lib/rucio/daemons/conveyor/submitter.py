@@ -98,7 +98,7 @@ def submitter(once=False, rses=[],
                 logging.info("%s:%s Starting to get transfers" % (process, thread))
                 ts = time.time()
                 transfers = get_transfers_from_requests(process, total_processes, thread, total_threads, rse_ids, mock, bulk, activity, activity_shares, scheme, max_sources=max_sources)
-                record_timer('daemons.conveyor.submitter.get_transfers_from_requests.per_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
+                record_timer('daemons.conveyor.submitter.get_transfers_from_requests.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.submitter.get_transfers_from_requests', len(transfers))
 
                 logging.info("%s:%s Starting to submit transfers" % (process, thread))
@@ -208,7 +208,7 @@ def run(once=False,
             logging.critical('activity shares are not numbers? - aborting')
             return
 
-        activity_shares.update((share, int(percentage*bulk)) for share, percentage in activity_shares.items())
+        activity_shares.update((share, int(percentage * bulk)) for share, percentage in activity_shares.items())
         logging.info('activity shares enabled: %s' % activity_shares)
 
     if once:

@@ -32,7 +32,7 @@ if __name__ == "__main__":
                         help='Poll control: poll FTS jobs in last n hours with given state in "latest" mode')
     parser.add_argument("--fts-wait", action="store", default=1800, type=int,
                         help='Poll control: wait seconds to poll FTS server in "latest" mode')
-    parser.add_argument("--external-hosts",  nargs='+', type=str,
+    parser.add_argument("--external-hosts", nargs='+', type=str,
                         help='Poll control: List of FTS hosts')
     args = parser.parse_args()
 

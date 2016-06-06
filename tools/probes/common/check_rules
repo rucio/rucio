@@ -32,7 +32,7 @@ if __name__ == "__main__":
         utctime = datetime.datetime.utcnow()
         utctimeInt = int(time.mktime(utctime.timetuple()))
         timeEnd = utctimeInt
-        timezoneoffset = int((datetime.datetime.now()-datetime.datetime.utcnow()).seconds)
+        timezoneoffset = int((datetime.datetime.now() - datetime.datetime.utcnow()).seconds)
 
         # check rules
         sql = """SELECT
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         # check stuck rules older than 24 hours
         timeLimit = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
         sql = "select sum(locks_stuck_cnt)  from atlas_rucio.rules where scope='tests' and account='ddmadmin' \
-               and rse_expression!='CERN-PROD-RUCIOTEST_DATADISK' and state='S' and created_at <= to_timestamp('"+str(timeLimit)+"','YYYY-MM-dd HH24:MI:SS.FF')"
+               and rse_expression!='CERN-PROD-RUCIOTEST_DATADISK' and state='S' and created_at <= to_timestamp('" + str(timeLimit) + "','YYYY-MM-dd HH24:MI:SS.FF')"
         result = session.execute(sql).fetchone()[0] or 0
         print 'rules.created_24hours_ago.sum_locks_stuck_cnt %s' % (result)
         monitor.record_gauge(stat='%s.rules.created_24hours_ago.sum_locks_stuck_cnt' % scope, value=result)
@@ -69,7 +69,7 @@ if __name__ == "__main__":
         # check stuck rules older than 1 week
         timeLimit = datetime.datetime.utcnow() - datetime.timedelta(hours=168)
         sql = "select sum(locks_stuck_cnt)  from atlas_rucio.rules where scope='tests' and account='ddmadmin' \
-              and rse_expression!='CERN-PROD-RUCIOTEST_DATADISK' and state='S' and created_at <= to_timestamp('"+str(timeLimit)+"','YYYY-MM-dd HH24:MI:SS.FF')"
+              and rse_expression!='CERN-PROD-RUCIOTEST_DATADISK' and state='S' and created_at <= to_timestamp('" + str(timeLimit) + "','YYYY-MM-dd HH24:MI:SS.FF')"
         result = session.execute(sql).fetchone()[0] or 0
         print 'rules.created_1week_ago.sum_locks_stuck_cnt %s' % (result)
         monitor.record_gauge(stat='%s.rules.created_1week_ago.sum_locks_stuck_cnt' % scope, value=result)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
         # check replicating rules older than 24 hours
         timeLimit = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
         sql = "select sum(locks_replicating_cnt)  from atlas_rucio.rules where scope='tests' and account='ddmadmin' \
-               and rse_expression!='CERN-PROD-RUCIOTEST_DATADISK' and state in ('S','R') and created_at <= to_timestamp('"+str(timeLimit)+"','YYYY-MM-dd HH24:MI:SS.FF')"
+               and rse_expression!='CERN-PROD-RUCIOTEST_DATADISK' and state in ('S','R') and created_at <= to_timestamp('" + str(timeLimit) + "','YYYY-MM-dd HH24:MI:SS.FF')"
         result = session.execute(sql).fetchone()[0] or 0
         print 'rules.created_24hours_ago.sum_locks_replicating_cnt %s' % (result)
         monitor.record_gauge(stat='%s.rules.created_24hours_ago.sum_locks_replicating_cnt' % scope, value=result)
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         # check replicating rules older than 1 week
         timeLimit = datetime.datetime.utcnow() - datetime.timedelta(hours=168)
         sql = "select sum(locks_replicating_cnt)  from atlas_rucio.rules where scope='tests' and account='ddmadmin' \
-              and rse_expression!='CERN-PROD-RUCIOTEST_DATADISK' and state in ('S','R') and created_at <= to_timestamp('"+str(timeLimit)+"','YYYY-MM-dd HH24:MI:SS.FF')"
+              and rse_expression!='CERN-PROD-RUCIOTEST_DATADISK' and state in ('S','R') and created_at <= to_timestamp('" + str(timeLimit) + "','YYYY-MM-dd HH24:MI:SS.FF')"
         result = session.execute(sql).fetchone()[0] or 0
         print 'rules.created_1week_ago.sum_locks_replicating_cnt %s' % (result)
         monitor.record_gauge(stat='%s.rules.created_1week_ago.sum_locks_replicating_cnt' % scope, value=result)

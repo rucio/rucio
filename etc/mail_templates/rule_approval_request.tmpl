@@ -1,0 +1,33 @@
+A new rule has been requested for approval in Rucio.
+
+Rule description:
+
+  ID:                   $rule_id
+  Creation date:        $created_at
+  Expiration date:      $expires_at
+  Rule owner:           $account ($email)
+  RSE Expression:       $rse_expression
+  Comment:              $comment
+  Rucio UI:             https://rucio-ui.cern.ch/rule?rule_id=$rule_id
+
+DID description:
+
+  Scope:Name:           $scope:$name
+  Type:                 $did_type
+  Number of files:      $length
+  Total size:           $bytes
+  Closed:               $closed
+  Complete replicas:    $complete_rses
+  Rucio UI:             https://rucio-ui.cern.ch/did?scope=$scope&name=$name
+
+Action:
+
+  Approvers:            mailto:$approvers
+  Approve:              https://rucio-ui.cern.ch/rule?rule_id=$rule_id&action=approve&ui_account=$approver
+  Deny:                 https://rucio-ui.cern.ch/rule?rule_id=$rule_id&action=deny&ui_account=$approver
+
+
+
+--
+To update the quotas of this RSE goto: https://rucio-ui.cern.ch/r2d2/manage_quota?rse=$rse_expression
+THIS IS AN AUTOMATICALLY GENERATED MESSAG

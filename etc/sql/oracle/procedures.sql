@@ -98,12 +98,13 @@ CREATE OR REPLACE PROCEDURE "ATLAS_RUCIO"."COLLECTION_REPLICAS_UPDATES" AS
     scopes  array_scope;
     names   array_name;
 
-    ds_length           NUMBER(19);
-    ds_bytes            NUMBER(19);
-    available_replicas  NUMBER(19);
-    ds_available_bytes  NUMBER(19);
-    ds_replica_state    VARCHAR2(1);
-    row_exists          NUMBER;
+    ds_length                 NUMBER(19);
+    ds_bytes                  NUMBER(19);
+    available_replicas        NUMBER(19);
+    old_available_replicas    NUMBER(19);
+    ds_available_bytes        NUMBER(19);
+    ds_replica_state          VARCHAR2(1);
+    row_exists                NUMBER;
     
     CURSOR get_upd_col_rep IS SELECT id, scope, name, rse_id FROM ATLAS_RUCIO.updated_col_rep; 
 BEGIN
@@ -112,33 +113,38 @@ BEGIN
     -- Delete Update requests which do not have Collection_replicas
     DELETE FROM ATLAS_RUCIO.UPDATED_COL_REP A WHERE A.rse_id IS NOT NULL AND NOT EXISTS(SELECT * FROM ATLAS_RUCIO.COLLECTION_REPLICAS B WHERE B.scope = A.scope AND B.name = A.name  AND B.rse_id = A.rse_id);
     DELETE FROM ATLAS_RUCIO.UPDATED_COL_REP A WHERE A.rse_id IS NULL AND NOT EXISTS(SELECT * FROM ATLAS_RUCIO.COLLECTION_REPLICAS B WHERE B.scope = A.scope AND B.name = A.name);
-    COMMIT;    
+    COMMIT;
 
     OPEN get_upd_col_rep;
     LOOP
         FETCH get_upd_col_rep BULK COLLECT INTO ids, scopes, names, rse_ids LIMIT 5000;
         FOR i IN 1 .. rse_ids.count
-        LOOP    
+        LOOP
             DELETE FROM ATLAS_RUCIO.updated_col_rep WHERE id = ids(i);
             IF rse_ids(i) IS NOT NULL THEN
                 -- Check one specific DATASET_REPLICA
                 BEGIN
-                    SELECT length, bytes INTO ds_length, ds_bytes FROM ATLAS_RUCIO.collection_replicas WHERE scope=scopes(i) and name=names(i) and rse_id=rse_ids(i);
+                    SELECT length, bytes, available_replicas_cnt INTO ds_length, ds_bytes, old_available_replicas FROM ATLAS_RUCIO.collection_replicas WHERE scope=scopes(i) and name=names(i) and rse_id=rse_ids(i);
                 EXCEPTION
                     WHEN NO_DATA_FOUND THEN CONTINUE;
-                END; 
-                       
+                END;
+
                 SELECT count(*), sum(r.bytes) INTO available_replicas, ds_available_bytes FROM ATLAS_RUCIO.replicas r, ATLAS_RUCIO.contents c WHERE r.scope = c.child_scope and r.name = c.child_name and c.scope = scopes(i) and c.name = names(i) and r.state='A' and r.rse_id=rse_ids(i);
                 IF available_replicas >= ds_length THEN
                     ds_replica_state := 'A';
                 ELSE
                     ds_replica_state := 'U';
                 END IF;
-                UPDATE ATLAS_RUCIO.COLLECTION_REPLICAS 
-                SET state=ds_replica_state, available_replicas_cnt=available_replicas, length=ds_length, bytes=ds_bytes, available_bytes=ds_available_bytes, updated_at=sys_extract_utc(systimestamp)
-                WHERE scope = scopes(i) and name = names(i) and rse_id = rse_ids(i);
+
+                IF old_available_replicas > 0 AND available_replicas = 0 THEN
+                    DELETE FROM ATLAS_RUCIO.COLLECTION_REPLICAS WHERE scope = scopes(i) and name = names(i) and rse_id = rse_ids(i);
+                ELSE               
+                    UPDATE ATLAS_RUCIO.COLLECTION_REPLICAS 
+                    SET state=ds_replica_state, available_replicas_cnt=available_replicas, length=ds_length, bytes=ds_bytes, available_bytes=ds_available_bytes, updated_at=sys_extract_utc(systimestamp)
+                    WHERE scope = scopes(i) and name = names(i) and rse_id = rse_ids(i);
+                END IF;
             ELSE
-                -- Check all DATASET_REPLICAS of this DS     
+                -- Check all DATASET_REPLICAS of this DS
                 SELECT count(*), SUM(bytes) INTO ds_length, ds_bytes FROM ATLAS_RUCIO.contents WHERE scope=scopes(i) and name=names(i);
                 FOR rse IN (SELECT rse_id, count(*) as available_replicas, sum(r.bytes) as ds_available_bytes FROM ATLAS_RUCIO.replicas r, ATLAS_RUCIO.contents c WHERE r.scope = c.child_scope and r.name = c.child_name and c.scope = scopes(i) and c.name = names(i) and r.state='A' GROUP BY rse_id)
                 LOOP
@@ -147,7 +153,7 @@ BEGIN
                     ELSE
                         ds_replica_state := 'U';
                     END IF;
-                    UPDATE ATLAS_RUCIO.COLLECTION_REPLICAS 
+                    UPDATE ATLAS_RUCIO.COLLECTION_REPLICAS
                     SET state=ds_replica_state, available_replicas_cnt=rse.available_replicas, length=ds_length, bytes=ds_bytes, available_bytes=rse.ds_available_bytes, updated_at=sys_extract_utc(systimestamp)
                     WHERE scope = scopes(i) and name = names(i) and rse_id = rse.rse_id;
                 END LOOP;
@@ -158,5 +164,57 @@ BEGIN
     END LOOP;
     CLOSE get_upd_col_rep;
     COMMIT;
+END;
+/
+
+
+-- Mar  5 avr 2016 14:52:42 CEST, Vincent Garonne
+-- a PL/SQL Proecdure to populate the rse_usage table from the UPDATED_RSE_COUNTERS table
+
+--/
+CREATE OR REPLACE PROCEDURE "ATLAS_RUCIO"."ABACUS_RSE" AS
+    type array_raw is table of RAW(16) index by binary_integer;
+    type array_number is table of NUMBER(19) index by binary_integer;
+    r array_raw;
+    f array_number;
+    b array_number;
+BEGIN
+        DELETE FROM ATLAS_RUCIO.UPDATED_RSE_COUNTERS
+        RETURNING rse_id, files, bytes BULK COLLECT INTO r,f,b;
+
+        FORALL i in r.FIRST .. r.LAST
+                MERGE INTO ATLAS_RUCIO.RSE_usage D
+                USING (select r(i) as rse_id from dual) T
+                ON (D.rse_id = T.rse_id and source='rucio')
+                WHEN MATCHED THEN UPDATE SET files = files + f(i), used = used + b(i)
+                WHEN NOT MATCHED THEN INSERT (rse_id, files, used, source, updated_at, created_at)
+                VALUES (r(i), f(i), b(i), 'rucio', sys_extract_utc(systimestamp), sys_extract_utc(systimestamp));
+
+        FORALL i in r.FIRST .. r.LAST
+                MERGE INTO ATLAS_RUCIO.rse_usage_history D
+                USING (select r(i) as rse_id from dual) T
+                ON (D.rse_id = T.rse_id and source='rucio')
+                WHEN MATCHED THEN UPDATE SET files = files + f(i), used = used+ b(i)
+                WHEN NOT MATCHED THEN INSERT (rse_id, files, used, source, updated_at, created_at)
+                VALUES (r(i), f(i), b(i), 'rucio', sys_extract_utc(systimestamp), sys_extract_utc(systimestamp));
+
+        MERGE INTO ATLAS_RUCIO.RSE_USAGE_HISTORY H
+        USING (SELECT hextoraw('00000000000000000000000000000000') as rse_id, 'rucio', sum(used) as bytes, sum(files) as files, sys_extract_utc(systimestamp) as updated_at
+             FROM   ATLAS_RUCIO.rse_usage c, ATLAS_RUCIO.rses r
+             WHERE  c.rse_id = r.id AND c.source = 'rucio' AND r.deleted = '0') U
+        ON (h.rse_id = u.rse_id and h.source = 'rucio' and h.UPDATED_AT = u.UPDATED_AT)
+        WHEN NOT MATCHED THEN INSERT(rse_id, source, used, files, updated_at, created_at)
+        VALUES (u.rse_id, 'rucio', u.bytes, u.files, u.updated_at, u.updated_at);
+
+         FOR usage IN (SELECT /*+ INDEX(R REPLICAS_STATE_IDX ) */ rse_id, SUM(bytes) AS bytes , COUNT(*) AS files
+                FROM atlas_rucio.replicas r WHERE (CASE WHEN state != 'A' THEN rse_id END) IS NOT NULL
+                AND (state='U' or state='C') AND tombstone IS NULL GROUP BY rse_id)
+         LOOP
+              MERGE INTO atlas_rucio.rse_usage USING DUAL ON (RSE_USAGE.rse_id = usage.rse_id and source = 'unavailable')
+              WHEN MATCHED THEN UPDATE SET used=usage.bytes, files=usage.files, updated_at=sysdate
+              WHEN NOT MATCHED THEN INSERT (rse_id, source, used, files, updated_at, created_at) VALUES (usage.rse_id, 'unavailable', usage.bytes, usage.files, sysdate, sysdate);
+         END LOOP;
+
+        COMMIT;
 END;
 /

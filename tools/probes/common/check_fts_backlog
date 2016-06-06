@@ -6,13 +6,12 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 import os
 import sys
 import requests
-import socket
 from urlparse import urlparse
 
 from rucio.common.config import config_get
@@ -25,73 +24,69 @@ requests.packages.urllib3.disable_warnings()
 if __name__ == "__main__":
 
     try:
-        vo = sys.argv[1]
+        VO = sys.argv[1]
     except IndexError, error:
-        vo = 'atlas'
-    worst_retvalue = OK
+        VO = 'atlas'
+    WORST_RETVALUE = OK
 
     try:
         proxy = config_get('nagios', 'proxy')
         os.environ["X509_USER_PROXY"] = proxy
     except Exception as error:
         print "Failed to get proxy from rucio.cfg"
-        worst_retvalue = WARNING
+        WORST_RETVALUE = WARNING
 
     try:
         ftshosts = config_get('conveyor', 'ftsmonhosts')
     except Exception as error:
         print "Failed to get ftsmonhosts"
-        worst_retvalue = WARNING
-    for ftshost_alias in ftshosts.split(','):
-        print "=== %s ===" % (ftshost_alias)
-        parsed_url = urlparse(ftshost_alias)
+        WORST_RETVALUE = WARNING
+    for ftshost in ftshosts.split(','):
+        print "=== %s ===" % (ftshost)
+        parsed_url = urlparse(ftshost)
         scheme, hostname, port = parsed_url.scheme, parsed_url.hostname, parsed_url.port
-        list_fts_hosts = ['%s://%s:%s' % (scheme, socket.gethostbyaddr(x)[0], port) for x in socket.gethostbyname_ex(hostname)[2]]
         retvalue = CRITICAL
-        for ftshost in list_fts_hosts:
-            url = '%s/fts3/ftsmon/overview?dest_se=&source_se=&time_window=1&vo=%s' % (ftshost, vo)
-            busy_channels = []
-            busylimit = 5000
-            for attempt in xrange(0, 5):
-                try:
-                    result = requests.get(url, verify=False, cert=(proxy, proxy))
-                    res = result.json()
-                    for channel in res['overview']['items']:
-                        src = channel['source_se']
-                        dst = channel['dest_se']
-                        if 'submitted' in channel and channel['submitted'] >= busylimit:
-                            url_activities = '%s/fts3/ftsmon/config/activities/%s?source_se=%s&dest_se=%s' % (ftshost, vo, src, dst)
-                            activities = {}
-                            try:
-                                s = requests.get(url_activities, verify=False, cert=(proxy, proxy))
-                                for key, val in s.json().items():
-                                    activities[key] = val['SUBMITTED']
-                            except Exception, error:
-                                pass
-                            busy_channels.append({'src': src, 'dst': dst, 'submitted': channel['submitted'], 'activities': activities})
-                    summary = res['summary']
-                    hostname = hostname.replace('.', '_')
-                    print '%s : Submitted : %s' % (hostname, summary['submitted'])
-                    print '%s : Active : %s' % (hostname, summary['active'])
-                    print '%s : Staging : %s' % (hostname, summary['staging'])
-                    print '%s : Started : %s' % (hostname, summary['started'])
-                    if len(busy_channels) > 0:
-                        print 'Busy channels (>%s submitted):' % (busylimit)
-                        for bc in busy_channels:
-                            activities_str = ", ".join([("%s: %s" % (key, val)) for key, val in bc['activities'].items()])
-                            print '  %s to %s : %s submitted jobs (%s)' % (bc['src'], bc['dst'], bc['submitted'], str(activities_str))
-                    monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=(summary['submitted'] + summary['active'] + summary['staging'] + summary['started']))
-                    retvalue = OK
-                    break
-                except Exception, error:
-                    retvalue = CRITICAL
-                    if result.status_code:
-                        errmsg = 'Error when trying to get info from %s : HTTP status code %s. [%s]' % (ftshost, str(result.status_code), str(error))
-                    else:
-                        errmsg = 'Error when trying to get info from %s. %s' % (ftshost, str(error))
-            if retvalue == OK:
+        url = '%s/fts3/ftsmon/overview?dest_se=&source_se=&time_window=1&vo=%s' % (ftshost, VO)
+        busy_channels = []
+        busylimit = 5000
+        for attempt in xrange(0, 5):
+            try:
+                result = requests.get(url, verify=False, cert=(proxy, proxy))
+                res = result.json()
+                for channel in res['overview']['items']:
+                    src = channel['source_se']
+                    dst = channel['dest_se']
+                    if 'submitted' in channel and channel['submitted'] >= busylimit:
+                        url_activities = '%s/fts3/ftsmon/config/activities/%s?source_se=%s&dest_se=%s' % (ftshost, VO, src, dst)
+                        activities = {}
+                        try:
+                            s = requests.get(url_activities, verify=False, cert=(proxy, proxy))
+                            for key, val in s.json().items():
+                                activities[key] = val['SUBMITTED']
+                        except Exception, error:
+                            pass
+                        busy_channels.append({'src': src, 'dst': dst, 'submitted': channel['submitted'], 'activities': activities})
+                summary = res['summary']
+                hostname = hostname.replace('.', '_')
+                print '%s : Submitted : %s' % (hostname, summary['submitted'])
+                print '%s : Active : %s' % (hostname, summary['active'])
+                print '%s : Staging : %s' % (hostname, summary['staging'])
+                print '%s : Started : %s' % (hostname, summary['started'])
+                if len(busy_channels) > 0:
+                    print 'Busy channels (>%s submitted):' % (busylimit)
+                    for bc in busy_channels:
+                        activities_str = ", ".join([("%s: %s" % (key, val)) for key, val in bc['activities'].items()])
+                        print '  %s to %s : %s submitted jobs (%s)' % (bc['src'], bc['dst'], bc['submitted'], str(activities_str))
+                monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=(summary['submitted'] + summary['active'] + summary['staging'] + summary['started']))
+                retvalue = OK
                 break
+            except Exception, error:
+                retvalue = CRITICAL
+                if result.status_code:
+                    errmsg = 'Error when trying to get info from %s : HTTP status code %s. [%s]' % (ftshost, str(result.status_code), str(error))
+                else:
+                    errmsg = 'Error when trying to get info from %s. %s' % (ftshost, str(error))
         if retvalue == CRITICAL:
             print "All attempts failed. %s" % (errmsg)
-        worst_retvalue = max(retvalue, worst_retvalue)
-    sys.exit(worst_retvalue)
+        WORST_RETVALUE = max(retvalue, WORST_RETVALUE)
+    sys.exit(WORST_RETVALUE)

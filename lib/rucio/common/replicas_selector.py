@@ -29,7 +29,7 @@ from rucio.core.rse_expression_parser import parse_expression
 
 region = make_region(function_key_generator=utils.my_key_generator).configure(
     'dogpile.cache.memory',
-    expiration_time=30*86400,
+    expiration_time=30 * 86400,
 )
 
 
@@ -53,7 +53,7 @@ def getGeoIPDB(directory, filename):
     if not os.path.isfile('%s/%s' % (directory, filename)):
         print '%s does not exist. Downloading it.' % (filename)
         downloadDB(directory, filename)
-    elif (time.time()-os.stat('%s/%s' % (directory, filename)).st_atime > 30*86400):
+    elif (time.time() - os.stat('%s/%s' % (directory, filename)).st_atime > 30 * 86400):
         print '%s is too old. Re-downloading it.' % (filename)
         downloadDB(directory, filename)
     else:
@@ -117,7 +117,7 @@ def getDistance(se1, se2):
         long1, lat1, long2, lat2 = map(radians, [long1, lat1, long2, lat2])
         dlon = long2 - long1
         dlat = lat2 - lat1
-        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
         c = 2 * asin(sqrt(a))
         return 6378 * c
     else:

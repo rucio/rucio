@@ -40,7 +40,6 @@ REPLICAS
 RULES
 LOCKS
 DATASET_LOCKS
-ACCOUNT_COUNTERS
 ACCOUNT_LIMITS
 RSE_COUNTERS
 RSE_LIMITS
@@ -368,7 +367,7 @@ CREATE TABLE subscriptions (
 CREATE INDEX SUBSCRIPTIONS_STATE_IDX ON subscriptions (STATE) COMPRESS 1 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01 ;
 CREATE INDEX SUBSCRIPTIONS_NAME_IDX ON subscriptions (NAME) TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01 ;
 
-
+ALTER TABLE rules ADD constraint rules_child_rule_id_fk FOREIGN KEY(child_rule_id) REFERENCES rules(id);
 
 -- ============================================== section FACT data ==============================================================================
 -- to reside in tablespace ATLAS_RUCIO_FACT_DATA01
@@ -604,6 +603,8 @@ CREATE TABLE updated_col_rep (
 
 
 CREATE INDEX UPDATED_COL_REP_SNR_IDX ON updated_col_rep ("scope", name, rse_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+CREATE INDEX ATLAS_RUCIO.UPDATED_COL_REP_SCOPE_NAME_IDX on ATLAS_RUCIO.UPDATED_COL_REP(scope, name) COMPRESS 2 tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
+
 
 -- ========================================= RULES ==============================================
 -- Description: Table to store rules
@@ -641,6 +642,7 @@ CREATE TABLE rules (
     ignore_availability NUMBER(1) DEFAULT 0,
     ignore_account_limit NUMBER(1) DEFAULT 0,
     comments VARCHAR2(255 CHAR),
+    child_rule_id RAW(16),
     CONSTRAINT "RULES_PK" PRIMARY KEY (id),   -- id, scope, name
     CONSTRAINT "RULES_SCOPE_NAME_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
     CONSTRAINT "RULES_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
@@ -677,6 +679,7 @@ CREATE INDEX RULES_STUCKSTATE_IDX ON rules (CASE when state='S' THEN state ELSE 
 CREATE UNIQUE INDEX "RULES_SC_NA_AC_RS_CO_UQ_IDX" ON "RULES" ("SCOPE", "NAME", "ACCOUNT", "RSE_EXPRESSION", "COPIES") COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE INDEX RULES_INJECTSTATE_IDX ON rules (CASE when state='I' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE INDEX RULES_APPROVALSTATE_IDX ON rules (CASE when state='W' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+CREATE INDEX ATLAS_RUCIO.rules_child_rule_id_idx on ATLAS_RUCIO.rules(child_rule_id) tablespace ATLAS_RUCIO_FACT_DATA01;
 
 
 -- ========================================= LOCKS (List partitioned table) =========================================
@@ -755,27 +758,6 @@ CREATE INDEX "DATASET_LOCKS_RSE_ID_IDX" ON dataset_locks(rse_id) COMPRESS 1 TABL
 
 
 
--- ========================================= ACCOUNT_COUNTERS (IOT structure) =========================================
--- Description: Table to store the disk usage per account and rse_id
--- Estimated volume: ~700 RSEs * 2000 accounts
--- Access pattern: by account, rse_id
-
-CREATE TABLE account_counters(
-        account VARCHAR2(25 CHAR),
-        rse_id RAW(16),
-        files NUMBER(19),
-        bytes NUMBER(19),
-        updated_at DATE,
-        created_at DATE,
-        CONSTRAINT "ACCOUNT_COUNTERS_PK" PRIMARY KEY (account, rse_id),
-        CONSTRAINT "ACCOUNT_COUNTERS_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-        CONSTRAINT "ACCOUNT_COUNTERS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-        CONSTRAINT "ACCOUNT_COUNTERS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-        CONSTRAINT "ACCOUNT_COUNTERS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-
-
 -- ========================================= UPDATED_ACCOUNT_COUNTERS =========================================
 
 CREATE TABLE UPDATED_ACCOUNT_COUNTERS
@@ -815,28 +797,6 @@ CREATE TABLE account_limits (
  CONSTRAINT ACCOUNT_LIMITS_ACCOUNT_FK FOREIGN KEY(account) REFERENCES accounts (account),
  CONSTRAINT ACCOUNT_LIMITS_RSE_ID_FK FOREIGN KEY(rse_id) REFERENCES rses(id)
 ) ORGANIZATION INDEX tablespace ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
-
-
--- ========================================= RSE_COUNTERS (physical structure IOT) =========================================
--- Description: Table to store incrementally the disk usage of a RSE
--- Estimated volume: ~700 RSEs: ~ 700
--- Access pattern: by rse_id
-
-CREATE TABLE rse_counters(
-        rse_id RAW(16),
-        files NUMBER(19),
-        bytes NUMBER(19),
-        updated_at DATE,
-        created_at DATE,
-        CONSTRAINT "RSE_COUNTERS_PK" PRIMARY KEY (rse_id),
-        CONSTRAINT "RSE_COUNTERS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-        CONSTRAINT "RSE_COUNTERS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-        CONSTRAINT "RSE_COUNTERS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-
 
 
 
@@ -1553,6 +1513,7 @@ CREATE TABLE rules_hist_recent (
     ignore_availability NUMBER(1) DEFAULT 0,
     ignore_account_limit NUMBER(1) DEFAULT 0,
     comments VARCHAR2(255 CHAR),
+    child_rule_id RAW(16),
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
 PARTITION BY RANGE(updated_at)
 INTERVAL ( NUMTODSINTERVAL(7,'DAY') )
@@ -1607,6 +1568,7 @@ CREATE TABLE rules_history (
     ignore_availability NUMBER(1) DEFAULT 0,
     ignore_account_limit NUMBER(1) DEFAULT 0,
     comments VARCHAR2(255 CHAR),
+    child_rule_id RAW(16),
 ) PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA01
 PARTITION BY RANGE(updated_at)
 INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') )
@@ -1716,3 +1678,48 @@ INTERVAL ( NUMTODSINTERVAL(1,'DAY') )
 (
 PARTITION "DATA_BEFORE_01062015" VALUES LESS THAN (TO_DATE('01-06-2015', 'DD-MM-YYYY'))
 );
+
+
+-- ============================= QUARANTINED_REPLICAS =========================================
+-- Description: Table to store quarantined replicas
+-- Estimated volume: dark data
+-- Access pattern: by rse_id
+
+CREATE TABLE QUARANTINED_REPLICAS (
+   rse_id RAW(16) NOT NULL,
+   path VARCHAR2(1024 CHAR) NOT NULL,
+   md5 VARCHAR2(32 CHAR),
+   adler32 VARCHAR2(8 CHAR),
+   bytes NUMBER(19),
+   updated_at DATE,
+   created_at DATE,
+   CONSTRAINT "QUARANTINED_REPLICAS_PK" PRIMARY KEY (rse_id, path),
+   CONSTRAINT "QURD_REPLICAS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES atlas_rucio.rses (id),
+   CONSTRAINT "QURD_REPLICAS_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
+   CONSTRAINT "QURD_REPLICAS_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
+) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+
+
+COMMENT ON TABLE QUARANTINED_REPLICAS IS 'Table to store the list of inconsistent files at site not known to Rucio and delete ten from the sites.' ;
+
+-- ============================= QUARANTINED_REPLICAS_HISTORY =========================================
+-- Description: Table to store quarantined replicas
+-- Estimated volume: dark data
+-- Access pattern: by rse_id
+
+CREATE TABLE QUARANTINED_REPLICAS_HISTORY (
+   rse_id RAW(16) NOT NULL,
+   path VARCHAR2(1024 CHAR) NOT NULL,
+   md5 VARCHAR2(32 CHAR),
+   adler32 VARCHAR2(8 CHAR),
+   bytes NUMBER(19),
+   updated_at DATE,
+   created_at DATE,
+   deleted_at DATE
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
+PARTITION BY RANGE(created_at)
+INTERVAL ( NUMTOYMINTERVAL(3,'MONTH') )
+( PARTITION "DATA_BEFORE_01032016" VALUES LESS THAN (TO_DATE('01-03-2016', 'DD-MM-YYYY')) );
+
+
+COMMENT ON TABLE QUARANTINED_REPLICAS_HISTORY IS 'Table of historical QUARANTINED_REPLICAS values of what dark data have been deleted from the sites.' ;

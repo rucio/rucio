@@ -39,7 +39,6 @@ from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
 from rucio.core.rse import sort_rses
-from rucio.core.rse_counter import get_counter
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.rse import rsemanager as rsemgr
 
@@ -78,17 +77,8 @@ def __check_rse_usage(rse, rse_id):
         return max_being_deleted_files, needed_free_space, used, free
 
     for var in usage:
-        total = var['total']
+        total, used = var['total'], var['used']
         break
-
-    # Get current used space
-    cnt = get_counter(rse_id=rse_id)
-    if not cnt:
-        return max_being_deleted_files, needed_free_space, used, free
-    used = cnt['bytes']
-
-    # Get current amount of bytes and files waiting for deletion
-    # being_deleted = rse_core.get_sum_count_being_deleted(rse_id=rse_id)
 
     free = total - used
     if min_free_space:
@@ -161,7 +151,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                             logging.info('Reaper %s-%s: free space is above minimum limit for %s', worker_number, child_number, rse['rse'])
                         else:
                             if total_children and total_children > 0:
-                                needed_free_space_per_child = needed_free_space/float(total_children)
+                                needed_free_space_per_child = needed_free_space / float(total_children)
 
                     start = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
@@ -216,7 +206,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                 prot.delete(replica['pfn'])
                                             else:
                                                 logging.warning('Reaper %s-%s: Deletion UNAVAILABLE of %s:%s as %s on %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
-                                        monitor.record_timer('daemons.reaper.delete.%s.%s' % (prot.attributes['scheme'], rse['rse']), (time.time()-start)*1000)
+                                        monitor.record_timer('daemons.reaper.delete.%s.%s' % (prot.attributes['scheme'], rse['rse']), (time.time() - start) * 1000)
                                         duration = time.time() - start
 
                                         deleted_files.append({'scope': replica['scope'], 'name': replica['name']})

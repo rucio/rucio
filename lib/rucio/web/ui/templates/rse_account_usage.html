@@ -7,7 +7,7 @@
  http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2016
 -->
 
 $var title: RSE Account Usage
@@ -18,7 +18,7 @@ $var script: <script src="/static/rse_account_usage.js"></script>
     <label>RSE</label>
   </div>
   <div class="row collapse">
-    <div class="columns large-4">
+    <div class="columns large-5">
       <input type="text" id="rse_input" placeholder="RSE"></input>
     </div>
     <div class="columns large-2">
@@ -28,8 +28,21 @@ $var script: <script src="/static/rse_account_usage.js"></script>
     </div>
   </div>
 
+  <div class="row collapse">
+    <div class="columns large-4">
+    </div>
+    <div class="columns large-6">
+    </div>
+  </div>
+
+  <div class="row collapse" id="rse_options">
+  </div>
+  <div oclass="row collapse" id="rse_options_message">
+  </div>
+  </br>
   <div class="row" id="results">
   </div>
+
   <div class="row collapse">
     <div class="columns large-1">
       <a class="button postfix" id="save_quota" style="display:none">Save Changes</a>

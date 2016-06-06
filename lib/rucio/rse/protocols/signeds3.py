@@ -77,6 +77,17 @@ class Default(protocol.RSEProtocol):
         self.timeout = 300
         self.cert = None
 
+    def _get_path(self, scope, name):
+        """ Transforms the physical file name into the local URI in the referred RSE.
+            Suitable for sites implementoing the RUCIO naming convention.
+
+            :param name: filename
+            :param scope: scope
+
+            :returns: RSE specific URI of the physical file
+        """
+        return '%s:%s' % (scope, name)
+
     def path2pfn(self, path):
         """
             Returns a fully qualified PFN for the file referred by path.
@@ -163,6 +174,8 @@ class Default(protocol.RSEProtocol):
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
             path = path.partition(name)[0]
+            if not path.startswith('/'):
+                path = '/' + path
             ret[pfn] = {'path': path, 'name': name, 'scheme': scheme, 'prefix': prefix, 'port': port, 'hostname': hostname, }
 
         return ret
