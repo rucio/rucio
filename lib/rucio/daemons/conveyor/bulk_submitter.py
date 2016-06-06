@@ -94,7 +94,7 @@ def submitter(once=False, rses=[],
                 ts = time.time()
                 transfers = get_transfers_from_requests(process=process, total_processes=total_processes, thread=0, total_threads=1, rse_ids=rse_ids, mock=mock, bulk=bulk,
                                                         activity=activity, activity_shares=activity_shares, scheme=scheme, max_sources=max_sources)
-                record_timer('daemons.conveyor.bulk_submitter.get_transfers_from_requests.per_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
+                record_timer('daemons.conveyor.bulk_submitter.get_transfers_from_requests.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.bulk_submitter.get_transfers_from_requests', len(transfers))
                 record_timer('daemons.conveyor.bulk_submitter.get_transfers_from_requests.transfers', len(transfers))
 
@@ -102,7 +102,7 @@ def submitter(once=False, rses=[],
                 logging.info("%s:%s Starting to group transfers" % (process, thread))
                 ts = time.time()
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy)
-                record_timer('daemons.conveyor.bulk_submitter.bulk_group_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
+                record_timer('daemons.conveyor.bulk_submitter.bulk_group_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
 
                 logging.info("%s:%s Starting to submit transfers" % (process, thread))
                 for external_host in grouped_jobs:
@@ -174,7 +174,7 @@ def run(once=False,
             logging.critical('activity shares are not numbers? - aborting')
             return
 
-        activity_shares.update((share, int(percentage*bulk)) for share, percentage in activity_shares.items())
+        activity_shares.update((share, int(percentage * bulk)) for share, percentage in activity_shares.items())
         logging.info('activity shares enabled: %s' % activity_shares)
 
     if once:

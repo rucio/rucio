@@ -209,6 +209,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
     for dataset in datasetfiles:
+        selected_rse_ids = []
         for file in dataset['files']:
             if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
                 # Nothing to do as the file already has the requested amount of locks
@@ -238,6 +239,26 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
                                           source_replicas=source_replicas,
                                           transfers_to_create=transfers_to_create,
                                           session=session)
+                selected_rse_ids.append(rse_tuple[0])
+        if dataset['scope'] is not None:
+            for rse_id in list(set(selected_rse_ids)):
+                try:
+                    session.query(models.CollectionReplica).filter(models.CollectionReplica.scope == dataset['scope'],
+                                                                   models.CollectionReplica.name == dataset['name'],
+                                                                   models.CollectionReplica.rse_id == rse_id).one()
+                except NoResultFound:
+                    models.CollectionReplica(scope=dataset['scope'],
+                                             name=dataset['name'],
+                                             did_type=DIDType.DATASET,
+                                             rse_id=rse_id,
+                                             bytes=0,
+                                             length=0,
+                                             available_bytes=0,
+                                             available_replicas_cnt=0,
+                                             state=ReplicaState.UNAVAILABLE).save(session=session)
+                    models.UpdatedCollectionReplica(scope=dataset['scope'],
+                                                    name=dataset['name'],
+                                                    did_type=DIDType.DATASET).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
@@ -352,7 +373,6 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
                                              state=ReplicaState.UNAVAILABLE).save(session=session)
                     models.UpdatedCollectionReplica(scope=dataset['scope'],
                                                     name=dataset['name'],
-                                                    rse_id=rse_tuple[0],
                                                     did_type=DIDType.DATASET).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
@@ -467,7 +487,6 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
                                              state=ReplicaState.UNAVAILABLE).save(session=session)
                     models.UpdatedCollectionReplica(scope=dataset['scope'],
                                                     name=dataset['name'],
-                                                    rse_id=rse_tuple[0],
                                                     did_type=DIDType.DATASET).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
@@ -562,7 +581,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                                 locks_to_delete[lock.rse_id] = [lock]
                     except InsufficientTargetRSEs:
                         # Just retry the already existing lock
-                        if __is_retry_required(lock):
+                        if __is_retry_required(lock=lock, activity=rule.activity):
                             associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                             __update_lock_replica_and_create_transfer(lock=lock,
                                                                       replica=associated_replica,
@@ -672,7 +691,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                                 locks_to_delete[lock.rse_id] = [lock]
                     except InsufficientTargetRSEs:
                         # Just retry the already existing lock
-                        if __is_retry_required(lock):
+                        if __is_retry_required(lock=lock, activity=rule.activity):
                             associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                             __update_lock_replica_and_create_transfer(lock=lock,
                                                                       replica=associated_replica,
@@ -782,7 +801,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                                 locks_to_delete[lock.rse_id] = [lock]
                     except InsufficientTargetRSEs:
                         # Just retry the already existing lock
-                        if __is_retry_required(lock):
+                        if __is_retry_required(lock=lock, activity=rule.activity):
                             associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                             __update_lock_replica_and_create_transfer(lock=lock,
                                                                       replica=associated_replica,
@@ -794,24 +813,32 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
-def __is_retry_required(lock):
+def __is_retry_required(lock, activity):
     """
     :param lock:                 The lock to check.
+    :param activity:             The activity of the rule.
     """
 
     created_at_diff = (datetime.utcnow() - lock.created_at).days * 24 * 3600 + (datetime.utcnow() - lock.created_at).seconds
     updated_at_diff = (datetime.utcnow() - lock.updated_at).days * 24 * 3600 + (datetime.utcnow() - lock.updated_at).seconds
 
-    if created_at_diff < 24 * 3600:  # First Day
+    if activity == 'Express':
+        if updated_at_diff > 3600 * 2:
+            return True
+    elif created_at_diff < 24 * 3600:  # First Day
+        # Retry every 2 hours
+        if updated_at_diff > 3600 * 2:
+            return True
+    elif created_at_diff < 2 * 24 * 3600:  # Second Day
         # Retry every 4 hours
         if updated_at_diff > 3600 * 4:
             return True
-    elif created_at_diff < 2 * 24 * 3600:  # Second Day
-        # Retry every 12 hours
-        if updated_at_diff > 3600 * 12:
+    elif created_at_diff < 3 * 24 * 3600:  # Third Day
+        # Retry every 6 hours
+        if updated_at_diff > 3600 * 6:
             return True
-    else:  # Three and more days
-        if updated_at_diff > 3600 * 24:
+    else:  # Four and more days
+        if updated_at_diff > 3600 * 8:
             return True
     return False
 

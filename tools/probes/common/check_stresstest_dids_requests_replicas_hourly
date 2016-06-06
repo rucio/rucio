@@ -34,22 +34,22 @@ if __name__ == "__main__":
         utctimeInt = int(time.mktime(utctime.timetuple()))
         timeStart = utctimeInt / 3600 * 3600 - 3600
         timeEnd = timeStart + 3600
-        timezoneoffset = int((datetime.datetime.now()-datetime.datetime.utcnow()).seconds)
+        timezoneoffset = int((datetime.datetime.now() - datetime.datetime.utcnow()).seconds)
 
         # created datasets hourly
         sql = "select  /*+ index_ffs(dids DIDS_PK) */  count(1) from atlas_rucio.dids where scope='tests' and did_type='D' \
-               and account='ddmusr01' and project='step14' and created_at>= to_timestamp('"+str(datetime.datetime.fromtimestamp(timeStart))+"','YYYY-MM-dd HH24:MI:SS') \
-               and created_at <to_timestamp('"+str(datetime.datetime.fromtimestamp(timeEnd))+"','YYYY-MM-dd HH24:MI:SS')"
+               and account='ddmusr01' and project='step14' and created_at>= to_timestamp('" + str(datetime.datetime.fromtimestamp(timeStart)) + "','YYYY-MM-dd HH24:MI:SS') \
+               and created_at <to_timestamp('" + str(datetime.datetime.fromtimestamp(timeEnd)) + "','YYYY-MM-dd HH24:MI:SS')"
         result = session.execute(sql).fetchone()[0]
-        monitor.record_gauge(stat='%s.hourly.created_datasets' % scope,   value=result)
+        monitor.record_gauge(stat='%s.hourly.created_datasets' % scope, value=result)
         print "hourly.created_datasets " + str(result)
 
         # created files hourly
         sql = "select  /*+ index_ffs(dids DIDS_PK) */  count(1) from atlas_rucio.dids where scope='tests' and did_type='F' \
-              and account='ddmusr01' and created_at>= to_timestamp('"+str(datetime.datetime.fromtimestamp(timeStart))+"','YYYY-MM-dd HH24:MI:SS') \
-              and created_at <to_timestamp('"+str(datetime.datetime.fromtimestamp(timeEnd))+"','YYYY-MM-dd HH24:MI:SS')"
+              and account='ddmusr01' and created_at>= to_timestamp('" + str(datetime.datetime.fromtimestamp(timeStart)) + "','YYYY-MM-dd HH24:MI:SS') \
+              and created_at <to_timestamp('" + str(datetime.datetime.fromtimestamp(timeEnd)) + "','YYYY-MM-dd HH24:MI:SS')"
         result = session.execute(sql).fetchone()[0]
-        monitor.record_gauge(stat='%s.hourly.created_files' % scope,   value=result)
+        monitor.record_gauge(stat='%s.hourly.created_files' % scope, value=result)
         print "hourly.created_files " + str(result)
 
         # created replicas hourly
@@ -64,8 +64,8 @@ if __name__ == "__main__":
             ELSE state
         """
         sql += "END state_desc, num_rows FROM (select /*+ index_ffs((replicas REPLICAS_PK) */ state, count(*) num_rows FROM atlas_rucio.replicas \
-                WHERE scope = 'tests' and created_at>= to_timestamp('"+str(datetime.datetime.fromtimestamp(timeStart))+"','YYYY-MM-dd HH24:MI:SS') \
-                and created_at <to_timestamp('"+str(datetime.datetime.fromtimestamp(timeEnd))+"','YYYY-MM-dd HH24:MI:SS') \
+                WHERE scope = 'tests' and created_at>= to_timestamp('" + str(datetime.datetime.fromtimestamp(timeStart)) + "','YYYY-MM-dd HH24:MI:SS') \
+                and created_at <to_timestamp('" + str(datetime.datetime.fromtimestamp(timeEnd)) + "','YYYY-MM-dd HH24:MI:SS') \
                 and rse_id != (select id from atlas_rucio.rses where rse = 'CERN-PROD-RUCIOTEST_DATADISK') GROUP BY state)"
         result = session.execute(sql).fetchall()
         for r in result:
@@ -74,8 +74,8 @@ if __name__ == "__main__":
 
         # finished replicas hourly
         sql = "select  /*+ index_ffs(replicas REPLICAS_PK) */  count(1) from atlas_rucio.replicas where scope='tests' and state='A' \
-               and updated_at>= to_timestamp('"+str(datetime.datetime.fromtimestamp(timeStart))+"','YYYY-MM-dd HH24:MI:SS') \
-               and updated_at <to_timestamp('"+str(datetime.datetime.fromtimestamp(timeEnd))+"','YYYY-MM-dd HH24:MI:SS') \
+               and updated_at>= to_timestamp('" + str(datetime.datetime.fromtimestamp(timeStart)) + "','YYYY-MM-dd HH24:MI:SS') \
+               and updated_at <to_timestamp('" + str(datetime.datetime.fromtimestamp(timeEnd)) + "','YYYY-MM-dd HH24:MI:SS') \
                and rse_id != (select id from atlas_rucio.rses where rse = 'CERN-PROD-RUCIOTEST_DATADISK')"
         result = session.execute(sql).fetchone()[0]
         print 'hourly.finished_replicas %s' % result
@@ -84,13 +84,13 @@ if __name__ == "__main__":
         # Total datasets hourly
         sql = "select  /*+ index_ffs(dids DIDS_PK) */  count(1) from atlas_rucio.dids where scope='tests' and did_type='D' and account='ddmusr01' and project='step14'"
         result = session.execute(sql).fetchone()[0]
-        monitor.record_gauge(stat='%s.hourly.total_created_datasets' % scope,   value=result)
+        monitor.record_gauge(stat='%s.hourly.total_created_datasets' % scope, value=result)
         print "hourly.total_created_datasets " + str(result)
 
         # Total files hourly
         sql = "select  /*+ index_ffs(dids DIDS_PK) */  count(1) from atlas_rucio.dids where scope='tests' and did_type='F' and account='ddmusr01'"
         result = session.execute(sql).fetchone()[0]
-        monitor.record_gauge(stat='%s.hourly.total_created_files' % scope,   value=result)
+        monitor.record_gauge(stat='%s.hourly.total_created_files' % scope, value=result)
         print "hourly.total_created_files " + str(result)
 
         # Total replicas hourly

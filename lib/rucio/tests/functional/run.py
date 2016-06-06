@@ -123,7 +123,7 @@ def run_simulation(scope, process_number, number_repeats):
     with open(os.path.join(LOG_PATH, scope, 'main_%s' % process_number), 'a') as main_log_file:
         for x in xrange(number_repeats):
             for c in commands:
-                block_number = process_number*1000+x
+                block_number = process_number * 1000 + x
                 if c['cmd'] == 'PARALLEL':
                     threads = []
                     for index, code in enumerate(c['list']):
@@ -144,10 +144,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Rucio functional tests.')
     parser.add_argument('scope', type=str, help='scope to use, creates it if it does not exist')
 
-    parser.add_argument('-r', '--repeat', metavar='repeat',  type=int, default=1,
+    parser.add_argument('-r', '--repeat', metavar='repeat', type=int, default=1,
                         help='how many time to repeat the block (default: 1)')
 
-    parser.add_argument('-p', '--parallel', metavar='parallel',  type=int, default=1,
+    parser.add_argument('-p', '--parallel', metavar='parallel', type=int, default=1,
                         help='how many parallel instances process should be executed (default: 1)')
 
     args = parser.parse_args()

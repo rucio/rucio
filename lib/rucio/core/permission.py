@@ -139,7 +139,7 @@ def perm_add_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if kwargs['account'] == issuer:
+    if kwargs['account'] == issuer and not kwargs['locked']:
         return True
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
@@ -433,11 +433,12 @@ def perm_update_rule(issuer, kwargs):
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
 
-    # Only admin accounts can change account and state of a rule
-    if 'account' in kwargs['options']:
-        return False  # Only priv accounts are allowed to change owner
-    if 'state' in kwargs['options']:
-        return False  # Only priv accounts are allowed to change state
+    # Only admin accounts can change account, state, priority and locked of a rule
+    if 'account' in kwargs['options'] or\
+       'state' in kwargs['options'] or\
+       'priority' in kwargs['options'] or\
+       'locked' in kwargs['options']:
+        return False  # Only priv accounts are allowed to change that
 
     # Owner or country admins can change the rest of a rule
     if get_rule(kwargs['rule_id'])['account'] == issuer:
@@ -491,7 +492,7 @@ def perm_approve_rule(issuer, kwargs):
     # GROUPDISK admins can approve the rule
     admin_for_phys_group = []
     for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('physgroup-') and kv['value'] == 'admin':
+        if kv['key'].startswith('group-') and kv['value'] == 'admin':
             admin_for_phys_group.append(kv['key'].partition('-')[2])
     if admin_for_phys_group:
         for rse in rses:

@@ -7,7 +7,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2016
   - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
@@ -23,6 +23,7 @@ import re
 
 from rucio import version
 from rucio.common.config import config_get
+from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.rse import get_rse_id
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
@@ -197,6 +198,18 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
+        nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
+
+    def test_upload_file_guid(self):
+        """CLIENT(USER): Rucio upload file with guid"""
+        tmp_file1 = file_generator()
+        tmp_guid = generate_uuid()
+        cmd = 'rucio upload --rse {0} --guid {1} --scope {2} {3}'.format(self.def_rse, tmp_guid, self.user, tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        remove(tmp_file1)
         nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
 
     def test_upload_repeated_file(self):
@@ -378,7 +391,7 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
-        search = 'Download operation for {0} done'.format(tmp_dataset)
+        search = '{0} successfully downloaded'.format(tmp_file1[5:])  # triming '/tmp/' from filename
         nose.tools.assert_not_equal(re.search(search, err), None)
 
     def test_create_rule(self):

@@ -15,11 +15,11 @@ Create Date: 2014-10-13 14:12:05.081808
 
 """
 
+from alembic import context, op
+
 # revision identifiers, used by Alembic.
 revision = '156fb5b5a14'
 down_revision = '1a29d6a9504c'
-
-from alembic import context, op
 
 
 def upgrade():
@@ -30,8 +30,7 @@ def upgrade():
         op.drop_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests')
         op.create_foreign_key('REQUESTS_RSES_FK', 'requests', 'rses', ['dest_rse_id'], ['id'])
         op.create_foreign_key('REQUESTS_DID_FK', 'requests', 'dids', ['scope', 'name'], ['scope', 'name'])
-
-    op.create_unique_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', ['scope', 'name', 'dest_rse_id', 'request_type'])
+        op.create_unique_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', ['scope', 'name', 'dest_rse_id', 'request_type'])
 
 
 def downgrade():
@@ -42,5 +41,4 @@ def downgrade():
         op.drop_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', type_='unique')
         op.create_foreign_key('REQUESTS_RSES_FK', 'requests', 'rses', ['dest_rse_id'], ['id'])
         op.create_foreign_key('REQUESTS_DID_FK', 'requests', 'dids', ['scope', 'name'], ['scope', 'name'])
-
-    op.create_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests', ['scope', 'name', 'dest_rse_id', 'request_type'])
+        op.create_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests', ['scope', 'name', 'dest_rse_id', 'request_type'])

@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -78,16 +78,13 @@ class Replicas(RucioController):
 
         dids, schemes, select, limit = [{'scope': scope, 'name': name}], None, None, None
         if ctx.query:
-            try:
-                params = loads(unquote(ctx.query[1:]))
-                if 'schemes' in params:
-                    schemes = params['schemes']
-            except ValueError:
-                params = parse_qs(ctx.query[1:])
-                if 'select' in params:
-                    select = params['select'][0]
-                if 'limit' in params:
-                    limit = int(params['limit'][0])
+            params = parse_qs(ctx.query[1:])
+            if 'schemes' in params:
+                schemes = params['schemes']
+            if 'select' in params:
+                select = params['select'][0]
+            if 'limit' in params:
+                limit = int(params['limit'][0])
 
         try:
             # first, set the appropriate content type, and stream the header
@@ -95,11 +92,9 @@ class Replicas(RucioController):
                 header('Content-Type', 'application/x-json-stream')
             elif metalink == 3:
                 header('Content-Type', 'application/metalink+xml')
-                schemes = ['http', 'https']
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink version="3.0" xmlns="http://www.metalinker.org/">\n<files>\n'
             elif metalink == 4:
                 header('Content-Type', 'application/metalink4+xml')
-                schemes = ['http', 'https']
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
             # then, stream the replica information
@@ -297,8 +292,7 @@ class ListReplicas(RucioController):
                 metalink = 4
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
-        ignore_availability = False
-        all_states = False
+        ignore_availability, rse_expression, all_states = False, None, False
         json_data = data()
         try:
             params = parse_response(json_data)
@@ -311,6 +305,9 @@ class ListReplicas(RucioController):
                 ignore_availability = True
             if 'all_states' in params:
                 all_states = params['all_states']
+            if 'rse_expression' in params:
+                rse_expression = params['rse_expression']
+
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -333,7 +330,12 @@ class ListReplicas(RucioController):
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
             # then, stream the replica information
-            for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=ctx.env.get('request_id'), ignore_availability=ignore_availability, all_states=all_states):
+            for rfile in list_replicas(dids=dids, schemes=schemes,
+                                       unavailable=unavailable,
+                                       request_id=ctx.env.get('request_id'),
+                                       ignore_availability=ignore_availability,
+                                       all_states=all_states,
+                                       rse_expression=rse_expression):
                 client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
                 if client_ip is None:
                     client_ip = ctx.ip

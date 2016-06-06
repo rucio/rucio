@@ -52,7 +52,7 @@ def test_quering_replicas_chuncked(file_list):
     c.list_replicas(file_list[700:800])
     c.list_replicas(file_list[800:900])
     c.list_replicas(file_list[900:1000])
-    return (time.time() - tick)/10
+    return (time.time() - tick) / 10
 
 
 def test_create_rule():
@@ -70,13 +70,13 @@ def get_filelist():
     except IOError:
         s = 0
     f = open('/tmp/.slice', 'w')
-    f.write(str((s+1) % 20))   # the offset is a number between 0 and 19
+    f.write(str((s + 1) % 20))   # the offset is a number between 0 and 19
     f.close()
     files = ('rucio_test_mock_file_{0:05}'.format(x) for x in xrange(20000))
     f = []
     f.extend(files)
     fl = []
-    for i in (({'scope': 'mock', 'name': x}) for x in f[(s*1000): (s*1000)+1000]):
+    for i in (({'scope': 'mock', 'name': x}) for x in f[(s * 1000): (s * 1000) + 1000]):
         fl.append(i)
     return fl
 
