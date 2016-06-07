@@ -1361,13 +1361,14 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
 
 
 @read_session
-def get_injected_rules(total_workers, worker_number, limit=10, session=None):
+def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rules=[], session=None):
     """
     Get rules to be injected.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param limit:              Maximum number of rules to return.
+    :param blacklisted_rules:  Blacklisted rules not to include.
     :param session:            Database session in use.
     """
 
@@ -1392,7 +1393,19 @@ def get_injected_rules(total_workers, worker_number, limit=10, session=None):
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
-    return query.limit(limit).all()
+    if limit:
+        fetched_rules = query.limit(limit).all()
+        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
+        if len(fetched_rules) == limit and len(filtered_rules) == 0:
+            return get_injected_rules(total_workers=total_workers,
+                                      worker_number=worker_number,
+                                      limit=None,
+                                      blacklisted_rules=blacklisted_rules,
+                                      session=session)
+        else:
+            return filtered_rules
+    else:
+        return [rule for rule in query.all() if rule[0] not in blacklisted_rules]
 
 
 @read_session

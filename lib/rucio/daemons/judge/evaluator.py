@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 
@@ -76,7 +76,7 @@ def re_evaluator(once=False):
 
             # If the list is empty, sent the worker to sleep
             if not dids and not once:
-                logging.debug('re_evaluator[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
+                logging.debug('re_evaluator[%s/%s] did not get any work (paused_dids=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, str(len(paused_dids))))
                 graceful_stop.wait(30)
             else:
                 done_dids = {}
