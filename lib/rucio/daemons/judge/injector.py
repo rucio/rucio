@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
 
 """
 Judge-Injector is a daemon to asynchronously create replication rules
@@ -60,10 +60,6 @@ def rule_injector(once=False):
             heartbeat = live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
 
             start = time.time()
-            rules = get_injected_rules(total_workers=heartbeat['nr_threads'] - 1,
-                                       worker_number=heartbeat['assign_thread'],
-                                       limit=10)
-            logging.debug('rule_injector[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(rules)))
 
             # Refresh paused rules
             iter_paused_rules = deepcopy(paused_rules)
@@ -71,11 +67,14 @@ def rule_injector(once=False):
                 if datetime.utcnow() > paused_rules[key]:
                     del paused_rules[key]
 
-            # Remove paused rules from result set
-            rules = [rule for rule in rules if rule[0] not in paused_rules]
+            rules = get_injected_rules(total_workers=heartbeat['nr_threads'] - 1,
+                                       worker_number=heartbeat['assign_thread'],
+                                       limit=100,
+                                       blacklisted_rules=[key for key in paused_rules])
+            logging.debug('rule_injector[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(rules)))
 
             if not rules and not once:
-                logging.debug('rule_injector[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
+                logging.debug('rule_injector[%s/%s] did not get any work (paused_rules=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, str(len(paused_rules))))
                 graceful_stop.wait(60)
             else:
                 for rule in rules:

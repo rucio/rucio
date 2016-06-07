@@ -77,7 +77,7 @@ def rule_cleaner(once=False):
             rules = [rule for rule in rules if rule[0] not in paused_rules]
 
             if not rules and not once:
-                logging.debug('rule_cleaner[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
+                logging.debug('rule_cleaner[%s/%s] did not get any work (paused_rules=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, str(len(paused_rules))))
                 graceful_stop.wait(60)
             else:
                 for rule in rules:
