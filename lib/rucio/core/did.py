@@ -13,7 +13,7 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2016
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
   - Wen Guan, <wen.guan@cern.ch>, 2015
 '''
@@ -174,7 +174,7 @@ def add_dids(dids, account, session=None):
                     add_message(event_type, {'account': account,
                                              'scope': did['scope'],
                                              'name': did['name'],
-                                             'expires': str(expired_at)},
+                                             'expired_at': str(expired_at)},
                                 session=session)
 
             except KeyError:
