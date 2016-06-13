@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
 """
 Methods common to different conveyor daemons.
@@ -572,6 +573,7 @@ def add_monitor_message(request, response, session=None):
                                   'checksum-adler': adler32,
                                   'checksum-md5': md5,
                                   'file-size': filesize,
+                                  'bytes': filesize,
                                   'guid': None,
                                   'previous-request-id': response['previous_attempt_id'],
                                   'protocol': dst_protocol,
