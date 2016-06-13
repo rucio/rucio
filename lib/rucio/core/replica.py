@@ -1631,6 +1631,7 @@ def list_dataset_replicas(scope, name, session=None):
     query = session.query(models.CollectionReplica.scope,
                           models.CollectionReplica.name,
                           models.RSE.rse,
+                          models.CollectionReplica.rse_id,
                           models.CollectionReplica.bytes,
                           models.CollectionReplica.length,
                           models.CollectionReplica.available_bytes,
