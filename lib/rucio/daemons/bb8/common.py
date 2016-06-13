@@ -12,11 +12,12 @@ import sys
 
 from datetime import datetime
 
+from rucio.core.replica import list_dataset_replicas
 from rucio.core.rule import get_rule, add_rule, update_rule
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse import list_rse_attributes, get_rse_name
 from rucio.core.rse_selector import RSESelector
-from rucio.core.subscription import get_subscription_by_id
+# from rucio.core.subscription import get_subscription_by_id
 from rucio.common.config import config_get
 from rucio.db.sqla.session import transactional_session
 
@@ -39,7 +40,7 @@ def rebalance_rule(parent_rule_id, activity, rse_expression):
     if parent_rule['expires_at'] is None:
         lifetime = None
     else:
-        lifetime = (datetime.utcnow() - parent_rule['expires_at']).days * 24 * 3600 + (datetime.utcnow() - parent_rule['expires_at']).seconds
+        lifetime = (parent_rule['expires_at'] - datetime.utcnow()).days * 24 * 3600 + (parent_rule['expires_at'] - datetime.utcnow()).seconds
 
     child_rule = add_rule(dids=[{'scope': parent_rule['scope'],
                                  'name': parent_rule['name']}],
@@ -70,27 +71,26 @@ def list_rebalance_rule_candidates(rse, session=None):
     List the rebalance rule candidates based on the agreed on specification
     """
 
-    sql = """SELECT /*+ parallel(4) */ r.scope as scope, r.name as name, r.id as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM dataset_locks dsl JOIN rules r ON (dsl.rule_id = r.id) JOIN dids d ON (dsl.scope = d.scope and dsl.name = d.name)
-WHERE 
-dsl.rse_id = rse2id('%s') and
+    sql = """SELECT /*+ parallel(4) */ r.scope as scope, r.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
+WHERE
+dsl.rse_id = atlas_rucio.rse2id(:rse) and
 (r.expires_at > sysdate+60 or r.expires_at is NULL) and
 r.created_at < sysdate-60 and
 r.account IN ('panda', 'root', 'ddmadmin') and
 r.state = 'O' and
 r.copies = 1 and
+r.child_rule_id is NULL and
 d.bytes is not NULL and
 d.is_open = 0 and
 r.grouping IN ('D', 'A') and
-1 = (SELECT count(*) FROM dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
-0 < (SELECT count(*) FROM dataset_locks WHERE scope=dsl.scope and name=dsl.name and INSTR(id2rse(rse_id), 'TAPE') > 0)
-ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC;
-    """ & (rse)  # NOQA
-
-    return session.execute(sql).fetchall()
+1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
+0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and INSTR(atlas_rucio.id2rse(rse_id), 'TAPE') > 0)
+ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
+    return session.execute(sql, {'rse': rse}).fetchall()
 
 
 @transactional_session
-def select_target_rse(current_rse, rse_expression, subscription_id, rse_attributes, session=None):
+def select_target_rse(current_rse, rse_expression, subscription_id, rse_attributes, other_rses=[], session=None):
     """
     Select a new target RSE for a rebalanced rule.
 
@@ -98,25 +98,29 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
     :param rse_expression:     RSE Expression of the source rule.
     :param subscription_id:    Subscription ID of the source rule.
     :param rse_attributes:     The attributes of the source rse.
+    :param other_rses:         Other RSEs with existing dataset replicas.
     :param session:            The DB Session
     :returns:                  New RSE expression
     """
+
     if subscription_id:
         pass
-        get_subscription_by_id(subscription_id, session)
+        # get_subscription_by_id(subscription_id, session)
     rses = parse_expression(expression=rse_expression, session=session)
     if len(rses) > 1:
         # Just define the RSE Expression without the current_rse
         return '(%s)\%s' % (rse_expression, current_rse)
     if rse_attributes['tier'] is True or rse_attributes['tier'] == 1:
         # Tier 1 should go to another Tier 1
-        rses = parse_expression(expression='(tier=1&type=DATADISK)\\%s' % current_rse, filter={'availability_write': True}, session=session)
+        rses = parse_expression(expression='(tier=1&type=DATADISK)\\RRC-KI-T1_DATADISK\\%s' % current_rse, filter={'availability_write': True}, session=session)
     if rse_attributes['tier'] == 2:
         # Tier 2 should go to another Tier 2
         rses = parse_expression(expression='(tier=2&type=DATADISK)\\%s' % current_rse, filter={'availability_write': True}, session=session)
 
     rseselector = RSESelector(account='ddmadmin', rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
-    return get_rse_name([rse_id for rse_id, _ in rseselector.select_rse(0)][0], session=session)
+    return get_rse_name([rse_id for rse_id, _ in rseselector.select_rse(size=0,
+                                                                        preferred_rse_ids=[],
+                                                                        blacklist=other_rses)][0], session=session)
 
 
 @transactional_session
@@ -141,16 +145,22 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, session=None):
         if max_files:
             if rebalanced_files + length > max_files:
                 continue
+
+        other_rses = [r['rse_id'] for r in list_dataset_replicas(scope, name, session=session)]
+
         # Select the target RSE for this rule
         target_rse_exp = select_target_rse(current_rse=rse,
                                            rse_expression=rse_expression,
                                            subscription_id=subscription_id,
                                            rse_attributes=rse_attributes,
+                                           other_rses=other_rses,
                                            session=session)
         # Rebalance this rule
-        rebalance_rule(parent_rule_id=rule_id,
-                       activity='Rebalancing',
-                       rse_expression=target_rse_exp)
+        child_rule_id = rebalance_rule(parent_rule_id=rule_id,
+                                       activity='Data Brokering',
+                                       rse_expression=target_rse_exp)
+        # child_rule_id=''
+        print ('%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes / 1E9), target_rse_exp, child_rule_id))
         rebalanced_bytes += bytes
         rebalanced_files += length
-        rebalanced_datasets.append((scope, name))
+        rebalanced_datasets.append((scope, name, bytes, length, target_rse_exp, rule_id, child_rule_id))
