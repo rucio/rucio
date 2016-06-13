@@ -96,6 +96,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                                                           'name': replica['name'],
                                                           'rse': rse,
                                                           'file-size': replica.get('bytes') or 0,
+                                                          'bytes': replica.get('bytes') or 0,
                                                           'url': pfn,
                                                           'duration': duration})
                             deleted_replicas.append(replica)
@@ -110,6 +111,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                                                             'name': replica['name'],
                                                             'rse': rse,
                                                             'file-size': replica['bytes'] or 0,
+                                                            'bytes': replica['bytes'] or 0,
                                                             'url': pfn,
                                                             'reason': str(error)})
 

@@ -11,6 +11,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
 import datetime
 import json
@@ -327,9 +328,10 @@ def queue_requests(requests, session=None):
                    'rule-id': str(new_request['rule_id']),
                    'activity': new_request['activity'],
                    'file-size': new_request['bytes'],
+                   'bytes': new_request['bytes'],
                    'checksum-md5': new_request['md5'],
                    'checksum-adler': new_request['adler32'],
-                   'queued-at': str(datetime.datetime.utcnow())}
+                   'queued_at': str(datetime.datetime.utcnow())}
             if msg['request-type']:
                 transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
             else:
@@ -498,11 +500,12 @@ def set_request_transfers_state(transfers, submitted_at, session=None):
                    'state': str(transfers[request_id]['state']),
                    'activity': transfers[request_id]['metadata'].get('activity', None),
                    'file-size': transfers[request_id]['metadata'].get('filesize', None),
+                   'bytes': transfers[request_id]['metadata'].get('filesize', None),
                    'checksum-md5': transfers[request_id]['metadata'].get('md5', None),
                    'checksum-adler': transfers[request_id]['metadata'].get('adler32', None),
                    'external-id': transfers[request_id]['external_id'],
                    'external-host': transfers[request_id]['external_host'],
-                   'queued-at': str(submitted_at)}
+                   'queued_at': str(submitted_at)}
 
             if msg['request-type']:
                 transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
