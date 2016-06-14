@@ -231,12 +231,12 @@ def transmogrifier(bulk=5, once=False):
                                     subscription_id = str(subscription['id'])
                                     account = subscription['account']
                                     copies = int(rule['copies'])
-                                    activity = rule.get('activity', 'default')
+                                    activity = rule.get('activity', 'User Subscriptions')
                                     try:
                                         validate_schema(name='activity', obj=activity)
                                     except InputValidationError, error:
                                         logging.error('Error validating the activity %s' % (str(error)))
-                                        activity = 'default'
+                                        activity = 'User Subscriptions'
                                     if lifetime:
                                         lifetime = int(lifetime)
 
