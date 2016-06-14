@@ -1662,8 +1662,8 @@ def info_rule(args):
                 print '    Last Retry:           %s' % str(transfer['last_time'])
                 print '    Last error:           %s' % str(transfer['last_error'])
                 print '    Last source:          %s' % str(transfer['last_source'])
-                print '    Available sources:    %s' % ', '.join([source for source in transfer['sources'] if source[1]])
-                print '    Blacklisted sources:  %s' % ', '.join([source for source in transfer['sources'] if not source[1]])
+                print '    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]])
+                print '    Blacklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]])
     else:
         rule = client.get_replication_rule(rule_id=args.rule_id)
         print "Id:                         %s" % rule['id']
