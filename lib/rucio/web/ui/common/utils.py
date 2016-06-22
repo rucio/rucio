@@ -10,6 +10,7 @@
 
 from json import dumps
 from os.path import dirname, join
+from time import time
 from web import cookies, ctx, input, setcookie, template
 
 from rucio import version
@@ -127,6 +128,7 @@ def check_token(rendered_tpl):
     # if there was no valid session token write the new token to a cookie.
     if token:
         setcookie('x-rucio-auth-token', value=token, path='/')
+        setcookie('rucio-auth-token-created-at', value=int(time()), path='/')
 
     if cookie_accounts:
         values = ""
