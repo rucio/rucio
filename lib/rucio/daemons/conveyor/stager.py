@@ -57,6 +57,11 @@ def submitter(once=False, rses=[], mock=False,
         scheme = None
 
     try:
+        failover_scheme = config_get('conveyor', 'failover_scheme')
+    except NoOptionError:
+        failover_scheme = None
+
+    try:
         bring_online = config_get('conveyor', 'bring_online')
     except NoOptionError:
         bring_online = 43200
@@ -111,7 +116,7 @@ def submitter(once=False, rses=[], mock=False,
 
                 logging.info("%s:%s Starting to get stagein transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
-                transfers = get_stagein_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'],
+                transfers = get_stagein_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'], failover_schemes=failover_scheme,
                                                   limit=bulk, activity=activity, rses=rse_ids, mock=mock, schemes=scheme, bring_online=bring_online, retry_other_fts=retry_other_fts)
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.stager.get_stagein_transfers', len(transfers))
