@@ -87,7 +87,11 @@ def check_token(rendered_tpl):
                                                            'webui',
                                                            ctx.env.get('REMOTE_ADDR'))
             except:
-                return render.problem("Your certificate (%s) is not registered in Rucio. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
+                msg = "Your certificate (%s) is not registered in Rucio." % dn
+                msg += " Please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> first and then wait some time until it has fully propagated through the system."
+                msg += "If it then still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
+                return render.problem(msg)
+
         attribs = list_account_attributes(ui_account)
         js_token = __to_js('token', token)
         js_account = __to_js('account', def_account)
