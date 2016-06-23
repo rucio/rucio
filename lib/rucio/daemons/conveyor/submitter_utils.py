@@ -661,7 +661,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 continue
 
             current_schemes = schemes
-            if previous_attempt_id:
+            if previous_attempt_id and failover_schemes:
                 current_schemes = failover_schemes
 
             if id not in transfers:
@@ -994,7 +994,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                 continue
 
             current_schemes = schemes
-            if previous_attempt_id:
+            if previous_attempt_id and failover_schemes:
                 current_schemes = failover_schemes
 
             if id not in transfers:
