@@ -35,6 +35,7 @@ class RSEProtocol(object):
             :param props: Properties of the reuested protocol
         """
         self.attributes = protocol_attr
+        self.renaming = True
         self.rse = rse_settings
         if not self.rse['deterministic']:
             if rsemanager.CLIENT_MODE:
