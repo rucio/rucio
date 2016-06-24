@@ -10,8 +10,10 @@
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
   - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2016
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+  - Wen Guan, <wen.guan@cern.ch>, 2016
 '''
 
+import os
 import sys
 
 from ConfigParser import NoOptionError
@@ -29,10 +31,24 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException, DatabaseException
 
+try:
+    main_script = os.path.basename(sys.argv[0])
+    CURRENT_COMPONENT = main_script.split('-')[1]
+except:
+    CURRENT_COMPONENT = None
+
+DATABASE_SECTION = 'database'
+try:
+    if CURRENT_COMPONENT:
+        sql_connection = config_get('%s-database' % CURRENT_COMPONENT, 'default').strip()
+        if sql_connection and len(sql_connection):
+            DATABASE_SECTION = '%s-database' % CURRENT_COMPONENT
+except:
+    pass
 
 BASE = declarative_base()
 try:
-    DEFAULT_SCHEMA_NAME = config_get('database', 'schema')
+    DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema')
     BASE.metadata.schema = DEFAULT_SCHEMA_NAME
 except NoOptionError:
     DEFAULT_SCHEMA_NAME = None
@@ -88,14 +104,14 @@ def get_engine(echo=True):
     """
     global _ENGINE
     if not _ENGINE:
-        sql_connection = config_get('database', 'default')
+        sql_connection = config_get(DATABASE_SECTION, 'default')
         config_params = [('pool_size', int), ('max_overflow', int), ('pool_timeout', int),
                          ('pool_recycle', int), ('echo', int), ('echo_pool', str),
                          ('pool_reset_on_return', str), ('use_threadlocal', int)]
         params = {}
         for param, param_type in config_params:
             try:
-                params[param] = param_type(config_get('database', param))
+                params[param] = param_type(config_get(DATABASE_SECTION, param))
             except NoOptionError:
                 pass
         _ENGINE = create_engine(sql_connection, **params)
@@ -129,7 +145,7 @@ def get_dump_engine(echo=False):
             print statement.replace(')', ');\n')
         else:
             print statement
-    sql_connection = config_get('database', 'default')
+    sql_connection = config_get(DATABASE_SECTION, 'default')
 
     engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
     return engine
