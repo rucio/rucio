@@ -240,15 +240,18 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
         for row in content_query.filter(or_(*content_condition)):
             existing_content.append(row)
 
+    contents = []
     for file in files:
         if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
-            did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=file['scope'], child_name=file['name'],
-                                                        bytes=file['bytes'], adler32=file.get('adler32'),
-                                                        guid=file['guid'], events=file['events'],
-                                                        md5=file.get('md5'), did_type=DIDType.DATASET, child_type=DIDType.FILE, rule_evaluation=True)
-            did_asso.save(session=session, flush=False)
+            contents.append({'scope': scope, 'name': name, 'child_scope': file['scope'],
+                             'child_name': file['name'], 'bytes': file['bytes'],
+                             'adler32': file.get('adler32'),
+                             'guid': file['guid'], 'events': file['events'],
+                             'md5': file.get('md5'), 'did_type': DIDType.DATASET,
+                             'child_type': DIDType.FILE, 'rule_evaluation': True})
 
     try:
+        contents and session.bulk_insert_mappings(models.DataIdentifierAssociation, contents)
         session.flush()
     except IntegrityError, error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
@@ -367,6 +370,7 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
     for attachment in attachments:
         try:
             parent_did = session.query(models.DataIdentifier).filter_by(scope=attachment['scope'], name=attachment['name']).\
+                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                 filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
                 one()
 
@@ -387,12 +391,14 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
 
             parent_did_condition.append(and_(models.DataIdentifier.scope == parent_did.scope,
                                              models.DataIdentifier.name == parent_did.name))
-            parent_dids.append((parent_did.scope, parent_did.name))
+
+            parent_dids.append({'scope': parent_did.scope,
+                                'name': parent_did.name,
+                                'rule_evaluation_action': DIDReEvaluation.ATTACH})
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (attachment['scope'], attachment['name']))
 
-    for scope, name in parent_dids:
-        models.UpdatedDID(scope=scope, name=name, rule_evaluation_action=DIDReEvaluation.ATTACH).save(session=session, flush=False)
+        session.bulk_insert_mappings(models.UpdatedDID, parent_dids)
 
 
 @transactional_session
