@@ -826,9 +826,6 @@ def repair_rule(rule_id, session=None):
             logging.info('Replication rule %s has been SUSPENDED' % (rule_id))
             return
 
-        if session.bind.dialect.name != 'sqlite':
-            session.begin_nested()
-
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
         try:
             if rule.ignore_availability:
@@ -840,7 +837,6 @@ def repair_rule(rule_id, session=None):
             else:
                 source_rses = []
         except (InvalidRSEExpression, RSEBlacklisted) as e:
-            session.rollback()
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
@@ -860,7 +856,6 @@ def repair_rule(rule_id, session=None):
                                       copies=rule.copies,
                                       session=session)
         except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
-            session.rollback()
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
@@ -910,10 +905,6 @@ def repair_rule(rule_id, session=None):
                                                                                              only_stuck=not hard_repair,
                                                                                              session=session)
 
-        if session.bind.dialect.name != 'sqlite':
-            session.commit()
-            session.begin_nested()
-
         session.flush()
 
         # 1. Try to find missing locks and create them based on grouping
@@ -927,9 +918,7 @@ def repair_rule(rule_id, session=None):
                                                      rule=rule,
                                                      source_rses=[rse['id'] for rse in source_rses],
                                                      session=session)
-            except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
-                if isinstance(e, IntegrityError):
-                    session.rollback()
+            except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
                 rule.state = RuleState.STUCK
                 rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                 rule.save(session=session)
@@ -939,8 +928,6 @@ def repair_rule(rule_id, session=None):
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                 logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
-                if not isinstance(e, IntegrityError):
-                    session.commit()
                 return
 
             session.flush()
@@ -968,9 +955,7 @@ def repair_rule(rule_id, session=None):
                                                rule=rule,
                                                source_rses=[rse['id'] for rse in source_rses],
                                                session=session)
-        except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
-            if isinstance(e, IntegrityError):
-                session.rollback()
+        except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
@@ -980,12 +965,7 @@ def repair_rule(rule_id, session=None):
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
             logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
-            if not isinstance(e, IntegrityError):
-                session.commit()
             return
-
-        if session.bind.dialect.name != 'sqlite':
-            session.commit()
 
         if rule.locks_stuck_cnt != 0:
             logging.info('Rule %s [%d/%d/%d] state=STUCK' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
@@ -2176,24 +2156,14 @@ def __evaluate_did_attach(eval_did, session=None):
                     # Resolve the rules to possible target rses:
                     possible_rses = []
                     source_rses = []
-                    if session.bind.dialect.name != 'sqlite':
-                        session.begin_nested()
-                    try:
-                        for rule in rules:
-                            if rule.source_replica_expression:
-                                source_rses.extend(parse_expression(rule.source_replica_expression, session=session))
+                    for rule in rules:
+                        if rule.source_replica_expression:
+                            source_rses.extend(parse_expression(rule.source_replica_expression, session=session))
 
-                            if rule.ignore_availability:
-                                possible_rses.extend(parse_expression(rule.rse_expression, session=session))
-                            else:
-                                possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
-                    except Exception, e:
-                        logging.warning('Could not parse RSE expression for possible RSEs for rule %s' % (str(rule.id)))
-                        session.rollback()
-                        possible_rses = []
-                        session.begin_nested()
-                    if session.bind.dialect.name != 'sqlite':
-                        session.commit()
+                        if rule.ignore_availability:
+                            possible_rses.extend(parse_expression(rule.rse_expression, session=session))
+                        else:
+                            possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
 
                     source_rses = list(set([rse['id'] for rse in source_rses]))
                     possible_rses = list(set([rse['id'] for rse in possible_rses]))
@@ -2210,8 +2180,6 @@ def __evaluate_did_attach(eval_did, session=None):
                         rule_locks_ok_cnt_before = rule.locks_ok_cnt
 
                         # 1. Resolve the rse_expression into a list of RSE-ids
-                        if session.bind.dialect.name != 'sqlite':
-                            session.begin_nested()
                         try:
                             if rule.ignore_availability:
                                 rses = parse_expression(rule.rse_expression, session=session)
@@ -2221,7 +2189,6 @@ def __evaluate_did_attach(eval_did, session=None):
                             if rule.source_replica_expression:
                                 source_rses = parse_expression(rule.source_replica_expression, session=session)
                         except (InvalidRSEExpression, RSEBlacklisted) as e:
-                            session.rollback()
                             rule.state = RuleState.STUCK
                             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                             rule.save(session=session)
@@ -2240,7 +2207,6 @@ def __evaluate_did_attach(eval_did, session=None):
                                                       copies=rule.copies,
                                                       session=session)
                         except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
-                            session.rollback()
                             rule.state = RuleState.STUCK
                             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                             rule.save(session=session)
@@ -2277,9 +2243,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                               preferred_rse_ids=preferred_rse_ids,
                                                               source_rses=[rse['id'] for rse in source_rses],
                                                               session=session)
-                        except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
-                            if isinstance(e, IntegrityError):
-                                session.rollback()
+                        except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
                             rule.state = RuleState.STUCK
                             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                             rule.save(session=session)
@@ -2288,8 +2252,6 @@ def __evaluate_did_attach(eval_did, session=None):
                             # Try to update the DatasetLocks
                             if rule.grouping != RuleGrouping.NONE:
                                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-                            if not isinstance(e, IntegrityError):
-                                session.commit()
                             continue
 
                         # 4. Update the Rule State
@@ -2315,9 +2277,6 @@ def __evaluate_did_attach(eval_did, session=None):
 
                         # Insert rule history
                         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
-
-                        if session.bind.dialect.name != 'sqlite':
-                            session.commit()
 
             # Unflage the dids
             with record_timer_block('rule.evaluate_did_attach.update_did'):
