@@ -324,47 +324,82 @@ def upload(rse_settings, lfns, source_dir=None):
             continue
 
         pfn = protocol.lfns2pfns(lfn).values()[0]
-        # Check if file replica is already on the storage system
-        if protocol.exists(pfn):
-            ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
-            gs = False
-        else:
-            if protocol.exists('%s.rucio.upload' % pfn):  # Check for left over of previous unsuccessful attempts
-                try:
-                    protocol_delete.delete('%s.rucio.upload', protocol_delete.lfns2pfns(lfn).values()[0])
-                except Exception as e:
-                    ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
-            try:  # Try uploading file
-                protocol.put(name, '%s.rucio.upload' % pfn, source_dir)
-            except Exception as e:
-                gs = False
-                ret['%s:%s' % (scope, name)] = e
-                continue
 
-            valid = None
-            try:  # Get metadata of file to verify if upload was successful
-                stats = protocol.stat('%s.rucio.upload' % pfn)
-                if ('adler32' in stats) and ('adler32' in lfn):
-                    valid = stats['adler32'] == lfn['adler32']
-                if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
-                    valid = stats['filesize'] == lfn['filesize']
-            except NotImplementedError:
-                valid = True  # If the protocol doesn't support stat of a file, we agreed on assuming that the file was uploaded without error
-            except Exception as e:
-                gs = False
-                ret['%s:%s' % (scope, name)] = e
-                continue
+        # First check if renaming operation is supported
+        if protocol.renaming:
 
-            if valid:  # The upload finished successful and the file can be renamed
-                try:
-                    protocol.rename('%s.rucio.upload' % pfn, pfn)
-                    ret['%s:%s' % (scope, name)] = True
+            # Check if file replica is already on the storage system
+            if protocol.exists(pfn):
+                ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
+                gs = False
+            else:
+                if protocol.exists('%s.rucio.upload' % pfn):  # Check for left over of previous unsuccessful attempts
+                    try:
+                        protocol_delete.delete('%s.rucio.upload', protocol_delete.lfns2pfns(lfn).values()[0])
+                    except Exception as e:
+                        ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
+                try:  # Try uploading file
+                    protocol.put(name, '%s.rucio.upload' % pfn, source_dir)
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
-            else:
+                    continue
+
+                valid = None
+                try:  # Get metadata of file to verify if upload was successful
+                    stats = protocol.stat('%s.rucio.upload' % pfn)
+                    if ('adler32' in stats) and ('adler32' in lfn):
+                        valid = stats['adler32'] == lfn['adler32']
+                    if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
+                        valid = stats['filesize'] == lfn['filesize']
+                except NotImplementedError:
+                    valid = True  # If the protocol doesn't support stat of a file, we agreed on assuming that the file was uploaded without error
+                except Exception as e:
+                    gs = False
+                    ret['%s:%s' % (scope, name)] = e
+                    continue
+
+                if valid:  # The upload finished successful and the file can be renamed
+                    try:
+                        protocol.rename('%s.rucio.upload' % pfn, pfn)
+                        ret['%s:%s' % (scope, name)] = True
+                    except Exception as e:
+                        gs = False
+                        ret['%s:%s' % (scope, name)] = e
+                else:
+                    gs = False
+                    ret['%s:%s' % (scope, name)] = exception.RucioException('Replica %s is corrupted.' % pfn)
+        else:
+
+            # Check if file replica is already on the storage system
+            if protocol.exists(pfn):
+                ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
                 gs = False
-                ret['%s:%s' % (scope, name)] = exception.RucioException('Replica %s is corrupted.' % pfn)
+            else:
+                try:  # Try uploading file
+                    protocol.put(name, pfn, source_dir)
+                except Exception as e:
+                    gs = False
+                    ret['%s:%s' % (scope, name)] = e
+                    continue
+
+                valid = None
+                try:  # Get metadata of file to verify if upload was successful
+                    stats = protocol.stat(pfn)
+                    if ('adler32' in stats) and ('adler32' in lfn):
+                        valid = stats['adler32'] == lfn['adler32']
+                    if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
+                        valid = stats['filesize'] == lfn['filesize']
+                except NotImplementedError:
+                    valid = True  # If the protocol doesn't support stat of a file, we agreed on assuming that the file was uploaded without error
+                except Exception as e:
+                    gs = False
+                    ret['%s:%s' % (scope, name)] = e
+                    continue
+
+                if not valid:
+                    gs = False
+                    ret['%s:%s' % (scope, name)] = exception.RucioException('Replica %s is corrupted.' % pfn)
 
     protocol.close()
     protocol_delete.close()
