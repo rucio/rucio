@@ -910,6 +910,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         filter(condition)
     available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in query]
 
+    new_replicas = []
     for file in files:
         found = False
         for available_replica in available_replicas:
@@ -919,12 +920,21 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         if not found:
             nbfiles += 1
             bytes += file['bytes']
-            new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'],
-                                                    path=file.get('path'), state=ReplicaState.from_string(file.get('state', 'A')),
-                                                    md5=file.get('md5'), adler32=file.get('adler32'), lock_cnt=file.get('lock_cnt', 0),
-                                                    tombstone=file.get('tombstone'))
-            new_replica.save(session=session, flush=False)
+            new_replicas.append({'rse_id': rse_id, 'scope': file['scope'],
+                                 'name': file['name'], 'bytes': file['bytes'],
+                                 'path': file.get('path'),
+                                 'state': ReplicaState.from_string(file.get('state', 'A')),
+                                 'md5': file.get('md5'), 'adler32': file.get('adler32'),
+                                 'lock_cnt': file.get('lock_cnt', 0),
+                                 'tombstone': file.get('tombstone')})
+#            new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'],
+#                                                    path=file.get('path'), state=ReplicaState.from_string(file.get('state', 'A')),
+#                                                    md5=file.get('md5'), adler32=file.get('adler32'), lock_cnt=file.get('lock_cnt', 0),
+#                                                    tombstone=file.get('tombstone'))
+#            new_replica.save(session=session, flush=False)
     try:
+        new_replicas and session.bulk_insert_mappings(models.RSEFileAssociation,
+                                                      new_replicas)
         session.flush()
         return nbfiles, bytes
     except IntegrityError, error:
