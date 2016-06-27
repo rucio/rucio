@@ -410,6 +410,7 @@ def perm_del_rule(issuer, kwargs):
         return True
     if get_rule(kwargs['rule_id'])['account'] == issuer:
         return True
+
     # Check if user is a country admin
     admin_in_country = []
     for kv in list_account_attributes(account=issuer):
@@ -419,6 +420,14 @@ def perm_del_rule(issuer, kwargs):
         for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
             if list_rse_attributes(rse=None, rse_id=rse['rse_id']).get('country') in admin_in_country:
                 return True
+
+    # DELETERS can approve the rule
+    for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
+        rse_attr = list_rse_attributes(rse=None, rse_id=rse['rse_id'])
+        if rse_attr.get('rule_deleters'):
+            if issuer in rse_attr.get('rule_deleters').split(','):
+                return True
+
     return False
 
 
