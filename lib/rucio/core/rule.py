@@ -214,6 +214,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 __create_rule_approval_email(rule=new_rule, session=session)
                 continue
 
+            # Force ASYNC mode for large rules
+            if did.length >= 10000:
+                asynchronous = True
+                logging.debug("Forced injection of rule %s" % (str(new_rule.id)))
+
             if asynchronous:
                 # TODO: asynchronous mode only available for closed dids (on the whole tree?)
                 new_rule.state = RuleState.INJECT
