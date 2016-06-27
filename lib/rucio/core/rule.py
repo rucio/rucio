@@ -785,6 +785,9 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
         for rse_id in account_counter_decreases.keys():
             account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
+        # Try to release potential parent rules
+        release_parent_rule(child_rule_id=rule.id, remove_parent_expiration=True, session=session)
+
         # Insert history
         insert_rule_history(rule=rule, recent=False, longterm=True, session=session)
 
@@ -1877,12 +1880,13 @@ def examine_rule(rule_id, session=None):
 
 
 @transactional_session
-def release_parent_rule(child_rule_id, session=None):
+def release_parent_rule(child_rule_id, remove_parent_expiration=False, session=None):
     """
     Release a potential parent rule, because the child_rule is OK.
 
-    :param child_rule_id:  The child rule id.
-    :param session:        The Database session
+    :param child_rule_id:             The child rule id.
+    :param remove_parant_expiration:  If true, removes the expiration of the parent rule.
+    :param session:                   The Database session
     """
 
     session.flush()
@@ -1890,6 +1894,8 @@ def release_parent_rule(child_rule_id, session=None):
     parent_rules = session.query(models.ReplicationRule).filter_by(child_rule_id=child_rule_id).\
         with_hint(models.ReplicationRule, "index(RULES RULES_CHILD_RULE_ID_IDX)", 'oracle').all()
     for rule in parent_rules:
+        if remove_parent_expiration:
+            rule.expires_at = None
         rule.child_rule_id = None
         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
