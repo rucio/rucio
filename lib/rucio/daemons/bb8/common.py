@@ -12,7 +12,7 @@ import sys
 
 from datetime import datetime
 
-from rucio.core.replica import list_dataset_replicas
+from rucio.core.lock import get_dataset_locks
 from rucio.core.rule import get_rule, add_rule, update_rule
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse import list_rse_attributes, get_rse_name
@@ -146,7 +146,7 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, session=None):
             if rebalanced_files + length > max_files:
                 continue
 
-        other_rses = [r['rse_id'] for r in list_dataset_replicas(scope, name, session=session)]
+        other_rses = [r['rse_id'] for r in get_dataset_locks(scope, name, session=session)]
 
         # Select the target RSE for this rule
         target_rse_exp = select_target_rse(current_rse=rse,
