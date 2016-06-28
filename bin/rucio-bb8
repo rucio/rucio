@@ -13,20 +13,18 @@ BB8 is a daemon to rebalance data.
 """
 
 import argparse
-import signal
 
-from rucio.daemons.bb8.bb8 import run, stop
+# from rucio.daemons.bb8.bb8 import run, stop
+from rucio.daemons.bb8.common import rebalance_rse
 
 if __name__ == "__main__":
-
-    signal.signal(signal.SIGTERM, stop)
-
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
+    # parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    # parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
+    parser.add_argument('rse', action='store', help='RSE to rebalance')
+    parser.add_argument('bytes', action='store', type=int, help='Number of bytes to rebalance')
+    parser.add_argument('--dry-run', action='store_true', default=False, help='Only run in dry-run mode')
+    parser.add_argument('--exclude-expression', action='store', help='Exclude these rse_expression from being destinations')
     args = parser.parse_args()
 
-    try:
-        run(once=args.run_once, threads=args.threads)
-    except KeyboardInterrupt:
-        stop()
+    rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run)
