@@ -53,7 +53,7 @@ if $rucio; then
    /bin/cp MANIFEST.in.rucio MANIFEST.in
    /bin/cp setup_rucio.py setup.py
    # Push on pypi@org
-   python setup.py --release register sdist upload
+   python setup.py --release sdist upload
 fi
 
 if $clients; then
@@ -61,7 +61,7 @@ if $clients; then
     /bin/cp MANIFEST.in.client MANIFEST.in
     /bin/cp setup_rucio_client.py setup.py
     # Push on pypi@org
-    python setup.py  --release register sdist upload
+    python setup.py  --release sdist upload
 fi
 
 if $webui; then
@@ -69,5 +69,5 @@ if $webui; then
     /bin/cp MANIFEST.in.webui MANIFEST.in
     /bin/cp setup_webui.py setup.py
     # Push on pypi@org
-    python setup.py register sdist upload
+    python setup.py sdist upload
 fi
