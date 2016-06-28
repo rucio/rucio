@@ -434,17 +434,14 @@ def perm_update_rule(issuer, kwargs):
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
 
-    # Only admin accounts can change account, state, priority and locked of a rule
+    # Only admin accounts can change account, state, priority of a rule
     if 'account' in kwargs['options'] or\
        'state' in kwargs['options'] or\
        'priority' in kwargs['options'] or\
-       'locked' in kwargs['options'] or\
        'child_rule_id' in kwargs['options']:
         return False  # Only priv accounts are allowed to change that
 
-    # Owner or country admins can change the rest of a rule
-    if get_rule(kwargs['rule_id'])['account'] == issuer:
-        return True
+    # Country admins are allowed to change the rest.
     admin_in_country = []
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
@@ -453,6 +450,14 @@ def perm_update_rule(issuer, kwargs):
         for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
             if list_rse_attributes(rse=None, rse_id=rse['rse_id']).get('country') in admin_in_country:
                 return True
+
+    # Only admin and country-admin are allowed to change locked state of rule
+    if 'locked' in kwargs['options']:
+        return False
+
+    # Owner can change the rest of a rule
+    if get_rule(kwargs['rule_id'])['account'] == issuer:
+        return True
 
     return False
 
