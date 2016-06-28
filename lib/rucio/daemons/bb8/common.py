@@ -90,18 +90,24 @@ ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
 
 
 @transactional_session
-def select_target_rse(current_rse, rse_expression, subscription_id, rse_attributes, other_rses=[], session=None):
+def select_target_rse(current_rse, rse_expression, subscription_id, rse_attributes, other_rses=[], exclude_expression=None, session=None):
     """
     Select a new target RSE for a rebalanced rule.
 
-    :param current_rse:        RSE of the source.
-    :param rse_expression:     RSE Expression of the source rule.
-    :param subscription_id:    Subscription ID of the source rule.
-    :param rse_attributes:     The attributes of the source rse.
-    :param other_rses:         Other RSEs with existing dataset replicas.
-    :param session:            The DB Session
-    :returns:                  New RSE expression
+    :param current_rse:          RSE of the source.
+    :param rse_expression:       RSE Expression of the source rule.
+    :param subscription_id:      Subscription ID of the source rule.
+    :param rse_attributes:       The attributes of the source rse.
+    :param other_rses:           Other RSEs with existing dataset replicas.
+    :param exclude_expression:   Exclude this rse_expression from being target_rses.
+    :param session:              The DB Session
+    :returns:                    New RSE expression
     """
+
+    if exclude_expression:
+        target_rse = '(%s)\\%s' % (exclude_expression, current_rse)
+    else:
+        target_rse = current_rse
 
     if subscription_id:
         pass
@@ -109,13 +115,13 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
     rses = parse_expression(expression=rse_expression, session=session)
     if len(rses) > 1:
         # Just define the RSE Expression without the current_rse
-        return '(%s)\%s' % (rse_expression, current_rse)
+        return '(%s)\\%s' % (rse_expression, target_rse)
     if rse_attributes['tier'] is True or rse_attributes['tier'] == 1:
         # Tier 1 should go to another Tier 1
-        rses = parse_expression(expression='(tier=1&type=DATADISK)\\RRC-KI-T1_DATADISK\\%s' % current_rse, filter={'availability_write': True}, session=session)
+        rses = parse_expression(expression='(tier=1&type=DATADISK)\\%s' % target_rse, filter={'availability_write': True}, session=session)
     if rse_attributes['tier'] == 2:
         # Tier 2 should go to another Tier 2
-        rses = parse_expression(expression='(tier=2&type=DATADISK)\\%s' % current_rse, filter={'availability_write': True}, session=session)
+        rses = parse_expression(expression='(tier=2&type=DATADISK)\\%s' % target_rse, filter={'availability_write': True}, session=session)
 
     rseselector = RSESelector(account='ddmadmin', rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
     return get_rse_name([rse_id for rse_id, _ in rseselector.select_rse(size=0,
@@ -124,13 +130,15 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
 
 
 @transactional_session
-def rebalance_rse(rse, max_bytes=1E9, max_files=None, session=None):
+def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, session=None):
     """
     Rebalance data from an RSE
 
     :param rse:                  RSE to rebalance data from.
     :param max_bytes:            Maximum amount of bytes to rebalance.
     :param max_files:            Maximum amount of files to rebalance.
+    :param dry_run:              Only run in dry-run mode.
+    :param exclude_expression:   Exclude this rse_expression from being target_rses.
     :param session:              The database session.
     :returns:                    List of rebalanced datasets.
     """
@@ -139,6 +147,12 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, session=None):
     rebalanced_datasets = []
     rse_attributes = list_rse_attributes(rse=rse, session=session)
 
+    if dry_run:
+        print 'Rebalancing in DRY-RUN mode.'
+    else:
+        print 'Reblanacing in ACTIVE mode.'
+    print 'scope:name rule_id bytes(Gb) target_rse child_rule_id'
+
     for scope, name, rule_id, rse_expression, subscription_id, bytes, length in list_rebalance_rule_candidates(rse=rse):
         if rebalanced_bytes + bytes > max_bytes:
             continue
@@ -146,21 +160,30 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, session=None):
             if rebalanced_files + length > max_files:
                 continue
 
-        other_rses = [r['rse_id'] for r in get_dataset_locks(scope, name, session=session)]
+        try:
+            other_rses = [r['rse_id'] for r in get_dataset_locks(scope, name, session=session)]
 
-        # Select the target RSE for this rule
-        target_rse_exp = select_target_rse(current_rse=rse,
-                                           rse_expression=rse_expression,
-                                           subscription_id=subscription_id,
-                                           rse_attributes=rse_attributes,
-                                           other_rses=other_rses,
-                                           session=session)
-        # Rebalance this rule
-        child_rule_id = rebalance_rule(parent_rule_id=rule_id,
-                                       activity='Data Brokering',
-                                       rse_expression=target_rse_exp)
-        # child_rule_id=''
-        print ('%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes / 1E9), target_rse_exp, child_rule_id))
-        rebalanced_bytes += bytes
-        rebalanced_files += length
-        rebalanced_datasets.append((scope, name, bytes, length, target_rse_exp, rule_id, child_rule_id))
+            # Select the target RSE for this rule
+            target_rse_exp = select_target_rse(current_rse=rse,
+                                               rse_expression=rse_expression,
+                                               subscription_id=subscription_id,
+                                               rse_attributes=rse_attributes,
+                                               other_rses=other_rses,
+                                               exclude_expression=exclude_expression,
+                                               session=session)
+            # Rebalance this rule
+            if not dry_run:
+                child_rule_id = rebalance_rule(parent_rule_id=rule_id,
+                                               activity='Data Brokering',
+                                               rse_expression=target_rse_exp)
+            else:
+                child_rule_id = ''
+            print ('%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes / 1E9), target_rse_exp, child_rule_id))
+            rebalanced_bytes += bytes
+            rebalanced_files += length
+            rebalanced_datasets.append((scope, name, bytes, length, target_rse_exp, rule_id, child_rule_id))
+        except Exception, e:
+            print 'Exception %s occured while rebalancing %s:%s, rule_id: %s!' % (str(e), scope, name, str(rule_id))
+            raise e
+
+    return rebalanced_datasets
