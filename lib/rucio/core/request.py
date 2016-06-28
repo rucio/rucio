@@ -35,7 +35,7 @@ from rucio.core import config as config_core, message as message_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_id, get_rse_name, get_rse_transfer_limits
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState
+from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.transfertool import fts3
 
@@ -1683,12 +1683,16 @@ def update_requests_priority(priority, filter, session=None):
     """
     try:
         query = session.query(models.Request.id, models.Request.external_id, models.Request.external_host)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-                       .filter_by(state=RequestState.SUBMITTED)
+            .join(models.ReplicaLock, and_(models.ReplicaLock.scope == models.Request.scope,
+                                           models.ReplicaLock.name == models.Request.name,
+                                           models.ReplicaLock.rse_id == models.Request.dest_rse_id))\
+            .filter(models.Request.state == RequestState.SUBMITTED,
+                    models.ReplicaLock.state == LockState.REPLICATING)
+
         if 'rule_id' in filter:
-            query = query.filter_by(rule_id=filter['rule_id'])
+            query = query.filter(models.ReplicaLock.rule_id == filter['rule_id'])
         if 'request_id' in filter:
-            query = query.filter_by(id=filter['request_id'])
+            query = query.filter(models.Request.id == filter['request_id'])
 
         for item in query.all():
             res = fts3.update_priority(item[1], item[2], priority)
