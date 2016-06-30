@@ -1332,6 +1332,7 @@ def download1(args):
 
     return not_downloaded_files
 
+
 def download2(args):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
