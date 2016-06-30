@@ -820,6 +820,17 @@ def upload(args):
         logger.critical('RSE is not available for write now')
         return FAILURE
 
+    if args.protocol:
+        try:
+            logger.info(args.protocol)
+            logger.info(args.rse)
+            protocol = rsemgr.select_protocol(rse_settings, operation='read', scheme=args.protocol)
+        except RSEProtocolNotSupported, error:
+            logger.error('The protocol specfied (%s) is not supported by the RSE %s' % (args.protocol, args.rse))
+            logger.debug(error)
+            return FAILURE
+        rse_settings['protocols'] = [protocol, ]
+
     if args.account is None:
         account = client.whoami()['account']
     else:
@@ -2150,6 +2161,7 @@ Commands:
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
     upload_parser.add_argument('--guid', dest='guid', action='store', help="Manually specify the GUID for the file.")
+    upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download subparser
