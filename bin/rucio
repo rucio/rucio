@@ -1128,11 +1128,16 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                     index += 1
                     if index != len(rses):
                         logger.debug('Thread %s/%s : Will retry download on an other RSE' % (threadnb, total_threads))
+                else:
+                    logger.info('Thread %s/%s : RSE %s is blacklisted for reading' % (threadnb, total_threads, rse))
+
             if not download_ok:
                 logger.error('Thread %s/%s : Cannot download file %s:%s' % (threadnb, total_threads, file['scope'], file['name']))
             else:
                 logger.info('Thread %s/%s : File %s:%s successfully downloaded. %s bytes downloaded in %s seconds' % (threadnb, total_threads, file['scope'], file['name'], sizefmt(file['bytes'], args.human), time.time() - stime))
+
             input_queue.task_done()
+
     except Empty:
         return
 
