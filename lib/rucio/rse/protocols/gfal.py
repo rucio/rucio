@@ -9,6 +9,7 @@
 # - Wen Guan, <wguan@cern.ch>, 2014-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2016
 
 import errno
 import json
@@ -171,16 +172,12 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
-        space_token = None
-        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
-            space_token = self.attributes['extended_attributes']['space_token']
-
         dest = os.path.abspath(dest)
         if ':' not in dest:
             dest = "file://" + dest
 
         try:
-            status = self.__gfal2_copy(path, dest, space_token)
+            status = self.__gfal2_copy(path, dest)
             if status:
                 raise exception.RucioException()
         except exception.DestinationNotAccessible as error:
