@@ -1293,13 +1293,14 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
 
 
 @read_session
-def get_updated_dids(total_workers, worker_number, limit=10, session=None):
+def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[], session=None):
     """
     Get updated dids.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param limit:              Maximum number of dids to return.
+    :param blacklisted_dids:   Blacklisted dids to filter.
     :param session:            Database session in use.
     """
     query = session.query(models.UpdatedDID.id,
@@ -1317,17 +1318,30 @@ def get_updated_dids(total_workers, worker_number, limit=10, session=None):
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
-    return query.order_by(models.UpdatedDID.created_at).limit(limit).all()
+    if limit:
+        fetched_dids = query.order_by(models.UpdatedDID.created_at).limit(limit).all()
+        filtered_dids = [did for did in fetched_dids if (did.scope, did.name) not in blacklisted_dids]
+        if len(fetched_dids) == limit and len(filtered_dids) == 0:
+            return get_updated_dids(total_workers=total_workers,
+                                    worker_number=worker_number,
+                                    limit=None,
+                                    blacklisted_dids=blacklisted_dids,
+                                    session=session)
+        else:
+            return filtered_dids
+    else:
+        return [did for did in query.order_by(models.UpdatedDID.created_at).all() if (did.scope, did.name) not in blacklisted_dids]
 
 
 @read_session
-def get_expired_rules(total_workers, worker_number, limit=10, session=None):
+def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules=[], session=None):
     """
     Get expired rules.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param limit:              Maximum number of rules to return.
+    :param backlisted_rules:   List of blacklisted rules.
     :param session:            Database session in use.
     """
 
@@ -1346,7 +1360,19 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
-    return query.limit(limit).all()
+    if limit:
+        fetched_rules = query.limit(limit).all()
+        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
+        if len(fetched_rules) == limit and len(filtered_rules) == 0:
+            return get_expired_rules(total_workers=total_workers,
+                                     worker_number=worker_number,
+                                     limit=None,
+                                     blacklisted_rules=blacklisted_rules,
+                                     session=session)
+        else:
+            return filtered_rules
+    else:
+        return [rule for rule in query.all() if rule[0] not in blacklisted_rules]
 
 
 @read_session
@@ -1398,7 +1424,7 @@ def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rule
 
 
 @read_session
-def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=None):
+def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklisted_rules=[], session=None):
     """
     Get stuck rules.
 
@@ -1406,6 +1432,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
     :param worker_number:      id of the executing worker.
     :param delta:              Delta in seconds to select rules in.
     :param limit:              Maximum number of rules to select.
+    :param blacklisted_rules:  Blacklisted rules to filter out.
     :param session:            Database session in use.
     """
     is_none, is_true = None, True
@@ -1437,7 +1464,21 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
         query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
-    return query.limit(limit).all()
+
+    if limit:
+        fetched_rules = query.limit(limit).all()
+        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
+        if len(fetched_rules) == limit and len(filtered_rules) == 0:
+            return get_stuck_rules(total_workers=total_workers,
+                                   worker_number=worker_number,
+                                   delta=delta,
+                                   limit=None,
+                                   blacklisted_rules=blacklisted_rules,
+                                   session=session)
+        else:
+            return filtered_rules
+    else:
+        return [rule for rule in query.all() if rule[0] not in blacklisted_rules]
 
 
 @transactional_session
