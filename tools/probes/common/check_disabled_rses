@@ -7,7 +7,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2016
 
 import json
 import requests
@@ -29,9 +29,12 @@ if __name__ == '__main__':
     resp = requests.get(url=url)
     data = json.loads(resp.content)
     retvalue = OK
+    agis_rses = []
 
     client = Client()
     for rse in data:
+        if rse['name'] not in agis_rses:
+            agis_rses.append(rse['name'])
         notify = False
         if rse['state'] == 'DISABLED' or rse['site_state'] == 'DISABLED':
             notify = True
@@ -47,4 +50,11 @@ if __name__ == '__main__':
                 trcbck = traceback.format_exc()
                 errno, errstr = sys.exc_info()[:2]
                 print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+    for rse in client.list_rses():
+        if rse['rse'] not in agis_rses:
+            rse_attr = client.list_rse_attributes(rse['rse'])
+            if not ('is_stagingarea' in rse_attr and rse_attr['is_stagingarea']):
+                print '%s is not defined in AGIS !!!' % (rse['rse'])
+                retvalue = CRITICAL
+
     sys.exit(retvalue)
