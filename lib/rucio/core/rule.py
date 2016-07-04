@@ -532,6 +532,7 @@ def inject_rule(rule_id, session=None):
                  notify=notify,
                  comment=rule.comments,
                  asynchronous=True,
+                 ignore_availability=rule.ignore_availability,
                  ignore_account_limit=True,
                  session=session)
         rule.delete(session=session)
