@@ -121,7 +121,9 @@ class Default(protocol.RSEProtocol):
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
-            if 'prefix' in lfn and lfn['prefix'] is not None:
+            if 'path' in lfn and lfn['path'] and self.rse['deterministic']:
+                path = lfn['path']
+            elif 'prefix' in lfn and lfn['prefix'] is not None:
                 path = os.path.join(lfn['prefix'], scope + '/' + name)
             else:
                 path = self._get_path(scope=scope, name=name)
