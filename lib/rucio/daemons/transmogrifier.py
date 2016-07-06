@@ -29,7 +29,7 @@ from rucio.api.subscription import list_subscriptions, update_subscription
 from rucio.db.sqla.constants import DIDType, SubscriptionState
 from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule, RSEBlacklisted,
                                     InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, InputValidationError,
-                                    ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
+                                    ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, SubscriptionNotFound)
 from rucio.common.config import config_get
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
@@ -172,6 +172,12 @@ def transmogrifier(bulk=5, once=False):
             priorities.sort()
             for priority in priorities:
                 subscriptions.extend(sub_dict[priority])
+        except SubscriptionNotFound, error:
+            logging.warning('Thread [%i/%i] : No subscriptions defined: %s' % (heart_beat['assign_thread'],
+                                                                               heart_beat['nr_threads'],
+                                                                               str(error)))
+            time.sleep(10)
+            continue
         except Exception, error:
             logging.error('Thread [%i/%i] : Failed to get list of new DIDs or subscriptions: %s' % (heart_beat['assign_thread'],
                                                                                                     heart_beat['nr_threads'],
