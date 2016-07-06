@@ -2178,7 +2178,6 @@ def __evaluate_did_attach(eval_did, session=None):
                                 possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
                         except (InvalidRSEExpression, RSEBlacklisted) as e:
                             possible_rses = []
-                            source_rses = []
 
                     source_rses = list(set([rse['id'] for rse in source_rses]))
                     possible_rses = list(set([rse['id'] for rse in possible_rses]))
