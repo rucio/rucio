@@ -62,10 +62,6 @@ def rule_cleaner(once=False):
             heartbeat = live(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
 
             start = time.time()
-            rules = get_expired_rules(total_workers=heartbeat['nr_threads'] - 1,
-                                      worker_number=heartbeat['assign_thread'],
-                                      limit=200)
-            logging.debug('rule_cleaner[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(rules)))
 
             # Refresh paused rules
             iter_paused_rules = deepcopy(paused_rules)
@@ -73,8 +69,11 @@ def rule_cleaner(once=False):
                 if datetime.utcnow() > paused_rules[key]:
                     del paused_rules[key]
 
-            # Remove paused rules from result set
-            rules = [rule for rule in rules if rule[0] not in paused_rules]
+            rules = get_expired_rules(total_workers=heartbeat['nr_threads'] - 1,
+                                      worker_number=heartbeat['assign_thread'],
+                                      limit=200,
+                                      blacklisted_rules=[key for key in paused_rules])
+            logging.debug('rule_cleaner[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(rules)))
 
             if not rules and not once:
                 logging.debug('rule_cleaner[%s/%s] did not get any work (paused_rules=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, str(len(paused_rules))))
