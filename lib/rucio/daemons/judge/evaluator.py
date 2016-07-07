@@ -61,18 +61,17 @@ def re_evaluator(once=False):
             # heartbeat
             heartbeat = live(executable='rucio-judge-evaluator', hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
 
-            # Select a bunch of dids for re evaluation for this worker
             start = time.time()  # NOQA
-            dids = get_updated_dids(total_workers=heartbeat['nr_threads'] - 1,
-                                    worker_number=heartbeat['assign_thread'],
-                                    limit=100)
-            logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(dids)))
 
             # Refresh paused dids
             paused_dids = dict((k, v) for k, v in paused_dids.iteritems() if datetime.utcnow() < v)
 
-            # Remove paused dids from result set
-            dids = [did for did in dids if (did.scope, did.name) not in paused_dids]
+            # Select a bunch of dids for re evaluation for this worker
+            dids = get_updated_dids(total_workers=heartbeat['nr_threads'] - 1,
+                                    worker_number=heartbeat['assign_thread'],
+                                    limit=100,
+                                    blacklisted_dids=[key for key in paused_dids])
+            logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(dids)))
 
             # If the list is empty, sent the worker to sleep
             if not dids and not once:
