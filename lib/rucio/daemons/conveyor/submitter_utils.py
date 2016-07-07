@@ -644,7 +644,7 @@ def get_unavailable_read_rse_ids(session=None):
 @read_session
 def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
                                               limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                                              bring_online=43200, retry_other_fts=False, session=None):
+                                              bring_online=43200, retry_other_fts=False, failover_schemes=None, session=None):
     req_sources = request.list_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                      limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
 
@@ -659,6 +659,10 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
         try:
             if rses and dest_rse_id not in rses:
                 continue
+
+            current_schemes = schemes
+            if previous_attempt_id and failover_schemes:
+                current_schemes = failover_schemes
 
             if id not in transfers:
                 if id not in reqs_no_source:
@@ -710,9 +714,9 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # Get protocol
                 if dest_rse_id not in protocols:
                     try:
-                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', schemes)
+                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', current_schemes)
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], schemes))
+                        logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -750,11 +754,6 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                    # replica cannot be imported. finisher will do it
-                    # update_replicas_paths([{'scope': req['scope'],
-                    #                                     'name': req['name'],
-                    #                                     'rse_id': req['dest_rse_id'],
-                    #                                     'path': dest_path}])
                     dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values()[0]
 
                 # get allowed source scheme
@@ -982,7 +981,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
 
 @read_session
-def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
+def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None, failover_schemes=None,
                                              limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None,
                                              bring_online=43200, retry_other_fts=False, session=None):
     req_sources = request.list_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
@@ -993,6 +992,10 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
         try:
             if rses and dest_rse_id not in rses:
                 continue
+
+            current_schemes = schemes
+            if previous_attempt_id and failover_schemes:
+                current_schemes = failover_schemes
 
             if id not in transfers:
                 if id not in reqs_no_source:
@@ -1040,7 +1043,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                         rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
                     if source_rse_id not in protocols:
-                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', schemes)
+                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', current_schemes)
 
                     # we need to set the spacetoken if we use SRM
                     dest_spacetoken = None
@@ -1074,7 +1077,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                         rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
                     if source_rse_id not in protocols:
-                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', schemes)
+                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', current_schemes)
 
                     # we need to set the spacetoken if we use SRM
                     dest_spacetoken = None
@@ -1138,12 +1141,13 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
     return transfers, reqs_no_source
 
 
-def get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None,
+def get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None, failover_schemes=None,
                           limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, session=None):
     transfers, reqs_no_source = get_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                          limit=limit, activity=activity, older_than=older_than, rses=rses, mock=mock, schemes=schemes,
-                                                                         bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
-    request.set_requests_state(reqs_no_source, RequestState.LOST)
+                                                                         bring_online=bring_online, retry_other_fts=retry_other_fts, failover_schemes=failover_schemes,
+                                                                         session=session)
+    request.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
     return transfers
 
 
@@ -1218,11 +1222,12 @@ def sort_ranking(sources):
     return ret_sources
 
 
-def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None,
+def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None, failover_schemes=None,
                            limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200, retry_other_fts=False, session=None):
     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                                                                        limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes,
-                                                                                                                       bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
+                                                                                                                       bring_online=bring_online, retry_other_fts=retry_other_fts,
+                                                                                                                       failover_schemes=failover_schemes, session=session)
     request.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
     request.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES)
     transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch, schemes)
