@@ -1230,7 +1230,7 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
                                                                                                                        failover_schemes=failover_schemes, session=session)
     request.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
     request.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES)
-    transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch, schemes)
+    request.set_requests_state(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME)
 
     for request_id in transfers:
         sources = transfers[request_id]['sources']
