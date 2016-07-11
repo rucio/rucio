@@ -69,6 +69,8 @@ def get_transfer_error(state, reason=None):
         err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, "Transfer job on FTS is lost")
     elif state in [RequestState.FAILED]:
         err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, reason)
+    elif state in [RequestState.MISMATCH_SCHEME]:
+        err_msg = '%s:%s' % (RequestErrMsg.MISMATCH_SCHEME, state)
     return err_msg
 
 
@@ -352,7 +354,7 @@ def handle_requests(reqs, suspicious_patterns):
                     replica['archived'] = False
                     replica['error_message'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
-            elif req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
+            elif req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES or req['state'] == RequestState.MISMATCH_SCHEME:
                 if request_core.should_retry_request(req):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
