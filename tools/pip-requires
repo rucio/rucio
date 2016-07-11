@@ -38,7 +38,6 @@ oauth2client==2.2.0 # OAuth 2.0 client library
 protobuf==3.0.0b3 # Protocol Buffers
 pyOpenSSL==16.0.0 # Python wrapper module around the OpenSSL library
 pyasn1==0.1.9
-pyasn1-modules # ASN.1 types and codecs
 pyasn1-modules==0.0.8 # A collection of ASN.1-based protocols modules
 pycparser==2.14 # C parser in Python
 rsa==3.4.2 # Pure-Python RSA implementation
