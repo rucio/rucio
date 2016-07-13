@@ -91,7 +91,7 @@ class Default(protocol.RSEProtocol):
 
         for pfn in pfns:
 
-            parsed = urlparse(pfn)
+            parsed = urlparse.urlparse(pfn)
             scheme = parsed.scheme
             hostname = parsed.netloc.partition(':')[0]
             port = int(parsed.netloc.partition(':')[2]) if parsed.netloc.partition(':')[2] != '' else 0
