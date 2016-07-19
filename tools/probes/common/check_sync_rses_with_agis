@@ -67,108 +67,156 @@ if __name__ == '__main__':
         except RSENotFound, error:
             print error
             continue
-        prot_read = []
-        prot_write = []
-        prot_delete = []
-        priority = {}
-        for activity in rse['aprotocols']:
-            index = 0
-            if activity in ['r', 'd', 'w']:
-                for protocol, agis_prio, agis_prefix in rse['aprotocols'][activity]:
-                    index += 1
-                    o = urlparse.urlparse(protocol)
-                    if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root'):
-                        continue
-                    if (o.scheme, o.netloc) not in priority:
-                        priority[(o.scheme, o.netloc)] = {'r': 0, 'w': 0, 'd': 0}
-                    priority[(o.scheme, o.netloc)][activity] = index
-
-        for protocol in rse['protocols']:
-            try:
-                o = urlparse.urlparse(protocol)
-                if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root'):
-                    continue
-
-                protocols = rse['protocols'][protocol]
-
-                extended_attributes = None
-                if o.scheme == 'srm':
-                    extended_attributes = {"web_service_path": o.path + '?SFN=', "space_token": space_token}
-                    impl = 'rucio.rse.protocols.gfal.Default'
-                elif o.scheme == 'https' or o.scheme == 'http':
-                    extended_attributes = None
-                    impl = 'rucio.rse.protocols.webdav.Default'
-                elif o.scheme == 'gsiftp':
-                    extended_attributes = None
-                    impl = 'rucio.rse.protocols.gsiftp.Default'
-                elif o.scheme == 'root':
-                    extended_attributes = None
-                    impl = 'rucio.rse.protocols.xrootd.Default'
-                else:
-                    continue
-
-                port = 8443
-                netloc = o.netloc
-                if o.port and str(o.port) in o.netloc:
-                    netloc = o.netloc[:-len(':' + str(o.port))]
-                    port = o.port
-                else:
-                    if o.scheme == 'https':
-                        port = 443
-                    elif o.scheme == 'gsiftp':
-                        port = 2811
-                    elif o.scheme == 'root':
-                        port = 1094
-
-                # For disk end-points not for tape
-                prefix = rse['protocols'][protocol][0][2]
-                if not rse['is_tape'] and not prefix.endswith('/rucio') and not prefix.endswith('/rucio/'):
-                    prefix = os.path.join(prefix, 'rucio/')
-
-                params = {'hostname': netloc,
-                          'scheme': o.scheme,
+        if rse['type'] in ['OS_ES', 'OS_LOGS']:
+            print 'This is a Object store endpoint. Skipping the protocols'
+            priority = {}
+            for activity in rse['arprotocols']:
+                index = 0
+                if activity in ['r', 'd', 'w']:
+                    for protocol in rse['arprotocols'][activity]:
+                        index += 1
+                        path = protocol['path']
+                        o = urlparse.urlparse(protocol['endpoint'])
+                        if (o.scheme, o.netloc) not in priority:
+                            priority[(o.scheme, o.netloc, path)] = {'r': 0, 'w': 0, 'd': 0}
+                        priority[(o.scheme, o.netloc, path)][activity] = index
+            for prio in priority:
+                scheme, host_with_port, prefix = prio
+                if not prefix.endswith('/'):
+                    prefix += '/'
+                port = 443
+                hostname = host_with_port
+                if host_with_port.find(':') > -1:
+                    hostname, port = host_with_port.split(':')
+                impl = None
+                if scheme == 's3':
+                    impl = 'rucio.rse.protocols.s3boto.Default'
+                elif scheme == 's3+rucio':
+                    impl = 'rucio.rse.protocols.signeds3.Default'
+                params = {'hostname': hostname,
+                          'scheme': scheme,
                           'port': port,
                           'prefix': prefix,
                           'impl': impl,
-                          'extended_attributes': extended_attributes,
-                          'domains': {"lan": {"read": priority[(o.scheme, o.netloc)]['r'],
-                                              "write": priority[(o.scheme, o.netloc)]['w'],
-                                              "delete": priority[(o.scheme, o.netloc)]['d']},
-                                      "wan": {"read": priority[(o.scheme, o.netloc)]['r'],
-                                              "write": priority[(o.scheme, o.netloc)]['w'],
-                                              "delete": priority[(o.scheme, o.netloc)]['d']}}}
+                          'domains': {"lan": {"read": priority[prio]['r'],
+                                              "write": priority[prio]['w'],
+                                              "delete": priority[prio]['d']},
+                                      "wan": {"read": priority[prio]['r'],
+                                              "write": priority[prio]['w'],
+                                              "delete": priority[prio]['d']}}}
+                print params
+                if impl:
+                    try:
+                        add_protocol(rse=rse['name'], parameter=params)
+                    except Duplicate, error:
+                        print error
+                else:
+                    print 'No implementation defined for %s on RSE %s' % (scheme, rse['name'])
+                    RETVALUE = CRITICAL
 
-                rucio_protocol = None
-                for prot in rucio_protocols['protocols']:
-                    if prot['scheme'] == o.scheme and prot['hostname'] == netloc and prot['port'] == port:
-                        rucio_protocol = prot
-                        break
-                if params != rucio_protocol:
-                    if rucio_protocol:
-                        try:
-                            activity_mapping = {'read': 'r', 'write': 'w', 'delete': 'd'}
-                            for act in activity_mapping:
-                                if rucio_protocol['domains']['lan'][act] != priority[(o.scheme, o.netloc)][activity_mapping[act]]:
-                                    print '%s : Activity %s : priority in AGIS %s != priority in Rucio %s' % (rse['name'], act, rucio_protocol['domains']['lan'][act], priority[(o.scheme, o.netloc)][activity_mapping[act]])
-                                    update_protocols(rse['name'], o.scheme, {'domains': {'lan': {act: priority[(o.scheme, o.netloc)][activity_mapping[act]]}}}, hostname=netloc, port=port)
-                                    update_protocols(rse['name'], o.scheme, {'domains': {'wan': {act: priority[(o.scheme, o.netloc)][activity_mapping[act]]}}}, hostname=netloc, port=port)
-                        except RSEProtocolNotSupported, error:
-                            print error
+        else:
+            prot_read = []
+            prot_write = []
+            prot_delete = []
+            priority = {}
+            for activity in rse['aprotocols']:
+                index = 0
+                if activity in ['r', 'd', 'w']:
+                    for protocol, agis_prio, agis_prefix in rse['aprotocols'][activity]:
+                        index += 1
+                        o = urlparse.urlparse(protocol)
+                        if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root'):
+                            continue
+                        if (o.scheme, o.netloc) not in priority:
+                            priority[(o.scheme, o.netloc)] = {'r': 0, 'w': 0, 'd': 0}
+                        priority[(o.scheme, o.netloc)][activity] = index
+
+            for protocol in rse['protocols']:
+                try:
+                    o = urlparse.urlparse(protocol)
+                    if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root'):
+                        continue
+
+                    protocols = rse['protocols'][protocol]
+
+                    extended_attributes = None
+                    if o.scheme == 'srm':
+                        extended_attributes = {"web_service_path": o.path + '?SFN=', "space_token": space_token}
+                        impl = 'rucio.rse.protocols.gfal.Default'
+                    elif o.scheme == 'https' or o.scheme == 'http':
+                        extended_attributes = None
+                        impl = 'rucio.rse.protocols.webdav.Default'
+                    elif o.scheme == 'gsiftp':
+                        extended_attributes = None
+                        impl = 'rucio.rse.protocols.gfal.Default'
+                    elif o.scheme == 'root':
+                        extended_attributes = None
+                        impl = 'rucio.rse.protocols.xrootd.Default'
                     else:
-                        print 'Will create protocol %s at %s with priotities r,w,d : %s,%s,%s' % (o.scheme, rse['name'], params['domains']['lan']['read'], params['domains']['lan']['write'], params['domains']['lan']['delete'])
-                        try:
-                            add_protocol(rse=rse['name'], parameter=params)
-                        except Exception, error:
-                            print error
-            except Duplicate, error:
-                pass
-            except RSEProtocolPriorityError, error:
-                print 'RSE %s protocol %s: %s' % (rse['name'], o.scheme, error)
-                if RETVALUE != CRITICAL:
-                    RETVALUE = WARNING
-            except Exception:
-                RETVALUE = CRITICAL
-                errno, errstr = sys.exc_info()[:2]
-                trcbck = traceback.format_exc()
-                print 'RSE %s protocol %s : Interrupted processing with %s %s %s.' % (rse['name'], o.scheme, errno, errstr, trcbck)
+                        continue
+
+                    port = 8443
+                    netloc = o.netloc
+                    if o.port and str(o.port) in o.netloc:
+                        netloc = o.netloc[:-len(':' + str(o.port))]
+                        port = o.port
+                    else:
+                        if o.scheme == 'https':
+                            port = 443
+                        elif o.scheme == 'gsiftp':
+                            port = 2811
+                        elif o.scheme == 'root':
+                            port = 1094
+
+                    # For disk end-points not for tape
+                    prefix = rse['protocols'][protocol][0][2]
+                    if not rse['is_tape'] and not prefix.endswith('/rucio') and not prefix.endswith('/rucio/'):
+                        prefix = os.path.join(prefix, 'rucio/')
+
+                    params = {'hostname': netloc,
+                              'scheme': o.scheme,
+                              'port': port,
+                              'prefix': prefix,
+                              'impl': impl,
+                              'extended_attributes': extended_attributes,
+                              'domains': {"lan": {"read": priority[(o.scheme, o.netloc)]['r'],
+                                                  "write": priority[(o.scheme, o.netloc)]['w'],
+                                                  "delete": priority[(o.scheme, o.netloc)]['d']},
+                                          "wan": {"read": priority[(o.scheme, o.netloc)]['r'],
+                                                  "write": priority[(o.scheme, o.netloc)]['w'],
+                                                  "delete": priority[(o.scheme, o.netloc)]['d']}}}
+
+                    rucio_protocol = None
+                    for prot in rucio_protocols['protocols']:
+                        if prot['scheme'] == o.scheme and prot['hostname'] == netloc and prot['port'] == port:
+                            rucio_protocol = prot
+                            break
+                    if params != rucio_protocol:
+                        if rucio_protocol:
+                            try:
+                                activity_mapping = {'read': 'r', 'write': 'w', 'delete': 'd'}
+                                for act in activity_mapping:
+                                    if rucio_protocol['domains']['lan'][act] != priority[(o.scheme, o.netloc)][activity_mapping[act]]:
+                                        print '%s : Activity %s : priority in AGIS %s != priority in Rucio %s' % (rse['name'], act, rucio_protocol['domains']['lan'][act], priority[(o.scheme, o.netloc)][activity_mapping[act]])
+                                        update_protocols(rse['name'], o.scheme, {'domains': {'lan': {act: priority[(o.scheme, o.netloc)][activity_mapping[act]]}}}, hostname=netloc, port=port)
+                                        update_protocols(rse['name'], o.scheme, {'domains': {'wan': {act: priority[(o.scheme, o.netloc)][activity_mapping[act]]}}}, hostname=netloc, port=port)
+                            except RSEProtocolNotSupported, error:
+                                print error
+                        else:
+                            print 'Will create protocol %s at %s with priotities r,w,d : %s,%s,%s' % (o.scheme, rse['name'], params['domains']['lan']['read'], params['domains']['lan']['write'], params['domains']['lan']['delete'])
+                            try:
+                                add_protocol(rse=rse['name'], parameter=params)
+                            except Exception, error:
+                                print error
+                except Duplicate, error:
+                    pass
+                except RSEProtocolPriorityError, error:
+                    print 'RSE %s protocol %s: %s' % (rse['name'], o.scheme, error)
+                    if RETVALUE != CRITICAL:
+                        RETVALUE = WARNING
+                except Exception:
+                    RETVALUE = CRITICAL
+                    errno, errstr = sys.exc_info()[:2]
+                    trcbck = traceback.format_exc()
+                    print 'RSE %s protocol %s : Interrupted processing with %s %s %s.' % (rse['name'], o.scheme, errno, errstr, trcbck)
     sys.exit(RETVALUE)
