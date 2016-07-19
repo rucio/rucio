@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     accounts = {}
     for rse in DATA:
-        if not rse['se_flavour'] == 'AWS-S3':
+        if 'AWS-S3' not in rse['se_flavour']:
             continue
 
         accounts[rse['name']] = {"access_key": None,
