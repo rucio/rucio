@@ -71,7 +71,7 @@ class Default(protocol.RSEProtocol):
                 totalsize = data['totalsize']
                 unusedsize = data['unusedsize']
                 return totalsize, unusedsize
-            except gfal2.GError as error:
+            except gfal2.GError:
                 pass
             params = ctx.transfer_parameters()
             params.timeout = 60
