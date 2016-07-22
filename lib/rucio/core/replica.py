@@ -1012,7 +1012,7 @@ def add_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=No
     Add File replica.
 
     :param rse: the rse name.
-    :param scope: the tag name.
+    :param scope: the scope name.
     :param name: The data identifier name.
     :param bytes: the size of the file.
     :param account: The account owner.

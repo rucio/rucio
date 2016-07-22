@@ -327,6 +327,7 @@ class DataIdentifier(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
+    purge_replicas = Column(Boolean(name='DIDS_PURGE_REPLICAS_CHK'), default=True)
     deleted_at = Column(DateTime)
     # hardcoded meta-data to populate the db
     events = Column(BigInteger)
@@ -353,6 +354,7 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('OBSOLETE IS NOT NULL', name='DIDS_OBSOLETE_NN'),
                    CheckConstraint('SUPPRESSED IS NOT NULL', name='DIDS_SUPP_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_ACCOUNT_NN'),
+                   CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='DIDS_PURGE_REPLICAS_NN'),
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
@@ -395,6 +397,7 @@ class DeletedDataIdentifier(BASE, ModelBase):
     provenance = Column(String(2))
     phys_group = Column(String(25))
     transient = Column(Boolean(name='DEL_DID_TRANSIENT_CHK'), server_default='0')
+    purge_replicas = Column(Boolean(name='DELETED_DIDS_PURGE_RPLCS_CHK'))
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
@@ -1063,6 +1066,28 @@ class NamingConvention(BASE, ModelBase):
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='NAMING_CONVENTIONS_SCOPE_FK'))
 
 
+class TemporaryDataIdentifier(BASE, ModelBase):
+    """Represents a temporary DID (pre-merged files, etc.)"""
+    __tablename__ = 'tmp_dids'
+    scope = Column(String(25))
+    name = Column(String(255))
+    rse_id = Column(GUID())
+    path = Column(String(1024))
+    bytes = Column(BigInteger)
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
+    expired_at = Column(DateTime)
+    guid = Column(GUID())
+    events = Column(BigInteger)
+    task_id = Column(Integer())
+    panda_id = Column(Integer())
+    parent_scope = Column(String(25))
+    parent_name = Column(String(255))
+    offset = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='TMP_DIDS_PK'),
+                   Index('TMP_DIDS_EXPIRED_AT_IDX', 'expired_at'))
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -1104,6 +1129,7 @@ def register_models(engine):
               Scope,
               Source,
               Subscription,
+              TemporaryDataIdentifier,
               Token,
               UpdatedAccountCounter,
               UpdatedDID,
@@ -1156,6 +1182,7 @@ def unregister_models(engine):
               Source,
               Subscription,
               Token,
+              TemporaryDataIdentifier,
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
