@@ -634,6 +634,23 @@ def list_content(args):
 
 
 @exception_handler
+def list_content_history(args):
+    """
+    %(prog)s list-content-history [options] <field1=value1 field2=value2 ...>
+
+    List data identifier contents.
+    """
+    client = get_client(args)
+    table = []
+    for did in args.dids:
+        scope, name = extract_scope(did)
+        print 'blaj'
+#        for content in client.list_content(scope=scope, name=name):
+#            table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
+#    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    return SUCCESS
+
+@exception_handler
 def list_parent_dids(args):
     """
     %(prog)s list-parent-dids
@@ -2165,6 +2182,11 @@ Commands:
     list_content_parser.set_defaults(which='list_content')
     list_content_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
+    # The list_content_history command
+    list_content_history_parser = subparsers.add_parser('list-content-history', help='List the content history of a collection.')
+    list_content_history_parser.set_defaults(which='list_content_history')
+    list_content_history_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+
     # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')
     upload_parser.set_defaults(which='upload')
@@ -2353,6 +2375,7 @@ Commands:
                 'list_parent_dids': list_parent_dids,
                 'list_files': list_files,
                 'list_content': list_content,
+                'list_content_history': list_content_history,
                 'list_dids': list_dids,
                 'list_dataset_replicas': list_dataset_replicas,
                 'list_file_replicas': list_file_replicas,
