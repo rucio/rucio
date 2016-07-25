@@ -35,9 +35,13 @@ def add_temporary_dids(dids, account, session=None):
     temporary_dids, rses = [], {}
     for did in dids:
 
-        if did['rse'] not in rses:
-            replica_rse = get_rse(rse=did['rse'], session=session)
-            rses['rse'] = {'id': replica_rse.id}
+        rse = did['rse']
+        if rse not in rses:
+            if 'rse_id' in did:
+                rses[rse] = {'id': did['rse_id']}
+            else:
+                replica_rse = get_rse(rse=rse, session=session)
+                rses[rse] = {'id': replica_rse.id}
 
         if did.get('pfn'):
             did['path'] = did['pfn']
@@ -50,7 +54,7 @@ def add_temporary_dids(dids, account, session=None):
 
         temporary_dids.append({'scope': did['scope'],
                                'name': did['name'],
-                               'rse_id': rses['rse']['id'],
+                               'rse_id': rses[rse]['id'],
                                'path': did.get('path'),
                                'bytes': did.get('bytes'),
                                'md5': did.get('md5'),
