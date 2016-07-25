@@ -1679,7 +1679,7 @@ def update_requests_priority(priority, filter, session=None):
     Update priority of requests.
 
     :param priority: The priority as an integer from 1 to 5.
-    :param filter: Dictionary such as {'rule_id': rule_id, 'request_id': request_id}.
+    :param filter: Dictionary such as {'rule_id': rule_id, 'request_id': request_id, 'older_than': time_stamp, 'activities': [activities]}.
     """
     try:
         query = session.query(models.Request.id, models.Request.external_id, models.Request.external_host)\
@@ -1693,9 +1693,19 @@ def update_requests_priority(priority, filter, session=None):
             query = query.filter(models.ReplicaLock.rule_id == filter['rule_id'])
         if 'request_id' in filter:
             query = query.filter(models.Request.id == filter['request_id'])
+        if 'older_than' in filter:
+            query = query.filter(models.Request.created_at < filter['older_than'])
+        if 'activities' in filter:
+            if type(filter['activities']) is not list:
+                filter['activities'] = filter['activities'].split(',')
+            query = query.filter(models.Request.activity.in_(filter['activities']))
 
         for item in query.all():
-            res = fts3.update_priority(item[1], item[2], priority)
-            logging.debug("Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
+            try:
+                res = fts3.update_priority(item[1], item[2], priority)
+            except:
+                logging.debug("Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
+            else:
+                logging.debug("Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
     except IntegrityError, e:
         raise RucioException(e.args)
