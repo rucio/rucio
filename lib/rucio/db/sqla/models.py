@@ -327,6 +327,7 @@ class DataIdentifier(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
+    purge_replicas = Column(Boolean(name='DELETED_DIDS_PURGE_RPLCS_CHK'))
     deleted_at = Column(DateTime)
     # hardcoded meta-data to populate the db
     events = Column(BigInteger)
@@ -353,6 +354,7 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('OBSOLETE IS NOT NULL', name='DIDS_OBSOLETE_NN'),
                    CheckConstraint('SUPPRESSED IS NOT NULL', name='DIDS_SUPP_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_ACCOUNT_NN'),
+                   CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='DIDS_PURGE_REPLICAS_NN'),
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
@@ -379,6 +381,7 @@ class DeletedDataIdentifier(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
+    purge_replicas = Column(Boolean(name='DELETED_DIDS_PURGE_RPLCS_CHK'))
     deleted_at = Column(DateTime)
     events = Column(BigInteger)
     guid = Column(GUID())
@@ -744,6 +747,7 @@ class ReplicationRule(BASE, ModelBase):
     purge_replicas = Column(Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False)
     ignore_availability = Column(Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False)
     ignore_account_limit = Column(Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False)
+    priority = Column(Integer)
     comments = Column(String(255))
     child_rule_id = Column(GUID())
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
@@ -798,6 +802,7 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     purge_replicas = Column(Boolean())
     ignore_availability = Column(Boolean())
     ignore_account_limit = Column(Boolean())
+    priority = Column(Integer)
     comments = Column(String(255))
     child_rule_id = Column(GUID())
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_RECENT_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
@@ -830,6 +835,7 @@ class ReplicationRuleHistory(BASE, ModelBase):
     grouping = Column(RuleGrouping.db_type())
     notification = Column(RuleNotification.db_type())
     stuck_at = Column(DateTime)
+    priority = Column(Integer)
     purge_replicas = Column(Boolean())
     ignore_availability = Column(Boolean())
     ignore_account_limit = Column(Boolean())
@@ -923,9 +929,13 @@ class Request(BASE, ModelBase, Versioned):
     transferred_at = Column(DateTime)
     estimated_at = Column(DateTime)
     submitter_id = Column(Integer)
+    account = Column(String(25))
+    generated_at = Column(DateTime)
+    priority = Column(Integer)
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='REQUESTS_ACCOUNT_FK'),
                    CheckConstraint('dest_rse_id IS NOT NULL', name='REQUESTS_RSE_ID_NN'),
                    Index('REQUESTS_SCOPE_NAME_RSE_IDX', 'scope', 'name', 'dest_rse_id', 'request_type'),
                    Index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'request_type', 'state', 'updated_at'),
