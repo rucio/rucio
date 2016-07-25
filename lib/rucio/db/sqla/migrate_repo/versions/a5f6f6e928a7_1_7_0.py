@@ -30,8 +30,8 @@ def upgrade():
         op.add_column('dids', sa.Column('purge_replicas',
                                         sa.Boolean(name='DIDS_PURGE_REPLICAS_CHK'),
                                         default=True))
-        op.add_column('dids_history', sa.Column('purge_replicas',
-                                                sa.Boolean(name='DIDS_HIST_PURGE_RPLCS_CHK')))
+        op.add_column('deleted_dids', sa.Column('purge_replicas',
+                                                sa.Boolean(name='DEL_DIDS_PURGE_RPLCS_CHK')))
 
         op.create_check_constraint('DIDS_PURGE_REPLICAS_NN', 'dids', 'purge_replicas is not null')
 
@@ -54,7 +54,7 @@ def downgrade():
     if context.get_context().dialect.name not in ('sqlite'):
 
         op.drop_column('dids', 'purge_replicas')
-        op.drop_column('dids_history', 'purge_replicas')
+        op.drop_column('deleted_dids', 'purge_replicas')
 
         op.drop_column('requests', 'account')
         op.drop_column('requests', 'generated_at')
