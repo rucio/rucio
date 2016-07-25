@@ -1737,3 +1737,33 @@ INTERVAL ( NUMTOYMINTERVAL(3,'MONTH') )
 
 
 COMMENT ON TABLE QUARANTINED_REPLICAS_HISTORY IS 'Table of historical QUARANTINED_REPLICAS values of what dark data have been deleted from the sites.' ;
+
+-- ============================= TMP_DIDS_HISTORY =========================================
+-- Description: Table to store temporary dids
+-- Estimated volume: ?
+-- Access pattern: by scope, name,
+
+CREATE TABLE tmp_dids (
+    scope VARCHAR2(25 CHAR) NOT NULL,
+    name VARCHAR2(255 CHAR) NOT NULL,
+    rse_id RAW(16),
+    path VARCHAR2(1024 CHAR),
+    bytes NUMBER(19),
+    md5 VARCHAR2(32 CHAR),
+    adler32 VARCHAR2(8 CHAR),
+    expired_at DATE,
+    parent_scope VARCHAR2(25 CHAR),
+    parent_name VARCHAR2(255 CHAR),
+    guid RAW(16),
+    events NUMBER(19),
+    task_id INTEGER,
+    panda_id INTEGER,
+    offset NUMBER(19),
+    updated_at DATE,
+    created_at DATE,
+    CONSTRAINT "TMP_DIDS_PK" PRIMARY KEY (scope, name)  using index COMPRESS 1,
+    CONSTRAINT "TMP_DIDS_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
+    CONSTRAINT "TMP_DIDS_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
+CREATE INDEX "TMP_DIDS_EXPIRED_AT_IDX" ON tmp_dids (case when expired_at is not null then rse_id end) COMPRESS 1  TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
