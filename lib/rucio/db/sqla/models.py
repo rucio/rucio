@@ -974,6 +974,11 @@ class Distance(BASE, ModelBase):
     ranking = Column(Integer())
     agis_distance = Column(Integer())
     geoip_distance = Column(Integer())
+    active = Column(Integer())
+    submitted = Column(Integer())
+    finished = Column(Integer())
+    failed = Column(Integer())
+    transfer_speed = Column(Integer())
     _table_args = (PrimaryKeyConstraint('src_rse_id', 'dest_rse_id', name='DISTANCES_PK'),
                    ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='DISTANCES_SRC_RSES_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='DISTANCES_DEST_RSES_FK'),

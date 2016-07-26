@@ -49,6 +49,12 @@ def upgrade():
         op.add_column('rules_hist_recent', sa.Column('priority', sa.Integer))
         op.add_column('rules_history', sa.Column('priority', sa.Integer))
 
+        op.add_column('distances', sa.Column('active', sa.Integer))
+        op.add_column('distances', sa.Column('submitted', sa.Integer))
+        op.add_column('distances', sa.Column('finished', sa.Integer))
+        op.add_column('distances', sa.Column('failed', sa.Integer))
+        op.add_column('distances', sa.Column('transfer_speed', sa.Integer))
+
 
 def downgrade():
     if context.get_context().dialect.name not in ('sqlite'):
@@ -67,3 +73,9 @@ def downgrade():
         op.drop_column('rules', 'priority')
         op.drop_column('rules_hist_recent', 'priority')
         op.drop_column('rules_history', 'priority')
+
+        op.drop_column('distances', 'active')
+        op.drop_column('distances', 'submitted')
+        op.drop_column('distances', 'finished')
+        op.drop_column('distances', 'failed')
+        op.drop_column('distances', 'transfer_speed')
