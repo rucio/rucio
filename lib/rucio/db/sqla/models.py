@@ -347,6 +347,7 @@ class DataIdentifier(BASE, ModelBase):
     transient = Column(Boolean(name='DID_TRANSIENT_CHK'), server_default='0')
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -400,6 +401,7 @@ class DeletedDataIdentifier(BASE, ModelBase):
     transient = Column(Boolean(name='DEL_DID_TRANSIENT_CHK'), server_default='0')
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
 
 
