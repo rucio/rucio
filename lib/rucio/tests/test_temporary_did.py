@@ -15,6 +15,8 @@ from rucio.common.utils import generate_uuid
 from rucio.core.temporary_did import (add_temporary_dids, compose, delete_temporary_dids,
                                       list_expired_temporary_dids)
 
+from rucio.client.didclient import DIDClient
+
 
 class TestTemporaryDIDCore:
 
@@ -41,3 +43,33 @@ class TestTemporaryDIDCore:
             rowcount = delete_temporary_dids(dids=dids)
 
             assert_equal(rowcount, 10)
+
+
+class TestTemporaryDIDClient:
+
+    def setup(self):
+        self.client = DIDClient()
+
+    def test_temporary_dids(self):
+        """ TMP DATA IDENTIFIERS (CLIENT): """
+
+        temporary_dids = []
+        for i in xrange(10):
+            temporary_dids.append({'scope': 'mock',
+                                   'name': 'object_%s' % generate_uuid(),
+                                   'rse': 'MOCK',
+                                   'bytes': 1L,
+                                   'path': None})
+
+        self.client.add_temporary_dids(dids=temporary_dids)
+
+#            compose(scope='mock', name='file_%s' % generate_uuid(), rse='MOCK',
+#                    bytes=10L, sources=temporary_dids, account='root',
+#                    md5=None, adler32=None, pfn=None, meta={}, rules=[],
+#                    parent_scope=None, parent_name=None)
+
+#            dids = list_expired_temporary_dids(rse='MOCK', limit=10)
+
+#            rowcount = delete_temporary_dids(dids=dids)
+
+#        assert_equal(rowcount, 10)
