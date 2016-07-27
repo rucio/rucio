@@ -13,7 +13,7 @@
 from datetime import datetime
 
 from sqlalchemy import and_, or_
-from sqlalchemy.sql.expression import bindparam, text
+from sqlalchemy.sql.expression import bindparam, case, text
 
 from rucio.core.did import attach_dids
 from rucio.core.rse import get_rse, get_rse_id
@@ -37,7 +37,7 @@ def add_temporary_dids(dids, account, session=None):
 
         rse = did['rse']
         if rse not in rses:
-            if 'rse_id' in did:
+            if did.get('rse_id'):
                 rses[rse] = {'id': did['rse_id']}
             else:
                 replica_rse = get_rse(rse=rse, session=session)
@@ -63,7 +63,8 @@ def add_temporary_dids(dids, account, session=None):
                                'events': did.get('envents'),
                                'parent_scope': did.get('parent_scope'),
                                'parent_name': did.get('parent_name'),
-                               'offset': did.get('offset')})
+                               'offset': did.get('offset'),
+                               'expired_at': datetime.utcnow()})
     try:
         session.bulk_insert_mappings(models.TemporaryDataIdentifier, temporary_dids)
     except:
@@ -133,8 +134,8 @@ def list_expired_temporary_dids(rse, limit, worker_number=None, total_workers=No
                           models.TemporaryDataIdentifier.name,
                           models.TemporaryDataIdentifier.path,
                           models.TemporaryDataIdentifier.bytes).\
-        filter(models.TemporaryDataIdentifier.rse_id == rse_id).\
-        filter(models.TemporaryDataIdentifier.expired_at != is_none)
+        with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_EXPIRED_AT_IDX)", 'oracle').\
+        filter(case([(models.TemporaryDataIdentifier.expired_at != is_none, models.TemporaryDataIdentifier.rse_id), ]) == rse_id)
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
