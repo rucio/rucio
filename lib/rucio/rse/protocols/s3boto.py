@@ -11,9 +11,9 @@
 
 import os
 import urlparse
+import logging
 
 import boto
-import boto.s3.connection
 
 from boto.s3.key import Key
 
@@ -21,6 +21,8 @@ from rucio.common import exception
 from rucio.common.config import get_rse_credentials
 
 from rucio.rse.protocols import protocol
+
+logging.getLogger('boto').setLevel(logging.INFO)
 
 
 class Default(protocol.RSEProtocol):
@@ -120,7 +122,7 @@ class Default(protocol.RSEProtocol):
         try:
             scheme, prefix = self.attributes.get('scheme'), self.attributes.get('prefix')
             netloc, port = self.attributes['hostname'], self.attributes.get('port', 80)
-            service_url = '%(scheme)s://%(netloc)s:%(port)s%(prefix)s' % locals()
+            service_url = '%(scheme)s://%(netloc)s:%(port)s' % locals()
             credentials = get_rse_credentials()
             self.rse['credentials'] = credentials.get(self.rse['rse'])
             is_secure = self.rse['credentials'].get('is_secure', {}).\
@@ -129,8 +131,7 @@ class Default(protocol.RSEProtocol):
                                           port=int(port),
                                           aws_access_key_id=self.rse['credentials']['access_key'],
                                           aws_secret_access_key=self.rse['credentials']['secret_key'],
-                                          is_secure=is_secure,
-                                          calling_format=boto.s3.connection.OrdinaryCallingFormat())
+                                          is_secure=is_secure)
         except Exception as e:
             raise exception.RSEAccessDenied(e)
 
