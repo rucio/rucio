@@ -77,7 +77,7 @@ if __name__ == '__main__':
                         index += 1
                         path = protocol['path']
                         o = urlparse.urlparse(protocol['endpoint'])
-			if (o.scheme, o.netloc, path) not in priority:
+                        if (o.scheme, o.netloc, path) not in priority:
                             priority[(o.scheme, o.netloc, path)] = {'r': 0, 'w': 0, 'd': 0}
                         priority[(o.scheme, o.netloc, path)][activity] = index
             for prio in priority:
