@@ -64,7 +64,8 @@ def add_temporary_dids(dids, account, session=None):
                                'parent_scope': did.get('parent_scope'),
                                'parent_name': did.get('parent_name'),
                                'offset': did.get('offset'),
-                               'expired_at': datetime.utcnow()})
+                               'expired_at': datetime.utcnow(),
+                               'created_at': did['created_at']})
     try:
         session.bulk_insert_mappings(models.TemporaryDataIdentifier, temporary_dids)
     except:
@@ -171,5 +172,6 @@ def delete_temporary_dids(dids, session=None):
 
     if where_clause:
         return session.query(models.TemporaryDataIdentifier).\
+            with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_PK)", 'oracle').\
             filter(or_(*where_clause)).delete(synchronize_session=False)
     return
