@@ -264,7 +264,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
             pass
         elif (rule.locks_stuck_cnt > 0):
             pass
-        elif (rule.locks_replicating_cnt == 0):
+        elif (rule.locks_replicating_cnt == 0 and rule.state == RuleState.REPLICATING):
             rule.state = RuleState.OK
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
