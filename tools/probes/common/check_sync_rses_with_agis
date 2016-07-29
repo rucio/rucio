@@ -77,7 +77,7 @@ if __name__ == '__main__':
                         index += 1
                         path = protocol['path']
                         o = urlparse.urlparse(protocol['endpoint'])
-                        if (o.scheme, o.netloc) not in priority:
+                        if (o.scheme, o.netloc, path) not in priority:
                             priority[(o.scheme, o.netloc, path)] = {'r': 0, 'w': 0, 'd': 0}
                         priority[(o.scheme, o.netloc, path)][activity] = index
             for prio in priority:
@@ -92,7 +92,10 @@ if __name__ == '__main__':
                 if scheme == 's3':
                     impl = 'rucio.rse.protocols.s3boto.Default'
                 elif scheme == 's3+rucio':
-                    impl = 'rucio.rse.protocols.signeds3.Default'
+                    if rse['type'] == 'OS_ES':
+                        impl = 'rucio.rse.protocols.ses3.Default'
+                    else:
+                        impl = 'rucio.rse.protocols.signeds3.Default'
                 params = {'hostname': hostname,
                           'scheme': scheme,
                           'port': port,
@@ -151,7 +154,7 @@ if __name__ == '__main__':
                         impl = 'rucio.rse.protocols.gfal.Default'
                     elif o.scheme == 'root':
                         extended_attributes = None
-                        impl = 'rucio.rse.protocols.xrootd.Default'
+                        impl = 'rucio.rse.protocols.gfal.Default'
                     else:
                         continue
 
