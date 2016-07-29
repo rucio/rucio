@@ -14,7 +14,8 @@ import urlparse
 import logging
 
 import boto
-
+from boto import connect_s3
+from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 
 from rucio.common import exception
@@ -127,11 +128,12 @@ class Default(protocol.RSEProtocol):
             self.rse['credentials'] = credentials.get(self.rse['rse'])
             is_secure = self.rse['credentials'].get('is_secure', {}).\
                 get(service_url, False)
-            self.__conn = boto.connect_s3(host=self.attributes['hostname'],
-                                          port=int(port),
-                                          aws_access_key_id=self.rse['credentials']['access_key'],
-                                          aws_secret_access_key=self.rse['credentials']['secret_key'],
-                                          is_secure=is_secure)
+            self.__conn = connect_s3(host=self.attributes['hostname'],
+                                     port=int(port),
+                                     aws_access_key_id=self.rse['credentials']['access_key'],
+                                     aws_secret_access_key=self.rse['credentials']['secret_key'],
+                                     is_secure=is_secure,
+                                     calling_format=OrdinaryCallingFormat())
         except Exception as e:
             raise exception.RSEAccessDenied(e)
 
