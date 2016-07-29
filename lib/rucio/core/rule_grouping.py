@@ -183,7 +183,10 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=Non
             'rule_id': rule.id,
             'attributes': attributes,
             'request_type': request_type,
-            'retry_count': retry_count}
+            'retry_count': retry_count,
+            'generated_at': rule.created_at,
+            'account': rule.account,
+            'priority': None}  # For now, will add it properly later.
 
 
 @transactional_session
