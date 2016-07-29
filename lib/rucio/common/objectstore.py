@@ -199,7 +199,11 @@ def get_signed_urls(urls, rse, operation='read'):
                 if key is None:
                     signed_url = exception.SourceNotFound('Key %s not found on %s' % (key_name, endpoint))
                 else:
-                    signed_url = key.generate_url(3600, 'GET', query_auth=True, force_http=False)
+                    try:
+                        signed_url = key.generate_url(3600, 'GET', query_auth=True, merge_meta=False, force_http=False)
+                    except TypeError:
+                        # merge_meta option is not supported
+                        signed_url = key.generate_url(3600, 'GET', query_auth=True, force_http=False)
             else:
                 conn = _get_connection(rse, endpoint)
                 signed_url = conn.generate_url(3600, 'PUT', bucket_name, key_name, query_auth=True, force_http=False)
