@@ -2593,6 +2593,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_repl
         account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
 
     # Add the transfers
+    logging.debug("Rule %s  [%d/%d/%d] queued %d transfers" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt, len(transfers_to_create)))
     queue_requests(requests=transfers_to_create, session=session)
     session.flush()
     logging.debug("Finished creating locks and replicas for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
