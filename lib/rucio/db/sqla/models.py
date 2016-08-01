@@ -932,7 +932,7 @@ class Request(BASE, ModelBase, Versioned):
     estimated_at = Column(DateTime)
     submitter_id = Column(Integer)
     account = Column(String(25))
-    generated_at = Column(DateTime)
+    requested_at = Column(DateTime)
     priority = Column(Integer)
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
