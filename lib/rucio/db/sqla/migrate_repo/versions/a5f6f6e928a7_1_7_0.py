@@ -39,12 +39,12 @@ def upgrade():
         op.create_check_constraint('DIDS_PURGE_REPLICAS_NN', 'dids', 'purge_replicas is not null')
 
         op.add_column('requests', sa.Column('account', sa.String(25)))
-        op.add_column('requests', sa.Column('generated_at', sa.DateTime))
+        op.add_column('requests', sa.Column('requested_at', sa.DateTime))
         op.add_column('requests', sa.Column('priority', sa.Integer))
         op.create_foreign_key('REQUESTS_ACCOUNT_FK', 'requests', 'accounts', ['account'], ['account'])
 
         op.add_column('requests_history', sa.Column('account', sa.String(25)))
-        op.add_column('requests_history', sa.Column('generated_at', sa.DateTime))
+        op.add_column('requests_history', sa.Column('requested_at', sa.DateTime))
 
         op.add_column('requests_history', sa.Column('priority', sa.Integer))
 
@@ -69,11 +69,11 @@ def downgrade():
         op.drop_column('deleted_dids', 'eol_at')
 
         op.drop_column('requests', 'account')
-        op.drop_column('requests', 'generated_at')
+        op.drop_column('requests', 'requested_at')
         op.drop_column('requests', 'priority')
 
         op.drop_column('requests_history', 'account')
-        op.drop_column('requests_history', 'generated_at')
+        op.drop_column('requests_history', 'requested_at')
         op.drop_column('requests_history', 'priority')
 
         op.drop_column('rules', 'priority')
