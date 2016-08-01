@@ -283,6 +283,9 @@ def queue_requests(requests, session=None):
                                          bytes=req['attributes']['bytes'],
                                          md5=req['attributes']['md5'],
                                          adler32=req['attributes']['adler32'],
+                                         account=req['attributes'].get('account', None),
+                                         priority=req['attributes'].get('priority', None),
+                                         generated_at=req['attributes'].get('generated_at', None),
                                          retry_count=req['retry_count'])
             if 'previous_attempt_id' in req and 'retry_count' in req:
                 new_request = models.Request(id=req['request_id'],
@@ -1332,7 +1335,7 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
         .filter(models.Request.request_type == RequestType.TRANSFER)
 
     if isinstance(older_than, datetime.datetime):
-        sub_requests = sub_requests.filter(models.Request.updated_at < older_than)
+        sub_requests = sub_requests.filter(models.Request.generated_at < older_than)
 
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
@@ -1441,7 +1444,7 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
         .filter(models.Request.request_type == RequestType.STAGEIN)
 
     if isinstance(older_than, datetime.datetime):
-        sub_requests = sub_requests.filter(models.Request.updated_at < older_than)
+        sub_requests = sub_requests.filter(models.Request.generated_at < older_than)
 
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
@@ -1627,17 +1630,17 @@ def get_stats_by_activity_dest_state(state, session=None):
         state = [state, state]
 
     try:
-        results = session.query(models.Request.activity, models.Request.dest_rse_id, models.Request.state, func.count(1).label('counter'))\
+        results = session.query(models.Request.activity, models.Request.dest_rse_id, models.Request.account, models.Request.state, func.count(1).label('counter'))\
                          .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
                          .filter(models.Request.state.in_(state))\
-                         .group_by(models.Request.activity, models.Request.dest_rse_id, models.Request.state).all()
+                         .group_by(models.Request.activity, models.Request.dest_rse_id, models.Request.account, models.Request.state).all()
         return results
     except IntegrityError, e:
         raise RucioException(e.args)
 
 
 @transactional_session
-def release_waiting_requests(rse, activity=None, rse_id=None, count=None, session=None):
+def release_waiting_requests(rse, activity=None, rse_id=None, count=None, account=None, session=None):
     """
     Release waiting requests.
 
@@ -1655,14 +1658,18 @@ def release_waiting_requests(rse, activity=None, rse_id=None, count=None, sessio
             query = session.query(models.Request).filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
             if activity:
                 query = query.filter_by(activity=activity)
+            if account:
+                query = query.filter_by(account=account)
             rowcount = query.update({'state': RequestState.QUEUED}, synchronize_session=False)
         elif count > 0:
             subquery = session.query(models.Request.id)\
                               .filter(models.Request.dest_rse_id == rse_id)\
                               .filter(models.Request.state == RequestState.WAITING)\
-                              .order_by(asc(models.Request.created_at))
+                              .order_by(asc(models.Request.generated_at))
             if activity:
                 subquery = subquery.filter(models.Request.activity == activity)
+            if account:
+                subquery = subquery.filter(models.Request.account == account)
             subquery = subquery.limit(count).with_for_update()
 
             rowcount = session.query(models.Request)\
