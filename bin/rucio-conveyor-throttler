@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
+
+"""
+Conveyor is a daemon to manage file transfers.
+"""
+
+import argparse
+import signal
+
+from rucio.daemons.conveyor.throttler import run, stop
+
+if __name__ == "__main__":
+
+    signal.signal(signal.SIGTERM, stop)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-once", action="store_true", default=False,
+                        help='One iteration only')
+    parser.add_argument('--sleep-time', action="store", default=600, type=int,
+                        help='Seconds to sleep if few requests')
+    args = parser.parse_args()
+
+    try:
+        run(once=args.run_once, sleep_time=args.sleep_time)
+    except KeyboardInterrupt:
+        stop()
