@@ -285,7 +285,7 @@ def queue_requests(requests, session=None):
                                          adler32=req['attributes']['adler32'],
                                          account=req['attributes'].get('account', None),
                                          priority=req['attributes'].get('priority', None),
-                                         generated_at=req['attributes'].get('generated_at', None),
+                                         requested_at=req['attributes'].get('requested_at', None),
                                          retry_count=req['retry_count'])
             if 'previous_attempt_id' in req and 'retry_count' in req:
                 new_request = models.Request(id=req['request_id'],
@@ -1335,7 +1335,7 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
         .filter(models.Request.request_type == RequestType.TRANSFER)
 
     if isinstance(older_than, datetime.datetime):
-        sub_requests = sub_requests.filter(models.Request.generated_at < older_than)
+        sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
 
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
@@ -1444,7 +1444,7 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
         .filter(models.Request.request_type == RequestType.STAGEIN)
 
     if isinstance(older_than, datetime.datetime):
-        sub_requests = sub_requests.filter(models.Request.generated_at < older_than)
+        sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
 
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
@@ -1665,7 +1665,7 @@ def release_waiting_requests(rse, activity=None, rse_id=None, count=None, accoun
             subquery = session.query(models.Request.id)\
                               .filter(models.Request.dest_rse_id == rse_id)\
                               .filter(models.Request.state == RequestState.WAITING)\
-                              .order_by(asc(models.Request.generated_at))
+                              .order_by(asc(models.Request.requested_at))
             if activity:
                 subquery = subquery.filter(models.Request.activity == activity)
             if account:
