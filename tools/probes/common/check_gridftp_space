@@ -37,9 +37,17 @@ if __name__ == "__main__":
     rses = c.list_rses()
     for rse in rses:
         rsename = rse['rse']
-        if 'GRIDFTP' not in rsename:
-            continue
         rse_settings = rsemgr.get_rse_info(rsename)
+        rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gsiftp.Default'
+
+        # verifiing, that the site is srm-less
+        srmless = True
+        for prot in rse_settings['protocols']:
+            if prot['scheme'] == 'srm': 
+                srmless = False
+        if srmless = False:
+            continue
+
         try:
             gs, ret = rsemgr.get_space_usage(rse_settings, "gsiftp")
             if gs:
