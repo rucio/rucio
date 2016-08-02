@@ -43,9 +43,9 @@ if __name__ == "__main__":
         # verifiing, that the site is srm-less
         srmless = True
         for prot in rse_settings['protocols']:
-            if prot['scheme'] == 'srm': 
+            if prot['scheme'] == 'srm':
                 srmless = False
-        if srmless = False:
+        if srmless == False:
             continue
 
         try:
