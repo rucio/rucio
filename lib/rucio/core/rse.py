@@ -12,7 +12,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-# - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Wen Guan, <wen.guan@cern.ch>, 2015-2016
 
 from re import match
 from StringIO import StringIO
@@ -339,6 +339,27 @@ def has_rse_attribute(rse_id, key, session=None):
     if session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).first():
         return True
     return False
+
+
+@read_session
+def get_rse_attribute(key, rse_id=None, session=None):
+    """
+    Retrieve RSE attribute value.
+
+    :param rse_id: The RSE id.
+    :param key: The key for the attribute.
+    :param session: The database session in use.
+
+    :returns: A list with RSE attribute values for a Key.
+    """
+    rse_attrs = []
+    if rse_id:
+        query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).distinct()
+    else:
+        query = session.query(models.RSEAttrAssociation.value).filter_by(key=key).distinct()
+    for attr_value in query:
+        rse_attrs.append(attr_value[0])
+    return rse_attrs
 
 
 @transactional_session
