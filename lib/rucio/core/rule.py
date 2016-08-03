@@ -62,7 +62,7 @@ logging.basicConfig(stream=sys.stdout,
 def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
              source_replica_expression=None, activity='User Subscriptions', notify=None, purge_replicas=False,
              ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, ignore_account_limit=False,
-             session=None):
+             priority=3, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -86,6 +86,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param ask_approval:               Ask for approval for this rule.
     :param asynchronous:               Create replication rule asynchronously by the judge-injector.
     :param ignore_account_limit:       Ignore quota and create the rule outside of the account limits.
+    :param priority:                   Priority of the rule and the transfers which should be submitted.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
@@ -180,7 +181,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   purge_replicas=purge_replicas,
                                                   ignore_availability=ignore_availability,
                                                   comments=comment,
-                                                  ignore_account_limit=ignore_account_limit)
+                                                  ignore_account_limit=ignore_account_limit,
+                                                  priority=priority)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
@@ -408,7 +410,8 @@ def add_rules(dids, rules, session=None):
                                                           notification=notify,
                                                           purge_replicas=rule.get('purge_replicas', False),
                                                           ignore_availability=rule.get('ignore_availability', False),
-                                                          comments=rule.get('comment', None))
+                                                          comments=rule.get('comment', None),
+                                                          priority=rule.get('priority', 3))
                         try:
                             new_rule.save(session=session)
                         except IntegrityError, e:
@@ -534,6 +537,7 @@ def inject_rule(rule_id, session=None):
                  asynchronous=True,
                  ignore_availability=rule.ignore_availability,
                  ignore_account_limit=True,
+                 priority=rule.priority,
                  session=session)
         rule.delete(session=session)
         return
@@ -1147,6 +1151,7 @@ def update_rule(rule_id, options, session=None):
 
             elif key == 'priority':
                 try:
+                    rule.priority = options[key]
                     update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
                 except Exception, e:
                     raise UnsupportedOperation('The FTS Requests are already in a final state.')

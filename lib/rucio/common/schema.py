@@ -139,6 +139,9 @@ RULE_LIFETIME = {"description": "Rule lifetime", "type": ["number", "null"]}
 
 SUBSCRIPTION_ID = {"description": "Rule Subscription id", "type": ["string", "null"]}
 
+PRIORITY = {"description": "Priority of the transfers",
+            "type": "integer"}
+
 RULE = {"description": "Replication rule",
         "type": "object",
         "properties": {"dids": {"type": "array"},
@@ -157,7 +160,8 @@ RULE = {"description": "Replication rule",
                        "ignore_availability": IGNORE_AVAILABILITY,
                        "comment": COMMENT,
                        "ask_approval": ASK_APPROVAL,
-                       "asynchronous": ASYNCHRONOUS},
+                       "asynchronous": ASYNCHRONOUS,
+                       "priority": PRIORITY},
         "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 
