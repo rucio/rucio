@@ -749,9 +749,9 @@ def __get_files(args):
             # No files, but subdirectories. Needed to be added one-by-one
             # Maybe change so we look through the subdirs and add those files?
             elif subdirs:
-                raise Exception("Directory ({directory}) has no files in it. Please add subdirectories individually.".format(directory = dname))
+                raise Exception("Directory ({directory}) has no files in it. Please add subdirectories individually.".format(directory=dname))
             else:
-                raise Exception("Directory ({directory}) is empty.".format(directory = dname))
+                raise Exception("Directory ({directory}) is empty.".format(directory=dname))
         elif os.path.isfile(item):
             files.append(item)
         else:
