@@ -451,7 +451,7 @@ def delete_dids(dids, account, session=None):
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
-        # Send message for AMI
+        # Send message
         add_message('ERASE', {'account': account,
                               'scope': did['scope'],
                               'name': did['name']},
@@ -459,12 +459,15 @@ def delete_dids(dids, account, session=None):
     # Delete rules on did
     if rule_id_clause:
         with record_timer_block('undertaker.rules'):
-            for (rule_id, scope, name, rse_expression, ) in session.query(models.ReplicationRule.id,
-                                                                          models.ReplicationRule.scope,
-                                                                          models.ReplicationRule.name,
-                                                                          models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
+            for (rule_id, scope, name, rse_expression, purge_replicas) in session.query(models.ReplicationRule.id,
+                                                                                        models.ReplicationRule.scope,
+                                                                                        models.ReplicationRule.name,
+                                                                                        models.ReplicationRule.rse_expression,
+                                                                                        models.ReplicationRule.purge_replicas).filter(or_(*rule_id_clause)):
                 logging.debug('Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
-                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=True, delete_parent=True, nowait=True, session=session)
+                if purge_replicas is None:
+                    purge_replicas = True
+                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
 
     # Detach from parent dids:
     existing_parent_dids = False
