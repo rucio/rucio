@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 
 import logging
 import sys
@@ -38,6 +38,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
+from rucio.common.policy import get_scratch_policy, define_eol
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account, has_account_attribute
 from rucio.core.message import add_message
@@ -105,14 +106,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 if [rse for rse in rses if rse.get('staging_area', False)]:
                     raise StagingAreaRuleRequiresLifetime()
 
-            # Check SCRATCHDISK Polciy
-            if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * 15):
-                # Check if one of the rses is a SCRATCHDISK:
-                if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
-                    if len(rses) == 1:
-                        lifetime = 60 * 60 * 24 * 15 - 1
-                    else:
-                        raise ScratchDiskLifetimeConflict()
+            lifetime = get_scratch_policy(session, account, rses, lifetime)
 
             # Auto-lock rules for TAPE rses
             if not locked and lifetime is None:
@@ -154,6 +148,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 except TypeError, e:
                     raise InvalidObject(e.args)
 
+            # 3.5 Get the lifetime
+            eol_at = define_eol(elem['scope'], elem['name'], rses, session=session)
+
             # 4. Create the replication rule
             with record_timer_block('rule.add_rule.create_rule'):
                 if grouping == 'ALL':
@@ -180,7 +177,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   purge_replicas=purge_replicas,
                                                   ignore_availability=ignore_availability,
                                                   comments=comment,
-                                                  ignore_account_limit=ignore_account_limit)
+                                                  ignore_account_limit=ignore_account_limit,
+                                                  eol_at=eol_at)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
