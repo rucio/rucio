@@ -64,8 +64,7 @@ def add_temporary_dids(dids, account, session=None):
                                'parent_scope': did.get('parent_scope'),
                                'parent_name': did.get('parent_name'),
                                'offset': did.get('offset'),
-                               'expired_at': datetime.utcnow(),
-                               'created_at': did['created_at']})
+                               'expired_at': datetime.utcnow()})
     try:
         session.bulk_insert_mappings(models.TemporaryDataIdentifier, temporary_dids)
     except:
