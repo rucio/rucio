@@ -41,7 +41,7 @@ def get_vo():
 def get_lifetime_policy():
     lifetime_dict = REGION.get('lifetime_dict')
     if type(lifetime_dict) is NoValue:
-        lifetime_dict = {}
+        lifetime_dict = {'data': [], 'mc': [], 'valid': [], 'other': []}
         try:
             lifetime_dir = config_get('lifetime', 'directory')
         except (NoSectionError, NoOptionError):
