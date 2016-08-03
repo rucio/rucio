@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 from rucio.api.permission import has_permission
@@ -15,7 +15,8 @@ from rucio.common.schema import validate_schema
 from rucio.core import rule
 
 
-def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, issuer):
+def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression,
+                         activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority, issuer):
     """
     Adds a replication rule.
 
@@ -38,6 +39,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :param comment:                    Comment about the rule.
     :param ask_approval:               Ask for approval of this rule.
     :param asynchronous:               Create rule asynchronously by judge-injector.
+    :param priority:                   Priority of the transfers.
     :param issuer:                     The issuing account of this operation.
     :returns:                          List of created replication rules.
     """
@@ -51,7 +53,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
               'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity,
               'purge_replicas': purge_replicas, 'ignore_availability': ignore_availability, 'comment': comment,
-              'ask_approval': ask_approval, 'asynchronous': asynchronous}
+              'ask_approval': ask_approval, 'asynchronous': asynchronous, 'priority': priority}
 
     validate_schema(name='rule', obj=kwargs)
 
@@ -73,7 +75,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                          ignore_availability=ignore_availability,
                          comment=comment,
                          ask_approval=ask_approval,
-                         asynchronous=asynchronous)
+                         asynchronous=asynchronous,
+                         priority=priority)
 
 
 def get_replication_rule(rule_id):
