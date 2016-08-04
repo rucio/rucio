@@ -468,7 +468,6 @@ def delete_dids(dids, account, session=None):
                                                                         models.ReplicationRule.scope,
                                                                         models.ReplicationRule.name,
                                                                         models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
-
                 logging.debug('Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
                 # purge_replicas from dids to rules
                 if (scope, name) in not_purge_replicas:
