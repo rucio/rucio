@@ -45,7 +45,7 @@ if __name__ == "__main__":
         for prot in rse_settings['protocols']:
             if prot['scheme'] == 'srm':
                 srmless = False
-        if srmless == False:
+        if srmless is False:
             continue
 
         try:
