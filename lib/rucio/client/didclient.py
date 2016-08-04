@@ -556,7 +556,7 @@ class DIDClient(BaseClient):
 
         :param dids: A list of dids.
         """
-        url = build_url(choice(self.list_hosts), path='/tmp_dids')
+        url = build_url(choice(self.list_hosts), path='tmp_dids')
         r = self._send_request(url, type='POST', data=dumps(dids))
         if r.status_code == codes.created:
             return True
