@@ -106,6 +106,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 if [rse for rse in rses if rse.get('staging_area', False)]:
                     raise StagingAreaRuleRequiresLifetime()
 
+            # Check SCRATCHDISK Policy
             lifetime = get_scratch_policy(session, account, rses, lifetime)
 
             # Auto-lock rules for TAPE rses
@@ -344,14 +345,11 @@ def add_rules(dids, rules, session=None):
                         if [rse for rse in rses if rse.get('staging_area', False)]:
                             raise StagingAreaRuleRequiresLifetime()
 
-                    # Check SCRATCHDISK Polciy
-                    if not has_account_attribute(account=rule.get('account'), key='admin', session=session) and (rule.get('lifetime', None) is None or rule.get('lifetime', None) > 60 * 60 * 24 * 15):
-                        # Check if one of the rses is a SCRATCHDISK:
-                        if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
-                            if len(rses) == 1:
-                                rule['lifetime'] = 60 * 60 * 24 * 15 - 1
-                            else:
-                                raise ScratchDiskLifetimeConflict()
+                    # Check SCRATCHDISK Policy
+                    rule['lifetime'] = get_scratch_policy(session, rule.get('account'), rses, rule.get('lifetime', None))
+
+                    # 4.5 Get the lifetime
+                    eol_at = define_eol(did.scope, did.name, rses, session=session)
 
                     # Auto-lock rules for TAPE rses
                     if not rule.get('locked', False) and rule.get('lifetime', None) is None:
@@ -406,7 +404,8 @@ def add_rules(dids, rules, session=None):
                                                           notification=notify,
                                                           purge_replicas=rule.get('purge_replicas', False),
                                                           ignore_availability=rule.get('ignore_availability', False),
-                                                          comments=rule.get('comment', None))
+                                                          comments=rule.get('comment', None),
+                                                          eol_at=eol_at)
                         try:
                             new_rule.save(session=session)
                         except IntegrityError, e:
