@@ -17,7 +17,7 @@
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
 
 """
-    Rucio CLI.
+Rucio CLI.
 """
 
 import argcomplete
@@ -736,14 +736,26 @@ def __get_files(args):
     '''Parse helper for upload'''
     files = []
     for item in args:
+        # Skip things that look like a scope:datasetname
+        if item.count(':') == 1:
+            logger.warning("{0} cannot be distinguished from scope:datasetname. Skipping it.".format(item))
+            continue
         if os.path.isdir(item):
             dname, subdirs, fnames = os.walk(item).next()
-            for fname in fnames:
-                files.append(os.path.join(dname, fname))
+            # Check if there are files in the directory
+            if fnames:
+                for fname in fnames:
+                    files.append(os.path.join(dname, fname))
+            # No files, but subdirectories. Needed to be added one-by-one
+            # Maybe change so we look through the subdirs and add those files?
+            elif subdirs:
+                raise Exception("Directory ({directory}) has no files in it. Please add subdirectories individually.".format(directory=dname))
+            else:
+                raise Exception("Directory ({directory}) is empty.".format(directory=dname))
         elif os.path.isfile(item):
             files.append(item)
         else:
-            logger.warning('%s does not exist' % item)
+            logger.warning('{0} is not a directory or file or does not exist'.format(item))
     return files
 
 
@@ -760,6 +772,10 @@ def upload(args):
         dsscope, dsname = __get_dataset(args.args)    # None, None if no dataset given
     except Exception:
         logger.error('rucio upload only allows to upload files to one dataset, more than one provided.')
+        return FAILURE
+    # Checking if the user can add to the scope given for the dataset
+    if dsscope and dsscope not in client.list_scopes_for_account(client.account):
+        logger.error("Cannot add to scope {scope}.".format(scope=dsscope))
         return FAILURE
     files = __get_files(args.args)               # a list of file names (even if a directory is given)
     if not files:
