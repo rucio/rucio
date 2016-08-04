@@ -322,7 +322,7 @@ class Default(protocol.RSEProtocol):
         dir_name = os.path.dirname(dest)
         # This function will be removed soon. gfal2 will create parent dir automatically.
         try:
-            ctx.mkdir(str(dir_name), 0775)
+            ctx.mkdir_rec(str(dir_name), 0775)
         except:
             pass
 
@@ -399,7 +399,7 @@ class Default(protocol.RSEProtocol):
             dir_name = os.path.dirname(new_path)
             # This function will be removed soon. gfal2 will create parent dir automatically.
             try:
-                ctx.mkdir(str(dir_name), 0775)
+                ctx.mkdir_rec(str(dir_name), 0775)
             except Exception:
                 pass
             ret = ctx.rename(str(path), str(new_path))
