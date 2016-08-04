@@ -327,6 +327,7 @@ class DataIdentifier(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
+    purge_replicas = Column(Boolean(name='DIDS_PURGE_RPLCS_CHK'))
     deleted_at = Column(DateTime)
     # hardcoded meta-data to populate the db
     events = Column(BigInteger)
