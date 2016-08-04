@@ -1193,10 +1193,9 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         order_by(models.RSEFileAssociation.tombstone)
 
     # do no delete files used as sources
-    stmt = exists(select([1]).prefix_with("/*+ INDEX_RS_ASC(sources SOURCES_SC_NM_DST_IDX) NO_INDEX_FFS(sources SOURCES_SC_NM_DST_IDX) */", dialect='oracle')).\
-        where(and_(models.RSEFileAssociation.scope == models.Source.scope,
-                   models.RSEFileAssociation.name == models.Source.name,
-                   models.RSEFileAssociation.rse_id == models.Source.rse_id))
+    stmt = exists(select([1]).prefix_with("/*+ INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX) */", dialect='oracle')).\
+        where(and_(models.RSEFileAssociation.scope == models.Request.scope,
+                   models.RSEFileAssociation.name == models.Request.name))
     query = query.filter(not_(stmt))
 
     if worker_number and total_workers and total_workers - 1 > 0:
