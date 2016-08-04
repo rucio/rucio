@@ -33,7 +33,7 @@ def get_vo():
         try:
             vo_name = config_get('common', 'vo')
         except NoOptionError:
-            vo_name = 'default'
+            vo_name = 'atlas'
         REGION.set('VO', vo_name)
     return vo_name
 
