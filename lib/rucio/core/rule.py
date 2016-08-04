@@ -841,10 +841,11 @@ def repair_rule(rule_id, session=None):
 
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
         try:
+            rses = parse_expression(rule.rse_expression, session=session)
             if rule.ignore_availability:
-                rses = parse_expression(rule.rse_expression, session=session)
+                target_rses = parse_expression(rule.rse_expression, session=session)
             else:
-                rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+                target_rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
             if rule.source_replica_expression:
                 source_rses = parse_expression(rule.source_replica_expression, session=session)
             else:
@@ -864,7 +865,7 @@ def repair_rule(rule_id, session=None):
         # Create the RSESelector
         try:
             rseselector = RSESelector(account=rule.account,
-                                      rses=rses,
+                                      rses=target_rses,
                                       weight=rule.weight,
                                       copies=rule.copies,
                                       session=session)
