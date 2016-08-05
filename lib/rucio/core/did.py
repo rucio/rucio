@@ -98,7 +98,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     if limit:
         query = query.limit(limit)
 
-    return [{'scope': scope, 'name': name, 'did_type': did_type, 'created_at': created_at} for scope, name, did_type, created_at in query]
+    return [{'scope': scope, 'name': name, 'did_type': did_type, 'created_at': created_at, 'purge_replicas': purge_replicas} for scope, name, did_type, created_at, purge_replicas in query]
 
 
 @transactional_session
