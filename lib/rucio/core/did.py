@@ -66,7 +66,8 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
                                models.ReplicationRule.locked == True))  # NOQA
     query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
                           models.DataIdentifier.did_type,
-                          models.DataIdentifier.created_at).\
+                          models.DataIdentifier.created_at,
+                          models.DataIdentifier.purge_replicas).\
         filter(models.DataIdentifier.expired_at < datetime.utcnow(), not_(stmt)).\
         order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
@@ -82,12 +83,13 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
         elif session.bind.dialect.name == 'sqlite':
             row_count = 0
             dids = list()
-            for scope, name, did_type, created_at in query.yield_per(10):
+            for scope, name, did_type, created_at, purge_replicas in query.yield_per(10):
                 if int(md5(name).hexdigest(), 16) % total_workers == worker_number - 1:
                     dids.append({'scope': scope,
                                  'name': name,
                                  'did_type': did_type,
-                                 'created_at': created_at})
+                                 'created_at': created_at,
+                                 'purge_replicas': purge_replicas})
                     row_count += 1
                 if limit and row_count >= limit:
                     return dids
@@ -96,7 +98,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     if limit:
         query = query.limit(limit)
 
-    return [{'scope': scope, 'name': name, 'did_type': did_type, 'created_at': created_at} for scope, name, did_type, created_at in query]
+    return [{'scope': scope, 'name': name, 'did_type': did_type, 'created_at': created_at, 'purge_replicas': purge_replicas} for scope, name, did_type, created_at, purge_replicas in query]
 
 
 @transactional_session
@@ -413,6 +415,7 @@ def delete_dids(dids, account, session=None):
     rule_id_clause, content_clause = [], []
     parent_content_clause, did_clause = [], []
     collection_replica_clause, file_clause = [], []
+    not_purge_replicas = []
     for did in dids:
         logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
         if did['did_type'] == DIDType.FILE:
@@ -422,6 +425,8 @@ def delete_dids(dids, account, session=None):
             content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                                   models.CollectionReplica.name == did['name']))
+        if did['purge_replicas'] is False:
+            not_purge_replicas.append((did['scope'], did['name']))
 
             # Archive content
             q = session.query(models.DataIdentifierAssociation.scope,
@@ -451,7 +456,7 @@ def delete_dids(dids, account, session=None):
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
-        # Send message for AMI
+        # Send message
         add_message('ERASE', {'account': account,
                               'scope': did['scope'],
                               'name': did['name']},
@@ -459,12 +464,17 @@ def delete_dids(dids, account, session=None):
     # Delete rules on did
     if rule_id_clause:
         with record_timer_block('undertaker.rules'):
-            for (rule_id, scope, name, rse_expression, ) in session.query(models.ReplicationRule.id,
-                                                                          models.ReplicationRule.scope,
-                                                                          models.ReplicationRule.name,
-                                                                          models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
+            for (rule_id, scope, name, rse_expression) in session.query(models.ReplicationRule.id,
+                                                                        models.ReplicationRule.scope,
+                                                                        models.ReplicationRule.name,
+                                                                        models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
                 logging.debug('Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
-                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=True, delete_parent=True, nowait=True, session=session)
+                # Propagate purge_replicas from did to rules
+                if (scope, name) in not_purge_replicas:
+                    purge_replicas = False
+                else:
+                    purge_replicas = True
+                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
 
     # Detach from parent dids:
     existing_parent_dids = False
