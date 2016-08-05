@@ -91,10 +91,26 @@ class Default(protocol.RSEProtocol):
             print e
             raise exception.ServiceUnavailable(e)
 
+        space_token = None
+        if self.attributes['extended_attributes'] is not None:
+            space_token = self.attributes['extended_attributes'].get('space_token')
+        xattr_name = 'spacetoken'
+        if space_token:
+            xattr_name = 'spacetoken?%s' % space_token
+
         try:
             if os.path.exists(dest):
                 os.remove(dest)
             ctx = gfal2.creat_context()
+
+            # See if the remote server supports the the SITE USAGE command
+            try:
+                data = json.loads(ctx.getxattr(str(endpoint_path), xattr_name))
+                totalsize = data['totalsize']
+                unusedsize = data['unusedsize']
+                return totalsize, unusedsize
+            except gfal2.GError:
+                pass
             params = ctx.transfer_parameters()
             params.timeout = 60
             ret = ctx.filecopy(params, str(endpoint_path), str('file://' + dest))

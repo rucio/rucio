@@ -11,16 +11,19 @@
 
 import os
 import urlparse
+import logging
 
 import boto
-import boto.s3.connection
-
+from boto import connect_s3
+from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 
 from rucio.common import exception
 from rucio.common.config import get_rse_credentials
 
 from rucio.rse.protocols import protocol
+
+logging.getLogger('boto').setLevel(logging.INFO)
 
 
 class Default(protocol.RSEProtocol):
@@ -120,17 +123,17 @@ class Default(protocol.RSEProtocol):
         try:
             scheme, prefix = self.attributes.get('scheme'), self.attributes.get('prefix')
             netloc, port = self.attributes['hostname'], self.attributes.get('port', 80)
-            service_url = '%(scheme)s://%(netloc)s:%(port)s%(prefix)s' % locals()
+            service_url = '%(scheme)s://%(netloc)s:%(port)s' % locals()
             credentials = get_rse_credentials()
             self.rse['credentials'] = credentials.get(self.rse['rse'])
             is_secure = self.rse['credentials'].get('is_secure', {}).\
                 get(service_url, False)
-            self.__conn = boto.connect_s3(host=self.attributes['hostname'],
-                                          port=int(port),
-                                          aws_access_key_id=self.rse['credentials']['access_key'],
-                                          aws_secret_access_key=self.rse['credentials']['secret_key'],
-                                          is_secure=is_secure,
-                                          calling_format=boto.s3.connection.OrdinaryCallingFormat())
+            self.__conn = connect_s3(host=self.attributes['hostname'],
+                                     port=int(port),
+                                     aws_access_key_id=self.rse['credentials']['access_key'],
+                                     aws_secret_access_key=self.rse['credentials']['secret_key'],
+                                     is_secure=is_secure,
+                                     calling_format=OrdinaryCallingFormat())
         except Exception as e:
             raise exception.RSEAccessDenied(e)
 
