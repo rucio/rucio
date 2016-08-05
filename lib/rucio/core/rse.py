@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2015-2016
 
@@ -106,7 +106,7 @@ def sort_rses(rses, session=None):
 
     false_value = False
     query = session.query(models.RSE.rse, models.RSE.staging_area, models.RSEUsage.rse_id).\
-        filter(models.RSEUsage.source == 'srm').\
+        filter(or_(models.RSEUsage.source == 'srm', models.RSEUsage.source == 'gsiftp')).\
         filter(models.RSEUsage.rse_id == models.RSE.id).\
         filter(models.RSE.deleted == false_value)
     condition = []
