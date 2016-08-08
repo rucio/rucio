@@ -1090,7 +1090,7 @@ def update_rule(rule_id, options, session=None):
                     session.flush()
                     queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
                                                                   request_type=RequestType.TRANSFER,
-                                                                  scope=lock.scope, name=lock.name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
+                                                                  scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
                                                                   ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity, session=session)], session=session)
 
             elif key == 'account':
@@ -1638,7 +1638,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
             adler32 = replica.adler32
             queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
                                                           request_type=RequestType.TRANSFER,
-                                                          scope=scope, name=name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
+                                                          scope=scope, name=name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
                                                           ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery', session=session)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
