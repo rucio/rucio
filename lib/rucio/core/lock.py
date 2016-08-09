@@ -9,7 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import logging
@@ -24,6 +24,7 @@ import rucio.core.rule
 import rucio.core.did
 
 from rucio.common.config import config_get
+from rucio.common.policy import define_eol
 from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
@@ -344,7 +345,7 @@ def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None
 @transactional_session
 def touch_dataset_locks(dataset_locks, session=None):
     """
-    Update the accessed_at timestamp of the given dataset locks.
+    Update the accessed_at timestamp of the given dataset locks + eol_at.
 
     :param replicas: the list of dataset locks.
     :param session: The database session in use.
@@ -359,9 +360,11 @@ def touch_dataset_locks(dataset_locks, session=None):
                 rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
             dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
 
+        eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'rse_id': dataset_lock['rse_id']}], session=session)
         try:
             session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
                 update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
+            session.query(models.ReplicationRule).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name']).update({'eol_at': eol_at}, synchronize_session=False)
         except DatabaseError:
             return False
 
