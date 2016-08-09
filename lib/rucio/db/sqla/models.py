@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 
@@ -753,6 +753,7 @@ class ReplicationRule(BASE, ModelBase):
     priority = Column(Integer)
     comments = Column(String(255))
     child_rule_id = Column(GUID())
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
@@ -808,6 +809,7 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     priority = Column(Integer)
     comments = Column(String(255))
     child_rule_id = Column(GUID())
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_RECENT_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HIST_RECENT_ID_IDX', 'id'),
                    Index('RULES_HIST_RECENT_SC_NA_IDX', 'scope', 'name'))
@@ -844,6 +846,7 @@ class ReplicationRuleHistory(BASE, ModelBase):
     ignore_account_limit = Column(Boolean())
     comments = Column(String(255))
     child_rule_id = Column(GUID())
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HISTORY_SCOPENAME_IDX', 'scope', 'name'))
 
