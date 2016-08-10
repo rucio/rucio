@@ -76,10 +76,18 @@ def define_eol(scope, name, rses, session):
         if 'exclude' in policy:
             to_exclude = False
             for key in policy['exclude']:
+                meta_key = None
+                if key not in ['datatype', 'project', ]:
+                    if key == 'stream':
+                        meta_key = 'stream_name'
+                    elif key == 'tags':
+                        meta_key = 'version'
+                else:
+                    meta_key = key
                 values = policy['exclude'][key]
                 for value in values:
                     value = value.replace('%', '.*')
-                    if re.match(value, did[key]):
+                    if meta_key and did[meta_key] and value and re.match(value, did[meta_key]):
                         to_exclude = True
                         break
                 if to_exclude:
@@ -89,14 +97,21 @@ def define_eol(scope, name, rses, session):
         if 'include' in policy:
             match_policy = True
             for key in policy['include']:
+                meta_key = None
                 if key not in ['datatype', 'project', ]:
-                    continue
+                    if key == 'stream':
+                        meta_key = 'stream_name'
+                    elif key == 'tags':
+                        meta_key = 'version'
+                    else:
+                        continue
+                else:
+                    meta_key = key
                 values = policy['include'][key]
                 to_keep = False
                 for value in values:
                     value = value.replace('%', '.*')
-                    if re.match(value, did[key]):
-                        print value, did[key], 'match'
+                    if meta_key and did[meta_key] and value and re.match(value, did[meta_key]):
                         to_keep = True
                         break
                 match_policy = match_policy and to_keep
