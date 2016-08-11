@@ -7,7 +7,9 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2014
-#
+# - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+
 import os
 import sys
 
@@ -38,15 +40,18 @@ if __name__ == "__main__":
     for rse in rses:
         rsename = rse['rse']
         rse_settings = rsemgr.get_rse_info(rsename)
-        rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gsiftp.Default'
 
-        # verifiing, that the site is srm-less
+        # verifing, that the site is srm-less
         srmless = True
         for prot in rse_settings['protocols']:
             if prot['scheme'] == 'srm':
                 srmless = False
         if srmless is False:
             continue
+        if rse_settings['protocols']:
+            rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gsiftp.Default'
+        else:
+            print '%s has no protocol' % (rsename)
 
         try:
             gs, ret = rsemgr.get_space_usage(rse_settings, "gsiftp")
