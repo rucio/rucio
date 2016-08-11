@@ -8,7 +8,8 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2015
-# - Tomas Javurek, Cedric Serfon, 2016
+# - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
 
 import json
 import os
@@ -54,8 +55,7 @@ class Default(protocol.RSEProtocol):
         # original
         rse_name = self.rse['rse']
         endpoint_path = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), '/atlas/dq2/site-size'])
-        # dest = '/tmp/rucio-gsiftp-site-size_' + rse_name
-        dest = '/var/log/rucio/tmp/rucio-gsiftp-site-size_' + rse_name
+        dest = '/tmp/rucio-gsiftp-site-size_' + rse_name
 
         space_usage_url = ''
         # url of space usage json, woud be nicer to have it in rse_settings
