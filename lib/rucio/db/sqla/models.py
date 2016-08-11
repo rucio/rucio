@@ -327,7 +327,7 @@ class DataIdentifier(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
-    purge_replicas = Column(Boolean(name='DIDS_PURGE_RPLCS_CHK'))
+    purge_replicas = Column(Boolean(name='DIDS_PURGE_RPLCS_CHK'), server_default='1')
     deleted_at = Column(DateTime)
     # hardcoded meta-data to populate the db
     events = Column(BigInteger)
@@ -355,7 +355,7 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('OBSOLETE IS NOT NULL', name='DIDS_OBSOLETE_NN'),
                    CheckConstraint('SUPPRESSED IS NOT NULL', name='DIDS_SUPP_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_ACCOUNT_NN'),
-                   # CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='DIDS_PURGE_REPLICAS_NN'),
+                   CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='DIDS_PURGE_REPLICAS_NN'),
                    # UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
