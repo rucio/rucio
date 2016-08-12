@@ -17,6 +17,7 @@ from datetime import datetime
 from json import dumps
 from Queue import Queue
 from requests import post
+from requests.auth import HTTPBasicAuth
 from sys import stdout
 from time import sleep
 from uuid import uuid4
@@ -179,7 +180,7 @@ def place_replica(once=False,
 
         auth = False
         if ('elastic_user' in c3po_options) and ('elastic_pass' in c3po_options):
-            auth = (config_get('c3po', 'elastic_user'), config_get('c3po', 'elastic_pass'))
+            auth = HTTPBasicAuth(config_get('c3po', 'elastic_user'), config_get('c3po', 'elastic_pass'))
 
         w = waiting_time
         while not graceful_stop.is_set():
