@@ -19,11 +19,12 @@ from Queue import Queue
 from requests import post
 from sys import stdout
 from time import sleep
+from uuid import uuid4
 
 from threading import Event, Thread
 
 from rucio.client import Client
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_options
 from rucio.common.exception import RucioException
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
@@ -134,9 +135,14 @@ def place_replica(once=False,
     Thread to run the placement algorithm to decide if and where to put new replicas.
     """
     try:
+        c3po_options = config_get_options('c3po')
         client = None
 
+        if 'algorithms' in c3po_options:
+            algorithms = config_get('c3po', 'algorithms')
+
         algorithms = algorithms.split(',')
+
         if not dry_run:
             if len(algorithms) != 1:
                 logging.error('Multiple algorithms are only allowed in dry_run mode')
@@ -150,7 +156,31 @@ def place_replica(once=False,
             instance = module.PlacementAlgorithm(datatypes, dest_rse_expr, max_bytes_hour, max_files_hour, max_bytes_hour_rse, max_files_hour_rse, min_popularity, min_recent_requests, max_replicas)
             instances[algorithm] = instance
 
+        params = {
+            'dry_run': dry_run,
+            'datatypes': datatypes,
+            'dest_rse_expr': dest_rse_expr,
+            'max_bytes_hour': max_bytes_hour,
+            'max_files_hour': max_files_hour,
+            'max_bytes_hour_rse': max_bytes_hour_rse,
+            'max_files_hour_rse': max_files_hour_rse,
+            'min_recent_requests': min_recent_requests,
+            'min_popularity': min_popularity
+        }
+
+        instance_id = str(uuid4()).split('-')[0]
+
         elastic_url = config_get('c3po', 'elastic_url')
+        elastic_index = config_get('c3po', 'elastic_index')
+
+        ca_cert = False
+        if 'ca_cert' in c3po_options:
+            ca_cert = config_get('c3po', 'ca_cert')
+
+        auth = False
+        if ('elastic_user' in c3po_options) and ('elastic_pass' in c3po_options):
+            auth = (config_get('c3po', 'elastic_user'), config_get('c3po', 'elastic_pass'))
+
         w = waiting_time
         while not graceful_stop.is_set():
             if w < waiting_time:
@@ -160,31 +190,36 @@ def place_replica(once=False,
             len_dids = did_queue.qsize()
 
             if len_dids > 0:
-                logging.debug('%d did(s) in queue' % len_dids)
+                logging.debug('(%s) %d did(s) in queue' % (instance_id, len_dids))
             else:
-                logging.debug('no dids in queue')
+                logging.debug('(%s) no dids in queue' % (instance_id))
 
             for i in xrange(0, len_dids):
                 did = did_queue.get()
                 for algorithm, instance in instances.items():
-                    logging.info('(%s) Retrieved %s:%s from queue. Run placement algorithm' % (algorithm, did[0], did[1]))
+                    logging.info('(%s:%s) Retrieved %s:%s from queue. Run placement algorithm' % (algorithm, instance_id, did[0], did[1]))
                     decision = instance.place(did)
                     decision['@timestamp'] = datetime.utcnow().isoformat()
                     decision['algorithm'] = algorithm
+                    decision['instance_id'] = instance_id
+                    decision['params'] = params
 
                     # write the output to ES for further analysis
-                    index_url = elastic_url + '/rucio-c3po-decisions-' + datetime.utcnow().strftime('%Y-%m-%d') + '/record/'
-                    r = post(index_url, data=dumps(decision))
+                    index_url = elastic_url + '/' + elastic_index + '-' + datetime.utcnow().strftime('%Y-%m-%d') + '/record/'
+                    if ca_cert:
+                        r = post(index_url, data=dumps(decision), verify=ca_cert, auth=auth)
+                    else:
+                        r = post(index_url, data=dumps(decision))
                     if r.status_code != 201:
                         logging.error(r)
-                        logging.error('(%s) could not write to ElasticSearch' % (algorithm))
+                        logging.error('(%s:%s) could not write to ElasticSearch' % (algorithm, instance_id))
 
                     logging.debug(decision)
                     if 'error_reason' in decision:
-                        logging.error('(%s) The placement algorithm ran into an error: %s' % (algorithm, decision['error_reason']))
+                        logging.error('(%s:%s) The placement algorithm ran into an error: %s' % (algorithm, instance_id, decision['error_reason']))
                         continue
 
-                    logging.info('(%s) Decided to place a new replica for %s on %s' % (algorithm, decision['did'], decision['destination_rse']))
+                    logging.info('(%s:%s) Decided to place a new replica for %s on %s' % (algorithm, instance_id, decision['did'], decision['destination_rse']))
 
                     if not dry_run:
                         # DO IT!
