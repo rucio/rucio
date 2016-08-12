@@ -12,7 +12,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 import rucio.core.authentication
@@ -676,6 +676,7 @@ def perm_update_replicas_states(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return str(kwargs.get('rse', '')).endswith('SCRATCHDISK')\
+        or str(kwargs.get('rse', '')).endswith('USERDISK')\
         or str(kwargs.get('rse', '')).endswith('MOCK')\
         or str(kwargs.get('rse', '')).endswith('LOCALGROUPDISK')\
         or issuer == 'root'\
