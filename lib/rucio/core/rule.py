@@ -1340,6 +1340,36 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
 
 
 @read_session
+def get_rules_behond_eol(date_check, worker_number, total_workers, session):
+    """
+    Get rules which have eol_at before a certain date.
+
+    :param date_check:         The reference date that should be compared to eol_at.
+    :param worker_number:      id of the executing worker.
+    :param total_workers:      Number of total workers.
+    :param session:            Database session in use.
+    """
+    query = session.query(models.ReplicationRule.scope,
+                          models.ReplicationRule.name,
+                          models.ReplicationRule.rse_expression,
+                          models.ReplicationRule.locked,
+                          models.ReplicationRule.id,
+                          models.ReplicationRule.eol_at,
+                          models.ReplicationRule.expires_at).\
+        filter(models.ReplicationRule.eol_at < date_check)
+
+    if session.bind.dialect.name == 'oracle':
+        bindparams = [bindparam('worker_number', worker_number),
+                      bindparam('total_workers', total_workers)]
+        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+    elif session.bind.dialect.name == 'mysql':
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+    elif session.bind.dialect.name == 'postgresql':
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+    return [rule for rule in query.all()]
+
+
+@read_session
 def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules=[], session=None):
     """
     Get expired rules.
