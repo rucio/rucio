@@ -14,12 +14,19 @@ from requests import post
 from requests.auth import HTTPBasicAuth
 from json import dumps, loads
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_options
 
 elastic_url = config_get('es-atlas', 'url')
 
-elastic_username = config_get('es-atlas', 'username')
-elastic_password = config_get('es-atlas', 'password')
+elastic_options = config_get_options('es-atlas')
+
+auth = None
+if ('username' in elastic_options) and ('password' in elastic_options):
+    auth = HTTPBasicAuth(config_get('es-atlas', 'username'), config_get('es-atlas', 'password'))
+
+elastic_ca_cert = False
+if 'ca_cert' in elastic_options:
+    elastic_ca_cert = config_get('es-atlas', 'ca_cert')
 
 url = elastic_url + '/atlas_rucio-popularity-*/_search'
 
@@ -52,10 +59,10 @@ def get_popularity(did):
     query['query']['bool']['must'].append({"term": {"name": did[1]}})
 
     logging.debug(query)
-    if elastic_username:
-        r = post(url, data=dumps(query), auth=HTTPBasicAuth(elastic_username, elastic_password))
+    if auth:
+        r = post(url, data=dumps(query), auth=auth, verify=elastic_ca_cert)
     else:
-        r = post(url, data=dumps(query))
+        r = post(url, data=dumps(query), verify=elastic_ca_cert)
 
     if r.status_code != 200:
         return None
