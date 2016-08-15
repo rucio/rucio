@@ -46,10 +46,18 @@ def get_dataset_locks(scope, name, session=None):
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    query = session.query(models.DatasetLock.rse_id, models.DatasetLock.scope, models.DatasetLock.name, models.DatasetLock.rule_id, models.DatasetLock.account, models.DatasetLock.state).filter_by(scope=scope, name=name)
+    query = session.query(models.DatasetLock.rse_id,
+                          models.DatasetLock.scope,
+                          models.DatasetLock.name,
+                          models.DatasetLock.rule_id,
+                          models.DatasetLock.account,
+                          models.DatasetLock.state,
+                          models.DatasetLock.length,
+                          models.DatasetLock.bytes,
+                          models.DatasetLock.accessed_at).filter_by(scope=scope, name=name)
 
     dict = {}
-    for rse_id, scope, name, rule_id, account, state in query.yield_per(500):
+    for rse_id, scope, name, rule_id, account, state, length, bytes, accessed_at in query.yield_per(500):
         if rse_id not in dict:
             dict[rse_id] = get_rse_name(rse_id, session=session)
         yield {'rse_id': rse_id,
@@ -58,7 +66,10 @@ def get_dataset_locks(scope, name, session=None):
                'name': name,
                'rule_id': rule_id,
                'account': account,
-               'state': state}
+               'state': state,
+               'length': length,
+               'bytes': bytes,
+               'accessed_at': accessed_at}
 
 
 @stream_session
@@ -70,11 +81,19 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
     :param session:        The db session.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
-    query = session.query(models.DatasetLock.rse_id, models.DatasetLock.scope, models.DatasetLock.name, models.DatasetLock.rule_id, models.DatasetLock.account, models.DatasetLock.state).filter_by(rse_id=rse_id).\
+    query = session.query(models.DatasetLock.rse_id,
+                          models.DatasetLock.scope,
+                          models.DatasetLock.name,
+                          models.DatasetLock.rule_id,
+                          models.DatasetLock.account,
+                          models.DatasetLock.state,
+                          models.DatasetLock.length,
+                          models.DatasetLock.bytes,
+                          models.DatasetLock.accessed_at).filter_by(rse_id=rse_id).\
         with_hint(models.DatasetLock, "index(DATASET_LOCKS DATASET_LOCKS_RSE_ID_IDX)", 'oracle')
 
     dict = {}
-    for rse_id, scope, name, rule_id, account, state in query.yield_per(500):
+    for rse_id, scope, name, rule_id, account, state, length, bytes, accessed_at in query.yield_per(500):
         if rse_id not in dict:
             dict[rse_id] = get_rse_name(rse_id, session=session)
         yield {'rse_id': rse_id,
@@ -83,7 +102,10 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
                'name': name,
                'rule_id': rule_id,
                'account': account,
-               'state': state}
+               'state': state,
+               'length': length,
+               'bytes': bytes,
+               'accessed_at': accessed_at}
 
 
 @read_session
