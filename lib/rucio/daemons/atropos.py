@@ -22,7 +22,7 @@ from traceback import format_exception
 from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.core.lock import get_dataset_locks
-from rucio.core.rule import get_rules_behond_eol
+from rucio.core.rule import get_rules_beyond_eol
 
 from rucio.db.sqla.session import get_session
 
@@ -63,7 +63,7 @@ def atropos(thread, bulk, date_check, dry_run, once):
 
             stime = time.time()
             try:
-                rules = get_rules_behond_eol(date_check, thread, hb['nr_threads'] - 1, session=session)
+                rules = get_rules_beyond_eol(date_check, thread, hb['nr_threads'] - 1, session=session)
                 for rule in rules:
                     no_locks = True
                     for lock in get_dataset_locks(rule.scope, rule.name, session=session):

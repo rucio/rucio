@@ -1340,7 +1340,7 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
 
 
 @read_session
-def get_rules_behond_eol(date_check, worker_number, total_workers, session):
+def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
     """
     Get rules which have eol_at before a certain date.
 
