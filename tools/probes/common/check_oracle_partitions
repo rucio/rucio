@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+
+'''
+Probe to check if the partitions for the scopes are created
+'''
+import sys
+import traceback
+
+from rucio.db.sqla.session import get_session
+
+# Exit statuses
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
+
+if __name__ == "__main__":
+    exit_code = OK
+    try:
+        session = get_session()
+        result = session.execute('select scope from atlas_rucio.scopes where created_at>sysdate-10')
+        for scope in result.fetchall():
+            partition = "_".join(scope[0].split('.')).upper()
+            result = session.execute("select table_name from ALL_TAB_PARTITIONS where  partition_name='%s'" % (partition))
+            parts = [item[0] for item in result.fetchall()]
+            for part in ['DELETED_DIDS', 'LOCKS', 'REPLICAS', 'CONTENTS', 'DIDS']:
+                if part not in parts:
+                    print '%s partition on %s does not exist' % (partition, part)
+                    exit_code = CRITICAL
+    except:
+        print traceback.format_exc()
+        sys.exit(UNKNOWN)
+    sys.exit(exit_code)
