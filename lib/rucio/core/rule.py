@@ -640,8 +640,14 @@ def list_rules(filters={}, session=None):
             elif k == 'updated_after':
                 query = query.filter(models.ReplicationRule.updated_at >= str_to_date(v))
                 continue
-            elif k == 'state' and isinstance(v, basestring):
-                v = RuleState.from_string(v)
+            elif k == 'state':
+                if isinstance(v, basestring):
+                    v = RuleState.from_string(v)
+                else:
+                    try:
+                        v = RuleState.from_sym(v)
+                    except ValueError:
+                        pass
             elif k == 'did_type' and isinstance(v, basestring):
                 v = DIDType.from_string(v)
             elif k == 'grouping' and isinstance(v, basestring):

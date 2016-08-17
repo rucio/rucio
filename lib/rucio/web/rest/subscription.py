@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps, loads
@@ -17,7 +17,6 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
-from rucio.db.sqla.constants import RuleState
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, AccessDenied
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController
@@ -196,12 +195,6 @@ class Rules:
         try:
             subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account)]
             if len(subscriptions) > 0:
-                if state == 'OK':
-                    state = RuleState.OK
-                if state == 'Replicating':
-                    state = RuleState.REPLICATING
-                if state == 'Stuck':
-                    state = RuleState.STUCK
                 if state:
                     for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}):
                         yield dumps(rule, cls=APIEncoder) + '\n'
