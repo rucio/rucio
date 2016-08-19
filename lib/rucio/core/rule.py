@@ -1798,11 +1798,12 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
 
 
 @transactional_session
-def approve_rule(rule_id, notify_approvers=True, session=None):
+def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
     """
     Approve a specific replication rule.
 
     :param rule_id:           The rule_id to approve.
+    :param approver:          The account which is approving the rule.
     :param notify_approvers:  Notify the other approvers.
     :param session:           The database session in use.
     :raises:                  RuleNotFound if no Rule can be found.
@@ -1813,6 +1814,12 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
         if rule.state == RuleState.WAITING_APPROVAL:
             rule.ignore_account_limit = True
             rule.state = RuleState.INJECT
+            if approver:
+                approver_email = get_account(account=approver, session=session).email
+                if approver_email:
+                    approver = '%s (%s)' % (approver, approver_email)
+            else:
+                approver = 'AUTOMATIC'
             with open('%s/rule_approved_user.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                 template = Template(templatefile.read())
                 email = get_account(account=rule.account, session=session).email
@@ -1823,7 +1830,8 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
                                                      'comment': rule.comments,
                                                      'scope': rule.scope,
                                                      'name': rule.name,
-                                                     'did_type': rule.did_type})
+                                                     'did_type': rule.did_type,
+                                                     'approver': approver})
                     add_message(event_type='email',
                                 payload={'body': text,
                                          'to': [email],
@@ -1833,7 +1841,8 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
             if notify_approvers:
                 with open('%s/rule_approved_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                     template = Template(templatefile.read())
-                text = template.safe_substitute({'rule_id': str(rule.id)})
+                text = template.safe_substitute({'rule_id': str(rule.id),
+                                                 'approver': approver})
                 recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
                 for recipent in recipents:
                     add_message(event_type='email',
@@ -1848,13 +1857,14 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
 
 
 @transactional_session
-def deny_rule(rule_id, session=None):
+def deny_rule(rule_id, approver=None, session=None):
     """
     Deny a specific replication rule.
 
-    :param rule_id: The rule_id to approve.
-    :param session: The database session in use.
-    :raises:        RuleNotFound if no Rule can be found.
+    :param rule_id:   The rule_id to approve.
+    :param approver:  The account which is denying the rule.
+    :param session:   The database session in use.
+    :raises:          RuleNotFound if no Rule can be found.
     """
 
     try:
@@ -1863,13 +1873,20 @@ def deny_rule(rule_id, session=None):
             with open('%s/rule_denied_user.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                 template = Template(templatefile.read())
             email = get_account(account=rule.account, session=session).email
+            if approver:
+                approver_email = get_account(account=approver, session=session).email
+                if approver_email:
+                    approver = '%s (%s)' % (approver, approver_email)
+            else:
+                approver = 'AUTOMATIC'
             if email:
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'rse_expression': rule.rse_expression,
                                                  'comment': rule.comments,
                                                  'scope': rule.scope,
                                                  'name': rule.name,
-                                                 'did_type': rule.did_type})
+                                                 'did_type': rule.did_type,
+                                                 'approver': approver})
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
@@ -1879,7 +1896,8 @@ def deny_rule(rule_id, session=None):
             # Also notify the other approvers
             with open('%s/rule_denied_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                 template = Template(templatefile.read())
-            text = template.safe_substitute({'rule_id': str(rule.id)})
+            text = template.safe_substitute({'rule_id': str(rule.id),
+                                             'approver': approver})
             recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
             for recipent in recipents:
                 add_message(event_type='email',
