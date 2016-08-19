@@ -62,8 +62,12 @@ if __name__ == '__main__':
         prefix = rse['endpoint']
         space_token = rse['token']
 
+        existing_protocols = []
         try:
             rucio_protocols = get_rse_protocols(rse['name'], None)
+            for prot in rucio_protocols['protocols']:
+                existing_protocols.append((prot['scheme'], prot['hostname'], prot['port']))
+
         except RSENotFound, error:
             print error
             continue
@@ -193,6 +197,10 @@ if __name__ == '__main__':
                     for prot in rucio_protocols['protocols']:
                         if prot['scheme'] == o.scheme and prot['hostname'] == netloc and prot['port'] == port:
                             rucio_protocol = prot
+                            try:
+                                existing_protocols.remove((o.scheme, netloc, port))
+                            except ValueError:
+                                pass
                             break
                     if params != rucio_protocol:
                         if rucio_protocol:
@@ -222,4 +230,8 @@ if __name__ == '__main__':
                     errno, errstr = sys.exc_info()[:2]
                     trcbck = traceback.format_exc()
                     print 'RSE %s protocol %s : Interrupted processing with %s %s %s.' % (rse['name'], o.scheme, errno, errstr, trcbck)
+            if existing_protocols:
+                RETVALUE = WARNING
+                for scheme, hostname, port in existing_protocols:
+                    print 'WARNING : Protocol %s://%s:%s is defined in Rucio but not in AGIS on RSE %s !!!!' % (scheme, hostname, port, rse['name'])
     sys.exit(RETVALUE)
