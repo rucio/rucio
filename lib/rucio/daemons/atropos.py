@@ -104,7 +104,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
                             if lock['rse'] not in summary:
                                 summary[lock['rse']] = {}
                             if '%s:%s' % (rule.scope, rule.name) not in summary[lock['rse']]:
-                                summary[lock['rse']]['%s:%s' % (rule.scope, rule.name)] = {'length': lock['length'], 'bytes': lock['bytes']}
+                                summary[lock['rse']]['%s:%s' % (rule.scope, rule.name)] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
                     if no_locks:
                         logging.warning('Thread [%i/%i] : Cannot find a lock for rule %s on DID %s:%s' % (hb['assign_thread'],
                                                                                                           hb['nr_threads'],
