@@ -57,7 +57,7 @@ def get_lifetime_policy():
 
 def define_eol(scope, name, rses, session):
     # Check if on ATLAS managed space
-    if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') in ['LOCALGROUPDISK', 'LOCALGROUPTAPE', 'GROUPDISK']]:
+    if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') in ['LOCALGROUPDISK', 'LOCALGROUPTAPE', 'GROUPDISK', 'GROUPTAPE']]:
         return None
     # Now check the lifetime policy
     did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == scope,
@@ -120,16 +120,21 @@ def define_eol(scope, name, rses, session):
                     break
             if match_policy:
                 lifetime_value, extension = int(policy['age']) * 30, int(policy['extension']) * 30
-                if did.created_at + timedelta(days=lifetime_value) > datetime.utcnow():
-                    eol_at = did.created_at + timedelta(days=lifetime_value)
-                else:
+                default_eol_at = did.created_at + timedelta(days=lifetime_value)
+                if default_eol_at > datetime.utcnow():
+                    eol_at = default_eol_at
+                elif did.accessed_at:
                     eol_at = did.accessed_at + timedelta(extension)
+                    if eol_at < default_eol_at:
+                        eol_at = default_eol_at
+                else:
+                    eol_at = default_eol_at
 
                 return eol_at
     return None
 
 
-def get_scratch_policy(session, account, rses, lifetime):
+def get_scratch_policy(account, rses, lifetime, session):
     vo_name = get_vo()
     if vo_name == 'atlas':
         # Check SCRATCHDISK Policy
