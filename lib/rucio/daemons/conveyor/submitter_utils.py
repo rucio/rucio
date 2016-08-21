@@ -567,7 +567,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
         if 'adler32' in file['metadata'].keys() and file['metadata']['adler32']:
             file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
 
-        job_params = {'verify_checksum': True if file['checksum'] else False,
+        job_params = {'verify_checksum': True if file['checksum'] and file['metadata'].get('verify_checksum', True) else False,
                       'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else 'null',
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
@@ -833,7 +833,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'dest_rse_id': dest_rse_id,
                                  'filesize': bytes,
                                  'md5': md5,
-                                 'adler32': adler32}
+                                 'adler32': adler32,
+                                 'verify_checksum': rse_attrs[dest_rse_id].get('verify_checksum', True)}
 
                 if previous_attempt_id:
                     file_metadata['previous_attempt_id'] = previous_attempt_id
