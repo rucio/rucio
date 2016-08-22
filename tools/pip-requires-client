@@ -2,7 +2,7 @@
 
 argparse==1.4.0           # Command-line parsing library
 argcomplete==1.4.1        # Bash tab completion for argparse
-kerberos==1.2.4
+kerberos==1.2.2
 pykerberos==1.1.13        # Kerberos high-level interface
 requests==2.10.0
 requests-kerberos==0.10.0  # A Kerberos authentication handler for python-requests
