@@ -34,13 +34,13 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound, ScratchDiskLifetimeConflict,
+                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.common.policy import get_scratch_policy, define_eol
 from rucio.core import account_counter, rse_counter
-from rucio.core.account import get_account, has_account_attribute
+from rucio.core.account import get_account
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse
@@ -108,7 +108,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise StagingAreaRuleRequiresLifetime()
 
             # Check SCRATCHDISK Policy
-            lifetime = get_scratch_policy(session, account, rses, lifetime)
+            lifetime = get_scratch_policy(account, rses, lifetime, session=session)
 
             # Auto-lock rules for TAPE rses
             if not locked and lifetime is None:
@@ -348,7 +348,7 @@ def add_rules(dids, rules, session=None):
                             raise StagingAreaRuleRequiresLifetime()
 
                     # Check SCRATCHDISK Policy
-                    rule['lifetime'] = get_scratch_policy(session, rule.get('account'), rses, rule.get('lifetime', None))
+                    rule['lifetime'] = get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
 
                     # 4.5 Get the lifetime
                     eol_at = define_eol(did.scope, did.name, rses, session=session)
@@ -1064,7 +1064,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at']
 
     for key in options:
         if key not in valid_options:
@@ -1074,12 +1074,9 @@ def update_rule(rule_id, options, session=None):
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
         for key in options:
             if key == 'lifetime':
-                # Check SCRATCHDISK Polciy
-                if not has_account_attribute(account=rule.account, key='admin', session=session) and (options['lifetime'] is None or options['lifetime'] > 60 * 60 * 24 * 15):
-                    # Check if one of the rses is a SCRATCHDISK:
-                    rses = parse_expression(rule.rse_expression, session=session)
-                    if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
-                        raise ScratchDiskLifetimeConflict()
+                # Check SCRATCHDISK Policy
+                rses = parse_expression(rule.rse_expression, session=session)
+                get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
