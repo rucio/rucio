@@ -154,9 +154,9 @@ def update_replication_rule(rule_id, options, issuer):
         if not has_permission(issuer=issuer, action='approve_rule', kwargs=kwargs):
             raise AccessDenied('Account %s can not approve/deny this replication rule.' % (issuer))
         if options['approve']:
-            rule.approve_rule(rule_id=rule_id)
+            rule.approve_rule(rule_id=rule_id, approver=issuer)
         else:
-            rule.deny_rule(rule_id=rule_id)
+            rule.deny_rule(rule_id=rule_id, approver=issuer)
     else:
         if not has_permission(issuer=issuer, action='update_rule', kwargs=kwargs):
             raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
