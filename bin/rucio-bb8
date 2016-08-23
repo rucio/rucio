@@ -26,6 +26,7 @@ if __name__ == "__main__":
     parser.add_argument('--dry-run', action='store_true', default=False, help='Only run in dry-run mode')
     parser.add_argument('--exclude-expression', action='store', help='Exclude these rse_expression from being destinations')
     parser.add_argument('--comment', action='store', help='Add a comment to the new rules')
+    parser.add_argument('--force-expression', action='store', help='For this rse_expression for rebalanced rules instead of letting BB8 decide')
     args = parser.parse_args()
 
-    rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run, comment=args.comment)
+    rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run, comment=args.comment, force_expression=args.force_expression)
