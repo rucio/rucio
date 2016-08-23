@@ -300,7 +300,6 @@ def handle_requests(reqs, suspicious_patterns):
             if req['state'] == RequestState.DONE:
                 replica['state'] = ReplicaState.AVAILABLE
                 replica['archived'] = False
-                replicas[req['request_type']][req['rule_id']].append(replica)
 
                 # for TAPE, replica path is needed
                 if req['request_type'] == RequestType.TRANSFER and req['dest_rse_id'] in undeterministic_rses:
@@ -314,6 +313,10 @@ def handle_requests(reqs, suspicious_patterns):
                         protocols[dest_rse_id_scheme] = rsemanager.create_protocol(rses_info[req['dest_rse_id']], 'write', scheme)
                     path = protocols[dest_rse_id_scheme].parse_pfns([pfn])[pfn]['path']
                     replica['path'] = os.path.join(path, os.path.basename(pfn))
+
+                # replica should not be added to replicas until all info are filled
+                replicas[req['request_type']][req['rule_id']].append(replica)
+
             elif req['state'] == RequestState.FAILED:
                 check_suspicious_files(req, suspicious_patterns)
                 if request_core.should_retry_request(req):
