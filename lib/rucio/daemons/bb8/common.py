@@ -93,7 +93,7 @@ ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
 
 
 @transactional_session
-def select_target_rse(current_rse, rse_expression, subscription_id, rse_attributes, other_rses=[], exclude_expression=None, session=None):
+def select_target_rse(current_rse, rse_expression, subscription_id, rse_attributes, other_rses=[], exclude_expression=None, force_expression=None, session=None):
     """
     Select a new target RSE for a rebalanced rule.
 
@@ -103,6 +103,7 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
     :param rse_attributes:       The attributes of the source rse.
     :param other_rses:           Other RSEs with existing dataset replicas.
     :param exclude_expression:   Exclude this rse_expression from being target_rses.
+    :param force_expression:     Force a specific rse_expression as target.
     :param session:              The DB Session
     :returns:                    New RSE expression
     """
@@ -112,17 +113,19 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
     else:
         target_rse = current_rse
 
-    if subscription_id:
-        pass
-        # get_subscription_by_id(subscription_id, session)
     rses = parse_expression(expression=rse_expression, session=session)
-    if len(rses) > 1:
+    # if subscription_id:
+    #     pass
+    #     # get_subscription_by_id(subscription_id, session)
+    if force_expression is not None:
+        rses = parse_expression(expression='(%s)\\%s' % (force_expression, target_rse), filter={'availability_write': True}, session=session)
+    elif len(rses) > 1:
         # Just define the RSE Expression without the current_rse
         return '(%s)\\%s' % (rse_expression, target_rse)
-    if rse_attributes['tier'] is True or rse_attributes['tier'] == '1':
+    elif rse_attributes['tier'] is True or rse_attributes['tier'] == '1':
         # Tier 1 should go to another Tier 1
         rses = parse_expression(expression='(tier=1&type=DATADISK)\\%s' % target_rse, filter={'availability_write': True}, session=session)
-    if rse_attributes['tier'] == 2 or rse_attributes['tier'] == '2':
+    elif rse_attributes['tier'] == 2 or rse_attributes['tier'] == '2':
         # Tier 2 should go to another Tier 2
         rses = parse_expression(expression='(tier=2&type=DATADISK)\\%s' % target_rse, filter={'availability_write': True}, session=session)
 
@@ -133,7 +136,7 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
 
 
 @transactional_session
-def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, session=None):
+def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, force_expression=None, session=None):
     """
     Rebalance data from an RSE
 
@@ -143,6 +146,7 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
     :param dry_run:              Only run in dry-run mode.
     :param exclude_expression:   Exclude this rse_expression from being target_rses.
     :param comment:              Comment to set on the new rules.
+    :param force_expression:     Force a specific rse_expression as target.
     :param session:              The database session.
     :returns:                    List of rebalanced datasets.
     """
@@ -158,6 +162,9 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
     print 'scope:name rule_id bytes(Gb) target_rse child_rule_id'
 
     for scope, name, rule_id, rse_expression, subscription_id, bytes, length in list_rebalance_rule_candidates(rse=rse):
+        if force_expression is not None and subscription_id is not None:
+            continue
+
         if rebalanced_bytes + bytes > max_bytes:
             continue
         if max_files:
