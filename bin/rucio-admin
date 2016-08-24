@@ -13,7 +13,7 @@
 # - Wen Guan, <wguan@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - David Cameron, <david.cameron@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
 
@@ -38,7 +38,7 @@ from functools import wraps
 
 from rucio.client import Client
 from rucio.common.config import config_get
-from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
+from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate)
 from rucio.common.utils import chunks, construct_surl, sizefmt
 from rucio import version
@@ -749,38 +749,42 @@ def list_pfns(args):
     for input_did in dids:
         scope, name = extract_scope(input_did)
         replicas = [rep for rep in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[protocol, ])]
-        if rse in replicas[0]['rses']:
+        if rse in replicas[0]['rses'] and replicas[0]['rses'][rse]:
             print replicas[0]['rses'][rse][0]
-        logger.warning('The file has no replica on the specified RSE')
-        rse_info = rsemgr.get_rse_info(rse)
-        proto = rsemgr.create_protocol(rse_info, 'read', scheme=protocol)
-        pfn = proto.lfns2pfns(lfns={'scope': scope, 'name': name})
-        result = pfn.values()[0]
-        if isinstance(result, RSEOperationNotSupported):
-            if not rse_info['deterministic']:
-                logger.warning('This is a non-deterministic site, so the real PFN might be different from the on suggested')
-                rse_attr = client.list_rse_attributes(rse)
-                naming_convention = rse_attr.get('naming_convention', None)
-                parents = [did for did in client.list_parent_dids(scope, name)]
-                if len(parents) > 1:
-                    logger.warning('The file has multiple parents')
-                for did in parents:
-                    if did['type'] == 'DATASET':
-                        path = construct_surl(did['name'], name, naming_convention=naming_convention)
-                        pfn = ''.join([proto.attributes['scheme'],
-                                       '://',
-                                       proto.attributes['hostname'],
-                                       ':',
-                                       str(proto.attributes['port']),
-                                       proto.attributes['prefix'],
-                                       path if not path.startswith('/') else path[1:]])
-                        print pfn
+        else:
+            logger.warning('The file has no replica on the specified RSE')
+            rse_info = rsemgr.get_rse_info(rse)
+            proto = rsemgr.create_protocol(rse_info, 'read', scheme=protocol)
+            try:
+                pfn = proto.lfns2pfns(lfns={'scope': scope, 'name': name})
+                result = pfn.values()[0]
+            except ReplicaNotFound as error:
+                result = error
+            if isinstance(result, RSEOperationNotSupported) or isinstance(result, ReplicaNotFound):
+                if not rse_info['deterministic']:
+                    logger.warning('This is a non-deterministic site, so the real PFN might be different from the on suggested')
+                    rse_attr = client.list_rse_attributes(rse)
+                    naming_convention = rse_attr.get('naming_convention', None)
+                    parents = [did for did in client.list_parent_dids(scope, name)]
+                    if len(parents) > 1:
+                        logger.warning('The file has multiple parents')
+                    for did in parents:
+                        if did['type'] == 'DATASET':
+                            path = construct_surl(did['name'], name, naming_convention=naming_convention)
+                            pfn = ''.join([proto.attributes['scheme'],
+                                           '://',
+                                           proto.attributes['hostname'],
+                                           ':',
+                                           str(proto.attributes['port']),
+                                           proto.attributes['prefix'],
+                                           path if not path.startswith('/') else path[1:]])
+                            print pfn
+                else:
+                    logger.error('Unexpected error')
+                    return FAILURE
             else:
-                logger.error('Unexpected error')
-                return FAILURE
-        print result
+                print result
     return SUCCESS
-
 
 if __name__ == '__main__':
     usage = """
