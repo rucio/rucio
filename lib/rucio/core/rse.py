@@ -681,6 +681,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
                           models.RSEProtocols.read_wan,
                           models.RSEProtocols.write_wan,
                           models.RSEProtocols.delete_wan,
+                          models.RSEProtocols.third_party_copy,
                           models.RSEProtocols.extended_attributes).filter(*terms)
 
     for row in query:
@@ -695,7 +696,8 @@ def get_rse_protocols(rse, schemes=None, session=None):
                          'delete': row.delete_lan},
                  'wan': {'read': row.read_wan,
                          'write': row.write_wan,
-                         'delete': row.delete_wan}
+                         'delete': row.delete_wan,
+                         'third_party_copy': row.third_party_copy}
              },
              'extended_attributes': row.extended_attributes}
 
