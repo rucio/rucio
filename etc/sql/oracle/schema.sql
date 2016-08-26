@@ -886,6 +886,7 @@ CREATE TABLE rse_protocols (
     read_WAN NUMBER(1),
     write_WAN NUMBER(1),
     delete_WAN NUMBER(1),
+    third_party_copy NUMBER(1),
     extended_attributes VARCHAR2(1024 CHAR),
     updated_at DATE,
     created_at DATE,
