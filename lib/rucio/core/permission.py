@@ -18,7 +18,6 @@
 import rucio.core.authentication
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
-from rucio.core.lock import get_replica_locks_for_rule_id_per_rse
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rule
@@ -416,14 +415,17 @@ def perm_del_rule(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
+
+    rule = get_rule(rule_id=kwargs['rule_id'])
+    rses = parse_expression(rule['rse_expression'])
     if admin_in_country:
-        for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
-            if list_rse_attributes(rse=None, rse_id=rse['rse_id']).get('country') in admin_in_country:
+        for rse in rses:
+            if list_rse_attributes(rse=None, rse_id=rse['id']).get('country') in admin_in_country:
                 return True
 
     # DELETERS can approve the rule
-    for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
-        rse_attr = list_rse_attributes(rse=None, rse_id=rse['rse_id'])
+    for rse in rses:
+        rse_attr = list_rse_attributes(rse=None, rse_id=rse['id'])
         if rse_attr.get('rule_deleters'):
             if issuer in rse_attr.get('rule_deleters').split(','):
                 return True
@@ -455,9 +457,12 @@ def perm_update_rule(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
+
+    rule = get_rule(rule_id=kwargs['rule_id'])
+    rses = parse_expression(rule['rse_expression'])
     if admin_in_country:
-        for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
-            if list_rse_attributes(rse=None, rse_id=rse['rse_id']).get('country') in admin_in_country:
+        for rse in rses:
+            if list_rse_attributes(rse=None, rse_id=rse['id']).get('country') in admin_in_country:
                 return True
 
     # Only admin and country-admin are allowed to change locked state of rule
