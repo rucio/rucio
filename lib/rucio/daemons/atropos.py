@@ -20,15 +20,13 @@ from sys import exc_info, stdout, argv
 from traceback import format_exception
 
 from rucio.common.config import config_get
-from rucio.common.policy import define_eol
+from rucio.common.exception import RuleNotFound
+from rucio.common.policy import define_eol, get_lifetime_exceptions
 from rucio.core import heartbeat
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rules_beyond_eol, update_rule
 
-from rucio.db.sqla.session import get_session
-
-logging.getLogger("atropos").setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=stdout, level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
@@ -56,49 +54,53 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
     now = datetime.datetime.now()
     hb = heartbeat.live(executable, hostname, pid, hb_thread)
     summary = {}
+    lifetime_exceptions = get_lifetime_exceptions()
+    prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'], hb['nr_threads'])
     if not dry_run and date_check > now:
-        logging.error('Thread [%i/%i] : Atropos cannot run in non-dry-run mode for date in the future' % (hb['assign_thread'], hb['nr_threads']))
+        logging.error(prepend_str + 'Atropos cannot run in non-dry-run mode for date in the future')
     else:
-        session = get_session()
         while not graceful_stop.is_set():
 
             hb = heartbeat.live(executable, hostname, pid, hb_thread)
 
             stime = time.time()
             try:
-                rules = get_rules_beyond_eol(date_check, thread, hb['nr_threads'] - 1, session=session)
-                logging.info('Thread [%i/%i] : %s rules to process' % (hb['assign_thread'],
-                                                                       hb['nr_threads'],
-                                                                       len(rules)))
+                rules = get_rules_beyond_eol(date_check, thread, hb['nr_threads'] - 1)
+                logging.info(prepend_str + '%s rules to process' % (len(rules)))
                 rule_idx = 0
                 for rule in rules:
                     rule_idx += 1
-                    logging.debug('Thread [%i/%i] : Working on rule %s on DID %s:%s on %s' % (hb['assign_thread'],
-                                                                                              hb['nr_threads'],
-                                                                                              rule.id,
-                                                                                              rule.scope,
-                                                                                              rule.name,
-                                                                                              rule.rse_expression))
+                    logging.debug(prepend_str + 'Working on rule %s on DID %s:%s on %s' % (rule.id, rule.scope, rule.name, rule.rse_expression))
 
                     if (rule_idx % 1000) == 0:
-                        logging.info('Thread [%i/%i] : %s/%s rules processed' % (hb['assign_thread'],
-                                                                                 hb['nr_threads'],
-                                                                                 rule_idx, len(rules)))
-                    rses = parse_expression(rule.rse_expression, session=session)
-                    eol_at = define_eol(rule.scope, rule.name, rses, session=session)
-                    if eol_at != rule.eol_at:
-                        logging.warning('Thread [%i/%i] : The computed EOL %s is different of the one recorded %s for rule %s on DID %s:%s on %s' % (hb['assign_thread'],
-                                                                                                                                                     hb['nr_threads'],
-                                                                                                                                                     eol_at,
-                                                                                                                                                     rule.eol_at,
-                                                                                                                                                     rule.id,
-                                                                                                                                                     rule.scope,
-                                                                                                                                                     rule.name,
-                                                                                                                                                     rule.rse_expression))
-                        update_rule(rule.id, options={'eol_at': eol_at}, session=session)
+                        logging.info(prepend_str + '%s/%s rules processed' % (rule_idx, len(rules)))
+                    # We compute the expended eol_at
+                    rses = parse_expression(rule.rse_expression)
+                    eol_at = define_eol(rule.scope, rule.name, rses)
+
+                    # Check the exceptions
+                    if rule.name in lifetime_exceptions:
+                        if rule.eol_at > lifetime_exceptions[rule.name]:
+                            logging.info(prepend_str + 'Rule %s on DID %s:%s on %s expired. Extension requested till %s' % (rule.id, rule.scope, rule.name, rule.rse_expression,
+                                                                                                                            lifetime_exceptions[rule.name]))
+                        else:
+                            # If eol_at < requested extension, update eol_at
+                            logging.info(prepend_str + 'Updating rule %s on DID %s:%s on %s according to the exception till %s' % (rule.id, rule.scope, rule.name, rule.rse_expression,
+                                                                                                                                   lifetime_exceptions[rule.name]))
+                            try:
+                                update_rule(rule.id, options={'eol_at': lifetime_exceptions[rule.name]})
+                            except RuleNotFound:
+                                logging.warning(prepend_str + 'Cannot find rule %s on DID %s:%s' % (rule.id, rule.scope, rule.name))
+                    elif eol_at != rule.eol_at:
+                        logging.warning(prepend_str + 'The computed eol %s differs from the one recorded %s for rule %s on %s:%s at %s' % (eol_at, rule.eol_at, rule.id,
+                                                                                                                                           rule.scope, rule.name, rule.rse_expression))
+                        try:
+                            update_rule(rule.id, options={'eol_at': eol_at})
+                        except RuleNotFound:
+                            logging.warning(prepend_str + 'Cannot find rule %s on DID %s:%s' % (rule.id, rule.scope, rule.name))
 
                     no_locks = True
-                    for lock in get_dataset_locks(rule.scope, rule.name, session=session):
+                    for lock in get_dataset_locks(rule.scope, rule.name):
                         if lock['rule_id'] == rule[4]:
                             no_locks = False
                             if lock['rse'] not in summary:
@@ -106,17 +108,13 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
                             if '%s:%s' % (rule.scope, rule.name) not in summary[lock['rse']]:
                                 summary[lock['rse']]['%s:%s' % (rule.scope, rule.name)] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
                     if no_locks:
-                        logging.warning('Thread [%i/%i] : Cannot find a lock for rule %s on DID %s:%s' % (hb['assign_thread'],
-                                                                                                          hb['nr_threads'],
-                                                                                                          rule.id,
-                                                                                                          rule.scope,
-                                                                                                          rule.name))
-                if not dry_run:
-                    logging.info('Thread [%i/%i] : Setting %s seconds lifetime for rule %s' % (hb['assign_thread'],
-                                                                                               hb['nr_threads'],
-                                                                                               grace_period,
-                                                                                               rule.id))
-                    update_rule(rule.id, options={'lifetime': grace_period}, session=session)
+                        logging.warning(prepend_str + 'Cannot find a lock for rule %s on DID %s:%s' % (rule.id, rule.scope, rule.name))
+                    if not dry_run:
+                        logging.info(prepend_str + 'Setting %s seconds lifetime for rule %s' % (grace_period, rule.id))
+                        try:
+                            update_rule(rule.id, options={'lifetime': grace_period})
+                        except RuleNotFound:
+                            logging.warning(prepend_str + 'Cannot find rule %s on DID %s:%s' % (rule.id, rule.scope, rule.name))
             except Exception:
                 exc_type, exc_value, exc_traceback = exc_info()
                 logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
@@ -127,22 +125,20 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
                     tot_datasets += 1
                     tot_files += summary[rse][did].get('length', 0)
                     tot_size += summary[rse][did].get('bytes', 0)
-                logging.info('Thread [%i/%i] : For RSE %s %s datasets will be deleted representing %s files and %s bytes' % (hb['assign_thread'], hb['nr_threads'], rse, tot_datasets, tot_files, tot_size))
+                logging.info(prepend_str + 'For RSE %s %s datasets will be deleted representing %s files and %s bytes' % (rse, tot_datasets, tot_files, tot_size))
 
             if once:
                 break
             else:
                 tottime = time.time() - stime
                 if tottime < sleep_time:
-                    logging.info('Thread [%i/%i] : Will sleep for %s seconds' % (hb['assign_thread'],
-                                                                                 hb['nr_threads'],
-                                                                                 str(sleep_time - tottime)))
+                    logging.info(prepend_str + 'Will sleep for %s seconds' % (str(sleep_time - tottime)))
                     time.sleep(sleep_time - tottime)
                     continue
 
-        logging.info('Thread [%i/%i] : Graceful stop requested' % (hb['assign_thread'], hb['nr_threads']))
+        logging.info(prepend_str + 'Graceful stop requested')
         heartbeat.die(executable, hostname, pid, hb_thread)
-        logging.info('Thread [%i/%i] : Graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
+        logging.info(prepend_str + 'Graceful stop done')
 
 
 def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400, once=True):
