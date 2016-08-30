@@ -74,7 +74,10 @@ def check_token(rendered_tpl):
         accounts = identity.list_accounts_for_identity(dn, 'x509')
 
         if len(accounts) == 0:
-            return render.problem("Your certificate (%s) is not mapped to any rucio account. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
+            msg = "Your certificate (%s) is not mapped to any rucio account." % dn
+            msg += " Please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> first and then wait some time until it has fully propagated through the system."
+            msg += "Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
+            return render.problem(msg)
 
         if ui_account not in accounts:
             return render.problem("The rucio account (%s) you selected is not mapped to your certificate (%s). Please select another account or none at all to automatically use your default account." % (ui_account, dn))
@@ -89,7 +92,7 @@ def check_token(rendered_tpl):
             except:
                 msg = "Your certificate (%s) is not registered in Rucio." % dn
                 msg += " Please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> first and then wait some time until it has fully propagated through the system."
-                msg += "If it then still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
+                msg += "Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
                 return render.problem(msg)
 
         attribs = list_account_attributes(ui_account)
