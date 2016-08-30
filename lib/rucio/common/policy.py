@@ -125,13 +125,13 @@ def define_eol(scope, name, rses, session=None):
                     match_policy = False
                     break
             if match_policy:
-                if int(policy['age']) > 12:
+                if int(policy['age']) >= 12:
                     years = int(int(policy['age']) / 12)
                     months = int(policy['age']) - years * 12
                     lifetime_value = 365 * years + 30 * months
                 else:
                     lifetime_value = int(policy['age']) * 30
-                if int(policy['extension']) > 12:
+                if int(policy['extension']) >= 12:
                     years = int(int(policy['extension']) / 12)
                     months = int(policy['extension']) - years * 12
                     extension = 365 * years + 30 * months
