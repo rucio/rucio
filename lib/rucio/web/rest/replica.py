@@ -631,8 +631,16 @@ class DatasetReplicas(RucioController):
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
         header('Content-Type', 'application/x-json-stream')
+        deep = False
+        if ctx.query:
+            try:
+                params = loads(unquote(ctx.query[1:]))
+            except ValueError:
+                params = parse_qs(ctx.query[1:])
+            if 'deep' in params:
+                deep = params['deep'][0]
         try:
-            for row in list_dataset_replicas(scope=scope, name=name):
+            for row in list_dataset_replicas(scope=scope, name=name, deep=deep):
                 yield dumps(row, cls=APIEncoder) + '\n'
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
