@@ -312,11 +312,10 @@ def list_dataset_replicas(args):
     List dataset replicas
     """
     client = get_client(args)
-    datasets = {}
-    result = {}
+    datasets, result = {}, {}
     scope, name = extract_scope(args.did)
     meta = client.get_metadata(scope, name)
-    if meta['did_type'] != 'DATASET' or args.deep:
+    if meta['did_type'] != 'DATASET':
         dids = client.scope_list(scope=scope, name=name, recursive=True)
         for did in dids:
             if did['type'] == 'FILE':
@@ -329,17 +328,8 @@ def list_dataset_replicas(args):
     for dsn in datasets:
         scope, name = extract_scope(dsn)
         result[dsn] = {}
-        if args.deep:
-            replicas = client.list_replicas([{'scope': scope, 'name': name}])
-            for replica in replicas:
-                for rse in replica['rses']:
-                    if rse not in result[dsn]:
-                        result[dsn][rse] = [rse, 0, datasets[dsn]]
-                    if replica['rses'][rse] != []:
-                        result[dsn][rse][1] += 1
-        else:
-            for rep in client.list_dataset_replicas(scope, name):
-                result[dsn][rep['rse']] = [rep['rse'], rep['available_length'], rep['length']]
+        for rep in client.list_dataset_replicas(scope, name, args.deep):
+            result[dsn][rep['rse']] = [rep['rse'], rep['available_length'], rep['length']]
     if args.csv:
         for dsn in result:
             for rse in result[dsn].values():
