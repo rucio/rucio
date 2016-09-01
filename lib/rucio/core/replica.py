@@ -1628,33 +1628,88 @@ def touch_collection_replicas(collection_replicas, session=None):
 
 
 @stream_session
-def list_dataset_replicas(scope, name, session=None):
+def list_dataset_replicas(scope, name, deep=False, session=None):
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
+    :param deep: Lookup at the file level.
     :param session: Database session to use.
 
     :returns: A list of dict dataset replicas
     """
     is_false = False
-    query = session.query(models.CollectionReplica.scope,
-                          models.CollectionReplica.name,
-                          models.RSE.rse,
-                          models.CollectionReplica.rse_id,
-                          models.CollectionReplica.bytes,
-                          models.CollectionReplica.length,
-                          models.CollectionReplica.available_bytes,
-                          models.CollectionReplica.available_replicas_cnt.label("available_length"),
-                          models.CollectionReplica.state,
-                          models.CollectionReplica.created_at,
-                          models.CollectionReplica.updated_at,
-                          models.CollectionReplica.accessed_at)\
-        .filter_by(scope=scope, name=name, did_type=DIDType.DATASET)\
-        .filter(models.CollectionReplica.rse_id == models.RSE.id)\
-        .filter(models.RSE.deleted == is_false)
+    if not deep:
+        query = session.query(models.CollectionReplica.scope,
+                              models.CollectionReplica.name,
+                              models.RSE.rse,
+                              models.CollectionReplica.rse_id,
+                              models.CollectionReplica.bytes,
+                              models.CollectionReplica.length,
+                              models.CollectionReplica.available_bytes,
+                              models.CollectionReplica.available_replicas_cnt.label("available_length"),
+                              models.CollectionReplica.state,
+                              models.CollectionReplica.created_at,
+                              models.CollectionReplica.updated_at,
+                              models.CollectionReplica.accessed_at)\
+            .filter_by(scope=scope, name=name, did_type=DIDType.DATASET)\
+            .filter(models.CollectionReplica.rse_id == models.RSE.id)\
+            .filter(models.RSE.deleted == is_false)
 
-    for row in query:
-        yield row._asdict()
+        for row in query:
+            yield row._asdict()
+
+    else:
+        content_query = session.\
+            query(func.sum(models.DataIdentifierAssociation.bytes).label("bytes"),
+                  func.count().label("length"))\
+            .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
+            .filter(models.DataIdentifierAssociation.scope == scope)\
+            .filter(models.DataIdentifierAssociation.name == name)
+
+        bytes, length = 0, 0
+        for row in content_query:
+            bytes, length = row.bytes, row.length
+
+        sub_query = session.\
+            query(models.DataIdentifierAssociation.scope,
+                  models.DataIdentifierAssociation.name,
+                  models.RSEFileAssociation.rse_id,
+                  func.sum(models.RSEFileAssociation.bytes).label("available_bytes"),
+                  func.count().label("available_length"),
+                  func.min(models.RSEFileAssociation.created_at).label("created_at"),
+                  func.max(models.RSEFileAssociation.updated_at).label("updated_at"),
+                  func.max(models.RSEFileAssociation.accessed_at).label("accessed_at"))\
+            .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
+            .filter(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope)\
+            .filter(models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)\
+            .filter(models.DataIdentifierAssociation.scope == scope)\
+            .filter(models.DataIdentifierAssociation.name == name)\
+            .filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
+            .group_by(models.DataIdentifierAssociation.scope,
+                      models.DataIdentifierAssociation.name,
+                      models.RSEFileAssociation.rse_id)\
+            .subquery()
+
+        query = session.query(sub_query.c.scope,
+                              sub_query.c.name,
+                              sub_query.c.rse_id,
+                              models.RSE.rse,
+                              sub_query.c.available_bytes,
+                              sub_query.c.available_length,
+                              sub_query.c.created_at,
+                              sub_query.c.updated_at,
+                              sub_query.c.accessed_at)\
+            .filter(models.RSE.id == sub_query.c.rse_id)\
+            .filter(models.RSE.deleted == is_false)
+
+        for row in query:
+            replica = row._asdict()
+            replica['length'], replica['bytes'] = length, bytes
+            if replica['length'] == row.available_length:
+                replica['state'] = ReplicaState.AVAILABLE
+            else:
+                replica['state'] = ReplicaState.UNAVAILABLE
+            yield replica
 
 
 @stream_session

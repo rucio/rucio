@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
@@ -162,14 +162,15 @@ def update_replicas_states(rse, files, issuer):
     replica.update_replicas_states(replicas=replicas)
 
 
-def list_dataset_replicas(scope, name):
+def list_dataset_replicas(scope, name, deep=False):
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
+    :param deep: Lookup at the file level.
 
     :returns: A list of dict dataset replicas
     """
-    return replica.list_dataset_replicas(scope=scope, name=name)
+    return replica.list_dataset_replicas(scope=scope, name=name, deep=deep)
 
 
 def list_datasets_per_rse(rse, filters=None, limit=None):
