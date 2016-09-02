@@ -1780,3 +1780,21 @@ CREATE TABLE tmp_dids (
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
 
 CREATE INDEX "TMP_DIDS_EXPIRED_AT_IDX" ON tmp_dids (case when expired_at is not null then rse_id end) COMPRESS 1  TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
+
+
+CREATE TABLE lifetime_except (
+    id RAW(16),
+    scope VARCHAR(25),
+    name VARCHAR(255),
+    did_type VARCHAR(1),
+    account VARCHAR(25),
+    comments VARCHAR(4000),
+    pattern VARCHAR(255),
+    state VARCHAR(1),
+    updated_at DATETIME,
+    expires_at DATETIME,
+    created_at DATETIME,
+    CONSTRAINT "LIFETIME_EXCEPT_DID_TYPE_NN" CHECK (did_type IN ('C', 'D', 'F', 'Y', 'X', 'Z')),
+    CONSTRAINT "LIFETIME_EXCEPT_STATE_CHK" CHECK (state IN ('A', 'R', 'W'))
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
