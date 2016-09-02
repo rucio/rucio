@@ -18,6 +18,7 @@ from json import dumps
 from Queue import Queue
 from requests import post
 from requests.auth import HTTPBasicAuth
+from requests.exceptions import RequestException
 from sys import stdout
 from time import sleep
 from uuid import uuid4
@@ -207,13 +208,18 @@ def place_replica(once=False,
 
                     # write the output to ES for further analysis
                     index_url = elastic_url + '/' + elastic_index + '-' + datetime.utcnow().strftime('%Y-%m-%d') + '/record/'
-                    if ca_cert:
-                        r = post(index_url, data=dumps(decision), verify=ca_cert, auth=auth)
-                    else:
-                        r = post(index_url, data=dumps(decision))
-                    if r.status_code != 201:
-                        logging.error(r)
+                    try:
+                        if ca_cert:
+                            r = post(index_url, data=dumps(decision), verify=ca_cert, auth=auth)
+                        else:
+                            r = post(index_url, data=dumps(decision))
+                        if r.status_code != 201:
+                            logging.error(r)
+                            logging.error('(%s:%s) could not write to ElasticSearch' % (algorithm, instance_id))
+                    except RequestException as e:
                         logging.error('(%s:%s) could not write to ElasticSearch' % (algorithm, instance_id))
+                        logging.error(e)
+                        continue
 
                     logging.debug(decision)
                     if 'error_reason' in decision:
