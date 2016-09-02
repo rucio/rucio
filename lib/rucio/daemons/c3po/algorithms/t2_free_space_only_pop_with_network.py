@@ -179,7 +179,7 @@ class PlacementAlgorithm:
                     continue
                 net_metrics = {}
                 net_metrics_type = None
-                for metric_type in ('fts', 'fax', 'perfsonar'):
+                for metric_type in ('fts', 'fax', 'perfsonar', 'dashb'):
                     net_metrics_type = metric_type
                     net_metrics = self._nmc.getMbps(src_site, metric_type)
                     if net_metrics:
@@ -219,6 +219,8 @@ class PlacementAlgorithm:
                         if dst_rse not in self._dst_penalties:
                             self._dst_penalties[dst_rse] = 100.0
                         dst_penalty = self._dst_penalties[dst_rse]
+                        if float(rse_space['total']) == 0.0:
+                            continue
                         free_space = float(rse_space['free']) / float(rse_space['total']) * 100.0
                         available_reps[src_rse][dst_rse] = {'free_space': free_space, 'src_penalty': src_penalty, 'dst_penalty': dst_penalty, 'mbps': float(mbps), 'metrics_type': net_metrics_type}
 
@@ -232,6 +234,10 @@ class PlacementAlgorithm:
             return decision
 
         src_dst_ratios = []
+
+        if max_mbps == 0.0:
+            decision['error_reason'] = 'could not find enough network metrics'
+            return decision
 
         for src, dsts in available_reps.items():
             for dst, metrics in dsts.items():
