@@ -31,7 +31,7 @@ from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
 
-from rucio.daemons.conveyor.utils import get_rses, get_transfer_transfers, bulk_group_transfer, submit_transfer
+from rucio.daemons.conveyor.utils import get_rses, get_transfers, bulk_group_transfer, submit_transfer
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -84,6 +84,7 @@ def submitter(once=False, rses=[], mock=False,
             max_time_in_queue[act.strip()] = int(timelife.strip())
     except NoOptionError:
         max_time_in_queue = {}
+
     if 'default' not in max_time_in_queue:
         max_time_in_queue['default'] = 168
     logging.debug("Maximum time in queue for different activities: %s" % max_time_in_queue)
@@ -128,11 +129,16 @@ def submitter(once=False, rses=[], mock=False,
 
                 logging.info("%s:%s Starting to get transfer transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
-                transfers = get_transfer_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'], failover_schemes=failover_scheme,
-                                                   limit=bulk, activity=activity, rses=rse_ids, schemes=scheme, mock=mock, max_sources=max_sources, bring_online=bring_online, retry_other_fts=retry_other_fts)
-                record_timer('daemons.conveyor.transfer_submitter.get_transfer_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
-                record_counter('daemons.conveyor.transfer_submitter.get_transfer_transfers', len(transfers))
-                record_timer('daemons.conveyor.transfer_submitter.get_transfer_transfers.transfers', len(transfers))
+                transfers = get_transfers(process=process, total_processes=total_processes,
+                                          thread=hb['assign_thread'], total_threads=hb['nr_threads'],
+                                          failover_schemes=failover_scheme, limit=bulk,
+                                          activity=activity, rses=rse_ids, schemes=scheme,
+                                          mock=mock, max_sources=max_sources,
+                                          bring_online=bring_online,
+                                          retry_other_fts=retry_other_fts)
+                record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
+                record_counter('daemons.conveyor.transfer_submitter.get_transfers', len(transfers))
+                record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', len(transfers))
                 logging.info("%s:%s Got %s transfers for %s" % (process, hb['assign_thread'], len(transfers), activity))
 
                 # group transfers
