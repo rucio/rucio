@@ -130,7 +130,8 @@ def submitter(once=False, rses=[], mock=False,
                 logging.info("%s:%s Starting to get transfer transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
                 transfers = get_transfers(process=process, total_processes=total_processes,
-                                          thread=hb['assign_thread'], total_threads=hb['nr_threads'],
+                                          thread=hb['assign_thread'],
+                                          total_threads=hb['nr_threads'],
                                           failover_schemes=failover_scheme, limit=bulk,
                                           activity=activity, rses=rse_ids, schemes=scheme,
                                           mock=mock, max_sources=max_sources,
