@@ -527,7 +527,6 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, input_scope, input_name, output_scope, output_name, str(nbfiles), 'sample'])
         url = build_url(choice(self.list_hosts), path=path)
-        print url
         r = self._send_request(url, type='POST', data=dumps({}))
         if r.status_code == codes.created:
             return True
