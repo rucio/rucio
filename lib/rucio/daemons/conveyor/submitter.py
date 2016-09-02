@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
@@ -31,7 +31,7 @@ from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
 
-from rucio.daemons.conveyor.submitter_utils import get_rses, get_transfer_transfers, bulk_group_transfer, submit_transfer
+from rucio.daemons.conveyor.utils import get_rses, get_transfer_transfers, bulk_group_transfer, submit_transfer
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -167,6 +167,7 @@ def submitter(once=False, rses=[], mock=False,
     heartbeat.die(executable, hostname, pid, hb_thread)
 
     logging.info('%s:%s graceful stop done' % (process, hb['assign_thread']))
+    return
 
 
 def stop(signum=None, frame=None):
