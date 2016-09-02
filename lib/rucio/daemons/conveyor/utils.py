@@ -1224,8 +1224,10 @@ def sort_ranking(sources):
     return ret_sources
 
 
-def get_transfers(process=None, total_processes=None, thread=None, total_threads=None, failover_schemes=None,
-                  limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200, retry_other_fts=False, session=None):
+def get_transfers(process=None, total_processes=None, thread=None, total_threads=None,
+                  failover_schemes=None, limit=None, activity=None, older_than=None,
+                  rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200,
+                  retry_other_fts=False, session=None):
     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                                                                        limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes,
                                                                                                                        bring_online=bring_online, retry_other_fts=retry_other_fts,
