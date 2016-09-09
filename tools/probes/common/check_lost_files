@@ -51,7 +51,7 @@ a.identity=b.identity and b.account='%s'  ''' % account
     except Exception, e:
         flog = open(log_path, 'a')
         flog.write(str(e))
-        sys.exit(CRITICAL)
+        # sys.exit(CRITICAL)
 
     return mails
 
@@ -79,7 +79,7 @@ def find_mails_groups(rse):
     except Exception, e:
         flog = open(log_path, 'a')
         flog.write(str(e))
-        sys.exit(CRITICAL)
+        # sys.exit(CRITICAL)
 
     return mails
 
@@ -89,8 +89,11 @@ def get_rule_owners(scope, name):
 
     rule_owners = []
     session = get_session()
+
     try:
-        query = ''' select distinct(account) from atlas_rucio.rules where scope='%s' and name='%s'  ''' % (scope, name)
+        query = ''' select distinct(account) from atlas_rucio.rules_history where scope='%s' and name='%s'  ''' % (str(scope), str(name))
+        if testmode:
+            print query
         result = session.execute(query)
         for row in result:
             for col in row:
@@ -98,7 +101,7 @@ def get_rule_owners(scope, name):
     except Exception, e:
         flog = open(log_path, 'a')
         flog.write(str(e))
-        sys.exit(CRITICAL)
+        # sys.exit(CRITICAL)
 
     if testmode:
         print 'DEBUG: ', scope, name
@@ -112,20 +115,22 @@ def send_report(rse, account):
 
     # creating mailing lists
     mail_list = []
+    report_path = ''
     if groups and rse != '':
         mail_list = find_mails_groups(rse)
+        report_path = reports_dir + 'report_' + rse
     if users and account != '' and account != 'gdp':
         mail_list = find_mails_users(account)
+        report_path = reports_dir + 'report_' + account
     if gdp and account == 'gdp':
         mail_list = find_mails_gdp()
-    if mail_list == []:
-        return
-
-    report_path = ''
-    if groups:
-        report_path = reports_dir + 'report_' + rse
-    if users or gdp:
         report_path = reports_dir + 'report_' + account
+    if mail_list == [] or report_path == '' or report_path == 'report_':
+        return
+    if testmode:
+        print "DEBUG: mailing agent is accessed."
+        print "DEBUG: ", rse, account
+
     fr = open(report_path, 'rb')
 
     # defining mailing list
@@ -154,6 +159,8 @@ def send_report(rse, account):
     msg.attach(part)
 
     # sending email, s=server
+    if testmode:
+        print "DEBUG: mail is sent now."
     s = smtplib.SMTP('localhost')
     s.sendmail(me, recepients, msg.as_string())
     s.quit()
@@ -164,12 +171,16 @@ def send_report(rse, account):
 def report_gdp():
 
     # INIT
+    if testmode:
+        print "DEBUG: making report for GDP"
+        print "||||||||||||||||||||||||||||"
     if not os.path.isfile(tmpdata_path):
         print "ERROR: lost files not downloaded"
         sys.exit(CRITICAL)
 
     cmd = 'cp %s %s' % (tmpdata_path, reports_dir + '/report_gdp')
     os.system(cmd)
+
     send_report('', 'gdp')
 
 
@@ -178,6 +189,9 @@ def report_gdp():
 def report_by_account():
 
     # INIT
+    if testmode:
+        print "DEBUG: making report by account"
+        print "|||||||||||||||||||||||||||||||"
     if not os.path.isfile(tmpdata_path):
         print "ERROR: lost files not downloaded"
         sys.exit(CRITICAL)
@@ -190,21 +204,24 @@ def report_by_account():
         data_name = line.split(' ')[1]
         dataset = line.split(' ')[3]
         rse_name = line.split(' ')[4]
-        account = line.split(' ')[5]
+        account = line.split(' ')[5]  # who declared the file lost
         updated_at = line.split(' ')[6]
-        accounts = [account]
+        accounts = []
 
         # find owners of rule, they are contacted as well
+        if testmode:
+            print "DEBUG: get rule owners"
         rule_owners = get_rule_owners(scope, dataset)
+        # did_woners = get_did_owner TO BE DEVELOPED
         for own in rule_owners:
             if own not in accounts:
                 accounts.append(own)
         if testmode:
             print 'INFO:', rse_name, account, dataset, data_name
-            if accounts == [account]:
-                print "DEBUG: account identical rule owner"
+            if accounts == []:
+                print "DEBUG: there is no account to be notified."
             else:
-                print "DEBUG: additional rule owners found:", accounts
+                print "DEBUG: rule owners found:", accounts
             print '======================='
 
         for acc in accounts:
@@ -212,6 +229,9 @@ def report_by_account():
                 data_per_account[acc] = [{'scope': scope, 'name': data_name, 'dataset': dataset, 'rse': rse_name, 'time': updated_at}]
             else:
                 data_per_account[acc].append({'scope': scope, 'name': data_name, 'dataset': dataset, 'rse': rse_name, 'time': updated_at})
+
+    if testmode:
+        print "DEBUG: creating reports and sending."
 
     # create report per account
     for account in data_per_account.keys():
@@ -221,8 +241,16 @@ def report_by_account():
 
     # send report by mail
     for account in data_per_account.keys():
+        if testmode:
+            print "DEBUG: going to send the report."
         send_report('', account)
 
+    if testmode:
+        if data_per_account == {}:
+            print "DEBUG: nothing to send."
+
+    if testmode:
+        print "DEBUG: report by accnounts done."
     fi.close()
 
 
@@ -271,11 +299,15 @@ def get_bad_files():
     f = open(tmpdata_path, 'w')
     try:
         query = ''' select a.scope, a.name, b.scope, b.name, atlas_rucio.id2rse(a.rse_id), a.account, a.updated_at from atlas_rucio.bad_replicas a, atlas_rucio.contents_history b
- where a.state='L' and a.updated_at>sysdate-7 and b.did_type='D'and a.scope=b.child_scope and a.name=b.child_name '''
+ where a.state='L' and a.updated_at>sysdate-8 and b.did_type='D'and a.scope=b.child_scope and a.name=b.child_name '''
 
         result = session.execute(query)
         for row in result:
             if row[3].startswith('panda.'):
+                continue
+            if testmode:
+                print query
+            if str(row[3]).split('_')[-1].startswith('sub'):
                 continue
             for col in row:
                 f.write('%s ' % col)
@@ -306,6 +338,8 @@ def main():
     if users:
         report_by_account()
     if gdp:
+        if testmode:
+            print "DEBUG: summary report to gdp"
         report_gdp()
 
     # clean tmp
