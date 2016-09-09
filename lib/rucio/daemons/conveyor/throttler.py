@@ -27,7 +27,7 @@ import traceback
 from rucio.common.config import config_get
 from rucio.core import heartbeat
 
-from rucio.daemons.conveyor.submitter_utils import schedule_requests
+from rucio.daemons.conveyor.utils import schedule_requests
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
