@@ -6,7 +6,7 @@
   You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 '''
 
@@ -25,8 +25,6 @@ from rucio.core import monitor, heartbeat
 from rucio.core.replica import list_bad_replicas, list_replicas, list_bad_replicas_history, update_bad_replicas_history
 from rucio.core.rule import update_rules_for_lost_replica, update_rules_for_bad_replica
 
-
-logging.getLogger("necromancer").setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=stdout, level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
@@ -57,6 +55,7 @@ def necromancer(thread=0, bulk=5, once=False):
     while not graceful_stop.is_set():
 
         hb = heartbeat.live(executable, hostname, pid, hb_thread)
+        prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
 
         stime = time.time()
         try:
@@ -64,66 +63,53 @@ def necromancer(thread=0, bulk=5, once=False):
 
             for replica in replicas:
                 scope, name, rse_id, rse = replica['scope'], replica['name'], replica['rse_id'], replica['rse']
-                logging.info('Thread [%i/%i] : Working on %s:%s on %s' % (hb['assign_thread'], hb['nr_threads'], scope, name, rse))
+                logging.info(prepend_str + 'Working on %s:%s on %s' % (scope, name, rse))
 
                 rep = [r for r in list_replicas([{'scope': scope, 'name': name}, ])]
                 if (not rep[0]['rses']) or (rep[0]['rses'].keys() == [rse]):
-                    logging.info('Thread [%i/%i] : File %s:%s has no other replicas, it will be marked as lost' % (hb['assign_thread'],
-                                                                                                                   hb['nr_threads'],
-                                                                                                                   scope, name))
+                    logging.info(prepend_str + 'File %s:%s has no other replicas, it will be marked as lost' % (scope, name))
                     try:
                         update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id)
                         monitor.record_counter(counters='necromancer.badfiles.lostfile', delta=1)
                     except DatabaseException, error:
-                        logging.info('Thread [%i/%i] : %s' % (hb['assign_thread'], hb['nr_threads'], str(error)))
+                        logging.info(prepend_str + '%s' % (str(error)))
 
                 else:
-                    logging.info('Thread [%i/%i] : File %s:%s can be recovered. Available sources : %s' % (hb['assign_thread'],
-                                                                                                           hb['nr_threads'],
-                                                                                                           scope, name, str(rep[0]['rses'])))
+                    logging.info(prepend_str + 'File %s:%s can be recovered. Available sources : %s' % (scope, name, str(rep[0]['rses'])))
                     try:
                         update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id)
                         monitor.record_counter(counters='necromancer.badfiles.recovering', delta=1)
                     except DatabaseException, error:
-                        logging.info('Thread [%i/%i] : %s' % (hb['assign_thread'], hb['nr_threads'], str(error)))
+                        logging.info(prepend_str + '%s' % (str(error)))
 
-            logging.info('Thread [%i/%i] : It took %s seconds to process %s replicas' % (hb['assign_thread'],
-                                                                                         hb['nr_threads'],
-                                                                                         str(time.time() - stime),
-                                                                                         str(len(replicas))))
+            logging.info(prepend_str + 'It took %s seconds to process %s replicas' % (str(time.time() - stime), str(len(replicas))))
         except Exception:
             exc_type, exc_value, exc_traceback = exc_info()
-            logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+            logging.critical(prepend_str + ''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
 
         if once:
             break
         else:
             now = time.time()
             if (now - update_history_time) > update_history_threshold:
-                logging.info('Thread [%i/%i] : Last update of history table %s seconds ago. Running update.' % (hb['assign_thread'],
-                                                                                                                hb['nr_threads'],
-                                                                                                                (now - update_history_time)))
+                logging.info(prepend_str + 'Last update of history table %s seconds ago. Running update.' % (now - update_history_time))
                 bad_replicas = list_bad_replicas_history(limit=10000000,
                                                          thread=hb['assign_thread'],
                                                          total_threads=hb['nr_threads'])
                 for rse_id in bad_replicas:
                     update_bad_replicas_history(bad_replicas[rse_id], rse_id)
-                logging.info('Thread [%i/%i] : History table updated in %s seconds' % (hb['assign_thread'],
-                                                                                       hb['nr_threads'],
-                                                                                       (time.time() - now)))
+                logging.info(prepend_str + 'History table updated in %s seconds' % (time.time() - now))
                 update_history_time = time.time()
 
             tottime = time.time() - stime
             if tottime < sleep_time:
-                logging.info('Thread [%i/%i] : Will sleep for %s seconds' % (hb['assign_thread'],
-                                                                             hb['nr_threads'],
-                                                                             str(sleep_time - tottime)))
+                logging.info(prepend_str + 'Will sleep for %s seconds' % (str(sleep_time - tottime)))
                 time.sleep(sleep_time - tottime)
                 continue
 
-    logging.info('Thread [%i/%i] : Graceful stop requested' % (hb['assign_thread'], hb['nr_threads']))
+    logging.info(prepend_str + 'Graceful stop requested')
     heartbeat.die(executable, hostname, pid, hb_thread)
-    logging.info('Thread [%i/%i] : Graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
+    logging.info(prepend_str + 'Graceful stop done')
 
 
 def run(threads=1, bulk=100, once=False):
