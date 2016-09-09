@@ -30,7 +30,7 @@ from threadpool import ThreadPool, makeRequests
 from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
-from rucio.daemons.conveyor.submitter_utils import get_rses, get_stagein_transfers, bulk_group_transfer, submit_transfer
+from rucio.daemons.conveyor.utils import get_rses, get_stagein_transfers, bulk_group_transfer, submit_transfer
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),

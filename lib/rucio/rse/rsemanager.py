@@ -30,15 +30,17 @@ def get_rse_info(rse, session=None):
 
 
         :returns: a dict object with the following attributes:
-                    id              ...     an internal identifier
-                    rse             ...     the name of the RSE as string
-                    type            ...     the storage type odf the RSE e.g. DISK
-                    volatile        ...     boolean indictaing if the RSE is volatile
-                    deteministic    ...     boolean indicating of the nameing of the files follows the defined determinism
-                    domain          ...     indictaing the domain that should bes assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
-                    delete_protocol ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
-                    write_protocol  ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
-                    read_protocol   ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
+                    id                ...     an internal identifier
+                    rse               ...     the name of the RSE as string
+                    type              ...     the storage type odf the RSE e.g. DISK
+                    volatile          ...     boolean indictaing if the RSE is volatile
+                    deteministic      ...     boolean indicating of the nameing of the files follows the defined determinism
+                    domain            ...     indictaing the domain that should bes assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
+                    delete_protocol   ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
+                    write_protocol    ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
+                    read_protocol     ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
+                    third_party_copy  ...     the protocol to be used for third_party_copy, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
+
                     protocols       ...     all supported protocol in form of alist of dict objects with the followig structure
                         scheme              ...     protocol scheme e.g. http, srm, ...
                         hostname            ...     hostname of the site
