@@ -1203,7 +1203,7 @@ def download(args):
     Download files from Rucio
     """
     if args.old:
-        logger.debug('Using old threaded download model')
+        logger.debug('Using old multi-process download model')
         return download2(args)
 
     return download1(args)
@@ -1348,26 +1348,29 @@ def download1(args):
         except Empty:
             break
 
+    not_downloaded_files = 0
     print '----------------------------------'
     print 'Download summary'
-    for did in summary:
+    if summary:
+        for did in summary:
+            print '-' * 40
+            print 'DID %s' % (did)
+            downloaded_files = 0
+            not_downloaded_files = 0
+            local_files = 0
+            for file in summary[did]:
+                if summary[did][file] == 'DONE':
+                    downloaded_files += 1
+                elif summary[did][file] == 'ALREADY_DONE':
+                    local_files += 1
+            not_downloaded_files = nbfiles_to_download[did] - downloaded_files - local_files
+            print '{0:40} {1:6d}'.format('Total files : ', nbfiles_to_download[did])
+            print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
+            print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
+            print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
+    else:
         print '-' * 40
-        print 'DID %s' % (did)
-        downloaded_files = 0
-        not_downloaded_files = 0
-        local_files = 0
-        for file in summary[did]:
-            if summary[did][file] == 'DONE':
-                downloaded_files += 1
-            elif summary[did][file] == 'ALREADY_DONE':
-                local_files += 1
-
-        not_downloaded_files = nbfiles_to_download[did] - downloaded_files - local_files
-        print '{0:40} {1:6d}'.format('Total files : ', nbfiles_to_download[did])
-        print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
-        print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
-        print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
-
+        print 'No DID matching the pattern'
     return not_downloaded_files
 
 
@@ -1520,24 +1523,29 @@ def download2(args):
             logger.error(error)
 
     logger.info('Download operation for %s:%s done' % (scope, name))
+    not_downloaded_files = 0
     print '----------------------------------'
     print 'Download summary'
-    for did in summary:
+    if summary:
+        for did in summary:
+            print '-' * 40
+            print 'DID %s' % (did)
+            downloaded_files = 0
+            not_downloaded_files = 0
+            local_files = 0
+            for file in summary[did]:
+                if summary[did][file] == 1:
+                    downloaded_files += 1
+                elif summary[did][file] == 2:
+                    local_files += 1
+            not_downloaded_files = nbfiles_to_download[did] - downloaded_files - local_files
+            print '{0:40} {1:6d}'.format('Total files : ', nbfiles_to_download[did])
+            print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
+            print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
+            print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
+    else:
         print '-' * 40
-        print 'DID %s' % (did)
-        downloaded_files = 0
-        not_downloaded_files = 0
-        local_files = 0
-        for file in summary[did]:
-            if summary[did][file] == 1:
-                downloaded_files += 1
-            elif summary[did][file] == 2:
-                local_files += 1
-        not_downloaded_files = nbfiles_to_download[did] - downloaded_files - local_files
-        print '{0:40} {1:6d}'.format('Total files : ', nbfiles_to_download[did])
-        print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
-        print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
-        print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
+        print 'No DID matching the pattern'
 
     return not_downloaded_files
 
@@ -1737,6 +1745,7 @@ def info_rule(args):
         print "Ignore Availability:        %s" % rule['ignore_availability']
         print "Purge replicas:             %s" % rule['purge_replicas']
         print "Notification:               %s" % rule['notification']
+        print "End of life:                %s" % rule['eol_at']
     return SUCCESS
 
 
