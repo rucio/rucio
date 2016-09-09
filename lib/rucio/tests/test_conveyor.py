@@ -13,7 +13,7 @@
 import time
 
 from rucio.daemons.mock.conveyorinjector import request_transfer
-from rucio.daemons.conveyor import submitter_transfer, poller, finisher, throttler
+from rucio.daemons.conveyor import submitter, poller, finisher, throttler
 
 
 class TestConveyorSubmitter:
@@ -26,8 +26,8 @@ class TestConveyorSubmitter:
         request_transfer(loop=10, src=src, dst=dest, upload=False, same_src=True, same_dst=True)
 
         throttler.run(once=True)
-        submitter_transfer.submitter(once=True)
-        submitter_transfer.run(once=True)
+        submitter.run(once=True)
+        submitter.run(once=True)
         time.sleep(5)
         poller.run(once=True)
         finisher.run(once=True)
