@@ -11,7 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 
 """
-Scrip to check space usage json file
+Script to check space usage json file
 """
 
 from jsonschema import validate
