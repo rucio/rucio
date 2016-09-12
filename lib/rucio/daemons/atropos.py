@@ -55,13 +55,14 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
     hb = heartbeat.live(executable, hostname, pid, hb_thread)
     summary = {}
     lifetime_exceptions = get_lifetime_exceptions()
-    prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'], hb['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
     if not dry_run and date_check > now:
         logging.error(prepend_str + 'Atropos cannot run in non-dry-run mode for date in the future')
     else:
         while not graceful_stop.is_set():
 
             hb = heartbeat.live(executable, hostname, pid, hb_thread)
+            prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
 
             stime = time.time()
             try:
