@@ -6,7 +6,7 @@
   You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 '''
 
@@ -39,8 +39,6 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule import add_rule, list_rules
 
-
-logging.getLogger("transmogrifier").setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=stdout, level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
@@ -151,6 +149,7 @@ def transmogrifier(bulk=5, once=False):
 
         dids, subscriptions = [], []
         tottime = 0
+        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
 
         try:
             for did in list_new_dids(thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'], chunk_size=bulk):
@@ -173,15 +172,11 @@ def transmogrifier(bulk=5, once=False):
             for priority in priorities:
                 subscriptions.extend(sub_dict[priority])
         except SubscriptionNotFound, error:
-            logging.warning('Thread [%i/%i] : No subscriptions defined: %s' % (heart_beat['assign_thread'],
-                                                                               heart_beat['nr_threads'],
-                                                                               str(error)))
+            logging.warning(prepend_str + 'No subscriptions defined: %s' % (str(error)))
             time.sleep(10)
             continue
         except Exception, error:
-            logging.error('Thread [%i/%i] : Failed to get list of new DIDs or subscriptions: %s' % (heart_beat['assign_thread'],
-                                                                                                    heart_beat['nr_threads'],
-                                                                                                    str(error)))
+            logging.error(prepend_str + 'Failed to get list of new DIDs or subscriptions: %s' % (str(error)))
 
             if once:
                 break
@@ -192,8 +187,7 @@ def transmogrifier(bulk=5, once=False):
             results = {}
             start_time = time.time()
             blacklisted_rse_id = [rse['id'] for rse in list_rses({'availability_write': False})]
-            logging.debug('Thread [%i/%i] : In transmogrifier worker' % (heart_beat['assign_thread'],
-                                                                         heart_beat['nr_threads']))
+            logging.debug(prepend_str + 'In transmogrifier worker')
             identifiers = []
             for did in dids:
                 did_success = True
@@ -211,10 +205,7 @@ def transmogrifier(bulk=5, once=False):
                                     split_rule = False
                                 stime = time.time()
                                 results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
-                                logging.info('Thread [%i/%i] : %s:%s matches subscription %s' % (heart_beat['assign_thread'],
-                                                                                                 heart_beat['nr_threads'],
-                                                                                                 did['scope'], did['name'],
-                                                                                                 subscription['name']))
+                                logging.info(prepend_str + '%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['name']))
                                 for rule in loads(subscription['replication_rules']):
                                     # Get all the rule and subscription parameters
                                     grouping = rule.get('grouping', 'DATASET')
@@ -241,7 +232,7 @@ def transmogrifier(bulk=5, once=False):
                                     try:
                                         validate_schema(name='activity', obj=activity)
                                     except InputValidationError, error:
-                                        logging.error('Error validating the activity %s' % (str(error)))
+                                        logging.error(prepend_str + 'Error validating the activity %s' % (str(error)))
                                         activity = 'User Subscriptions'
                                     if lifetime:
                                         lifetime = int(lifetime)
@@ -272,16 +263,16 @@ def transmogrifier(bulk=5, once=False):
                                             rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
                                             selected_rses = [rse_id_dict[rse_id] for rse_id, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=blacklisted_rse_id)]
                                         except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight) as error:
-                                            logging.warning('Thread [%i/%i] : Problem getting RSEs for subscription "%s" for account %s : %s. Try including blacklisted sites' %
-                                                            (heart_beat['assign_thread'], heart_beat['nr_threads'], subscription['name'], account, str(error)))
+                                            logging.warning(prepend_str + 'Problem getting RSEs for subscription "%s" for account %s : %s. Try including blacklisted sites' %
+                                                            (subscription['name'], account, str(error)))
                                             # Now including the blacklisted sites
                                             try:
                                                 rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
                                                 selected_rses = [rse_id_dict[rse_id] for rse_id, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=[])]
                                                 ignore_availability = True
                                             except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight) as error:
-                                                logging.error('Thread [%i/%i] : Problem getting RSEs for subscription "%s" for account %s : %s. Skipping rule creation.' %
-                                                              (heart_beat['assign_thread'], heart_beat['nr_threads'], subscription['name'], account, str(error)))
+                                                logging.error(prepend_str + 'Problem getting RSEs for subscription "%s" for account %s : %s. Skipping rule creation.' %
+                                                              (subscription['name'], account, str(error)))
                                                 monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                                 # The DID won't be reevaluated at the next cycle
                                                 did_success = did_success and True
@@ -294,8 +285,7 @@ def transmogrifier(bulk=5, once=False):
                                             if split_rule:
                                                 if not skip_rule_creation:
                                                     for rse in selected_rses:
-                                                        logging.info('Thread [%i/%i] : Will insert one rule for %s:%s on %s' %
-                                                                     (heart_beat['assign_thread'], heart_beat['nr_threads'], did['scope'], did['name'], rse))
+                                                        logging.info(prepend_str + 'Will insert one rule for %s:%s on %s' % (did['scope'], did['name'], rse))
                                                         add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=account, copies=1,
                                                                  rse_expression=rse, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked,
                                                                  subscription_id=subscription_id, source_replica_expression=source_replica_expression, activity=activity,
@@ -318,36 +308,26 @@ def transmogrifier(bulk=5, once=False):
                                         except (InvalidReplicationRule, InvalidRuleWeight, InvalidRSEExpression, StagingAreaRuleRequiresLifetime, DuplicateRule) as error:
                                             # Errors that won't be retried
                                             success = True
-                                            logging.error('Thread [%i/%i] : %s' % (heart_beat['assign_thread'], heart_beat['nr_threads'], str(error)))
+                                            logging.error(prepend_str + '%s' % (str(error)))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                             break
                                         except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit, DatabaseException, RSEBlacklisted) as error:
                                             # Errors to be retried
-                                            logging.error('Thread [%i/%i] : %s Will perform an other attempt %i/%i' % (heart_beat['assign_thread'],
-                                                                                                                       heart_beat['nr_threads'],
-                                                                                                                       str(error),
-                                                                                                                       attempt + 1,
-                                                                                                                       nattempt))
+                                            logging.error(prepend_str + 'Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                         except Exception, error:
                                             # Unexpected errors
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
                                             exc_type, exc_value, exc_traceback = exc_info()
-                                            logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+                                            logging.critical(prepend_str + ''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
 
                                     did_success = (did_success and success)
                                     if (attemptnr + 1) == nattempt and not success:
-                                        logging.error('Thread [%i/%i] : Rule for %s:%s on %s cannot be inserted' % (heart_beat['assign_thread'],
-                                                                                                                    heart_beat['nr_threads'],
-                                                                                                                    did['scope'],
-                                                                                                                    did['name'],
-                                                                                                                    rse_expression))
+                                        logging.error(prepend_str + 'Rule for %s:%s on %s cannot be inserted' % (did['scope'], did['name'], rse_expression))
                                     else:
-                                        logging.info('Thread [%i/%i] : %s Rule inserted in %f seconds' % (heart_beat['assign_thread'],
-                                                                                                          heart_beat['nr_threads'], str(nb_rule),
-                                                                                                          time.time() - stime))
+                                        logging.info(prepend_str + '%s rule(s) inserted in %f seconds' % (str(nb_rule), time.time() - stime))
                     except DataIdentifierNotFound, error:
-                        logging.warning(error)
+                        logging.warning(prepend_str + error)
 
                 if did_success:
                     if did['did_type'] == str(DIDType.FILE):
@@ -364,33 +344,24 @@ def transmogrifier(bulk=5, once=False):
             for identifier in chunks(identifiers, 100):
                 _retrial(set_new_dids, identifier, None)
 
-            logging.info('Thread [%i/%i] : Time to set the new flag : %f' % (heart_beat['assign_thread'],
-                                                                             heart_beat['nr_threads'],
-                                                                             time.time() - time1))
+            logging.info(prepend_str + 'Time to set the new flag : %f' % (time.time() - time1))
             tottime = time.time() - start_time
-            logging.info('Thread [%i/%i] : It took %f seconds to process %i DIDs' % (heart_beat['assign_thread'],
-                                                                                     heart_beat['nr_threads'],
-                                                                                     tottime, len(dids)))
-            logging.debug('Thread [%i/%i] : DIDs processed : %s' % (heart_beat['assign_thread'],
-                                                                    heart_beat['nr_threads'],
-                                                                    str(dids)))
+            logging.info(prepend_str + 'It took %f seconds to process %i DIDs' % (tottime, len(dids)))
+            logging.debug(prepend_str + 'DIDs processed : %s' % (str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)
             monitor.record_timer(stat='transmogrifier.job.duration', time=1000 * tottime)
         except Exception:
             exc_type, exc_value, exc_traceback = exc_info()
-            logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+            logging.critical(prepend_str + ''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
             monitor.record_counter(counters='transmogrifier.job.error', delta=1)
             monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
-        logging.info(once)
         if once is True:
             break
         if tottime < 10:
             time.sleep(10 - tottime)
     heartbeat.die(executable, hostname, pid, hb_thread)
-    logging.info('Thread [%i/%i] : Graceful stop requested' % (heart_beat['assign_thread'],
-                                                               heart_beat['nr_threads']))
-    logging.info('Thread [%i/%i] : Graceful stop done' % (heart_beat['assign_thread'],
-                                                          heart_beat['nr_threads']))
+    logging.info(prepend_str + 'Graceful stop requested')
+    logging.info(prepend_str + 'Graceful stop done')
 
 
 def run(threads=1, bulk=100, once=False):
