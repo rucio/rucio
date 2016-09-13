@@ -620,6 +620,7 @@ class RSEProtocols(BASE, ModelBase):
     read_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     write_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     delete_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    third_party_copy = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     extended_attributes = Column(String(1024), nullable=True)
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
@@ -1106,6 +1107,25 @@ class TemporaryDataIdentifier(BASE, ModelBase):
                    Index('TMP_DIDS_EXPIRED_AT_IDX', 'expired_at'))
 
 
+class LifetimeExceptions(BASE, ModelBase):
+    """Represents the exceptions to the lifetime model"""
+    __tablename__ = 'lifetime_except'
+    id = Column(GUID(), default=utils.generate_uuid)
+    scope = Column(String(25))
+    name = Column(String(255))
+    did_type = Column(DIDType.db_type(name='LIFETIME_EXCEPT_TYPE_CHK'))
+    account = Column(String(25))
+    pattern = Column(String(255))
+    comments = Column(String(4000))
+    state = Column(BadFilesStatus.db_type(name='LIFETIME_EXCEPT_STATE_CHK'))
+    expires_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('id', 'scope', 'name', 'did_type', 'account', name='LIFETIME_EXCEPT_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='LIFETIME_EXCEPT_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='LIFETIME_EXCEPT_NAME_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='LIFETIME_EXCEPT_DID_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='LIFETIME_EXCEPT_ACCOUNT_FK'))
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -1117,6 +1137,7 @@ def register_models(engine):
               AccountUsage,
               AlembicVersion,
               BadReplicas,
+              CollectionReplica,
               Config,
               DataIdentifierAssociation,
               DataIdentifierAssociationHistory,
@@ -1127,6 +1148,7 @@ def register_models(engine):
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
+              LifetimeExceptions,
               Message,
               MessageHistory,
               NamingConvention,
@@ -1152,7 +1174,6 @@ def register_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              CollectionReplica,
               UpdatedCollectionReplica)
 
     for model in models:
@@ -1169,6 +1190,7 @@ def unregister_models(engine):
               AccountUsage,
               AlembicVersion,
               BadReplicas,
+              CollectionReplica,
               Config,
               DataIdentifierAssociation,
               DataIdentifierAssociationHistory,
@@ -1179,6 +1201,7 @@ def unregister_models(engine):
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
+              LifetimeExceptions,
               Message,
               MessageHistory,
               NamingConvention,
@@ -1204,7 +1227,6 @@ def unregister_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              CollectionReplica,
               UpdatedCollectionReplica)
 
     for model in models:
