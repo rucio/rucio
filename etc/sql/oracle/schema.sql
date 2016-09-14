@@ -1785,16 +1785,17 @@ CREATE INDEX "TMP_DIDS_EXPIRED_AT_IDX" ON tmp_dids (case when expired_at is not 
 
 CREATE TABLE lifetime_except (
     id RAW(16),
-    scope VARCHAR(25),
-    name VARCHAR(255),
-    did_type VARCHAR(1),
-    account VARCHAR(25),
-    comments VARCHAR(4000),
-    pattern VARCHAR(255),
-    state VARCHAR(1),
-    updated_at DATETIME,
-    expires_at DATETIME,
-    created_at DATETIME,
+    scope VARCHAR2(25 CHAR),
+    name VARCHAR2(255 CHAR),
+    did_type CHAR(1 CHAR),
+    account VARCHAR2(25 CHAR),
+    comments VARCHAR2(4000 CHAR),
+    pattern VARCHAR2(255 CHAR),
+    state CHAR(1 CHAR),
+    updated_at DATE,
+    expires_at DATE,
+    created_at DATE,
     CONSTRAINT "LIFETIME_EXCEPT_DID_TYPE_NN" CHECK (did_type IN ('C', 'D', 'F', 'Y', 'X', 'Z')),
     CONSTRAINT "LIFETIME_EXCEPT_STATE_CHK" CHECK (state IN ('A', 'R', 'W'))
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+COMMENT ON TABLE lifetime_except IS 'Table for exceptions of the lifetime model';
