@@ -182,6 +182,7 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
                                                    rse_attributes=rse_attributes,
                                                    other_rses=other_rses,
                                                    exclude_expression=exclude_expression,
+                                                   force_expression=force_expression,
                                                    session=session)
                 # Rebalance this rule
                 if not dry_run:
