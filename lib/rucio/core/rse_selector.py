@@ -83,16 +83,17 @@ class RSESelector():
         if len(self.rses) < self.copies:
             raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
 
-    def select_rse(self, size, preferred_rse_ids, copies=0, blacklist=[]):
+    def select_rse(self, size, preferred_rse_ids, copies=0, blacklist=[], prioritize_order_over_weight=False):
         """
         Select n RSEs to replicate data to.
 
-        :param size:               Size of the block being replicated.
-        :param preferred_rse_ids:  Ordered list of preferred rses. (If possible replicate to them)
-        :param copies:             Select this amount of copies, if 0 use the pre-defined rule value.
-        :param blacklist:          List of blacklisted rses. (Do not put replicas on these sites)
-        :returns:                  List of (RSE_id, staging_area) tuples.
-        :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
+        :param size:                         Size of the block being replicated.
+        :param preferred_rse_ids:            Ordered list of preferred rses. (If possible replicate to them)
+        :param copies:                       Select this amount of copies, if 0 use the pre-defined rule value.
+        :param blacklist:                    List of blacklisted rses. (Do not put replicas on these sites)
+        :param prioritze_order_over_weight:  Prioritize the order of the preferred_rse_ids list over the picking done by weight.
+        :returns:                            List of (RSE_id, staging_area) tuples.
+        :raises:                             InsufficientAccountLimit, InsufficientTargetRSEs
         """
 
         result = []
@@ -112,9 +113,14 @@ class RSESelector():
         for copy in range(count):
             # Remove rses already in the result set
             rses = [rse for rse in rses if rse['rse_id'] not in [item[0] for item in result]]
+            rses_dict = {}
+            for rse in rses:
+                rses_dict[rse['rse_id']] = rse
             # Prioritize the preffered rses
-            preferred_rses = [rse for rse in rses if rse['rse_id'] in preferred_rse_ids]
-            if preferred_rses:
+            preferred_rses = [rses_dict[rse_id] for rse_id in preferred_rse_ids if rse_id in rses_dict]
+            if prioritize_order_over_weight and preferred_rses:
+                rse = (preferred_rses[0]['rse_id'], preferred_rses[0]['staging_area'])
+            elif preferred_rses:
                 rse = self.__choose_rse(preferred_rses)
             else:
                 rse = self.__choose_rse(rses)

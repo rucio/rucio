@@ -308,7 +308,8 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
     if len(preferred_rse_ids) == 0:
         rse_tuples = rseselector.select_rse(size=bytes,
                                             preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
-                                            blacklist=list(blacklist))
+                                            blacklist=list(blacklist),
+                                            prioritize_order_over_weight=True)
     else:
         rse_tuples = rseselector.select_rse(size=bytes,
                                             preferred_rse_ids=preferred_rse_ids,
@@ -422,7 +423,8 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
         if len(preferred_rse_ids) == 0:
             rse_tuples = rseselector.select_rse(size=bytes,
                                                 preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
-                                                blacklist=list(blacklist))
+                                                blacklist=list(blacklist),
+                                                prioritize_order_over_weight=True)
         else:
             rse_tuples = rseselector.select_rse(size=bytes,
                                                 preferred_rse_ids=preferred_rse_ids,
