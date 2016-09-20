@@ -102,7 +102,6 @@ AFTER DELETE on DIDS
   FOR EACH ROW
 BEGIN
 
-     IF :OLD.DID_TYPE != 'F' THEN
         MERGE INTO ATLAS_RUCIO.DELETED_DIDS D
         USING DUAL
         ON (D.scope = :OLD.SCOPE and D.name = :OLD.NAME)
@@ -122,6 +121,5 @@ BEGIN
                  :OLD.DATATYPE, :OLD.RUN_NUMBER, :OLD.STREAM_NAME, :OLD.PROD_STEP, :OLD.VERSION, :OLD.CAMPAIGN,
                  :OLD.task_id, :OLD.panda_id, :OLD.lumiblocknr, :OLD.provenance, :OLD.phys_group,
                  :OLD.transient, :OLD.accessed_at, :OLD.closed_at, :OLD.purge_replicas);
-        END IF;
 END;
 /
