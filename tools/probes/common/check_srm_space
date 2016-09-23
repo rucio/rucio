@@ -14,6 +14,7 @@ import sys
 from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.rse import rsemanager as rsemgr
+from rucio.api.rse import list_rse_attributes
 
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
@@ -25,6 +26,13 @@ if __name__ == "__main__":
     retvalue = OK
     usedsize = 0
     freesize = 0
+
+    # verifing, that json method is perfered
+    attr = list_rse_attributes(rsename)
+    if 'space_usage_method' in attr.keys():
+        if attr['space_usage_method'] == 'json':
+            print "This rse(%s) is accounted by json method." % (rsename)
+            sys.exit(retvalue)
 
     try:
         proxy = config_get('nagios', 'proxy')

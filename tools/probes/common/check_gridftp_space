@@ -16,6 +16,7 @@ import sys
 from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.rse import rsemanager as rsemgr
+from rucio.api.rse import list_rse_attributes
 
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
@@ -41,13 +42,14 @@ if __name__ == "__main__":
         rsename = rse['rse']
         rse_settings = rsemgr.get_rse_info(rsename)
 
-        # verifing, that the site is srm-less
-        srmless = True
-        for prot in rse_settings['protocols']:
-            if prot['scheme'] == 'srm':
-                srmless = False
-        if srmless is False:
+        # verifing, that json method is perfered
+        attr = list_rse_attributes(rsename)
+        if 'space_usage_method' in attr.keys():
+            if not attr['space_usage_method'] == 'json':
+                continue
+        else:
             continue
+
         if rse_settings['protocols']:
             rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gsiftp.Default'
         else:
