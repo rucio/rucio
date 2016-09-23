@@ -187,7 +187,7 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
                 # Rebalance this rule
                 if not dry_run:
                     child_rule_id = rebalance_rule(parent_rule_id=rule_id,
-                                                   activity='Data Brokering',
+                                                   activity='Data Rebalancing',
                                                    rse_expression=target_rse_exp,
                                                    comment=comment)
                 else:
