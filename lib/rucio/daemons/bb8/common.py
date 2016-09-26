@@ -81,6 +81,7 @@ r.created_at < sysdate-60 and
 r.account IN ('panda', 'root', 'ddmadmin') and
 r.state = 'O' and
 r.copies = 1 and
+r.did_type = 'D' and
 r.child_rule_id is NULL and
 d.bytes is not NULL and
 d.is_open = 0 and
