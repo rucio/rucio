@@ -46,6 +46,7 @@ def has_permission(issuer, action, kwargs):
             'del_protocol': perm_del_protocol,
             'update_protocol': perm_update_protocol,
             'declare_bad_file_replicas': perm_declare_bad_file_replicas,
+            'declare_suspicious_file_replicas': perm_declare_suspicious_file_replicas,
             'add_replicas': perm_add_replicas,
             'delete_replicas': perm_delete_replicas,
             'skip_availability_check': perm_skip_availability_check,
@@ -632,6 +633,17 @@ def perm_declare_bad_file_replicas(issuer, kwargs):
     """
     is_cloud_admin = bool(filter(lambda x: (x['key'].startswith('cloud-')) and (x['value'] == 'admin'), list_account_attributes(account=issuer)))
     return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
+
+
+def perm_declare_suspicious_file_replicas(issuer, kwargs):
+    """
+    Checks if an account can declare suspicious file replicas.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return True
 
 
 def perm_add_replicas(issuer, kwargs):
