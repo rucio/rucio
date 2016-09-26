@@ -26,7 +26,8 @@ down_revision = '3d9813fab443'
 def upgrade():
     if context.get_context().dialect.name not in ('sqlite'):
         op.add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
-        op.drop_constraint('RULES_STATE_CHK', 'rules')
+        if context.get_context().dialect.name not in ('mysql'):
+            op.drop_constraint('RULES_STATE_CHK', 'rules')
         op.create_check_constraint('RULES_STATE_CHK', 'rules', 'state IN (\'S\', \'R\', \'U\', \'O\', \'A\', \'I\')')
 
 
