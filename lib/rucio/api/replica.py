@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from rucio.api import permission
@@ -63,7 +63,7 @@ def declare_suspicious_file_replicas(pfns, reason, issuer):
     :param issuer: The issuer account.
     """
     kwargs = {}
-    if not permission.has_permission(issuer=issuer, action='declare_bad_file_replicas', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, action='declare_suspicious_file_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not declare suspicious replicas' % (issuer))
     return replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.SUSPICIOUS)
 
