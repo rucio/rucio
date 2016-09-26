@@ -172,7 +172,7 @@ def perm_add_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] in ['rule_deleters', 'auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files', 'block_manual_approve']:
+    if kwargs['key'] in ['rule_deleters', 'auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_account_limit_bytes', 'default_limit_files', 'block_manual_approve']:
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer):
@@ -194,7 +194,7 @@ def perm_del_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] in ['rule_deleters', 'auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files', 'block_manual_approve']:
+    if kwargs['key'] in ['rule_deleters', 'auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_account_limit_bytes', 'default_limit_files', 'block_manual_approve']:
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer):
