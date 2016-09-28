@@ -85,7 +85,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                             # pfn = str(rsemgr.lfns2pfns(rse_settings=rse_info,
                             #                            lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
                             #                            operation='delete', scheme=scheme).values()[0])
-                            pfn = 's3://%s/atlas_eventservice/%s' % (prot.attributes['hostname'], replica['name'])
+                            pfn = 's3://%s%s%s' % (prot.attributes['hostname'], prot.attributes['prefix'], replica['name'])
                             # logging.debug('Light Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse)
                             start = time.time()
                             prot.delete(pfn)
