@@ -38,9 +38,10 @@ result = OK
 
 def set_account_attributes(dns):
 
+    result = OK
     if not dns:
         print 'No user'
-        return
+        return result
 
     account_mapping = {}
     for dn in dns:
@@ -83,6 +84,7 @@ def set_account_attributes(dns):
 
 def add_cloud_admins():
 
+    result = OK
     for cloud in ['ca', 'de', 'es', 'fr', 'it', 'ng', 'nl', 'ru', 't0', 'tw', 'uk', 'us']:
         egroup = 'atlas-support-cloud-%s' % cloud
         if cloud == 'ru':
