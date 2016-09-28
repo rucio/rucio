@@ -229,7 +229,7 @@ def set_localgroupdisk_quotas(fraction):
                     print '%s : %s account is missing quota on some sites %s vs %s : %s' % (country, account, len(accounts[account]), len(dict_sites[country_short]), sites_with_no_quota)
                 for rse in sites_with_no_quota:
                     if rse in total_space and total_space[rse]:
-                        quota = default_values.get('default_account_limit_bytes', total_space[rse] * fraction)
+                        quota = default_values.get(rse, total_space[rse] * fraction)
                         print "Set quota of %dTB on %s for %s" % (quota / 1000 ** 4, rse, account)
                         try:
                             set_account_limit(account, rse, quota, 'root')
