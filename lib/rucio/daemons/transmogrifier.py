@@ -313,7 +313,7 @@ def transmogrifier(bulk=5, once=False):
                                             break
                                         except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit, DatabaseException, RSEBlacklisted) as error:
                                             # Errors to be retried
-                                            logging.error(prepend_str + 'Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
+                                            logging.error(prepend_str + '%s Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                         except Exception, error:
                                             # Unexpected errors
