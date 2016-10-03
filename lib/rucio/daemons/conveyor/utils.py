@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 
@@ -562,10 +562,11 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 'selection_strategy': fts_source_strategy,
                 'request_type': transfer['file_metadata'].get('request_type', None),
                 'activity': str(transfer['file_metadata']['activity'])}
-        if 'md5' in file['metadata'].keys() and file['metadata']['md5']:
-            file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
-        if 'adler32' in file['metadata'].keys() and file['metadata']['adler32']:
-            file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
+        if file['metadata'].get('verify_checksum', True):
+            if 'md5' in file['metadata'].keys() and file['metadata']['md5']:
+                file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
+            if 'adler32' in file['metadata'].keys() and file['metadata']['adler32']:
+                file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
 
         job_params = {'verify_checksum': True if file['checksum'] and file['metadata'].get('verify_checksum', True) else False,
                       'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else 'null',
