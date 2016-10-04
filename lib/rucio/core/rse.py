@@ -279,12 +279,14 @@ def add_rse_attribute(rse, key, value, session=None):
 
     :returns: True is successful
     """
+    rse_id = get_rse_id(rse, session=session)
     try:
-        new_rse_attr = models.RSEAttrAssociation(rse_id=get_rse_id(rse=rse, session=session), key=key, value=value)
+        new_rse_attr = models.RSEAttrAssociation(rse_id=rse_id, key=key, value=value)
         new_rse_attr = session.merge(new_rse_attr)
         new_rse_attr.save(session=session)
     except IntegrityError:
         raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse)s' already exists!" % locals())
+    return True
 
 
 @transactional_session
@@ -296,11 +298,13 @@ def del_rse_attribute(rse, key, session=None):
     :param key: the attribute key.
     :param session: The database session in use.
 
-    :return: True if RSE attribute was deleted successfully else False.
+    :return: True if RSE attribute was deleted.
     """
-    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=get_rse_id(rse=rse, session=session)).filter(models.RSEAttrAssociation.key == key)
+    rse_id = get_rse_id(rse, session=session)
+    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == key)
     rse_attr = query.one()
     rse_attr.delete(session=session)
+    return True
 
 
 @read_session
@@ -375,7 +379,8 @@ def set_rse_usage(rse, source, used, free, session=None):
 
     :returns: True if successful, otherwise false.
     """
-    rse_usage = models.RSEUsage(rse_id=get_rse_id(rse=rse, session=session), source=source, used=used, free=free)
+    rse_id = get_rse_id(rse, session=session)
+    rse_usage = models.RSEUsage(rse_id=rse_id, source=source, used=used, free=free)
     # versioned_session(session)
     rse_usage = session.merge(rse_usage)
     rse_usage.save(session=session)
@@ -426,7 +431,8 @@ def set_rse_limits(rse, name, value, session=None):
 
     :returns: True if successful, otherwise false.
     """
-    rse_limit = models.RSELimit(rse_id=get_rse_id(rse, session=session), name=name, value=value)
+    rse_id = get_rse_id(rse, session=session)
+    rse_limit = models.RSELimit(rse_id=rse_id, name=name, value=value)
     rse_limit = session.merge(rse_limit)
     rse_limit.save(session=session)
     return True
@@ -548,7 +554,8 @@ def list_rse_usage_history(rse, source=None, session=None):
 
     :returns: A list of historic RSE usage.
     """
-    query = session.query(models.RSEUsage.__history_mapper__.class_).filter_by(rse_id=get_rse_id(rse=rse, session=session)).order_by(models.RSEUsage.__history_mapper__.class_.updated_at.desc())
+    rse_id = get_rse_id(rse=rse, session=session)
+    query = session.query(models.RSEUsage.__history_mapper__.class_).filter_by(rse_id=rse_id).order_by(models.RSEUsage.__history_mapper__.class_.updated_at.desc())
     if source:
         query = query.filter_by(source=source)
 
