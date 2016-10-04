@@ -630,14 +630,13 @@ def list_content_history(args):
 
     List data identifier contents.
     """
-#    client = get_client(args)
-#    table = []
-#    for did in args.dids:
-#        scope, name = extract_scope(did)
-#        print 'blaj'
-#        for content in client.list_content(scope=scope, name=name):
-#            table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-#    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    client = get_client(args)
+    table = []
+    for did in args.dids:
+        scope, name = extract_scope(did)
+        for content in client.list_content_history(scope=scope, name=name):
+            table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
+    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
     return SUCCESS
 
 
