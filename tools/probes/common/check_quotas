@@ -48,7 +48,6 @@ def get_srm_total(name, ddm_type):
             print "WARNING: Could not get capacity of %s: %s" % (name, str(error))
             RESULT = WARNING
         return None
-
     try:
         srmtotal = capacity[0]['total']
     except:
@@ -59,8 +58,7 @@ def get_srm_total(name, ddm_type):
             if tier in ['0', '1', '2'] and ddm_type != 'TEST':
                 print "WARNING: No srm info for %s" % name
                 RESULT = WARNING
-        return None
-
+            return None
     return srmtotal
 
 
@@ -69,7 +67,7 @@ def set_group_quotas():
     quotas = {}
     session = get_session()
     query = '''select account, atlas_rucio.id2rse(c.rse_id), bytes from atlas_rucio.account_limits c,
-               (select rse_id, rse, value from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a.id=b.rse_id and b.key='physgroup' and b.value!='None') d
+               (select rse_id, rse, value from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a.id=b.rse_id and b.key='physgroup' and b.value!='None' and a.deleted!=1) d
                where c.rse_id=d.rse_id and c.account=d.value'''
     try:
         result = session.execute(query)
@@ -136,7 +134,7 @@ def set_user_quotas(ddm_type, fraction):
             quotas[rse] = float(val['default_account_limit_bytes'])
 
     query = '''select account, atlas_rucio.id2rse(rse_id), bytes from atlas_rucio.account_limits where
-rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a.id=b.rse_id and b.key='type' and b.value='%s') ''' % (ddm_type)
+rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a.id=b.rse_id and b.key='type' and b.value='%s' and a.deleted!=1) ''' % (ddm_type)
     try:
         result = session.execute(query)
         for account, rse, bytes_size in result:
@@ -228,8 +226,12 @@ def set_localgroupdisk_quotas(fraction):
                     sites_with_no_quota = list(set(dict_sites[country_short]) - set(accounts[account]))
                     print '%s : %s account is missing quota on some sites %s vs %s : %s' % (country, account, len(accounts[account]), len(dict_sites[country_short]), sites_with_no_quota)
                 for rse in sites_with_no_quota:
-                    if rse in total_space and total_space[rse]:
-                        quota = default_values.get(rse, total_space[rse] * fraction)
+                    quota = None
+                    if rse in default_values:
+                        quota = default_values[rse]
+                    elif rse in total_space and total_space[rse]:
+                        quota = total_space[rse] * fraction
+                    if quota:
                         print "Set quota of %dTB on %s for %s" % (quota / 1000 ** 4, rse, account)
                         try:
                             set_account_limit(account, rse, quota, 'root')
