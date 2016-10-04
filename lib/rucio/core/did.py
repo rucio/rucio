@@ -699,6 +699,30 @@ def list_content(scope, name, session=None):
 
 
 @stream_session
+def list_content_history(scope, name, session=None):
+    """
+    List data identifier contents history.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param session: The database session in use.
+    """
+    try:
+        query = session.query(models.DataIdentifierAssociationHistory).\
+            with_hint(models.DataIdentifierAssociationHistory,
+                      "INDEX(CONTENTS_HISTORY CONTENTS_HIST_PK)", 'oracle').\
+            filter_by(scope=scope, name=name)
+        for tmp_did in query.yield_per(5):
+            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+                   'type': tmp_did.child_type,
+                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5,
+                   'deleted_at': tmp_did.deleted_at, 'created_at': tmp_did.created_at,
+                   'updated_at': tmp_did.updated_at}
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@stream_session
 def list_parent_dids(scope, name, session=None):
     """
     List parent datasets and containers of a did.

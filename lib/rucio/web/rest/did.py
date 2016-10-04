@@ -8,7 +8,7 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013,2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
@@ -19,8 +19,8 @@ from traceback import format_exc
 from urlparse import parse_qs
 from web import application, ctx, data, Created, header, InternalError, OK, loadhook
 
-from rucio.api.did import (add_did, add_dids, list_content, list_dids,
-                           list_files, scope_list, get_did, set_metadata,
+from rucio.api.did import (add_did, add_dids, list_content, list_content_history,
+                           list_dids, list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect)
@@ -40,6 +40,7 @@ urls = (
     '/(.*)/guid', 'GUIDLookup',
     '/(.*)/dids/search', 'Search',
     '/(.*)/(.*)/files', 'Files',
+    '/(.*)/(.*)/dids/history', 'AttachmentHistory',
     '/(.*)/(.*)/dids', 'Attachment',
     '/(.*)/(.*)/meta/(.*)', 'Meta',
     '/(.*)/(.*)/meta', 'Meta',
@@ -434,6 +435,37 @@ class Attachment(RucioController):
             raise InternalError(e)
 
         raise OK()
+
+
+class AttachmentHistory(RucioController):
+
+    def GET(self, scope, name):
+        """
+        Returns the contents history of a data identifier.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param scope: The scope of the data identifier.
+        :param name: The name of the data identifier.
+
+        :returns: A list with the contents.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            for did in list_content_history(scope=scope, name=name):
+                yield render_json(**did) + '\n'
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
 
 
 class Replicas(RucioController):
