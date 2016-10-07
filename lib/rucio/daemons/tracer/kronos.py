@@ -158,9 +158,14 @@ class AMQConsumer(object):
                 if not report['remoteSite']:
                     continue
 
+                if 'filename' not in report:
+                    if 'name' in report:
+                        report['filename'] = report['name']
+
                 rses = report['remoteSite'].strip().split(',')
                 for rse in rses:
-                    replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']), 'traceTimeentryUnix': report['traceTimeentryUnix']})
+                    replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']),
+                                     'traceTimeentryUnix': report['traceTimeentryUnix'], 'eventVersion': report['eventVersion']})
             except (KeyError, AttributeError):
                 logging.error(format_exc())
                 record_counter('daemons.tracer.kronos.report_error')
@@ -182,7 +187,8 @@ class AMQConsumer(object):
             for replica in replicas:
                 # if touch replica hits a locked row put the trace back into queue for later retry
                 if not touch_replica(replica):
-                    resubmit = {'filename': replica['name'], 'scope': replica['scope'], 'remoteSite': replica['rse'], 'traceTimeentryUnix': replica['traceTimeentryUnix'], 'eventType': 'get', 'usrdn': 'someuser', 'clientState': 'DONE'}
+                    resubmit = {'filename': replica['name'], 'scope': replica['scope'], 'remoteSite': replica['rse'], 'traceTimeentryUnix': replica['traceTimeentryUnix'],
+                                'eventType': 'get', 'usrdn': 'someuser', 'clientState': 'DONE', 'eventVersion': replica['eventVersion']}
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     record_counter('daemons.tracer.kronos.sent_resubmitted')
                     logging.warning('(kronos_file) hit locked row, resubmitted to queue')
