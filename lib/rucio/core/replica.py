@@ -12,7 +12,7 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
-  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
   - Wen Guan, <wen.guan@cern.ch>, 2015
 """
 
@@ -1339,6 +1339,8 @@ def touch_replica(replica, session=None):
 
     except DatabaseError:
         return False
+    except NoResultFound:
+        return True
 
     return True
 
