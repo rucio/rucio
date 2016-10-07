@@ -68,12 +68,17 @@ def rebalance_rule(parent_rule_id, activity, rse_expression, comment=None):
 
 
 @transactional_session
-def list_rebalance_rule_candidates(rse, session=None):
+def list_rebalance_rule_candidates(rse, mode=None, session=None):
     """
     List the rebalance rule candidates based on the agreed on specification
+
+    :param rse:          RSE of the source.
+    :param mode:         Rebalancing mode.
+    :param session:      DB Session.
     """
 
-    sql = """SELECT /*+ parallel(4) */ dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
+    if mode is None:
+        sql = """SELECT /*+ parallel(4) */ dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
 WHERE
 dsl.rse_id = atlas_rucio.rse2id(:rse) and
 (r.expires_at > sysdate+60 or r.expires_at is NULL) and
@@ -90,6 +95,25 @@ r.grouping IN ('D', 'A') and
 1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
 0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and INSTR(atlas_rucio.id2rse(rse_id), 'TAPE') > 0)
 ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
+    elif mode == 'decomission':
+        sql = """SELECT /*+ parallel(4) */ dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
+WHERE
+dsl.rse_id = atlas_rucio.rse2id(:rse) and
+(r.expires_at > sysdate+60 or r.expires_at is NULL) and
+r.created_at < sysdate-60 and
+r.account IN ('panda', 'root', 'ddmadmin') and
+r.state = 'O' and
+r.copies = 1 and
+r.did_type = 'D' and
+r.child_rule_id is NULL and
+d.bytes is not NULL and
+d.is_open = 0 and
+d.did_type = 'D' and
+r.grouping IN ('D', 'A') and
+1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
+0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and INSTR(atlas_rucio.id2rse(rse_id), 'TAPE') > 0)
+ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
+
     return session.execute(sql, {'rse': rse}).fetchall()
 
 
@@ -137,7 +161,7 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
 
 
 @transactional_session
-def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, force_expression=None, session=None):
+def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, force_expression=None, mode=None, session=None):
     """
     Rebalance data from an RSE
 
@@ -148,6 +172,7 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
     :param exclude_expression:   Exclude this rse_expression from being target_rses.
     :param comment:              Comment to set on the new rules.
     :param force_expression:     Force a specific rse_expression as target.
+    :param mode:                 BB8 mode to execute (None=normal, 'decomission'=Decomission mode)
     :param session:              The database session.
     :returns:                    List of rebalanced datasets.
     """
@@ -162,7 +187,7 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
         print 'Reblanacing in ACTIVE mode.'
     print 'scope:name rule_id bytes(Gb) target_rse child_rule_id'
 
-    for scope, name, rule_id, rse_expression, subscription_id, bytes, length in list_rebalance_rule_candidates(rse=rse):
+    for scope, name, rule_id, rse_expression, subscription_id, bytes, length in list_rebalance_rule_candidates(rse=rse, mode=mode):
         if force_expression is not None and subscription_id is not None:
             continue
 
