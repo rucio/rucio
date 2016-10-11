@@ -96,23 +96,11 @@ r.grouping IN ('D', 'A') and
 0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and INSTR(atlas_rucio.id2rse(rse_id), 'TAPE') > 0)
 ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
     elif mode == 'decomission':
-        sql = """SELECT /*+ parallel(4) */ dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
+        sql = """SELECT /*+ parallel(4) */ r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
 WHERE
-dsl.rse_id = atlas_rucio.rse2id(:rse) and
-(r.expires_at > sysdate+60 or r.expires_at is NULL) and
-r.created_at < sysdate-60 and
-r.account IN ('panda', 'root', 'ddmadmin') and
+r.id IN (SELECT rule_id FROM atlas_rucio.locks WHERE rse_id = atlas_rucio.rse2id(:rse) GROUP BY rule_id) and
 r.state = 'O' and
-r.copies = 1 and
-r.did_type = 'D' and
-r.child_rule_id is NULL and
-d.bytes is not NULL and
-d.is_open = 0 and
-d.did_type = 'D' and
-r.grouping IN ('D', 'A') and
-1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
-0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and INSTR(atlas_rucio.id2rse(rse_id), 'TAPE') > 0)
-ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
+r.child_rule_id is NULL"""  # NOQA
 
     return session.execute(sql, {'rse': rse}).fetchall()
 
@@ -181,10 +169,16 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
     rebalanced_datasets = []
     rse_attributes = list_rse_attributes(rse=rse, session=session)
 
-    if dry_run:
-        print 'Rebalancing in DRY-RUN mode.'
-    else:
-        print 'Reblanacing in ACTIVE mode.'
+    print '***************************'
+    print 'BB8 - Execution Summary'
+    print 'Mode:    %s' % ('STANDARD' if mode is None else mode.upper())
+    print 'Dry Run: %s' % (dry_run)
+    print '***************************'
+
+    if force_expression is not None and mode == 'decomission':
+        print 'Force expression cannot be set in DECOMISSION mode!'
+        sys.exit(-1)
+
     print 'scope:name rule_id bytes(Gb) target_rse child_rule_id'
 
     for scope, name, rule_id, rse_expression, subscription_id, bytes, length in list_rebalance_rule_candidates(rse=rse, mode=mode):
