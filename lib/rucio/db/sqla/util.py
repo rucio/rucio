@@ -17,7 +17,7 @@ from alembic.config import Config
 from sqlalchemy import func
 from sqlalchemy.engine import reflection
 from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
-from sqlalchemy.sql.expression import select
+from sqlalchemy.sql.expression import select, text
 
 from rucio.common.config import config_get
 from rucio.core.account_counter import create_counters_for_new_account
@@ -145,10 +145,19 @@ def create_root_account():
 
 
 def get_db_time():
-    """ Gives the time on the db. """
+    """ Gives the utc time on the db. """
     s = session.get_session()
     try:
-        for now, in s.execute(select([func.current_date()])):
+        if s.bind.dialect.name == 'oracle':
+            query = select([text("sys_extract_utc(systimestamp)")])
+        elif s.bind.dialect.name == 'mysql':
+            query = select([text("UTC_TIMESTAMP()")])
+        elif s.bind.dialect.name == 'sqlite':
+            query = select([text("datetime('now', 'utc')")])
+        else:
+            query = select([func.time.as_utc()])
+
+        for now, in s.execute(query):
             return now
     finally:
         s.remove()
