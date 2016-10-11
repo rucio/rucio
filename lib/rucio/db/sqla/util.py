@@ -151,7 +151,7 @@ def get_db_time():
         if s.bind.dialect.name == 'oracle':
             query = select([text("sys_extract_utc(systimestamp)")])
         elif s.bind.dialect.name == 'mysql':
-            query = select([text("UTC_TIMESTAMP()")])
+            query = select([text("utc_timestamp()")])
         elif s.bind.dialect.name == 'sqlite':
             query = select([text("datetime('now', 'utc')")])
         else:
