@@ -155,7 +155,7 @@ def get_db_time():
         elif s.bind.dialect.name == 'sqlite':
             query = select([text("datetime('now', 'utc')")])
         else:
-            query = select([func.time.as_utc()])
+            query = select([func.current_date()])
 
         for now, in s.execute(query):
             return now
