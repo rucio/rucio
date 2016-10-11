@@ -27,6 +27,10 @@ if __name__ == "__main__":
     parser.add_argument('--exclude-expression', action='store', help='Exclude these rse_expression from being destinations')
     parser.add_argument('--comment', action='store', help='Add a comment to the new rules')
     parser.add_argument('--force-expression', action='store', help='For this rse_expression for rebalanced rules instead of letting BB8 decide')
+    parser.add_argument('--decomission', action='store_true', help='Run BB8 in decomission mode')
     args = parser.parse_args()
 
-    rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run, comment=args.comment, force_expression=args.force_expression)
+    if args.decomission:
+        rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run, comment=args.comment, force_expression=args.force_expression, mode='decomission')
+    else:
+        rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run, comment=args.comment, force_expression=args.force_expression)
