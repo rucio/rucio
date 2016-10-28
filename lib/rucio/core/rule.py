@@ -2270,10 +2270,10 @@ def __evaluate_did_attach(eval_did, session=None):
                             if rule.source_replica_expression:
                                 source_rses.extend(parse_expression(rule.source_replica_expression, session=session))
 
-                            if rule.ignore_availability:
-                                possible_rses.extend(parse_expression(rule.rse_expression, session=session))
-                            else:
-                                possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
+                            # if rule.ignore_availability:
+                            possible_rses.extend(parse_expression(rule.rse_expression, session=session))
+                            # else:
+                            #     possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
                         except (InvalidRSEExpression, RSEBlacklisted) as e:
                             possible_rses = []
 
