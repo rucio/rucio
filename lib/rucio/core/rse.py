@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2015-2016
@@ -343,6 +343,31 @@ def has_rse_attribute(rse_id, key, session=None):
     if session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).first():
         return True
     return False
+
+
+@read_session
+def get_rses_with_attribute(key, session=None):
+    """
+    Return all RSEs with a certain attribute.
+
+    :param key: The key for the attribute.
+    :param session: The database session in use.
+
+    :returns: List of rse dictionaries
+    """
+    rse_list = []
+
+    query = session.query(models.RSE).\
+        join(models.RSEAttrAssociation, models.RSE.id == models.RSEAttrAssociation.rse_id).\
+        filter(models.RSE.deleted == False, models.RSEAttrAssociation.key == key).group_by(models.RSE)  # NOQA
+
+    for row in query:
+        d = {}
+        for column in row.__table__.columns:
+            d[column.name] = getattr(row, column.name)
+        rse_list.append(d)
+
+    return rse_list
 
 
 @read_session
