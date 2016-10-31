@@ -63,7 +63,7 @@ logging.basicConfig(stream=sys.stdout,
 def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
              source_replica_expression=None, activity='User Subscriptions', notify=None, purge_replicas=False,
              ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, ignore_account_limit=False,
-             priority=3, session=None):
+             priority=3, split_container=False, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -88,6 +88,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param asynchronous:               Create replication rule asynchronously by the judge-injector.
     :param ignore_account_limit:       Ignore quota and create the rule outside of the account limits.
     :param priority:                   Priority of the rule and the transfers which should be submitted.
+    :param split_container:            Should a container rule be split into individual dataset rules.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
@@ -181,6 +182,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   comments=comment,
                                                   ignore_account_limit=ignore_account_limit,
                                                   priority=priority,
+                                                  split_container=split_container,
                                                   eol_at=eol_at)
                 try:
                     new_rule.save(session=session)
@@ -224,6 +226,12 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 # TODO: asynchronous mode only available for closed dids (on the whole tree?)
                 new_rule.state = RuleState.INJECT
                 logging.debug("Created rule %s for injection" % (str(new_rule.id)))
+                continue
+
+            # If Split Container is chosen, the rule will be processed ASYNC
+            if split_container and did.did_type == DIDType.CONTAINER:
+                new_rule.state = RuleState.INJECT
+                logging.debug("Created rule %s for injection due to Split Container mode" % (str(new_rule.id)))
                 continue
 
             # 5. Resolve the did to its contents
@@ -408,6 +416,7 @@ def add_rules(dids, rules, session=None):
                                                           ignore_availability=rule.get('ignore_availability', False),
                                                           comments=rule.get('comment', None),
                                                           priority=rule.get('priority', 3),
+                                                          split_container=rule.get('split_container', False),
                                                           eol_at=eol_at)
                         try:
                             new_rule.save(session=session)
@@ -445,6 +454,11 @@ def add_rules(dids, rules, session=None):
                     if rule.get('asynchronous', False):
                         new_rule.state = RuleState.INJECT
                         logging.debug("Created rule %s for injection" % str(new_rule.id))
+                        continue
+
+                    if rule.get('split_container', False) and did.did_type == DIDType.CONTAINER:
+                        new_rule.state = RuleState.INJECT
+                        logging.debug("Created rule %s for injection due to Split Container mode" % str(new_rule.id))
                         continue
 
                     # 5. Apply the replication rule to create locks, replicas and transfers
@@ -504,8 +518,8 @@ def inject_rule(rule_id, session=None):
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
 
     # Special R2D2 container handling
-    if rule.did_type == DIDType.CONTAINER and '.r2d2_request.' in rule.name:
-        logging.debug("Creating dataset rules for R2D2 container rule %s" % (str(rule.id)))
+    if (rule.did_type == DIDType.CONTAINER and '.r2d2_request.' in rule.name) or (rule.split_container and rule.did_type == DIDType.CONTAINER):
+        logging.debug("Creating dataset rules for Split Container rule %s" % (str(rule.id)))
         # Get all child datasets and put rules on them
         dids = [{'scope': dataset['scope'], 'name': dataset['name']} for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session)]
         dids = [did for did in dids if session.query(models.ReplicationRule).filter_by(scope=did['scope'], name=did['name'], account=rule.account, rse_expression=rule.rse_expression).count() == 0]
@@ -535,6 +549,7 @@ def inject_rule(rule_id, session=None):
                  ignore_availability=rule.ignore_availability,
                  ignore_account_limit=True,
                  priority=rule.priority,
+                 split_container=rule.split_container,
                  session=session)
         rule.delete(session=session)
         return
