@@ -72,7 +72,7 @@ RSE = {"description": "RSE name",
 
 RSE_ATTRIBUTE = {"description": "RSE attribute",
                  "type": "string",
-                 "pattern": r'([A-Za-z0-9\._-]+=[A-Za-z0-9_-]+)'}
+                 "pattern": r'([A-Za-z0-9\._-]+[=<>][A-Za-z0-9_-]+)'}
 
 DEFAULT_RSE_ATTRIBUTE = {"description": "Default RSE attribute",
                          "type": "string",
