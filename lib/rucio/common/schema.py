@@ -142,6 +142,9 @@ SUBSCRIPTION_ID = {"description": "Rule Subscription id", "type": ["string", "nu
 PRIORITY = {"description": "Priority of the transfers",
             "type": "integer"}
 
+SPLIT_CONTAINER = {"description": "Rule split container mode",
+                   "type": ["boolean", "null"]}
+
 RULE = {"description": "Replication rule",
         "type": "object",
         "properties": {"dids": {"type": "array"},
@@ -161,7 +164,8 @@ RULE = {"description": "Replication rule",
                        "comment": COMMENT,
                        "ask_approval": ASK_APPROVAL,
                        "asynchronous": ASYNCHRONOUS,
-                       "priority": PRIORITY},
+                       "priority": PRIORITY,
+                       'split_container': SPLIT_CONTAINER},
         "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 
