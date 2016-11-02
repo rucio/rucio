@@ -55,7 +55,7 @@ class TestCurlRucio():
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
 
     def test_get_auth_x509(self):
-        """AUTH  (CURL): Test auth token retrieval with via x509"""
+        """AUTH (CURL): Test auth token retrieval with via x509"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509' % (self.cacert, self.usercert, self.auth_host)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
