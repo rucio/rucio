@@ -93,7 +93,7 @@ d.is_open = 0 and
 d.did_type = 'D' and
 r.grouping IN ('D', 'A') and
 1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
-0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and INSTR(atlas_rucio.id2rse(rse_id), 'TAPE') > 0)
+0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id IN (SELECT id FROM atlas_rucio.rses WHERE rse_type='TAPE'))
 ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
     elif mode == 'decomission':
         sql = """SELECT /*+ parallel(4) */ r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
@@ -222,4 +222,5 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
             print 'Exception %s occured while rebalancing %s:%s, rule_id: %s!' % (str(e), scope, name, str(rule_id))
             raise e
 
+    print 'BB8 is rebalancing %d Gb of data (%d rules)' % (int(rebalanced_bytes / 1E9), len(rebalanced_datasets))
     return rebalanced_datasets
