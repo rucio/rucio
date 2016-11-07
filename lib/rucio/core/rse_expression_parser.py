@@ -6,7 +6,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
@@ -22,7 +22,7 @@ from hashlib import sha256
 
 from rucio.common import schema
 from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
-from rucio.core.rse import list_rses
+from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
 
 
@@ -164,11 +164,17 @@ def __resolve_primitive_expression(expression):
     :returns:             Tuple of RSEAttribute, primitive expression
     """
     primitiveexpression = re.match(PRIMITIVE, expression).group()
-    keyvalue = string.split(primitiveexpression, "=")
-    if len(keyvalue) == 2:
-        return (RSEAttribute(keyvalue[0], keyvalue[1]), primitiveexpression)
+    if ('=' in primitiveexpression):
+        keyvalue = string.split(primitiveexpression, "=")
+        return (RSEAttributeEqualCheck(keyvalue[0], keyvalue[1]), primitiveexpression)
+    elif ('<' in primitiveexpression):
+        keyvalue = string.split(primitiveexpression, "<")
+        return (RSEAttributeSmallerCheck(keyvalue[0], keyvalue[1]), primitiveexpression)
+    elif ('>' in primitiveexpression):
+        keyvalue = string.split(primitiveexpression, ">")
+        return (RSEAttributeLargerCheck(keyvalue[0], keyvalue[1]), primitiveexpression)
     else:
-        return (RSEAttribute(key=keyvalue[0]), primitiveexpression)
+        return (RSEAttributeEqualCheck(key=primitiveexpression), primitiveexpression)
 
 
 def __extract_term(expression):
@@ -206,9 +212,9 @@ class BaseExpressionElement:
         pass
 
 
-class RSEAttribute(BaseExpressionElement):
+class RSEAttributeEqualCheck(BaseExpressionElement):
     """
-    Representation of an RSE Attribute
+    Representation of an RSE Attribute with Equal Check
     """
 
     def __init__(self, key, value=True):
@@ -232,6 +238,76 @@ class RSEAttribute(BaseExpressionElement):
         for rse in output:
             rse_dict[rse['id']] = rse
         return (set([rse['id'] for rse in output]), rse_dict)
+
+
+class RSEAttributeSmallerCheck(BaseExpressionElement):
+    """
+    Representation of an RSE Attribute with Smaller (<) Check
+    """
+
+    def __init__(self, key, value=True):
+        """
+        Creates an RSEAttribute representation
+
+        :param key:           Key of the RSE Attribute.
+        :param value:         Value of the RSE Attribute.
+        """
+        self.key = key
+        self.value = value
+
+    def resolve_elements(self, session):
+        """
+        Inherited from :py:func:`BaseExpressionElement.resolve_elements`
+        """
+        rse_list = get_rses_with_attribute(key=self.key, session=session)
+        if not rse_list:
+            return (set(), {})
+
+        output = []
+        rse_dict = {}
+        for rse in rse_list:
+            try:
+                if int(get_rse_attribute(key=self.key, rse_id=rse['id'], session=session)[0]) < int(self.value):
+                    rse_dict[rse['id']] = rse
+                    output.append(rse['id'])
+            except ValueError:
+                continue
+        return (set(output), rse_dict)
+
+
+class RSEAttributeLargerCheck(BaseExpressionElement):
+    """
+    Representation of an RSE Attribute with Larger (>) Check
+    """
+
+    def __init__(self, key, value=True):
+        """
+        Creates an RSEAttribute representation
+
+        :param key:           Key of the RSE Attribute.
+        :param value:         Value of the RSE Attribute.
+        """
+        self.key = key
+        self.value = value
+
+    def resolve_elements(self, session):
+        """
+        Inherited from :py:func:`BaseExpressionElement.resolve_elements`
+        """
+        rse_list = get_rses_with_attribute(key=self.key, session=session)
+        if not rse_list:
+            return (set(), {})
+
+        output = []
+        rse_dict = {}
+        for rse in rse_list:
+            try:
+                if int(get_rse_attribute(key=self.key, rse_id=rse['id'], session=session)[0]) > int(self.value):
+                    rse_dict[rse['id']] = rse
+                    output.append(rse['id'])
+            except ValueError:
+                continue
+        return (set(output), rse_dict)
 
 
 class BaseRSEOperator(BaseExpressionElement):
