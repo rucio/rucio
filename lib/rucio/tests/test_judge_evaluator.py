@@ -233,3 +233,27 @@ class TestJudgeEvaluator():
         re_evaluator(once=True)
 
         assert(8 == get_rule(rule_id)['locks_ok_cnt'])
+
+    def test_judge_add_files_to_dataset_with_2_rules(self):
+        """ JUDGE EVALUATOR: Test the judge when adding files to dataset with 2 rules"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+
+        # Add a first rule to the DS
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        attach_dids(scope, dataset, files, 'jdoe')
+        re_evaluator(once=True)
+
+        files = create_files(3, scope, self.rse1)
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        # Fake judge
+        re_evaluator(once=True)
+
+        # Check if the Locks are created properly
+        for file in files:
+            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
