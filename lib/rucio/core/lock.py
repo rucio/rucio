@@ -382,7 +382,7 @@ def touch_dataset_locks(dataset_locks, session=None):
                 rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
             dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
 
-        eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'rse_id': dataset_lock['rse_id']}], session=session)
+        eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'id': dataset_lock['rse_id']}], session=session)
         try:
             session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
                 update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
