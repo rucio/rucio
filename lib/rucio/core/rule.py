@@ -886,6 +886,9 @@ def repair_rule(rule_id, session=None):
 
         # Reset the counters
         logging.debug("Resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+        rule.locks_ok_cnt = 0
+        rule.locks_replicating_cnt = 0
+        rule.locks_stuck_cnt = 0
         rule_counts = session.query(models.ReplicaLock.state, func.count(models.ReplicaLock.state)).filter(models.ReplicaLock.rule_id == rule.id).group_by(models.ReplicaLock.state).all()
         for count in rule_counts:
             if count[0] == LockState.OK:
