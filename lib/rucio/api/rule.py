@@ -16,7 +16,8 @@ from rucio.core import rule
 
 
 def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression,
-                         activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority, issuer):
+                         activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority, split_container,
+                         issuer):
     """
     Adds a replication rule.
 
@@ -40,6 +41,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :param ask_approval:               Ask for approval of this rule.
     :param asynchronous:               Create rule asynchronously by judge-injector.
     :param priority:                   Priority of the transfers.
+    :param split_container:            Should a container rule be split into individual dataset rules.
     :param issuer:                     The issuing account of this operation.
     :returns:                          List of created replication rules.
     """
@@ -53,7 +55,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
               'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity,
               'purge_replicas': purge_replicas, 'ignore_availability': ignore_availability, 'comment': comment,
-              'ask_approval': ask_approval, 'asynchronous': asynchronous, 'priority': priority}
+              'ask_approval': ask_approval, 'asynchronous': asynchronous, 'priority': priority, 'split_container': split_container}
 
     validate_schema(name='rule', obj=kwargs)
 
@@ -76,7 +78,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                          comment=comment,
                          ask_approval=ask_approval,
                          asynchronous=asynchronous,
-                         priority=priority)
+                         priority=priority,
+                         split_container=split_container)
 
 
 def get_replication_rule(rule_id):
