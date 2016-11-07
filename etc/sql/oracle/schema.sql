@@ -647,6 +647,7 @@ CREATE TABLE rules (
     child_rule_id RAW(16),
     priority NUMBER(1),
     eol_at DATE,
+    split_container NUMBER(1) DEFAULT 0,
     CONSTRAINT "RULES_PK" PRIMARY KEY (id),   -- id, scope, name
     CONSTRAINT "RULES_SCOPE_NAME_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
     CONSTRAINT "RULES_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
@@ -671,7 +672,8 @@ CREATE TABLE rules (
     CONSTRAINT "RULES_IGNORE_AVAILABILITY_CHK" CHECK (ignore_availability IN (0, 1)),
     CONSTRAINT "RULES_IGNORE_ACCOUNT_LIMIT_CHK" CHECK (ignore_account_limit IN (0, 1)),
     CONSTRAINT "RULES_GROUPING_CHK" CHECK (grouping IN ('A', 'D', 'N')),
-    CONSTRAINT "RULES_NOTIFICATION_CHK" CHECK (state IN('Y', 'N', 'C'))
+    CONSTRAINT "RULES_NOTIFICATION_CHK" CHECK (state IN('Y', 'N', 'C')),
+    CONSTRAINT "RULES_SPLIT_CONTAINER_CHK" CHECK (split_container IN (0, 1))
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
 
@@ -1539,6 +1541,7 @@ CREATE TABLE rules_hist_recent (
     child_rule_id RAW(16),
     priority NUMBER(1)
     eol_at DATE,
+    split_container NUMBER(1) DEFAULT 0,
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
 PARTITION BY RANGE(updated_at)
 INTERVAL ( NUMTODSINTERVAL(7,'DAY') )
@@ -1596,6 +1599,7 @@ CREATE TABLE rules_history (
     child_rule_id RAW(16),
     priority NUMBER(1)
     eol_at DATE,
+    split_container NUMBER(1) DEFAULT 0,
 ) PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA01
 PARTITION BY RANGE(updated_at)
 INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') )
