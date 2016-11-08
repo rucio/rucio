@@ -828,7 +828,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
 
 
 @transactional_session
-def __bulk_add_new_file_dids(files, account, session=None):
+def __bulk_add_new_file_dids(files, account, dataset_meta=None, session=None):
     """
     Bulk add new dids.
 
@@ -838,9 +838,16 @@ def __bulk_add_new_file_dids(files, account, session=None):
     :returns: True is successful.
     """
     for file in files:
-        new_did = models.DataIdentifier(scope=file['scope'], name=file['name'], account=file.get('account') or account, did_type=DIDType.FILE, bytes=file['bytes'], md5=file.get('md5'), adler32=file.get('adler32'), is_new=None)
+        new_did = models.DataIdentifier(scope=file['scope'], name=file['name'],
+                                        account=file.get('account') or account,
+                                        did_type=DIDType.FILE, bytes=file['bytes'],
+                                        md5=file.get('md5'), adler32=file.get('adler32'),
+                                        is_new=None)
         for key in file.get('meta', []):
             new_did.update({key: file['meta'][key]})
+        for key in dataset_meta or {}:
+            new_did.update({key: dataset_meta[key]})
+
         new_did.save(session=session, flush=False)
     try:
         session.flush()
@@ -856,7 +863,7 @@ def __bulk_add_new_file_dids(files, account, session=None):
 
 
 @transactional_session
-def __bulk_add_file_dids(files, account, session=None):
+def __bulk_add_file_dids(files, account, dataset_meta=None, session=None):
     """
     Bulk add new dids.
 
@@ -884,7 +891,9 @@ def __bulk_add_file_dids(files, account, session=None):
                 break
         if not found:
             new_files.append(file)
-    __bulk_add_new_file_dids(files=new_files, account=account, session=session)
+    __bulk_add_new_file_dids(files=new_files, account=account,
+                             dataset_meta=dataset_meta,
+                             session=session)
     return new_files + available_files
 
 
@@ -949,7 +958,8 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
 
 
 @transactional_session
-def add_replicas(rse, files, account, rse_id=None, ignore_availability=True, session=None):
+def add_replicas(rse, files, account, rse_id=None, ignore_availability=True,
+                 dataset_meta=None, session=None):
     """
     Bulk add file replicas.
 
@@ -973,7 +983,9 @@ def add_replicas(rse, files, account, rse_id=None, ignore_availability=True, ses
     if not (replica_rse.availability & 2) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % rse)
 
-    replicas = __bulk_add_file_dids(files=files, account=account, session=session)
+    replicas = __bulk_add_file_dids(files=files, account=account,
+                                    dataset_meta=dataset_meta,
+                                    session=session)
 
     pfns, scheme = [], None
     for file in files:

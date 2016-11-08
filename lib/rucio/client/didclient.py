@@ -264,6 +264,17 @@ class DIDClient(BaseClient):
         """
         return self.attach_dids(scope=scope, name=name, dids=files, rse=rse)
 
+    def add_files_to_archive(self, scope, name, files, rse=None):
+        """
+        Add files to archive.
+
+        :param scope: The scope name.
+        :param name: The dataset name.
+        :param files: The content.
+        :param rse: The RSE name when registering replicas.
+        """
+        return self.attach_dids(scope=scope, name=name, dids=files, rse=rse)
+
     def add_datasets_to_container(self, scope, name, dsns):
         """
         Add datasets to container.
