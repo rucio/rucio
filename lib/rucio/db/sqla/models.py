@@ -495,44 +495,44 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
 
 
-class ConstituentAssociation(BASE, ModelBase):
-    """Represents the map between archives and constituents"""
-    __tablename__ = 'archive_contents'
-    child_scope = Column(String(25))    # Constituent file scope
-    child_name = Column(String(255))    # Constituent file name
-    scope = Column(String(25))          # Archive file scope
-    name = Column(String(255))          # Archive file name
-    bytes = Column(BigInteger)
-    adler32 = Column(String(8))
-    md5 = Column(String(32))
-    guid = Column(GUID())
-    events = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='ARCH_CONTENTS_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
-                   ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
-                   CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_DID_TYPE_NN'),
-                   CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
-                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
-
-
-class ConstituentAssociationHistory(BASE, ModelBase):
-    """Represents the map between archives and constituents"""
-    __tablename__ = 'archive_contents_history'
-    child_scope = Column(String(25))    # Constituent file scope
-    child_name = Column(String(255))    # Constituent file name
-    scope = Column(String(25))          # Archive file scope
-    name = Column(String(255))          # Archive file name
-    bytes = Column(BigInteger)
-    adler32 = Column(String(8))
-    md5 = Column(String(32))
-    guid = Column(GUID())
-    events = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='ARCH_CONTENTS_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
-                   ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
-                   CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_DID_TYPE_NN'),
-                   CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
-                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
+# class ConstituentAssociation(BASE, ModelBase):
+#     """Represents the map between archives and constituents"""
+#     __tablename__ = 'archive_contents'
+#     child_scope = Column(String(25))    # Constituent file scope
+#     child_name = Column(String(255))    # Constituent file name
+#     scope = Column(String(25))          # Archive file scope
+#     name = Column(String(255))          # Archive file name
+#     bytes = Column(BigInteger)
+#     adler32 = Column(String(8))
+#     md5 = Column(String(32))
+#     guid = Column(GUID())
+#     events = Column(BigInteger)
+#     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='ARCH_CONTENTS_PK'),
+#                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
+#                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
+#                    CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_DID_TYPE_NN'),
+#                    CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
+#                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
+#
+#
+# class ConstituentAssociationHistory(BASE, ModelBase):
+#     """Represents the map between archives and constituents"""
+#     __tablename__ = 'archive_contents_history'
+#     child_scope = Column(String(25))    # Constituent file scope
+#     child_name = Column(String(255))    # Constituent file name
+#     scope = Column(String(25))          # Archive file scope
+#     name = Column(String(255))          # Archive file name
+#     bytes = Column(BigInteger)
+#     adler32 = Column(String(8))
+#     md5 = Column(String(32))
+#     guid = Column(GUID())
+#     events = Column(BigInteger)
+#     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='ARCH_CONTENTS_PK'),
+#                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
+#                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
+#                    CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_DID_TYPE_NN'),
+#                    CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
+#                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
 
 
 class DataIdentifierAssociationHistory(BASE, ModelBase):
