@@ -273,7 +273,7 @@ class DIDClient(BaseClient):
         :param files: The content.
         :param rse: The RSE name when registering replicas.
         """
-        return self.attach_dids(scope=scope, name=name, dids=files, rse=rse)
+        pass
 
     def add_datasets_to_container(self, scope, name, dsns):
         """
