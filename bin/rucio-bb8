@@ -28,9 +28,11 @@ if __name__ == "__main__":
     parser.add_argument('--comment', action='store', help='Add a comment to the new rules')
     parser.add_argument('--force-expression', action='store', help='For this rse_expression for rebalanced rules instead of letting BB8 decide')
     parser.add_argument('--decomission', action='store_true', help='Run BB8 in decomission mode')
+    parser.add_argument('--priority', action='store', help='Priority for the newly created rules', type=int, default=3)
+    parser.add_argument('--source-replica-expression', action='store', help='Source replica expression for the newly created rules')
     args = parser.parse_args()
 
     if args.decomission:
-        rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run, comment=args.comment, force_expression=args.force_expression, mode='decomission')
+        rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run, comment=args.comment, force_expression=args.force_expression, priority=args.priority, source_replica_expression=args.source_replica_expression, mode='decomission')
     else:
-        rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run, comment=args.comment, force_expression=args.force_expression)
+        rebalance_rse(rse=args.rse, max_bytes=args.bytes, dry_run=args.dry_run, comment=args.comment, force_expression=args.force_expression, priority=args.priority, source_replica_expression=args.source_replica_expression)
