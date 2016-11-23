@@ -31,7 +31,8 @@ ACTIVITY = {"description": "Activity name",
             "type": "string",
             "enum": ["Data Brokering", "Data Consolidation", "Data rebalancing",
                      "Debug", "Express", "Functional Test", "Group Subscriptions",
-                     "Staging", "Production Input", "Production Output",
+                     "Production Input", "Production Output",
+                     "Analysis Input", "Staging",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions"]}
 
