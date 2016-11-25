@@ -186,8 +186,8 @@ class AllRule:
         json_data = data()
         try:
             grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify,\
-                purge_replicas, ignore_availability, comment, ask_approval, asynchronous = 'DATASET', None, None,\
-                False, None, None, None, None, False, False, None, False, False
+                purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority = 'DATASET',\
+                None, None, False, None, None, None, None, False, False, None, False, False, 3
 
             params = loads(json_data)
             dids = params['dids']
@@ -220,6 +220,8 @@ class AllRule:
                 ask_approval = params['ask_approval']
             if 'asynchronous' in params:
                 asynchronous = params['asynchronous']
+            if 'priority' in params:
+                priority = params['priority']
 
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
@@ -242,6 +244,7 @@ class AllRule:
                                             comment=comment,
                                             ask_approval=ask_approval,
                                             asynchronous=asynchronous,
+                                            priority=priority,
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule, e:

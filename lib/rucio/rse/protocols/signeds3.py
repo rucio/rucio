@@ -121,7 +121,9 @@ class Default(protocol.RSEProtocol):
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
-            if 'prefix' in lfn and lfn['prefix'] is not None:
+            if 'path' in lfn and lfn['path'] and self.rse['deterministic']:
+                path = lfn['path']
+            elif 'prefix' in lfn and lfn['prefix'] is not None:
                 path = os.path.join(lfn['prefix'], scope + '/' + name)
             else:
                 path = self._get_path(scope=scope, name=name)
@@ -144,7 +146,7 @@ class Default(protocol.RSEProtocol):
 
         for pfn in pfns:
 
-            parsed = urlparse(pfn)
+            parsed = urlparse.urlparse(pfn)
             scheme = parsed.scheme
             hostname = parsed.netloc.partition(':')[0]
             port = int(parsed.netloc.partition(':')[2]) if parsed.netloc.partition(':')[2] != '' else 0
@@ -227,6 +229,7 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
          """
         path = self._get_signed_url(path, 'read')
+        print path
         if isinstance(path, Exception):
             raise path
 

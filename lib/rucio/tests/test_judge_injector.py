@@ -95,7 +95,7 @@ class TestJudgeEvaluator():
 
         assert(get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
 
-        approve_rule(rule_id=rule_id)
+        approve_rule(rule_id=rule_id, approver='root')
 
         assert(get_rule(rule_id)['state'] == RuleState.INJECT)
 
@@ -119,12 +119,12 @@ class TestJudgeEvaluator():
 
         assert(get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
 
-        deny_rule(rule_id=rule_id)
+        deny_rule(rule_id=rule_id, approver='root')
 
         assert_raises(RuleNotFound, get_rule, rule_id)
 
     def test_add_rule_with_r2d2_container_treating(self):
-        """ REPLICATION RULE (CORE): Add a replication rule with an r2d2 container treatment"""
+        """ JUDGE INJECTOR (CORE): Add a replication rule with an r2d2 container treatment"""
         scope = 'mock'
         container = 'asdf.r2d2_request.2016-04-01-15-00-00.ads.' + str(uuid())
         add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
@@ -137,7 +137,31 @@ class TestJudgeEvaluator():
             attach_dids(scope, dataset, files, 'jdoe')
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
         rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=100, locked=False, subscription_id=None, ask_approval=True)[0]
-        approve_rule(rule_id)
+        approve_rule(rule_id, approver='root')
+        assert(get_rule(rule_id)['state'] == RuleState.INJECT)
+        rule_injector(once=True)
+        # Check if there is a rule for each file
+        with assert_raises(RuleNotFound):
+            get_rule(rule_id)
+        for dataset in datasets:
+            assert(len([r for r in list_rules({'scope': scope, 'name': dataset})]) > 0)
+
+    def test_add_rule_with_r2d2_container_treating_and_duplicate_rule(self):
+        """ JUDGE INJECTOR (CORE): Add a replication rule with an r2d2 container treatment and duplicate rule"""
+        scope = 'mock'
+        container = 'asdf.r2d2_request.2016-04-01-15-00-00.ads.' + str(uuid())
+        add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
+        datasets = []
+        for i in xrange(3):
+            files = create_files(3, scope, self.rse1)
+            dataset = 'dataset_' + str(uuid())
+            datasets.append(dataset)
+            add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+            attach_dids(scope, dataset, files, 'jdoe')
+            attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=100, locked=False, subscription_id=None, ask_approval=False)
+        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=100, locked=False, subscription_id=None, ask_approval=True)[0]
+        approve_rule(rule_id, approver='root')
         assert(get_rule(rule_id)['state'] == RuleState.INJECT)
         rule_injector(once=True)
         # Check if there is a rule for each file

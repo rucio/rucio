@@ -7,10 +7,11 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
 import datetime
 import json
@@ -22,19 +23,19 @@ from ConfigParser import NoOptionError
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import aliased
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
 
 from rucio.common.config import config_get
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
-from rucio.common.utils import generate_uuid
+from rucio.common.utils import generate_uuid, chunks
 from rucio.core import config as config_core, message as message_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_id, get_rse_name, get_rse_transfer_limits
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState
+from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.transfertool import fts3
 
@@ -238,112 +239,146 @@ def requeue_and_archive(request_id, session=None):
 @transactional_session
 def queue_requests(requests, session=None):
     """
-    Submit transfer or deletion requests on destination RSEs for data identifiers.
+    Submit transfer requests on destination RSEs for data identifiers.
 
     :param requests: List of dictionaries containing request metadata.
     :param session: Database session to use.
     :returns: List of Request-IDs as 32 character hex strings.
     """
-
     record_counter('core.request.queue_requests')
 
     logging.debug("queue requests")
-    try:
-        rse_names = {}
-        for req in requests:
+
+    request_clause = []
+    transfer_limits, rses = {}, {}
+    for req in requests:
+
+        if isinstance(req['attributes'], (str, unicode)):
+            req['attributes'] = json.loads(req['attributes'])
             if isinstance(req['attributes'], (str, unicode)):
                 req['attributes'] = json.loads(req['attributes'])
-                if isinstance(req['attributes'], (str, unicode)):
-                    req['attributes'] = json.loads(req['attributes'])
 
-            # do not insert duplicate transfer requests
-            if req['request_type'] == RequestType.TRANSFER:
-                try:
-                    get_request_by_did(req['scope'],
-                                       req['name'],
-                                       None,
-                                       rse_id=req['dest_rse_id'],
-                                       request_type=RequestType.TRANSFER,
-                                       session=session)
-                    continue
-                except:
-                    pass
+        if req['request_type'] == RequestType.TRANSFER:
+            request_clause.append(and_(models.Request.scope == req['scope'],
+                                       models.Request.name == req['name'],
+                                       models.Request.dest_rse_id == req['dest_rse_id'],
+                                       models.Request.request_type == RequestType.TRANSFER))
 
-            transfer_limit = get_transfer_limits(req['attributes']['activity'], req['dest_rse_id'])
+        if req['dest_rse_id'] not in rses:
+            rses[req['dest_rse_id']] = get_rse_name(req['dest_rse_id'], session=session)
 
-            new_request = models.Request(request_type=req['request_type'],
-                                         scope=req['scope'],
-                                         name=req['name'],
-                                         dest_rse_id=req['dest_rse_id'],
-                                         attributes=json.dumps(req['attributes']),
-                                         state=RequestState.WAITING if transfer_limit else RequestState.QUEUED,
-                                         rule_id=req['rule_id'],
-                                         activity=req['attributes']['activity'],
-                                         bytes=req['attributes']['bytes'],
-                                         md5=req['attributes']['md5'],
-                                         adler32=req['attributes']['adler32'],
-                                         retry_count=req['retry_count'])
-            if 'previous_attempt_id' in req and 'retry_count' in req:
-                new_request = models.Request(id=req['request_id'],
-                                             request_type=req['request_type'],
-                                             scope=req['scope'],
-                                             name=req['name'],
-                                             dest_rse_id=req['dest_rse_id'],
-                                             attributes=json.dumps(req['attributes']),
-                                             state=RequestState.WAITING if transfer_limit else RequestState.QUEUED,
-                                             previous_attempt_id=req['previous_attempt_id'],
-                                             retry_count=req['retry_count'],
-                                             rule_id=req['rule_id'],
-                                             activity=req['attributes']['activity'],
-                                             bytes=req['attributes']['bytes'],
-                                             md5=req['attributes']['md5'],
-                                             adler32=req['attributes']['adler32'])
+        if req['attributes']['activity'] not in transfer_limits:
+            transfer_limits[req['attributes']['activity']] = {req['dest_rse_id']: get_transfer_limits(req['attributes']['activity'], req['dest_rse_id'])}
+        elif req['dest_rse_id'] not in transfer_limits[req['attributes']['activity']]:
+            transfer_limits[req['attributes']['activity']] = {req['dest_rse_id']: get_transfer_limits(req['attributes']['activity'], req['dest_rse_id'])}
 
-            new_request.save(session=session)
+    # Check existing requests
+    if request_clause:
+        existing_requests = []
+        for requests_condition in chunks(request_clause, 1000):
+            query_existing_requests = session.query(models.Request.scope,
+                                                    models.Request.name,
+                                                    models.Request.dest_rse_id).\
+                with_hint(models.Request,
+                          "INDEX(REQUESTS REQUESTS_SC_NA_RS_TY_UQ_IDX)",
+                          'oracle').\
+                filter(or_(*requests_condition))
+            for request in query_existing_requests:
+                existing_requests.append(request)
 
-            if 'sources' in req and req['sources']:
-                for source in req['sources']:
-                    models.Source(request_id=new_request['id'],
-                                  scope=req['scope'],
-                                  name=req['name'],
-                                  rse_id=source['rse_id'],
-                                  dest_rse_id=req['dest_rse_id'],
-                                  ranking=source['ranking'],
-                                  bytes=source['bytes'],
-                                  url=source['url'],
-                                  is_using=source['is_using']).\
-                        save(session=session, flush=False)
+    new_requests, sources, messages = [], [], []
+    for request in requests:
 
-            if new_request['dest_rse_id'] not in rse_names:
-                rse_names[new_request['dest_rse_id']] = get_rse_name(new_request['dest_rse_id'])
-            msg = {'request-id': new_request['id'],
-                   'request-type': str(new_request['request_type']).lower(),
-                   'scope': new_request['scope'],
-                   'name': new_request['name'],
-                   'dst-rse-id': new_request['dest_rse_id'],
-                   'dst-rse': rse_names[new_request['dest_rse_id']],
-                   'state': str(new_request['state']),
-                   'retry-count': new_request['retry_count'],
-                   'rule-id': str(new_request['rule_id']),
-                   'activity': new_request['activity'],
-                   'file-size': new_request['bytes'],
-                   'checksum-md5': new_request['md5'],
-                   'checksum-adler': new_request['adler32'],
-                   'queued-at': str(datetime.datetime.utcnow())}
-            if msg['request-type']:
-                transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
-            else:
-                transfer_status = 'transfer-%s' % msg['state']
-            transfer_status = transfer_status.lower()
-            message_core.add_message(transfer_status, msg, session=session)
+        if req['request_type'] == RequestType.TRANSFER and (request['scope'], request['name'], request['dest_rse_id']) in existing_requests:
+            logging.warn('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (request['request_type'],
+                                                                                        request['scope'],
+                                                                                        request['name'],
+                                                                                        rses[request['dest_rse_id']]))
+            continue
 
-        session.flush()
-    except IntegrityError:
-        logging.warn('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (req['request_type'],
-                                                                                    req['scope'],
-                                                                                    req['name'],
-                                                                                    get_rse_name(req['dest_rse_id'])))
-        raise
+        transfer_limit = transfer_limits[request['attributes']['activity']].\
+            get(request['dest_rse_id'])
+        request['state'] = RequestState.WAITING if transfer_limit else RequestState.QUEUED
+
+        if 'previous_attempt_id' in request and 'retry_count' in request:
+            new_requests.append({'id': request['request_id'],
+                                 'request_type': request['request_type'],
+                                 'scope': request['scope'],
+                                 'name': request['name'],
+                                 'dest_rse_id': request['dest_rse_id'],
+                                 'attributes': json.dumps(request['attributes']),
+                                 'state': request['state'],
+                                 'previous_attempt_id': request['previous_attempt_id'],
+                                 'retry_count': request['retry_count'],
+                                 'rule_id': request['rule_id'],
+                                 'activity': request['attributes']['activity'],
+                                 'bytes': request['attributes']['bytes'],
+                                 'md5': request['attributes']['md5'],
+                                 'adler32': request['attributes']['adler32'],
+                                 'account': request.get('account', None)})
+        else:
+            request['request_id'] = generate_uuid()
+            new_requests.append({'id': request['request_id'],
+                                 'request_type': request['request_type'],
+                                 'scope': request['scope'],
+                                 'name': request['name'],
+                                 'dest_rse_id': request['dest_rse_id'],
+                                 'attributes': json.dumps(request['attributes']),
+                                 'state': request['state'],
+                                 'rule_id': request['rule_id'],
+                                 'activity': request['attributes']['activity'],
+                                 'bytes': request['attributes']['bytes'],
+                                 'md5': request['attributes']['md5'],
+                                 'adler32': request['attributes']['adler32'],
+                                 'account': request.get('account', None),
+                                 'priority': request['attributes'].get('priority', None),
+                                 'requested_at': request['attributes'].get('requested_at', None),
+                                 'retry_count': request['retry_count']})
+
+        if 'sources' in request and request['sources']:
+            for source in request['sources']:
+                sources.append({'request_id': request['request_id'],
+                                'scope': request['scope'],
+                                'name': request['name'],
+                                'rse_id': source['rse_id'],
+                                'dest_rse_id': request['dest_rse_id'],
+                                'ranking': source['ranking'],
+                                'bytes': source['bytes'],
+                                'url': source['url'],
+                                'is_using': source['is_using']})
+
+        if request['request_type']:
+            transfer_status = '%s-%s' % (request['request_type'], request['state'])
+        else:
+            transfer_status = 'transfer-%s' % request['state']
+
+        payload = {'request-id': request['request_id'],
+                   'request-type': str(request['request_type']).lower(),
+                   'scope': request['scope'],
+                   'name': request['name'],
+                   'dst-rse-id': request['dest_rse_id'],
+                   'dst-rse': rses[request['dest_rse_id']],
+                   'state': str(request['state']),
+                   'retry-count': request['retry_count'],
+                   'rule-id': str(request['rule_id']),
+                   'activity': request['attributes']['activity'],
+                   'file-size': request['attributes']['bytes'],
+                   'bytes': request['attributes']['bytes'],
+                   'checksum-md5': request['attributes']['md5'],
+                   'checksum-adler': request['attributes']['adler32'],
+                   'queued_at': str(datetime.datetime.utcnow())}
+
+        messages.append({'event_type': transfer_status.lower(),
+                         'payload': json.dumps(payload)})
+
+    for requests_chunk in chunks(new_requests, 1000):
+        session.bulk_insert_mappings(models.Request, requests_chunk)
+
+    for sources_chunk in chunks(sources, 1000):
+        session.bulk_insert_mappings(models.Source, sources_chunk)
+
+    for messages_chunk in chunks(messages, 1000):
+        session.bulk_insert_mappings(models.Message, messages_chunk)
 
 
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None):
@@ -498,11 +533,12 @@ def set_request_transfers_state(transfers, submitted_at, session=None):
                    'state': str(transfers[request_id]['state']),
                    'activity': transfers[request_id]['metadata'].get('activity', None),
                    'file-size': transfers[request_id]['metadata'].get('filesize', None),
+                   'bytes': transfers[request_id]['metadata'].get('filesize', None),
                    'checksum-md5': transfers[request_id]['metadata'].get('md5', None),
                    'checksum-adler': transfers[request_id]['metadata'].get('adler32', None),
                    'external-id': transfers[request_id]['external_id'],
                    'external-host': transfers[request_id]['external_host'],
-                   'queued-at': str(submitted_at)}
+                   'queued_at': str(submitted_at)}
 
             if msg['request-type']:
                 transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
@@ -1329,7 +1365,7 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
         .filter(models.Request.request_type == RequestType.TRANSFER)
 
     if isinstance(older_than, datetime.datetime):
-        sub_requests = sub_requests.filter(models.Request.updated_at < older_than)
+        sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
 
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
@@ -1438,7 +1474,7 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
         .filter(models.Request.request_type == RequestType.STAGEIN)
 
     if isinstance(older_than, datetime.datetime):
-        sub_requests = sub_requests.filter(models.Request.updated_at < older_than)
+        sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
 
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
@@ -1624,17 +1660,17 @@ def get_stats_by_activity_dest_state(state, session=None):
         state = [state, state]
 
     try:
-        results = session.query(models.Request.activity, models.Request.dest_rse_id, models.Request.state, func.count(1).label('counter'))\
+        results = session.query(models.Request.activity, models.Request.dest_rse_id, models.Request.account, models.Request.state, func.count(1).label('counter'))\
                          .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
                          .filter(models.Request.state.in_(state))\
-                         .group_by(models.Request.activity, models.Request.dest_rse_id, models.Request.state).all()
+                         .group_by(models.Request.activity, models.Request.dest_rse_id, models.Request.account, models.Request.state).all()
         return results
     except IntegrityError, e:
         raise RucioException(e.args)
 
 
 @transactional_session
-def release_waiting_requests(rse, activity=None, rse_id=None, count=None, session=None):
+def release_waiting_requests(rse, activity=None, rse_id=None, count=None, account=None, session=None):
     """
     Release waiting requests.
 
@@ -1652,14 +1688,18 @@ def release_waiting_requests(rse, activity=None, rse_id=None, count=None, sessio
             query = session.query(models.Request).filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
             if activity:
                 query = query.filter_by(activity=activity)
+            if account:
+                query = query.filter_by(account=account)
             rowcount = query.update({'state': RequestState.QUEUED}, synchronize_session=False)
         elif count > 0:
             subquery = session.query(models.Request.id)\
                               .filter(models.Request.dest_rse_id == rse_id)\
                               .filter(models.Request.state == RequestState.WAITING)\
-                              .order_by(asc(models.Request.created_at))
+                              .order_by(asc(models.Request.requested_at))
             if activity:
                 subquery = subquery.filter(models.Request.activity == activity)
+            if account:
+                subquery = subquery.filter(models.Request.account == account)
             subquery = subquery.limit(count).with_for_update()
 
             rowcount = session.query(models.Request)\
@@ -1676,19 +1716,33 @@ def update_requests_priority(priority, filter, session=None):
     Update priority of requests.
 
     :param priority: The priority as an integer from 1 to 5.
-    :param filter: Dictionary such as {'rule_id': rule_id, 'request_id': request_id}.
+    :param filter: Dictionary such as {'rule_id': rule_id, 'request_id': request_id, 'older_than': time_stamp, 'activities': [activities]}.
     """
     try:
         query = session.query(models.Request.id, models.Request.external_id, models.Request.external_host)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-                       .filter_by(state=RequestState.SUBMITTED)
+            .join(models.ReplicaLock, and_(models.ReplicaLock.scope == models.Request.scope,
+                                           models.ReplicaLock.name == models.Request.name,
+                                           models.ReplicaLock.rse_id == models.Request.dest_rse_id))\
+            .filter(models.Request.state == RequestState.SUBMITTED,
+                    models.ReplicaLock.state == LockState.REPLICATING)
+
         if 'rule_id' in filter:
-            query = query.filter_by(rule_id=filter['rule_id'])
+            query = query.filter(models.ReplicaLock.rule_id == filter['rule_id'])
         if 'request_id' in filter:
-            query = query.filter_by(id=filter['request_id'])
+            query = query.filter(models.Request.id == filter['request_id'])
+        if 'older_than' in filter:
+            query = query.filter(models.Request.created_at < filter['older_than'])
+        if 'activities' in filter:
+            if type(filter['activities']) is not list:
+                filter['activities'] = filter['activities'].split(',')
+            query = query.filter(models.Request.activity.in_(filter['activities']))
 
         for item in query.all():
-            res = fts3.update_priority(item[1], item[2], priority)
-            logging.debug("Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
+            try:
+                res = fts3.update_priority(item[1], item[2], priority)
+            except:
+                logging.debug("Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
+            else:
+                logging.debug("Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
     except IntegrityError, e:
         raise RucioException(e.args)

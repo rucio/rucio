@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 
 
 from json import dumps, loads
@@ -92,6 +92,8 @@ class RSE(RucioController):
         HTTP Error:
             400 Bad request
             401 Unauthorized
+            404 Resource not Found
+            409 Conflict
             500 Internal Error
 
         """
@@ -111,12 +113,14 @@ class RSE(RucioController):
         kwargs['issuer'] = ctx.env.get('issuer')
         try:
             add_rse(rse, **kwargs)
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Duplicate, e:
-            raise generate_http_error(409, 'Duplicate', e[0][0])
         except InvalidObject, e:
             raise generate_http_error(400, 'InvalidObject', e[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
+        except Duplicate, e:
+            raise generate_http_error(409, 'Duplicate', e[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
@@ -135,6 +139,8 @@ class RSE(RucioController):
         HTTP Error:
             400 Bad request
             401 Unauthorized
+            404 Resource not Found
+            409 Conflict
             500 Internal Error
 
         """
@@ -149,12 +155,14 @@ class RSE(RucioController):
         kwargs['issuer'] = ctx.env.get('issuer')
         try:
             update_rse(rse, **kwargs)
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Duplicate, e:
-            raise generate_http_error(409, 'Duplicate', e[0][0])
         except InvalidObject, e:
             raise generate_http_error(400, 'InvalidObject', e[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
+        except Duplicate, e:
+            raise generate_http_error(409, 'Duplicate', e[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
@@ -257,6 +265,7 @@ class Attributes:
 
         HTTP Error:
             401 Unauthorized
+            404 Not Found
             500 InternalError
 
         :param rse: RSE name.
@@ -274,6 +283,8 @@ class Attributes:
             del_rse_attribute(rse=rse, key=key, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
@@ -518,6 +529,7 @@ class Usage:
         HTTP Error:
             400 Bad Request
             401 Unauthorized
+            404 Not Found
             409 Conflict
             500 Internal Error
 
@@ -533,6 +545,8 @@ class Usage:
             set_rse_usage(rse=rse, issuer=ctx.env.get('issuer'), **parameter)
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
@@ -618,6 +632,7 @@ class Limits:
         HTTP Error:
             400 Bad Request
             401 Unauthorized
+            404 Not Found
             409 Conflict
             500 Internal Error
 
@@ -633,6 +648,8 @@ class Limits:
             set_rse_limits(rse=rse, issuer=ctx.env.get('issuer'), **parameter)
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:

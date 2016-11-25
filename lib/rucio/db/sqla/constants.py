@@ -8,7 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2016
 # - Wen Guan, <wen.guan>, 2016
 
 """
@@ -37,25 +37,12 @@ class AccountType(DeclEnum):
     SERVICE = 'SERVICE', 'SERVICE'
 
 
-class IdentityType(DeclEnum):
-    X509 = 'X509', 'X509'
-    GSS = 'GSS', 'GSS'
-    USERPASS = 'USERPASS', 'USERPASS'
-
-
-class ScopeStatus(DeclEnum):
-    OPEN = 'O', 'OPEN'
-    CLOSED = 'C', 'CLOSED'
+class BadFilesStatus(DeclEnum):
+    BAD = 'B', 'BAD'
     DELETED = 'D', 'DELETED'
-
-
-class DIDType(DeclEnum):
-    FILE = 'F', 'FILE'
-    DATASET = 'D', 'DATASET'
-    CONTAINER = 'C', 'CONTAINER'
-    DELETED_FILE = 'X', 'DELETED_FILE'
-    DELETED_DATASET = 'Y', 'DELETED_DATASET'
-    DELETED_CONTAINER = 'Z', 'DELETED_CONTAINER'
+    LOST = 'L', 'LOST'
+    RECOVERED = 'R', 'RECOVERED'
+    SUSPICIOUS = 'S', 'SUSPICIOUS'
 
 
 class DIDAvailability(DeclEnum):
@@ -69,91 +56,19 @@ class DIDReEvaluation(DeclEnum):
     DETACH = 'D', 'DETACH'
 
 
-class KeyType(DeclEnum):
-    ALL = 'ALL', 'ALL'
-    COLLECTION = 'COLLECTION', 'COLLECTION'
-    CONTAINER = 'CONTAINER', 'CONTAINER'
-    DATASET = 'DATASET', 'DATASET'
-    FILE = 'FILE', 'FILE'
-    DERIVED = 'DERIVED', 'DERIVED'
-
-
-class RSEType(DeclEnum):
-    DISK = 'DISK', 'DISK'
-    TAPE = 'TAPE', 'TAPE'
-
-
-class ReplicaState(DeclEnum):
-    AVAILABLE = 'A', 'AVAILABLE'
-    UNAVAILABLE = 'U', 'UNAVAILABLE'
-    COPYING = 'C', 'COPYING'
-    BEING_DELETED = 'B', 'BEING_DELETED'
-    BAD = 'D', 'BAD'
-    SOURCE = 'S', 'SOURCE'
-
-
-class RuleState(DeclEnum):
-    REPLICATING = 'R', 'REPLICATING'
-    OK = 'O', 'OK'
-    STUCK = 'S', 'STUCK'
-    SUSPENDED = 'U', 'SUSPENDED'
-    WAITING_APPROVAL = 'W', 'WAITING_APPROVAL'
-    INJECT = 'I', 'INJECT'
-
-
-class RuleGrouping(DeclEnum):
-    ALL = 'A', 'ALL'
+class DIDType(DeclEnum):
+    FILE = 'F', 'FILE'
     DATASET = 'D', 'DATASET'
-    NONE = 'N', 'NONE'
+    CONTAINER = 'C', 'CONTAINER'
+    ARCHIVE = 'A', 'ARCHIVE'
+    DELETED_FILE = 'X', 'DELETED_FILE'
+    DELETED_DATASET = 'Y', 'DELETED_DATASET'
+    DELETED_CONTAINER = 'Z', 'DELETED_CONTAINER'
 
 
-class LockState(DeclEnum):
-    REPLICATING = 'R', 'REPLICATING'
-    OK = 'O', 'OK'
-    STUCK = 'S', 'STUCK'
-
-
-class SubscriptionState(DeclEnum):
-    ACTIVE = 'A', 'ACTIVE'
-    INACTIVE = 'I', 'INACTIVE'
-    NEW = 'N', 'NEW'
-    UPDATED = 'U', 'UPDATED'
-    BROKEN = 'B', 'BROKEN'
-
-
-class RequestType(DeclEnum):
-    TRANSFER = 'T', 'TRANSFER'
-    UPLOAD = 'U', 'UPLOAD'
-    DOWNLOAD = 'D', 'DOWNLOAD'
-    STAGEIN = 'I', 'STAGEIN'
-    STAGEOUT = 'O', 'STAGEOUT'
-
-
-class RequestState(DeclEnum):
-    QUEUED = 'Q', 'QUEUED'
-    SUBMITTING = 'G', 'SUBMITTING'
-    SUBMITTED = 'S', 'SUBMITTED'
-    FAILED = 'F', 'FAILED'
-    DONE = 'D', 'DONE'
-    LOST = 'L', 'LOST'
-    NO_SOURCES = 'N', 'NO_SOURCES'
-    ONLY_TAPE_SOURCES = 'O', 'ONLY_TAPE_SOURCES'
-    SUBMISSION_FAILED = 'A', 'SUBMISSION_FAILED'
-    SUSPEND = 'U', 'SUSPEND'
-    WAITING = 'W', 'WAITING'
-
-
-class RequestErrMsg(DeclEnum):
-    NO_SOURCES = 'NO_SOURCES', 'NO_SOURCES'
-    SUBMISSION_FAILED = 'SUBMISSION_FAILED', 'SUBMISSION_FAILED'
-    TRANSFER_FAILED = 'TRANSFER_FAILED', 'TRANSFER_FAILED'
-    OTHER = 'OTHER', 'OTHER'
-
-
-class RuleNotification(DeclEnum):
-    YES = 'Y', 'YES'
-    NO = 'N', 'NO'
-    CLOSE = 'C', 'CLOSE'
+class FTSCompleteState(DeclEnum):
+    OK = 'O', 'Ok'
+    ERROR = 'E', 'Error'
 
 
 class FTSState(DeclEnum):
@@ -166,17 +81,111 @@ class FTSState(DeclEnum):
     CANCELED = 'C', 'CANCELED'
 
 
-class FTSCompleteState(DeclEnum):
-    OK = 'O', 'Ok'
-    ERROR = 'E', 'Error'
+class IdentityType(DeclEnum):
+    X509 = 'X509', 'X509'
+    GSS = 'GSS', 'GSS'
+    USERPASS = 'USERPASS', 'USERPASS'
 
 
-class BadFilesStatus(DeclEnum):
-    BAD = 'B', 'BAD'
-    DELETED = 'D', 'DELETED'
+class KeyType(DeclEnum):
+    ALL = 'ALL', 'ALL'
+    COLLECTION = 'COLLECTION', 'COLLECTION'
+    CONTAINER = 'CONTAINER', 'CONTAINER'
+    DATASET = 'DATASET', 'DATASET'
+    FILE = 'FILE', 'FILE'
+    DERIVED = 'DERIVED', 'DERIVED'
+
+
+class LifetimeExceptionsState(DeclEnum):
+    APPROVED = 'A', 'APPROVED'
+    REJECTED = 'R', 'REJECTED'
+    WAITING = 'W', 'WAITING'
+
+
+class LockState(DeclEnum):
+    REPLICATING = 'R', 'REPLICATING'
+    OK = 'O', 'OK'
+    STUCK = 'S', 'STUCK'
+
+
+class ReplicaState(DeclEnum):
+    AVAILABLE = 'A', 'AVAILABLE'
+    UNAVAILABLE = 'U', 'UNAVAILABLE'
+    COPYING = 'C', 'COPYING'
+    BEING_DELETED = 'B', 'BEING_DELETED'
+    BAD = 'D', 'BAD'
+    SOURCE = 'S', 'SOURCE'
+
+
+class RequestErrMsg(DeclEnum):
+    NO_SOURCES = 'NO_SOURCES', 'NO_SOURCES'
+    SUBMISSION_FAILED = 'SUBMISSION_FAILED', 'SUBMISSION_FAILED'
+    TRANSFER_FAILED = 'TRANSFER_FAILED', 'TRANSFER_FAILED'
+    MISMATCH_SCHEME = 'MISMATCH_SCHEME', 'MISMATCH_SCHEME'
+    OTHER = 'OTHER', 'OTHER'
+
+
+class RequestState(DeclEnum):
+    QUEUED = 'Q', 'QUEUED'
+    SUBMITTING = 'G', 'SUBMITTING'
+    SUBMITTED = 'S', 'SUBMITTED'
+    FAILED = 'F', 'FAILED'
+    DONE = 'D', 'DONE'
     LOST = 'L', 'LOST'
-    RECOVERED = 'R', 'RECOVERED'
-    SUSPICIOUS = 'S', 'SUSPICIOUS'
+    NO_SOURCES = 'N', 'NO_SOURCES'
+    ONLY_TAPE_SOURCES = 'O', 'ONLY_TAPE_SOURCES'
+    SUBMISSION_FAILED = 'A', 'SUBMISSION_FAILED'
+    MISMATCH_SCHEME = 'M', 'MISMATCH_SCHEME'
+    SUSPEND = 'U', 'SUSPEND'
+    WAITING = 'W', 'WAITING'
+
+
+class RequestType(DeclEnum):
+    TRANSFER = 'T', 'TRANSFER'
+    UPLOAD = 'U', 'UPLOAD'
+    DOWNLOAD = 'D', 'DOWNLOAD'
+    STAGEIN = 'I', 'STAGEIN'
+    STAGEOUT = 'O', 'STAGEOUT'
+
+
+class RSEType(DeclEnum):
+    DISK = 'DISK', 'DISK'
+    TAPE = 'TAPE', 'TAPE'
+
+
+class RuleGrouping(DeclEnum):
+    ALL = 'A', 'ALL'
+    DATASET = 'D', 'DATASET'
+    NONE = 'N', 'NONE'
+
+
+class RuleNotification(DeclEnum):
+    YES = 'Y', 'YES'
+    NO = 'N', 'NO'
+    CLOSE = 'C', 'CLOSE'
+
+
+class RuleState(DeclEnum):
+    REPLICATING = 'R', 'REPLICATING'
+    OK = 'O', 'OK'
+    STUCK = 'S', 'STUCK'
+    SUSPENDED = 'U', 'SUSPENDED'
+    WAITING_APPROVAL = 'W', 'WAITING_APPROVAL'
+    INJECT = 'I', 'INJECT'
+
+
+class ScopeStatus(DeclEnum):
+    OPEN = 'O', 'OPEN'
+    CLOSED = 'C', 'CLOSED'
+    DELETED = 'D', 'DELETED'
+
+
+class SubscriptionState(DeclEnum):
+    ACTIVE = 'A', 'ACTIVE'
+    INACTIVE = 'I', 'INACTIVE'
+    NEW = 'N', 'NEW'
+    UPDATED = 'U', 'UPDATED'
+    BROKEN = 'B', 'BROKEN'
 
 
 # Individual constants

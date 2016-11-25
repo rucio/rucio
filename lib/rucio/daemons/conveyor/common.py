@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
 """
 Methods common to different conveyor daemons.
@@ -68,6 +69,8 @@ def get_transfer_error(state, reason=None):
         err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, "Transfer job on FTS is lost")
     elif state in [RequestState.FAILED]:
         err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, reason)
+    elif state in [RequestState.MISMATCH_SCHEME]:
+        err_msg = '%s:%s' % (RequestErrMsg.MISMATCH_SCHEME, state)
     return err_msg
 
 
@@ -297,7 +300,6 @@ def handle_requests(reqs, suspicious_patterns):
             if req['state'] == RequestState.DONE:
                 replica['state'] = ReplicaState.AVAILABLE
                 replica['archived'] = False
-                replicas[req['request_type']][req['rule_id']].append(replica)
 
                 # for TAPE, replica path is needed
                 if req['request_type'] == RequestType.TRANSFER and req['dest_rse_id'] in undeterministic_rses:
@@ -311,6 +313,10 @@ def handle_requests(reqs, suspicious_patterns):
                         protocols[dest_rse_id_scheme] = rsemanager.create_protocol(rses_info[req['dest_rse_id']], 'write', scheme)
                     path = protocols[dest_rse_id_scheme].parse_pfns([pfn])[pfn]['path']
                     replica['path'] = os.path.join(path, os.path.basename(pfn))
+
+                # replica should not be added to replicas until all info are filled
+                replicas[req['request_type']][req['rule_id']].append(replica)
+
             elif req['state'] == RequestState.FAILED:
                 check_suspicious_files(req, suspicious_patterns)
                 if request_core.should_retry_request(req):
@@ -351,7 +357,7 @@ def handle_requests(reqs, suspicious_patterns):
                     replica['archived'] = False
                     replica['error_message'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
-            elif req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
+            elif req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES or req['state'] == RequestState.MISMATCH_SCHEME:
                 if request_core.should_retry_request(req):
                     tss = time.time()
                     new_req = request_core.requeue_and_archive(req['request_id'])
@@ -572,6 +578,7 @@ def add_monitor_message(request, response, session=None):
                                   'checksum-adler': adler32,
                                   'checksum-md5': md5,
                                   'file-size': filesize,
+                                  'bytes': filesize,
                                   'guid': None,
                                   'previous-request-id': response['previous_attempt_id'],
                                   'protocol': dst_protocol,

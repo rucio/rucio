@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 
 import logging
 import sys
@@ -34,12 +34,13 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound, ScratchDiskLifetimeConflict,
+                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
+from rucio.common.policy import get_scratch_policy, define_eol
 from rucio.core import account_counter, rse_counter
-from rucio.core.account import get_account, has_account_attribute
+from rucio.core.account import get_account
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse
@@ -62,7 +63,7 @@ logging.basicConfig(stream=sys.stdout,
 def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
              source_replica_expression=None, activity='User Subscriptions', notify=None, purge_replicas=False,
              ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, ignore_account_limit=False,
-             session=None):
+             priority=3, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -86,6 +87,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param ask_approval:               Ask for approval for this rule.
     :param asynchronous:               Create replication rule asynchronously by the judge-injector.
     :param ignore_account_limit:       Ignore quota and create the rule outside of the account limits.
+    :param priority:                   Priority of the rule and the transfers which should be submitted.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
@@ -105,14 +107,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 if [rse for rse in rses if rse.get('staging_area', False)]:
                     raise StagingAreaRuleRequiresLifetime()
 
-            # Check SCRATCHDISK Polciy
-            if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * 15):
-                # Check if one of the rses is a SCRATCHDISK:
-                if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
-                    if len(rses) == 1:
-                        lifetime = 60 * 60 * 24 * 15 - 1
-                    else:
-                        raise ScratchDiskLifetimeConflict()
+            # Check SCRATCHDISK Policy
+            lifetime = get_scratch_policy(account, rses, lifetime, session=session)
 
             # Auto-lock rules for TAPE rses
             if not locked and lifetime is None:
@@ -154,6 +150,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 except TypeError, e:
                     raise InvalidObject(e.args)
 
+            # 3.5 Get the lifetime
+            eol_at = define_eol(elem['scope'], elem['name'], rses, session=session)
+
             # 4. Create the replication rule
             with record_timer_block('rule.add_rule.create_rule'):
                 if grouping == 'ALL':
@@ -180,7 +179,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   purge_replicas=purge_replicas,
                                                   ignore_availability=ignore_availability,
                                                   comments=comment,
-                                                  ignore_account_limit=ignore_account_limit)
+                                                  ignore_account_limit=ignore_account_limit,
+                                                  priority=priority,
+                                                  eol_at=eol_at)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
@@ -213,6 +214,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 logging.debug("Created rule %s in waiting for approval" % (str(new_rule.id)))
                 __create_rule_approval_email(rule=new_rule, session=session)
                 continue
+
+            # Force ASYNC mode for large rules
+            if did.length >= 10000:
+                asynchronous = True
+                logging.debug("Forced injection of rule %s" % (str(new_rule.id)))
 
             if asynchronous:
                 # TODO: asynchronous mode only available for closed dids (on the whole tree?)
@@ -341,14 +347,11 @@ def add_rules(dids, rules, session=None):
                         if [rse for rse in rses if rse.get('staging_area', False)]:
                             raise StagingAreaRuleRequiresLifetime()
 
-                    # Check SCRATCHDISK Polciy
-                    if not has_account_attribute(account=rule.get('account'), key='admin', session=session) and (rule.get('lifetime', None) is None or rule.get('lifetime', None) > 60 * 60 * 24 * 15):
-                        # Check if one of the rses is a SCRATCHDISK:
-                        if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
-                            if len(rses) == 1:
-                                rule['lifetime'] = 60 * 60 * 24 * 15 - 1
-                            else:
-                                raise ScratchDiskLifetimeConflict()
+                    # Check SCRATCHDISK Policy
+                    rule['lifetime'] = get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
+
+                    # 4.5 Get the lifetime
+                    eol_at = define_eol(did.scope, did.name, rses, session=session)
 
                     # Auto-lock rules for TAPE rses
                     if not rule.get('locked', False) and rule.get('lifetime', None) is None:
@@ -403,7 +406,9 @@ def add_rules(dids, rules, session=None):
                                                           notification=notify,
                                                           purge_replicas=rule.get('purge_replicas', False),
                                                           ignore_availability=rule.get('ignore_availability', False),
-                                                          comments=rule.get('comment', None))
+                                                          comments=rule.get('comment', None),
+                                                          priority=rule.get('priority', 3),
+                                                          eol_at=eol_at)
                         try:
                             new_rule.save(session=session)
                         except IntegrityError, e:
@@ -503,6 +508,7 @@ def inject_rule(rule_id, session=None):
         logging.debug("Creating dataset rules for R2D2 container rule %s" % (str(rule.id)))
         # Get all child datasets and put rules on them
         dids = [{'scope': dataset['scope'], 'name': dataset['name']} for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session)]
+        dids = [did for did in dids if session.query(models.ReplicationRule).filter_by(scope=did['scope'], name=did['name'], account=rule.account, rse_expression=rule.rse_expression).count() == 0]
         if rule.expires_at:
             lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
         else:
@@ -526,7 +532,9 @@ def inject_rule(rule_id, session=None):
                  notify=notify,
                  comment=rule.comments,
                  asynchronous=True,
+                 ignore_availability=rule.ignore_availability,
                  ignore_account_limit=True,
+                 priority=rule.priority,
                  session=session)
         rule.delete(session=session)
         return
@@ -632,8 +640,14 @@ def list_rules(filters={}, session=None):
             elif k == 'updated_after':
                 query = query.filter(models.ReplicationRule.updated_at >= str_to_date(v))
                 continue
-            elif k == 'state' and isinstance(v, basestring):
-                v = RuleState.from_string(v)
+            elif k == 'state':
+                if isinstance(v, basestring):
+                    v = RuleState.from_string(v)
+                else:
+                    try:
+                        v = RuleState.from_sym(v)
+                    except ValueError:
+                        pass
             elif k == 'did_type' and isinstance(v, basestring):
                 v = DIDType.from_string(v)
             elif k == 'grouping' and isinstance(v, basestring):
@@ -784,6 +798,9 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
         for rse_id in account_counter_decreases.keys():
             account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
+        # Try to release potential parent rules
+        release_parent_rule(child_rule_id=rule.id, remove_parent_expiration=True, session=session)
+
         # Insert history
         insert_rule_history(rule=rule, recent=False, longterm=True, session=session)
 
@@ -825,21 +842,18 @@ def repair_rule(rule_id, session=None):
             logging.info('Replication rule %s has been SUSPENDED' % (rule_id))
             return
 
-        if session.bind.dialect.name != 'sqlite':
-            session.begin_nested()
-
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
         try:
+            rses = parse_expression(rule.rse_expression, session=session)
             if rule.ignore_availability:
-                rses = parse_expression(rule.rse_expression, session=session)
+                target_rses = parse_expression(rule.rse_expression, session=session)
             else:
-                rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+                target_rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
             if rule.source_replica_expression:
                 source_rses = parse_expression(rule.source_replica_expression, session=session)
             else:
                 source_rses = []
         except (InvalidRSEExpression, RSEBlacklisted) as e:
-            session.rollback()
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
@@ -854,12 +868,11 @@ def repair_rule(rule_id, session=None):
         # Create the RSESelector
         try:
             rseselector = RSESelector(account=rule.account,
-                                      rses=rses,
+                                      rses=target_rses,
                                       weight=rule.weight,
                                       copies=rule.copies,
                                       session=session)
         except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
-            session.rollback()
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
@@ -909,10 +922,6 @@ def repair_rule(rule_id, session=None):
                                                                                              only_stuck=not hard_repair,
                                                                                              session=session)
 
-        if session.bind.dialect.name != 'sqlite':
-            session.commit()
-            session.begin_nested()
-
         session.flush()
 
         # 1. Try to find missing locks and create them based on grouping
@@ -926,9 +935,7 @@ def repair_rule(rule_id, session=None):
                                                      rule=rule,
                                                      source_rses=[rse['id'] for rse in source_rses],
                                                      session=session)
-            except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
-                if isinstance(e, IntegrityError):
-                    session.rollback()
+            except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
                 rule.state = RuleState.STUCK
                 rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                 rule.save(session=session)
@@ -938,8 +945,6 @@ def repair_rule(rule_id, session=None):
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                 logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
-                if not isinstance(e, IntegrityError):
-                    session.commit()
                 return
 
             session.flush()
@@ -967,9 +972,7 @@ def repair_rule(rule_id, session=None):
                                                rule=rule,
                                                source_rses=[rse['id'] for rse in source_rses],
                                                session=session)
-        except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
-            if isinstance(e, IntegrityError):
-                session.rollback()
+        except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
@@ -979,12 +982,7 @@ def repair_rule(rule_id, session=None):
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
             logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
-            if not isinstance(e, IntegrityError):
-                session.commit()
             return
-
-        if session.bind.dialect.name != 'sqlite':
-            session.commit()
 
         if rule.locks_stuck_cnt != 0:
             logging.info('Rule %s [%d/%d/%d] state=STUCK' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
@@ -1022,6 +1020,8 @@ def repair_rule(rule_id, session=None):
             generate_message_for_dataset_ok_callback(rule=rule, session=session)
         if rule.notification == RuleNotification.YES:
             generate_email_for_rule_ok_notification(rule=rule, session=session)
+        # Try to release potential parent rules
+        rucio.core.rule.release_parent_rule(child_rule_id=rule.id, session=session)
 
         return
 
@@ -1064,7 +1064,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at']
 
     for key in options:
         if key not in valid_options:
@@ -1074,12 +1074,9 @@ def update_rule(rule_id, options, session=None):
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
         for key in options:
             if key == 'lifetime':
-                # Check SCRATCHDISK Polciy
-                if not has_account_attribute(account=rule.account, key='admin', session=session) and (options['lifetime'] is None or options['lifetime'] > 60 * 60 * 24 * 15):
-                    # Check if one of the rses is a SCRATCHDISK:
-                    rses = parse_expression(rule.rse_expression, session=session)
-                    if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
-                        raise ScratchDiskLifetimeConflict()
+                # Check SCRATCHDISK Policy
+                rses = parse_expression(rule.rse_expression, session=session)
+                get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
@@ -1096,7 +1093,7 @@ def update_rule(rule_id, options, session=None):
                     session.flush()
                     queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
                                                                   request_type=RequestType.TRANSFER,
-                                                                  scope=lock.scope, name=lock.name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
+                                                                  scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
                                                                   ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity, session=session)], session=session)
 
             elif key == 'account':
@@ -1155,6 +1152,7 @@ def update_rule(rule_id, options, session=None):
 
             elif key == 'priority':
                 try:
+                    rule.priority = options[key]
                     update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
                 except Exception, e:
                     raise UnsupportedOperation('The FTS Requests are already in a final state.')
@@ -1304,13 +1302,14 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
 
 
 @read_session
-def get_updated_dids(total_workers, worker_number, limit=10, session=None):
+def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[], session=None):
     """
     Get updated dids.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param limit:              Maximum number of dids to return.
+    :param blacklisted_dids:   Blacklisted dids to filter.
     :param session:            Database session in use.
     """
     query = session.query(models.UpdatedDID.id,
@@ -1328,17 +1327,60 @@ def get_updated_dids(total_workers, worker_number, limit=10, session=None):
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
-    return query.order_by(models.UpdatedDID.created_at).limit(limit).all()
+    if limit:
+        fetched_dids = query.order_by(models.UpdatedDID.created_at).limit(limit).all()
+        filtered_dids = [did for did in fetched_dids if (did.scope, did.name) not in blacklisted_dids]
+        if len(fetched_dids) == limit and len(filtered_dids) == 0:
+            return get_updated_dids(total_workers=total_workers,
+                                    worker_number=worker_number,
+                                    limit=None,
+                                    blacklisted_dids=blacklisted_dids,
+                                    session=session)
+        else:
+            return filtered_dids
+    else:
+        return [did for did in query.order_by(models.UpdatedDID.created_at).all() if (did.scope, did.name) not in blacklisted_dids]
 
 
 @read_session
-def get_expired_rules(total_workers, worker_number, limit=10, session=None):
+def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
+    """
+    Get rules which have eol_at before a certain date.
+
+    :param date_check:         The reference date that should be compared to eol_at.
+    :param worker_number:      id of the executing worker.
+    :param total_workers:      Number of total workers.
+    :param session:            Database session in use.
+    """
+    query = session.query(models.ReplicationRule.scope,
+                          models.ReplicationRule.name,
+                          models.ReplicationRule.rse_expression,
+                          models.ReplicationRule.locked,
+                          models.ReplicationRule.id,
+                          models.ReplicationRule.eol_at,
+                          models.ReplicationRule.expires_at).\
+        filter(models.ReplicationRule.eol_at < date_check)
+
+    if session.bind.dialect.name == 'oracle':
+        bindparams = [bindparam('worker_number', worker_number),
+                      bindparam('total_workers', total_workers)]
+        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+    elif session.bind.dialect.name == 'mysql':
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+    elif session.bind.dialect.name == 'postgresql':
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+    return [rule for rule in query.all()]
+
+
+@read_session
+def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules=[], session=None):
     """
     Get expired rules.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param limit:              Maximum number of rules to return.
+    :param backlisted_rules:   List of blacklisted rules.
     :param session:            Database session in use.
     """
 
@@ -1357,17 +1399,30 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
-    return query.limit(limit).all()
+    if limit:
+        fetched_rules = query.limit(limit).all()
+        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
+        if len(fetched_rules) == limit and len(filtered_rules) == 0:
+            return get_expired_rules(total_workers=total_workers,
+                                     worker_number=worker_number,
+                                     limit=None,
+                                     blacklisted_rules=blacklisted_rules,
+                                     session=session)
+        else:
+            return filtered_rules
+    else:
+        return [rule for rule in query.all() if rule[0] not in blacklisted_rules]
 
 
 @read_session
-def get_injected_rules(total_workers, worker_number, limit=10, session=None):
+def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rules=[], session=None):
     """
     Get rules to be injected.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param limit:              Maximum number of rules to return.
+    :param blacklisted_rules:  Blacklisted rules not to include.
     :param session:            Database session in use.
     """
 
@@ -1392,11 +1447,23 @@ def get_injected_rules(total_workers, worker_number, limit=10, session=None):
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
 
-    return query.limit(limit).all()
+    if limit:
+        fetched_rules = query.limit(limit).all()
+        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
+        if len(fetched_rules) == limit and len(filtered_rules) == 0:
+            return get_injected_rules(total_workers=total_workers,
+                                      worker_number=worker_number,
+                                      limit=None,
+                                      blacklisted_rules=blacklisted_rules,
+                                      session=session)
+        else:
+            return filtered_rules
+    else:
+        return [rule for rule in query.all() if rule[0] not in blacklisted_rules]
 
 
 @read_session
-def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=None):
+def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklisted_rules=[], session=None):
     """
     Get stuck rules.
 
@@ -1404,6 +1471,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
     :param worker_number:      id of the executing worker.
     :param delta:              Delta in seconds to select rules in.
     :param limit:              Maximum number of rules to select.
+    :param blacklisted_rules:  Blacklisted rules to filter out.
     :param session:            Database session in use.
     """
     is_none, is_true = None, True
@@ -1435,7 +1503,21 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, session=N
         query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
-    return query.limit(limit).all()
+
+    if limit:
+        fetched_rules = query.limit(limit).all()
+        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
+        if len(fetched_rules) == limit and len(filtered_rules) == 0:
+            return get_stuck_rules(total_workers=total_workers,
+                                   worker_number=worker_number,
+                                   delta=delta,
+                                   limit=None,
+                                   blacklisted_rules=blacklisted_rules,
+                                   session=session)
+        else:
+            return filtered_rules
+    else:
+        return [rule for rule in query.all() if rule[0] not in blacklisted_rules]
 
 
 @transactional_session
@@ -1589,7 +1671,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
             adler32 = replica.adler32
             queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
                                                           request_type=RequestType.TRANSFER,
-                                                          scope=scope, name=name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
+                                                          scope=scope, name=name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
                                                           ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery', session=session)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
@@ -1713,11 +1795,12 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
 
 
 @transactional_session
-def approve_rule(rule_id, notify_approvers=True, session=None):
+def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
     """
     Approve a specific replication rule.
 
     :param rule_id:           The rule_id to approve.
+    :param approver:          The account which is approving the rule.
     :param notify_approvers:  Notify the other approvers.
     :param session:           The database session in use.
     :raises:                  RuleNotFound if no Rule can be found.
@@ -1728,6 +1811,12 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
         if rule.state == RuleState.WAITING_APPROVAL:
             rule.ignore_account_limit = True
             rule.state = RuleState.INJECT
+            if approver:
+                approver_email = get_account(account=approver, session=session).email
+                if approver_email:
+                    approver = '%s (%s)' % (approver, approver_email)
+            else:
+                approver = 'AUTOMATIC'
             with open('%s/rule_approved_user.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                 template = Template(templatefile.read())
                 email = get_account(account=rule.account, session=session).email
@@ -1738,7 +1827,8 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
                                                      'comment': rule.comments,
                                                      'scope': rule.scope,
                                                      'name': rule.name,
-                                                     'did_type': rule.did_type})
+                                                     'did_type': rule.did_type,
+                                                     'approver': approver})
                     add_message(event_type='email',
                                 payload={'body': text,
                                          'to': [email],
@@ -1748,7 +1838,8 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
             if notify_approvers:
                 with open('%s/rule_approved_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                     template = Template(templatefile.read())
-                text = template.safe_substitute({'rule_id': str(rule.id)})
+                text = template.safe_substitute({'rule_id': str(rule.id),
+                                                 'approver': approver})
                 recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
                 for recipent in recipents:
                     add_message(event_type='email',
@@ -1763,13 +1854,14 @@ def approve_rule(rule_id, notify_approvers=True, session=None):
 
 
 @transactional_session
-def deny_rule(rule_id, session=None):
+def deny_rule(rule_id, approver=None, session=None):
     """
     Deny a specific replication rule.
 
-    :param rule_id: The rule_id to approve.
-    :param session: The database session in use.
-    :raises:        RuleNotFound if no Rule can be found.
+    :param rule_id:   The rule_id to approve.
+    :param approver:  The account which is denying the rule.
+    :param session:   The database session in use.
+    :raises:          RuleNotFound if no Rule can be found.
     """
 
     try:
@@ -1778,13 +1870,20 @@ def deny_rule(rule_id, session=None):
             with open('%s/rule_denied_user.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                 template = Template(templatefile.read())
             email = get_account(account=rule.account, session=session).email
+            if approver:
+                approver_email = get_account(account=approver, session=session).email
+                if approver_email:
+                    approver = '%s (%s)' % (approver, approver_email)
+            else:
+                approver = 'AUTOMATIC'
             if email:
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'rse_expression': rule.rse_expression,
                                                  'comment': rule.comments,
                                                  'scope': rule.scope,
                                                  'name': rule.name,
-                                                 'did_type': rule.did_type})
+                                                 'did_type': rule.did_type,
+                                                 'approver': approver})
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
@@ -1794,7 +1893,8 @@ def deny_rule(rule_id, session=None):
             # Also notify the other approvers
             with open('%s/rule_denied_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                 template = Template(templatefile.read())
-            text = template.safe_substitute({'rule_id': str(rule.id)})
+            text = template.safe_substitute({'rule_id': str(rule.id),
+                                             'approver': approver})
             recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
             for recipent in recipents:
                 add_message(event_type='email',
@@ -1846,7 +1946,7 @@ def examine_rule(rule_id, session=None):
                     available_replicas = session.query(models.RSEFileAssociation).filter_by(scope=lock.scope, name=lock.name, state=ReplicaState.AVAILABLE).all()
                     for replica in available_replicas:
                         sources.append((get_rse(None, rse_id=replica.rse_id, session=session).rse,
-                                        True if get_rse(None, rse_id=replica.rse_id, session=session) >= 7 else False))
+                                        True if get_rse(None, rse_id=replica.rse_id, session=session).availability >= 4 else False))
                 result['transfers'].append({'scope': lock.scope,
                                             'name': lock.name,
                                             'rse': get_rse_name(lock.rse_id, session=session),
@@ -1863,12 +1963,13 @@ def examine_rule(rule_id, session=None):
 
 
 @transactional_session
-def release_parent_rule(child_rule_id, session=None):
+def release_parent_rule(child_rule_id, remove_parent_expiration=False, session=None):
     """
     Release a potential parent rule, because the child_rule is OK.
 
-    :param child_rule_id:  The child rule id.
-    :param session:        The Database session
+    :param child_rule_id:             The child rule id.
+    :param remove_parant_expiration:  If true, removes the expiration of the parent rule.
+    :param session:                   The Database session
     """
 
     session.flush()
@@ -1876,6 +1977,8 @@ def release_parent_rule(child_rule_id, session=None):
     parent_rules = session.query(models.ReplicationRule).filter_by(child_rule_id=child_rule_id).\
         with_hint(models.ReplicationRule, "index(RULES RULES_CHILD_RULE_ID_IDX)", 'oracle').all()
     for rule in parent_rules:
+        if remove_parent_expiration:
+            rule.expires_at = None
         rule.child_rule_id = None
         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
@@ -2162,10 +2265,8 @@ def __evaluate_did_attach(eval_did, session=None):
                     # Resolve the rules to possible target rses:
                     possible_rses = []
                     source_rses = []
-                    if session.bind.dialect.name != 'sqlite':
-                        session.begin_nested()
-                    try:
-                        for rule in rules:
+                    for rule in rules:
+                        try:
                             if rule.source_replica_expression:
                                 source_rses.extend(parse_expression(rule.source_replica_expression, session=session))
 
@@ -2173,13 +2274,8 @@ def __evaluate_did_attach(eval_did, session=None):
                                 possible_rses.extend(parse_expression(rule.rse_expression, session=session))
                             else:
                                 possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
-                    except Exception, e:
-                        logging.warning('Could not parse RSE expression for possible RSEs for rule %s' % (str(rule.id)))
-                        session.rollback()
-                        possible_rses = []
-                        session.begin_nested()
-                    if session.bind.dialect.name != 'sqlite':
-                        session.commit()
+                        except (InvalidRSEExpression, RSEBlacklisted) as e:
+                            possible_rses = []
 
                     source_rses = list(set([rse['id'] for rse in source_rses]))
                     possible_rses = list(set([rse['id'] for rse in possible_rses]))
@@ -2196,8 +2292,6 @@ def __evaluate_did_attach(eval_did, session=None):
                         rule_locks_ok_cnt_before = rule.locks_ok_cnt
 
                         # 1. Resolve the rse_expression into a list of RSE-ids
-                        if session.bind.dialect.name != 'sqlite':
-                            session.begin_nested()
                         try:
                             if rule.ignore_availability:
                                 rses = parse_expression(rule.rse_expression, session=session)
@@ -2207,7 +2301,6 @@ def __evaluate_did_attach(eval_did, session=None):
                             if rule.source_replica_expression:
                                 source_rses = parse_expression(rule.source_replica_expression, session=session)
                         except (InvalidRSEExpression, RSEBlacklisted) as e:
-                            session.rollback()
                             rule.state = RuleState.STUCK
                             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                             rule.save(session=session)
@@ -2226,7 +2319,6 @@ def __evaluate_did_attach(eval_did, session=None):
                                                       copies=rule.copies,
                                                       session=session)
                         except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
-                            session.rollback()
                             rule.state = RuleState.STUCK
                             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                             rule.save(session=session)
@@ -2263,9 +2355,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                               preferred_rse_ids=preferred_rse_ids,
                                                               source_rses=[rse['id'] for rse in source_rses],
                                                               session=session)
-                        except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
-                            if isinstance(e, IntegrityError):
-                                session.rollback()
+                        except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
                             rule.state = RuleState.STUCK
                             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                             rule.save(session=session)
@@ -2274,8 +2364,6 @@ def __evaluate_did_attach(eval_did, session=None):
                             # Try to update the DatasetLocks
                             if rule.grouping != RuleGrouping.NONE:
                                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-                            if not isinstance(e, IntegrityError):
-                                session.commit()
                             continue
 
                         # 4. Update the Rule State
@@ -2301,9 +2389,6 @@ def __evaluate_did_attach(eval_did, session=None):
 
                         # Insert rule history
                         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
-
-                        if session.bind.dialect.name != 'sqlite':
-                            session.commit()
 
             # Unflage the dids
             with record_timer_block('rule.evaluate_did_attach.update_did'):
@@ -2562,6 +2647,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_repl
         account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
 
     # Add the transfers
+    logging.debug("Rule %s  [%d/%d/%d] queued %d transfers" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt, len(transfers_to_create)))
     queue_requests(requests=transfers_to_create, session=session)
     session.flush()
     logging.debug("Finished creating locks and replicas for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))

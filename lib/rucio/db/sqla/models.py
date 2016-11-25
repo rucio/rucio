@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 
@@ -327,6 +327,7 @@ class DataIdentifier(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
+    purge_replicas = Column(Boolean(name='DIDS_PURGE_RPLCS_CHK'), server_default='1')
     deleted_at = Column(DateTime)
     # hardcoded meta-data to populate the db
     events = Column(BigInteger)
@@ -346,6 +347,7 @@ class DataIdentifier(BASE, ModelBase):
     transient = Column(Boolean(name='DID_TRANSIENT_CHK'), server_default='0')
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -353,7 +355,8 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('OBSOLETE IS NOT NULL', name='DIDS_OBSOLETE_NN'),
                    CheckConstraint('SUPPRESSED IS NOT NULL', name='DIDS_SUPP_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_ACCOUNT_NN'),
-                   #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
+                   CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='DIDS_PURGE_REPLICAS_NN'),
+                   # UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
 
@@ -379,6 +382,7 @@ class DeletedDataIdentifier(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
+    purge_replicas = Column(Boolean(name='DELETED_DIDS_PURGE_RPLCS_CHK'), default=True)
     deleted_at = Column(DateTime)
     events = Column(BigInteger)
     guid = Column(GUID())
@@ -395,8 +399,10 @@ class DeletedDataIdentifier(BASE, ModelBase):
     provenance = Column(String(2))
     phys_group = Column(String(25))
     transient = Column(Boolean(name='DEL_DID_TRANSIENT_CHK'), server_default='0')
+    purge_replicas = Column(Boolean(name='DELETED_DIDS_PURGE_RPLCS_CHK'))
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
 
 
@@ -614,6 +620,7 @@ class RSEProtocols(BASE, ModelBase):
     read_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     write_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     delete_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    third_party_copy = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     extended_attributes = Column(String(1024), nullable=True)
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
@@ -744,8 +751,10 @@ class ReplicationRule(BASE, ModelBase):
     purge_replicas = Column(Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False)
     ignore_availability = Column(Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False)
     ignore_account_limit = Column(Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False)
+    priority = Column(Integer)
     comments = Column(String(255))
     child_rule_id = Column(GUID())
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
@@ -798,8 +807,10 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     purge_replicas = Column(Boolean())
     ignore_availability = Column(Boolean())
     ignore_account_limit = Column(Boolean())
+    priority = Column(Integer)
     comments = Column(String(255))
     child_rule_id = Column(GUID())
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_RECENT_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HIST_RECENT_ID_IDX', 'id'),
                    Index('RULES_HIST_RECENT_SC_NA_IDX', 'scope', 'name'))
@@ -830,11 +841,13 @@ class ReplicationRuleHistory(BASE, ModelBase):
     grouping = Column(RuleGrouping.db_type())
     notification = Column(RuleNotification.db_type())
     stuck_at = Column(DateTime)
+    priority = Column(Integer)
     purge_replicas = Column(Boolean())
     ignore_availability = Column(Boolean())
     ignore_account_limit = Column(Boolean())
     comments = Column(String(255))
     child_rule_id = Column(GUID())
+    eol_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HISTORY_SCOPENAME_IDX', 'scope', 'name'))
 
@@ -923,9 +936,13 @@ class Request(BASE, ModelBase, Versioned):
     transferred_at = Column(DateTime)
     estimated_at = Column(DateTime)
     submitter_id = Column(Integer)
+    account = Column(String(25))
+    requested_at = Column(DateTime)
+    priority = Column(Integer)
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='REQUESTS_ACCOUNT_FK'),
                    CheckConstraint('dest_rse_id IS NOT NULL', name='REQUESTS_RSE_ID_NN'),
                    Index('REQUESTS_SCOPE_NAME_RSE_IDX', 'scope', 'name', 'dest_rse_id', 'request_type'),
                    Index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'request_type', 'state', 'updated_at'),
@@ -964,6 +981,11 @@ class Distance(BASE, ModelBase):
     ranking = Column(Integer())
     agis_distance = Column(Integer())
     geoip_distance = Column(Integer())
+    active = Column(Integer())
+    submitted = Column(Integer())
+    finished = Column(Integer())
+    failed = Column(Integer())
+    transfer_speed = Column(Integer())
     _table_args = (PrimaryKeyConstraint('src_rse_id', 'dest_rse_id', name='DISTANCES_PK'),
                    ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='DISTANCES_SRC_RSES_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='DISTANCES_DEST_RSES_FK'),
@@ -1063,6 +1085,47 @@ class NamingConvention(BASE, ModelBase):
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='NAMING_CONVENTIONS_SCOPE_FK'))
 
 
+class TemporaryDataIdentifier(BASE, ModelBase):
+    """Represents a temporary DID (pre-merged files, etc.)"""
+    __tablename__ = 'tmp_dids'
+    scope = Column(String(25))
+    name = Column(String(255))
+    rse_id = Column(GUID())
+    path = Column(String(1024))
+    bytes = Column(BigInteger)
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
+    expired_at = Column(DateTime)
+    guid = Column(GUID())
+    events = Column(BigInteger)
+    task_id = Column(Integer())
+    panda_id = Column(Integer())
+    parent_scope = Column(String(25))
+    parent_name = Column(String(255))
+    offset = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='TMP_DIDS_PK'),
+                   Index('TMP_DIDS_EXPIRED_AT_IDX', 'expired_at'))
+
+
+class LifetimeExceptions(BASE, ModelBase):
+    """Represents the exceptions to the lifetime model"""
+    __tablename__ = 'lifetime_except'
+    id = Column(GUID(), default=utils.generate_uuid)
+    scope = Column(String(25))
+    name = Column(String(255))
+    did_type = Column(DIDType.db_type(name='LIFETIME_EXCEPT_TYPE_CHK'))
+    account = Column(String(25))
+    pattern = Column(String(255))
+    comments = Column(String(4000))
+    state = Column(BadFilesStatus.db_type(name='LIFETIME_EXCEPT_STATE_CHK'))
+    expires_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('id', 'scope', 'name', 'did_type', 'account', name='LIFETIME_EXCEPT_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='LIFETIME_EXCEPT_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='LIFETIME_EXCEPT_NAME_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='LIFETIME_EXCEPT_DID_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='LIFETIME_EXCEPT_ACCOUNT_FK'))
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -1074,6 +1137,7 @@ def register_models(engine):
               AccountUsage,
               AlembicVersion,
               BadReplicas,
+              CollectionReplica,
               Config,
               DataIdentifierAssociation,
               DataIdentifierAssociationHistory,
@@ -1084,6 +1148,7 @@ def register_models(engine):
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
+              LifetimeExceptions,
               Message,
               MessageHistory,
               NamingConvention,
@@ -1104,11 +1169,11 @@ def register_models(engine):
               Scope,
               Source,
               Subscription,
+              TemporaryDataIdentifier,
               Token,
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              CollectionReplica,
               UpdatedCollectionReplica)
 
     for model in models:
@@ -1125,6 +1190,7 @@ def unregister_models(engine):
               AccountUsage,
               AlembicVersion,
               BadReplicas,
+              CollectionReplica,
               Config,
               DataIdentifierAssociation,
               DataIdentifierAssociationHistory,
@@ -1135,6 +1201,7 @@ def unregister_models(engine):
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
+              LifetimeExceptions,
               Message,
               MessageHistory,
               NamingConvention,
@@ -1156,10 +1223,10 @@ def unregister_models(engine):
               Source,
               Subscription,
               Token,
+              TemporaryDataIdentifier,
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              CollectionReplica,
               UpdatedCollectionReplica)
 
     for model in models:

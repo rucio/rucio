@@ -22,6 +22,17 @@ class Default(protocol.RSEProtocol):
     def __init__(self, protocol_attr, rse_settings):
         super(Default, self).__init__(protocol_attr, rse_settings)
 
+    def _get_path(self, scope, name):
+        """ Transforms the physical file name into the local URI in the referred RSE.
+            Suitable for sites implementoing the RUCIO naming convention.
+
+            :param name: filename
+            :param scope: scope
+
+            :returns: RSE specific URI of the physical file
+        """
+        return '%s:%s' % (scope, name)
+
     def path2pfn(self, path):
         """
             Returns a fully qualified PFN for the file referred by path.
@@ -55,7 +66,7 @@ class Default(protocol.RSEProtocol):
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
-            if 'path' in lfn and self.rse['deterministic']:
+            if 'path' in lfn and lfn['path'] and self.rse['deterministic']:
                 path = lfn['path']
             elif 'prefix' in lfn and lfn['prefix'] is not None:
                 path = os.path.join(lfn['prefix'], scope + '/' + name)
@@ -80,7 +91,7 @@ class Default(protocol.RSEProtocol):
 
         for pfn in pfns:
 
-            parsed = urlparse(pfn)
+            parsed = urlparse.urlparse(pfn)
             scheme = parsed.scheme
             hostname = parsed.netloc.partition(':')[0]
             port = int(parsed.netloc.partition(':')[2]) if parsed.netloc.partition(':')[2] != '' else 0
