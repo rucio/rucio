@@ -10,6 +10,7 @@
 
 from json import dumps
 from os.path import dirname, join
+from time import time
 from web import cookies, ctx, input, setcookie, template
 
 from rucio import version
@@ -73,7 +74,10 @@ def check_token(rendered_tpl):
         accounts = identity.list_accounts_for_identity(dn, 'x509')
 
         if len(accounts) == 0:
-            return render.problem("Your certificate (%s) is not mapped to any rucio account. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
+            msg = "Your certificate (%s) is not mapped to any rucio account." % dn
+            msg += " Please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> first and then wait some time until it has fully propagated through the system."
+            msg += "Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
+            return render.problem(msg)
 
         if ui_account not in accounts:
             return render.problem("The rucio account (%s) you selected is not mapped to your certificate (%s). Please select another account or none at all to automatically use your default account." % (ui_account, dn))
@@ -86,7 +90,11 @@ def check_token(rendered_tpl):
                                                            'webui',
                                                            ctx.env.get('REMOTE_ADDR'))
             except:
-                return render.problem("Your certificate (%s) is not registered in Rucio. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
+                msg = "Your certificate (%s) is not registered in Rucio." % dn
+                msg += " Please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> first and then wait some time until it has fully propagated through the system."
+                msg += "Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
+                return render.problem(msg)
+
         attribs = list_account_attributes(ui_account)
         js_token = __to_js('token', token)
         js_account = __to_js('account', def_account)
@@ -127,6 +135,7 @@ def check_token(rendered_tpl):
     # if there was no valid session token write the new token to a cookie.
     if token:
         setcookie('x-rucio-auth-token', value=token, path='/')
+        setcookie('rucio-auth-token-created-at', value=int(time()), path='/')
 
     if cookie_accounts:
         values = ""

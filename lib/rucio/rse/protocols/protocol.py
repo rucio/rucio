@@ -35,6 +35,7 @@ class RSEProtocol(object):
             :param props: Properties of the reuested protocol
         """
         self.attributes = protocol_attr
+        self.renaming = True
         self.rse = rse_settings
         if not self.rse['deterministic']:
             if rsemanager.CLIENT_MODE:
@@ -127,7 +128,7 @@ class RSEProtocol(object):
         elif 'state' in r and (r['state'] is None or r['state'] == 'UNAVAILABLE'):
             raise exception.ReplicaUnAvailable('Missing path information and state is UNAVAILABLE for replica %s:%s on non-deterministic storage named %s' % (scope, name, self.rse['rse']))
         else:
-            raise exception.ReplicaNotFound('Missing path information for replica %s:%s on non-determinstic storage named %s' % (scope, name, self.rse['rse']))
+            raise exception.ReplicaNotFound('Missing path information for replica %s:%s on non-deterministic storage named %s' % (scope, name, self.rse['rse']))
         if path.startswith('/'):
             path = path[1:]
         if path.endswith('/'):

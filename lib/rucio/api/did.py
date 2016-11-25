@@ -176,6 +176,16 @@ def list_content(scope, name):
     return did.list_content(scope=scope, name=name)
 
 
+def list_content_history(scope, name):
+    """
+    List data identifier contents history.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    """
+    return did.list_content_history(scope=scope, name=name)
+
+
 def list_files(scope, name, long):
     """
     List data identifier file contents.

@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
@@ -14,8 +14,10 @@ from traceback import format_exc
 from alembic import command
 from alembic.config import Config
 
+from sqlalchemy import func
 from sqlalchemy.engine import reflection
 from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
+from sqlalchemy.sql.expression import select, text
 
 from rucio.common.config import config_get
 from rucio.core.account_counter import create_counters_for_new_account
@@ -140,3 +142,22 @@ def create_root_account():
     s.commit()
     s.add_all([iaa1, iaa2, iaa3])
     s.commit()
+
+
+def get_db_time():
+    """ Gives the utc time on the db. """
+    s = session.get_session()
+    try:
+        if s.bind.dialect.name == 'oracle':
+            query = select([text("sys_extract_utc(systimestamp)")])
+        elif s.bind.dialect.name == 'mysql':
+            query = select([text("utc_timestamp()")])
+        elif s.bind.dialect.name == 'sqlite':
+            query = select([text("datetime('now', 'utc')")])
+        else:
+            query = select([func.current_date()])
+
+        for now, in s.execute(query):
+            return now
+    finally:
+        s.remove()

@@ -6,7 +6,7 @@
   You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
   - Thomas Beermann, <thomas.beermann@cern.ch> 2013
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
@@ -297,9 +297,24 @@ class DIDClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
+    def list_content_history(self, scope, name):
+        """
+        List data identifier contents history.
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        """
+
+        path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids', 'history'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def list_files(self, scope, name, long=None):
         """
@@ -527,7 +542,6 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, input_scope, input_name, output_scope, output_name, str(nbfiles), 'sample'])
         url = build_url(choice(self.list_hosts), path=path)
-        print url
         r = self._send_request(url, type='POST', data=dumps({}))
         if r.status_code == codes.created:
             return True
@@ -549,3 +563,16 @@ class DIDClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
+
+    def add_temporary_dids(self, dids):
+        """
+        Bulk add temporary data identifiers.
+
+        :param dids: A list of dids.
+        """
+        url = build_url(choice(self.list_hosts), path='tmp_dids')
+        r = self._send_request(url, type='POST', data=dumps(dids))
+        if r.status_code == codes.created:
+            return True
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)

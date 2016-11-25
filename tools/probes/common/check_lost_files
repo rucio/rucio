@@ -23,8 +23,9 @@ from rucio.db.sqla.session import get_session
 # Exit statuses
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
-users = False
+users = True
 groups = True
+gdp = True
 testmode = False
 
 timestamp = datetime.today().strftime('%Y-%m-%d')
@@ -33,6 +34,33 @@ log_path = log_dir + timestamp + '.log'
 tmpdata_dir = '/var/log/rucio/lost_files/tmp/'
 tmpdata_path = tmpdata_dir + 'rse-lost-files.txt'
 reports_dir = '/var/log/rucio/lost_files/reports/'
+
+
+# extracting mails of users from Rucio DB
+def find_mails_users(account):
+
+    mails = []
+    session = get_session()
+    try:
+        query = ''' select distinct a.email from atlas_rucio.identities a, atlas_rucio.account_map b where
+a.identity=b.identity and b.account='%s'  ''' % account
+        result = session.execute(query)
+        for row in result:
+            for col in row:
+                mails.append(str(col))
+    except Exception, e:
+        flog = open(log_path, 'a')
+        flog.write(str(e))
+        # sys.exit(CRITICAL)
+
+    return mails
+
+
+# hardcoded, TODO
+def find_mails_gdp():
+
+    mails = ['atlas-adc-dpa@cern.ch', 'tomas.javurek@cern.ch']
+    return mails
 
 
 # extracting mails of physgroups from Rucio DB
@@ -51,50 +79,179 @@ def find_mails_groups(rse):
     except Exception, e:
         flog = open(log_path, 'a')
         flog.write(str(e))
-        sys.exit(CRITICAL)
+        # sys.exit(CRITICAL)
 
     return mails
 
 
-# mailing agent
-def send_report(rse):
+# find account for rule on given did
+def get_rule_owners(scope, name):
 
-    if groups:
-        # creating mailing list
-        mail_list = find_mails_groups(rse)
-        if mail_list == []:
-            return
-        report_path = reports_dir + 'report_' + rse
-        fr = open(report_path, 'rb')
+    rule_owners = []
+    session = get_session()
 
-        # defining mailing list
-        me = 'atlas-adc-ddm-support@cern.ch'
-        recepients = []
-
+    try:
+        query = ''' select distinct(account) from atlas_rucio.rules_history where scope='%s' and name='%s'  ''' % (str(scope), str(name))
         if testmode:
-            recepients = ['cedric.serfon@cern.ch', 'jaworda.t@seznam.cz', 'tomas.javurek@cern.ch']
-        else:
-            recepients = mail_list
+            print query
+        result = session.execute(query)
+        for row in result:
+            for col in row:
+                rule_owners.append(str(col))
+    except Exception, e:
+        flog = open(log_path, 'a')
+        flog.write(str(e))
+        # sys.exit(CRITICAL)
 
-        msg = MIMEMultipart()
-        msg['Subject'] = 'DDMops: lost files that can not be recovered'
-        msg['From'] = me
-        msg['To'] = ", ".join(recepients)
+    if testmode:
+        print 'DEBUG: ', scope, name
+        print 'DEBUG: rule owners', rule_owners
 
-        # email body
-        msg.attach(MIMEText('Please check the attached list of files that have been lost and can not be recovered. These files may affect you. In case of questions contact DDMops.'))
+    return rule_owners
 
-        # attachments
-        part = MIMEBase('application', "octet-stream")
-        part.set_payload(fr.read())
-        Encoders.encode_base64(part)
-        part.add_header('Content-Disposition', 'attachment; filename="%s"' % report_path)
-        msg.attach(part)
 
-        # sending email, s=server
-        s = smtplib.SMTP('localhost')
-        s.sendmail(me, recepients, msg.as_string())
-        s.quit()
+# mailing agent
+def send_report(rse, account):
+
+    # creating mailing lists
+    mail_list = []
+    report_path = ''
+    if groups and rse != '':
+        mail_list = find_mails_groups(rse)
+        report_path = reports_dir + 'report_' + rse
+    if users and account != '' and account != 'gdp':
+        mail_list = find_mails_users(account)
+        report_path = reports_dir + 'report_' + account
+    if gdp and account == 'gdp':
+        mail_list = find_mails_gdp()
+        report_path = reports_dir + 'report_' + account
+    if mail_list == [] or report_path == '' or report_path == 'report_':
+        return
+    if testmode:
+        print "DEBUG: mailing agent is accessed."
+        print "DEBUG: ", rse, account
+
+    fr = open(report_path, 'rb')
+
+    # defining mailing list
+    me = 'atlas-adc-ddm-support@cern.ch'
+    recepients = []
+
+    if testmode:
+        print 'DEBUG: notification would be send to:', mail_list
+        recepients = ['tomas.javurek@cern.ch']
+    else:
+        recepients = mail_list
+
+    msg = MIMEMultipart()
+    msg['Subject'] = 'DDMops: completely lost files that may affect you - last 7 days'
+    msg['From'] = me
+    msg['To'] = ", ".join(recepients)
+
+    # email body
+    msg.attach(MIMEText('Please check the attached list of files that have been lost and can not be recovered. These files may affect you. In case of questions contact DDMops.'))
+
+    # attachments
+    part = MIMEBase('application', "octet-stream")
+    part.set_payload(fr.read())
+    Encoders.encode_base64(part)
+    part.add_header('Content-Disposition', 'attachment; filename="%s"' % report_path)
+    msg.attach(part)
+
+    # sending email, s=server
+    if testmode:
+        print "DEBUG: mail is sent now."
+    s = smtplib.SMTP('localhost')
+    s.sendmail(me, recepients, msg.as_string())
+    s.quit()
+
+
+# create report for gdp
+# call mailing agent
+def report_gdp():
+
+    # INIT
+    if testmode:
+        print "DEBUG: making report for GDP"
+        print "||||||||||||||||||||||||||||"
+    if not os.path.isfile(tmpdata_path):
+        print "ERROR: lost files not downloaded"
+        sys.exit(CRITICAL)
+
+    cmd = 'cp %s %s' % (tmpdata_path, reports_dir + '/report_gdp')
+    os.system(cmd)
+
+    send_report('', 'gdp')
+
+
+# make report by user
+# call the mailing agent
+def report_by_account():
+
+    # INIT
+    if testmode:
+        print "DEBUG: making report by account"
+        print "|||||||||||||||||||||||||||||||"
+    if not os.path.isfile(tmpdata_path):
+        print "ERROR: lost files not downloaded"
+        sys.exit(CRITICAL)
+    fi = open(tmpdata_path, 'r')
+    data_per_account = {}
+
+    # loop over lost files from get_bad_files()
+    for line in fi.readlines():
+        scope = line.split(' ')[0]
+        data_name = line.split(' ')[1]
+        dataset = line.split(' ')[3]
+        rse_name = line.split(' ')[4]
+        account = line.split(' ')[5]  # who declared the file lost
+        updated_at = line.split(' ')[6]
+        accounts = []
+
+        # find owners of rule, they are contacted as well
+        if testmode:
+            print "DEBUG: get rule owners"
+        rule_owners = get_rule_owners(scope, dataset)
+        # did_woners = get_did_owner TO BE DEVELOPED
+        for own in rule_owners:
+            if own not in accounts:
+                accounts.append(own)
+        if testmode:
+            print 'INFO:', rse_name, account, dataset, data_name
+            if accounts == []:
+                print "DEBUG: there is no account to be notified."
+            else:
+                print "DEBUG: rule owners found:", accounts
+            print '======================='
+
+        for acc in accounts:
+            if acc not in data_per_account.keys():
+                data_per_account[acc] = [{'scope': scope, 'name': data_name, 'dataset': dataset, 'rse': rse_name, 'time': updated_at}]
+            else:
+                data_per_account[acc].append({'scope': scope, 'name': data_name, 'dataset': dataset, 'rse': rse_name, 'time': updated_at})
+
+    if testmode:
+        print "DEBUG: creating reports and sending."
+
+    # create report per account
+    for account in data_per_account.keys():
+        fo = open(reports_dir + 'report_' + account, 'w')
+        for bad_file in data_per_account[account]:
+            fo.write("%s %s %s %s\n" % (bad_file['scope'], bad_file['dataset'], bad_file['name'], bad_file['time']))
+
+    # send report by mail
+    for account in data_per_account.keys():
+        if testmode:
+            print "DEBUG: going to send the report."
+        send_report('', account)
+
+    if testmode:
+        if data_per_account == {}:
+            print "DEBUG: nothing to send."
+
+    if testmode:
+        print "DEBUG: report by accnounts done."
+    fi.close()
 
 
 # make report for each rse
@@ -118,9 +275,9 @@ def report_by_rses():
         updated_at = line.split(' ')[6]
 
         if rse_name not in data_per_rse.keys():
-            data_per_rse[rse_name] = [{'scope': scope, 'name': data_name, 'dataset': dataset, 'account': account, 'time': updated_at}]
+            data_per_rse[rse_name] = [{'scope': scope, 'name': data_name, 'dataset': dataset, 'account': account, 'time': updated_at, 'rse': rse_name}]
         else:
-            data_per_rse[rse_name].append({'scope': scope, 'name': data_name, 'dataset': dataset, 'account': account, 'time': updated_at})
+            data_per_rse[rse_name].append({'scope': scope, 'name': data_name, 'dataset': dataset, 'account': account, 'time': updated_at, 'rse': rse_name})
 
     # create report per rse
     for rse in data_per_rse.keys():
@@ -130,7 +287,7 @@ def report_by_rses():
 
     # send report by mail
     for rse in data_per_rse.keys():
-        send_report(rse)
+        send_report(rse, '')
 
     fi.close()
 
@@ -142,10 +299,16 @@ def get_bad_files():
     f = open(tmpdata_path, 'w')
     try:
         query = ''' select a.scope, a.name, b.scope, b.name, atlas_rucio.id2rse(a.rse_id), a.account, a.updated_at from atlas_rucio.bad_replicas a, atlas_rucio.contents_history b
- where a.state='L' and a.updated_at>sysdate-7 and b.did_type='D'and a.scope=b.child_scope and a.name=b.child_name '''
+ where a.state='L' and a.updated_at>sysdate-8 and b.did_type='D'and a.scope=b.child_scope and a.name=b.child_name '''
 
         result = session.execute(query)
         for row in result:
+            if row[3].startswith('panda.'):
+                continue
+            if testmode:
+                print query
+            if str(row[3]).split('_')[-1].startswith('sub'):
+                continue
             for col in row:
                 f.write('%s ' % col)
             f.write('\n')
@@ -173,13 +336,18 @@ def main():
         report_by_rses()
     # make and sent report to users
     if users:
-        sys.exit(WARNING)
+        report_by_account()
+    if gdp:
+        if testmode:
+            print "DEBUG: summary report to gdp"
+        report_gdp()
 
     # clean tmp
     cmd = 'rm ' + tmpdata_path
     os.system(cmd)
 
     sys.exit(OK)
+
 
 if __name__ == '__main__':
 

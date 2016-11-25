@@ -167,6 +167,10 @@ def receiver(id, total_threads=1, full_mode=False):
     pid = os.getpid()
     hb_thread = threading.current_thread()
 
+    heartbeat.sanity_check(executable=executable, hostname=hostname)
+    # Make an initial heartbeat so that all finishers have the correct worker number on the next try
+    heartbeat.live(executable, hostname, pid, hb_thread)
+
     brokers_alias = []
     brokers_resolved = []
     try:

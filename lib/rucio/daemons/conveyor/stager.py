@@ -30,7 +30,7 @@ from threadpool import ThreadPool, makeRequests
 from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
-from rucio.daemons.conveyor.submitter_utils import get_rses, get_stagein_transfers, bulk_group_transfer, submit_transfer
+from rucio.daemons.conveyor.utils import get_rses, get_stagein_transfers, bulk_group_transfer, submit_transfer
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -55,6 +55,11 @@ def submitter(once=False, rses=[], mock=False,
         scheme = config_get('conveyor', 'scheme')
     except NoOptionError:
         scheme = None
+
+    try:
+        failover_scheme = config_get('conveyor', 'failover_scheme')
+    except NoOptionError:
+        failover_scheme = None
 
     try:
         bring_online = config_get('conveyor', 'bring_online')
@@ -111,7 +116,7 @@ def submitter(once=False, rses=[], mock=False,
 
                 logging.info("%s:%s Starting to get stagein transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
-                transfers = get_stagein_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'],
+                transfers = get_stagein_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'], failover_schemes=failover_scheme,
                                                   limit=bulk, activity=activity, rses=rse_ids, mock=mock, schemes=scheme, bring_online=bring_online, retry_other_fts=retry_other_fts)
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.stager.get_stagein_transfers', len(transfers))

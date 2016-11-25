@@ -8,7 +8,8 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -139,6 +140,9 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                         if protocol['impl'] == 'rucio.rse.protocols.srm.Default' or protocol['impl'] == 'rucio.rse.protocols.gsiftp.Default':
                             protocol['impl'] = 'rucio.rse.protocols.gfal.Default'
 
+                        if protocol['impl'] == 'rucio.rse.protocols.signeds3.Default':
+                            protocol['impl'] = 'rucio.rse.protocols.s3es.Default'
+
                     logging.info('Reaper %s-%s: Running on RSE %s', worker_number, child_number, rse_info['rse'])
 
                     needed_free_space, max_being_deleted_files = None, 100
@@ -186,6 +190,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                 add_message('deletion-planned', {'scope': replica['scope'],
                                                                  'name': replica['name'],
                                                                  'file-size': replica['bytes'],
+                                                                 'bytes': replica['bytes'],
                                                                  'url': replica['pfn'],
                                                                  'rse': rse_info['rse']})
 
@@ -215,6 +220,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                       'name': replica['name'],
                                                                       'rse': rse_info['rse'],
                                                                       'file-size': replica['bytes'],
+                                                                      'bytes': replica['bytes'],
                                                                       'url': replica['pfn'],
                                                                       'duration': duration})
                                         logging.info('Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], duration)
@@ -227,6 +233,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                             'name': replica['name'],
                                                                             'rse': rse_info['rse'],
                                                                             'file-size': replica['bytes'],
+                                                                            'bytes': replica['bytes'],
                                                                             'url': replica['pfn'],
                                                                             'reason': str(err_msg)})
                                     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
@@ -235,6 +242,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                         'name': replica['name'],
                                                                         'rse': rse_info['rse'],
                                                                         'file-size': replica['bytes'],
+                                                                        'bytes': replica['bytes'],
                                                                         'url': replica['pfn'],
                                                                         'reason': str(error)})
                                     except Exception as error:
@@ -243,6 +251,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                         'name': replica['name'],
                                                                         'rse': rse_info['rse'],
                                                                         'file-size': replica['bytes'],
+                                                                        'bytes': replica['bytes'],
                                                                         'url': replica['pfn'],
                                                                         'reason': str(error)})
                                     except:
@@ -254,6 +263,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                     'name': replica['name'],
                                                                     'rse': rse_info['rse'],
                                                                     'file-size': replica['bytes'],
+                                                                    'bytes': replica['bytes'],
                                                                     'url': replica['pfn'],
                                                                     'reason': str(error)})
                             finally:

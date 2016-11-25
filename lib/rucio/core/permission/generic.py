@@ -6,22 +6,13 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2016
-# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
 
 import rucio.core.authentication
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
-from rucio.core.lock import get_replica_locks_for_rule_id_per_rse
 from rucio.core.rse import list_rse_attributes
-from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.rule import get_rule
 from rucio.db.sqla.constants import IdentityType
 
 
@@ -47,6 +38,7 @@ def has_permission(issuer, action, kwargs):
             'del_protocol': perm_del_protocol,
             'update_protocol': perm_update_protocol,
             'declare_bad_file_replicas': perm_declare_bad_file_replicas,
+            'declare_suspicious_file_replicas': perm_declare_suspicious_file_replicas,
             'add_replicas': perm_add_replicas,
             'delete_replicas': perm_delete_replicas,
             'skip_availability_check': perm_skip_availability_check,
@@ -107,7 +99,7 @@ def perm_default(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_add_rse(issuer, kwargs):
@@ -144,7 +136,6 @@ def perm_add_rule(issuer, kwargs):
         return True
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-
     return False
 
 
@@ -158,7 +149,6 @@ def perm_add_subscription(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-
     return False
 
 
@@ -172,15 +162,6 @@ def perm_add_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] in ['auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files', 'block_manual_approve']:
-        # Check if user is a country admin
-        admin_in_country = []
-        for kv in list_account_attributes(account=issuer):
-            if kv['key'].startswith('country-') and kv['value'] == 'admin':
-                admin_in_country.append(kv['key'].partition('-')[2])
-        if admin_in_country:
-            if list_rse_attributes(rse=kwargs['rse']).get('country') in admin_in_country:
-                return True
     return False
 
 
@@ -194,15 +175,6 @@ def perm_del_rse_attribute(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if kwargs['key'] in ['auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_limit_bytes', 'default_limit_files', 'block_manual_approve']:
-        # Check if user is a country admin
-        admin_in_country = []
-        for kv in list_account_attributes(account=issuer):
-            if kv['key'].startswith('country-') and kv['value'] == 'admin':
-                admin_in_country.append(kv['key'].partition('-')[2])
-        if admin_in_country:
-            if list_rse_attributes(rse=kwargs['rse']).get('country') in admin_in_country:
-                return True
     return False
 
 
@@ -406,19 +378,8 @@ def perm_del_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    if issuer == 'root' or issuer == 'ddmadmin':
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    if get_rule(kwargs['rule_id'])['account'] == issuer:
-        return True
-    # Check if user is a country admin
-    admin_in_country = []
-    for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country:
-        for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
-            if list_rse_attributes(rse=None, rse_id=rse['rse_id']).get('country') in admin_in_country:
-                return True
     return False
 
 
@@ -430,30 +391,8 @@ def perm_update_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    # Admin accounts can do everything
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-
-    # Only admin accounts can change account, state, priority and locked of a rule
-    if 'account' in kwargs['options'] or\
-       'state' in kwargs['options'] or\
-       'priority' in kwargs['options'] or\
-       'locked' in kwargs['options'] or\
-       'child_rule_id' in kwargs['options']:
-        return False  # Only priv accounts are allowed to change that
-
-    # Owner or country admins can change the rest of a rule
-    if get_rule(kwargs['rule_id'])['account'] == issuer:
-        return True
-    admin_in_country = []
-    for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country:
-        for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
-            if list_rse_attributes(rse=None, rse_id=rse['rse_id']).get('country') in admin_in_country:
-                return True
-
     return False
 
 
@@ -465,44 +404,8 @@ def perm_approve_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    # Admin accounts can do everything
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-
-    rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'])
-
-    # APPROVERS can approve the rule
-    for rse in rses:
-        rse_attr = list_rse_attributes(rse=rse['rse'])
-        if rse_attr.get('rule_approvers'):
-            if issuer in rse_attr.get('rule_approvers').split(','):
-                return True
-
-    # LOCALGROUPDISK/LOCALGROUPTAPE admins can approve the rule
-    admin_in_country = []
-    for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country:
-        for rse in rses:
-            rse_attr = list_rse_attributes(rse=rse['rse'])
-            if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
-                if rse_attr.get('country', '') in admin_in_country:
-                    return True
-
-    # GROUPDISK admins can approve the rule
-    admin_for_phys_group = []
-    for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('group-') and kv['value'] == 'admin':
-            admin_for_phys_group.append(kv['key'].partition('-')[2])
-    if admin_for_phys_group:
-        for rse in rses:
-            rse_attr = list_rse_attributes(rse=rse['rse'])
-            if rse_attr.get('type', '') == 'GROUPDISK':
-                if rse_attr.get('physgroup', '') in admin_for_phys_group:
-                    return True
-
     return False
 
 
@@ -615,6 +518,17 @@ def perm_declare_bad_file_replicas(issuer, kwargs):
     return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
 
 
+def perm_declare_suspicious_file_replicas(issuer, kwargs):
+    """
+    Checks if an account can declare suspicious file replicas.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return True
+
+
 def perm_add_replicas(issuer, kwargs):
     """
     Checks if an account can add replicas.
@@ -661,11 +575,7 @@ def perm_update_replicas_states(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return str(kwargs.get('rse', '')).endswith('SCRATCHDISK')\
-        or str(kwargs.get('rse', '')).endswith('MOCK')\
-        or str(kwargs.get('rse', '')).endswith('LOCALGROUPDISK')\
-        or issuer == 'root'\
-        or has_account_attribute(account=issuer, key='admin')
+    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_queue_requests(issuer, kwargs):

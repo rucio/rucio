@@ -9,7 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import logging
@@ -24,6 +24,7 @@ import rucio.core.rule
 import rucio.core.did
 
 from rucio.common.config import config_get
+from rucio.common.policy import define_eol
 from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
@@ -45,10 +46,18 @@ def get_dataset_locks(scope, name, session=None):
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    query = session.query(models.DatasetLock.rse_id, models.DatasetLock.scope, models.DatasetLock.name, models.DatasetLock.rule_id, models.DatasetLock.account, models.DatasetLock.state).filter_by(scope=scope, name=name)
+    query = session.query(models.DatasetLock.rse_id,
+                          models.DatasetLock.scope,
+                          models.DatasetLock.name,
+                          models.DatasetLock.rule_id,
+                          models.DatasetLock.account,
+                          models.DatasetLock.state,
+                          models.DatasetLock.length,
+                          models.DatasetLock.bytes,
+                          models.DatasetLock.accessed_at).filter_by(scope=scope, name=name)
 
     dict = {}
-    for rse_id, scope, name, rule_id, account, state in query.yield_per(500):
+    for rse_id, scope, name, rule_id, account, state, length, bytes, accessed_at in query.yield_per(500):
         if rse_id not in dict:
             dict[rse_id] = get_rse_name(rse_id, session=session)
         yield {'rse_id': rse_id,
@@ -57,7 +66,10 @@ def get_dataset_locks(scope, name, session=None):
                'name': name,
                'rule_id': rule_id,
                'account': account,
-               'state': state}
+               'state': state,
+               'length': length,
+               'bytes': bytes,
+               'accessed_at': accessed_at}
 
 
 @stream_session
@@ -69,11 +81,19 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
     :param session:        The db session.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
-    query = session.query(models.DatasetLock.rse_id, models.DatasetLock.scope, models.DatasetLock.name, models.DatasetLock.rule_id, models.DatasetLock.account, models.DatasetLock.state).filter_by(rse_id=rse_id).\
+    query = session.query(models.DatasetLock.rse_id,
+                          models.DatasetLock.scope,
+                          models.DatasetLock.name,
+                          models.DatasetLock.rule_id,
+                          models.DatasetLock.account,
+                          models.DatasetLock.state,
+                          models.DatasetLock.length,
+                          models.DatasetLock.bytes,
+                          models.DatasetLock.accessed_at).filter_by(rse_id=rse_id).\
         with_hint(models.DatasetLock, "index(DATASET_LOCKS DATASET_LOCKS_RSE_ID_IDX)", 'oracle')
 
     dict = {}
-    for rse_id, scope, name, rule_id, account, state in query.yield_per(500):
+    for rse_id, scope, name, rule_id, account, state, length, bytes, accessed_at in query.yield_per(500):
         if rse_id not in dict:
             dict[rse_id] = get_rse_name(rse_id, session=session)
         yield {'rse_id': rse_id,
@@ -82,7 +102,10 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
                'name': name,
                'rule_id': rule_id,
                'account': account,
-               'state': state}
+               'state': state,
+               'length': length,
+               'bytes': bytes,
+               'accessed_at': accessed_at}
 
 
 @read_session
@@ -264,7 +287,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
             pass
         elif (rule.locks_stuck_cnt > 0):
             pass
-        elif (rule.locks_replicating_cnt == 0):
+        elif (rule.locks_replicating_cnt == 0 and rule.state == RuleState.REPLICATING):
             rule.state = RuleState.OK
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
@@ -344,7 +367,7 @@ def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None
 @transactional_session
 def touch_dataset_locks(dataset_locks, session=None):
     """
-    Update the accessed_at timestamp of the given dataset locks.
+    Update the accessed_at timestamp of the given dataset locks + eol_at.
 
     :param replicas: the list of dataset locks.
     :param session: The database session in use.
@@ -359,9 +382,11 @@ def touch_dataset_locks(dataset_locks, session=None):
                 rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
             dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
 
+        eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'rse_id': dataset_lock['rse_id']}], session=session)
         try:
             session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
                 update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
+            session.query(models.ReplicationRule).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name']).update({'eol_at': eol_at}, synchronize_session=False)
         except DatabaseError:
             return False
 

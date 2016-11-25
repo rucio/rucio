@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 """
@@ -59,13 +59,7 @@ def rule_repairer(once=False):
             # heartbeat
             heartbeat = live(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
 
-            # Select a bunch of rules for this worker to repair
             start = time.time()
-            rules = get_stuck_rules(total_workers=heartbeat['nr_threads'] - 1,
-                                    worker_number=heartbeat['assign_thread'],
-                                    delta=-1 if once else 1800,
-                                    limit=100)
-            logging.debug('rule_repairer[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(rules)))
 
             # Refresh paused rules
             iter_paused_rules = deepcopy(paused_rules)
@@ -73,11 +67,16 @@ def rule_repairer(once=False):
                 if datetime.utcnow() > paused_rules[key]:
                     del paused_rules[key]
 
-            # Remove paused rules from result set
-            rules = [rule for rule in rules if rule[0] not in paused_rules]
+            # Select a bunch of rules for this worker to repair
+            rules = get_stuck_rules(total_workers=heartbeat['nr_threads'] - 1,
+                                    worker_number=heartbeat['assign_thread'],
+                                    delta=-1 if once else 1800,
+                                    limit=100,
+                                    blacklisted_rules=[key for key in paused_rules])
+            logging.debug('rule_repairer[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(rules)))
 
             if not rules and not once:
-                logging.debug('rule_repairer[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
+                logging.debug('rule_repairer[%s/%s] did not get any work (paused_rules=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, str(len(paused_rules))))
                 graceful_stop.wait(60)
             else:
                 for rule_id in rules:

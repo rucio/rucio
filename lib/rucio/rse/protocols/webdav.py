@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2015
+  - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2016
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
   - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
 '''
@@ -173,7 +173,12 @@ class Default(protocol.RSEProtocol):
         except KeyError:
             x509 = os.getenv('X509_USER_PROXY')
             if not x509:
-                raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
+                # Trying to get the proxy from the default location
+                proxy_path = '/tmp/x509up_u%s' % os.geteuid()
+                if os.path.isfile(proxy_path):
+                    x509 = proxy_path
+                else:
+                    raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
             self.cert = (x509, x509)
 
         try:

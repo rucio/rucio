@@ -7,13 +7,14 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 
 """
 Methods common to different conveyor submitter daemons.
 """
+import math
 import datetime
 import json
 import logging
@@ -561,12 +562,13 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 'selection_strategy': fts_source_strategy,
                 'request_type': transfer['file_metadata'].get('request_type', None),
                 'activity': str(transfer['file_metadata']['activity'])}
-        if 'md5' in file['metadata'].keys() and file['metadata']['md5']:
-            file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
-        if 'adler32' in file['metadata'].keys() and file['metadata']['adler32']:
-            file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
+        if file['metadata'].get('verify_checksum', True):
+            if 'md5' in file['metadata'].keys() and file['metadata']['md5']:
+                file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
+            if 'adler32' in file['metadata'].keys() and file['metadata']['adler32']:
+                file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
 
-        job_params = {'verify_checksum': True if file['checksum'] else False,
+        job_params = {'verify_checksum': True if file['checksum'] and file['metadata'].get('verify_checksum', True) else False,
                       'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else 'null',
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
@@ -644,7 +646,7 @@ def get_unavailable_read_rse_ids(session=None):
 @read_session
 def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
                                               limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                                              bring_online=43200, retry_other_fts=False, session=None):
+                                              bring_online=43200, retry_other_fts=False, failover_schemes=None, session=None):
     req_sources = request.list_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                      limit=limit, activity=activity, older_than=older_than, rses=rses, session=session)
 
@@ -659,6 +661,10 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
         try:
             if rses and dest_rse_id not in rses:
                 continue
+
+            current_schemes = schemes
+            if previous_attempt_id and failover_schemes:
+                current_schemes = failover_schemes
 
             if id not in transfers:
                 if id not in reqs_no_source:
@@ -710,9 +716,9 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # Get protocol
                 if dest_rse_id not in protocols:
                     try:
-                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', schemes)
+                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', current_schemes)
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], schemes))
+                        logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -750,11 +756,6 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                    # replica cannot be imported. finisher will do it
-                    # update_replicas_paths([{'scope': req['scope'],
-                    #                                     'name': req['name'],
-                    #                                     'rse_id': req['dest_rse_id'],
-                    #                                     'path': dest_path}])
                     dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values()[0]
 
                 # get allowed source scheme
@@ -833,7 +834,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'dest_rse_id': dest_rse_id,
                                  'filesize': bytes,
                                  'md5': md5,
-                                 'adler32': adler32}
+                                 'adler32': adler32,
+                                 'verify_checksum': rse_attrs[dest_rse_id].get('verify_checksum', True)}
 
                 if previous_attempt_id:
                     file_metadata['previous_attempt_id'] = previous_attempt_id
@@ -982,7 +984,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
 
 @read_session
-def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
+def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None, failover_schemes=None,
                                              limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None,
                                              bring_online=43200, retry_other_fts=False, session=None):
     req_sources = request.list_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
@@ -993,6 +995,10 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
         try:
             if rses and dest_rse_id not in rses:
                 continue
+
+            current_schemes = schemes
+            if previous_attempt_id and failover_schemes:
+                current_schemes = failover_schemes
 
             if id not in transfers:
                 if id not in reqs_no_source:
@@ -1040,7 +1046,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                         rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
                     if source_rse_id not in protocols:
-                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', schemes)
+                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', current_schemes)
 
                     # we need to set the spacetoken if we use SRM
                     dest_spacetoken = None
@@ -1074,7 +1080,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                         rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
                     if source_rse_id not in protocols:
-                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', schemes)
+                        protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', current_schemes)
 
                     # we need to set the spacetoken if we use SRM
                     dest_spacetoken = None
@@ -1138,12 +1144,13 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
     return transfers, reqs_no_source
 
 
-def get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None,
+def get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None, failover_schemes=None,
                           limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, session=None):
     transfers, reqs_no_source = get_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                          limit=limit, activity=activity, older_than=older_than, rses=rses, mock=mock, schemes=schemes,
-                                                                         bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
-    request.set_requests_state(reqs_no_source, RequestState.LOST)
+                                                                         bring_online=bring_online, retry_other_fts=retry_other_fts, failover_schemes=failover_schemes,
+                                                                         session=session)
+    request.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
     return transfers
 
 
@@ -1218,14 +1225,17 @@ def sort_ranking(sources):
     return ret_sources
 
 
-def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                           limit=None, activity=None, older_than=None, rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200, retry_other_fts=False, session=None):
+def get_transfers(process=None, total_processes=None, thread=None, total_threads=None,
+                  failover_schemes=None, limit=None, activity=None, older_than=None,
+                  rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200,
+                  retry_other_fts=False, session=None):
     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
                                                                                                                        limit=limit, activity=activity, older_than=older_than, rses=rses, schemes=schemes,
-                                                                                                                       bring_online=bring_online, retry_other_fts=retry_other_fts, session=session)
+                                                                                                                       bring_online=bring_online, retry_other_fts=retry_other_fts,
+                                                                                                                       failover_schemes=failover_schemes, session=session)
     request.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
     request.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES)
-    transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch, schemes)
+    request.set_requests_state(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME)
 
     for request_id in transfers:
         sources = transfers[request_id]['sources']
@@ -1340,17 +1350,21 @@ def schedule_requests():
         logging.info("Throttler retrieve requests statistics")
         results = request.get_stats_by_activity_dest_state(state=[RequestState.QUEUED, RequestState.SUBMITTING, RequestState.SUBMITTED, RequestState.WAITING])
         result_dict = {}
-        for activity, dest_rse_id, state, counter in results:
+        for activity, dest_rse_id, account, state, counter in results:
             threshold = request.get_config_limit(activity, dest_rse_id)
 
             if threshold or (counter and (state == RequestState.WAITING)):
                 if activity not in result_dict:
                     result_dict[activity] = {}
                 if dest_rse_id not in result_dict[activity]:
-                    result_dict[activity][dest_rse_id] = {'waiting': 0, 'transfer': 0, 'threshold': threshold}
+                    result_dict[activity][dest_rse_id] = {'waiting': 0, 'transfer': 0, 'threshold': threshold, 'accounts': {}}
+                if account not in result_dict[activity][dest_rse_id]['accounts']:
+                    result_dict[activity][dest_rse_id]['accounts'][account] = {'waiting': 0, 'transfer': 0}
                 if state == RequestState.WAITING:
+                    result_dict[activity][dest_rse_id]['accounts'][account]['waiting'] += counter
                     result_dict[activity][dest_rse_id]['waiting'] += counter
                 else:
+                    result_dict[activity][dest_rse_id]['accounts'][account]['transfer'] += counter
                     result_dict[activity][dest_rse_id]['transfer'] += counter
 
         for activity in result_dict:
@@ -1358,6 +1372,7 @@ def schedule_requests():
                 threshold = result_dict[activity][dest_rse_id]['threshold']
                 transfer = result_dict[activity][dest_rse_id]['transfer']
                 waiting = result_dict[activity][dest_rse_id]['waiting']
+                logging.debug("Request status for %s at %s: %s" % (activity, activity, result_dict[activity][dest_rse_id]))
                 if threshold is None:
                     logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for acitivity %s, rse_id %s" % (threshold, activity, dest_rse_id))
                     rse_core.delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
@@ -1372,9 +1387,39 @@ def schedule_requests():
                     record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.transfers' % (activity, rse_name), transfer)
                     record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.waitings' % (activity, rse_name), waiting)
                     if transfer < 0.8 * threshold:
-                        logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s" % (threshold - transfer, activity, dest_rse_id))
-                        request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, count=threshold - transfer)
-                        record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s' % (activity, rse_name), threshold - transfer)
+                        # release requests on account
+                        nr_accounts = len(result_dict[activity][dest_rse_id]['accounts'])
+                        if nr_accounts < 1:
+                            nr_accounts = 1
+                        to_release = threshold - transfer
+                        threshold_per_account = math.ceil(threshold / nr_accounts)
+                        to_release_per_account = math.ceil(to_release / nr_accounts)
+                        accounts = result_dict[activity][dest_rse_id]['accounts']
+                        for account in accounts:
+                            if nr_accounts == 1:
+                                logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s, account %s " % (to_release, activity, dest_rse_id, account))
+                                request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, account=account, count=to_release)
+                                record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), to_release)
+                            elif accounts[account]['transfer'] > threshold_per_account:
+                                logging.debug("Throttler will not release waiting requests for acitivity %s, rse_id %s, account %s: It queued more transfers than its share " %
+                                              (accounts[account]['waiting'], activity, dest_rse_id, account))
+                                nr_accounts -= 1
+                                to_release_per_account = math.ceil(to_release / nr_accounts)
+                            elif accounts[account]['waiting'] < to_release_per_account:
+                                logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s, account %s " % (accounts[account]['waiting'], activity, dest_rse_id, account))
+                                request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, account=account, count=accounts[account]['waiting'])
+                                record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), accounts[account]['waiting'])
+
+                                to_release = to_release - accounts[account]['waiting']
+                                nr_accounts -= 1
+                                to_release_per_account = math.ceil(to_release / nr_accounts)
+                            else:
+                                logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s, account %s " % (to_release_per_account, activity, dest_rse_id, account))
+                                request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, account=account, count=to_release_per_account)
+                                record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), to_release_per_account)
+
+                                to_release = to_release - to_release_per_account
+                                nr_accounts -= 1
                 elif waiting > 0:
                     logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for acitivity %s, rse_id %s" % (threshold, activity, dest_rse_id))
                     rse_core.delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
