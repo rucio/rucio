@@ -296,7 +296,8 @@ def queue_requests(requests, session=None):
                                                                                         rses[request['dest_rse_id']]))
             continue
 
-        transfer_limit = transfer_limits[request['attributes']['activity']]
+        transfer_limit = transfer_limits[request['attributes']['activity']].\
+            get(request['dest_rse_id'])
         request['state'] = RequestState.WAITING if transfer_limit else RequestState.QUEUED
 
         if 'previous_attempt_id' in request and 'retry_count' in request:
@@ -313,7 +314,8 @@ def queue_requests(requests, session=None):
                                  'activity': request['attributes']['activity'],
                                  'bytes': request['attributes']['bytes'],
                                  'md5': request['attributes']['md5'],
-                                 'adler32': request['attributes']['adler32']})
+                                 'adler32': request['attributes']['adler32'],
+                                 'account': request['attributes'].get('account', None)})
         else:
             request['request_id'] = generate_uuid()
             new_requests.append({'id': request['request_id'],
