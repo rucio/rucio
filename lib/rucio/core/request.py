@@ -315,7 +315,7 @@ def queue_requests(requests, session=None):
                                  'bytes': request['attributes']['bytes'],
                                  'md5': request['attributes']['md5'],
                                  'adler32': request['attributes']['adler32'],
-                                 'account': request['attributes'].get('account', None)})
+                                 'account': request.get('account', None)})
         else:
             request['request_id'] = generate_uuid()
             new_requests.append({'id': request['request_id'],
@@ -330,7 +330,7 @@ def queue_requests(requests, session=None):
                                  'bytes': request['attributes']['bytes'],
                                  'md5': request['attributes']['md5'],
                                  'adler32': request['attributes']['adler32'],
-                                 'account': request['attributes'].get('account', None),
+                                 'account': request.get('account', None),
                                  'priority': request['attributes'].get('priority', None),
                                  'requested_at': request['attributes'].get('requested_at', None),
                                  'retry_count': request['retry_count']})
