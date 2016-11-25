@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -475,7 +475,7 @@ class TestReplicaMetalink:
 
         self.fname = generate_uuid()
 
-        rses = ['LXPLUS', 'MOCK4']
+        rses = ['MOCK', 'MOCK3', 'MOCK4']
         dsn = generate_uuid()
         self.files = [{'scope': 'mock', 'name': self.fname, 'bytes': 1L, 'adler32': '0cc737eb'}]
 
