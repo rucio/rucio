@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
 
 import commands
 import datetime
@@ -17,6 +17,8 @@ import requests
 import sys
 import subprocess
 import time
+
+from subprocess import TimeoutExpired
 
 requests.packages.urllib3.disable_warnings()
 
@@ -145,6 +147,7 @@ def start_test(mr):
     pip install -r tools/pip-requires;
     pip install -r tools/pip-requires-client;
     pip install -r tools/pip-requires-test;
+    python ../purge_bin.py;
     cp tools/patches/nose/tools.py .venv/lib/python2.6/site-packages/nose/tools.py
     cp tools/patches/nose/trivial.py .venv/lib/python2.6/site-packages/nose/tools/trivial.py
     find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/;
@@ -160,8 +163,16 @@ def start_test(mr):
     """ % (root_git_dir)  # NOQA
     # command = 'cd %s; source .venv/bin/activate; pip install -r tools/pip-requires; pip install -r tools/pip-requires-client; pip install -r tools/pip-requires-test; find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/; tools/reset_database.py; tools/sync_rses.py; tools/sync_meta.py; tools/bootstrap_tests.py; nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt; flake8 bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt' % (root_git_dir)  # NOQA
     print '  %s' % command
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
-    process.communicate()
+
+    proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+    try:
+        outs, errs = proc.communicate(timeout=60 * 20)
+    except TimeoutExpired:
+        print 'Timeout reached, killing test'
+        proc.kill()
+        outs, errs = proc.communicate()
+        os.remove('/tmp/rucio_test.pid')
+        sys.exit(-1)
 
     with open('/tmp/rucio_nose.txt', 'r') as f:
         lines = f.readlines()
@@ -210,6 +221,7 @@ if os.path.isfile('/tmp/rucio_test.pid'):
         os.remove('/tmp/rucio_test.pid')
         open('/tmp/rucio_test.pid', 'a').close()
     else:
+        print 'A job is currently running, exiting'
         sys.exit(-1)
 else:
     open('/tmp/rucio_test.pid', 'a').close()

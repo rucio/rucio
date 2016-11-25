@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
@@ -29,7 +29,7 @@ class RuleClient(BaseClient):
 
     def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None,
                              locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False,
-                             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False):
+                             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, priority=3):
         """
         :param dids:                       The data identifier set.
         :param copies:                     The number of replicas.
@@ -48,6 +48,7 @@ class RuleClient(BaseClient):
         :param ignore_availability:        Option to ignore the availability of RSEs.
         :param ask_approval:               Ask for approval of this replication rule.
         :param asynchronous:               Create rule asynchronously by judge-injector.
+        :param priority:                   Priority of the transfers.
         :param comment:                    Comment about the rule.
         """
         path = self.RULE_BASEURL + '/'
@@ -58,7 +59,7 @@ class RuleClient(BaseClient):
                       'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression,
                       'activity': activity, 'notify': notify, 'purge_replicas': purge_replicas,
                       'ignore_availability': ignore_availability, 'comment': comment, 'ask_approval': ask_approval,
-                      'asynchronous': asynchronous})
+                      'asynchronous': asynchronous, 'priority': priority})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)

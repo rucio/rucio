@@ -147,7 +147,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, so
 
 
 @transactional_session
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None, retry_count=None, session=None):
+def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None, retry_count=None, session=None):
     """
     This method creates a transfer dictionary and returns it
 
@@ -156,6 +156,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=Non
     :param scope:         The scope of the file.
     :param name:          The name of the file.
     :param rule:          The rule responsible for the transfer.
+    :param lock:          The lock responsible for the transfer.
     :param bytes:         The filesize of the file in bytes.
     :param md5:           The md5 checksum of the file.
     :param adler32:       The adler32 checksum of the file.
@@ -183,7 +184,10 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=Non
             'rule_id': rule.id,
             'attributes': attributes,
             'request_type': request_type,
-            'retry_count': retry_count}
+            'retry_count': retry_count,
+            'generated_at': lock.created_at if lock else rule.created_at,
+            'account': rule.account,
+            'priority': rule.priority}
 
 
 @transactional_session
@@ -304,7 +308,8 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
     if len(preferred_rse_ids) == 0:
         rse_tuples = rseselector.select_rse(size=bytes,
                                             preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
-                                            blacklist=list(blacklist))
+                                            blacklist=list(blacklist),
+                                            prioritize_order_over_weight=True)
     else:
         rse_tuples = rseselector.select_rse(size=bytes,
                                             preferred_rse_ids=preferred_rse_ids,
@@ -418,7 +423,8 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
         if len(preferred_rse_ids) == 0:
             rse_tuples = rseselector.select_rse(size=bytes,
                                                 preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
-                                                blacklist=list(blacklist))
+                                                blacklist=list(blacklist),
+                                                prioritize_order_over_weight=True)
         else:
             rse_tuples = rseselector.select_rse(size=bytes,
                                                 preferred_rse_ids=preferred_rse_ids,
@@ -927,6 +933,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                                                 scope=file['scope'],
                                                                 name=file['name'],
                                                                 rule=rule,
+                                                                lock=new_lock,
                                                                 bytes=file['bytes'],
                                                                 md5=file['md5'],
                                                                 adler32=file['adler32'],
@@ -988,6 +995,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                                                 scope=file['scope'],
                                                                 name=file['name'],
                                                                 rule=rule,
+                                                                lock=new_lock,
                                                                 bytes=file['bytes'],
                                                                 md5=file['md5'],
                                                                 adler32=file['adler32'],
@@ -1097,6 +1105,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         scope=lock.scope,
                                                         name=lock.name,
                                                         rule=rule,
+                                                        lock=lock,
                                                         bytes=replica.bytes,
                                                         md5=replica.md5,
                                                         adler32=replica.adler32,
@@ -1110,6 +1119,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         scope=lock.scope,
                                                         name=lock.name,
                                                         rule=rule,
+                                                        lock=lock,
                                                         bytes=replica.bytes,
                                                         md5=replica.md5,
                                                         adler32=replica.adler32,

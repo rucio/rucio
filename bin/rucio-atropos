@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+
+'''
+Atropos Daemon : End the life of the rules according to the Lifetime Model
+'''
+
+import argparse
+import signal
+
+from rucio.daemons.atropos import run, stop
+
+
+if __name__ == "__main__":
+
+    # Bind our callback to the SIGTERM signal and run the daemon:
+    signal.signal(signal.SIGTERM, stop)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
+    parser.add_argument("--dry-run", action="store_true", default=False, help='Dry run mode')
+    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
+    parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
+    parser.add_argument("--grace-period", action="store", default=86400, type=int, help='Grace period for the rules. In seconds !!!')
+    parser.add_argument("--date-check", action="store", help='Date when the lifetime model will be applied. Cannot be used for a date in the future if dry-run is not enabled')
+
+    args = parser.parse_args()
+
+    try:
+        run(threads=args.threads, bulk=args.bulk, date_check=args.date_check, dry_run=args.dry_run, grace_period=args.grace_period, once=args.run_once)
+    except KeyboardInterrupt:
+        stop()

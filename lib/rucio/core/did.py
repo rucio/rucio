@@ -13,7 +13,7 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2016
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
   - Wen Guan, <wen.guan@cern.ch>, 2015
 '''
@@ -41,6 +41,7 @@ from rucio.common.utils import str_to_date
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
+from rucio.core.naming_convention import validate_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
 from rucio.db.sqla.enum import EnumSymbol
@@ -66,7 +67,8 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
                                models.ReplicationRule.locked == True))  # NOQA
     query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
                           models.DataIdentifier.did_type,
-                          models.DataIdentifier.created_at).\
+                          models.DataIdentifier.created_at,
+                          models.DataIdentifier.purge_replicas).\
         filter(models.DataIdentifier.expired_at < datetime.utcnow(), not_(stmt)).\
         order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
@@ -82,12 +84,13 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
         elif session.bind.dialect.name == 'sqlite':
             row_count = 0
             dids = list()
-            for scope, name, did_type, created_at in query.yield_per(10):
+            for scope, name, did_type, created_at, purge_replicas in query.yield_per(10):
                 if int(md5(name).hexdigest(), 16) % total_workers == worker_number - 1:
                     dids.append({'scope': scope,
                                  'name': name,
                                  'did_type': did_type,
-                                 'created_at': created_at})
+                                 'created_at': created_at,
+                                 'purge_replicas': purge_replicas})
                     row_count += 1
                 if limit and row_count >= limit:
                     return dids
@@ -96,7 +99,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     if limit:
         query = query.limit(limit)
 
-    return [{'scope': scope, 'name': name, 'did_type': did_type, 'created_at': created_at} for scope, name, did_type, created_at in query]
+    return [{'scope': scope, 'name': name, 'did_type': did_type, 'created_at': created_at, 'purge_replicas': purge_replicas} for scope, name, did_type, created_at, purge_replicas in query]
 
 
 @transactional_session
@@ -174,7 +177,7 @@ def add_dids(dids, account, session=None):
                     add_message(event_type, {'account': account,
                                              'scope': did['scope'],
                                              'name': did['name'],
-                                             'expires': str(expired_at)},
+                                             'expired_at': str(expired_at)},
                                 session=session)
 
             except KeyError:
@@ -206,6 +209,12 @@ def add_dids(dids, account, session=None):
         raise exception.RucioException(error.args)
 
 
+def __add_files_to_archive(scope, name, files, account, rse, session=None):
+    """
+    """
+    pass
+
+
 @transactional_session
 def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=False, session=None):
     """
@@ -219,8 +228,15 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
+    # Get metadata from dataset
+    try:
+        dataset_meta = validate_name(scope=scope, name=name, did_type='D')
+    except:
+        dataset_meta = None
+
     if rse:
-        rucio.core.replica.add_replicas(rse=rse, files=files, account=account, session=session)
+        rucio.core.replica.add_replicas(rse=rse, files=files, dataset_meta=dataset_meta,
+                                        account=account, session=session)
 
     files = get_files(files=files, session=session)
 
@@ -240,15 +256,18 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
         for row in content_query.filter(or_(*content_condition)):
             existing_content.append(row)
 
+    contents = []
     for file in files:
         if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
-            did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=file['scope'], child_name=file['name'],
-                                                        bytes=file['bytes'], adler32=file.get('adler32'),
-                                                        guid=file['guid'], events=file['events'],
-                                                        md5=file.get('md5'), did_type=DIDType.DATASET, child_type=DIDType.FILE, rule_evaluation=True)
-            did_asso.save(session=session, flush=False)
+            contents.append({'scope': scope, 'name': name, 'child_scope': file['scope'],
+                             'child_name': file['name'], 'bytes': file['bytes'],
+                             'adler32': file.get('adler32'),
+                             'guid': file['guid'], 'events': file['events'],
+                             'md5': file.get('md5'), 'did_type': DIDType.DATASET,
+                             'child_type': DIDType.FILE, 'rule_evaluation': True})
 
     try:
+        contents and session.bulk_insert_mappings(models.DataIdentifierAssociation, contents)
         session.flush()
     except IntegrityError, error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
@@ -367,6 +386,7 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
     for attachment in attachments:
         try:
             parent_did = session.query(models.DataIdentifier).filter_by(scope=attachment['scope'], name=attachment['name']).\
+                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                 filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
                 one()
 
@@ -375,6 +395,13 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
 
             if parent_did.did_type == DIDType.FILE:
                 raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % attachment)
+
+            elif parent_did.did_type == DIDType.ARCHIVE:
+                __add_files_to_archive(scope=attachment['scope'], name=attachment['name'],
+                                       files=attachment['dids'], account=account,
+                                       rse=attachment.get('rse'),
+                                       session=session)
+
             elif parent_did.did_type == DIDType.DATASET:
                 __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
                                        files=attachment['dids'], account=account,
@@ -387,12 +414,14 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
 
             parent_did_condition.append(and_(models.DataIdentifier.scope == parent_did.scope,
                                              models.DataIdentifier.name == parent_did.name))
-            parent_dids.append((parent_did.scope, parent_did.name))
+
+            parent_dids.append({'scope': parent_did.scope,
+                                'name': parent_did.name,
+                                'rule_evaluation_action': DIDReEvaluation.ATTACH})
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (attachment['scope'], attachment['name']))
 
-    for scope, name in parent_dids:
-        models.UpdatedDID(scope=scope, name=name, rule_evaluation_action=DIDReEvaluation.ATTACH).save(session=session, flush=False)
+        session.bulk_insert_mappings(models.UpdatedDID, parent_dids)
 
 
 @transactional_session
@@ -407,6 +436,7 @@ def delete_dids(dids, account, session=None):
     rule_id_clause, content_clause = [], []
     parent_content_clause, did_clause = [], []
     collection_replica_clause, file_clause = [], []
+    not_purge_replicas = []
     for did in dids:
         logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
         if did['did_type'] == DIDType.FILE:
@@ -416,6 +446,8 @@ def delete_dids(dids, account, session=None):
             content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                                   models.CollectionReplica.name == did['name']))
+        if did['purge_replicas'] is False:
+            not_purge_replicas.append((did['scope'], did['name']))
 
             # Archive content
             q = session.query(models.DataIdentifierAssociation.scope,
@@ -445,7 +477,7 @@ def delete_dids(dids, account, session=None):
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
-        # Send message for AMI
+        # Send message
         add_message('ERASE', {'account': account,
                               'scope': did['scope'],
                               'name': did['name']},
@@ -453,12 +485,17 @@ def delete_dids(dids, account, session=None):
     # Delete rules on did
     if rule_id_clause:
         with record_timer_block('undertaker.rules'):
-            for (rule_id, scope, name, rse_expression, ) in session.query(models.ReplicationRule.id,
-                                                                          models.ReplicationRule.scope,
-                                                                          models.ReplicationRule.name,
-                                                                          models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
+            for (rule_id, scope, name, rse_expression) in session.query(models.ReplicationRule.id,
+                                                                        models.ReplicationRule.scope,
+                                                                        models.ReplicationRule.name,
+                                                                        models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
                 logging.debug('Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
-                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=True, delete_parent=True, nowait=True, session=session)
+                # Propagate purge_replicas from did to rules
+                if (scope, name) in not_purge_replicas:
+                    purge_replicas = False
+                else:
+                    purge_replicas = True
+                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
 
     # Detach from parent dids:
     existing_parent_dids = False
@@ -678,6 +715,30 @@ def list_content(scope, name, session=None):
         for tmp_did in query.yield_per(5):
             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type,
                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@stream_session
+def list_content_history(scope, name, session=None):
+    """
+    List data identifier contents history.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param session: The database session in use.
+    """
+    try:
+        query = session.query(models.DataIdentifierAssociationHistory).\
+            with_hint(models.DataIdentifierAssociationHistory,
+                      "INDEX(CONTENTS_HISTORY CONTENTS_HIST_PK)", 'oracle').\
+            filter_by(scope=scope, name=name)
+        for tmp_did in query.yield_per(5):
+            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+                   'type': tmp_did.child_type,
+                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5,
+                   'deleted_at': tmp_did.deleted_at, 'created_at': tmp_did.created_at,
+                   'updated_at': tmp_did.updated_at}
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
