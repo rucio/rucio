@@ -15,10 +15,10 @@ import os
 import pytz
 import requests
 import sys
-import subprocess
+import subprocess32 as subprocess
 import time
 
-from subprocess import TimeoutExpired
+from subprocess32 import TimeoutExpired
 
 requests.packages.urllib3.disable_warnings()
 
@@ -148,8 +148,6 @@ def start_test(mr):
     pip install -r tools/pip-requires-client;
     pip install -r tools/pip-requires-test;
     python ../purge_bin.py;
-    cp tools/patches/nose/tools.py .venv/lib/python2.6/site-packages/nose/tools.py
-    cp tools/patches/nose/trivial.py .venv/lib/python2.6/site-packages/nose/tools/trivial.py
     find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/;
     tools/reset_database.py;
     tools/sync_rses.py;
