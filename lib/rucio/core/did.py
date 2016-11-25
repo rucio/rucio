@@ -41,6 +41,7 @@ from rucio.common.utils import str_to_date
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
+from rucio.core.naming_convention import validate_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
 from rucio.db.sqla.enum import EnumSymbol
@@ -208,6 +209,12 @@ def add_dids(dids, account, session=None):
         raise exception.RucioException(error.args)
 
 
+def __add_files_to_archive(scope, name, files, account, rse, session=None):
+    """
+    """
+    pass
+
+
 @transactional_session
 def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=False, session=None):
     """
@@ -221,8 +228,15 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
+    # Get metadata from dataset
+    try:
+        dataset_meta = validate_name(scope=scope, name=name, did_type='D')
+    except:
+        dataset_meta = None
+
     if rse:
-        rucio.core.replica.add_replicas(rse=rse, files=files, account=account, session=session)
+        rucio.core.replica.add_replicas(rse=rse, files=files, dataset_meta=dataset_meta,
+                                        account=account, session=session)
 
     files = get_files(files=files, session=session)
 
@@ -381,6 +395,13 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
 
             if parent_did.did_type == DIDType.FILE:
                 raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % attachment)
+
+            elif parent_did.did_type == DIDType.ARCHIVE:
+                __add_files_to_archive(scope=attachment['scope'], name=attachment['name'],
+                                       files=attachment['dids'], account=account,
+                                       rse=attachment.get('rse'),
+                                       session=session)
+
             elif parent_did.did_type == DIDType.DATASET:
                 __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
                                        files=attachment['dids'], account=account,
