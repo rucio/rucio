@@ -1002,6 +1002,13 @@ def repair_rule(rule_id, session=None):
             logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
             return
 
+        # Delete Datasetlocks which are not relevant anymore
+        validated_datasetlock_rse_ids = [rse_id[0] for rse_id in session.query(models.ReplicaLock.rse_id).filter(models.ReplicaLock.rule_id == rule.id).group_by(models.ReplicaLock.rse_id).all()]
+        dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
+        for dataset_lock in dataset_locks:
+            if dataset_lock.rse_id not in validated_datasetlock_rse_ids:
+                dataset_lock.delete(session=session)
+
         if rule.locks_stuck_cnt != 0:
             logging.info('Rule %s [%d/%d/%d] state=STUCK' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
             rule.state = RuleState.STUCK
