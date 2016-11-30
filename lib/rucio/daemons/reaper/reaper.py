@@ -297,7 +297,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
             if once:
                 break
 
-            time.sleep(0.1)
+            time.sleep(1)
 
         except DatabaseException, error:
             logging.warning('Reaper:  %s', str(error))
