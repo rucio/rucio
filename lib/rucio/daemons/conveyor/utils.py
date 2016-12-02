@@ -1401,7 +1401,7 @@ def schedule_requests():
                                 request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, account=account, count=to_release)
                                 record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), to_release)
                             elif accounts[account]['transfer'] > threshold_per_account:
-                                logging.debug("Throttler will not release waiting requests for acitivity %s, rse_id %s, account %s: It queued more transfers than its share " %
+                                logging.debug("Throttler will not release  %s waiting requests for activity %s, rse_id %s, account %s: It queued more transfers than its share " %
                                               (accounts[account]['waiting'], activity, dest_rse_id, account))
                                 nr_accounts -= 1
                                 to_release_per_account = math.ceil(to_release / nr_accounts)
