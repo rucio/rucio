@@ -1250,6 +1250,7 @@ def archive_request(request_id, session=None):
                                                                 source_rse_id=req['source_rse_id'],
                                                                 attributes=req['attributes'],
                                                                 state=req['state'],
+                                                                account=req['account'],
                                                                 external_id=req['external_id'],
                                                                 retry_count=req['retry_count'],
                                                                 err_msg=req['err_msg'],
