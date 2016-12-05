@@ -130,6 +130,15 @@ def start_test(mr):
         print 'Error while checking out branch'
         sys.exit(-1)
 
+    # ACTUAL TESTS START HERE #
+    print '  Installing .venv'
+    # Try re-install .venv (This validates the python packages
+    commands.getstatusoutput('rm -R --force .venv/')  # Remove old .venv
+    if commands.getstatusoutput('python tools/install_venv.py')[0] != 0:
+        print 'Error while installing .venv'
+        tests_passed = False
+        error_lines.append('##### INSTALLING .VENV FAILED\n')
+
     # Restart apache and memcached
     print '  /sbin/service memcached restart'
     if commands.getstatusoutput('/sbin/service memcached restart')[0] != 0:
@@ -144,9 +153,10 @@ def start_test(mr):
 
     command = """
     cd %s; source .venv/bin/activate;
-    pip install -r tools/pip-requires;
-    pip install -r tools/pip-requires-client;
-    pip install -r tools/pip-requires-test;
+    cd .venv/lib/python2.7/site-packages/;
+    ln -s %s/lib/rucio/;
+    cd %s;
+    pip install cx_oracle;
     python ../purge_bin.py;
     find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/;
     tools/reset_database.py;
@@ -158,46 +168,46 @@ def start_test(mr):
     nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt;
     flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt;
     python ../purge_bin.py;
-    """ % (root_git_dir)  # NOQA
-    # command = 'cd %s; source .venv/bin/activate; pip install -r tools/pip-requires; pip install -r tools/pip-requires-client; pip install -r tools/pip-requires-test; find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/; tools/reset_database.py; tools/sync_rses.py; tools/sync_meta.py; tools/bootstrap_tests.py; nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt; flake8 bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt' % (root_git_dir)  # NOQA
+    """ % (root_git_dir, root_git_dir, root_git_dir)  # NOQA
     print '  %s' % command
 
-    proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
-    try:
-        outs, errs = proc.communicate(timeout=60 * 20)
-    except TimeoutExpired:
-        print 'Timeout reached, killing test'
-        proc.kill()
-        outs, errs = proc.communicate()
-        os.remove('/tmp/rucio_test.pid')
-        sys.exit(-1)
+    if tests_passed:
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+        try:
+            outs, errs = proc.communicate(timeout=60 * 20)
+        except TimeoutExpired:
+            print 'Timeout reached, killing test'
+            proc.kill()
+            outs, errs = proc.communicate()
+            os.remove('/tmp/rucio_test.pid')
+            sys.exit(-1)
 
-    with open('/tmp/rucio_nose.txt', 'r') as f:
-        lines = f.readlines()
-        if lines[-1] != 'OK\n':
-            tests_passed = False
-            error_lines.append('##### UNIT TESTS:\n')
-            error_lines.append('```\n')
-            error_lines.extend(lines)
-            error_lines.append('```\n')
-
-    with open('/tmp/rucio_alembic.txt', 'r') as f:
-        lines = f.readlines()
-        if lines[-1] != 'OK\n':
-            tests_passed = False
-            error_lines.append('##### ALEMBIC:\n')
-            error_lines.append('```\n')
-            error_lines.extend(lines)
-            error_lines.append('```\n')
-
-    if os.stat('/tmp/rucio_flake8.txt').st_size != 0:
-        with open('/tmp/rucio_flake8.txt', 'r') as f:
+        with open('/tmp/rucio_nose.txt', 'r') as f:
             lines = f.readlines()
-            tests_passed = False
-            error_lines.append('##### FLAKE8:\n')
-            error_lines.append('```\n')
-            error_lines.extend(lines)
-            error_lines.append('```\n')
+            if lines[-1] != 'OK\n':
+                tests_passed = False
+                error_lines.append('##### UNIT TESTS:\n')
+                error_lines.append('```\n')
+                error_lines.extend(lines)
+                error_lines.append('```\n')
+
+        with open('/tmp/rucio_alembic.txt', 'r') as f:
+            lines = f.readlines()
+            if lines[-1] != 'OK\n':
+                tests_passed = False
+                error_lines.append('##### ALEMBIC:\n')
+                error_lines.append('```\n')
+                error_lines.extend(lines)
+                error_lines.append('```\n')
+
+        if os.stat('/tmp/rucio_flake8.txt').st_size != 0:
+            with open('/tmp/rucio_flake8.txt', 'r') as f:
+                lines = f.readlines()
+                tests_passed = False
+                error_lines.append('##### FLAKE8:\n')
+                error_lines.append('```\n')
+                error_lines.extend(lines)
+                error_lines.append('```\n')
 
     if tests_passed:
         error_lines.insert(0, '#### BUILD-BOT TEST RESULT: OK\n\n')
