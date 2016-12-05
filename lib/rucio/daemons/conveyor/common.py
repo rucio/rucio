@@ -208,6 +208,7 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
                             'filesize': req.get('filesize', None),
                             'external_host': external_host,
                             'job_m_replica': None,
+                            'created_at': req.get('created_at', None),
                             'submitted_at': req.get('submitted_at', None),
                             'details': None}
 
