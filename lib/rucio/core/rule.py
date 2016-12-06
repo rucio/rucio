@@ -197,6 +197,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             if ask_approval:
                 new_rule.state = RuleState.WAITING_APPROVAL
+                # Block manual approval for multi-rse rules
+                if len(rses) > 1:
+                    raise InvalidReplicationRule('Ask approval is not allowed for rules with multiple RSEs')
                 if len(rses) == 1 and not did.is_open and did.bytes is not None and did.length is not None:
                     # This rule can be considered for auto-approval:
                     rse_attr = list_rse_attributes(rse=None, rse_id=rses[0]['id'], session=session)
@@ -431,6 +434,9 @@ def add_rules(dids, rules, session=None):
 
                     if rule.get('ask_approval', False):
                         new_rule.state = RuleState.WAITING_APPROVAL
+                        # Block manual approval for multi-rse rules
+                        if len(rses) > 1:
+                            raise InvalidReplicationRule('Ask approval is not allowed for rules with multiple RSEs')
                         if len(rses) == 1 and not did.is_open and did.bytes is not None and did.length is not None:
                             # This rule can be considered for auto-approval:
                             rse_attr = list_rse_attributes(rse=None, rse_id=rses[0]['id'], session=session)
