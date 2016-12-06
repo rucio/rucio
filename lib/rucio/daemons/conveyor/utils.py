@@ -1389,8 +1389,9 @@ def schedule_requests():
                     rse_core.delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
                     request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id)
                     record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
+
                 elif transfer + waiting > threshold:
-                    logging.debug("Throttler set limits for activity %s, rse_id %s" % (activity, dest_rse_id))
+                    logging.debug("Throttler set limits for activity %s, rse %s" % (activity, rse_name))
                     rse_core.set_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id, max_transfers=threshold, transfers=transfer, waitings=waiting)
                     record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.max_transfers' % (activity, rse_name), threshold)
                     record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.transfers' % (activity, rse_name), transfer)
