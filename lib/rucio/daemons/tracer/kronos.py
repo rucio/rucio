@@ -123,17 +123,19 @@ class AMQConsumer(object):
                     record_counter('daemons.tracer.kronos.with_scope')
 
                 # for the moment only report with eventType get* are handled.
-                if not report['eventType'].startswith('get') and not report['eventType'] == 'download':
+                if not report['eventType'].startswith('get') and not report['eventType'].startswith('sm_get') and not report['eventType'] == 'download':
+                    continue
+                if report['eventType'].endswith('_es'):
                     continue
                 record_counter('daemons.tracer.kronos.total_get')
                 if report['eventType'] == 'get':
                     record_counter('daemons.tracer.kronos.dq2clients')
-                elif report['eventType'] == 'get_sm':
+                elif report['eventType'] == 'get_sm' or report['eventType'] == 'sm_get':
                     if report['eventVersion'] == 'aCT':
                         record_counter('daemons.tracer.kronos.panda_production_act')
                     else:
                         record_counter('daemons.tracer.kronos.panda_production')
-                elif report['eventType'] == 'get_sm_a':
+                elif report['eventType'] == 'get_sm_a' or report['eventType'] == 'sm_get_a':
                     if report['eventVersion'] == 'aCT':
                         record_counter('daemons.tracer.kronos.panda_analysis_act')
                     else:
