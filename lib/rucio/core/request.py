@@ -1661,18 +1661,25 @@ def get_stats_by_activity_dest_state(state, session=None):
         state = [state, state]
 
     try:
-        return session.query(models.Request.activity, models.Request.dest_rse_id,
-                             models.Request.account, models.Request.state, models.RSE.rse,
-                             func.count(1).label('counter'))\
+        subquery = session.query(models.Request.activity, models.Request.dest_rse_id,
+                                 models.Request.account, models.Request.state,
+                                 func.count(1).label('counter'))\
             .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
             .filter(models.Request.state.in_(state))\
-            .filter(models.Request.dest_rse_id == models.RSE.id)\
             .group_by(models.Request.activity,
                       models.Request.dest_rse_id,
                       models.Request.account,
-                      models.Request.state,
-                      models.RSE.rse).\
-            all()
+                      models.Request.state).subquery()
+
+        return session.query(subquery.c.activity,
+                             subquery.c.dest_rse_id,
+                             subquery.c.account,
+                             subquery.c.state,
+                             models.RSE.rse,
+                             subquery.c.counter)\
+            .with_hint(models.RSE, "INDEX(RSES RSES_PK)", 'oracle')\
+            .filter(models.RSE.id == subquery.c.dest_rse_id).all()
+
     except IntegrityError, e:
         raise RucioException(e.args)
 
