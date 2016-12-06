@@ -1432,7 +1432,7 @@ def schedule_requests():
                                 to_release = to_release - to_release_per_account
                                 nr_accounts -= 1
                     else:
-                        logging.debug("Throttler has done nothing for activity %s on rse %s" % (activity, rse_name))
+                        logging.debug("Throttler has done nothing for activity %s on rse %s (transfer > 0.8 * threshold)" % (activity, rse_name))
 
                 elif waiting > 0:
                     logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse %s" % (threshold, activity, rse_name))
