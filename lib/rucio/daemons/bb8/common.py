@@ -27,15 +27,17 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-def rebalance_rule(parent_rule_id, activity, rse_expression, comment=None):
+def rebalance_rule(parent_rule_id, activity, rse_expression, priority, source_replica_expression=None, comment=None):
     """
     Rebalance a replication rule to a new RSE
 
-    :param parent_rule_id:       Replication rule to be rebalanced.
-    :param activity:             Activity to be used for the rebalancing.
-    :param rse_expression:       RSE expression of the new rule.
-    :param comment:              Comment to set on the new rules.
-    :returns:                    The new child rule id.
+    :param parent_rule_id:             Replication rule to be rebalanced.
+    :param activity:                   Activity to be used for the rebalancing.
+    :param rse_expression:             RSE expression of the new rule.
+    :param priority:                   Priority of the newly created rule.
+    :param source_replica_expression:  Source replica expression of the new rule.
+    :param comment:                    Comment to set on the new rules.
+    :returns:                          The new child rule id.
     """
     parent_rule = get_rule(rule_id=parent_rule_id)
 
@@ -54,14 +56,15 @@ def rebalance_rule(parent_rule_id, activity, rse_expression, comment=None):
                           lifetime=lifetime,
                           locked=parent_rule['locked'],
                           subscription_id=parent_rule['subscription_id'],
-                          source_replica_expression=None,
+                          source_replica_expression=source_replica_expression,
                           activity=activity,
                           notify=parent_rule['notification'],
                           purge_replicas=parent_rule['purge_replicas'],
                           ignore_availability=True,
                           comment=parent_rule['comments'] if not comment else comment,
                           ask_approval=False,
-                          asynchronous=False)[0]
+                          asynchronous=False,
+                          priority=priority)[0]
 
     update_rule(rule_id=parent_rule_id, options={'child_rule_id': child_rule, 'lifetime': 0})
     return child_rule
@@ -149,20 +152,22 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
 
 
 @transactional_session
-def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, force_expression=None, mode=None, session=None):
+def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, force_expression=None, mode=None, priority=3, source_replica_expression=None, session=None):
     """
     Rebalance data from an RSE
 
-    :param rse:                  RSE to rebalance data from.
-    :param max_bytes:            Maximum amount of bytes to rebalance.
-    :param max_files:            Maximum amount of files to rebalance.
-    :param dry_run:              Only run in dry-run mode.
-    :param exclude_expression:   Exclude this rse_expression from being target_rses.
-    :param comment:              Comment to set on the new rules.
-    :param force_expression:     Force a specific rse_expression as target.
-    :param mode:                 BB8 mode to execute (None=normal, 'decomission'=Decomission mode)
-    :param session:              The database session.
-    :returns:                    List of rebalanced datasets.
+    :param rse:                        RSE to rebalance data from.
+    :param max_bytes:                  Maximum amount of bytes to rebalance.
+    :param max_files:                  Maximum amount of files to rebalance.
+    :param dry_run:                    Only run in dry-run mode.
+    :param exclude_expression:         Exclude this rse_expression from being target_rses.
+    :param comment:                    Comment to set on the new rules.
+    :param force_expression:           Force a specific rse_expression as target.
+    :param mode:                       BB8 mode to execute (None=normal, 'decomission'=Decomission mode)
+    :param priority:                   Priority of the new created rules.
+    :param source_replica_expression:  Source replica expression of the new created rules.
+    :param session:                    The database session.
+    :returns:                          List of rebalanced datasets.
     """
     rebalanced_bytes = 0
     rebalanced_files = 0
@@ -209,6 +214,8 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
                     child_rule_id = rebalance_rule(parent_rule_id=rule_id,
                                                    activity='Data Rebalancing',
                                                    rse_expression=target_rse_exp,
+                                                   priority=priority,
+                                                   source_replica_expression=source_replica_expression,
                                                    comment=comment)
                 else:
                     child_rule_id = ''
