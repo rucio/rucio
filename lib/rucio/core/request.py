@@ -1661,11 +1661,25 @@ def get_stats_by_activity_dest_state(state, session=None):
         state = [state, state]
 
     try:
-        results = session.query(models.Request.activity, models.Request.dest_rse_id, models.Request.account, models.Request.state, func.count(1).label('counter'))\
-                         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-                         .filter(models.Request.state.in_(state))\
-                         .group_by(models.Request.activity, models.Request.dest_rse_id, models.Request.account, models.Request.state).all()
-        return results
+        subquery = session.query(models.Request.activity, models.Request.dest_rse_id,
+                                 models.Request.account, models.Request.state,
+                                 func.count(1).label('counter'))\
+            .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+            .filter(models.Request.state.in_(state))\
+            .group_by(models.Request.activity,
+                      models.Request.dest_rse_id,
+                      models.Request.account,
+                      models.Request.state).subquery()
+
+        return session.query(subquery.c.activity,
+                             subquery.c.dest_rse_id,
+                             subquery.c.account,
+                             subquery.c.state,
+                             models.RSE.rse,
+                             subquery.c.counter)\
+            .with_hint(models.RSE, "INDEX(RSES RSES_PK)", 'oracle')\
+            .filter(models.RSE.id == subquery.c.dest_rse_id).all()
+
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -1686,7 +1700,8 @@ def release_waiting_requests(rse, activity=None, rse_id=None, count=None, accoun
         rowcount = 0
 
         if count is None:
-            query = session.query(models.Request).filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
+            query = session.query(models.Request).\
+                filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
             if activity:
                 query = query.filter_by(activity=activity)
             if account:
@@ -1705,7 +1720,8 @@ def release_waiting_requests(rse, activity=None, rse_id=None, count=None, accoun
 
             rowcount = session.query(models.Request)\
                               .filter(models.Request.id.in_(subquery))\
-                              .update({'state': RequestState.QUEUED}, synchronize_session=False)
+                              .update({'state': RequestState.QUEUED},
+                                      synchronize_session=False)
         return rowcount
     except IntegrityError, e:
         raise RucioException(e.args)
