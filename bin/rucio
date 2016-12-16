@@ -87,7 +87,7 @@ def setup_logger(logger):
                     color = '\033[36;1m'
                 else:
                     color = '\033[0m'
-                formatter = logging.Formatter('{0}%(asctime)s %(levelname)s [%(message)s]\033[0m'.format(color))
+                formatter = logging.Formatter('{0}%(asctime)s\t%(levelname)s\t%(message)s\033[0m'.format(color))
             else:
                 formatter = logging.Formatter(os.environ['RUCIO_LOGGING_FORMAT'])
             hdlr.setFormatter(formatter)
@@ -138,19 +138,25 @@ def extract_scope(did):
         return scope, did
 
 
-def send_trace(trace, trace_endpoint, user_agent, retries=5):
+def send_trace(trace, trace_endpoint, user_agent, retries=5, threadnb=None, total_threads=None):
     if user_agent.startswith('pilot'):
         logger.debug('pilot detected - not sending trace')
         return 0
     else:
-        logger.debug('sending trace')
+        if threadnb is not None and total_threads is not None:
+            logger.debug('Thread %s/%s : sending trace' % (threadnb, total_threads))
+        else:
+            logger.debug('sending trace')
 
     for dummy in xrange(retries):
         try:
             requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
             return 0
         except Exception, error:
-            logger.debug(error)
+            if threadnb is not None and total_threads is not None:
+                logger.debug('Thread %s/%s : %s' % (threadnb, total_threads, error))
+            else:
+                logger.debug(error)
     return 1
 
 
@@ -869,11 +875,11 @@ def upload(args):
 
     if args.protocol:
         try:
-            logger.debug(args.protocol)
-            logger.debug(args.rse)
+            logger.debug('Forcing protocol : %s' % args.protocol)
+            logger.debug('Forcing RSE : %s' % args.rse)
             protocol = rsemgr.select_protocol(rse_settings, operation='read', scheme=args.protocol)
         except RSEProtocolNotSupported, error:
-            logger.error('The protocol specfied (%s) is not supported by the RSE %s' % (args.protocol, args.rse))
+            logger.error('The protocol specfied (%s) is not supported by %s' % (args.protocol, args.rse))
             logger.debug(error)
             return FAILURE
         rse_settings['protocols'] = [protocol, ]
@@ -1046,7 +1052,7 @@ def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, las
                 try:
                     protocol = rsemgr.select_protocol(rse_dict[rse], operation='read', scheme=args.protocol)
                 except RSEProtocolNotSupported, error:
-                    logger.error('The protocol specfied (%s) is not supported by the RSE %s' % (args.protocol, rse))
+                    logger.error('The protocol specfied (%s) is not supported by %s' % (args.protocol, rse))
                     logger.debug(error)
                     return FAILURE
                 rse_dict[rse]['protocols'] = [protocol, ]
@@ -1060,8 +1066,15 @@ def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, las
                 retries = 5
                 for attempt in xrange(0, retries):
                     try:
-                        rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=dest_dir, printstatements=True)
-                        logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
+                        logger.info('Trying %s' % rse)
+                        rsemgr.download(rse_dict[rse],
+                                        files=[{'name': file['name'],
+                                                'scope': file['scope'],
+                                                'adler32': file['adler32']}, ],
+                                        dest_dir=dest_dir)
+                        logger.info('File %s:%s successfully downloaded from %s' % (file['scope'],
+                                                                                    file['name'],
+                                                                                    rse))
                         download_ok = 1
                         success = True
                         last_chosen_rse = rse
@@ -1069,7 +1082,11 @@ def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, las
                     except FileConsistencyMismatch, error:
                         logger.warning(str(error))
                         try:
-                            pfns_dict = rsemgr.lfns2pfns(rse_dict[rse], lfns=[{'name': file['name'], 'scope': file['scope']}, ], operation='read', scheme=args.protocol)
+                            pfns_dict = rsemgr.lfns2pfns(rse_dict[rse],
+                                                         lfns=[{'name': file['name'],
+                                                                'scope': file['scope']}, ],
+                                                         operation='read',
+                                                         scheme=args.protocol)
                             pfn = pfns_dict['%s:%s' % (file['scope'], file['name'])]
                             client.declare_suspicious_file_replicas([pfn, ], reason='Corrupted')
                         except Exception, error:
@@ -1118,12 +1135,15 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
             for rse in rses:
                 if str(rse) in tape_endpoints:
                     rse_to_remove.append(rse)
+            if len(rse_to_remove) > 0:
+                logger.debug('Thread %s/%s : Excluding TAPE endpoints: %s' % (threadnb, total_threads, rse_to_remove))
             if len(rses) == len(rse_to_remove):
                 if not is_admin:
-                    logger.warning('Thread %s/%s : File %s:%s has no replicas available on disk endpoints and cannot be downloaded. Please ask for a replication' % (threadnb, total_threads, file['scope'], file['name']))
-                    sys.exit(1)
+                    logger.warning('Thread %s/%s : File %s:%s has no replicas available on disk endpoints and cannot be downloaded. Go to https://rucio-ui.cern.ch/ and request a replication.' % (threadnb, total_threads, file['scope'], file['name']))
+                    input_queue.task_done()
+                    return
                 else:
-                    logger.warning('Thread %s/%s : File %s:%s has no replicas available on disk endpoints. Will be downloaded from TAPE.' % (threadnb, total_threads, file['scope'], file['name']))
+                    logger.warning('Thread %s/%s : File %s:%s has no replicas available on disk endpoints. Admin override: Downloaded from TAPE enabled.' % (threadnb, total_threads, file['scope'], file['name']))
             if last_chosen_rse and last_chosen_rse in rses:
                 idx = rses.index(last_chosen_rse)
                 rses[idx], rses[0] = rses[0], rses[idx]
@@ -1139,19 +1159,27 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                     try:
                         protocol = rsemgr.select_protocol(rse_dict[rse], operation='read', scheme=args.protocol)
                     except RSEProtocolNotSupported, error:
-                        logger.error('Thread %s/%s : The protocol specfied (%s) is not supported by the RSE %s' % (threadnb, total_threads, args.protocol, rse))
+                        logger.error('Thread %s/%s : The protocol specfied (%s) is not supported by %s' % (threadnb, total_threads, args.protocol, rse))
                         logger.debug(error)
                         return FAILURE
                     rse_dict[rse]['protocols'] = [protocol, ]
                 if rse_dict[rse]['availability_read']:
-                    logger.debug('Thread %s/%s : Getting file %s:%s from %s' % (threadnb, total_threads, file['scope'], file['name'], rse))
                     trace.update({'remoteSite': rse_dict[rse]['rse'], 'protocol': rse_dict[rse]['protocols'][0]['scheme'], 'transferStart': time.time(), 'clientState': 'DOWNLOAD_ATTEMPT'})
                     success = False
                     retries = 5
                     for attempt in xrange(0, retries):
                         try:
-                            rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=dest_dir, printstatements=True)
-                            logger.info('Thread %s/%s : File %s:%s successfully downloaded from %s' % (threadnb, total_threads, file['scope'], file['name'], rse))
+                            logger.info('Thread %s/%s : File %s:%s trying from %s' % (threadnb, total_threads, file['scope'], file['name'], rse))
+                            rsemgr.download(rse_dict[rse],
+                                            files=[{'name': file['name'],
+                                                    'scope': file['scope'],
+                                                    'adler32': file['adler32']}, ],
+                                            dest_dir=dest_dir)
+                            logger.info('Thread %s/%s : File %s:%s successfully downloaded from %s' % (threadnb,
+                                                                                                       total_threads,
+                                                                                                       file['scope'],
+                                                                                                       file['name'],
+                                                                                                       rse))
                             download_ok = 1
                             success = True
                             last_chosen_rse = rse
@@ -1167,7 +1195,7 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                                 pfn = pfns_dict['%s:%s' % (file['scope'], file['name'])]
                                 output_queue.put({'dataset_scope': file['datasetScope'], 'dataset_name': file['datasetName'], 'scope': file['scope'], 'name': file['name'], 'clientState': 'CORRUPTED', 'attemptnr': attempt + 1, 'pfn': pfn})
                             except Exception, error:
-                                logger.debug(str(error))
+                                logger.debug('Thread %s/%s : %s' % (threadnb, total_threads, str(error)))
                             trace['clientState'] = 'FAIL_VALIDATE'
                             logger.debug('Thread %s/%s : Failed attempt %s/%s' % (threadnb, total_threads, attempt + 1, retries))
                         except Exception, error:
@@ -1180,7 +1208,7 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                         output_queue.put({'dataset_scope': file['datasetScope'], 'dataset_name': file['datasetName'], 'scope': file['scope'], 'name': file['name'], 'clientState': 'DONE', 'attemptnr': attempt + 1})
                     trace['transferEnd'] = time.time()
 
-                    send_trace(trace, trace_endpoint, user_agent)
+                    send_trace(trace, trace_endpoint, user_agent, threadnb=threadnb, total_threads=total_threads)
 
                     if success:
                         break
@@ -1189,12 +1217,17 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                     if index != len(rses):
                         logger.debug('Thread %s/%s : Will retry download on an other RSE' % (threadnb, total_threads))
                 else:
-                    logger.info('Thread %s/%s : RSE %s is blacklisted for reading' % (threadnb, total_threads, rse))
+                    logger.info('Thread %s/%s : %s is blacklisted for reading' % (threadnb, total_threads, rse))
 
             if not download_ok:
                 logger.error('Thread %s/%s : Cannot download file %s:%s' % (threadnb, total_threads, file['scope'], file['name']))
             else:
-                logger.info('Thread %s/%s : File %s:%s successfully downloaded. %s bytes downloaded in %s seconds' % (threadnb, total_threads, file['scope'], file['name'], sizefmt(file['bytes'], args.human), time.time() - stime))
+                duration = round(time.time() - stime, 2)
+                logger.info('Thread %s/%s : File %s:%s successfully downloaded. %s in %s seconds = %s MBps' % (threadnb, total_threads,
+                                                                                                               file['scope'], file['name'],
+                                                                                                               sizefmt(file['bytes'], args.human),
+                                                                                                               duration,
+                                                                                                               round((file['bytes'] / duration) * 1e-6, 2)))
 
             input_queue.task_done()
 
@@ -1317,7 +1350,7 @@ def download1(args):
                     send_trace(trace, trace_endpoint, args.user_agent)
                     output_queue.put({'dataset_scope': dataset_scope, 'dataset_name': dataset_name, 'scope': file['scope'], 'name': file['name'], 'clientState': 'ALREADY_DONE'})
                 else:
-                    logger.debug('Will start downloading file %s:%s' % (file['scope'], file['name']))
+                    logger.debug('Queueing file %s:%s for download' % (file['scope'], file['name']))
                     if not os.path.isdir(dest_dir):
                         os.mkdir(dest_dir)
                     if args.no_subdir is True and os.path.isfile('%s/%s' % (dest_dir, file['name'])):
@@ -1337,30 +1370,23 @@ def download1(args):
         thread = Thread(target=_downloader1, kwargs={'input_queue': input_queue, 'output_queue': output_queue, 'threadnb': worker + 1, 'total_threads': total_workers,
                                                      'tape_endpoints': tape_endpoints, 'is_admin': is_admin, 'trace_endpoint': trace_endpoint, 'trace_pattern': trace_pattern,
                                                      'user_agent': args.user_agent})
-        thread.daemon = True
         thread.start()
         threads.append(thread)
 
-    graceful_stop = None
-    while not input_queue.empty():
-        try:
-            pass
-        except KeyboardInterrupt:
-            graceful_stop = True
-            for thread in threads:
-                thread.kill_received = True
-            break
-    if graceful_stop:
-        logger.warning('You pressed Ctrl+C! Exiting gracefully')
-    else:
+    try:
+        logger.debug('Waiting for threads to finish')
         input_queue.join()
+    except KeyboardInterrupt:
+        logger.warning('You pressed Ctrl+C! Exiting gracefully')
+        graceful_stop = True
+        for thread in threads:
+            thread.kill_received = True
+    logger.debug('All threads finished')
 
     while(True):
         try:
             item = output_queue.get_nowait()
             output_queue.task_done()
-            logger.debug(str(item))
-            logger.debug(str(summary))
             if '%s:%s' % (item['dataset_scope'], item['dataset_name']) in summary or '%s:%s' % (item['scope'], item['name']) in summary:
                 if item['dataset_scope'] == '':
                     summary['%s:%s' % (item['scope'], item['name'])]['%s:%s' % (item['scope'], item['name'])] = item['clientState']
@@ -1422,7 +1448,6 @@ def download2(args):
     account_attributes = [acc for acc in client.list_account_attributes(client.account)]
     is_admin = False
     for attr in account_attributes[0]:
-        logger.debug(attr)
         if attr['key'] == 'admin' and attr['value'] is True:
             is_admin = True
             break
