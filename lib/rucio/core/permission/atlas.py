@@ -12,7 +12,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 import rucio.core.authentication
@@ -654,10 +654,22 @@ def perm_add_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return str(kwargs.get('rse', '')).endswith('SCRATCHDISK')\
-        or str(kwargs.get('rse', '')).endswith('USERDISK')\
-        or str(kwargs.get('rse', '')).endswith('MOCK')\
-        or str(kwargs.get('rse', '')).endswith('LOCALGROUPDISK')\
+    rse = str(kwargs.get('rse', ''))
+    phys_group = []
+
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('group-') and kv['value'] in ['admin', 'user']:
+            phys_group.append(kv['key'].partition('-')[2])
+    if phys_group:
+        rse_attr = list_rse_attributes(rse=rse)
+        if rse_attr.get('type', '') == 'GROUPDISK':
+            if rse_attr.get('physgroup', '') in phys_group:
+                return True
+
+    return rse.endswith('SCRATCHDISK')\
+        or rse.endswith('USERDISK')\
+        or rse.endswith('MOCK')\
+        or rse.endswith('LOCALGROUPDISK')\
         or issuer == 'root'\
         or has_account_attribute(account=issuer, key='admin')
 
@@ -692,10 +704,22 @@ def perm_update_replicas_states(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return str(kwargs.get('rse', '')).endswith('SCRATCHDISK')\
-        or str(kwargs.get('rse', '')).endswith('USERDISK')\
-        or str(kwargs.get('rse', '')).endswith('MOCK')\
-        or str(kwargs.get('rse', '')).endswith('LOCALGROUPDISK')\
+    rse = str(kwargs.get('rse', ''))
+    phys_group = []
+
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('group-') and kv['value'] in ['admin', 'user']:
+            phys_group.append(kv['key'].partition('-')[2])
+    if phys_group:
+        rse_attr = list_rse_attributes(rse=rse)
+        if rse_attr.get('type', '') == 'GROUPDISK':
+            if rse_attr.get('physgroup', '') in phys_group:
+                return True
+
+    return rse.endswith('SCRATCHDISK')\
+        or rse.endswith('USERDISK')\
+        or rse.endswith('MOCK')\
+        or rse.endswith('LOCALGROUPDISK')\
         or issuer == 'root'\
         or has_account_attribute(account=issuer, key='admin')
 
