@@ -886,6 +886,7 @@ def repair_rule(rule_id, session=None):
                                       rses=target_rses,
                                       weight=rule.weight,
                                       copies=rule.copies,
+                                      ignore_account_limit=rule.ignore_account_limit,
                                       session=session)
         except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
             rule.state = RuleState.STUCK
@@ -2342,6 +2343,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                       rses=rses,
                                                       weight=rule.weight,
                                                       copies=rule.copies,
+                                                      ignore_account_limit=rule.ignore_account_limit,
                                                       session=session)
                         except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
                             rule.state = RuleState.STUCK
