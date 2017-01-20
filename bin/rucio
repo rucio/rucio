@@ -2021,20 +2021,6 @@ def list_datasets_rse(args):
 
 
 @exception_handler
-def list_pfns(args):
-    """
-    %(prog)s list [options] <field1=value1 field2=value2 ...>
-
-    List the possible PFN for a file at a site.
-
-    """
-    print ''
-    print 'The functionality of this command has been moved to ' + Color.BOLD + 'rucio-admin' + Color.END + ' tool. In order to get the pfns of a replica, '\
-          + Color.BOLD + 'rucio list-file-replicas' + Color.END + ' command must be used.'
-    print ''
-
-
-@exception_handler
 def list_parent_datasets(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -2292,11 +2278,6 @@ Commands:
     get_metadata_parser.set_defaults(which='get_metadata')
     get_metadata_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
-    # The list-pfns subparser
-    list_pfns_parser = subparsers.add_parser('list-pfns', help=Color.BOLD + 'DEPRECATED: ' + Color.END + 'Please use rucio list-file-replicas instead.',
-                                             description='The functionality of this command has been moved to rucio-admin. If you want the actual PFN for a replica, you should use ' + Color.BOLD + 'rucio list-file-replicas' + Color.END + ' instead.')
-    list_pfns_parser.set_defaults(which='list-pfns')
-
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
     set_metadata_parser.set_defaults(which='set_metadata')
@@ -2432,7 +2413,6 @@ Commands:
                 'download': download,
                 'get': download,
                 'get_metadata': get_metadata,
-                'list-pfns': list_pfns,
                 'info_rule': info_rule,
                 'list_account_limits': list_account_limits,
                 'list_account_usage': list_account_usage,
