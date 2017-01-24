@@ -91,7 +91,7 @@ class TestJudgeEvaluator():
         attach_dids(scope, dataset, files, 'jdoe')
 
         # Add a first rule to the DS
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse4, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
 
         assert(get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
 
@@ -103,7 +103,7 @@ class TestJudgeEvaluator():
 
         # Check if the Locks are created properly
         for file in files:
-            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 1)
         assert(get_rule(rule_id)['state'] == RuleState.REPLICATING)
 
     def test_judge_deny_rule(self):
@@ -115,7 +115,7 @@ class TestJudgeEvaluator():
         attach_dids(scope, dataset, files, 'jdoe')
 
         # Add a first rule to the DS
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse4, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
 
         assert(get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
 
