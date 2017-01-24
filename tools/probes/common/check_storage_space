@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     try:
         PROXY = config_get('nagios', 'proxy')
-        os.environ["X509_USER_PROXY"] = proxy
+        os.environ["X509_USER_PROXY"] = PROXY
     except Exception as error:
         print "Failed to get proxy from rucio.cfg"
 
