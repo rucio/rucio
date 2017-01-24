@@ -518,6 +518,10 @@ def list_dids(args):
                             logger.error('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
                             return FAILURE
                     else:
+                        if value.lower() == 'true':
+                            value = '1'
+                        elif value.lower() == 'false':
+                            value = '0'
                         filters[key] = value
             except Exception:
                 logger.error("Invalid Filter. Filter must be 'key=value'")
