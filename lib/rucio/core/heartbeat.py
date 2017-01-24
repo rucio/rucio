@@ -33,8 +33,6 @@ def sanity_check(executable, hostname, hash_executable=None):
                       hash_executable=hash_executable)
     except DatabaseException:
         pass
-    except:
-        raise
 
 
 @transactional_session
