@@ -678,11 +678,42 @@ def list_parent_dids(args):
     List parent data identifier.
     """
     client = get_client(args)
-    table = []
-    scope, name = extract_scope(args.did)
-    for dataset in client.list_parent_dids(scope=scope, name=name):
-        table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
-    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    if args.pfns:
+        dict_datasets = {}
+        for res in client.get_did_from_pfns(args.pfns):
+            for key in res:
+                if key not in dict_datasets:
+                    dict_datasets[key] = []
+                for rule in client.list_associated_rules_for_file(res[key]['scope'], res[key]['name']):
+                    if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[key]:
+                        dict_datasets[key].append('%s:%s' % (rule['scope'], rule['name']))
+        for pfn in dict_datasets:
+            print 'PFN: ', pfn
+            print 'Parents: ', ','.join(dict_datasets[pfn])
+    elif args.guids:
+        guids = []
+        for input in args.guids:
+            try:
+                uuid.UUID(input)
+            except ValueError:
+                continue
+        dict_datasets = {}
+        for guid in guids:
+            for did in client.get_dataset_by_guid(guid):
+                if guid not in dict_datasets:
+                    dict_datasets[guid] = []
+                for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
+                    if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
+                        dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
+        for guid in dict_datasets:
+            print 'GUID: ', guid
+            print 'Parents : ', ','.join(dict_datasets[guid])
+    else:
+        table = []
+        scope, name = extract_scope(args.did)
+        for dataset in client.list_parent_dids(scope=scope, name=name):
+            table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
+        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
     return SUCCESS
 
 
@@ -2042,6 +2073,11 @@ def list_parent_datasets(args):
     List the possible PFN for a file at a site.
 
     """
+    print ''
+    print 'The functionality of this command has been replicated to ' + Color.BOLD + 'rucio list-parent-dids' + Color.END
+    print 'The ' + Color.BOLD + 'rucio list-parent-datasets' + Color.END + ' command will be deactivated with Rucio version 1.11.0'
+    print ''
+
     client = get_client(args)
     inputs = args.inputs.split(',')
     guids = []
@@ -2206,7 +2242,9 @@ Commands:
     # The list parent-dids command
     list_parent_parser = subparsers.add_parser('list-parent-dids', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.')
     list_parent_parser.set_defaults(which='list_parent_dids')
-    list_parent_parser.add_argument(dest='did', action='store', default=None, help='Data identifier.')
+    list_parent_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
+    list_parent_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
+    list_parent_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
 
     # The list-scopes command
     scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes.')
