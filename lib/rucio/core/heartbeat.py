@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
 
 import datetime
 import hashlib
@@ -16,11 +16,27 @@ from sqlalchemy.sql import distinct
 
 from rucio.db.sqla.models import Heartbeats
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.common.exception import DatabaseException
 from rucio.common.utils import pid_exists
 
 
+def sanity_check(executable, hostname, hash_executable=None):
+    """
+    sanity_check wrapper to ignore DatabaseException errors.
+
+    :param executable: Executable name as a string, e.g., conveyor-submitter.
+    :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch.
+    :param hash_executable: Hash of the executable.
+    """
+    try:
+        _sanity_check(executable=executable, hostname=hostname,
+                      hash_executable=hash_executable)
+    except DatabaseException:
+        pass
+
+
 @transactional_session
-def sanity_check(executable, hostname, hash_executable=None, session=None):
+def _sanity_check(executable, hostname, hash_executable=None, session=None):
     """
     Check if processes on the host are still running.
 
