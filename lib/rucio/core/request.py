@@ -308,14 +308,16 @@ def queue_requests(requests, session=None):
                                  'dest_rse_id': request['dest_rse_id'],
                                  'attributes': json.dumps(request['attributes']),
                                  'state': request['state'],
-                                 'previous_attempt_id': request['previous_attempt_id'],
-                                 'retry_count': request['retry_count'],
                                  'rule_id': request['rule_id'],
                                  'activity': request['attributes']['activity'],
                                  'bytes': request['attributes']['bytes'],
                                  'md5': request['attributes']['md5'],
                                  'adler32': request['attributes']['adler32'],
-                                 'account': request.get('account', None)})
+                                 'account': request.get('account', None),
+                                 'priority': request['attributes'].get('priority', None),
+                                 'requested_at': request.get('requested_at', None),
+                                 'retry_count': request['retry_count'],
+                                 'previous_attempt_id': request['previous_attempt_id']})
         else:
             request['request_id'] = generate_uuid()
             new_requests.append({'id': request['request_id'],
@@ -332,7 +334,7 @@ def queue_requests(requests, session=None):
                                  'adler32': request['attributes']['adler32'],
                                  'account': request.get('account', None),
                                  'priority': request['attributes'].get('priority', None),
-                                 'requested_at': request['attributes'].get('requested_at', None),
+                                 'requested_at': request.get('requested_at', None),
                                  'retry_count': request['retry_count']})
 
         if 'sources' in request and request['sources']:
