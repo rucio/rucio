@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
@@ -174,7 +174,7 @@ def parse_pfns(rse_settings, pfns, operation='read'):
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme).parse_pfns(pfns)
 
 
-def download(rse_settings, files, dest_dir=None, printstatements=False):
+def download(rse_settings, files, dest_dir=None, force_scheme=None, printstatements=False):
     """
         Copy a file from the connected storage to the local file system.
         Providing a list indicates the bulk mode.
@@ -186,6 +186,7 @@ def download(rse_settings, files, dest_dir=None, printstatements=False):
                                 E.g.  [{'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
                                        {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
         :param dest_dir:        path to the directory where the downloaded files will be stored. If not given, each scope is represented by its own directory.
+        :param force_scheme:    normally the scheme is dictated by the RSE object, when specifying the PFN it must be forced to the one specified in the PFN, overruling the RSE description.
 
         :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
@@ -197,7 +198,8 @@ def download(rse_settings, files, dest_dir=None, printstatements=False):
     """
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
-    protocol = create_protocol(rse_settings, 'read')
+
+    protocol = create_protocol(rse_settings, 'read', scheme=force_scheme)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
