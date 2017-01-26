@@ -9,7 +9,7 @@
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
@@ -98,9 +98,14 @@ def __exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
 
     already_declared = False
     if path:
+        path_clause = [models.RSEFileAssociation.path == path]
+        if path.startswith('/'):
+            path_clause.append(models.RSEFileAssociation.path == path[1:])
+        else:
+            path_clause.append(models.RSEFileAssociation.path == '/%s' % path)
         query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
-            filter(models.RSEFileAssociation.rse_id == rse_id).filter(models.RSEFileAssociation.path == path)
+            filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*path_clause))
     else:
         query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             filter_by(rse_id=rse_id, scope=scope, name=name)
@@ -335,6 +340,11 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                     if no_hidden_char:
                         unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
             path_clause.append(models.RSEFileAssociation.path == path)
+            if path.startswith('/'):
+                path_clause.append(models.RSEFileAssociation.path == path[1:])
+            else:
+                path_clause.append(models.RSEFileAssociation.path == '/%s' % path)
+
         if status == BadFilesStatus.BAD:
             # For BAD file, we modify the replica state, not for suspicious
             query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
