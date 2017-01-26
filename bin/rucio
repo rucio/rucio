@@ -7,7 +7,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2016
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2016-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
@@ -1205,11 +1205,20 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                     for attempt in xrange(0, retries):
                         try:
                             logger.info('Thread %s/%s : File %s:%s trying from %s' % (threadnb, total_threads, file['scope'], file['name'], rse))
-                            rsemgr.download(rse_dict[rse],
-                                            files=[{'name': file['name'],
-                                                    'scope': file['scope'],
-                                                    'adler32': file['adler32']}, ],
-                                            dest_dir=dest_dir)
+                            if args.pfn:
+                                rsemgr.download(rse_dict[rse],
+                                                files=[{'name': file['name'],
+                                                        'scope': file['scope'],
+                                                        'adler32': file['adler32'],
+                                                        'pfn': args.pfn}, ],
+                                                dest_dir=dest_dir,
+                                                force_scheme=args.pfn.split(':')[0])
+                            else:
+                                rsemgr.download(rse_dict[rse],
+                                                files=[{'name': file['name'],
+                                                        'scope': file['scope'],
+                                                        'adler32': file['adler32']}, ],
+                                                dest_dir=dest_dir)
                             logger.info('Thread %s/%s : File %s:%s successfully downloaded from %s' % (threadnb,
                                                                                                        total_threads,
                                                                                                        file['scope'],
@@ -1358,7 +1367,8 @@ def download1(args):
             did_type = did_info['type']
             dataset_scope = '' if did_type == 'FILE' else scope
             dataset_name = '' if did_type == 'FILE' else name
-            logger.debug('Getting the list of replicas')
+
+            logger.debug('Getting the list of replicas from Rucio servers')
             replicas = [f for f in client.list_replicas([{'scope': scope, 'name': name}],
                                                         rse_expression=args.rse)]
 
@@ -2041,7 +2051,6 @@ def list_datasets_rse(args):
     if args.long:
         table = []
         for dsn in client.list_datasets_per_rse(args.rse):
-            print dsn
             table.append(['%s:%s' % (dsn['scope'], dsn['name']), '%s/%s' % (str(dsn['available_length']), str(dsn['length'])), '%s/%s' % (str(dsn['available_bytes']), str(dsn['bytes']))])
         table.sort()
         print tabulate.tabulate(table, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'])
@@ -2079,7 +2088,6 @@ def list_parent_datasets(args):
         except ValueError:
             pfns.append(input)
 
-    print pfns, guids
     dict_datasets = {}
     if pfns:
         for res in client.get_did_from_pfns(pfns):
@@ -2296,13 +2304,14 @@ Commands:
     get_parser = subparsers.add_parser('get', help='Download method (synonym for download)')
     get_parser.set_defaults(which='download')
     get_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
-    get_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
-    get_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')
-    get_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
-    get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
-    get_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download')
+    get_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    get_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources.')
+    get_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
+    get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
+    get_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
     get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
     get_parser.add_argument('--old', action='store_true', default=False, help="Choose the old download thread model.")
+    get_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
@@ -2314,6 +2323,7 @@ Commands:
     download_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
     download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
     download_parser.add_argument('--old', action='store_true', default=False, help="Choose the old download thread model.")
+    download_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
