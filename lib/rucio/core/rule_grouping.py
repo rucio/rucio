@@ -175,6 +175,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
                   'bytes': bytes,
                   'md5': md5,
                   'adler32': adler32,
+                  'priority': rule.priority,
                   # 'allow_tape_source': has_account_attribute(account=rule.account, key='admin', session=session)}
                   'allow_tape_source': True}
 
@@ -185,9 +186,8 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
             'attributes': attributes,
             'request_type': request_type,
             'retry_count': retry_count,
-            'generated_at': lock.created_at if lock else rule.created_at,
             'account': rule.account,
-            'priority': rule.priority}
+            'requested_at': lock.created_at if lock else rule.created_at}
 
 
 @transactional_session
