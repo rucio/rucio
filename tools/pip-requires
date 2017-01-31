@@ -1,6 +1,6 @@
 # All dependencies needed to run rucio should be defined here
 
-SQLAlchemy===1.1.5 # db backend
+SQLAlchemy==1.1.5 # db backend
 alembic==0.8.10 # Lightweight database migration tool for SQLAlchemy
 Mako==1.0.6 # Templating language
 python-editor==1.0.3 # Programmatically open an editor, capture the result
