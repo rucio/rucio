@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
 
 import logging
 import sys
@@ -20,7 +20,9 @@ from rucio.core.rse_selector import RSESelector
 # from rucio.core.subscription import get_subscription_by_id
 from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
+from rucio.db.sqla.constants import RuleGrouping
 from rucio.db.sqla.session import transactional_session
+
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -46,12 +48,19 @@ def rebalance_rule(parent_rule_id, activity, rse_expression, priority, source_re
     else:
         lifetime = (parent_rule['expires_at'] - datetime.utcnow()).days * 24 * 3600 + (parent_rule['expires_at'] - datetime.utcnow()).seconds
 
+    if parent_rule['grouping'] == RuleGrouping.ALL:
+        grouping = 'ALL'
+    elif parent_rule['grouping'] == RuleGrouping.NONE:
+        grouping = 'NONE'
+    else:
+        grouping = 'DATASET'
+
     child_rule = add_rule(dids=[{'scope': parent_rule['scope'],
                                  'name': parent_rule['name']}],
                           account=parent_rule['account'],
                           copies=parent_rule['copies'],
                           rse_expression=rse_expression,
-                          grouping=parent_rule['grouping'],
+                          grouping=grouping,
                           weight=parent_rule['weight'],
                           lifetime=lifetime,
                           locked=parent_rule['locked'],
