@@ -82,8 +82,8 @@ def __check_rse_usage(rse, rse_id):
     if values:
         source_for_used_space = values[0]
 
-    logging.debug('RSE: %(rse)s, sourceForTotalSpace: %(source_for_total_space)s,'\
-        'sourceForUsedSpace: %(source_for_used_space)s' % locals())
+    logging.debug('RSE: %(rse)s, sourceForTotalSpace: %(source_for_total_space)s,'
+                  'sourceForUsedSpace: %(source_for_used_space)s' % locals())
 
     # Get total and used space
     usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source=source_for_total_space)
@@ -214,12 +214,12 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                     logging.warning('Reaper %s-%s: %s', worker_number, child_number, err_msg)
                                     replica['pfn'] = None
 
-                                #add_message('deletion-planned', {'scope': replica['scope'],
-                                #                                 'name': replica['name'],
-                                #                                 'file-size': replica['bytes'],
-                                #                                 'bytes': replica['bytes'],
-                                #                                 'url': replica['pfn'],
-                                #                                 'rse': rse_info['rse']})
+                                add_message('deletion-planned', {'scope': replica['scope'],
+                                                                 'name': replica['name'],
+                                                                 'file-size': replica['bytes'],
+                                                                 'bytes': replica['bytes'],
+                                                                 'url': replica['pfn'],
+                                                                 'rse': rse_info['rse']})
 
                             monitor.record_counter(counters='reaper.deletion.being_deleted', delta=len(files))
 
