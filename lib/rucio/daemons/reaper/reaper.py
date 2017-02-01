@@ -38,7 +38,8 @@ from rucio.core import monitor
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
-from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
+from rucio.core.replica import (list_unlocked_replicas, update_replicas_states,
+                                delete_replicas)
 from rucio.core.rse import get_rse_attribute, sort_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.rse import rsemanager as rsemgr
@@ -82,7 +83,7 @@ def __check_rse_usage(rse, rse_id):
     if values:
         source_for_used_space = values[0]
 
-    logging.debug('RSE: %(rse)s, sourceForTotalSpace: %(source_for_total_space)s,'
+    logging.debug('RSE: %(rse)s, sourceForTotalSpace: %(source_for_total_space)s, '
                   'sourceForUsedSpace: %(source_for_used_space)s' % locals())
 
     # Get total and used space
@@ -108,7 +109,8 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100, once=False, greedy=False, scheme=None, delay_seconds=0):
+def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100,
+           once=False, greedy=False, scheme=None, delay_seconds=0):
     """
     Main loop to select and delete files.
 
@@ -122,7 +124,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     """
-    logging.info('Starting Reaper: Worker %(worker_number)s, child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
+    logging.info('Starting Reaper: Worker %(worker_number)s, '
+                 'child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
 
     pid = os.getpid()
     thread = threading.current_thread()
