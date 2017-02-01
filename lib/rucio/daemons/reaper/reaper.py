@@ -74,8 +74,8 @@ def __check_rse_usage(rse, rse_id):
     max_being_deleted_files = limits.get('MaxBeingDeletedFiles')
 
     # Check from which sources to get used and total spaces
-    # Default is srm
-    source_for_total_space, source_for_used_space = 'srm', 'srm'
+    # Default is storage
+    source_for_total_space, source_for_used_space = 'storage', 'storage'
     values = get_rse_attribute(rse_id=rse_id, key='sourceForTotalSpace')
     if values:
         source_for_total_space = values[0]
