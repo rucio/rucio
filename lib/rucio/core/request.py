@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
@@ -26,7 +26,7 @@ from dogpile.cache.api import NoValue
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import aliased
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import asc, bindparam, text
+from sqlalchemy.sql.expression import asc, bindparam, text, false, true
 
 from rucio.common.config import config_get
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
@@ -1350,7 +1350,6 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
     if total_processes > 1 and total_processes == total_threads:
         raise RucioException("Total process %s is the same with total threads %s, will create potential same hash" % (total_processes, total_threads))
 
-    is_false = False  # For PEP8
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
                                  models.Request.scope,
@@ -1422,8 +1421,8 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
                                                    sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
         .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.staging_area == is_false,
-                                    models.RSE.deleted == is_false))\
+                                    models.RSE.staging_area == false(),
+                                    models.RSE.deleted == false()))\
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
                                        models.RSE.id == models.Source.rse_id))\
         .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')\
@@ -1459,7 +1458,6 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
     :param session: Database session to use.
     :returns: List.
     """
-    is_false = False  # For PEP8
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
                                  models.Request.scope,
@@ -1531,8 +1529,8 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
                                                    sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
         .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.staging_area == is_false,
-                                    models.RSE.deleted == is_false))\
+                                    models.RSE.staging_area == false(),
+                                    models.RSE.deleted == false()))\
         .outerjoin(models.RSEAttrAssociation, and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
                                                    models.RSEAttrAssociation.key == 'staging_buffer'))\
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
@@ -1608,11 +1606,9 @@ def get_heavy_load_rses(threshold, session=None):
     :param session: Database session to use.
     :returns: .
     """
-
-    is_true = True
     try:
         results = session.query(models.Source.rse_id, func.count(models.Source.rse_id).label('load'))\
-                         .filter(models.Source.is_using == is_true)\
+                         .filter(models.Source.is_using == true())\
                          .group_by(models.Source.rse_id)\
                          .all()
 
