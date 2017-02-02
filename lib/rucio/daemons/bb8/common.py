@@ -19,7 +19,7 @@ from rucio.core.rse import list_rse_attributes, get_rse_name
 from rucio.core.rse_selector import RSESelector
 # from rucio.core.subscription import get_subscription_by_id
 from rucio.common.config import config_get
-from rucio.common.exception import InsufficientTargetRSEs
+from rucio.common.exception import InsufficientTargetRSEs, RuleNotFound, DuplicateRule
 from rucio.db.sqla.constants import RuleGrouping
 from rucio.db.sqla.session import transactional_session
 
@@ -228,7 +228,7 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
                                                    comment=comment)
                 else:
                     child_rule_id = ''
-            except InsufficientTargetRSEs, e:
+            except (InsufficientTargetRSEs, DuplicateRule, RuleNotFound) as e:
                 continue
             print ('%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes / 1E9), target_rse_exp, child_rule_id))
             rebalanced_bytes += bytes
