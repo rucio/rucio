@@ -7,13 +7,13 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
 """
 
 import datetime
 
 from sqlalchemy import and_, or_, exists, not_
-from sqlalchemy.sql.expression import bindparam, text, select
+from sqlalchemy.sql.expression import bindparam, text, select, false
 
 from rucio.common.utils import chunks
 from rucio.core.rse import get_rse_id
@@ -147,8 +147,7 @@ def list_rses(session=None):
 
     :returns: a list of RSEs.
     """
-    is_false = False
     query = session.query(models.RSE.rse).distinct(models.RSE.rse).\
         filter(models.QuarantinedReplica.rse_id == models.RSE.id).\
-        filter(models.RSE.deleted == is_false)
+        filter(models.RSE.deleted == false())
     return [rse for (rse,) in query]
