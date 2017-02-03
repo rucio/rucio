@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
@@ -30,7 +30,7 @@ from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, text, Insert, select
+from sqlalchemy.sql.expression import bindparam, text, Insert, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -64,7 +64,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
     stmt = exists().where(and_(models.ReplicationRule.scope == models.DataIdentifier.scope,
                                models.ReplicationRule.name == models.DataIdentifier.name,
-                               models.ReplicationRule.locked == True))  # NOQA
+                               models.ReplicationRule.locked == true()))
     query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
                           models.DataIdentifier.did_type,
                           models.DataIdentifier.created_at,
@@ -99,11 +99,13 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     if limit:
         query = query.limit(limit)
 
-    return [{'scope': scope, 'name': name, 'did_type': did_type, 'created_at': created_at, 'purge_replicas': purge_replicas} for scope, name, did_type, created_at, purge_replicas in query]
+    return [{'scope': scope, 'name': name, 'did_type': did_type, 'created_at': created_at,
+             'purge_replicas': purge_replicas} for scope, name, did_type, created_at, purge_replicas in query]
 
 
 @transactional_session
-def add_did(scope, name, type, account, statuses=None, meta=None, rules=None, lifetime=None, dids=None, rse=None, session=None):
+def add_did(scope, name, type, account, statuses=None, meta=None, rules=None,
+            lifetime=None, dids=None, rse=None, session=None):
     """
     Add data identifier.
 
@@ -1188,8 +1190,9 @@ def set_status(scope, name, session=None, **kwargs):
 
 
 @stream_session
-def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False, session=None):
-    """
+def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
+              offset=None, long=False, session=None):
+    """0
     Search data identifiers
 
     :param scope: the scope name.
@@ -1211,6 +1214,9 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
                           models.DataIdentifier.bytes,
                           models.DataIdentifier.length).\
         filter(models.DataIdentifier.scope == scope)
+
+    # Exclude suppressed dids
+    query = query.filter(models.DataIdentifier.suppressed != true())
 
     if type == 'all':
         query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
@@ -1236,9 +1242,11 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
             if v in ('*', '%', u'*', u'%'):
                 continue
             if session.bind.dialect.name == 'postgresql':  # PostgreSQL escapes automatically
-                query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%')))
+                query = query.filter(getattr(models.DataIdentifier, k).
+                                     like(v.replace('*', '%')))
             else:
-                query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%'), escape='\\'))
+                query = query.filter(getattr(models.DataIdentifier, k).
+                                     like(v.replace('*', '%'), escape='\\'))
         elif k == 'created_before':
             created_before = str_to_date(v)
             query = query.filter(models.DataIdentifier.created_at <= created_before)

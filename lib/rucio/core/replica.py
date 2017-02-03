@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
@@ -25,7 +25,7 @@ from traceback import format_exc
 from sqlalchemy import func, and_, or_, exists, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError, NoResultFound
-from sqlalchemy.sql.expression import case, bindparam, select, text
+from sqlalchemy.sql.expression import case, bindparam, select, text, false
 
 import rucio.core.lock
 
@@ -587,7 +587,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
 
     state_clause = None
     if not all_states:
-        # models.RSE.volatile == is_false
+        # models.RSE.volatile == false()
         if not unavailable:
             state_clause = and_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
 
@@ -605,7 +605,6 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, sessio
 
     :param session: The database session in use.
     """
-    is_false = False
     replica_query = session.query(models.DataIdentifierAssociation.child_scope,
                                   models.DataIdentifierAssociation.child_name,
                                   models.DataIdentifierAssociation.bytes,
@@ -623,8 +622,8 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, sessio
                   and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).\
         join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id).\
-        filter(models.RSE.deleted == is_false).\
-        filter(models.RSE.staging_area == is_false).\
+        filter(models.RSE.deleted == false()).\
+        filter(models.RSE.staging_area == false()).\
         filter(or_(*dataset_clause)).\
         order_by(models.DataIdentifierAssociation.child_scope,
                  models.DataIdentifierAssociation.child_name)
@@ -645,32 +644,31 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
 
     :param session: The database session in use.
     """
-    is_false = False
     for replica_condition in chunks(file_clause, 50):
 
         if state_clause is None:
             if rse_clause is None:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == is_false,
-                                   models.RSE.staging_area == is_false,
+                                   models.RSE.deleted == false(),
+                                   models.RSE.staging_area == false(),
                                    or_(*replica_condition))
             else:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == is_false,
-                                   models.RSE.staging_area == is_false,
+                                   models.RSE.deleted == false(),
+                                   models.RSE.staging_area == false(),
                                    or_(*replica_condition),
                                    or_(*rse_clause))
         else:
             if rse_clause is None:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == is_false,
-                                   models.RSE.staging_area == is_false,
+                                   models.RSE.deleted == false(),
+                                   models.RSE.staging_area == false(),
                                    state_clause,
                                    or_(*replica_condition))
             else:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == is_false,
-                                   models.RSE.staging_area == is_false,
+                                   models.RSE.deleted == false(),
+                                   models.RSE.staging_area == false(),
                                    state_clause,
                                    or_(*replica_condition),
                                    or_(*rse_clause))
@@ -1663,7 +1661,6 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
 
     :returns: A list of dict dataset replicas
     """
-    is_false = False
     if not deep:
         query = session.query(models.CollectionReplica.scope,
                               models.CollectionReplica.name,
@@ -1679,7 +1676,7 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
                               models.CollectionReplica.accessed_at)\
             .filter_by(scope=scope, name=name, did_type=DIDType.DATASET)\
             .filter(models.CollectionReplica.rse_id == models.RSE.id)\
-            .filter(models.RSE.deleted == is_false)
+            .filter(models.RSE.deleted == false())
 
         for row in query:
             yield row._asdict()
@@ -1726,7 +1723,7 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
                               sub_query.c.updated_at,
                               sub_query.c.accessed_at)\
             .filter(models.RSE.id == sub_query.c.rse_id)\
-            .filter(models.RSE.deleted == is_false)
+            .filter(models.RSE.deleted == false())
 
         for row in query:
             replica = row._asdict()
@@ -1750,7 +1747,6 @@ def list_datasets_per_rse(rse, filters=None, limit=None, session=None):
 
     :returns: A list of dict dataset replicas
     """
-    is_false = False
     query = session.query(models.CollectionReplica.scope,
                           models.CollectionReplica.name,
                           models.RSE.rse,
@@ -1765,7 +1761,7 @@ def list_datasets_per_rse(rse, filters=None, limit=None, session=None):
         .filter_by(did_type=DIDType.DATASET)\
         .filter(models.CollectionReplica.rse_id == models.RSE.id)\
         .filter(models.RSE.rse == rse)\
-        .filter(models.RSE.deleted == is_false)
+        .filter(models.RSE.deleted == false())
 
     for (k, v) in filters and filters.items() or []:
         if k == 'name' or k == 'scope':

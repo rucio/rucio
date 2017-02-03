@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
@@ -23,7 +23,7 @@ from string import Template
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import and_, or_, bindparam, text
+from sqlalchemy.sql.expression import and_, or_, bindparam, text, true, null
 
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
@@ -1506,25 +1506,24 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
     :param blacklisted_rules:  Blacklisted rules to filter out.
     :param session:            Database session in use.
     """
-    is_none, is_true = None, True
     if session.bind.dialect.name == 'oracle':
         query = session.query(models.ReplicationRule.id).\
             with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
             filter(text("(CASE when rules.state='S' THEN rules.state ELSE null END)= 'S' ")).\
             filter(models.ReplicationRule.state == RuleState.STUCK).\
             filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
-            filter(or_(models.ReplicationRule.expires_at == is_none,
+            filter(or_(models.ReplicationRule.expires_at == null(),
                        models.ReplicationRule.expires_at > datetime.utcnow(),
-                       models.ReplicationRule.locked == is_true)).\
+                       models.ReplicationRule.locked == true())).\
             order_by(models.ReplicationRule.updated_at)  # NOQA
     else:
         query = session.query(models.ReplicationRule.id).\
             with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
             filter(models.ReplicationRule.state == RuleState.STUCK).\
             filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
-            filter(or_(models.ReplicationRule.expires_at == is_none,
+            filter(or_(models.ReplicationRule.expires_at == null(),
                        models.ReplicationRule.expires_at > datetime.utcnow(),
-                       models.ReplicationRule.locked == is_true)).\
+                       models.ReplicationRule.locked == true())).\
             order_by(models.ReplicationRule.updated_at)
 
     if session.bind.dialect.name == 'oracle':
