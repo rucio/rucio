@@ -121,9 +121,10 @@ def _ck_constraint_name(const, table):
         const.name = "QURD_REPLICAS_CREATED_NN"
     elif const.name == 'QUARANTINED_REPLICAS_UPDATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS':
         const.name = "QURD_REPLICAS_UPDATED_NN"
-
-    # SQLAlchemy sometimes does not propagate Enum names properly to subclassed objects,
-    # so we have to uniquify them - hopefully fixed in SQLA v9
+    elif const.name == 'ARCHIVE_CONTENTS_HISTORY_CREATED_NN' and table.name.upper() == 'ARCHIVE_CONTENTS_HISTORY':
+        const.name = "ARCH_CNTS_HIST_CREATED_NN"
+    elif const.name == 'ARCHIVE_CONTENTS_HISTORY_UPDATED_NN' and table.name.upper() == 'ARCHIVE_CONTENTS_HISTORY':
+        const.name = "ARCH_CNTS_HIST_UPDATED_NN"
 
     if const.name is None:
         const.name = table.name.upper() + '_' + str(uuid.uuid4())[:6] + '_CHK'
@@ -348,6 +349,8 @@ class DataIdentifier(BASE, ModelBase):
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
     eol_at = Column(DateTime)
+    archive = Column(Boolean(name='DIDS_ARCHIVE_CHK'))
+    constituents = Column(Boolean(name='DIDS_CONSTITUENTS_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -403,6 +406,8 @@ class DeletedDataIdentifier(BASE, ModelBase):
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
     eol_at = Column(DateTime)
+    archive = Column(Boolean(name='DEL_DIDS_ARCH_CHK'))
+    constituents = Column(Boolean(name='DEL_DIDS_CONST_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
 
 
