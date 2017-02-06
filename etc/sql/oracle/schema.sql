@@ -1786,7 +1786,7 @@ CREATE TABLE tmp_dids (
 CREATE INDEX "TMP_DIDS_EXPIRED_AT_IDX" ON tmp_dids (case when expired_at is not null then rse_id end) COMPRESS 1  TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
 
 
-
+-- ============================= LIFETIME_EXCEPT =========================================
 CREATE TABLE lifetime_except (
     id RAW(16),
     scope VARCHAR2(25 CHAR),
@@ -1803,3 +1803,72 @@ CREATE TABLE lifetime_except (
     CONSTRAINT "LIFETIME_EXCEPT_STATE_CHK" CHECK (state IN ('A', 'R', 'W'))
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
 COMMENT ON TABLE lifetime_except IS 'Table for exceptions of the lifetime model';
+
+
+-- ============================= ARCHIVE_CONTENT =========================================
+
+-- IOT physical layout because of the foreseen high DML rate (inserts and deletes)
+CREATE TABLE atlas_rucio.ARCHIVE_CONTENTS
+(
+  child_scope VARCHAR2(25 CHAR) NOT NULL,
+  child_name VARCHAR2(255 CHAR) NOT NULL,
+  scope VARCHAR2(25 CHAR) NOT NULL,
+  name VARCHAR2(255 CHAR) NOT NULL,
+  bytes NUMBER(19),
+  adler32 VARCHAR2(8 CHAR),
+  offset NUMBER(19),
+  md5 VARCHAR2(32 CHAR),
+  guid RAW(16),
+  length NUMBER(19),
+  updated_at DATE,
+  created_at DATE,
+CONSTRAINT "ARCH_CONTENTS_PK" PRIMARY KEY (child_scope, child_name, scope, name),
+CONSTRAINT "ARCH_CONTENTS_PARENT_FK" FOREIGN KEY(scope, name) REFERENCES atlas_rucio.dids (scope, name),
+CONSTRAINT "ARCH_CONTENTS_CHLD_FK" FOREIGN KEY(child_scope, child_name) REFERENCES atlas_rucio.dids (scope, name),
+CONSTRAINT "ARCH_CONTENTS_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
+CONSTRAINT "ARCH_CONTENTS_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
+) ORGANIZATION INDEX
+TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
+-- Complementary index
+CREATE INDEX atlas_rucio.ARCH_CONT_SCOPE_NAME_IDX ON atlas_rucio.ARCHIVE_CONTENTS(SCOPE, NAME) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
+
+COMMENT ON TABLE atlas_rucio.ARCHIVE_CONTENTS is 'Content of archives (zip, tar files) in Rucio. Keeps the association about which files are in which zip files. Expected about 50-100K zip files per day. Most of them with a lifetime of one day but few of them can be permanent (archive on tape). The zips will have 8 to 40 constituent files ';
+
+
+-- ============================= ARCHIVE_CONTENT_HISTORY =========================================
+
+-- Normal table, monthly partitioned, with OLTP compression. Index is partitioned as well, but no partitioned PK as then Oracle raises
+"ORA-14039: partitioning columns must form a subset of key columns of a UNIQUE index" error.
+
+CREATE TABLE atlas_rucio.ARCHIVE_CONTENTS_HISTORY
+(
+scope VARCHAR2(25 CHAR) NOT NULL,
+name VARCHAR2(255 CHAR) NOT NULL,
+child_scope VARCHAR2(25 CHAR) NOT NULL,
+child_name VARCHAR2(255 CHAR) NOT NULL,
+bytes NUMBER(19),
+adler32 VARCHAR2(8 CHAR),
+offset NUMBER(19),
+md5 VARCHAR2(32 CHAR),
+guid RAW(16),
+length NUMBER(19),
+updated_at DATE,
+created_at DATE,
+CONSTRAINT "ARCH_CONT_HIST_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
+CONSTRAINT "ARCH_CONT_HIST_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
+)
+PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA02
+PARTITION BY RANGE (created_at)
+ INTERVAL( NUMTOYMINTERVAL(1,'MONTH'))
+ (
+   PARTITION DATA_BEFORE_01012017 VALUES LESS THAN (TO_DATE('2017-01-01', 'YYYY-MM-DD'))
+ )
+;
+
+-- Index on SCOPE and NAME
+CREATE INDEX atlas_rucio.ARCH_CONT_HIST_IDX ON atlas_rucio.ARCHIVE_CONTENTS_HISTORY(SCOPE, NAME) COMPRESS 2 LOCAL TABLESPACE ATLAS_RUCIO_HIST_DATA02;
+
+
+COMMENT ON TABLE atlas_rucio.ARCHIVE_CONTENTS_HISTORY is 'Content of archives (zip, tar files) in Rucio. Keeps the association about which files are in which zip files. Second one to keep the history';
