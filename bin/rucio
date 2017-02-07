@@ -1077,6 +1077,8 @@ def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, las
             rses[idx], rses[0] = rses[0], rses[idx]
         else:
             random.shuffle(rses)
+
+        rses = list(set(rses) - set(rse_to_remove))
         logger.debug('Potential sources : %s' % str(rses))
         index = 0
         download_ok = 0
@@ -1172,6 +1174,7 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                     rse_to_remove.append(rse)
             if len(rse_to_remove) > 0:
                 logger.debug('Thread %s/%s : Excluding TAPE endpoints: %s' % (threadnb, total_threads, rse_to_remove))
+
             if len(rses) == len(rse_to_remove):
                 if not is_admin:
                     logger.warning('Thread %s/%s : File %s:%s has no replicas available on disk endpoints and cannot be downloaded. Go to https://rucio-ui.cern.ch/ and request a replication.' % (threadnb, total_threads, file['scope'], file['name']))
@@ -1184,6 +1187,8 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                 rses[idx], rses[0] = rses[0], rses[idx]
             else:
                 random.shuffle(rses)
+
+            rses = list(set(rses) - set(rse_to_remove))
             logger.debug('Thread %s/%s : Potential sources : %s' % (threadnb, total_threads, str(rses)))
             index = 0
             download_ok = 0
