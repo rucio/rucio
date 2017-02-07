@@ -839,6 +839,12 @@ def upload(args):
 
     Upload files into Rucio
     """
+
+    rse_settings = rsemgr.get_rse_info(args.rse)
+    if rse_settings['availability_write'] != 1:
+        logger.critical('RSE is not available for writing right now. Aborting.')
+        return FAILURE
+
     client = get_client(args)
     try:
         dsscope, dsname = __get_dataset(args.args)    # None, None if no dataset given
@@ -863,6 +869,21 @@ def upload(args):
     if args.no_register is False and fscope not in client.list_scopes_for_account(client.account):
         logger.error("Cannot guess the scope for the files. You must specify one with --scope option. The scope must be one of: " + ', '.join(client.list_scopes_for_account(client.account)))
         return FAILURE
+
+    if args.pfn and not args.no_register:
+        logger.error('You must specify --no-register if you use the --pfn option. Aborting.')
+        return FAILURE
+    elif args.pfn:
+        selected_pfn_protocol = args.pfn.split(':')[0]
+        logger.debug('PFN option specified, extracting protocol from given PFN: %s' % selected_pfn_protocol)
+        try:
+            rse_settings['hostname'] = ''
+            rse_settings['prefix'] = ''
+            protocol = rsemgr.select_protocol(rse_settings, operation='read', scheme=selected_pfn_protocol)
+        except RSEProtocolNotSupported, error:
+            logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
+            logger.debug(error)
+            return FAILURE
 
     trace = {}
     trace['hostname'] = socket.getfqdn()
@@ -903,18 +924,13 @@ def upload(args):
             logger.error("No operation will be performed. Exiting!")
             return FAILURE
 
-    rse_settings = rsemgr.get_rse_info(args.rse)
-    if rse_settings['availability_write'] != 1:
-        logger.critical('RSE is not available for write now')
-        return FAILURE
-
     if args.protocol:
         try:
             logger.debug('Forcing protocol : %s' % args.protocol)
             logger.debug('Forcing RSE : %s' % args.rse)
             protocol = rsemgr.select_protocol(rse_settings, operation='read', scheme=args.protocol)
         except RSEProtocolNotSupported, error:
-            logger.error('The protocol specfied (%s) is not supported by %s' % (args.protocol, args.rse))
+            logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
             logger.debug(error)
             return FAILURE
         rse_settings['protocols'] = [protocol, ]
@@ -930,7 +946,7 @@ def upload(args):
     trace['datasetScope'] = ''
     trace['eventType'] = 'upload'
     trace['eventVersion'] = version.RUCIO_VERSION[0]
-    if dsscope and dsname:
+    if dsscope and dsname and args.no_register is False:
         if files_to_list.count({'scope': dsscope, 'name': dsname}) > 0:
             # There is a file with the name of the destination dataset.
             logger.error('scope:name for the files must be different from scope:name for the destination dataset. {0}:{1}'.format(dsscope, dsname))
@@ -943,6 +959,8 @@ def upload(args):
         except DataIdentifierAlreadyExists:
             # TODO: Need to check the rules thing!!
             logger.warning("The dataset name already exist")
+    else:
+            logger.debug('Skipping dataset registration')
 
     # Adding files to the catalog
     for f in list_files:
@@ -962,7 +980,13 @@ def upload(args):
                     trace['protocol'] = rse_settings['protocols'][0]['scheme']
                     trace['filesize'] = f['bytes']
                     trace['transferStart'] = time.time()
-                    rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': f['name'], 'scope': f['scope'], 'adler32': f['adler32'], 'filesize': f['bytes']}], source_dir=directory)
+                    rsemgr.upload(rse_settings=rse_settings,
+                                  lfns=[{'name': f['name'],
+                                         'scope': f['scope'],
+                                         'adler32': f['adler32'],
+                                         'filesize': f['bytes']}],
+                                  source_dir=directory,
+                                  force_pfn=args.pfn)
                     trace['transferEnd'] = time.time()
                     trace['clientState'] = 'DONE'
                     logger.info('File %s:%s successfully uploaded on the storage' % (f['scope'], f['name']))
@@ -991,7 +1015,13 @@ def upload(args):
                 trace['protocol'] = rse_settings['protocols'][0]['scheme']
                 trace['filesize'] = f['bytes']
                 trace['transferStart'] = time.time()
-                rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': f['name'], 'scope': f['scope'], 'adler32': f['adler32'], 'filesize': f['bytes']}], source_dir=directory)
+                rsemgr.upload(rse_settings=rse_settings,
+                              lfns=[{'name': f['name'],
+                                     'scope': f['scope'],
+                                     'adler32': f['adler32'],
+                                     'filesize': f['bytes']}],
+                              source_dir=directory,
+                              force_pfn=args.pfn)
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'DONE'
                 logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
@@ -2298,6 +2328,7 @@ Commands:
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
     upload_parser.add_argument('--guid', dest='guid', action='store', help="Manually specify the GUID for the file.")
     upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
+    upload_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the upload.")
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download subparser
