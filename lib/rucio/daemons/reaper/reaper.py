@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
@@ -38,8 +38,9 @@ from rucio.core import monitor
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
-from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
-from rucio.core.rse import sort_rses
+from rucio.core.replica import (list_unlocked_replicas, update_replicas_states,
+                                delete_replicas)
+from rucio.core.rse import get_rse_attribute, sort_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.rse import rsemanager as rsemgr
 
@@ -72,14 +73,34 @@ def __check_rse_usage(rse, rse_id):
     min_free_space = limits.get('MinFreeSpace')
     max_being_deleted_files = limits.get('MaxBeingDeletedFiles')
 
-    # Get total space available
-    usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source='srm')
+    # Check from which sources to get used and total spaces
+    # Default is storage
+    source_for_total_space, source_for_used_space = 'storage', 'storage'
+    values = get_rse_attribute(rse_id=rse_id, key='sourceForTotalSpace')
+    if values:
+        source_for_total_space = values[0]
+    values = get_rse_attribute(rse_id=rse_id, key='sourceForUsedSpace')
+    if values:
+        source_for_used_space = values[0]
+
+    logging.debug('RSE: %(rse)s, sourceForTotalSpace: %(source_for_total_space)s, '
+                  'sourceForUsedSpace: %(source_for_used_space)s' % locals())
+
+    # Get total and used space
+    usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source=source_for_total_space)
     if not usage:
         return max_being_deleted_files, needed_free_space, used, free
-
     for var in usage:
         total, used = var['total'], var['used']
         break
+
+    if source_for_total_space != source_for_used_space:
+        usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source=source_for_used_space)
+        if not usage:
+            return max_being_deleted_files, needed_free_space, None, free
+        for var in usage:
+            used = var['used']
+            break
 
     free = total - used
     if min_free_space:
@@ -88,7 +109,8 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100, once=False, greedy=False, scheme=None, delay_seconds=0):
+def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100,
+           once=False, greedy=False, scheme=None, delay_seconds=0):
     """
     Main loop to select and delete files.
 
@@ -102,7 +124,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     """
-    logging.info('Starting Reaper: Worker %(worker_number)s, child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
+    logging.info('Starting Reaper: Worker %(worker_number)s, '
+                 'child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
 
     pid = os.getpid()
     thread = threading.current_thread()
@@ -273,6 +296,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                     'bytes': replica['bytes'],
                                                                     'url': replica['pfn'],
                                                                     'reason': str(error)})
+                                    break
                             finally:
                                 prot.close()
                             start = time.time()
