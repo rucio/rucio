@@ -226,7 +226,7 @@ class PlacementAlgorithm:
 
                 num_reps += 1
 
-        #decision['replica_rses'] = available_reps
+        # decision['replica_rses'] = available_reps
         decision['num_replicas'] = num_reps
 
         if num_reps >= 5:
