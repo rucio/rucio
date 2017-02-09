@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016-2017
 
 import logging
 from operator import itemgetter
@@ -226,7 +226,7 @@ class PlacementAlgorithm:
 
                 num_reps += 1
 
-        decision['replica_rses'] = available_reps
+        # decision['replica_rses'] = available_reps
         decision['num_replicas'] = num_reps
 
         if num_reps >= 5:
