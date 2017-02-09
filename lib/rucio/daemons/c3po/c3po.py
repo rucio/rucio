@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2017
 
 """
 Dynamic data placement daemon.
@@ -207,7 +207,7 @@ def place_replica(once=False,
                     decision['params'] = params
 
                     # write the output to ES for further analysis
-                    index_url = elastic_url + '/' + elastic_index + '-' + datetime.utcnow().strftime('%Y-%m-%d') + '/record/'
+                    index_url = elastic_url + '/' + elastic_index + '-' + datetime.utcnow().strftime('%Y-%m') + '/record/'
                     try:
                         if ca_cert:
                             r = post(index_url, data=dumps(decision), verify=ca_cert, auth=auth)
