@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2015-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 
 """
@@ -25,13 +26,13 @@ import threading
 import time
 import traceback
 
-from ConfigParser import NoOptionError
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
 from rucio.common.utils import chunks
-from rucio.common.exception import DatabaseException
+from rucio.common.exception import DatabaseException, ConfigNotFound
 from rucio.core import request, heartbeat
+from rucio.core.config import get
 from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.sqla.constants import RequestState, RequestType
@@ -54,11 +55,12 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                                                                                                db_bulk, bulk))
     try:
         suspicious_patterns = []
-        pattern = config_get('conveyor', 'suspicious_pattern')
+        pattern = get(section='conveyor', option='suspicious_pattern', session=None)
+        pattern = str(pattern)
         patterns = pattern.split(",")
         for pat in patterns:
             suspicious_patterns.append(re.compile(pat.strip()))
-    except NoOptionError:
+    except ConfigNotFound:
         suspicious_patterns = []
     logging.debug("Suspicious patterns: %s" % [pat.pattern for pat in suspicious_patterns])
 
@@ -75,14 +77,14 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
 
         try:
             hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            logging.debug('finisher - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
+            prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
 
             if activities is None:
                 activities = [None]
 
             if sleeping:
-                logging.info('%i:%i - nothing to do. will sleep 60s' % (process, hb['assign_thread']))
-                time.sleep(60)
+                logging.info(prepend_str + 'Nothing to do. will sleep %s seconds' % (sleep_time))
+                time.sleep(sleep_time)
 
             sleeping = True
             for activity in activities:
@@ -97,7 +99,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                                         thread=hb['assign_thread'], total_threads=hb['nr_threads'])
                 record_timer('daemons.conveyor.finisher.000-get_next', (time.time() - ts) * 1000)
                 if reqs:
-                    logging.debug('%i:%i - updating %i requests for activity %s' % (process, hb['assign_thread'], len(reqs), activity))
+                    logging.debug(prepend_str + 'Updating %i requests for activity %s' % (len(reqs), activity))
                     sleeping = False
 
                 for chunk in chunks(reqs, bulk):
@@ -109,26 +111,26 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                     except:
                         logging.warn(str(traceback.format_exc()))
                 if reqs:
-                    logging.debug('%i:%i - finish to update %s finished requests for activity %s' % (process, hb['assign_thread'], len(reqs), activity))
+                    logging.debug(prepend_str + 'Finish to update %s finished requests for activity %s' % (len(reqs), activity))
 
-        except (DatabaseException, DatabaseError), error:
+        except (DatabaseException, DatabaseError) as error:
             if isinstance(error.args[0], tuple) and (re.match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
-                logging.warn("%i:%i - Lock detected when handling request - skipping: %s" % (process, hb['assign_thread'], str(error)))
+                logging.warn(prepend_str + 'Lock detected when handling request - skipping: %s' % (str(error)))
             else:
-                logging.error("%i:%i - %s" % (process, hb['assign_thread'], traceback.format_exc()))
+                logging.error(prepend_str + '%s' % (traceback.format_exc()))
             sleeping = False
         except:
             sleeping = False
-            logging.critical("%i:%i - %s" % (process, hb['assign_thread'], traceback.format_exc()))
+            logging.critical(prepend_str + '%s' % (traceback.format_exc()))
 
         if once:
             return
 
-    logging.info('%i:%i - graceful stop requests' % (process, hb['assign_thread']))
+    logging.info(prepend_str + 'Graceful stop requests')
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info('%i:%i - graceful stop done' % (process, hb['assign_thread']))
+    logging.info(prepend_str + 'Graceful stop done')
 
 
 def stop(signum=None, frame=None):
