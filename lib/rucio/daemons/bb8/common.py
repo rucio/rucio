@@ -69,7 +69,7 @@ def rebalance_rule(parent_rule_id, activity, rse_expression, priority, source_re
                           activity=activity,
                           notify=parent_rule['notification'],
                           purge_replicas=parent_rule['purge_replicas'],
-                          ignore_availability=True,
+                          ignore_availability=False,
                           comment=parent_rule['comments'] if not comment else comment,
                           ask_approval=False,
                           asynchronous=False,
