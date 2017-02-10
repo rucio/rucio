@@ -290,7 +290,7 @@ def exists(rse_settings, files):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None):
+def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -298,6 +298,7 @@ def upload(rse_settings, lfns, source_dir=None):
         :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'},
                                                                                                     {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}]
         :param source_dir:  path to the local directory including the source files
+        :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -327,7 +328,10 @@ def upload(rse_settings, lfns, source_dir=None):
             ret['%s:%s' % (scope, name)] = exception.RucioException('Missing filesize for file %s:%s' % (lfn['scope'], lfn['name']))
             continue
 
-        pfn = protocol.lfns2pfns(lfn).values()[0]
+        if force_pfn:
+            pfn = force_pfn
+        else:
+            pfn = protocol.lfns2pfns(lfn).values()[0]
 
         # First check if renaming operation is supported
         if protocol.renaming:
