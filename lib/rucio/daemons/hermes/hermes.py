@@ -150,18 +150,17 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
-    sanity_check(executable=executable, hostname=hostname)
-
     # Make an initial heartbeat so that all daemons have the correct worker number on the next try
-    live(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
+    sanity_check(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
+
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
-
-        hb = live(executable, hostname, pid, hb_thread)
-
-        t_start = time.time()
         try:
+            t_start = time.time()
+
+            hb = live(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
+
             for conn in conns:
 
                 if not conn.is_connected():

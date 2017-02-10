@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
@@ -56,32 +56,31 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
 
     :returns messages: List of dictionaries {id, created_at, event_type, payload}
     """
-
     messages = []
-
     try:
-        query = session.query(Message.id,
-                              Message.created_at,
-                              Message.event_type,
-                              Message.payload)
-
+        subquery = session.query(Message.id)
         if total_threads and (total_threads - 1) > 0:
             if session.bind.dialect.name == 'oracle':
                 bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-                query = query.filter(text('ORA_HASH(id, :total_threads) = :thread_number', bindparams=bindparams))
+                subquery = subquery.filter(text('ORA_HASH(id, :total_threads) = :thread_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(id), %s) = %s' % (total_threads - 1, thread))
+                subquery = subquery.filter('mod(md5(id), %s) = %s' % (total_threads - 1, thread))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
+                subquery = subquery.filter('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
 
         if event_type:
-            query = query.filter_by(event_type=event_type)
+            subquery = subquery.filter_by(event_type=event_type)
         else:
-            query = query.filter(Message.event_type != 'email')
+            subquery = subquery.filter(Message.event_type != 'email')
 
-        query = query.order_by(Message.created_at)
+        subquery = subquery.order_by(Message.created_at).limit(bulk)
 
-        query = query.limit(bulk)
+        query = session.query(Message.id,
+                              Message.created_at,
+                              Message.event_type,
+                              Message.payload)\
+            .filter(Message.id.in_(subquery)).\
+            with_for_update(nowait=True)
 
         for id, created_at, event_type, payload in query:
             messages.append({'id': id,
