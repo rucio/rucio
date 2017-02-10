@@ -20,17 +20,26 @@ from rucio.common.exception import DatabaseException
 from rucio.common.utils import pid_exists
 
 
-def sanity_check(executable, hostname, hash_executable=None):
+@transactional_session
+def sanity_check(executable, hostname, hash_executable=None, pid=None, thread=None,
+                 session=None):
     """
     sanity_check wrapper to ignore DatabaseException errors.
 
     :param executable: Executable name as a string, e.g., conveyor-submitter.
     :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch.
     :param hash_executable: Hash of the executable.
+    :param pid: UNIX Process ID as a number, e.g., 1234.
+    :param thread: Python Thread Object.
+
+    :param session: The database session in use.
     """
     try:
         _sanity_check(executable=executable, hostname=hostname,
-                      hash_executable=hash_executable)
+                      hash_executable=hash_executable, session=session)
+        if pid:
+            live(executable=executable, hostname=hostname,
+                 pid=pid, thread=thread, session=session)
     except DatabaseException:
         pass
 
