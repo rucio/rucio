@@ -350,7 +350,7 @@ class DataIdentifier(BASE, ModelBase):
     closed_at = Column(DateTime)
     eol_at = Column(DateTime)
     is_archive = Column(Boolean(name='DIDS_ARCHIVE_CHK'))
-    constituents = Column(Boolean(name='DIDS_CONSTITUENTS_CHK'))
+    constituent = Column(Boolean(name='DIDS_CONSTITUENT_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -407,7 +407,7 @@ class DeletedDataIdentifier(BASE, ModelBase):
     closed_at = Column(DateTime)
     eol_at = Column(DateTime)
     is_archive = Column(Boolean(name='DEL_DIDS_ARCH_CHK'))
-    constituents = Column(Boolean(name='DEL_DIDS_CONST_CHK'))
+    constituent = Column(Boolean(name='DEL_DIDS_CONST_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
 
 
