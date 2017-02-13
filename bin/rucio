@@ -928,7 +928,9 @@ def upload(args):
         try:
             logger.debug('Forcing protocol : %s' % args.protocol)
             logger.debug('Forcing RSE : %s' % args.rse)
-            protocol = rsemgr.select_protocol(rse_settings, operation='read', scheme=args.protocol)
+            protocol = rsemgr.select_protocol(rse_settings,
+                                              operation='read',
+                                              scheme=args.protocol)
         except RSEProtocolNotSupported, error:
             logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
             logger.debug(error)
@@ -1353,7 +1355,9 @@ def download1(args):
     client = get_client(args)
     trace_endpoint = client.host
     summary = {}
-    trace_pattern = {'hostname': socket.getfqdn(), 'account': client.account, 'uuid': generate_uuid(), 'eventType': 'download', 'eventVersion': version.RUCIO_VERSION[0]}
+    trace_pattern = {'hostname': socket.getfqdn(), 'account': client.account,
+                     'uuid': generate_uuid(), 'eventType': 'download',
+                     'eventVersion': version.RUCIO_VERSION[0]}
     nbfiles_to_download = {}
 
     tape_endpoints = []
