@@ -412,7 +412,10 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                                        session=session)
 
             elif parent_did.did_type == DIDType.CONTAINER:
-                __add_collections_to_container(scope=attachment['scope'], name=attachment['name'], collections=attachment['dids'], account=account, session=session)
+                __add_collections_to_container(scope=attachment['scope'],
+                                               name=attachment['name'],
+                                               collections=attachment['dids'],
+                                               account=account, session=session)
 
             parent_did_condition.append(and_(models.DataIdentifier.scope == parent_did.scope,
                                              models.DataIdentifier.name == parent_did.name))

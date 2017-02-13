@@ -158,6 +158,8 @@ class Default(protocol.RSEProtocol):
         """
 
         self.__ctx = gfal2.creat_context()
+        # self.__ctx.set_opt_string("X509", "CERT", proxy)
+        # self.__ctx.set_opt_string("X509", "KEY", proxy)
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
 
     def get(self, path, dest):
