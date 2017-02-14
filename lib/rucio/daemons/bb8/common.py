@@ -90,7 +90,7 @@ def list_rebalance_rule_candidates(rse, mode=None, session=None):
     """
 
     if mode is None:
-        sql = """SELECT /*+ parallel(4) */ dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
+        sql = """SELECT dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
 WHERE
 dsl.rse_id = atlas_rucio.rse2id(:rse) and
 (r.expires_at > sysdate+60 or r.expires_at is NULL) and
@@ -108,7 +108,7 @@ r.grouping IN ('D', 'A') and
 0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id IN (SELECT id FROM atlas_rucio.rses WHERE rse_type='TAPE'))
 ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
     elif mode == 'decomission':
-        sql = """SELECT /*+ parallel(4) */ r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
+        sql = """SELECT r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
 WHERE
 r.id IN (SELECT rule_id FROM atlas_rucio.locks WHERE rse_id = atlas_rucio.rse2id(:rse) GROUP BY rule_id) and
 r.state = 'O' and
