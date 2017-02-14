@@ -5,10 +5,10 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
 
 """
-This script is to be used to background rebalance ATLAS T1 datadisks
+This script is to be used to background rebalance ATLAS Nuclei datadisks
 """
 
 from sqlalchemy import or_
@@ -22,13 +22,13 @@ from rucio.db.sqla.constants import RuleState
 
 
 tolerance = 0.1
-max_total_rebalance_volume = 100 * 1E12
+max_total_rebalance_volume = 200 * 1E12
 max_rse_rebalance_volume = 20 * 1E12
 
 total_rebalance_volume = 0
 
 # Calculate the current ratios
-rses = parse_expression('tier=1&type=DATADISK')
+rses = parse_expression('(datapolicynucleus=1|tier=1)&type=DATADISK')
 total_primary = 0
 total_secondary = 0
 global_ratio = float(0)
@@ -50,7 +50,7 @@ rses_under_ratio = sorted([rse for rse in rses if rse['ratio'] < global_ratio - 
 
 session = get_session()
 active_rses = session.query(models.ReplicationRule.rse_expression).filter(or_(models.ReplicationRule.state == RuleState.REPLICATING, models.ReplicationRule.state == RuleState.STUCK),
-                                                                          models.ReplicationRule.comments == 'T1 Background rebalancing').group_by(models.ReplicationRule.rse_expression).all()
+                                                                          models.ReplicationRule.comments == 'Nuclei Background rebalancing').group_by(models.ReplicationRule.rse_expression).all()
 print 'Excluding RSEs as destination which have active Background Rebalancing rules:'
 for rse in active_rses:
     print '  %s' % (rse[0])
@@ -77,7 +77,7 @@ for source_rse in rses_over_ratio:
                     available_target_rebalance_volume = available_source_rebalance_volume
 
                 print 'Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'])
-                rebalance_rse(source_rse['rse'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='T1 Background rebalancing', force_expression=destination_rse['rse'])
+                rebalance_rse(source_rse['rse'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=destination_rse['rse'])
 
                 destination_rse['receive_volume'] += available_target_rebalance_volume
                 total_rebalance_volume += available_target_rebalance_volume
