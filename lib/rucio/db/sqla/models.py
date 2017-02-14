@@ -512,7 +512,7 @@ class ConstituentAssociation(BASE, ModelBase):
     md5 = Column(String(32))
     guid = Column(GUID())
     length = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name',
+    _table_args = (PrimaryKeyConstraint('child_scope', 'child_name', 'scope', 'name',
                                         name='ARCH_CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'],
                                         name='ARCH_CONTENTS_PARENT_FK'),
