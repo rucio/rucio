@@ -519,8 +519,8 @@ class ConstituentAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['child_scope', 'child_name'],
                                         ['dids.scope', 'dids.name'], ondelete="CASCADE",
                                         name='ARCH_CONTENTS_CHILD_FK'),
-                   Index('ARCH_CONTENTS_CHILD_IDX', 'child_scope',
-                         'child_name', 'scope', 'name'))
+                   Index('ARCH_CONTENTS_CHILD_IDX', 'scope', 'name',
+                         'child_scope', 'child_name', ))
 
 
 class ConstituentAssociationHistory(BASE, ModelBase):

@@ -6,7 +6,7 @@
   You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
   - Thomas Beermann, <thomas.beermann@cern.ch> 2013
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
@@ -28,9 +28,12 @@ class DIDClient(BaseClient):
     """DataIdentifier client class for working with data identifiers"""
 
     DIDS_BASEURL = 'dids'
+    ARCHIVES_BASEURL = 'archives'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
-        super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
+                 auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+        super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert,
+                                        auth_type, creds, timeout, user_agent)
 
     def list_dids(self, scope, filters, type='collection', long=False):
         """
@@ -264,16 +267,15 @@ class DIDClient(BaseClient):
         """
         return self.attach_dids(scope=scope, name=name, dids=files, rse=rse)
 
-    def add_files_to_archive(self, scope, name, files, rse=None):
+    def add_files_to_archive(self, scope, name, files):
         """
         Add files to archive.
 
         :param scope: The scope name.
         :param name: The dataset name.
         :param files: The content.
-        :param rse: The RSE name when registering replicas.
         """
-        pass
+        return self.attach_dids(scope=scope, name=name, dids=files)
 
     def add_datasets_to_container(self, scope, name, dsns):
         """
@@ -585,5 +587,22 @@ class DIDClient(BaseClient):
         r = self._send_request(url, type='POST', data=dumps(dids))
         if r.status_code == codes.created:
             return True
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
+
+    def list_archive_content(self, scope, name):
+        """
+        List archive contents.
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        """
+        path = '/'.join([self.ARCHIVES_BASEURL, scope, name, 'files'])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
