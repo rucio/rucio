@@ -1159,24 +1159,29 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     # delete empty dids
     if did_condition:
         messages, deleted_dids = [], []
-        query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name).\
+        query = session.query(models.DataIdentifier.scope,
+                              models.DataIdentifier.name,
+                              models.DataIdentifier.did_type).\
             with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
             filter(or_(*did_condition))
-        for scope, name in query:
-            messages.append({'event_type': 'ERASE',
-                             'payload': dumps({'scope': scope,
-                                               'name': name,
-                                               'account': 'root'})})
+        for scope, name, did_type in query:
+            if did_type == DIDType.DATASET:
+                messages.append({'event_type': 'ERASE',
+                                 'payload': dumps({'scope': scope,
+                                                   'name': name,
+                                                   'account': 'root'})})
 
             deleted_dids.append(and_(models.DataIdentifier.scope == scope,
                                      models.DataIdentifier.name == name))
 
         if messages:
+            session.bulk_insert_mappings(models.Message, messages)
+
+        if deleted_dids:
             session.query(models.DataIdentifier).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                 filter(or_(*deleted_dids)).\
                 delete(synchronize_session=False)
-            session.bulk_insert_mappings(models.Message, messages)
 
     # Decrease RSE counter
     decrease(rse_id=replica_rse.id, files=delta, bytes=bytes, session=session)
