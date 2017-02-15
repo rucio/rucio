@@ -7,16 +7,17 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+
 
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, data, BadRequest, Created, InternalError, loadhook, header
+from web import application, ctx, data, Created, InternalError, loadhook, header
 
 from rucio.api.meta import add_key, add_value, list_keys, list_values
 from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import rucio_loadhook
+from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
 logger = getLogger("rucio.meta")
@@ -30,7 +31,7 @@ urls = ('/(.+)/(.+)', 'Values',
         '/', 'Meta',)
 
 
-class Meta:
+class Meta(RucioController):
     """ REST APIs for data identifier attribute keys. """
 
     def GET(self):
@@ -42,9 +43,6 @@ class Meta:
         """
         header('Content-Type', 'application/json')
         return dumps(list_keys())
-
-    def PUT(self):
-        raise BadRequest()
 
     def POST(self, key):
         """
@@ -89,11 +87,8 @@ class Meta:
 
         raise Created()
 
-    def DELETE(self):
-        raise BadRequest()
 
-
-class Values:
+class Values(RucioController):
     """ REST APIs for data identifier attribute values. """
 
     def GET(self, key):
@@ -105,9 +100,6 @@ class Values:
         """
         header('Content-Type', 'application/json')
         return dumps(list_values(key=key))
-
-    def PUT(self):
-        raise BadRequest()
 
     def POST(self, key):
         """
@@ -148,9 +140,6 @@ class Values:
             raise InternalError(e)
 
         raise Created()
-
-    def DELETE(self):
-        raise BadRequest()
 
 
 """----------------------

@@ -37,7 +37,7 @@ import rucio.core.replica  # import add_replicas
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.utils import str_to_date
+from rucio.common.utils import str_to_date, is_archive
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
@@ -211,9 +211,66 @@ def add_dids(dids, account, session=None):
         raise exception.RucioException(error.args)
 
 
-def __add_files_to_archive(scope, name, files, account, rse, session=None):
+def __add_files_to_archive(scope, name, files, account, session=None):
     """
     """
+    # lookup for files
+    files_query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
+                                models.DataIdentifier.bytes, models.DataIdentifier.guid,
+                                models.DataIdentifier.events, models.DataIdentifier.availability,
+                                models.DataIdentifier.adler32, models.DataIdentifier.md5).\
+        filter(models.DataIdentifier.did_type == DIDType.FILE).\
+        with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')
+    file_condition = []
+    for file in files:
+        file_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name']))
+
+    contents = []
+    for row in files_query.filter(or_(*file_condition)):
+        contents.append({'child_scope': row.scope,
+                         'child_name': row.name,
+                         'scope': scope,
+                         'name': name,
+                         'bytes': row.bytes,
+                         'adler32': row.adler32,
+                         'md5': row.md5,
+                         'guid': row.guid,
+                         'length': row.events})
+
+    new_files, existing_files = [], []
+    for file in files:
+        content = {'child_scope': file['scope'],
+                   'child_name': file['name'],
+                   'scope': scope,
+                   'name': name,
+                   'bytes': file['bytes'],
+                   'adler32': file.get('adler32'),
+                   'md5': file.get('md5'),
+                   'guid': file.get('guid'),
+                   'length': file.get('events')}
+        if content not in contents:
+            file['constituent'] = True
+            file['did_type'] = DIDType.FILE
+            file['account'] = account
+            new_files.append(file)
+            contents.append(content)
+        else:
+            existing_files.append(and_(models.DataIdentifier.scope == file['scope'],
+                                       models.DataIdentifier.name == file['name']))
+
+    # insert into archive_contents
+    try:
+
+        new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
+        if existing_files:
+            session.query(models.DataIdentifier).\
+                filter(models.DataIdentifier.did_type == DIDType.FILE).\
+                filter(or_(*existing_files)).update({'constituent': True})
+
+        contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
+        session.flush()
+    except IntegrityError, error:
+        raise exception.RucioException(error.args)
     pass
 
 
@@ -389,20 +446,28 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
         try:
             parent_did = session.query(models.DataIdentifier).filter_by(scope=attachment['scope'], name=attachment['name']).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-                filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
                 one()
 
-            if not parent_did.is_open:
-                raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % attachment)
-
             if parent_did.did_type == DIDType.FILE:
+                # check if parent file has the archive extension
+                if is_archive(attachment['name']):
+                    __add_files_to_archive(scope=attachment['scope'],
+                                           name=attachment['name'],
+                                           files=attachment['dids'],
+                                           account=account,
+                                           session=session)
+
+                    # mark parent dataset as is_archive
+                    session.query(models.DataIdentifier).\
+                        filter(models.DataIdentifier.did_type == DIDType.FILE).\
+                        filter(models.DataIdentifier.scope == attachment['scope']).\
+                        filter(models.DataIdentifier.name == attachment['name']).\
+                        update({'is_archive': True})
+                    return
                 raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % attachment)
 
-            elif parent_did.did_type == DIDType.ARCHIVE:
-                __add_files_to_archive(scope=attachment['scope'], name=attachment['name'],
-                                       files=attachment['dids'], account=account,
-                                       rse=attachment.get('rse'),
-                                       session=session)
+            elif not parent_did.is_open:
+                raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % attachment)
 
             elif parent_did.did_type == DIDType.DATASET:
                 __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
@@ -1439,3 +1504,25 @@ def resurrect(dids, session=None):
 
         models.DataIdentifier(**kargs).\
             save(session=session, flush=False)
+
+
+@stream_session
+def list_archive_content(scope, name, session=None):
+    """
+    List archive contents.
+
+    :param scope: The archive scope name.
+    :param name: The archive data identifier name.
+    :param session: The database session in use.
+    """
+    try:
+        query = session.query(models.ConstituentAssociation).\
+            with_hint(models.ConstituentAssociation,
+                      "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle').\
+            filter_by(scope=scope, name=name)
+
+        for tmp_did in query.yield_per(5):
+            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
