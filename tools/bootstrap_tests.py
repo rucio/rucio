@@ -9,6 +9,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 from rucio.client import Client
 from rucio.common.exception import Duplicate
@@ -37,6 +38,11 @@ if __name__ == '__main__':
         c.add_scope('jdoe', 'mock')
     except Duplicate:
         print 'Scope mock already added' % locals()
+
+    try:
+        c.add_scope('root', 'archive')
+    except Duplicate:
+        print 'Scope archive already added' % locals()
 
     # add your accounts here, if you test against CERN authed nodes
     additional_test_accounts = [('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=mlassnig/CN=663551/CN=Mario Lassnig', 'x509', 'mario.lassnig@cern.ch'),
