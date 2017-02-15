@@ -394,6 +394,8 @@ class Default(protocol.RSEProtocol):
                 raise exception.RucioException(result.status_code, result.text)
         except requests.exceptions.ConnectionError, error:
             raise exception.ServiceUnavailable(error)
+        except requests.exceptions.ReadTimeout, error:
+            raise exception.ServiceUnavailable(error)
 
     def mkdir(self, directory):
         """ Internal method to create directories
