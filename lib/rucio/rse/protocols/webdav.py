@@ -8,7 +8,7 @@
 
   Authors:
   - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2016
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
   - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
 '''
 
