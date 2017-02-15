@@ -19,6 +19,7 @@
 from collections import defaultdict
 from curses.ascii import isprint
 from datetime import datetime, timedelta
+from json import dumps
 from re import match
 from traceback import format_exc
 
@@ -1085,6 +1086,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                                                                                                                  models.DataIdentifier.name == file['name'],
                                                                                                                                  models.DataIdentifier.availability == DIDAvailability.LOST)),
                                      ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
+
         did_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name'], models.DataIdentifier.availability != DIDAvailability.LOST,
                                   ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
@@ -1145,7 +1147,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                 rowcount = session.query(models.DataIdentifierAssociation).\
                     filter(or_(*chunk)).\
                     delete(synchronize_session=False)
-            # update parent counters
+            # TODO: update parent counters and archive content
 
         parent_condition = tmp_parent_condition
 
@@ -1154,11 +1156,27 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
             filter(or_(*chunk)).\
             delete(synchronize_session=False)
 
-    for chunk in chunks(did_condition, 10):
-        rowcount = session.query(models.DataIdentifier).\
+    # delete empty dids
+    if did_condition:
+        messages, deleted_dids = [], []
+        query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name).\
             with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-            filter(or_(*chunk)).\
-            delete(synchronize_session=False)
+            filter(or_(*did_condition))
+        for scope, name in query:
+            messages.append({'event_type': 'ERASE',
+                             'payload': dumps({'scope': scope,
+                                               'name': name,
+                                               'account': 'root'})})
+
+            deleted_dids.append(and_(models.DDataIdentifier.scope == scope,
+                                     models.DataIdentifier.name == name))
+
+        if messages:
+            session.query(models.DataIdentifier).\
+                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+                filter(or_(*deleted_dids)).\
+                delete(synchronize_session=False)
+            session.bulk_insert_mappings(models.Message, messages)
 
     # Decrease RSE counter
     decrease(rse_id=replica_rse.id, files=delta, bytes=bytes, session=session)
