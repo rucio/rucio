@@ -885,6 +885,7 @@ def upload(args):
             logger.debug(error)
             return FAILURE
 
+    summary = []
     trace = {}
     trace['hostname'] = socket.getfqdn()
     trace['scope'] = fscope
@@ -928,7 +929,9 @@ def upload(args):
         try:
             logger.debug('Forcing protocol : %s' % args.protocol)
             logger.debug('Forcing RSE : %s' % args.rse)
-            protocol = rsemgr.select_protocol(rse_settings, operation='read', scheme=args.protocol)
+            protocol = rsemgr.select_protocol(rse_settings,
+                                              operation='read',
+                                              scheme=args.protocol)
         except RSEProtocolNotSupported, error:
             logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
             logger.debug(error)
@@ -980,17 +983,19 @@ def upload(args):
                     trace['protocol'] = rse_settings['protocols'][0]['scheme']
                     trace['filesize'] = f['bytes']
                     trace['transferStart'] = time.time()
-                    rsemgr.upload(rse_settings=rse_settings,
-                                  lfns=[{'name': f['name'],
-                                         'scope': f['scope'],
-                                         'adler32': f['adler32'],
-                                         'filesize': f['bytes']}],
-                                  source_dir=directory,
-                                  force_pfn=args.pfn)
+                    f['upstate'] = rsemgr.upload(rse_settings=rse_settings,
+                                                 lfns=[{'name': f['name'],
+                                                        'scope': f['scope'],
+                                                        'adler32': f['adler32'],
+                                                        'filesize': f['bytes']}],
+                                                 source_dir=directory,
+                                                 force_pfn=args.pfn)
                     trace['transferEnd'] = time.time()
                     trace['clientState'] = 'DONE'
                     logger.info('File %s:%s successfully uploaded on the storage' % (f['scope'], f['name']))
                     send_trace(trace, client.host, args.user_agent)
+                    summary.append(deepcopy(f))
+                    f.pop('upstate', None)
                 else:
                     raise DataIdentifierAlreadyExists
         except NotImplementedError, error:
@@ -1015,17 +1020,19 @@ def upload(args):
                 trace['protocol'] = rse_settings['protocols'][0]['scheme']
                 trace['filesize'] = f['bytes']
                 trace['transferStart'] = time.time()
-                rsemgr.upload(rse_settings=rse_settings,
-                              lfns=[{'name': f['name'],
-                                     'scope': f['scope'],
-                                     'adler32': f['adler32'],
-                                     'filesize': f['bytes']}],
-                              source_dir=directory,
-                              force_pfn=args.pfn)
+                f['upstate'] = rsemgr.upload(rse_settings=rse_settings,
+                                             lfns=[{'name': f['name'],
+                                                    'scope': f['scope'],
+                                                    'adler32': f['adler32'],
+                                                    'filesize': f['bytes']}],
+                                             source_dir=directory,
+                                             force_pfn=args.pfn)
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'DONE'
                 logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
                 send_trace(trace, client.host, args.user_agent)
+                summary.append(deepcopy(f))
+                f.pop('upstate', None)
             except (Duplicate, FileAlreadyExists), error:
                 logger.warning(error)
                 return FAILURE
@@ -1066,6 +1073,19 @@ def upload(args):
                 logger.error(error)
                 return FAILURE
         logger.info('File replicas states successfully updated')
+    if args.summary:
+        final_summary = {}
+        for file in summary:
+            final_summary['%s:%s' % (file['scope'],
+                                     file['name'])] = {'scope': file['scope'],
+                                                       'name': file['name'],
+                                                       'bytes': file['bytes'],
+                                                       'rse': args.rse,
+                                                       'pfn': file['upstate']['pfn'],
+                                                       'guid': file['meta']['guid'],
+                                                       'adler32': file['adler32']}
+        with open('rucio_upload.json', 'wb') as summary_file:
+            json.dump(final_summary, summary_file, sort_keys=True, indent=1)
     return SUCCESS
 
 
@@ -1353,7 +1373,9 @@ def download1(args):
     client = get_client(args)
     trace_endpoint = client.host
     summary = {}
-    trace_pattern = {'hostname': socket.getfqdn(), 'account': client.account, 'uuid': generate_uuid(), 'eventType': 'download', 'eventVersion': version.RUCIO_VERSION[0]}
+    trace_pattern = {'hostname': socket.getfqdn(), 'account': client.account,
+                     'uuid': generate_uuid(), 'eventType': 'download',
+                     'eventVersion': version.RUCIO_VERSION[0]}
     nbfiles_to_download = {}
 
     tape_endpoints = []
@@ -2331,9 +2353,10 @@ Commands:
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
-    upload_parser.add_argument('--guid', dest='guid', action='store', help="Manually specify the GUID for the file.")
+    upload_parser.add_argument('--summary', dest='summary', action='store_true', default=False, help='Create rucio_upload.json summary file')
+    upload_parser.add_argument('--guid', dest='guid', action='store', help='Manually specify the GUID for the file.')
     upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
-    upload_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the upload.")
+    upload_parser.add_argument('--pfn', dest='pfn', action='store', help='Specify the exact PFN for the upload.')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download subparser
