@@ -1168,7 +1168,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                                'name': name,
                                                'account': 'root'})})
 
-            deleted_dids.append(and_(models.DDataIdentifier.scope == scope,
+            deleted_dids.append(and_(models.DataIdentifier.scope == scope,
                                      models.DataIdentifier.name == name))
 
         if messages:
