@@ -308,7 +308,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
         :raises ServiceUnavailable: for any other reason
     """
     ret = {}
-    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
+    gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
     protocol = create_protocol(rse_settings, 'write')
     protocol.connect()
@@ -416,7 +416,8 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
             if isinstance(ret[x], Exception):
                 raise ret[x]
             else:
-                return ret[x]
+                return {'success': ret[x],
+                        'pfn': pfn}
     return [gs, ret]
 
 
