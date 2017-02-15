@@ -11,7 +11,7 @@
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2016-2017
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
@@ -38,6 +38,7 @@ import rucio.core.replica  # import add_replicas
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.utils import str_to_date, is_archive
+from rucio.common.policy import archive_localgroupdisk_datasets
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
@@ -507,6 +508,7 @@ def delete_dids(dids, account, session=None):
     parent_content_clause, did_clause = [], []
     collection_replica_clause, file_clause = [], []
     not_purge_replicas = []
+
     for did in dids:
         logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
         if did['did_type'] == DIDType.FILE:
@@ -516,6 +518,11 @@ def delete_dids(dids, account, session=None):
             content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                                   models.CollectionReplica.name == did['name']))
+
+        # ATLAS LOCALGROUPDISK Archive policy
+        if did['did_type'] == DIDType.DATASET and did['scope'] != 'archive':
+            archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+
         if did['purge_replicas'] is False:
             not_purge_replicas.append((did['scope'], did['name']))
 
