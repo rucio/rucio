@@ -6,7 +6,7 @@
   You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 '''
 
@@ -69,7 +69,7 @@ def necromancer(thread=0, bulk=5, once=False):
                 if (not rep[0]['rses']) or (rep[0]['rses'].keys() == [rse]):
                     logging.info(prepend_str + 'File %s:%s has no other replicas, it will be marked as lost' % (scope, name))
                     try:
-                        update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id)
+                        update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                         monitor.record_counter(counters='necromancer.badfiles.lostfile', delta=1)
                     except DatabaseException, error:
                         logging.info(prepend_str + '%s' % (str(error)))
@@ -77,7 +77,7 @@ def necromancer(thread=0, bulk=5, once=False):
                 else:
                     logging.info(prepend_str + 'File %s:%s can be recovered. Available sources : %s' % (scope, name, str(rep[0]['rses'])))
                     try:
-                        update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id)
+                        update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                         monitor.record_counter(counters='necromancer.badfiles.recovering', delta=1)
                     except DatabaseException, error:
                         logging.info(prepend_str + '%s' % (str(error)))
