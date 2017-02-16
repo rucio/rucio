@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
 
 import logging
 import sys
@@ -148,8 +148,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                                       models.DataIdentifier.name == elem['name']).one()
                 except NoResultFound:
                     raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
-                except TypeError, e:
-                    raise InvalidObject(e.args)
+                except TypeError as error:
+                    raise InvalidObject(error.args)
 
             # 3.5 Get the lifetime
             eol_at = define_eol(elem['scope'], elem['name'], rses, session=session)
@@ -186,13 +186,13 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   eol_at=eol_at)
                 try:
                     new_rule.save(session=session)
-                except IntegrityError, e:
-                    if match('.*ORA-00001.*', str(e.args[0]))\
-                       or match('.*IntegrityError.*UNIQUE constraint failed.*', str(e.args[0]))\
-                       or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0]))\
-                       or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
+                except IntegrityError as error:
+                    if match('.*ORA-00001.*', str(error.args[0]))\
+                       or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
+                       or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
+                       or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
                         raise DuplicateRule()
-                    raise InvalidReplicationRule(e.args[0])
+                    raise InvalidReplicationRule(error.args[0])
                 rule_ids.append(new_rule.id)
 
             if ask_approval:
@@ -262,8 +262,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                       preferred_rse_ids=[],
                                                       source_rses=[rse['id'] for rse in source_rses],
                                                       session=session)
-                except IntegrityError, e:
-                    raise ReplicationRuleCreationTemporaryFailed(e.args[0])
+                except IntegrityError as error:
+                    raise ReplicationRuleCreationTemporaryFailed(error.args[0])
 
             if new_rule.locks_stuck_cnt > 0:
                 new_rule.state = RuleState.STUCK
@@ -334,8 +334,8 @@ def add_rules(dids, rules, session=None):
                         models.DataIdentifier.name == elem['name']).one()
                 except NoResultFound:
                     raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
-                except TypeError, e:
-                    raise InvalidObject(e.args)
+                except TypeError as error:
+                    raise InvalidObject(error.args)
 
             # 3. Resolve the did into its contents
             with record_timer_block('rule.add_rules.resolve_dids_to_locks_replicas'):
@@ -423,12 +423,12 @@ def add_rules(dids, rules, session=None):
                                                           eol_at=eol_at)
                         try:
                             new_rule.save(session=session)
-                        except IntegrityError, e:
-                            if match('.*ORA-00001.*', str(e.args[0])):
+                        except IntegrityError as error:
+                            if match('.*ORA-00001.*', str(error.args[0])):
                                 raise DuplicateRule()
-                            elif '(IntegrityError) UNIQUE constraint failed: rules.scope, rules.name, rules.account, rules.rse_expression, rules.copies' == str(e.args[0]):
+                            elif '(IntegrityError) UNIQUE constraint failed: rules.scope, rules.name, rules.account, rules.rse_expression, rules.copies' == str(error.args[0]):
                                 raise DuplicateRule()
-                            raise InvalidReplicationRule(e.args[0])
+                            raise InvalidReplicationRule(error.args[0])
 
                         rule_ids[(did.scope, did.name)].append(new_rule.id)
 
@@ -479,8 +479,8 @@ def add_rules(dids, rules, session=None):
                                                               preferred_rse_ids=[],
                                                               source_rses=[rse['id'] for rse in source_rses],
                                                               session=session)
-                        except IntegrityError, e:
-                            raise ReplicationRuleCreationTemporaryFailed(e.args[0])
+                        except IntegrityError as error:
+                            raise ReplicationRuleCreationTemporaryFailed(error.args[0])
 
                     if new_rule.locks_stuck_cnt > 0:
                         new_rule.state = RuleState.STUCK
@@ -583,8 +583,8 @@ def inject_rule(rule_id, session=None):
                                                               models.DataIdentifier.name == rule.name).one()
         except NoResultFound:
             raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (rule.scope, rule.name))
-        except TypeError, e:
-            raise InvalidObject(e.args)
+        except TypeError as error:
+            raise InvalidObject(error.args)
 
     # 5. Resolve the did to its contents
     with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
@@ -607,8 +607,8 @@ def inject_rule(rule_id, session=None):
                                               preferred_rse_ids=[],
                                               source_rses=[rse['id'] for rse in source_rses],
                                               session=session)
-        except IntegrityError, e:
-            raise ReplicationRuleCreationTemporaryFailed(e.args[0])
+        except IntegrityError as error:
+            raise ReplicationRuleCreationTemporaryFailed(error.args[0])
 
         if rule.locks_stuck_cnt > 0:
             rule.state = RuleState.STUCK
@@ -874,16 +874,16 @@ def repair_rule(rule_id, session=None):
                 source_rses = parse_expression(rule.source_replica_expression, session=session)
             else:
                 source_rses = []
-        except (InvalidRSEExpression, RSEBlacklisted) as e:
+        except (InvalidRSEExpression, RSEBlacklisted) as error:
             rule.state = RuleState.STUCK
-            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
             rule.save(session=session)
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-            logging.debug('%s while repairing rule %s' % (str(e), rule_id))
+            logging.debug('%s while repairing rule %s' % (str(error), rule_id))
             return
 
         # Create the RSESelector
@@ -894,16 +894,16 @@ def repair_rule(rule_id, session=None):
                                       copies=rule.copies,
                                       ignore_account_limit=rule.ignore_account_limit,
                                       session=session)
-        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
+        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as error:
             rule.state = RuleState.STUCK
-            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
             rule.save(session=session)
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-            logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
+            logging.debug('%s while repairing rule %s' % (type(error).__name__, rule_id))
             return
 
         # Reset the counters
@@ -960,16 +960,16 @@ def repair_rule(rule_id, session=None):
                                                      rule=rule,
                                                      source_rses=[rse['id'] for rse in source_rses],
                                                      session=session)
-            except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
+            except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
                 rule.state = RuleState.STUCK
-                rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+                rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                 rule.save(session=session)
                 # Insert rule history
                 insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
                 # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-                logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
+                logging.debug('%s while repairing rule %s' % (type(error).__name__, rule_id))
                 return
 
             session.flush()
@@ -997,16 +997,16 @@ def repair_rule(rule_id, session=None):
                                                rule=rule,
                                                source_rses=[rse['id'] for rse in source_rses],
                                                session=session)
-        except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
+        except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
             rule.state = RuleState.STUCK
-            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
             rule.save(session=session)
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-            logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
+            logging.debug('%s while repairing rule %s' % (type(error).__name__, rule_id))
             return
 
         # Delete Datasetlocks which are not relevant anymore
@@ -1186,7 +1186,7 @@ def update_rule(rule_id, options, session=None):
                 try:
                     rule.priority = options[key]
                     update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
-                except Exception, e:
+                except Exception:
                     raise UnsupportedOperation('The FTS Requests are already in a final state.')
 
             elif key == 'child_rule_id':
@@ -1202,14 +1202,14 @@ def update_rule(rule_id, options, session=None):
 
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
-    except IntegrityError, e:
-        if match('.*ORA-00001.*', str(e.args[0]))\
-           or match('.*IntegrityError.*UNIQUE constraint failed.*', str(e.args[0]))\
-           or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0]))\
-           or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
+    except IntegrityError as error:
+        if match('.*ORA-00001.*', str(error.args[0]))\
+           or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
+           or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
+           or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
             raise DuplicateRule()
         else:
-            raise e
+            raise error
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
@@ -2244,7 +2244,7 @@ def __evaluate_did_detach(eval_did, session=None):
         session.flush()
 
         # Decrease account_counters
-        for rse_id in account_counter_decreases.keys():
+        for rse_id in account_counter_decreases:
             account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
         for transfer in transfers_to_delete:
@@ -2305,7 +2305,7 @@ def __evaluate_did_attach(eval_did, session=None):
                             possible_rses.extend(parse_expression(rule.rse_expression, session=session))
                             # else:
                             #     possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
-                        except (InvalidRSEExpression, RSEBlacklisted) as e:
+                        except (InvalidRSEExpression, RSEBlacklisted):
                             possible_rses = []
 
                     source_rses = list(set([rse['id'] for rse in source_rses]))
@@ -2331,9 +2331,9 @@ def __evaluate_did_attach(eval_did, session=None):
                             source_rses = []
                             if rule.source_replica_expression:
                                 source_rses = parse_expression(rule.source_replica_expression, session=session)
-                        except (InvalidRSEExpression, RSEBlacklisted) as e:
+                        except (InvalidRSEExpression, RSEBlacklisted) as error:
                             rule.state = RuleState.STUCK
-                            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+                            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)
                             # Insert rule history
                             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -2350,9 +2350,9 @@ def __evaluate_did_attach(eval_did, session=None):
                                                       copies=rule.copies,
                                                       ignore_account_limit=rule.ignore_account_limit,
                                                       session=session)
-                        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
+                        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as error:
                             rule.state = RuleState.STUCK
-                            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+                            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)
                             # Insert rule history
                             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -2387,9 +2387,9 @@ def __evaluate_did_attach(eval_did, session=None):
                                                               preferred_rse_ids=preferred_rse_ids,
                                                               source_rses=[rse['id'] for rse in source_rses],
                                                               session=session)
-                        except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
+                        except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
                             rule.state = RuleState.STUCK
-                            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
+                            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)
                             # Insert rule history
                             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
