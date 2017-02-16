@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2017
 
 import commands
 import datetime
@@ -151,6 +151,8 @@ def start_test(mr):
         print 'Error while restarting httpd'
         sys.exit(-1)
 
+    changed_files = commands.getoutput('git diff-tree --no-commit-id --name-only -r HEAD | grep .py').splitlines()
+
     command = """
     cd %s; source .venv/bin/activate;
     cd .venv/lib/python2.7/site-packages/;
@@ -167,8 +169,9 @@ def start_test(mr):
     tools/reset_database.py;
     nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt;
     flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt;
+    pylint %s > /tmp/rucio_pylint.txt;
     python ../purge_bin.py;
-    """ % (root_git_dir, root_git_dir, root_git_dir)  # NOQA
+    """ % (root_git_dir, root_git_dir, root_git_dir, ' '.join(changed_files))  # NOQA
     print '  %s' % command
 
     if tests_passed:
@@ -208,6 +211,25 @@ def start_test(mr):
                 error_lines.append('```\n')
                 error_lines.extend(lines)
                 error_lines.append('```\n')
+
+        # PYLINT
+        if os.stat('/tmp/rucio_pylint.txt').st_size != 0:
+            with open('/tmp/rucio_pylint.txt', 'r') as f:
+                lines = f.readlines()
+                pylint_passed = True
+                # Check if there is an Error in PYLINT
+                for line in lines:
+                    if line.startswith('E:'):
+                        tests_passed = False
+                        pylint_passed = False
+                if not pylint_passed:
+                    error_lines.append('##### PYLINT\n')
+                    error_lines.append('```\n')
+                    for line in lines:
+                        if line.startswith('E:'):
+                            error_lines.append(line)
+                    error_lines.append('```\n')
+                error_lines.append(lines[-2])
 
     if tests_passed:
         error_lines.insert(0, '#### BUILD-BOT TEST RESULT: OK\n\n')
