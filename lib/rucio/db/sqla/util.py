@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
+from datetime import datetime
 from traceback import format_exc
 
 from alembic import command
@@ -148,16 +149,21 @@ def get_db_time():
     """ Gives the utc time on the db. """
     s = session.get_session()
     try:
+        storage_date_format = None
         if s.bind.dialect.name == 'oracle':
             query = select([text("sys_extract_utc(systimestamp)")])
         elif s.bind.dialect.name == 'mysql':
             query = select([text("utc_timestamp()")])
         elif s.bind.dialect.name == 'sqlite':
             query = select([text("datetime('now', 'utc')")])
+            storage_date_format = '%Y-%m-%d  %H:%M:%S'
         else:
             query = select([func.current_date()])
 
         for now, in s.execute(query):
+            if storage_date_format:
+                return datetime.strptime(now, storage_date_format)
             return now
+
     finally:
         s.remove()
