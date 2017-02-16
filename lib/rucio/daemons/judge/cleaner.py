@@ -7,19 +7,21 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+
 
 """
 Judge-Cleaner is a daemon to clean expired replication rules.
 """
 
 import logging
-import ntplib
 import os
 import socket
 import sys
 import threading
 import time
 import traceback
+
 
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -33,6 +35,7 @@ from rucio.common.exception import DatabaseException, UnsupportedOperation, Rule
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.core.monitor import record_counter
+from rucio.db.sqla.util import get_db_time
 
 graceful_stop = threading.Event()
 
@@ -128,7 +131,6 @@ def stop(signum=None, frame=None):
     """
     Graceful exit.
     """
-
     graceful_stop.set()
 
 
@@ -136,14 +138,10 @@ def run(once=False, threads=1):
     """
     Starts up the Judge-Clean threads.
     """
-
-    try:
-        ntpc = ntplib.NTPClient()
-        response = ntpc.request('137.138.16.69', version=3)  # 137.138.16.69 CERN IP-TIME-1 NTP Server (Stratum 2)
-        if response.offset > 60 * 60 + 10:  # 1hour 10seconds
-            logging.critical('Offset between NTP server and system time too big. Stopping Cleaner')
-            return
-    except:
+    client_time, db_time = datetime.utcnow(), get_db_time()
+    max_offset = timedelta(hours=1, seconds=10)
+    if db_time - client_time > max_offset or client_time - db_time > max_offset:
+        logging.critical('Offset between client and db time too big. Stopping Cleaner')
         return
 
     hostname = socket.gethostname()
