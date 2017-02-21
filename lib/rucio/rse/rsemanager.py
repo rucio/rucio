@@ -174,7 +174,7 @@ def parse_pfns(rse_settings, pfns, operation='read'):
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme).parse_pfns(pfns)
 
 
-def download(rse_settings, files, dest_dir=None, force_scheme=None, printstatements=False):
+def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_checksum=False, printstatements=False):
     """
         Copy a file from the connected storage to the local file system.
         Providing a list indicates the bulk mode.
@@ -187,6 +187,7 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, printstateme
                                        {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
         :param dest_dir:        path to the directory where the downloaded files will be stored. If not given, each scope is represented by its own directory.
         :param force_scheme:    normally the scheme is dictated by the RSE object, when specifying the PFN it must be forced to the one specified in the PFN, overruling the RSE description.
+        :param ignore_checksum: do not verify the checksum - caution: should only be used for rucio download --pfn
 
         :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
@@ -222,7 +223,8 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, printstateme
                     protocol.get(pfn, tempfile)
                     if printstatements:
                         print 'File downloaded. Will be validated'
-                    localchecksum = utils.adler32(tempfile)
+
+                    localchecksum = f['adler32'] if ignore_checksum else utils.adler32(tempfile)
                     if localchecksum == f['adler32']:
                         if printstatements:
                             print 'File validated'
