@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
 
 import os
@@ -132,7 +132,10 @@ class Default(protocol.RSEProtocol):
             if 'S3_SECRET_KEY' in os.environ:
                 secret_key = os.environ['S3_SECRET_KEY']
             if 'S3_IS_SECURE' in os.environ:
-                is_secure = os.environ['S3_IS_SECURE']
+                if str(os.environ['S3_IS_SECURE']).lower() == 'true':
+                    is_secure = True
+                elif str(os.environ['S3_IS_SECURE']).lower() == 'false':
+                    is_secure = False
 
             if not is_secure or not access_key or not secret_key:
                 credentials = get_rse_credentials()
