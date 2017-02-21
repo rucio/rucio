@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016-2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 
 import os
 import requests
@@ -230,7 +231,6 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
          """
         path = self._get_signed_url(path, 'read')
-        print path
         if isinstance(path, Exception):
             raise path
 
