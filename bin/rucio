@@ -1267,7 +1267,8 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                                                         'adler32': file['adler32'],
                                                         'pfn': args.pfn}, ],
                                                 dest_dir=dest_dir,
-                                                force_scheme=args.pfn.split(':')[0])
+                                                force_scheme=args.pfn.split(':')[0],
+                                                ignore_checksum=True)
                             else:
                                 rsemgr.download(rse_dict[rse],
                                                 files=[{'name': file['name'],
@@ -1322,11 +1323,16 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                 logger.error('Thread %s/%s : Cannot download file %s:%s' % (threadnb, total_threads, file['scope'], file['name']))
             else:
                 duration = round(time.time() - stime, 2)
-                logger.info('Thread %s/%s : File %s:%s successfully downloaded. %s in %s seconds = %s MBps' % (threadnb, total_threads,
-                                                                                                               file['scope'], file['name'],
-                                                                                                               sizefmt(file['bytes'], args.human),
-                                                                                                               duration,
-                                                                                                               round((file['bytes'] / duration) * 1e-6, 2)))
+                if args.pfn:
+                    logger.info('Thread %s/%s : File %s:%s successfully downloaded in %s seconds' % (threadnb, total_threads,
+                                                                                                     file['scope'], file['name'],
+                                                                                                     duration))
+                else:
+                    logger.info('Thread %s/%s : File %s:%s successfully downloaded. %s in %s seconds = %s MBps' % (threadnb, total_threads,
+                                                                                                                   file['scope'], file['name'],
+                                                                                                                   sizefmt(file['bytes'], args.human),
+                                                                                                                   duration,
+                                                                                                                   round((file['bytes'] / duration) * 1e-6, 2)))
 
             input_queue.task_done()
 
@@ -1420,14 +1426,30 @@ def download1(args):
         try:
             summary['%s:%s' % (scope, name)] = {}
             logger.debug('Checking validity of DID')
-            did_info = client.get_did(scope, name)
-            did_type = did_info['type']
-            dataset_scope = '' if did_type == 'FILE' else scope
-            dataset_name = '' if did_type == 'FILE' else name
+
+            did_type = 'FILE'
+            dataset_scope = ''
+            dataset_name = ''
+            if not args.pfn:
+                did_info = client.get_did(scope, name)
+                did_type = did_info['type']
+                dataset_scope = '' if did_type == 'FILE' else scope
+                dataset_name = '' if did_type == 'FILE' else name
+            else:
+                logger.debug('PFN option suppresses DID check')
 
             logger.debug('Getting the list of replicas from Rucio servers')
-            replicas = [f for f in client.list_replicas([{'scope': scope, 'name': name}],
-                                                        rse_expression=args.rse)]
+            if not args.pfn:
+                replicas = [f for f in client.list_replicas([{'scope': scope, 'name': name}],
+                                                            rse_expression=args.rse)]
+            else:
+                logger.debug('PFN option overrides replica listing')
+                replicas = [{'bytes': None,
+                             'adler32': None,
+                             'scope': scope,
+                             'name': name,
+                             'pfns': {args.pfn: {'rse': args.rse}},
+                             'rses': {args.rse: [args.pfn]}}]
 
             if args.nrandom:
                 files_to_download = replicas
