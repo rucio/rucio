@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2014
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
 
 import os
 import urlparse
@@ -125,14 +125,31 @@ class Default(protocol.RSEProtocol):
             scheme, prefix = self.attributes.get('scheme'), self.attributes.get('prefix')
             netloc, port = self.attributes['hostname'], self.attributes.get('port', 80)
             service_url = '%(scheme)s://%(netloc)s:%(port)s' % locals()
-            credentials = get_rse_credentials()
-            self.rse['credentials'] = credentials.get(self.rse['rse'])
-            is_secure = self.rse['credentials'].get('is_secure', {}).\
-                get(service_url, False)
+
+            access_key, secret_key, is_secure = None, None, None
+            if 'S3_ACCESS_KEY' in os.environ:
+                access_key = os.environ['S3_ACCESS_KEY']
+            if 'S3_SECRET_KEY' in os.environ:
+                secret_key = os.environ['S3_SECRET_KEY']
+            if 'S3_IS_SECURE' in os.environ:
+                is_secure = os.environ['S3_IS_SECURE']
+
+            if not is_secure or not access_key or not secret_key:
+                credentials = get_rse_credentials()
+                self.rse['credentials'] = credentials.get(self.rse['rse'])
+
+                if not access_key:
+                    access_key = self.rse['credentials']['access_key'],
+                if not secret_key:
+                    secret_key = self.rse['credentials']['secret_key'],
+                if not is_secure:
+                    is_secure = self.rse['credentials'].get('is_secure', {}).\
+                        get(service_url, False)
+
             self.__conn = connect_s3(host=self.attributes['hostname'],
                                      port=int(port),
-                                     aws_access_key_id=self.rse['credentials']['access_key'],
-                                     aws_secret_access_key=self.rse['credentials']['secret_key'],
+                                     aws_access_key_id=access_key,
+                                     aws_secret_access_key=secret_key,
                                      is_secure=is_secure,
                                      calling_format=OrdinaryCallingFormat())
         except Exception as e:

@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 
@@ -489,6 +489,18 @@ def get_tmp_dir():
         return '/tmp/' + user + '/'
 
     return tmp_dir + '/' + user + '/'
+
+
+def is_archive(name):
+    '''
+    Check if a file name is an archive file or not.
+
+    :return: A boolean.
+    '''
+    regexp = '^.*\.(zip|zipx|tar.gz|tgz|tar.Z|tar.bz2|tbz2)$'
+    if re.match(regexp, name, re.I):
+        return True
+    return False
 
 
 class Color:

@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 import json
 import os
@@ -18,10 +19,15 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from sqlalchemy.orm.exc import NoResultFound
 
+import rucio.core.did
+import rucio.core.lock
+import rucio.core.rule
+
 from rucio.db.sqla import models
-from rucio.db.sqla.session import read_session
+from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common.config import config_get
-from rucio.common.exception import ScratchDiskLifetimeConflict
+from rucio.common.exception import ScratchDiskLifetimeConflict, DataIdentifierNotFound
 from rucio.core.account import has_account_attribute
 from rucio.core.rse import list_rse_attributes
 
@@ -197,3 +203,68 @@ def get_scratch_policy(account, rses, lifetime, session=None):
                     raise ScratchDiskLifetimeConflict()
         return lifetime
     return None
+
+
+@transactional_session
+def archive_localgroupdisk_datasets(scope, name, session=None):
+    """
+    ATLAS policy to archive a dataset which has a replica on LOCALGROUPDISK
+
+    :param scope:    Scope of the dataset.
+    :param name:     Name of the dataset.
+    :param session:  The database session in use.
+    """
+
+    vo_name = get_vo()
+    if vo_name != 'atlas':
+        return
+
+    rses_to_rebalance = []
+
+    # Check if the archival dataset already exists
+    try:
+        rucio.core.did.get_did(scope='archive', name=name, session=session)
+        return
+    except DataIdentifierNotFound:
+        pass
+
+    # Check if the dataset has a rule on a LOCALGROUPDISK
+    for lock in rucio.core.lock.get_dataset_locks(scope=scope, name=name, session=session):
+        if 'LOCALGROUPDISK' in lock['rse']:
+            rses_to_rebalance.append({'rse': lock['rse'], 'account': lock['account']})
+
+    # There is at least one rule on LOCALGROUPDISK
+    if rses_to_rebalance:
+        # Create the archival dataset
+        did = rucio.core.did.get_did(scope=scope, name=name, session=session)
+        meta = rucio.core.did.get_metadata(scope=scope, name=name, session=session)
+        new_meta = {k: v for k, v in meta.items() if k in ['project', 'datatype', 'run_number', 'stream_name', 'prod_step', 'version', 'campaign', 'task_id', 'panda_id'] and v is not None}
+        rucio.core.did.add_did(scope='archive',
+                               name=name,
+                               type=DIDType.DATASET,
+                               account=did['account'],
+                               statuses={},
+                               meta=new_meta,
+                               rules=[],
+                               lifetime=None,
+                               dids=[],
+                               rse=None,
+                               session=session)
+        content = [x for x in rucio.core.did.list_content(scope=scope, name=name, session=session)]
+        rucio.core.did.attach_dids(scope='archive', name=name, dids=content, account=did['account'], session=session)
+        if not did['open']:
+            rucio.core.did.set_status(scope='archive', name=name, open=False, session=session)
+
+        for rse in rses_to_rebalance:
+            rucio.core.rule.add_rule(dids=[{'scope': 'archive', 'name': name}],
+                                     account=rse['account'],
+                                     copies=1,
+                                     rse_expression=rse['rse'],
+                                     grouping='DATASET',
+                                     weight=None,
+                                     lifetime=None,
+                                     locked=False,
+                                     subscription_id=None,
+                                     ignore_account_limit=True,
+                                     ignore_availability=True,
+                                     session=session)
