@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2016
+# - Wen Guan, <wen.guan@cern.ch>, 2016-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 
 """
@@ -108,7 +108,7 @@ def _get_connection(rse, endpoint):
     return result
 
 
-def _get_bucket(rse, endpoint, bucket_name):
+def _get_bucket(rse, endpoint, bucket_name, operation='read'):
     """
     Pass an endpoint and return a connection to object store.
 
@@ -126,10 +126,14 @@ def _get_bucket(rse, endpoint, bucket_name):
 
             conn = _get_connection(rse, endpoint)
             bucket = conn.get_bucket(bucket_name)
-            if bucket is None:
-                raise exception.SourceNotFound('Bucket %s not found on %s' % (bucket_name, rse))
+            if operation == 'read':
+                if bucket is None:
+                    raise exception.SourceNotFound('Bucket %s not found on %s' % (bucket_name, rse))
+                else:
+                    result = bucket
+                    REGION.set(key, result)
             else:
-                result = bucket
+                result = conn.create_bucket(bucket_name)
                 REGION.set(key, result)
         except exception.RucioException, e:
             raise e
@@ -206,6 +210,7 @@ def get_signed_urls(urls, rse, operation='read'):
                         signed_url = key.generate_url(3600, 'GET', query_auth=True, force_http=False)
             else:
                 conn = _get_connection(rse, endpoint)
+                _get_bucket(rse, endpoint, bucket_name, operation='write')
                 signed_url = conn.generate_url(3600, 'PUT', bucket_name, key_name, query_auth=True, force_http=False)
             result[url] = signed_url
         except boto.exception.S3ResponseError as e:
