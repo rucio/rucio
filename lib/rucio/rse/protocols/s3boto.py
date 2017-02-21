@@ -137,13 +137,13 @@ class Default(protocol.RSEProtocol):
                 credentials = get_rse_credentials()
                 self.rse['credentials'] = credentials.get(self.rse['rse'])
 
-            if not access_key:
-                access_key = self.rse['credentials']['access_key'],
-            if not secret_key:
-                secret_key = self.rse['credentials']['secret_key'],
-            if not is_secure:
-                is_secure = self.rse['credentials'].get('is_secure', {}).\
-                    get(service_url, False)
+                if not access_key:
+                    access_key = self.rse['credentials']['access_key'],
+                if not secret_key:
+                    secret_key = self.rse['credentials']['secret_key'],
+                if not is_secure:
+                    is_secure = self.rse['credentials'].get('is_secure', {}).\
+                        get(service_url, False)
 
             self.__conn = connect_s3(host=self.attributes['hostname'],
                                      port=int(port),
