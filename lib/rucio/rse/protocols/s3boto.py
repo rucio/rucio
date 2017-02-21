@@ -133,7 +133,7 @@ class Default(protocol.RSEProtocol):
             if 'S3_IS_SECURE' in os.environ:
                 is_secure = os.environ['S3_IS_SECURE']
 
-            if not (is_secure or access_key or secret_key):
+            if not is_secure or not access_key or not secret_key:
                 credentials = get_rse_credentials()
                 self.rse['credentials'] = credentials.get(self.rse['rse'])
 
