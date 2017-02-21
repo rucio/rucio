@@ -34,6 +34,7 @@ class Default(protocol.RSEProtocol):
         if 'determinism_type' in self.attributes:
             self.attributes['determinism_type'] = 's3'
         self.__conn = None
+        self.renaming = False
 
     def _get_path(self, scope, name):
         """ Transforms the physical file name into the local URI in the referred RSE.
