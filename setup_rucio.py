@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2016
 
@@ -42,6 +42,7 @@ data_files = [('rucio/etc/', glob.glob('etc/*.template')),
               ('rucio/etc/schemas', glob.glob('etc/schemas/*.json')),
               ('rucio/tools/', ['tools/pip-requires', 'tools/pip-requires-client', 'tools/pip-requires-test',
                                 'tools/bootstrap.py', 'tools/reset_database.py']),
+              ('rucio/tools/probes/common/', ['tools/probes/common/graphite2nagios',]),
               ('rucio/tools/probes/common/', glob.glob('tools/probes/common/check*')),
               ('rucio/etc/mail_templates/', glob.glob('etc/mail_templates/*.tmpl'))]
 
