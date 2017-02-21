@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2016
+# - Wen Guan, <wen.guan@cern.ch>, 2016-2017
 
 import os
 import requests
@@ -76,6 +76,7 @@ class Default(protocol.RSEProtocol):
         self.session = requests.session()
         self.timeout = 300
         self.cert = None
+        self.renaming = False
 
     def _get_path(self, scope, name):
         """ Transforms the physical file name into the local URI in the referred RSE.
@@ -211,7 +212,7 @@ class Default(protocol.RSEProtocol):
 
             :raises RSEAccessDenied: if no connection could be established.
         """
-        self._connect()
+        pass
 
     def close(self):
         """ Closes the connection to RSE."""
