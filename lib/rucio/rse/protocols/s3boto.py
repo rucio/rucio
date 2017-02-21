@@ -125,21 +125,25 @@ class Default(protocol.RSEProtocol):
             netloc, port = self.attributes['hostname'], self.attributes.get('port', 80)
             service_url = '%(scheme)s://%(netloc)s:%(port)s' % locals()
 
-            access_key, secret_key = None, None
+            access_key, secret_key, is_secure = None, None, None
             if 'S3_ACCESS_KEY' in os.environ:
                 access_key = os.environ['S3_ACCESS_KEY']
             if 'S3_SECRET_KEY' in os.environ:
                 secret_key = os.environ['S3_SECRET_KEY']
+            if 'S3_IS_SECURE' in os.environ:
+                is_secure = os.environ['S3_IS_SECURE']
 
-            credentials = get_rse_credentials()
-            self.rse['credentials'] = credentials.get(self.rse['rse'])
-            is_secure = self.rse['credentials'].get('is_secure', {}).\
-                get(service_url, False)
+            if not (is_secure or access_key or secret_key):
+                credentials = get_rse_credentials()
+                self.rse['credentials'] = credentials.get(self.rse['rse'])
 
             if not access_key:
                 access_key = self.rse['credentials']['access_key'],
             if not secret_key:
                 secret_key = self.rse['credentials']['secret_key'],
+            if not is_secure:
+                is_secure = self.rse['credentials'].get('is_secure', {}).\
+                    get(service_url, False)
 
             self.__conn = connect_s3(host=self.attributes['hostname'],
                                      port=int(port),
