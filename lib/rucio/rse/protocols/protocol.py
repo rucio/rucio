@@ -36,6 +36,7 @@ class RSEProtocol(object):
         """
         self.attributes = protocol_attr
         self.renaming = True
+        self.overwrite = False
         self.rse = rse_settings
         if not self.rse['deterministic']:
             if rsemanager.CLIENT_MODE:
