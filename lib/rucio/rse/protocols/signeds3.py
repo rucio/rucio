@@ -78,6 +78,7 @@ class Default(protocol.RSEProtocol):
         self.timeout = 300
         self.cert = None
         self.renaming = False
+        self.overwrite = True
 
     def _get_path(self, scope, name):
         """ Transforms the physical file name into the local URI in the referred RSE.
