@@ -339,7 +339,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
         if protocol.renaming:
 
             # Check if file replica is already on the storage system
-            if protocol.exists(pfn):
+            if protocol.overwrite is False and protocol.exists(pfn):
                 ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
                 gs = False
             else:
@@ -382,7 +382,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
         else:
 
             # Check if file replica is already on the storage system
-            if protocol.exists(pfn):
+            if protocol.overwrite is False and protocol.exists(pfn):
                 ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
                 gs = False
             else:
