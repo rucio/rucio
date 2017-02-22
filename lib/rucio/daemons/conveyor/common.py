@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014,2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
@@ -22,16 +22,14 @@ import os
 import time
 import traceback
 
-from dogpile.cache import make_region
-from dogpile.cache.api import NoValue
-
 from re import match
-from requests.exceptions import RequestException
-from sqlalchemy.exc import DatabaseError
 from urlparse import urlparse
 
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
+from requests.exceptions import RequestException
+from sqlalchemy.exc import DatabaseError
 
-from rucio.common import exception
 from rucio.common.exception import DatabaseException, UnsupportedOperation, ReplicaNotFound
 from rucio.core import replica as replica_core, request as request_core, rse as rse_core
 from rucio.core.message import add_message
@@ -137,8 +135,8 @@ def update_request_state(response, session=None):
             else:
                 logging.debug("Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
                 return False
-    except exception.UnsupportedOperation, e:
-        logging.warning("Request %s doesn't exist - Error: %s" % (response['request_id'], str(e).replace('\n', '')))
+    except UnsupportedOperation as error:
+        logging.warning("Request %s doesn't exist - Error: %s" % (response['request_id'], str(error).replace('\n', '')))
         return False
     except:
         logging.critical(traceback.format_exc())
@@ -156,8 +154,8 @@ def touch_transfer(external_host, transfer_id):
 
     try:
         request_core.touch_transfer(external_host, transfer_id)
-    except exception.UnsupportedOperation, e:
-        logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(e).replace('\n', '')))
+    except UnsupportedOperation as error:
+        logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
         return False
 
 
@@ -224,8 +222,8 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
         else:
             request_core.set_transfer_state(external_host, transfer_id, state, session=session)
         return True
-    except exception.UnsupportedOperation, e:
-        logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(e).replace('\n', '')))
+    except UnsupportedOperation as error:
+        logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
         return False
 
 
@@ -238,7 +236,7 @@ def get_undeterministic_rses():
         try:
             region.set(key, result)
         except:
-            logging.warning("Failed to set dogpile cache, error: %s" % (rse['id'], traceback.format_exc()))
+            logging.warning("Failed to set dogpile cache, error: %s" % (traceback.format_exc()))
     return result
 
 
@@ -261,17 +259,17 @@ def check_suspicious_files(req, suspicious_patterns):
                 break
 
         if is_suspicious:
-            reason = 'Reported by conveyor: request-id %s, error: %s' % (req['request_id'], req['err_msg'])
+            reason = 'Reported by conveyor'
             urls = request_core.get_sources(req['request_id'], rse_id=req['source_rse_id'])
             if urls:
                 pfns = []
                 for url in urls:
-                    pfns.append(urls['url'])
+                    pfns.append(url['url'])
                 if pfns:
                     logging.debug("Found suspicious urls: %s" % pfns)
                     replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
-    except:
-        logging.warning("Failed to check suspicious file with request: %s" % req['request_id'])
+    except Exception as error:
+        logging.warning("Failed to check suspicious file with request: %s - %s" % (req['request_id'], str(error)))
     return is_suspicious
 
 
@@ -404,8 +402,8 @@ def handle_terminated_replicas(replicas):
                 for replica in replicas[req_type][rule_id]:
                     try:
                         handle_one_replica(replica, req_type, rule_id)
-                    except (DatabaseException, DatabaseError), e:
-                        if isinstance(e.args[0], tuple) and (match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
+                    except (DatabaseException, DatabaseError) as error:
+                        if isinstance(error.args[0], tuple) and (match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
                             logging.warn("Locks detected when handling replica %s:%s at RSE %s" % (replica['scope'], replica['name'], replica['rse_id']))
                         else:
                             logging.error("Could not finish handling replicas %s:%s at RSE %s (%s)" % (replica['scope'], replica['name'], replica['rse_id'], traceback.format_exc()))
@@ -414,12 +412,12 @@ def handle_terminated_replicas(replicas):
                                                                                                                                    replica['name'],
                                                                                                                                    replica['rse_id'],
                                                                                                                                    traceback.format_exc()))
-            except (DatabaseException, DatabaseError), e:
-                if isinstance(e.args[0], tuple) and (match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
+            except (DatabaseException, DatabaseError) as error:
+                if isinstance(error.args[0], tuple) and (match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
                     logging.warn("Locks detected when handling replicas on %s rule %s, update updated time." % (req_type, rule_id))
                     try:
                         request_core.touch_requests_by_rule(rule_id)
-                    except (DatabaseException, DatabaseError), e:
+                    except (DatabaseException, DatabaseError):
                         logging.error("Failed to touch requests by rule(%s): %s" % (rule_id, traceback.format_exc()))
                 else:
                     logging.error("Could not finish handling replicas on %s rule %s: %s" % (req_type, rule_id, traceback.format_exc()))
@@ -440,9 +438,9 @@ def handle_bulk_replicas(replicas, req_type, rule_id, session=None):
     """
     try:
         replica_core.update_replicas_states(replicas, nowait=True, session=session)
-    except ReplicaNotFound, ex:
-        logging.warn('Failed to bulk update replicas, will do it one by one: %s' % str(ex))
-        raise ReplicaNotFound(ex)
+    except ReplicaNotFound as error:
+        logging.warn('Failed to bulk update replicas, will do it one by one: %s' % str(error))
+        raise ReplicaNotFound(error)
 
     for replica in replicas:
         if not replica['archived']:
@@ -468,8 +466,8 @@ def handle_one_replica(replica, req_type, rule_id, session=None):
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
         logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
-    except (UnsupportedOperation, ReplicaNotFound), ex:
-        logging.warn("ERROR WHEN HANDLING REQUEST %s DID %s:%s AT RSE %s STATE %s: %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']), str(ex)))
+    except (UnsupportedOperation, ReplicaNotFound) as error:
+        logging.warn("ERROR WHEN HANDLING REQUEST %s DID %s:%s AT RSE %s STATE %s: %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']), str(error)))
         # replica cannot be found. register it and schedule it for deletion
         try:
             if replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
@@ -606,12 +604,12 @@ def add_monitor_message(request, response, session=None):
 def poll_transfers(external_host, xfers, process=0, thread=0, timeout=None):
     try:
         try:
-            ts = time.time()
+            tss = time.time()
             logging.info('%i:%i - polling %i transfers against %s with timeout %s' % (process, thread, len(xfers), external_host, timeout))
             resps = request_core.bulk_query_transfers(external_host, xfers, 'fts3', timeout)
-            record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - ts) * 1000 / len(xfers))
-        except RequestException, e:
-            logging.error("Failed to contact FTS server: %s" % (str(e)))
+            record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - tss) * 1000 / len(xfers))
+        except RequestException as error:
+            logging.error("Failed to contact FTS server: %s" % (str(error)))
             return
         except:
             logging.error("Failed to query FTS info: %s" % (traceback.format_exc()))
@@ -640,8 +638,8 @@ def poll_transfers(external_host, xfers, process=0, thread=0, timeout=None):
                 # should touch transfers.
                 # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
                 touch_transfer(external_host, transfer_id)
-            except (DatabaseException, DatabaseError), e:
-                if isinstance(e.args[0], tuple) and (match('.*ORA-00054.*', e.args[0][0]) or match('.*ORA-00060.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
+            except (DatabaseException, DatabaseError) as error:
+                if isinstance(error.args[0], tuple) and (match('.*ORA-00054.*', error.args[0][0]) or match('.*ORA-00060.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
                     logging.warn("Lock detected when handling request %s - skipping" % request_id)
                 else:
                     logging.error(traceback.format_exc())
