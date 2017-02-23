@@ -12,6 +12,8 @@
 import json
 import os
 import re
+import logging
+import sys
 
 from ConfigParser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
@@ -33,6 +35,10 @@ from rucio.core.rse import list_rse_attributes
 
 REGION = make_region().configure('dogpile.cache.memory',
                                  expiration_time=1800)
+
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def get_vo():
@@ -235,36 +241,38 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
 
     # There is at least one rule on LOCALGROUPDISK
     if rses_to_rebalance:
-        # Create the archival dataset
-        did = rucio.core.did.get_did(scope=scope, name=name, session=session)
-        meta = rucio.core.did.get_metadata(scope=scope, name=name, session=session)
-        new_meta = {k: v for k, v in meta.items() if k in ['project', 'datatype', 'run_number', 'stream_name', 'prod_step', 'version', 'campaign', 'task_id', 'panda_id'] and v is not None}
-        rucio.core.did.add_did(scope='archive',
-                               name=name,
-                               type=DIDType.DATASET,
-                               account=did['account'],
-                               statuses={},
-                               meta=new_meta,
-                               rules=[],
-                               lifetime=None,
-                               dids=[],
-                               rse=None,
-                               session=session)
         content = [x for x in rucio.core.did.list_content(scope=scope, name=name, session=session)]
-        rucio.core.did.attach_dids(scope='archive', name=name, dids=content, account=did['account'], session=session)
-        if not did['open']:
-            rucio.core.did.set_status(scope='archive', name=name, open=False, session=session)
+        if len(content) > 0:
+            # Create the archival dataset
+            did = rucio.core.did.get_did(scope=scope, name=name, session=session)
+            meta = rucio.core.did.get_metadata(scope=scope, name=name, session=session)
+            new_meta = {k: v for k, v in meta.items() if k in ['project', 'datatype', 'run_number', 'stream_name', 'prod_step', 'version', 'campaign', 'task_id', 'panda_id'] and v is not None}
+            rucio.core.did.add_did(scope='archive',
+                                   name=name,
+                                   type=DIDType.DATASET,
+                                   account=did['account'],
+                                   statuses={},
+                                   meta=new_meta,
+                                   rules=[],
+                                   lifetime=None,
+                                   dids=[],
+                                   rse=None,
+                                   session=session)
+            rucio.core.did.attach_dids(scope='archive', name=name, dids=content, account=did['account'], session=session)
+            if not did['open']:
+                rucio.core.did.set_status(scope='archive', name=name, open=False, session=session)
 
-        for rse in rses_to_rebalance:
-            rucio.core.rule.add_rule(dids=[{'scope': 'archive', 'name': name}],
-                                     account=rse['account'],
-                                     copies=1,
-                                     rse_expression=rse['rse'],
-                                     grouping='DATASET',
-                                     weight=None,
-                                     lifetime=None,
-                                     locked=False,
-                                     subscription_id=None,
-                                     ignore_account_limit=True,
-                                     ignore_availability=True,
-                                     session=session)
+            for rse in rses_to_rebalance:
+                rucio.core.rule.add_rule(dids=[{'scope': 'archive', 'name': name}],
+                                         account=rse['account'],
+                                         copies=1,
+                                         rse_expression=rse['rse'],
+                                         grouping='DATASET',
+                                         weight=None,
+                                         lifetime=None,
+                                         locked=False,
+                                         subscription_id=None,
+                                         ignore_account_limit=True,
+                                         ignore_availability=True,
+                                         session=session)
+            logging.debug('Re-Scoped %s:%s' % (scope, name))
