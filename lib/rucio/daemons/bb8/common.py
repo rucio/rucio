@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
 
 import logging
 import sys
@@ -19,23 +19,27 @@ from rucio.core.rse import list_rse_attributes, get_rse_name
 from rucio.core.rse_selector import RSESelector
 # from rucio.core.subscription import get_subscription_by_id
 from rucio.common.config import config_get
-from rucio.common.exception import InsufficientTargetRSEs
+from rucio.common.exception import InsufficientTargetRSEs, RuleNotFound, DuplicateRule
+from rucio.db.sqla.constants import RuleGrouping
 from rucio.db.sqla.session import transactional_session
+
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-def rebalance_rule(parent_rule_id, activity, rse_expression, comment=None):
+def rebalance_rule(parent_rule_id, activity, rse_expression, priority, source_replica_expression=None, comment=None):
     """
     Rebalance a replication rule to a new RSE
 
-    :param parent_rule_id:       Replication rule to be rebalanced.
-    :param activity:             Activity to be used for the rebalancing.
-    :param rse_expression:       RSE expression of the new rule.
-    :param comment:              Comment to set on the new rules.
-    :returns:                    The new child rule id.
+    :param parent_rule_id:             Replication rule to be rebalanced.
+    :param activity:                   Activity to be used for the rebalancing.
+    :param rse_expression:             RSE expression of the new rule.
+    :param priority:                   Priority of the newly created rule.
+    :param source_replica_expression:  Source replica expression of the new rule.
+    :param comment:                    Comment to set on the new rules.
+    :returns:                          The new child rule id.
     """
     parent_rule = get_rule(rule_id=parent_rule_id)
 
@@ -44,24 +48,32 @@ def rebalance_rule(parent_rule_id, activity, rse_expression, comment=None):
     else:
         lifetime = (parent_rule['expires_at'] - datetime.utcnow()).days * 24 * 3600 + (parent_rule['expires_at'] - datetime.utcnow()).seconds
 
+    if parent_rule['grouping'] == RuleGrouping.ALL:
+        grouping = 'ALL'
+    elif parent_rule['grouping'] == RuleGrouping.NONE:
+        grouping = 'NONE'
+    else:
+        grouping = 'DATASET'
+
     child_rule = add_rule(dids=[{'scope': parent_rule['scope'],
                                  'name': parent_rule['name']}],
                           account=parent_rule['account'],
                           copies=parent_rule['copies'],
                           rse_expression=rse_expression,
-                          grouping=parent_rule['grouping'],
+                          grouping=grouping,
                           weight=parent_rule['weight'],
                           lifetime=lifetime,
                           locked=parent_rule['locked'],
                           subscription_id=parent_rule['subscription_id'],
-                          source_replica_expression=None,
+                          source_replica_expression=source_replica_expression,
                           activity=activity,
                           notify=parent_rule['notification'],
                           purge_replicas=parent_rule['purge_replicas'],
-                          ignore_availability=True,
+                          ignore_availability=False,
                           comment=parent_rule['comments'] if not comment else comment,
                           ask_approval=False,
-                          asynchronous=False)[0]
+                          asynchronous=False,
+                          priority=priority)[0]
 
     update_rule(rule_id=parent_rule_id, options={'child_rule_id': child_rule, 'lifetime': 0})
     return child_rule
@@ -78,7 +90,7 @@ def list_rebalance_rule_candidates(rse, mode=None, session=None):
     """
 
     if mode is None:
-        sql = """SELECT /*+ parallel(4) */ dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
+        sql = """SELECT dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
 WHERE
 dsl.rse_id = atlas_rucio.rse2id(:rse) and
 (r.expires_at > sysdate+60 or r.expires_at is NULL) and
@@ -93,10 +105,10 @@ d.is_open = 0 and
 d.did_type = 'D' and
 r.grouping IN ('D', 'A') and
 1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
-0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and INSTR(atlas_rucio.id2rse(rse_id), 'TAPE') > 0)
+0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id IN (SELECT id FROM atlas_rucio.rses WHERE rse_type='TAPE'))
 ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
     elif mode == 'decomission':
-        sql = """SELECT /*+ parallel(4) */ r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
+        sql = """SELECT r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
 WHERE
 r.id IN (SELECT rule_id FROM atlas_rucio.locks WHERE rse_id = atlas_rucio.rse2id(:rse) GROUP BY rule_id) and
 r.state = 'O' and
@@ -149,20 +161,22 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
 
 
 @transactional_session
-def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, force_expression=None, mode=None, session=None):
+def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, force_expression=None, mode=None, priority=3, source_replica_expression=None, session=None):
     """
     Rebalance data from an RSE
 
-    :param rse:                  RSE to rebalance data from.
-    :param max_bytes:            Maximum amount of bytes to rebalance.
-    :param max_files:            Maximum amount of files to rebalance.
-    :param dry_run:              Only run in dry-run mode.
-    :param exclude_expression:   Exclude this rse_expression from being target_rses.
-    :param comment:              Comment to set on the new rules.
-    :param force_expression:     Force a specific rse_expression as target.
-    :param mode:                 BB8 mode to execute (None=normal, 'decomission'=Decomission mode)
-    :param session:              The database session.
-    :returns:                    List of rebalanced datasets.
+    :param rse:                        RSE to rebalance data from.
+    :param max_bytes:                  Maximum amount of bytes to rebalance.
+    :param max_files:                  Maximum amount of files to rebalance.
+    :param dry_run:                    Only run in dry-run mode.
+    :param exclude_expression:         Exclude this rse_expression from being target_rses.
+    :param comment:                    Comment to set on the new rules.
+    :param force_expression:           Force a specific rse_expression as target.
+    :param mode:                       BB8 mode to execute (None=normal, 'decomission'=Decomission mode)
+    :param priority:                   Priority of the new created rules.
+    :param source_replica_expression:  Source replica expression of the new created rules.
+    :param session:                    The database session.
+    :returns:                          List of rebalanced datasets.
     """
     rebalanced_bytes = 0
     rebalanced_files = 0
@@ -209,10 +223,12 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
                     child_rule_id = rebalance_rule(parent_rule_id=rule_id,
                                                    activity='Data Rebalancing',
                                                    rse_expression=target_rse_exp,
+                                                   priority=priority,
+                                                   source_replica_expression=source_replica_expression,
                                                    comment=comment)
                 else:
                     child_rule_id = ''
-            except InsufficientTargetRSEs, e:
+            except (InsufficientTargetRSEs, DuplicateRule, RuleNotFound) as e:
                 continue
             print ('%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes / 1E9), target_rse_exp, child_rule_id))
             rebalanced_bytes += bytes
@@ -222,4 +238,5 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
             print 'Exception %s occured while rebalancing %s:%s, rule_id: %s!' % (str(e), scope, name, str(rule_id))
             raise e
 
+    print 'BB8 is rebalancing %d Gb of data (%d rules)' % (int(rebalanced_bytes / 1E9), len(rebalanced_datasets))
     return rebalanced_datasets

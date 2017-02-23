@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
@@ -121,9 +121,10 @@ def _ck_constraint_name(const, table):
         const.name = "QURD_REPLICAS_CREATED_NN"
     elif const.name == 'QUARANTINED_REPLICAS_UPDATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS':
         const.name = "QURD_REPLICAS_UPDATED_NN"
-
-    # SQLAlchemy sometimes does not propagate Enum names properly to subclassed objects,
-    # so we have to uniquify them - hopefully fixed in SQLA v9
+    elif const.name == 'ARCHIVE_CONTENTS_HISTORY_CREATED_NN' and table.name.upper() == 'ARCHIVE_CONTENTS_HISTORY':
+        const.name = "ARCH_CNTS_HIST_CREATED_NN"
+    elif const.name == 'ARCHIVE_CONTENTS_HISTORY_UPDATED_NN' and table.name.upper() == 'ARCHIVE_CONTENTS_HISTORY':
+        const.name = "ARCH_CNTS_HIST_UPDATED_NN"
 
     if const.name is None:
         const.name = table.name.upper() + '_' + str(uuid.uuid4())[:6] + '_CHK'
@@ -348,6 +349,8 @@ class DataIdentifier(BASE, ModelBase):
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
     eol_at = Column(DateTime)
+    is_archive = Column(Boolean(name='DIDS_ARCHIVE_CHK'))
+    constituent = Column(Boolean(name='DIDS_CONSTITUENT_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -403,6 +406,8 @@ class DeletedDataIdentifier(BASE, ModelBase):
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
     eol_at = Column(DateTime)
+    is_archive = Column(Boolean(name='DEL_DIDS_ARCH_CHK'))
+    constituent = Column(Boolean(name='DEL_DIDS_CONST_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
 
 
@@ -493,6 +498,45 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_DID_TYPE_NN'),
                    CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
+
+
+class ConstituentAssociation(BASE, ModelBase):
+    """Represents the map between archives and constituents"""
+    __tablename__ = 'archive_contents'
+    child_scope = Column(String(25))    # Constituent file scope
+    child_name = Column(String(255))    # Constituent file name
+    scope = Column(String(25))          # Archive file scope
+    name = Column(String(255))          # Archive file name
+    bytes = Column(BigInteger)
+    adler32 = Column(String(8))
+    md5 = Column(String(32))
+    guid = Column(GUID())
+    length = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('child_scope', 'child_name', 'scope', 'name',
+                                        name='ARCH_CONTENTS_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'],
+                                        name='ARCH_CONTENTS_PARENT_FK'),
+                   ForeignKeyConstraint(['child_scope', 'child_name'],
+                                        ['dids.scope', 'dids.name'], ondelete="CASCADE",
+                                        name='ARCH_CONTENTS_CHILD_FK'),
+                   Index('ARCH_CONTENTS_CHILD_IDX', 'scope', 'name',
+                         'child_scope', 'child_name', ))
+
+
+class ConstituentAssociationHistory(BASE, ModelBase):
+    """Represents the map between archives and constituents"""
+    __tablename__ = 'archive_contents_history'
+    child_scope = Column(String(25))    # Constituent file scope
+    child_name = Column(String(255))    # Constituent file name
+    scope = Column(String(25))          # Archive file scope
+    name = Column(String(255))          # Archive file name
+    bytes = Column(BigInteger)
+    adler32 = Column(String(8))
+    md5 = Column(String(32))
+    guid = Column(GUID())
+    length = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name',
+                                        name='ARCH_CONTENTS_HISOTRY_PK'), )
 
 
 class DataIdentifierAssociationHistory(BASE, ModelBase):
@@ -755,6 +799,7 @@ class ReplicationRule(BASE, ModelBase):
     comments = Column(String(255))
     child_rule_id = Column(GUID())
     eol_at = Column(DateTime)
+    split_container = Column(Boolean(name='RULES_SPLIT_CONTAINER_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
@@ -811,6 +856,7 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     comments = Column(String(255))
     child_rule_id = Column(GUID())
     eol_at = Column(DateTime)
+    split_container = Column(Boolean())
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_RECENT_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HIST_RECENT_ID_IDX', 'id'),
                    Index('RULES_HIST_RECENT_SC_NA_IDX', 'scope', 'name'))
@@ -848,6 +894,7 @@ class ReplicationRuleHistory(BASE, ModelBase):
     comments = Column(String(255))
     child_rule_id = Column(GUID())
     eol_at = Column(DateTime)
+    split_container = Column(Boolean())
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HISTORY_SCOPENAME_IDX', 'scope', 'name'))
 
@@ -1139,6 +1186,8 @@ def register_models(engine):
               BadReplicas,
               CollectionReplica,
               Config,
+              ConstituentAssociation,
+              ConstituentAssociationHistory,
               DataIdentifierAssociation,
               DataIdentifierAssociationHistory,
               DIDKey,
@@ -1192,6 +1241,8 @@ def unregister_models(engine):
               BadReplicas,
               CollectionReplica,
               Config,
+              ConstituentAssociation,
+              ConstituentAssociationHistory,
               DataIdentifierAssociation,
               DataIdentifierAssociationHistory,
               DIDKey,

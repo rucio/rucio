@@ -75,7 +75,7 @@ class TestJudgeCleaner():
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
-        child_rule = rebalance_rule(rule_id, 'Rebalance', self.rse3)
+        child_rule = rebalance_rule(rule_id, 'Rebalance', self.rse3, priority=3)
 
         rule_cleaner(once=True)
 

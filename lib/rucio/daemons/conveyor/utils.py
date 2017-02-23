@@ -1348,16 +1348,23 @@ def submit_transfer(external_host, job, submitter='submitter', cachedir=None, pr
 def schedule_requests():
     try:
         logging.info("Throttler retrieve requests statistics")
-        results = request.get_stats_by_activity_dest_state(state=[RequestState.QUEUED, RequestState.SUBMITTING, RequestState.SUBMITTED, RequestState.WAITING])
+        results = request.get_stats_by_activity_dest_state(state=[RequestState.QUEUED,
+                                                                  RequestState.SUBMITTING,
+                                                                  RequestState.SUBMITTED,
+                                                                  RequestState.WAITING])
         result_dict = {}
-        for activity, dest_rse_id, account, state, counter in results:
+        for activity, dest_rse_id, account, state, rse, counter in results:
             threshold = request.get_config_limit(activity, dest_rse_id)
 
             if threshold or (counter and (state == RequestState.WAITING)):
                 if activity not in result_dict:
                     result_dict[activity] = {}
                 if dest_rse_id not in result_dict[activity]:
-                    result_dict[activity][dest_rse_id] = {'waiting': 0, 'transfer': 0, 'threshold': threshold, 'accounts': {}}
+                    result_dict[activity][dest_rse_id] = {'waiting': 0,
+                                                          'transfer': 0,
+                                                          'threshold': threshold,
+                                                          'accounts': {},
+                                                          'rse': rse}
                 if account not in result_dict[activity][dest_rse_id]['accounts']:
                     result_dict[activity][dest_rse_id]['accounts'][account] = {'waiting': 0, 'transfer': 0}
                 if state == RequestState.WAITING:
@@ -1372,17 +1379,20 @@ def schedule_requests():
                 threshold = result_dict[activity][dest_rse_id]['threshold']
                 transfer = result_dict[activity][dest_rse_id]['transfer']
                 waiting = result_dict[activity][dest_rse_id]['waiting']
-                logging.debug("Request status for %s at %s: %s" % (activity, activity, result_dict[activity][dest_rse_id]))
+                rse_name = result_dict[activity][dest_rse_id]['rse']
+                if waiting:
+                    logging.debug("Request status for %s at %s: %s" % (activity, rse_name,
+                                                                       result_dict[activity][dest_rse_id]))
+
                 if threshold is None:
-                    logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for acitivity %s, rse_id %s" % (threshold, activity, dest_rse_id))
+                    logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse_id %s" % (threshold, activity, dest_rse_id))
                     rse_core.delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
                     request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id)
-                    rse_name = rse_core.get_rse_name(rse_id=dest_rse_id)
                     record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
+
                 elif transfer + waiting > threshold:
-                    logging.debug("Throttler set limits for acitivity %s, rse_id %s" % (activity, dest_rse_id))
+                    logging.debug("Throttler set limits for activity %s, rse %s" % (activity, rse_name))
                     rse_core.set_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id, max_transfers=threshold, transfers=transfer, waitings=waiting)
-                    rse_name = rse_core.get_rse_name(rse_id=dest_rse_id)
                     record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.max_transfers' % (activity, rse_name), threshold)
                     record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.transfers' % (activity, rse_name), transfer)
                     record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.waitings' % (activity, rse_name), waiting)
@@ -1397,16 +1407,17 @@ def schedule_requests():
                         accounts = result_dict[activity][dest_rse_id]['accounts']
                         for account in accounts:
                             if nr_accounts == 1:
-                                logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s, account %s " % (to_release, activity, dest_rse_id, account))
+                                logging.debug("Throttler release %s waiting requests for activity %s, rse %s, account %s " % (to_release, activity, rse_name, account))
                                 request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, account=account, count=to_release)
                                 record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), to_release)
+
                             elif accounts[account]['transfer'] > threshold_per_account:
-                                logging.debug("Throttler will not release waiting requests for acitivity %s, rse_id %s, account %s: It queued more transfers than its share " %
-                                              (accounts[account]['waiting'], activity, dest_rse_id, account))
+                                logging.debug("Throttler will not release  %s waiting requests for activity %s, rse %s, account %s: It queued more transfers than its share " %
+                                              (accounts[account]['waiting'], activity, rse_name, account))
                                 nr_accounts -= 1
                                 to_release_per_account = math.ceil(to_release / nr_accounts)
                             elif accounts[account]['waiting'] < to_release_per_account:
-                                logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s, account %s " % (accounts[account]['waiting'], activity, dest_rse_id, account))
+                                logging.debug("Throttler release %s waiting requests for activity %s, rse %s, account %s " % (accounts[account]['waiting'], activity, rse_name, account))
                                 request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, account=account, count=accounts[account]['waiting'])
                                 record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), accounts[account]['waiting'])
 
@@ -1414,17 +1425,19 @@ def schedule_requests():
                                 nr_accounts -= 1
                                 to_release_per_account = math.ceil(to_release / nr_accounts)
                             else:
-                                logging.debug("Throttler release %s waiting requests for acitivity %s, rse_id %s, account %s " % (to_release_per_account, activity, dest_rse_id, account))
+                                logging.debug("Throttler release %s waiting requests for activity %s, rse %s, account %s " % (to_release_per_account, activity, rse_name, account))
                                 request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id, account=account, count=to_release_per_account)
                                 record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), to_release_per_account)
 
                                 to_release = to_release - to_release_per_account
                                 nr_accounts -= 1
+                    else:
+                        logging.debug("Throttler has done nothing for activity %s on rse %s (transfer > 0.8 * threshold)" % (activity, rse_name))
+
                 elif waiting > 0:
-                    logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for acitivity %s, rse_id %s" % (threshold, activity, dest_rse_id))
+                    logging.debug("Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse %s" % (threshold, activity, rse_name))
                     rse_core.delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
                     request.release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id)
-                    rse_name = rse_core.get_rse_name(rse_id=dest_rse_id)
                     record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
     except:
-        logging.warning("Failed to schedule requests, error: %s" % (traceback.format_exc()))
+        logging.critical("Failed to schedule requests, error: %s" % (traceback.format_exc()))

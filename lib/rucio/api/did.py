@@ -7,8 +7,8 @@
   License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013,2015
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
   - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
@@ -319,3 +319,13 @@ def resurrect(dids, issuer):
         raise rucio.common.exception.AccessDenied('Account %s can not resurrect data identifiers' % (issuer))
     validate_schema(name='dids', obj=dids)
     return did.resurrect(dids=dids)
+
+
+def list_archive_content(scope, name):
+    """
+    List archive contents.
+
+    :param scope: The archive scope name.
+    :param name: The archive data identifier name.
+    """
+    return did.list_archive_content(scope=scope, name=name)

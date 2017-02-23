@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
@@ -174,7 +174,7 @@ def parse_pfns(rse_settings, pfns, operation='read'):
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme).parse_pfns(pfns)
 
 
-def download(rse_settings, files, dest_dir=None, printstatements=False):
+def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_checksum=False, printstatements=False):
     """
         Copy a file from the connected storage to the local file system.
         Providing a list indicates the bulk mode.
@@ -186,6 +186,8 @@ def download(rse_settings, files, dest_dir=None, printstatements=False):
                                 E.g.  [{'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
                                        {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
         :param dest_dir:        path to the directory where the downloaded files will be stored. If not given, each scope is represented by its own directory.
+        :param force_scheme:    normally the scheme is dictated by the RSE object, when specifying the PFN it must be forced to the one specified in the PFN, overruling the RSE description.
+        :param ignore_checksum: do not verify the checksum - caution: should only be used for rucio download --pfn
 
         :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
@@ -197,7 +199,8 @@ def download(rse_settings, files, dest_dir=None, printstatements=False):
     """
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
-    protocol = create_protocol(rse_settings, 'read')
+
+    protocol = create_protocol(rse_settings, 'read', scheme=force_scheme)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
@@ -220,7 +223,8 @@ def download(rse_settings, files, dest_dir=None, printstatements=False):
                     protocol.get(pfn, tempfile)
                     if printstatements:
                         print 'File downloaded. Will be validated'
-                    localchecksum = utils.adler32(tempfile)
+
+                    localchecksum = f['adler32'] if ignore_checksum else utils.adler32(tempfile)
                     if localchecksum == f['adler32']:
                         if printstatements:
                             print 'File validated'
@@ -288,7 +292,7 @@ def exists(rse_settings, files):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None):
+def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -296,6 +300,7 @@ def upload(rse_settings, lfns, source_dir=None):
         :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'},
                                                                                                     {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}]
         :param source_dir:  path to the local directory including the source files
+        :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -305,7 +310,7 @@ def upload(rse_settings, lfns, source_dir=None):
         :raises ServiceUnavailable: for any other reason
     """
     ret = {}
-    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
+    gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
     protocol = create_protocol(rse_settings, 'write')
     protocol.connect()
@@ -325,7 +330,10 @@ def upload(rse_settings, lfns, source_dir=None):
             ret['%s:%s' % (scope, name)] = exception.RucioException('Missing filesize for file %s:%s' % (lfn['scope'], lfn['name']))
             continue
 
-        pfn = protocol.lfns2pfns(lfn).values()[0]
+        if force_pfn:
+            pfn = force_pfn
+        else:
+            pfn = protocol.lfns2pfns(lfn).values()[0]
 
         # First check if renaming operation is supported
         if protocol.renaming:
@@ -410,7 +418,8 @@ def upload(rse_settings, lfns, source_dir=None):
             if isinstance(ret[x], Exception):
                 raise ret[x]
             else:
-                return ret[x]
+                return {'success': ret[x],
+                        'pfn': pfn}
     return [gs, ret]
 
 
