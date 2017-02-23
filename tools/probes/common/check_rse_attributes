@@ -10,12 +10,12 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - David Cameron, <david.cameron@cern.ch>, 2014-2015
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
 
 import json
-import requests
 import sys
 import traceback
+import requests
 
 from rucio.common.exception import RucioException, RSENotFound
 from rucio.api import rse as r
@@ -46,8 +46,8 @@ if __name__ == '__main__':
     try:
         resp = requests.get(url=url)
         data = json.loads(resp.content)
-    except Exception, e:
-        print "Failed to load info from AGIS: %s" % str(e)
+    except Exception as error:
+        print "Failed to load info from AGIS: %s" % str(error)
         sys.exit(WARNING)
 
     for rse in data:
@@ -70,6 +70,8 @@ if __name__ == '__main__':
             r.add_rse_attribute(name, 'spacetoken', str(rse['token']), 'root')
             r.add_rse_attribute(name, 'site', str(rse['site']), 'root')
             r.add_rse_attribute(name, 'type', str(rse['type']), 'root')
+            if str(rse['space_method']) == 'other':
+                r.add_rse_attribute(name, 'space_usage_method', 'json', 'root')
             if rse['type'] == 'LOCALGROUPDISK' or rse['type'] == 'USERDISK':
                 country = countrycodes[str(rse['country'])]
                 if name.startswith('CERN'):
@@ -108,8 +110,8 @@ if __name__ == '__main__':
                     freespace = int(freespace)
                 r.add_rse_attribute(name, 'freespace', freespace, 'root')
 
-        except RucioException as e:
-            print str(e)
+        except RucioException as error:
+            print str(error)
             sys.exit(CRITICAL)
         except:
             print traceback.format_exc()

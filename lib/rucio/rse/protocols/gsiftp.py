@@ -80,7 +80,7 @@ class Default(protocol.RSEProtocol):
                 data_file = open(dest)
                 data = json.load(data_file)
                 data_file.close()
-                if data.keys()[0] != agis_token:
+                if agis_token not in data.keys():
                     print 'ERROR: space usage json has different token as key'
                 else:
                     totalsize = data[agis_token]['total_space']

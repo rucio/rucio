@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 
 from random import choice
 from string import ascii_uppercase, digits, ascii_lowercase
@@ -54,6 +54,15 @@ class TestRSEExpressionParserCore():
         rse.add_rse_attribute(self.rse3, self.attribute, "fr")
         rse.add_rse_attribute(self.rse4, self.attribute, "uk")
         rse.add_rse_attribute(self.rse5, self.attribute, "us")
+
+        # Add numeric Attributes
+        self.attribute_numeric = attribute_name_generator()
+
+        rse.add_rse_attribute(self.rse1, self.attribute_numeric, 10)
+        rse.add_rse_attribute(self.rse2, self.attribute_numeric, 20)
+        rse.add_rse_attribute(self.rse3, self.attribute_numeric, 30)
+        rse.add_rse_attribute(self.rse4, self.attribute_numeric, 40)
+        rse.add_rse_attribute(self.rse5, self.attribute_numeric, 50)
 
         # Add Tags
         self.tag1 = tag_generator()
@@ -143,6 +152,15 @@ class TestRSEExpressionParserCore():
                      sorted([rseWRITE_id]))
 
         assert_raises(RSEBlacklisted, rse_expression_parser.parse_expression, "%s=de" % attribute, {'availability_write': False})
+
+    def test_attribute_with_numeric_operators(self):
+        """ RSE_EXPRESSION_PARSER (CORE) Test RSE attributes with numeric operations """
+        assert_equal([rse['id'] for rse in rse_expression_parser.parse_expression("%s<11" % self.attribute_numeric)], [self.rse1_id])
+        assert_raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s<9" % self.attribute_numeric)
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("%s<21" % self.attribute_numeric)]), sorted([self.rse1_id, self.rse2_id]))
+        assert_equal([rse['id'] for rse in rse_expression_parser.parse_expression("%s>49" % self.attribute_numeric)], [self.rse5_id])
+        assert_raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s>51" % self.attribute_numeric)
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("%s>30" % self.attribute_numeric)]), sorted([self.rse4_id, self.rse5_id]))
 
 
 class TestRSEExpressionParserClient():

@@ -92,16 +92,14 @@ class DeclEnumType(SchemaType, TypeDecorator):
 
     def __init__(self, enum, name=None, default=None):
         self.enum = enum
-
-        # Workaround SQLAlchemy not propagating Enum names properly
-
         if name is None:
             self.impl = Enum(*enum.values(), name='RUCIO_ENUM_' + str(uuid.uuid4())[:6])
         else:
             self.impl = Enum(*enum.values(), name=name)
 
-    def _set_table(self, table, column):
-        self.impl._set_table(table, column)
+    def _set_parent_with_dispatch(self, parent):
+        TypeDecorator._set_parent_with_dispatch(self, parent)
+        SchemaType._set_parent_with_dispatch(self, parent)
 
     def copy(self):
         return DeclEnumType(self.enum)

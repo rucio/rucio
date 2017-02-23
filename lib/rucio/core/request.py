@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
@@ -26,7 +26,7 @@ from dogpile.cache.api import NoValue
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import aliased
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import asc, bindparam, text
+from sqlalchemy.sql.expression import asc, bindparam, text, false, true
 
 from rucio.common.config import config_get
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
@@ -308,14 +308,16 @@ def queue_requests(requests, session=None):
                                  'dest_rse_id': request['dest_rse_id'],
                                  'attributes': json.dumps(request['attributes']),
                                  'state': request['state'],
-                                 'previous_attempt_id': request['previous_attempt_id'],
-                                 'retry_count': request['retry_count'],
                                  'rule_id': request['rule_id'],
                                  'activity': request['attributes']['activity'],
                                  'bytes': request['attributes']['bytes'],
                                  'md5': request['attributes']['md5'],
                                  'adler32': request['attributes']['adler32'],
-                                 'account': request.get('account', None)})
+                                 'account': request.get('account', None),
+                                 'priority': request['attributes'].get('priority', None),
+                                 'requested_at': request.get('requested_at', None),
+                                 'retry_count': request['retry_count'],
+                                 'previous_attempt_id': request['previous_attempt_id']})
         else:
             request['request_id'] = generate_uuid()
             new_requests.append({'id': request['request_id'],
@@ -332,7 +334,7 @@ def queue_requests(requests, session=None):
                                  'adler32': request['attributes']['adler32'],
                                  'account': request.get('account', None),
                                  'priority': request['attributes'].get('priority', None),
-                                 'requested_at': request['attributes'].get('requested_at', None),
+                                 'requested_at': request.get('requested_at', None),
                                  'retry_count': request['retry_count']})
 
         if 'sources' in request and request['sources']:
@@ -1250,6 +1252,7 @@ def archive_request(request_id, session=None):
                                                                 source_rse_id=req['source_rse_id'],
                                                                 attributes=req['attributes'],
                                                                 state=req['state'],
+                                                                account=req['account'],
                                                                 external_id=req['external_id'],
                                                                 retry_count=req['retry_count'],
                                                                 err_msg=req['err_msg'],
@@ -1347,7 +1350,6 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
     if total_processes > 1 and total_processes == total_threads:
         raise RucioException("Total process %s is the same with total threads %s, will create potential same hash" % (total_processes, total_threads))
 
-    is_false = False  # For PEP8
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
                                  models.Request.scope,
@@ -1419,8 +1421,8 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
                                                    sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
         .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.staging_area == is_false,
-                                    models.RSE.deleted == is_false))\
+                                    models.RSE.staging_area == false(),
+                                    models.RSE.deleted == false()))\
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
                                        models.RSE.id == models.Source.rse_id))\
         .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')\
@@ -1456,7 +1458,6 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
     :param session: Database session to use.
     :returns: List.
     """
-    is_false = False  # For PEP8
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
                                  models.Request.scope,
@@ -1528,8 +1529,8 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
                                                    sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
         .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.staging_area == is_false,
-                                    models.RSE.deleted == is_false))\
+                                    models.RSE.staging_area == false(),
+                                    models.RSE.deleted == false()))\
         .outerjoin(models.RSEAttrAssociation, and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
                                                    models.RSEAttrAssociation.key == 'staging_buffer'))\
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
@@ -1605,11 +1606,9 @@ def get_heavy_load_rses(threshold, session=None):
     :param session: Database session to use.
     :returns: .
     """
-
-    is_true = True
     try:
         results = session.query(models.Source.rse_id, func.count(models.Source.rse_id).label('load'))\
-                         .filter(models.Source.is_using == is_true)\
+                         .filter(models.Source.is_using == true())\
                          .group_by(models.Source.rse_id)\
                          .all()
 
@@ -1660,11 +1659,25 @@ def get_stats_by_activity_dest_state(state, session=None):
         state = [state, state]
 
     try:
-        results = session.query(models.Request.activity, models.Request.dest_rse_id, models.Request.account, models.Request.state, func.count(1).label('counter'))\
-                         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-                         .filter(models.Request.state.in_(state))\
-                         .group_by(models.Request.activity, models.Request.dest_rse_id, models.Request.account, models.Request.state).all()
-        return results
+        subquery = session.query(models.Request.activity, models.Request.dest_rse_id,
+                                 models.Request.account, models.Request.state,
+                                 func.count(1).label('counter'))\
+            .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+            .filter(models.Request.state.in_(state))\
+            .group_by(models.Request.activity,
+                      models.Request.dest_rse_id,
+                      models.Request.account,
+                      models.Request.state).subquery()
+
+        return session.query(subquery.c.activity,
+                             subquery.c.dest_rse_id,
+                             subquery.c.account,
+                             subquery.c.state,
+                             models.RSE.rse,
+                             subquery.c.counter)\
+            .with_hint(models.RSE, "INDEX(RSES RSES_PK)", 'oracle')\
+            .filter(models.RSE.id == subquery.c.dest_rse_id).all()
+
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -1685,7 +1698,8 @@ def release_waiting_requests(rse, activity=None, rse_id=None, count=None, accoun
         rowcount = 0
 
         if count is None:
-            query = session.query(models.Request).filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
+            query = session.query(models.Request).\
+                filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
             if activity:
                 query = query.filter_by(activity=activity)
             if account:
@@ -1704,7 +1718,8 @@ def release_waiting_requests(rse, activity=None, rse_id=None, count=None, accoun
 
             rowcount = session.query(models.Request)\
                               .filter(models.Request.id.in_(subquery))\
-                              .update({'state': RequestState.QUEUED}, synchronize_session=False)
+                              .update({'state': RequestState.QUEUED},
+                                      synchronize_session=False)
         return rowcount
     except IntegrityError, e:
         raise RucioException(e.args)
