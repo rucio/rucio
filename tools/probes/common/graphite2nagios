@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne <ralph.vigne@cern.ch> 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch> 2017
 
 '''
 Probe arbitrary Graphite time series against a provided threshold. Examples:
@@ -28,12 +29,13 @@ More information on supported function can be found at: http://graphite.readthed
 import logging
 import pprint
 import sys
+
 import requests
 
 from optparse import OptionParser
 
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
-GRAPHITE_URL = "rucio-graphite-prod.cern.ch"
+GRAPHITE_URL = "rucio-graphite-prod-02.cern.ch"
 
 
 def parse_options():
@@ -69,24 +71,24 @@ if __name__ == "__main__":
     options = parse_options()
     pp = pprint.PrettyPrinter(indent=4)
     exit_code = OK
-    url = 'http://%s/render?format=json&from=-%smin&target=%s' % (GRAPHITE_URL, int(options.period) + 1, options.target)  # Adding 1 minute to aviod null values in case of "in the last minute" requests
-    logging.debug('Requesting metric: %s' % url)
-    r = requests.get(url)
-    if r.status_code != 200:
-        logging.debug('Failed requesting data from Graphite with: %s. Use --verbose for details.' % r.status_code)
-    json = r.json()
+    URL = 'http://%s/render?format=json&from=-%smin&target=%s' % (GRAPHITE_URL, int(options.period) + 1, options.target)  # Adding 1 minute to aviod null values in case of "in the last minute" requests
+    logging.debug('Requesting metric: %s' % URL)
+    req = requests.get(URL)
+    if req.status_code != 200:
+        logging.debug('Failed requesting data from Graphite with: %s. Use --verbose for details.' % req.status_code)
+    JSON = req.json()
     if options.debug:
-        pp.pprint(json)
-    for target in json:
+        pp.pprint(JSON)
+    for target in JSON:
         counter = 0
         for db in target['datapoints']:
             if db[0] is not None:
                 counter += 1
-        if (int(options.warning) < counter) and (counter < int(options.critical)):
+        if int(options.warning) < counter and counter < int(options.critical):
             print '%s INCIDENTS %s INTERVAL %s min.' % (target['target'], counter, options.period)
             if exit_code in [OK]:
                 exit_code = WARNING
-        if (int(options.critical) <= counter):
+        if int(options.critical) <= counter:
             print '%s INCIDENTS %s INTERVAL %s min.' % (target['target'], counter, options.period)
             if exit_code in [OK, WARNING]:
                 exit_code = CRITICAL
