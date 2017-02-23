@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
@@ -38,8 +38,9 @@ from rucio.core import monitor
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
-from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
-from rucio.core.rse import sort_rses
+from rucio.core.replica import (list_unlocked_replicas, update_replicas_states,
+                                delete_replicas)
+from rucio.core.rse import get_rse_attribute, sort_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.rse import rsemanager as rsemgr
 
@@ -72,14 +73,34 @@ def __check_rse_usage(rse, rse_id):
     min_free_space = limits.get('MinFreeSpace')
     max_being_deleted_files = limits.get('MaxBeingDeletedFiles')
 
-    # Get total space available
-    usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source='srm')
+    # Check from which sources to get used and total spaces
+    # Default is storage
+    source_for_total_space, source_for_used_space = 'storage', 'storage'
+    values = get_rse_attribute(rse_id=rse_id, key='sourceForTotalSpace')
+    if values:
+        source_for_total_space = values[0]
+    values = get_rse_attribute(rse_id=rse_id, key='sourceForUsedSpace')
+    if values:
+        source_for_used_space = values[0]
+
+    logging.debug('RSE: %(rse)s, sourceForTotalSpace: %(source_for_total_space)s, '
+                  'sourceForUsedSpace: %(source_for_used_space)s' % locals())
+
+    # Get total and used space
+    usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source=source_for_total_space)
     if not usage:
         return max_being_deleted_files, needed_free_space, used, free
-
     for var in usage:
         total, used = var['total'], var['used']
         break
+
+    if source_for_total_space != source_for_used_space:
+        usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source=source_for_used_space)
+        if not usage:
+            return max_being_deleted_files, needed_free_space, None, free
+        for var in usage:
+            used = var['used']
+            break
 
     free = total - used
     if min_free_space:
@@ -88,7 +109,8 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100, once=False, greedy=False, scheme=None, delay_seconds=0):
+def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100,
+           once=False, greedy=False, scheme=None, delay_seconds=0):
     """
     Main loop to select and delete files.
 
@@ -102,7 +124,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     """
-    logging.info('Starting Reaper: Worker %(worker_number)s, child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
+    logging.info('Starting Reaper: Worker %(worker_number)s, '
+                 'child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
 
     pid = os.getpid()
     thread = threading.current_thread()
@@ -113,26 +136,33 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rse_names)).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
+    nothing_to_do = {}
     while not GRACEFUL_STOP.is_set():
         try:
             # heartbeat
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
             checkpoint_time = datetime.datetime.now()
-            logging.info('Reaper({0[worker_number]}/{0[child_number]}): Live gives {0[heartbeat]}'.format(locals()))
+            # logging.info('Reaper({0[worker_number]}/{0[child_number]}): Live gives {0[heartbeat]}'.format(locals()))
 
-            max_deleting_rate, nothing_to_do = 0, True
+            max_deleting_rate = 0
             for rse in sort_rses(rses):
                 try:
                     if checkpoint_time + datetime.timedelta(minutes=1) < datetime.datetime.now():
                         heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
-                        logging.info('Reaper({0[worker_number]}/{0[child_number]}): Live gives {0[heartbeat]}'.format(locals()))
+                        # logging.info('Reaper({0[worker_number]}/{0[child_number]}): Live gives {0[heartbeat]}'.format(locals()))
                         checkpoint_time = datetime.datetime.now()
+
+                    if rse['id'] in nothing_to_do and nothing_to_do[rse['id']] > datetime.datetime.now():
+                        continue
+                    logging.info('Reaper %s-%s: Running on RSE %s %s', worker_number, child_number,
+                                 rse['rse'], nothing_to_do.get(rse['id']))
 
                     rse_info = rsemgr.get_rse_info(rse['rse'])
                     rse_protocol = rse_core.get_rse_protocols(rse['rse'])
 
                     if not rse_protocol['availability_delete']:
                         logging.info('Reaper %s-%s: RSE %s is not available for deletion', worker_number, child_number, rse_info['rse'])
+                        nothing_to_do[rse['id']] = datetime.datetime.now() + datetime.timedelta(minutes=30)
                         continue
 
                     # Temporary hack to force gfal for deletion
@@ -142,8 +172,6 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                         if protocol['impl'] == 'rucio.rse.protocols.signeds3.Default':
                             protocol['impl'] = 'rucio.rse.protocols.s3es.Default'
-
-                    logging.info('Reaper %s-%s: Running on RSE %s', worker_number, child_number, rse_info['rse'])
 
                     needed_free_space, max_being_deleted_files = None, 100
                     needed_free_space_per_child = None
@@ -168,9 +196,11 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                     logging.debug('Reaper %s-%s: list_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', worker_number, child_number, rse['rse'], needed_free_space_per_child, time.time() - start, len(replicas))
 
                     if not replicas:
-                        logging.info('Reaper %s-%s: nothing to do for %s', worker_number, child_number, rse['rse'])
+                        nothing_to_do[rse['id']] = datetime.datetime.now() + datetime.timedelta(minutes=30)
+                        logging.info('Reaper %s-%s: No replicas to delete %s. The next check will occur at %s',
+                                     worker_number, child_number, rse['rse'],
+                                     nothing_to_do[rse['id']])
                         continue
-                    nothing_to_do = False
 
                     prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
                     for files in chunks(replicas, chunk_size):
@@ -266,6 +296,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                     'bytes': replica['bytes'],
                                                                     'url': replica['pfn'],
                                                                     'reason': str(error)})
+                                    break
                             finally:
                                 prot.close()
                             start = time.time()
@@ -290,9 +321,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
             if once:
                 break
 
-            if nothing_to_do:
-                logging.info('Reaper %s-%s: Nothing to do. I will sleep for 60s', worker_number, child_number)
-                time.sleep(60)
+            time.sleep(1)
 
         except DatabaseException, error:
             logging.warning('Reaper:  %s', str(error))

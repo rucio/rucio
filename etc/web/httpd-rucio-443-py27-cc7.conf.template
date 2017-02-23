@@ -1,0 +1,87 @@
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+#
+# Notabene:
+#
+# This file configures a local SSLised Apache 2.2 for testing.
+#
+# Usage:
+#   sudo apachectl restart
+#   tail -f /var/log/apache2/*_log /var/log/rucio/httpd_*
+#
+# We are relying on some features of mod_ssl of the Apache project,
+# therefore we cannot use another backend server for now.
+#
+# To deploy on an SLC machine, check the binary mod_wsgi dependency,
+# and enable the grid-security CA path below instead of the CA file.
+#
+# If Apache throws a "Cannot follow symlink" error, check the
+# permissions of /opt/rucio; the apache user must be able to
+# access it.
+#
+
+# Built-in modules
+LoadModule ssl_module /usr/lib64/httpd/modules/mod_ssl.so
+
+# External modules
+LoadModule auth_kerb_module /usr/lib64/httpd/modules/mod_auth_kerb.so
+LoadModule wsgi_module /usr/lib64/httpd/modules/mod_wsgi.so
+LoadModule gridsite_module /usr/lib64/httpd/modules/mod_gridsite.so
+
+Listen 443
+
+WSGIPythonHome /opt/rucio/.venv
+WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
+
+<VirtualHost voatlas67.cern.ch:443>
+
+ ServerName voatlas67.cern.ch:443
+ ServerAdmin ph-adp-ddm-lab@cern.ch
+
+ SSLEngine on
+ SSLCertificateFile /etc/grid-security/hostcert.pem
+ SSLCertificateKeyFile /etc/grid-security/hostkey.pem
+ SSLCACertificatePath /etc/grid-security/certificates
+ SSLCARevocationPath /etc/grid-security/certificates
+ SSLVerifyClient optional
+ SSLVerifyDepth 10
+ SSLOptions +StdEnvVars
+
+ LogLevel debug
+
+ ErrorLog /var/log/rucio/httpd_error_log
+ TransferLog /var/log/rucio/httpd_access_log
+
+ Include /opt/rucio/etc/web/aliases-py27.conf
+
+ # Kerberos authentication via mod_auth_kerb
+ <LocationMatch /auth/gss>
+  AuthType Kerberos
+  Require valid-user
+  KrbAuthRealms CERN.CH
+  KrbServiceName HTTP/voatlas67.cern.ch@CERN.CH
+  Krb5KeyTab /etc/krb5.keytab.rucio
+  KrbSaveCredentials on
+  KrbMethodNegotiate on
+ </LocationMatch>
+
+ # Proxy authentication via mod_gridsite
+ <LocationMatch /auth/x509_proxy>
+  GridSiteIndexes on
+  GridSiteAuth on
+  GridSiteDNlists /etc/grid-security/dn-lists/
+  GridSiteGSIProxyLimit 16
+  GridSiteEnvs on
+  GridSiteACLPath /opt/rucio/etc/gacl
+ </LocationMatch>
+
+</VirtualHost>

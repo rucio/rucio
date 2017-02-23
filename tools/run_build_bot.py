@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2017
 
 import commands
 import datetime
@@ -15,10 +15,10 @@ import os
 import pytz
 import requests
 import sys
-import subprocess
+import subprocess32 as subprocess
 import time
 
-from subprocess import TimeoutExpired
+from subprocess32 import TimeoutExpired
 
 requests.packages.urllib3.disable_warnings()
 
@@ -130,6 +130,15 @@ def start_test(mr):
         print 'Error while checking out branch'
         sys.exit(-1)
 
+    # ACTUAL TESTS START HERE #
+    print '  Installing .venv'
+    # Try re-install .venv (This validates the python packages
+    commands.getstatusoutput('rm -R --force .venv/')  # Remove old .venv
+    if commands.getstatusoutput('python tools/install_venv.py')[0] != 0:
+        print 'Error while installing .venv'
+        tests_passed = False
+        error_lines.append('##### INSTALLING .VENV FAILED\n')
+
     # Restart apache and memcached
     print '  /sbin/service memcached restart'
     if commands.getstatusoutput('/sbin/service memcached restart')[0] != 0:
@@ -142,14 +151,15 @@ def start_test(mr):
         print 'Error while restarting httpd'
         sys.exit(-1)
 
+    changed_files = commands.getoutput('git diff-tree --no-commit-id --name-only -r HEAD | grep .py').splitlines()
+
     command = """
     cd %s; source .venv/bin/activate;
-    pip install -r tools/pip-requires;
-    pip install -r tools/pip-requires-client;
-    pip install -r tools/pip-requires-test;
+    cd .venv/lib/python2.7/site-packages/;
+    ln -s %s/lib/rucio/;
+    cd %s;
+    pip install cx_oracle;
     python ../purge_bin.py;
-    cp tools/patches/nose/tools.py .venv/lib/python2.6/site-packages/nose/tools.py
-    cp tools/patches/nose/trivial.py .venv/lib/python2.6/site-packages/nose/tools/trivial.py
     find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/;
     tools/reset_database.py;
     tools/sync_rses.py;
@@ -159,47 +169,67 @@ def start_test(mr):
     tools/reset_database.py;
     nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt;
     flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt;
+    pylint %s > /tmp/rucio_pylint.txt;
     python ../purge_bin.py;
-    """ % (root_git_dir)  # NOQA
-    # command = 'cd %s; source .venv/bin/activate; pip install -r tools/pip-requires; pip install -r tools/pip-requires-client; pip install -r tools/pip-requires-test; find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/; tools/reset_database.py; tools/sync_rses.py; tools/sync_meta.py; tools/bootstrap_tests.py; nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt; flake8 bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt' % (root_git_dir)  # NOQA
+    """ % (root_git_dir, root_git_dir, root_git_dir, ' '.join(changed_files))  # NOQA
     print '  %s' % command
 
-    proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
-    try:
-        outs, errs = proc.communicate(timeout=60 * 20)
-    except TimeoutExpired:
-        print 'Timeout reached, killing test'
-        proc.kill()
-        outs, errs = proc.communicate()
-        os.remove('/tmp/rucio_test.pid')
-        sys.exit(-1)
+    if tests_passed:
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+        try:
+            outs, errs = proc.communicate(timeout=60 * 20)
+        except TimeoutExpired:
+            print 'Timeout reached, killing test'
+            proc.kill()
+            outs, errs = proc.communicate()
+            os.remove('/tmp/rucio_test.pid')
+            sys.exit(-1)
 
-    with open('/tmp/rucio_nose.txt', 'r') as f:
-        lines = f.readlines()
-        if lines[-1] != 'OK\n':
-            tests_passed = False
-            error_lines.append('##### UNIT TESTS:\n')
-            error_lines.append('```\n')
-            error_lines.extend(lines)
-            error_lines.append('```\n')
-
-    with open('/tmp/rucio_alembic.txt', 'r') as f:
-        lines = f.readlines()
-        if lines[-1] != 'OK\n':
-            tests_passed = False
-            error_lines.append('##### ALEMBIC:\n')
-            error_lines.append('```\n')
-            error_lines.extend(lines)
-            error_lines.append('```\n')
-
-    if os.stat('/tmp/rucio_flake8.txt').st_size != 0:
-        with open('/tmp/rucio_flake8.txt', 'r') as f:
+        with open('/tmp/rucio_nose.txt', 'r') as f:
             lines = f.readlines()
-            tests_passed = False
-            error_lines.append('##### FLAKE8:\n')
-            error_lines.append('```\n')
-            error_lines.extend(lines)
-            error_lines.append('```\n')
+            if lines[-1] != 'OK\n':
+                tests_passed = False
+                error_lines.append('##### UNIT TESTS:\n')
+                error_lines.append('```\n')
+                error_lines.extend(lines)
+                error_lines.append('```\n')
+
+        with open('/tmp/rucio_alembic.txt', 'r') as f:
+            lines = f.readlines()
+            if lines[-1] != 'OK\n':
+                tests_passed = False
+                error_lines.append('##### ALEMBIC:\n')
+                error_lines.append('```\n')
+                error_lines.extend(lines)
+                error_lines.append('```\n')
+
+        if os.stat('/tmp/rucio_flake8.txt').st_size != 0:
+            with open('/tmp/rucio_flake8.txt', 'r') as f:
+                lines = f.readlines()
+                tests_passed = False
+                error_lines.append('##### FLAKE8:\n')
+                error_lines.append('```\n')
+                error_lines.extend(lines)
+                error_lines.append('```\n')
+
+        # PYLINT
+        if os.stat('/tmp/rucio_pylint.txt').st_size != 0:
+            with open('/tmp/rucio_pylint.txt', 'r') as f:
+                lines = f.readlines()
+                pylint_passed = True
+                # Check if there is an Error in PYLINT
+                for line in lines:
+                    if line.startswith('E:'):
+                        tests_passed = False
+                        pylint_passed = False
+                if not pylint_passed:
+                    error_lines.append('##### PYLINT\n')
+                    error_lines.append('```\n')
+                    for line in lines:
+                        if line.startswith('E:'):
+                            error_lines.append(line)
+                    error_lines.append('```\n')
+                error_lines.append(lines[-2])
 
     if tests_passed:
         error_lines.insert(0, '#### BUILD-BOT TEST RESULT: OK\n\n')

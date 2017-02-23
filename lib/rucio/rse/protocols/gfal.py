@@ -60,14 +60,14 @@ class Default(protocol.RSEProtocol):
             for lfn in lfns:
                 scope, name = lfn['scope'], lfn['name']
                 path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
-                if path.startswith('/'):
+                if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
                     path = path[1:]
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix, path])
         else:
             for lfn in lfns:
                 scope, name = lfn['scope'], lfn['name']
                 path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
-                if path.startswith('/'):
+                if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
                     path = path[1:]
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, path])
 
@@ -158,6 +158,8 @@ class Default(protocol.RSEProtocol):
         """
 
         self.__ctx = gfal2.creat_context()
+        # self.__ctx.set_opt_string("X509", "CERT", proxy)
+        # self.__ctx.set_opt_string("X509", "KEY", proxy)
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
 
     def get(self, path, dest):

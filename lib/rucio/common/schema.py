@@ -31,7 +31,8 @@ ACTIVITY = {"description": "Activity name",
             "type": "string",
             "enum": ["Data Brokering", "Data Consolidation", "Data rebalancing",
                      "Debug", "Express", "Functional Test", "Group Subscriptions",
-                     "Staging", "Production Input", "Production Output",
+                     "Production Input", "Production Output",
+                     "Analysis Input", "Staging",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions"]}
 
@@ -72,7 +73,7 @@ RSE = {"description": "RSE name",
 
 RSE_ATTRIBUTE = {"description": "RSE attribute",
                  "type": "string",
-                 "pattern": r'([A-Za-z0-9\._-]+=[A-Za-z0-9_-]+)'}
+                 "pattern": r'([A-Za-z0-9\._-]+[=<>][A-Za-z0-9_-]+)'}
 
 DEFAULT_RSE_ATTRIBUTE = {"description": "Default RSE attribute",
                          "type": "string",
@@ -142,6 +143,9 @@ SUBSCRIPTION_ID = {"description": "Rule Subscription id", "type": ["string", "nu
 PRIORITY = {"description": "Priority of the transfers",
             "type": "integer"}
 
+SPLIT_CONTAINER = {"description": "Rule split container mode",
+                   "type": ["boolean", "null"]}
+
 RULE = {"description": "Replication rule",
         "type": "object",
         "properties": {"dids": {"type": "array"},
@@ -161,7 +165,8 @@ RULE = {"description": "Replication rule",
                        "comment": COMMENT,
                        "ask_approval": ASK_APPROVAL,
                        "asynchronous": ASYNCHRONOUS,
-                       "priority": PRIORITY},
+                       "priority": PRIORITY,
+                       'split_container': SPLIT_CONTAINER},
         "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 
