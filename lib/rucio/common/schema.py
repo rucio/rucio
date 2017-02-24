@@ -8,7 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015,2017
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2016
@@ -32,7 +32,7 @@ ACTIVITY = {"description": "Activity name",
             "enum": ["Data Brokering", "Data Consolidation", "Data rebalancing",
                      "Debug", "Express", "Functional Test", "Group Subscriptions",
                      "Production Input", "Production Output",
-                     "Analysis Input", "Staging",
+                     "Analysis Input", "Analysis Output", "Staging",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions"]}
 
