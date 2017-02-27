@@ -22,8 +22,3 @@ def add_temporary_dids(dids, issuer):
     """
     return temporary_did.add_temporary_dids(dids=dids, account=issuer)
 
-
-def compose(scope, name, rse, bytes, sources, account,
-            md5=None, adler32=None, pfn=None, meta={}, rules=[],
-            parent_scope=None, parent_name=None):
-    pass
