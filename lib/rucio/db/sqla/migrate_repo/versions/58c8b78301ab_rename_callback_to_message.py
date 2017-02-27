@@ -53,7 +53,6 @@ def downgrade():
     '''
     downgrade method
     '''
-
     if context.get_context().dialect.name not in ('sqlite', 'mysql'):
         drop_constraint('messages_event_type_nn', 'messages', type_='check')
         drop_constraint('messages_payload_nn', 'messages', type_='check')

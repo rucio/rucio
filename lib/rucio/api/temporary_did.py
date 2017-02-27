@@ -21,4 +21,3 @@ def add_temporary_dids(dids, issuer):
     :param issuer: The issuer account.
     """
     return temporary_did.add_temporary_dids(dids=dids, account=issuer)
-
