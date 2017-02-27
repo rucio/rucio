@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """add message_history table
 
@@ -14,8 +15,7 @@ Revises: 4783c1f49cb4
 Create Date: 2015-06-01 14:46:26.248843
 
 """
-
-from alembic import op
+from alembic.op import create_table, drop_table
 import sqlalchemy as sa
 
 from rucio.db.sqla.types import GUID
@@ -26,13 +26,19 @@ down_revision = '4783c1f49cb4'
 
 
 def upgrade():
-    op.create_table('messages_history',
-                    sa.Column('id', GUID()),
-                    sa.Column('created_at', sa.DateTime),
-                    sa.Column('updated_at', sa.DateTime),
-                    sa.Column('event_type', sa.String(1024)),
-                    sa.Column('payload', sa.String(4000)))
+    '''
+    upgrade method
+    '''
+    create_table('messages_history',
+                 sa.Column('id', GUID()),
+                 sa.Column('created_at', sa.DateTime),
+                 sa.Column('updated_at', sa.DateTime),
+                 sa.Column('event_type', sa.String(1024)),
+                 sa.Column('payload', sa.String(4000)))
 
 
 def downgrade():
-    op.drop_table('messages_history')
+    '''
+    downgrade method
+    '''
+    drop_table('messages_history')

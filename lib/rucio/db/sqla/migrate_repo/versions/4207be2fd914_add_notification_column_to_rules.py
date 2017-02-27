@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Add notification column to rules
 
@@ -14,8 +15,9 @@ Revises: 14ec5aeb64cf
 Create Date: 2014-09-29 15:32:16.342473
 
 """
+from alembic.op import add_column, drop_constraint, drop_column
+from alembic import context
 
-from alembic import context, op
 import sqlalchemy as sa
 
 from rucio.db.sqla.constants import RuleNotification
@@ -26,10 +28,16 @@ down_revision = '14ec5aeb64cf'
 
 
 def upgrade():
-    op.add_column('rules', sa.Column('notification', RuleNotification.db_type(name='RULES_NOTIFICATION_CHK'), default=RuleNotification.NO))
+    '''
+    upgrade method
+    '''
+    add_column('rules', sa.Column('notification', RuleNotification.db_type(name='RULES_NOTIFICATION_CHK'), default=RuleNotification.NO))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite', 'mysql'):
-        op.drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
-    op.drop_column('rules', 'notification')
+        drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
+    drop_column('rules', 'notification')

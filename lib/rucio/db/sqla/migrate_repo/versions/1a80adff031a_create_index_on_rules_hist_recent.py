@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Create index on rules_hist_recent
 
@@ -15,7 +16,8 @@ Create Date: 2015-03-20 14:52:53.013432
 
 """
 
-from alembic import op
+from alembic.op import create_index, drop_index
+
 
 # revision identifiers, used by Alembic.
 revision = '1a80adff031a'
@@ -23,8 +25,14 @@ down_revision = '3ad36e2268b0'
 
 
 def upgrade():
-    op.create_index('RULES_HIST_RECENT_SC_NA_IDX', 'rules_hist_recent', ['scope', 'name'])
+    '''
+    upgrade method
+    '''
+    create_index('RULES_HIST_RECENT_SC_NA_IDX', 'rules_hist_recent', ['scope', 'name'])
 
 
 def downgrade():
-    op.drop_index('RULES_HIST_RECENT_SC_NA_IDX', 'rules_hist_recent')
+    '''
+    downgrade method
+    '''
+    drop_index('RULES_HIST_RECENT_SC_NA_IDX', 'rules_hist_recent')

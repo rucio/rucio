@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Added stuck_at column to rules
 
@@ -14,8 +15,7 @@ Revises: 4207be2fd914
 Create Date: 2014-10-07 13:31:25.347076
 
 """
-
-from alembic import op
+from alembic.op import add_column, drop_column
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -24,8 +24,14 @@ down_revision = '70587619328'
 
 
 def upgrade():
-    op.add_column('rules', sa.Column('stuck_at', sa.DateTime))
+    '''
+    upgrade method
+    '''
+    add_column('rules', sa.Column('stuck_at', sa.DateTime))
 
 
 def downgrade():
-    op.drop_column('rules', 'stuck_at')
+    '''
+    downgrade method
+    '''
+    drop_column('rules', 'stuck_at')

@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """switch heartbeats executable
 
@@ -14,8 +15,8 @@ Revises: 40ad39ce3160
 Create Date: 2015-05-06 15:31:50.256448
 
 """
-
-from alembic import op, context
+from alembic import context
+from alembic.op import create_primary_key, add_column, drop_constraint, drop_column
 import sqlalchemy as sa
 
 from rucio.db.sqla.models import String
@@ -26,18 +27,24 @@ down_revision = '44278720f774'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-        op.drop_column('heartbeats', 'executable')
-        op.add_column('heartbeats', sa.Column('executable', String(64)))
-        op.add_column('heartbeats', sa.Column('readable', String(4000)))
-        op.create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
+        drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
+        drop_column('heartbeats', 'executable')
+        add_column('heartbeats', sa.Column('executable', String(64)))
+        add_column('heartbeats', sa.Column('readable', String(4000)))
+        create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-        op.drop_column('heartbeats', 'executable')
-        op.drop_column('heartbeats', 'readable')
-        op.add_column('heartbeats', sa.Column('executable', String(767)))
-        op.create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
+        drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
+        drop_column('heartbeats', 'executable')
+        drop_column('heartbeats', 'readable')
+        add_column('heartbeats', sa.Column('executable', String(767)))
+        create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])

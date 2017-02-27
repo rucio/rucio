@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """add source to requests and requests_history
 
@@ -15,7 +16,9 @@ Create Date: 2015-10-06 10:51:43.473893
 
 """
 
-from alembic import context, op
+from alembic import context
+from alembic.op import add_column, drop_column
+
 import sqlalchemy as sa
 from rucio.db.sqla.types import GUID
 
@@ -25,11 +28,17 @@ down_revision = '2f648fc909f3'
 
 
 def upgrade():
-    op.add_column('requests', sa.Column('source_rse_id', GUID()))
-    op.add_column('requests_history', sa.Column('source_rse_id', GUID()))
+    '''
+    upgrade method
+    '''
+    add_column('requests', sa.Column('source_rse_id', GUID()))
+    add_column('requests_history', sa.Column('source_rse_id', GUID()))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_column('requests', 'source_rse_id')
-        op.drop_column('requests_history', 'source_rse_id')
+        drop_column('requests', 'source_rse_id')
+        drop_column('requests_history', 'source_rse_id')
