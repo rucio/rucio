@@ -8,7 +8,6 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
-
 """rename callback to message
 
 Revision ID: 58c8b78301ab
@@ -20,7 +19,6 @@ Create Date: 2014-05-09 09:50:36.321013
 from alembic import context
 from alembic.op import (create_primary_key, create_check_constraint, drop_constraint,
                         rename_table)
-
 
 
 # revision identifiers, used by Alembic.
