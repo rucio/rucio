@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """change tokens pk
 
@@ -14,8 +15,9 @@ Revises: 58c8b78301ab
 Create Date: 2014-05-30 10:47:46.880093
 
 """
+from alembic import context
+from alembic.op import create_primary_key, create_foreign_key, drop_constraint
 
-from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision = '2eef46be23d4'
@@ -23,16 +25,22 @@ down_revision = '58c8b78301ab'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
-        op.drop_constraint('tokens_pk', 'tokens', type_='primary')
-        op.create_primary_key('tokens_pk', 'tokens', ['token'])
-        op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
+        drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
+        drop_constraint('tokens_pk', 'tokens', type_='primary')
+        create_primary_key('tokens_pk', 'tokens', ['token'])
+        create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
-        op.drop_constraint('tokens_pk', 'tokens', type_='primary')
-        op.create_primary_key('tokens_pk', 'tokens', ['account', 'token'])
-        op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
+        drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
+        drop_constraint('tokens_pk', 'tokens', type_='primary')
+        create_primary_key('tokens_pk', 'tokens', ['account', 'token'])
+        create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])

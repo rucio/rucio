@@ -17,8 +17,8 @@ Create Date: 2014-05-09 09:50:36.321013
 """
 
 from alembic import context
-from alembic.op import (create_primary_key, create_check_constraint, drop_constraint,
-                        rename_table)
+from alembic.op import (create_primary_key, create_check_constraint,
+                        drop_constraint, rename_table)
 
 
 # revision identifiers, used by Alembic.
@@ -30,7 +30,6 @@ def upgrade():
     '''
     upgrade method
     '''
-
     if context.get_context().dialect.name != 'sqlite':
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
 

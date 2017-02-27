@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """add request external_host
 
@@ -15,7 +16,8 @@ Create Date: 2014-08-22 13:25:22.132950
 
 """
 
-from alembic import op
+from alembic.op import add_column, drop_column
+
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -24,8 +26,14 @@ down_revision = '52fd9f4916fa'
 
 
 def upgrade():
-    op.add_column('requests', sa.Column('external_host', sa.String(256)))
+    '''
+    upgrade method
+    '''
+    add_column('requests', sa.Column('external_host', sa.String(256)))
 
 
 def downgrade():
-    op.drop_column('requests', 'external_host')
+    '''
+    downgrade method
+    '''
+    drop_column('requests', 'external_host')

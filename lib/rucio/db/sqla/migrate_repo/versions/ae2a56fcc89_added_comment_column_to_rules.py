@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Added comment column to rules
 
@@ -14,10 +15,10 @@ Revises: 45378a1e76a8
 Create Date: 2015-03-10 13:51:10.950899
 
 """
-
 import sqlalchemy as sa
 
-from alembic import context, op
+from alembic.op import add_column, drop_column
+from alembic import context
 from rucio.db.sqla.models import String
 
 # revision identifiers, used by Alembic.
@@ -26,14 +27,20 @@ down_revision = '45378a1e76a8'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.add_column('rules', sa.Column('comments', String(255)))
-        op.add_column('rules_hist_recent', sa.Column('comments', String(255)))
-        op.add_column('rules_history', sa.Column('comments', String(255)))
+        add_column('rules', sa.Column('comments', String(255)))
+        add_column('rules_hist_recent', sa.Column('comments', String(255)))
+        add_column('rules_history', sa.Column('comments', String(255)))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_column('rules', 'comments')
-        op.drop_column('rules_hist_recent', 'comments')
-        op.drop_column('rules_history', 'comments')
+        drop_column('rules', 'comments')
+        drop_column('rules_hist_recent', 'comments')
+        drop_column('rules_history', 'comments')

@@ -14,7 +14,6 @@ Revises: ${down_revision}
 Create Date: ${create_date}
 
 """
-
 from alembic.op import (create_primary_key, create_check_constraint,
                         drop_constraint, rename_table)
 
