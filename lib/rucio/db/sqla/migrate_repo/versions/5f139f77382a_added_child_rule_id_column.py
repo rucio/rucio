@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Added child_rule_id column
 
@@ -17,7 +18,9 @@ Create Date: 2016-04-11 11:01:10.727941
 
 import sqlalchemy as sa
 
-from alembic import context, op
+from alembic import context
+from alembic.op import (create_foreign_key, add_column, create_index,
+                        drop_constraint, drop_column, drop_index)
 from rucio.db.sqla.types import GUID
 
 
@@ -27,18 +30,24 @@ down_revision = '1d1215494e95'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.add_column('rules', sa.Column('child_rule_id', GUID()))
-        op.add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()))
-        op.add_column('rules_history', sa.Column('child_rule_id', GUID()))
-        op.create_foreign_key('RULES_CHILD_RULE_ID_FK', 'rules', 'rules', ['child_rule_id'], ['id'])
-        op.create_index('RULES_CHILD_RULE_ID_IDX', 'rules', ['child_rule_id'])
+        add_column('rules', sa.Column('child_rule_id', GUID()))
+        add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()))
+        add_column('rules_history', sa.Column('child_rule_id', GUID()))
+        create_foreign_key('RULES_CHILD_RULE_ID_FK', 'rules', 'rules', ['child_rule_id'], ['id'])
+        create_index('RULES_CHILD_RULE_ID_IDX', 'rules', ['child_rule_id'])
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules')
-        op.drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
-        op.drop_column('rules', 'child_rule_id')
-        op.drop_column('rules_hist_recent', 'child_rule_id')
-        op.drop_column('rules_history', 'child_rule_id')
+        drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules')
+        drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
+        drop_column('rules', 'child_rule_id')
+        drop_column('rules_hist_recent', 'child_rule_id')
+        drop_column('rules_history', 'child_rule_id')

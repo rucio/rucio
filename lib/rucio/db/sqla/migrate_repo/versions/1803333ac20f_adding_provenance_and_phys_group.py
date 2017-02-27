@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 """Adding provenance and phys_group
@@ -15,8 +15,9 @@ Revises: 4c3a4acfe006
 Create Date: 2015-01-08 14:32:13.391135
 
 """
+from alembic.op import add_column, drop_column
+from alembic import context
 
-from alembic import op, context
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -25,12 +26,18 @@ down_revision = '4c3a4acfe006'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.add_column('dids', sa.Column('provenance', sa.String(2)))
-        op.add_column('dids', sa.Column('phys_group', sa.String(25)))
+        add_column('dids', sa.Column('provenance', sa.String(2)))
+        add_column('dids', sa.Column('phys_group', sa.String(25)))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_column('dids', 'provenance')
-        op.drop_column('dids', 'phys_group')
+        drop_column('dids', 'provenance')
+        drop_column('dids', 'phys_group')

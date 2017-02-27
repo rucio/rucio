@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
 
 """create index on table replicas(path)
 
@@ -15,7 +15,7 @@ Create Date: 2014-02-20 09:35:24.044458
 
 """
 
-from alembic import op
+from alembic.op import create_index, drop_index
 
 # revision identifiers, used by Alembic.
 revision = '16a0aca82e12'
@@ -23,8 +23,14 @@ down_revision = None
 
 
 def upgrade():
-    op.create_index('REPLICAS_PATH_IDX', 'replicas', ['path'])
+    '''
+    upgrade method
+    '''
+    create_index('REPLICAS_PATH_IDX', 'replicas', ['path'])
 
 
 def downgrade():
-    op.drop_index('REPLICAS_PATH_IDX', 'replicas')
+    '''
+    downgrade method
+    '''
+    drop_index('REPLICAS_PATH_IDX', 'replicas')

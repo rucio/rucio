@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Add ignore_availability column to rules
 
@@ -14,8 +15,9 @@ Revises: d6dceb1de2d
 Create Date: 2015-01-13 15:32:20.732545
 
 """
+from alembic import context
+from alembic.op import add_column, drop_column
 
-from alembic import op, context
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -24,10 +26,16 @@ down_revision = 'd6dceb1de2d'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.add_column('rules', sa.Column('ignore_availability', sa.Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False))
+        add_column('rules', sa.Column('ignore_availability', sa.Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.drop_column('rules', 'ignore_availability')
+        drop_column('rules', 'ignore_availability')

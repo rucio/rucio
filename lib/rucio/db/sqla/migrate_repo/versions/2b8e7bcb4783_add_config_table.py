@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """add config table
 
@@ -15,7 +16,10 @@ Create Date: 2014-04-08 16:20:48.185087
 
 """
 
-from alembic import context, op
+from alembic import context
+from alembic.op import (create_table, create_primary_key,
+                        create_check_constraint,
+                        drop_constraint, drop_table)
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -24,32 +28,38 @@ down_revision = 'd91002c5841'
 
 
 def upgrade():
-    op.create_table('configs',
-                    sa.Column('section', sa.String(128)),
-                    sa.Column('opt', sa.String(128)),
-                    sa.Column('value', sa.String(4000)),
-                    sa.Column('updated_at', sa.DateTime),
-                    sa.Column('created_at', sa.DateTime))
+    '''
+    upgrade method
+    '''
+    create_table('configs',
+                 sa.Column('section', sa.String(128)),
+                 sa.Column('opt', sa.String(128)),
+                 sa.Column('value', sa.String(4000)),
+                 sa.Column('updated_at', sa.DateTime),
+                 sa.Column('created_at', sa.DateTime))
     if context.get_context().dialect.name != 'sqlite':
-        op.create_primary_key('configs_pk', 'configs', ['section', 'opt'])
-        op.create_check_constraint('configs_created_nn', 'configs', 'created_at is not null')
-        op.create_check_constraint('configs_updated_nn', 'configs', 'updated_at is not null')
-    op.create_table('configs_history',
-                    sa.Column('section', sa.String(128)),
-                    sa.Column('opt', sa.String(128)),
-                    sa.Column('value', sa.String(4000)),
-                    sa.Column('updated_at', sa.DateTime),
-                    sa.Column('created_at', sa.DateTime))
+        create_primary_key('configs_pk', 'configs', ['section', 'opt'])
+        create_check_constraint('configs_created_nn', 'configs', 'created_at is not null')
+        create_check_constraint('configs_updated_nn', 'configs', 'updated_at is not null')
+    create_table('configs_history',
+                 sa.Column('section', sa.String(128)),
+                 sa.Column('opt', sa.String(128)),
+                 sa.Column('value', sa.String(4000)),
+                 sa.Column('updated_at', sa.DateTime),
+                 sa.Column('created_at', sa.DateTime))
     if context.get_context().dialect.name != 'sqlite':
-        op.create_primary_key('configs_history_pk', 'configs_history', ['section', 'opt', 'updated_at'])
+        create_primary_key('configs_history_pk', 'configs_history', ['section', 'opt', 'updated_at'])
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name is 'postgresql':
-        op.drop_constraint('configs_pk', 'configs', type_='primary')
-        op.drop_constraint('configs_created_nn', 'configs', type_='check')
-        op.drop_constraint('configs_updated_nn', 'configs', type_='check')
-    op.drop_table('configs')
+        drop_constraint('configs_pk', 'configs', type_='primary')
+        drop_constraint('configs_created_nn', 'configs', type_='check')
+        drop_constraint('configs_updated_nn', 'configs', type_='check')
+    drop_table('configs')
     if context.get_context().dialect.name is 'postgresql':
-        op.drop_constraint('configs_history_pk', 'configs_history', type_='check')
-    op.drop_table('configs_history')
+        drop_constraint('configs_history_pk', 'configs_history', type_='check')
+    drop_table('configs_history')

@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
 
 """added_rule_id_column
 
@@ -14,10 +14,10 @@ Revises: 35ef10d1e11b
 Create Date: 2014-07-04 09:18:34.826987
 
 """
-
 import sqlalchemy as sa
 
-from alembic import context, op
+from alembic.op import add_column, drop_column
+from alembic import context
 
 from rucio.db.sqla.types import GUID
 
@@ -27,11 +27,17 @@ down_revision = '35ef10d1e11b'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.add_column('requests', sa.Column('rule_id', GUID()))
-        op.add_column('requests_history', sa.Column('rule_id', GUID()))
+        add_column('requests', sa.Column('rule_id', GUID()))
+        add_column('requests_history', sa.Column('rule_id', GUID()))
 
 
 def downgrade():
-    op.drop_column('requests', 'rule_id')
-    op.drop_column('requests_history', 'rule_id')
+    '''
+    downgrade method
+    '''
+    drop_column('requests', 'rule_id')
+    drop_column('requests_history', 'rule_id')
