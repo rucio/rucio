@@ -7,6 +7,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Added unique constraint to rules
 
@@ -16,7 +17,7 @@ Create Date: 2014-11-24 15:38:21.056569
 
 """
 
-from alembic import op
+from alembic.op import create_index, drop_index
 
 # revision identifiers, used by Alembic.
 revision = '25fc855625cf'
@@ -24,9 +25,15 @@ down_revision = '4a7182d9578b'
 
 
 def upgrade():
-    op.create_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules', ['scope', 'name', 'account', 'rse_expression', 'copies'],
-                    unique=True, mysql_length={'rse_expression': 767})
+    '''
+    upgrade method
+    '''
+    create_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules', ['scope', 'name', 'account', 'rse_expression', 'copies'],
+                 unique=True, mysql_length={'rse_expression': 767})
 
 
 def downgrade():
-    op.drop_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules')
+    '''
+    downgrade method
+    '''
+    drop_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules')

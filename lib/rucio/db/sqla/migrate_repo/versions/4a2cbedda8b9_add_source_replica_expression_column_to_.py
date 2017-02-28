@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """add_source_replica_expression_column_to_rules
 
@@ -15,7 +16,9 @@ Create Date: 2014-07-11 15:59:48.245367
 
 """
 
-from alembic import context, op
+from alembic import context
+from alembic.op import add_column, drop_column
+
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -24,9 +27,15 @@ down_revision = 'a616581ee47'
 
 
 def upgrade():
-    op.add_column('rules', sa.Column('source_replica_expression', sa.String(255)))
+    '''
+    upgrade method
+    '''
+    add_column('rules', sa.Column('source_replica_expression', sa.String(255)))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_column('rules', 'source_replica_expression')
+        drop_column('rules', 'source_replica_expression')
