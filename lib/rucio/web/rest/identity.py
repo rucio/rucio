@@ -162,9 +162,9 @@ class Accounts(RucioController):
             raise InternalError(e)
 
 
-#----------------------
+# ----------------------
 #   Web service startup
-#----------------------
+# ----------------------
 
 APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))

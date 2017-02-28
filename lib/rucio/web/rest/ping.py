@@ -73,9 +73,9 @@ class Ping(RucioController):
         return dumps({"version": version.version_string()})
 
 
-#----------------------
+# ----------------------
 #   Web service startup
-#----------------------
+# ----------------------
 
 APP = application(URLS, globals())
 application = APP.wsgifunc()
