@@ -14,8 +14,11 @@ Revises: ${down_revision}
 Create Date: ${create_date}
 
 """
+from alembic.op import (create_primary_key, create_check_constraint,
+                        drop_constraint, rename_table)
 
-from alembic import context, op
+from alembic import context
+
 import sqlalchemy as sa
 ${imports if imports else ""}
 
@@ -23,11 +26,18 @@ ${imports if imports else ""}
 revision = ${repr(up_revision)}
 down_revision = ${repr(down_revision)}
 
+
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
         ${upgrades if upgrades else "pass"}
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
         ${downgrades if downgrades else "pass"}

@@ -16,7 +16,9 @@ Create Date: 2016-08-31 14:19:54.933924
 
 """
 
-from alembic import context, op
+from alembic import context
+from alembic.op import (create_table, create_primary_key,
+                        create_check_constraint, drop_table)
 import sqlalchemy as sa
 
 from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
@@ -28,25 +30,31 @@ down_revision = 'fe8ea2fa9788'
 
 
 def upgrade():
-    op.create_table('lifetime_except',
-                    sa.Column('id', GUID()),
-                    sa.Column('scope', sa.String(25)),
-                    sa.Column('name', sa.String(255)),
-                    sa.Column('did_type', DIDType.db_type(name='LIFETIME_EXCEPT_DID_TYPE_CHK')),
-                    sa.Column('account', sa.String(25)),
-                    sa.Column('comments', sa.String(4000)),
-                    sa.Column('pattern', sa.String(255)),
-                    sa.Column('state', LifetimeExceptionsState.db_type(name='LIFETIME_EXCEPT_STATE_CHK')),
-                    sa.Column('updated_at', sa.DateTime),
-                    sa.Column('expires_at', sa.DateTime),
-                    sa.Column('created_at', sa.DateTime))
+    '''
+    upgrade method
+    '''
+    create_table('lifetime_except',
+                 sa.Column('id', GUID()),
+                 sa.Column('scope', sa.String(25)),
+                 sa.Column('name', sa.String(255)),
+                 sa.Column('did_type', DIDType.db_type(name='LIFETIME_EXCEPT_DID_TYPE_CHK')),
+                 sa.Column('account', sa.String(25)),
+                 sa.Column('comments', sa.String(4000)),
+                 sa.Column('pattern', sa.String(255)),
+                 sa.Column('state', LifetimeExceptionsState.db_type(name='LIFETIME_EXCEPT_STATE_CHK')),
+                 sa.Column('updated_at', sa.DateTime),
+                 sa.Column('expires_at', sa.DateTime),
+                 sa.Column('created_at', sa.DateTime))
 
     if context.get_context().dialect.name != 'sqlite':
-        op.create_primary_key('LIFETIME_EXCEPT_PK', 'lifetime_except', ['id', 'scope', 'name', 'did_type', 'account'])
-        op.create_check_constraint('LIFETIME_EXCEPT_SCOPE_NN', 'lifetime_except', 'scope is not null')
-        op.create_check_constraint('LIFETIME_EXCEPT_NAME_NN', 'lifetime_except', 'name is not null')
-        op.create_check_constraint('LIFETIME_EXCEPT_DID_TYPE_NN', 'lifetime_except', 'did_type is not null')
+        create_primary_key('LIFETIME_EXCEPT_PK', 'lifetime_except', ['id', 'scope', 'name', 'did_type', 'account'])
+        create_check_constraint('LIFETIME_EXCEPT_SCOPE_NN', 'lifetime_except', 'scope is not null')
+        create_check_constraint('LIFETIME_EXCEPT_NAME_NN', 'lifetime_except', 'name is not null')
+        create_check_constraint('LIFETIME_EXCEPT_DID_TYPE_NN', 'lifetime_except', 'did_type is not null')
 
 
 def downgrade():
-    op.drop_table('lifetime_except')
+    '''
+    downgrade method
+    '''
+    drop_table('lifetime_except')
