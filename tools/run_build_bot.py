@@ -6,6 +6,8 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015-2017
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+
 
 import commands
 import datetime
@@ -151,7 +153,7 @@ def start_test(mr):
         print 'Error while restarting httpd'
         sys.exit(-1)
 
-    changed_files = commands.getoutput('git diff-tree --no-commit-id --name-only -r HEAD | grep .py').splitlines()
+    changed_files = commands.getoutput('git diff-tree --no-commit-id --name-only -r HEAD | grep .py | grep -v .py.mako').splitlines()
 
     command = """
     cd %s; source .venv/bin/activate;
