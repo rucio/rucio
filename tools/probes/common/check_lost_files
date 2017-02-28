@@ -36,11 +36,21 @@ tmpdata_path = tmpdata_dir + 'rse-lost-files.txt'
 reports_dir = '/var/log/rucio/lost_files/reports/'
 
 
+def merge_dicts(d1, d2):
+
+    dm = d1.copy()
+    for a in d2.keys():
+        if a not in dm.keys():
+            dm[a] = d2[a]
+        else:
+            dm[a] = list(set(dm[a] + d2[a]))
+    return dm
+
+
 # extracting mails of users from Rucio DB
-def find_mails_users(account):
+def find_mails_users(account, session):
 
     mails = []
-    session = get_session()
     try:
         query = ''' select distinct a.email from atlas_rucio.identities a, atlas_rucio.account_map b where
 a.identity=b.identity and b.account='%s'  ''' % account
@@ -50,8 +60,13 @@ a.identity=b.identity and b.account='%s'  ''' % account
                 mails.append(str(col))
     except Exception, e:
         flog = open(log_path, 'a')
-        flog.write(str(e))
-        # sys.exit(CRITICAL)
+        flog.wirte('find_mails_users\n')
+        flog.write(str(e) + '\n')
+        sys.exit(CRITICAL)
+    if account == 'ddmadmin' or account == 'root':
+        mails = ['atlas-adc-ddm-support@cern.ch']
+    if 'tomas.javurek@cern.ch' not in mails:
+        mails.append('tomas.javurek@cern.ch')
 
     return mails
 
@@ -64,10 +79,9 @@ def find_mails_gdp():
 
 
 # extracting mails of physgroups from Rucio DB
-def find_mails_groups(rse):
+def find_mails_groups(rse, session):
 
     mails = []
-    session = get_session()
     try:
         query = ''' select distinct email from atlas_rucio.identities where identity in
  (select identity from atlas_rucio.account_map where account in
@@ -78,30 +92,30 @@ def find_mails_groups(rse):
                 mails.append(str(col))
     except Exception, e:
         flog = open(log_path, 'a')
-        flog.write(str(e))
-        # sys.exit(CRITICAL)
+        flog.write('find_mails_groups\n')
+        flog.write(str(e) + '\n')
+        sys.exit(CRITICAL)
+
+    if 'tomas.javurek@cern.ch' not in mails:
+        mails.append('tomas.javurek@cern.ch')
 
     return mails
 
 
 # find account for rule on given did
-def get_rule_owners(scope, name):
+def get_rule_owners(scope, name, session):
 
     rule_owners = []
-    session = get_session()
-
     try:
-        query = ''' select distinct(account) from atlas_rucio.rules_history where scope='%s' and name='%s'  ''' % (str(scope), str(name))
-        if testmode:
-            print query
+        query = ''' select distinct(account) from atlas_rucio.rules where scope='%s' and name='%s'  ''' % (scope, name)
         result = session.execute(query)
         for row in result:
             for col in row:
                 rule_owners.append(str(col))
     except Exception, e:
         flog = open(log_path, 'a')
-        flog.write(str(e))
-        # sys.exit(CRITICAL)
+        flog.write('get_rule_owners:')
+        flog.write(str(e) + '\n')
 
     if testmode:
         print 'DEBUG: ', scope, name
@@ -110,38 +124,48 @@ def get_rule_owners(scope, name):
     return rule_owners
 
 
-# mailing agent
-def send_report(rse, account):
+# collects reports for given email
+def report_collector(rse, account, session):
 
-    # creating mailing lists
+    mails_reports = {}
     mail_list = []
     report_path = ''
     if groups and rse != '':
-        mail_list = find_mails_groups(rse)
+        mail_list = find_mails_groups(rse, session)
         report_path = reports_dir + 'report_' + rse
     if users and account != '' and account != 'gdp':
-        mail_list = find_mails_users(account)
+        mail_list = find_mails_users(account, session)
         report_path = reports_dir + 'report_' + account
     if gdp and account == 'gdp':
         mail_list = find_mails_gdp()
         report_path = reports_dir + 'report_' + account
     if mail_list == [] or report_path == '' or report_path == 'report_':
         return
+
+    for mail in mail_list:
+        if mail not in mails_reports:
+            mails_reports[mail] = [report_path]
+        else:
+            mails_reports[mail].append(report_path)
+    return mails_reports
+
+
+# mailing agent
+def send_report(mail, report_paths):
+
     if testmode:
         print "DEBUG: mailing agent is accessed."
-        print "DEBUG: ", rse, account
-
-    fr = open(report_path, 'rb')
+        print "DEBUG: ", mail, report_paths
 
     # defining mailing list
     me = 'atlas-adc-ddm-support@cern.ch'
     recepients = []
 
     if testmode:
-        print 'DEBUG: notification would be send to:', mail_list
+        print 'DEBUG: notification would be send to:', mail
         recepients = ['tomas.javurek@cern.ch']
     else:
-        recepients = mail_list
+        recepients = [mail]
 
     msg = MIMEMultipart()
     msg['Subject'] = 'DDMops: completely lost files that may affect you - last 7 days'
@@ -152,15 +176,20 @@ def send_report(rse, account):
     msg.attach(MIMEText('Please check the attached list of files that have been lost and can not be recovered. These files may affect you. In case of questions contact DDMops.'))
 
     # attachments
-    part = MIMEBase('application', "octet-stream")
-    part.set_payload(fr.read())
-    Encoders.encode_base64(part)
-    part.add_header('Content-Disposition', 'attachment; filename="%s"' % report_path)
-    msg.attach(part)
+    for report_path in report_paths:
+        fr = open(report_path, 'rb')
+        part = MIMEBase('application', "octet-stream")
+        part.set_payload(fr.read())
+        Encoders.encode_base64(part)
+        part.add_header('Content-Disposition', 'attachment; filename="%s"' % report_path)
+        msg.attach(part)
 
     # sending email, s=server
-    if testmode:
-        print "DEBUG: mail is sent now."
+    flog = open(log_path, 'a')
+    flog.write('Reports were sent to:\n')
+    flog.write(mail)
+    flog.write(str(report_paths))
+    flog.write('\n\n')
     s = smtplib.SMTP('localhost')
     s.sendmail(me, recepients, msg.as_string())
     s.quit()
@@ -181,12 +210,12 @@ def report_gdp():
     cmd = 'cp %s %s' % (tmpdata_path, reports_dir + '/report_gdp')
     os.system(cmd)
 
-    send_report('', 'gdp')
+    return ['gdp']
 
 
 # make report by user
 # call the mailing agent
-def report_by_account():
+def report_by_account(session):
 
     # INIT
     if testmode:
@@ -197,6 +226,7 @@ def report_by_account():
         sys.exit(CRITICAL)
     fi = open(tmpdata_path, 'r')
     data_per_account = {}
+    accs = []
 
     # loop over lost files from get_bad_files()
     for line in fi.readlines():
@@ -204,14 +234,14 @@ def report_by_account():
         data_name = line.split(' ')[1]
         dataset = line.split(' ')[3]
         rse_name = line.split(' ')[4]
-        account = line.split(' ')[5]  # who declared the file lost
+        account = line.split(' ')[5]
         updated_at = line.split(' ')[6]
         accounts = []
 
         # find owners of rule, they are contacted as well
         if testmode:
             print "DEBUG: get rule owners"
-        rule_owners = get_rule_owners(scope, dataset)
+        rule_owners = get_rule_owners(scope, dataset, session)
         # did_woners = get_did_owner TO BE DEVELOPED
         for own in rule_owners:
             if own not in accounts:
@@ -243,7 +273,7 @@ def report_by_account():
     for account in data_per_account.keys():
         if testmode:
             print "DEBUG: going to send the report."
-        send_report('', account)
+        accs.append(account)
 
     if testmode:
         if data_per_account == {}:
@@ -252,12 +282,14 @@ def report_by_account():
     if testmode:
         print "DEBUG: report by accnounts done."
     fi.close()
+    return accs
 
 
 # make report for each rse
 # call the mailing agent
-def report_by_rses():
+def report_by_rses(session):
 
+    rses = []
     # INIT
     if not os.path.isfile(tmpdata_path):
         print "ERROR: lost files not downloaded"
@@ -287,27 +319,23 @@ def report_by_rses():
 
     # send report by mail
     for rse in data_per_rse.keys():
-        send_report(rse, '')
+        rses.append(rse)
 
     fi.close()
+    return rses
 
 
 # the input
-def get_bad_files():
+def get_bad_files(session):
 
-    session = get_session()
     f = open(tmpdata_path, 'w')
     try:
         query = ''' select a.scope, a.name, b.scope, b.name, atlas_rucio.id2rse(a.rse_id), a.account, a.updated_at from atlas_rucio.bad_replicas a, atlas_rucio.contents_history b
- where a.state='L' and a.updated_at>sysdate-8 and b.did_type='D'and a.scope=b.child_scope and a.name=b.child_name '''
+ where a.state='L' and a.updated_at>sysdate-7 and b.did_type='D'and a.scope=b.child_scope and a.name=b.child_name '''
 
         result = session.execute(query)
         for row in result:
             if row[3].startswith('panda.'):
-                continue
-            if testmode:
-                print query
-            if str(row[3]).split('_')[-1].startswith('sub'):
                 continue
             for col in row:
                 f.write('%s ' % col)
@@ -315,11 +343,14 @@ def get_bad_files():
 
     except Exception, e:
         flog = open(log_path, 'a')
+        flog.write('get_bad_files\n')
         flog.write(str(e) + "\n")
         sys.exit(CRITICAL)
 
 
 def main():
+
+    session = get_session()
 
     # check folder hierarchy
     if not os.path.exists(log_dir):
@@ -329,18 +360,43 @@ def main():
     if not os.path.exists(reports_dir):
         sys.exit(CRITICAL)
 
+    mails = {}
     # get input
-    get_bad_files()
+    get_bad_files(session)
     # make and sent report to groups
     if groups:
-        report_by_rses()
+        l_rses = report_by_rses(session)
+        for rse in l_rses:
+            reps = report_collector(rse, '', session)
+            mails = merge_dicts(mails, reps)
     # make and sent report to users
     if users:
-        report_by_account()
+        l_acc = report_by_account(session)
+        for acc in l_acc:
+            reps = report_collector('', acc, session)
+            mails = merge_dicts(mails, reps)
     if gdp:
         if testmode:
             print "DEBUG: summary report to gdp"
-        report_gdp()
+        l_acc = report_gdp()
+        for acc in l_acc:
+            reps = report_collector('', acc, session)
+            mails = merge_dicts(mails, reps)
+
+    if len(list(set(mails.keys()))) != len(mails.keys()):
+        print "ERROR: list of emails is not distinct"
+        sys.exit('ERROR: list of emails is not distinct')
+
+    if testmode:
+        send_report('tomas.javurek@cern.ch', mails['tomas.javurek@cern.ch'])
+        for m in mails.keys():
+            flog = open(log_path, 'a')
+            flog.write(m)
+            flog.write(str(mails[m]))
+            flog.write('\n')
+    else:
+        for m in mails.keys():
+            send_report(m, mails[m])
 
     # clean tmp
     cmd = 'rm ' + tmpdata_path
