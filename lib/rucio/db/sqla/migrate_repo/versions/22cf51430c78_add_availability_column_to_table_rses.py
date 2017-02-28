@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
@@ -17,7 +17,8 @@ Create Date: 2014-06-12 14:54:23.160946
 
 """
 
-from alembic import op
+from alembic.op import add_column, drop_column
+
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -26,8 +27,14 @@ down_revision = '49a21b4d4357'
 
 
 def upgrade():
-    op.add_column('rses', sa.Column('availability', sa.Integer, server_default='7'))
+    '''
+    upgrade method
+    '''
+    add_column('rses', sa.Column('availability', sa.Integer, server_default='7'))
 
 
 def downgrade():
-    op.drop_column('rses', 'availability')
+    '''
+    downgrade method
+    '''
+    drop_column('rses', 'availability')
