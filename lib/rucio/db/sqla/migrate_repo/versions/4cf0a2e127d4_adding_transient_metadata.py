@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 
@@ -16,8 +16,8 @@ Revises: 271a46ea6244
 Create Date: 2015-01-16 16:42:37.039637
 
 """
-
-from alembic import op, context
+from alembic import context
+from alembic.op import add_column, drop_column
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -26,10 +26,16 @@ down_revision = '271a46ea6244'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.add_column('dids', sa.Column('transient', sa.Boolean(name='DID_TRANSIENT_CHK'), server_default='0'))
+        add_column('dids', sa.Column('transient', sa.Boolean(name='DID_TRANSIENT_CHK'), server_default='0'))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.drop_column('dids', 'transient')
+        drop_column('dids', 'transient')

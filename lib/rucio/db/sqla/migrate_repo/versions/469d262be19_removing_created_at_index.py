@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Removing created_at index
 
@@ -15,7 +16,9 @@ Create Date: 2014-04-16 14:52:30.562161
 
 """
 
-from alembic import op
+
+from alembic.op import create_index, drop_index
+
 
 # revision identifiers, used by Alembic.
 revision = '469d262be19'
@@ -23,10 +26,16 @@ down_revision = '16a0aca82e12'
 
 
 def upgrade():
-    op.create_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids', ['scope', 'rule_evaluation_action', 'name'])
-    op.drop_index('CREATED_AT_IDX', 'updated_dids')
+    '''
+    upgrade method
+    '''
+    create_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids', ['scope', 'rule_evaluation_action', 'name'])
+    drop_index('CREATED_AT_IDX', 'updated_dids')
 
 
 def downgrade():
-    op.drop_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids')
-    op.create_index('CREATED_AT_IDX', 'updated_dids', ['created_at'])
+    '''
+    downgrade method
+    '''
+    drop_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids')
+    create_index('CREATED_AT_IDX', 'updated_dids', ['created_at'])
