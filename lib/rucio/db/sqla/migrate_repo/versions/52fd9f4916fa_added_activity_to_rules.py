@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Added share to rules
 
@@ -14,8 +15,8 @@ Revises: 4a2cbedda8b9
 Create Date: 2014-07-15 17:57:58.189448
 
 """
-
-from alembic import context, op
+from alembic import context
+from alembic.op import add_column, drop_column
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -24,9 +25,15 @@ down_revision = '4a2cbedda8b9'
 
 
 def upgrade():
-    op.add_column('rules', sa.Column('activity', sa.String(50)))
+    '''
+    upgrade method
+    '''
+    add_column('rules', sa.Column('activity', sa.String(50)))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_column('rules', 'activity')
+        drop_column('rules', 'activity')
