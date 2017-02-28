@@ -189,10 +189,6 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
     print 'Dry Run: %s' % (dry_run)
     print '***************************'
 
-    if force_expression is not None and mode == 'decomission':
-        print 'Force expression cannot be set in DECOMISSION mode!'
-        sys.exit(-1)
-
     print 'scope:name rule_id bytes(Gb) target_rse child_rule_id'
 
     for scope, name, rule_id, rse_expression, subscription_id, bytes, length in list_rebalance_rule_candidates(rse=rse, mode=mode):
@@ -228,15 +224,15 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
                                                    comment=comment)
                 else:
                     child_rule_id = ''
-            except (InsufficientTargetRSEs, DuplicateRule, RuleNotFound) as e:
+            except (InsufficientTargetRSEs, DuplicateRule, RuleNotFound):
                 continue
-            print ('%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes / 1E9), target_rse_exp, child_rule_id))
+            print '%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes / 1E9), target_rse_exp, child_rule_id)
             rebalanced_bytes += bytes
             rebalanced_files += length
             rebalanced_datasets.append((scope, name, bytes, length, target_rse_exp, rule_id, child_rule_id))
-        except Exception, e:
-            print 'Exception %s occured while rebalancing %s:%s, rule_id: %s!' % (str(e), scope, name, str(rule_id))
-            raise e
+        except Exception as error:
+            print 'Exception %s occured while rebalancing %s:%s, rule_id: %s!' % (str(error), scope, name, str(rule_id))
+            raise error
 
     print 'BB8 is rebalancing %d Gb of data (%d rules)' % (int(rebalanced_bytes / 1E9), len(rebalanced_datasets))
     return rebalanced_datasets
