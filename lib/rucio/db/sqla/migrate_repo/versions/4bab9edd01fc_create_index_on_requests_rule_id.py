@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """create index on requests.rule_id
 
@@ -15,7 +16,7 @@ Create Date: 2015-03-20 15:58:02.456873
 
 """
 
-from alembic import op
+from alembic.op import create_index, drop_index
 
 # revision identifiers, used by Alembic.
 revision = '4bab9edd01fc'
@@ -23,8 +24,14 @@ down_revision = 'ae2a56fcc89'
 
 
 def upgrade():
-    op.create_index('REQUESTS_RULEID_IDX', 'requests', ['rule_id'])
+    '''
+    upgrade method
+    '''
+    create_index('REQUESTS_RULEID_IDX', 'requests', ['rule_id'])
 
 
 def downgrade():
-    op.drop_index('REQUESTS_RULEID_IDX', 'requests')
+    '''
+    downgrade method
+    '''
+    drop_index('REQUESTS_RULEID_IDX', 'requests')

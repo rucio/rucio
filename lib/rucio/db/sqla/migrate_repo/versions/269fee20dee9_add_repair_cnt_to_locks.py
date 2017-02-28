@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """Add repair_cnt to locks
 
@@ -14,8 +15,9 @@ Revises: 3d9813fab443
 Create Date: 2015-07-13 17:52:33.103379
 
 """
+from alembic import context
+from alembic.op import add_column, drop_column
 
-from alembic import op, context
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -24,10 +26,16 @@ down_revision = '1d96f484df21'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.add_column('locks', sa.Column('repair_cnt', sa.BigInteger()))
+        add_column('locks', sa.Column('repair_cnt', sa.BigInteger()))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.drop_column('locks', 'repair_cnt')
+        drop_column('locks', 'repair_cnt')

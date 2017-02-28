@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """add lumiblocknr to dids
 
@@ -14,8 +15,9 @@ Revises: 156fb5b5a14
 Create Date: 2014-10-27 15:02:17.288129
 
 """
+from alembic.op import add_column, drop_column
 
-from alembic import op, context
+from alembic import context
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
@@ -24,10 +26,16 @@ down_revision = '156fb5b5a14'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.add_column('dids', sa.Column('lumiblocknr', sa.Integer()))
+        add_column('dids', sa.Column('lumiblocknr', sa.Integer()))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_column('dids', 'lumiblocknr')
+        drop_column('dids', 'lumiblocknr')

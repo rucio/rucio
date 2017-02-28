@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """add mismatch scheme state to requests
 
@@ -15,7 +16,8 @@ Create Date: 2016-07-08 15:46:23.859031
 
 """
 
-from alembic import context, op
+from alembic import context
+from alembic.op import create_check_constraint, drop_constraint
 
 
 # revision identifiers, used by Alembic.
@@ -24,12 +26,18 @@ down_revision = '5f139f77382a'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite', 'mysql'):
-        op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
-        op.create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M')")
+        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M')")
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite', 'mysql'):
-        op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
-        op.create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W')")
+        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W')")

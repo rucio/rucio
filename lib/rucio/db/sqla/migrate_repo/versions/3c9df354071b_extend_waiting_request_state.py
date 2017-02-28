@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """extend waiting request state
 
@@ -15,7 +16,8 @@ Create Date: 2015-10-24 14:28:11.610651
 
 """
 
-from alembic import context, op
+from alembic import context
+from alembic.op import create_check_constraint, drop_constraint
 
 # revision identifiers, used by Alembic.
 revision = '3c9df354071b'
@@ -23,12 +25,18 @@ down_revision = '2edee4a83846'
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite', 'mysql'):
-        op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
-        op.create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U','W')")
+        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U','W')")
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite', 'mysql'):
-        op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
-        op.create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
+        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        create_check_constraint(name='REQUESTS_STATE_CHK', source='requests', condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")

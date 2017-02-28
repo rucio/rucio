@@ -6,6 +6,8 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+
 
 """update REQUESTS_TYP_STA_UPD_IDX index
 
@@ -14,8 +16,7 @@ Revises: 40ad39ce3160
 Create Date: 2015-05-06 16:37:06.805315
 
 """
-
-from alembic import op
+from alembic.op import create_index, drop_index
 
 # revision identifiers, used by Alembic.
 revision = '44278720f774'
@@ -23,12 +24,18 @@ down_revision = '40ad39ce3160'
 
 
 def upgrade():
-    op.drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
-    op.create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ['request_type', 'state', 'activity'])
-    op.create_index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'requests', ['request_type', 'state', 'updated_at'])
+    '''
+    upgrade method
+    '''
+    drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
+    create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ['request_type', 'state', 'activity'])
+    create_index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'requests', ['request_type', 'state', 'updated_at'])
 
 
 def downgrade():
-    op.drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
-    op.drop_index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'requests')
-    op.create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ['request_type', 'state', 'updated_at'])
+    '''
+    downgrade method
+    '''
+    drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
+    drop_index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'requests')
+    create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ['request_type', 'state', 'updated_at'])

@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 """add didtype_chck to requests
 
@@ -15,7 +16,7 @@ Create Date: 2014-10-13 13:48:56.080599
 
 """
 
-from alembic import op
+from alembic.op import add_column, drop_column
 import sqlalchemy as sa
 
 from rucio.db.sqla.constants import DIDType
@@ -26,14 +27,20 @@ down_revision = '436827b13f82'
 
 
 def upgrade():
-    op.add_column('requests', sa.Column('did_type',
-                                        DIDType.db_type(name='REQUESTS_DIDTYPE_CHK'),
-                                        default=DIDType.FILE))
+    '''
+    upgrade method
+    '''
+    add_column('requests', sa.Column('did_type',
+                                     DIDType.db_type(name='REQUESTS_DIDTYPE_CHK'),
+                                     default=DIDType.FILE))
 
     # we don't want checks on the history table
-    op.add_column('requests_history', sa.Column('did_type', sa.String(1)))
+    add_column('requests_history', sa.Column('did_type', sa.String(1)))
 
 
 def downgrade():
-    op.drop_column('requests', 'did_type')
-    op.drop_column('requests_history', 'did_type')
+    '''
+    downgrade method
+    '''
+    drop_column('requests', 'did_type')
+    drop_column('requests_history', 'did_type')
