@@ -20,7 +20,7 @@ from rucio.common import objectstore
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
 
 
-urls = ('/info/(.+)$', 'ObjectStoreInfo',
+URLS = ('/info/(.+)$', 'ObjectStoreInfo',
         '/rename/(.+)$', 'ObjectStoreRename',
         '/(.+)/(.+)/(.+)$', 'ObjectStoreGet',
         '/(.+)/(.+)$', 'ObjectStore')
@@ -165,11 +165,11 @@ class ObjectStoreRename(RucioController):
         raise OK()
 
 
-"""----------------------
-   Web service startup
-----------------------"""
+# ----------------------
+#   Web service startup
+# ----------------------
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-app.add_processor(unloadhook(rucio_unloadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+APP.add_processor(unloadhook(rucio_unloadhook))
+application = APP.wsgifunc()
