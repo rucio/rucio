@@ -18,10 +18,10 @@ from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook
 
-logger = getLogger("rucio.lock")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.lock")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
 URLS = ('/(.*)/(.*)', 'LockByScopeName',
         '/(.*)', 'LockByRSE')
