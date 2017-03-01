@@ -12,7 +12,7 @@ from nose.tools import assert_equal, assert_is_not_none, assert_greater
 from paste.fixture import TestApp
 
 from rucio.api.authentication import get_auth_token_user_pass
-from rucio.web.rest.authentication import app
+from rucio.web.rest.authentication import APP
 
 
 class TestAuthCoreApi():
@@ -30,14 +30,14 @@ class TestAuthRestApi():
 
         mw = []
         headers = {'X-Rucio-Account': 'wrong', 'X-Rucio-Username': 'wrong', 'X-Rucio-Password': 'wrong'}
-        r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
+        r = TestApp(APP.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(r.status, 401)
 
     def test_userpass_success(self):
         """AUTHENTICATION (REST): Username and password (correct credentials)."""
         mw = []
         headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
+        r = TestApp(APP.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(r.status, 200)
         assert_greater(len(r.header('X-Rucio-Auth-Token')), 32)
 
