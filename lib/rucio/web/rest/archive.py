@@ -16,9 +16,9 @@ from web import application, loadhook, header, InternalError
 from rucio.api.did import list_archive_content
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
-logger, sh = getLogger("rucio.meta"), StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER, SH = getLogger("rucio.meta"), StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
 URLS = ('/(.*)/(.*)/files', 'Archive')
 
