@@ -14,7 +14,7 @@ from nose.tools import assert_true, assert_equal, assert_is_instance
 from paste.fixture import TestApp
 
 from rucio.client.pingclient import PingClient
-from rucio.web.rest.ping import app as ping_app
+from rucio.web.rest.ping import APP as ping_app
 
 
 class TestPing():
