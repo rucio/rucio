@@ -26,10 +26,10 @@ from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController
 
 
-logger = getLogger("rucio.rucio")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.rucio")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
 URLS = ('/(.*)/(.*)/metalink?$', 'MetaLinkRedirector',
         '/(.*)/(.*)/?$', 'HeaderRedirector')

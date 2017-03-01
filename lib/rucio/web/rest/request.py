@@ -19,10 +19,10 @@ from rucio.common.utils import generate_http_error, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrAPPer
 
 
-logger = getLogger("rucio.request")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.request")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
 URLS = ('/(.+)/(.+)/(.+)', 'RequestGet',)
 

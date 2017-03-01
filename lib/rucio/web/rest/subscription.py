@@ -21,10 +21,10 @@ from rucio.common.exception import InvalidObject, RucioException, SubscriptionDu
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
-logger = getLogger("rucio.subscription")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.subscription")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
 URLS = (
     '/Id/(.*)', 'SubscriptionId',

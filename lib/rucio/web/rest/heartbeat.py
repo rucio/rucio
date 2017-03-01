@@ -19,10 +19,10 @@ from rucio.common.utils import APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrAPPer
 
 
-logger = getLogger("rucio.heartbeat")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.heartbeat")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
 URLS = ('', 'Heartbeat')
 

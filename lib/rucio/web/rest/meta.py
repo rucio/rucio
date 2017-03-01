@@ -20,10 +20,10 @@ from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
-logger = getLogger("rucio.meta")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.meta")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
 URLS = ('/(.+)/(.+)', 'Values',
         '/(.+)/', 'Values',
