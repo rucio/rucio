@@ -25,7 +25,7 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = ('/(.+)/(.+)', 'Values',
+URLS = ('/(.+)/(.+)', 'Values',
         '/(.+)/', 'Values',
         '/(.+)', 'Meta',
         '/', 'Meta',)
@@ -146,6 +146,6 @@ class Values(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

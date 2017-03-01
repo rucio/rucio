@@ -1,27 +1,29 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+''' Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+
+This mock FTS3 interface implements the following functionality:
+ Submit job: POST /jobs
+ Query job: GET /<jobid>
+ Cancel job: DELETE /<jobid>
+ Version:  GET /
+
+'''
 
 from json import dumps
 from web import application, data, header, OK
 
 from rucio.tests.mock.fts3 import submit, query, cancel
 
-"""
-This mock FTS3 interface implements the following functionality:
- Submit job: POST /jobs
- Query job: GET /<jobid>
- Cancel job: DELETE /<jobid>
- Version:  GET /
-"""
 
-urls = (
+URLS = (
     '/', 'Version',
     '/jobs', 'Submit',
     '/jobs/(.+)', 'QueryCancel'
@@ -29,7 +31,9 @@ urls = (
 
 
 class Submit:
-
+    '''
+    Submit class
+    '''
     def POST(self):
         """
         Create a new transfer job.
@@ -42,10 +46,13 @@ class Submit:
 
         header('Content-Type', 'application/json')
 
-        return dumps(submit(data()))
+        return dumps(submit(data(), session=None))
 
 
 class Version:
+    '''
+    Version class
+    '''
 
     def GET(self):
         """
@@ -65,7 +72,9 @@ class Version:
 
 
 class QueryCancel:
-
+    '''
+    QueryCancel class
+    '''
     def GET(self, tid):
         """
         Query transfer job information.
@@ -79,7 +88,7 @@ class QueryCancel:
 
         header('Content-Type', 'application/json')
 
-        return dumps(query(tid))
+        return dumps(query(tid, session=None))
 
     def DELETE(self, tid):
         """
@@ -92,13 +101,13 @@ class QueryCancel:
         """
 
         header('Content-Type', 'application/octet-stream')
-        cancel(tid)
+        cancel(tid, session=None)
         raise OK()
 
 
-"""----------------------
-   Web service startup
-----------------------"""
+# ----------------------
+#   Web service startup
+# ----------------------
 
-app = application(urls, globals())
-application = app.wsgifunc()
+APP = application(URLS, globals())
+application = APP.wsgifunc()

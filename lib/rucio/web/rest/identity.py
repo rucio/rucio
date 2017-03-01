@@ -138,11 +138,11 @@ class GSS(RucioController):
 
 
 class Accounts(RucioController):
-    """ Retrieve list of accounts mapped to an identity. """
+    """ Retrieve list of accounts mAPPed to an identity. """
 
     def GET(self, identity_key, type):
         """
-        Return all identities mapped to an account.
+        Return all identities mAPPed to an account.
 
         HTTP Success:
             200 OK

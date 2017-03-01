@@ -16,7 +16,7 @@ from web import application, ctx, Created, loadhook, header
 
 from rucio.api import config
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
+from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrAPPer
 
 
 logger = getLogger("rucio.config")
@@ -24,7 +24,7 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = ('/(.+)/(.+)/(.*)', 'OptionSet',
+URLS = ('/(.+)/(.+)/(.*)', 'OptionSet',
         '/(.+)/(.+)', 'OptionGetDel',
         '/(.+)', 'Section',
         '', 'Config')
@@ -33,7 +33,7 @@ urls = ('/(.+)/(.+)/(.*)', 'OptionSet',
 class Config(RucioController):
     """ REST API for full configuration. """
 
-    @exception_wrapper
+    @exception_wrAPPer
     def GET(self):
         """
         List full configuration.
@@ -59,7 +59,7 @@ class Config(RucioController):
 class Section(RucioController):
     """ REST API for the sections in the configuration. """
 
-    @exception_wrapper
+    @exception_wrAPPer
     def GET(self, section):
         """
         List configuration of a section
@@ -87,7 +87,7 @@ class Section(RucioController):
 class OptionGetDel(RucioController):
     """ REST API for reading or deleting the options in the configuration. """
 
-    @exception_wrapper
+    @exception_wrAPPer
     def GET(self, section, option):
         """
         Retrieve the value of an option.
@@ -108,7 +108,7 @@ class OptionGetDel(RucioController):
         except:
             raise generate_http_error(404, 'ConfigNotFound', 'No configuration found for section \'%s\' option \'%s\'' % (section, option))
 
-    @exception_wrapper
+    @exception_wrAPPer
     def DELETE(self, section, option):
         """
         Delete an option.
@@ -129,7 +129,7 @@ class OptionGetDel(RucioController):
 class OptionSet(RucioController):
     """ REST API for setting the options in the configuration. """
 
-    @exception_wrapper
+    @exception_wrAPPer
     def PUT(self, section, option, value):
         """
         Set the value of an option.
@@ -156,6 +156,6 @@ class OptionSet(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

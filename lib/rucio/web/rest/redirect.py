@@ -19,7 +19,7 @@ from geoip2.errors import AddressNotFoundError
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.api.replica import list_replicas
-from rucio.common import objectstore
+from rucio.common.objectstore import connect, get_signed_urls
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replicas_selector import random_order, geoIP_order, site_selector
 from rucio.common.utils import generate_http_error
@@ -31,7 +31,7 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = ('/(.*)/(.*)/metalink?$', 'MetaLinkRedirector',
+URLS = ('/(.*)/(.*)/metalink?$', 'MetaLinkRedirector',
         '/(.*)/(.*)/?$', 'HeaderRedirector')
 
 
@@ -73,7 +73,7 @@ class MetaLinkRedirector(RucioController):
             if not tmp_replicas:
                 raise ReplicaNotFound('no redirection possible - cannot find the DID')
 
-            # first, set the appropriate content type, and stream the header
+            # first, set the APPropriate content type, and stream the header
             header('Content-Type', 'application/metalink4+xml')
             yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
@@ -229,11 +229,11 @@ class HeaderRedirector(RucioController):
 
             if selected_url:
                 if selected_url.startswith('s3+rucio://'):
-                    objectstore.connect(selected_rse, selected_url)
-                    signed_urls = objectstore.get_signed_urls([selected_url],
-                                                              rse=selected_rse,
-                                                              operation='read')
-                    raise seeother(signed_urls[selected_url])
+                    connect(selected_rse, selected_url)
+                    signed_URLS = get_signed_urls([selected_url],
+                                                  rse=selected_rse,
+                                                  operation='read')
+                    raise seeother(signed_URLS[selected_url])
 
                 raise seeother(selected_url)
 
@@ -253,5 +253,5 @@ class HeaderRedirector(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-application = app.wsgifunc()
+APP = application(URLS, globals())
+application = APP.wsgifunc()
