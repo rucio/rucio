@@ -21,7 +21,7 @@ from rucio.common.utils import generate_http_error
 from rucio.core.trace import trace
 from rucio.web.rest.common import RucioController
 
-urls = (
+URLS = (
     '/', 'Trace',
 )
 
@@ -66,5 +66,5 @@ class Trace(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-application = app.wsgifunc()
+APP = application(URLS, globals())
+application = APP.wsgifunc()

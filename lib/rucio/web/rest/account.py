@@ -35,7 +35,7 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = (
+URLS = (
     '/(.+)/attr/', 'Attributes',
     '/(.+)/attr/(.+)', 'Attributes',
     '/(.+)/scopes/', 'Scopes',
@@ -503,7 +503,7 @@ class Identities(RucioController):
 
     def DELETE(self, account):
 
-        """ Delete an account's identity mapping.
+        """ Delete an account's identity mAPPing.
 
         HTTP Success:
             200 Created
@@ -664,6 +664,6 @@ class Usage2(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

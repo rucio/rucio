@@ -23,7 +23,7 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = ('/(.*)/(.*)', 'LockByScopeName',
+URLS = ('/(.*)/(.*)', 'LockByScopeName',
         '/(.*)', 'LockByRSE')
 
 
@@ -97,6 +97,6 @@ class LockByScopeName:
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

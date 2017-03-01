@@ -16,7 +16,7 @@ from web import application, ctx, loadhook, header
 
 from rucio.api.heartbeat import list_heartbeats
 from rucio.common.utils import APIEncoder
-from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
+from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrAPPer
 
 
 logger = getLogger("rucio.heartbeat")
@@ -24,13 +24,13 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = ('', 'Heartbeat')
+URLS = ('', 'Heartbeat')
 
 
 class Heartbeat(RucioController):
     """ REST API for Heartbeats. """
 
-    @exception_wrapper
+    @exception_wrAPPer
     def GET(self):
         """
         List all heartbeats.
@@ -51,6 +51,6 @@ class Heartbeat(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

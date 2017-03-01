@@ -16,7 +16,7 @@ from web import application, ctx, loadhook, header
 
 from rucio.api import request
 from rucio.common.utils import generate_http_error, APIEncoder
-from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
+from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrAPPer
 
 
 logger = getLogger("rucio.request")
@@ -24,13 +24,13 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = ('/(.+)/(.+)/(.+)', 'RequestGet',)
+URLS = ('/(.+)/(.+)/(.+)', 'RequestGet',)
 
 
 class RequestGet(RucioController):
     """ REST API to get requests. """
 
-    @exception_wrapper
+    @exception_wrAPPer
     def GET(self, scope, name, rse):
         """
         List request for given DID to a destination RSE.
@@ -60,6 +60,6 @@ class RequestGet(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()
