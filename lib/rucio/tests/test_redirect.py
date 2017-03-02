@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 from nose.tools import assert_in
 
@@ -39,7 +40,7 @@ class TestReplicaHeaderRedirection:
                                                                                                  self.host,
                                                                                                  tmp_scope,
                                                                                                  tmp_name)
-        exitcode, out, err = execute(cmd)
+        _, out, _ = execute(cmd)
         assert_in('404 Not Found', out)
         # add replicas
         self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope,
@@ -50,7 +51,7 @@ class TestReplicaHeaderRedirection:
                                                               'name': tmp_name,
                                                               'bytes': 1L,
                                                               'adler32': '0cc737eb'}])
-        exitcode, out, err = execute(cmd)
+        _, out, _ = execute(cmd)
         assert_in('303 See Other', out)
         assert_in('Location: https://mock', out)
 
@@ -76,7 +77,7 @@ class TestReplicaMetalinkRedirection:
                                                                                                  self.host,
                                                                                                  tmp_scope,
                                                                                                  tmp_name)
-        exitcode, out, err = execute(cmd)
+        _, out, _ = execute(cmd)
         assert_in('404 Not Found', out)
         # add replicas
         self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope,
@@ -87,7 +88,7 @@ class TestReplicaMetalinkRedirection:
                                                               'name': tmp_name,
                                                               'bytes': 1L,
                                                               'adler32': '0cc737eb'}])
-        exitcode, out, err = execute(cmd)
+        _, out, _ = execute(cmd)
         assert_in('303 See Other', out)
         assert_in('Link: </redirect/%s/%s/metalink' % (tmp_scope,
                                                        tmp_name), out)
@@ -97,7 +98,7 @@ class TestReplicaMetalinkRedirection:
                                                                                                           self.host,
                                                                                                           tmp_scope,
                                                                                                           tmp_name)
-        exitcode, out, err = execute(cmd)
+        _, out, _ = execute(cmd)
         print out
         assert_in('200 OK', out)
         assert_in('<?xml', out)
