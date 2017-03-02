@@ -179,7 +179,7 @@ def reduce_replication_rule(rule_id, copies, exclude_expression, issuer):
     kwargs = {'rule_id': rule_id, 'copies': copies, 'exclude_expression': exclude_expression}
     if not has_permission(issuer=issuer, action='reduce_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not reduce this replication rule.' % (issuer))
-    rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression)
+    return rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression)
 
 
 def examine_replication_rule(rule_id):

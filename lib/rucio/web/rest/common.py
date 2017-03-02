@@ -86,7 +86,7 @@ def load_json_data():
         raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary/list')
 
 
-def exception_wrapper(f):
+def exception_wrAPPer(f):
     """ Decorator to catch exception. """
     def decorated(*args, **kwargs):
         try:

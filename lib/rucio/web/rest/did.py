@@ -35,7 +35,7 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
-urls = (
+URLS = (
     '/(.*)/$', 'Scope',
     '/(.*)/guid', 'GUIDLookup',
     '/(.*)/dids/search', 'Search',
@@ -807,6 +807,6 @@ class Resurrect(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()
