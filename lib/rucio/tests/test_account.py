@@ -25,8 +25,8 @@ from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
 from rucio.db.sqla.constants import AccountStatus
 from rucio.tests.common import account_name_generator
-from rucio.web.rest.account import app as account_app
-from rucio.web.rest.authentication import app as auth_app
+from rucio.web.rest.account import APP as account_app
+from rucio.web.rest.authentication import APP as auth_app
 
 
 class TestAccountCoreApi():

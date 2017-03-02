@@ -21,12 +21,12 @@ from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
-logger = getLogger("rucio.account_limit")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.account_limit")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
-urls = (
+URLS = (
     '/(.+)/(.+)', 'AccountLimit',
 )
 
@@ -114,6 +114,6 @@ class AccountLimit(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

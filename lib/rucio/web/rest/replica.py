@@ -36,7 +36,7 @@ from rucio.common.replicas_selector import random_order, geoIP_order
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
 
-urls = ('/list/?$', 'ListReplicas',
+URLS = ('/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
         '/bad/states/?$', 'BadReplicasStates',
         '/bad/summary/?$', 'BadReplicasSummary',
@@ -87,7 +87,7 @@ class Replicas(RucioController):
                 limit = int(params['limit'][0])
 
         try:
-            # first, set the appropriate content type, and stream the header
+            # first, set the APPropriate content type, and stream the header
             if metalink is None:
                 header('Content-Type', 'application/x-json-stream')
             elif metalink == 3:
@@ -338,7 +338,7 @@ class ListReplicas(RucioController):
                 limit = params['limit'][0]
 
         try:
-            # first, set the appropriate content type, and stream the header
+            # first, set the APPropriate content type, and stream the header
             if metalink is None:
                 header('Content-Type', 'application/x-json-stream')
             elif metalink == 3:
@@ -424,7 +424,7 @@ class ReplicasDIDs(RucioController):
             401 Unauthorized
             500 InternalError
 
-        :returns: A list of dictionaries containing the mapping PFNs to DIDs.
+        :returns: A list of dictionaries containing the mAPPing PFNs to DIDs.
         """
         json_data = data()
         rse, pfns = None, []
@@ -679,7 +679,7 @@ class ReplicasRSE(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-app.add_processor(unloadhook(rucio_unloadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+APP.add_processor(unloadhook(rucio_unloadhook))
+application = APP.wsgifunc()
