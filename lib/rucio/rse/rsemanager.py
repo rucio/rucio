@@ -10,9 +10,10 @@
  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
  - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 '''
+
 import copy
 import os
 
@@ -81,7 +82,6 @@ def select_protocol(rse_settings, operation, scheme=None):
             if protocol['scheme'] not in scheme:
                 tbr.append(protocol)
                 continue
-        # Check if operation in domain is supported
         for d in rse_settings['domain']:
             if protocol['domains'][d][operation] == 0:
                 tbr.append(protocol)

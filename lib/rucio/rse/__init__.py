@@ -7,6 +7,7 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 
 from dogpile.cache import make_region
