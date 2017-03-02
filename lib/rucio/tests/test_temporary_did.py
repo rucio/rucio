@@ -1,13 +1,13 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+''' Copyright European Organization for Nuclear Research (CERN)
 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+'''
 
 from nose.tools import assert_equal
 
@@ -19,33 +19,36 @@ from rucio.client.didclient import DIDClient
 
 
 class TestTemporaryDIDCore:
+    '''
+    '''
+    def test_temporary_dids(self):
+        """ TMP DATA IDENTIFIERS (CORE): """
 
-        def test_temporary_dids(self):
-            """ TMP DATA IDENTIFIERS (CORE): """
+        temporary_dids = []
+        for i in xrange(10):
+            temporary_dids.append({'scope': 'mock',
+                                   'name': 'object_%s' % generate_uuid(),
+                                   'rse': 'MOCK',
+                                   'bytes': 1L,
+                                   'path': None})
 
-            temporary_dids = []
-            for i in xrange(10):
-                temporary_dids.append({'scope': 'mock',
-                                       'name': 'object_%s' % generate_uuid(),
-                                       'rse': 'MOCK',
-                                       'bytes': 1L,
-                                       'path': None})
+        add_temporary_dids(dids=temporary_dids, account='root')
 
-            add_temporary_dids(dids=temporary_dids, account='root')
+        compose(scope='mock', name='file_%s' % generate_uuid(), rse='MOCK',
+                bytes=10L, sources=temporary_dids, account='root',
+                md5=None, adler32=None, pfn=None, meta={}, rules=[],
+                parent_scope=None, parent_name=None)
 
-            compose(scope='mock', name='file_%s' % generate_uuid(), rse='MOCK',
-                    bytes=10L, sources=temporary_dids, account='root',
-                    md5=None, adler32=None, pfn=None, meta={}, rules=[],
-                    parent_scope=None, parent_name=None)
+        dids = list_expired_temporary_dids(rse='MOCK', limit=10)
 
-            dids = list_expired_temporary_dids(rse='MOCK', limit=10)
+        rowcount = delete_temporary_dids(dids=dids)
 
-            rowcount = delete_temporary_dids(dids=dids)
-
-            assert_equal(rowcount, 10)
+        assert_equal(rowcount, 10)
 
 
 class TestTemporaryDIDClient:
+    '''
+    '''
 
     def setup(self):
         self.client = DIDClient()
