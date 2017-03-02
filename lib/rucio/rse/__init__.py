@@ -42,17 +42,17 @@ if rsemanager.CLIENT_MODE:
     setattr(rsemanager, '__request_rse_info', get_rse_client)
 
     # Preparing region for dogpile.cache
-    rse_region = make_region(function_key_generator=rse_key_generator).configure(
+    RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
         'dogpile.cache.memory',
         expiration_time=3600)
-    setattr(rsemanager, 'rse_region', rse_region)
+    setattr(rsemanager, 'RSE_REGION', RSE_REGION)
 
 
 if rsemanager.SERVER_MODE:
     from rucio.core.rse import get_rse_protocols
     setattr(rsemanager, '__request_rse_info', get_rse_protocols)
-    rse_region = make_region(function_key_generator=rse_key_generator).configure(
+    RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
         'dogpile.cache.memcached',
         expiration_time=3600,
         arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
-    setattr(rsemanager, 'rse_region', rse_region)
+    setattr(rsemanager, 'RSE_REGION', RSE_REGION)

@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 from nose.tools import assert_equal
 
@@ -25,7 +26,7 @@ class TestQuarantinedReplicaCore:
 
         nbreplicas = 5
 
-        replicas = [{'path': '/path/' + generate_uuid()} for i in xrange(nbreplicas)]
+        replicas = [{'path': '/path/' + generate_uuid()} for _ in xrange(nbreplicas)]
 
         add_quarantined_replicas(rse='MOCK', replicas=replicas)
 
