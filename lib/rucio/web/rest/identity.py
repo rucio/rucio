@@ -1,13 +1,14 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014-2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+''' Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014-2015
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+'''
 
 import json
 
@@ -15,14 +16,15 @@ from traceback import format_exc
 
 from web import application, ctx, BadRequest, Created, InternalError, loadhook
 
-from rucio.api.identity import add_identity, add_account_identity, list_accounts_for_identity
+from rucio.api.identity import (add_identity, add_account_identity,
+                                list_accounts_for_identity)
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
-urls = (
+URLS = (
     '/(.+)/(.+)/accounts', 'Accounts',
     '/(.+)/userpass', 'UserPass',
-    '/(.+)/x509', 'x509',
+    '/(.+)/x509', 'X509',
     '/(.+)/gss', 'GSS'
 )
 
@@ -56,19 +58,18 @@ class UserPass(RucioController):
         try:
             add_identity(username, 'userpass', password)
         except Exception, e:
-            # TODO: Proper rollback
             raise InternalError(e)
 
         try:
-            add_account_identity(username, 'userpass', account)
+            add_account_identity(username, 'userpass', account,
+                                 email=None, issuer=ctx.env.get('issuer'))
         except Exception, e:
-            # TODO: Proper rollback
             raise InternalError(e)
 
         raise Created()
 
 
-class x509(RucioController):
+class X509(RucioController):
     """ Manage an x509 identity for an account. """
 
     def PUT(self, account):
@@ -89,15 +90,14 @@ class x509(RucioController):
         """
         dn = ctx.env.get('SSL_CLIENT_S_DN')
         try:
-            add_identity(dn, 'x509')
+            add_identity(dn, 'x509', email=None)
         except Exception, e:
-            # TODO: Proper rollback
             raise InternalError(e)
 
         try:
-            add_account_identity(dn, 'x509', account)
+            add_account_identity(dn, 'x509', account,
+                                 email=None, issuer=ctx.env.get('issuer'))
         except Exception, e:
-            # TODO: Proper rollback
             raise InternalError(e)
 
         raise Created()
@@ -124,26 +124,25 @@ class GSS(RucioController):
         """
         gsscred = ctx.env.get('REMOTE_USER')
         try:
-            add_identity(gsscred, 'gss')
+            add_identity(gsscred, 'gss', email=None)
         except Exception, e:
-            # TODO: Proper rollback
             raise InternalError(e)
 
         try:
-            add_account_identity(gsscred, 'gss', account)
+            add_account_identity(gsscred, 'gss', account,
+                                 email=None, issuer=ctx.env.get('issuer'))
         except Exception, e:
-            # TODO: Proper rollback
             raise InternalError(e)
 
         raise Created()
 
 
 class Accounts(RucioController):
-    """ Retrieve list of accounts mapped to an identity. """
+    """ Retrieve list of accounts mAPPed to an identity. """
 
     def GET(self, identity_key, type):
         """
-        Return all identities mapped to an account.
+        Return all identities mAPPed to an account.
 
         HTTP Success:
             200 OK
@@ -155,7 +154,6 @@ class Accounts(RucioController):
 
         :param account: Identity string.
         """
-
         try:
             return json.dumps(list_accounts_for_identity(identity_key, type))
         except Exception, e:
@@ -164,10 +162,10 @@ class Accounts(RucioController):
             raise InternalError(e)
 
 
-"""----------------------
-   Web service startup
-   ----------------------"""
+# ----------------------
+#   Web service startup
+# ----------------------
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

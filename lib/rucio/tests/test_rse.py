@@ -29,8 +29,8 @@ from rucio.core.rse import (add_rse, get_rse_id, del_rse, list_rses, rse_exists,
                             set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits)
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import rse_name_generator
-from rucio.web.rest.rse import app as rse_app
-from rucio.web.rest.authentication import app as auth_app
+from rucio.web.rest.rse import APP as rse_app
+from rucio.web.rest.authentication import APP as auth_app
 
 
 class TestRSECoreApi():

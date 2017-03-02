@@ -16,11 +16,11 @@ from web import application, loadhook, header, InternalError
 from rucio.api.did import list_archive_content
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
-logger, sh = getLogger("rucio.meta"), StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER, SH = getLogger("rucio.meta"), StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
-urls = ('/(.*)/(.*)/files', 'Archive')
+URLS = ('/(.*)/(.*)/files', 'Archive')
 
 
 class Archive(RucioController):
@@ -46,6 +46,6 @@ class Archive(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

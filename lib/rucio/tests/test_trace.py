@@ -16,7 +16,7 @@ import uuid
 from nose.tools import assert_equal
 from paste.fixture import TestApp
 
-from rucio.web.rest.trace import app as trace_app
+from rucio.web.rest.trace import APP as trace_app
 
 
 class TestTrace():
