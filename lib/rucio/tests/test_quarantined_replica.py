@@ -19,6 +19,9 @@ from rucio.core.quarantined_replica import (add_quarantined_replicas,
 
 class TestQuarantinedReplicaCore:
 
+    def __init__(self):
+        pass
+
     def test_quarantined_replicas(self):
         """ QUARANTINED REPLICA (CORE): Add, List and Delete quarantined replicas """
 

@@ -91,9 +91,9 @@ class TestAccountRestApi():
         """ ACCOUNT (REST): send a POST with a non json body"""
         mw = []
         headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
-        assert_equal(r.status, 200)
-        token = str(r.header('X-Rucio-Auth-Token'))
+        res = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
+        assert_equal(res.status, 200)
+        token = str(res.header('X-Rucio-Auth-Token'))
 
         headers = {'X-Rucio-Auth-Token': str(token)}
         data = {'type': 'USER'}
@@ -107,9 +107,9 @@ class TestAccountRestApi():
         """ ACCOUNT (REST): send a POST with a missing parameter"""
         mw = []
         headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
-        assert_equal(r.status, 200)
-        token = str(r.header('X-Rucio-Auth-Token'))
+        res = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
+        assert_equal(res.status, 200)
+        token = str(res.header('X-Rucio-Auth-Token'))
 
         headers = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({})
@@ -123,17 +123,17 @@ class TestAccountRestApi():
         """ ACCOUNT (REST): send a POST with a non dictionary json body"""
         mw = []
         headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
-        assert_equal(r.status, 200)
-        token = str(r.header('X-Rucio-Auth-Token'))
+        res = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
+        assert_equal(res.status, 200)
+        token = str(res.header('X-Rucio-Auth-Token'))
 
         headers = {'X-Rucio-Auth-Token': str(token)}
         data = dumps(('account', 'account'))
-        r = TestApp(account_app.wsgifunc(*mw)).post('/testaccount', headers=headers, params=data, expect_errors=True)
+        res = TestApp(account_app.wsgifunc(*mw)).post('/testaccount', headers=headers, params=data, expect_errors=True)
 
-        assert_equal(r.header('ExceptionClass'), 'TypeError')
-        assert_equal(r.normal_body, '{"ExceptionMessage": "body must be a json dictionary", "ExceptionClass": "TypeError"}')
-        assert_equal(r.status, 400)
+        assert_equal(res.header('ExceptionClass'), 'TypeError')
+        assert_equal(res.normal_body, '{"ExceptionMessage": "body must be a json dictionary", "ExceptionClass": "TypeError"}')
+        assert_equal(res.status, 400)
 
     def test_get_user_success(self):
         """ ACCOUNT (REST): send a GET to retrieve the infos of the new user """
@@ -252,7 +252,7 @@ class TestAccountRestApi():
 
 class TestAccountClient():
 
-    def setup(self):
+    def __init__(self):
         self.client = AccountClient()
 
     def test_add_account_success(self):

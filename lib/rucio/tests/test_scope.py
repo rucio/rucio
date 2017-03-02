@@ -29,7 +29,7 @@ from rucio.web.rest.authentication import APP as auth_app
 
 class TestScopeCoreApi():
 
-    def setup(self):
+    def __init__(self):
         self.scopes = [scope_name_generator() for _ in range(5)]
 
     def test_list_scopes(self):
@@ -50,7 +50,7 @@ class TestScopeCoreApi():
 
 class TestScope():
 
-    def setup(self):
+    def __init__(self):
         self.scopes = [scope_name_generator() for _ in range(5)]
 
     def test_scope_success(self):
@@ -66,8 +66,8 @@ class TestScope():
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
         data = dumps({'type': 'USER', 'email': 'rucio.email.com'})
-        rse2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert_equal(rse2.status, 201)
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
         scopeusr = scope_name_generator()
@@ -84,10 +84,10 @@ class TestScope():
 
         token = str(res1.header('X-Rucio-Auth-Token'))
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        scope_name_generator()
+        scopeusr = scope_name_generator()
         account_name_generator()
-        rse2 = TestApp(account_app.wsgifunc(*mw)).post('/%(scopeusr)s/scopes/%(scopeusr)s' % locals(), headers=headers2, expect_errors=True)
-        assert_equal(rse2.status, 404)
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (scopeusr, scopeusr), headers=headers2, expect_errors=True)
+        assert_equal(res2.status, 404)
 
     def test_scope_duplicate(self):
         """ SCOPE (REST): send a POST to create a already existing scope to test the error"""
@@ -102,8 +102,8 @@ class TestScope():
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
         data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        rse2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert_equal(rse2.status, 201)
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
         scopeusr = scope_name_generator()
@@ -125,8 +125,8 @@ class TestScope():
         tmp_val = account_name_generator()
         headers2 = {'Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        rse2 = TestApp(account_app.wsgifunc(*mw)).post('/%s' % tmp_val, headers=headers2, params=data, expect_errors=True)
-        assert_equal(rse2.status, 201)
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/%s' % tmp_val, headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
 
@@ -172,12 +172,12 @@ class TestScope():
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
         data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        rse2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert_equal(rse2.status, 201)
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
 
-        res4 = TestApp(account_app.wsgifunc(*mw)).get('/%(acntusr)s/scopes/' % locals(), headers=headers3, params=data, expect_errors=True)
+        res4 = TestApp(account_app.wsgifunc(*mw)).get('/%s/scopes/' % (acntusr), headers=headers3, params=data, expect_errors=True)
 
         assert_equal(res4.status, 404)
         assert_equal(res4.header('ExceptionClass'), 'ScopeNotFound')
@@ -185,7 +185,7 @@ class TestScope():
 
 class TestScopeClient():
 
-    def setup(self):
+    def __init__(self):
         self.account_client = AccountClient()
         self.scope_client = ScopeClient()
 

@@ -21,7 +21,7 @@ from rucio.tests.common import execute
 
 class TestReplicaHeaderRedirection:
 
-    def setup(self):
+    def __init__(self):
         self.cacert = config_get('test', 'cacert')
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
@@ -58,7 +58,7 @@ class TestReplicaHeaderRedirection:
 
 class TestReplicaMetalinkRedirection:
 
-    def setup(self):
+    def __init__(self):
         self.cacert = config_get('test', 'cacert')
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
