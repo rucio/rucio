@@ -22,8 +22,8 @@ from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupporte
 
 
 class TestBaseClient():
-
-    def setup(self):
+    """ To test Clients"""
+    def __init__(self):
         self.cacert = config_get('test', 'cacert')
         self.usercert = config_get('test', 'usercert')
         try:
@@ -71,8 +71,8 @@ class TestBaseClient():
 
 
 class TestRucioClients():
-
-    def setup(self):
+    """ To test Clients"""
+    def __init__(self):
         self.cacert = config_get('test', 'cacert')
         self.marker = '$> '
 

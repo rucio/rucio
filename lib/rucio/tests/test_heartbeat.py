@@ -26,7 +26,7 @@ class TestHeartbeat:
         thread.start()
         return thread
 
-    def setup(self):
+    def __init__(self):
         cardiac_arrest()
 
     def test_heartbeat_0(self):
