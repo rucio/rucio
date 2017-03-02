@@ -22,7 +22,7 @@ from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController
 
 
-urls = (
+URLS = (
     '/userpass', 'UserPass',
     '/gss', 'GSS',
     '/x509', 'x509',
@@ -80,15 +80,15 @@ class UserPass(RucioController):
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         username = ctx.env.get('HTTP_X_RUCIO_USERNAME')
         password = ctx.env.get('HTTP_X_RUCIO_PASSWORD')
-        appid = ctx.env.get('HTTP_X_RUCIO_APPID')
-        if appid is None:
-            appid = 'unknown'
+        APPid = ctx.env.get('HTTP_X_RUCIO_APPID')
+        if APPid is None:
+            APPid = 'unknown'
         ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
             ip = ctx.ip
 
         try:
-            result = get_auth_token_user_pass(account, username, password, appid, ip)
+            result = get_auth_token_user_pass(account, username, password, APPid, ip)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except RucioException, e:
@@ -151,15 +151,15 @@ class GSS(RucioController):
 
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         gsscred = ctx.env.get('REMOTE_USER')
-        appid = ctx.env.get('HTTP_X_RUCIO_APPID')
-        if appid is None:
-            appid = 'unknown'
+        APPid = ctx.env.get('HTTP_X_RUCIO_APPID')
+        if APPid is None:
+            APPid = 'unknown'
         ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
             ip = ctx.ip
 
         try:
-            result = get_auth_token_gss(account, gsscred, appid, ip)
+            result = get_auth_token_gss(account, gsscred, APPid, ip)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
@@ -224,9 +224,9 @@ class x509(RucioController):
         if not dn.startswith('/'):
             dn = '/%s' % '/'.join(dn.split(',')[::-1])
 
-        appid = ctx.env.get('HTTP_X_RUCIO_APPID')
-        if appid is None:
-            appid = 'unknown'
+        APPid = ctx.env.get('HTTP_X_RUCIO_APPID')
+        if APPid is None:
+            APPid = 'unknown'
         ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
             ip = ctx.ip
@@ -247,16 +247,16 @@ class x509(RucioController):
                 break
 
         try:
-            result = get_auth_token_x509(account, dn, appid, ip)
+            result = get_auth_token_x509(account, dn, APPid, ip)
         except AccessDenied:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print 'Cannot Authenticate', account, dn, APPid, ip
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except IdentityError:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print 'Cannot Authenticate', account, dn, APPid, ip
             raise generate_http_error(401, 'CannotAuthenticate', 'No default account set for %(dn)s' % locals())
 
         if not result:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print 'Cannot Authenticate', account, dn, APPid, ip
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
         header('X-Rucio-Auth-Token', result)
@@ -319,5 +319,5 @@ class Validate(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-application = app.wsgifunc()
+APP = application(URLS, globals())
+application = APP.wsgifunc()

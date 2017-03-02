@@ -1,29 +1,32 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+'''
 
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, header, BadRequest, Created, InternalError, loadhook
+from web import application, ctx, header, Created, InternalError, loadhook
 
 from rucio.api.scope import add_scope, get_scopes, list_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import rucio_loadhook
+from rucio.web.rest.common import rucio_loadhook, RucioController
 
-logger = getLogger("rucio.scope")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
 
-urls = (
+LOGGER = getLogger("rucio.scope")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
+
+URLS = (
     '/', 'Scope',
     '/(.+)/scopes', 'Scopes',
     '/(.+)/limits', 'AccountLimits',
@@ -31,7 +34,7 @@ urls = (
 )
 
 
-class Scope:
+class Scope(RucioController):
     """ create new rucio scopes. """
 
     def GET(self):
@@ -42,9 +45,6 @@ class Scope:
             200 Success
         """
         return dumps(list_scopes())
-
-    def PUT(self):
-        raise BadRequest()
 
     def POST(self, account, scope):
         """
@@ -64,7 +64,7 @@ class Scope:
         :params Rucio-Account: account belonging to the new scope.
         """
         try:
-            add_scope(scope, account)
+            add_scope(scope, account, issuer=ctx.env.get('issuer'))
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccountNotFound, e:
@@ -76,11 +76,8 @@ class Scope:
 
         raise Created()
 
-    def DELETE(self):
-        raise BadRequest()
 
-
-class ScopeList:
+class ScopeList(RucioController):
     """ list scopes """
 
     def GET(self, account):
@@ -112,20 +109,11 @@ class ScopeList:
 
         return dumps(scopes)
 
-    def PUT(self):
-        raise BadRequest()
 
-    def POST(self):
-        raise BadRequest()
+# ----------------------
+#   Web service startup
+# ----------------------
 
-    def DELETE(self):
-        raise BadRequest()
-
-
-"""----------------------
-   Web service startup
-----------------------"""
-
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

@@ -23,7 +23,7 @@ import tempfile
 from rucio.common import exception
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account
-from rucio.web.rest.authentication import app as auth_app
+from rucio.web.rest.authentication import APP as auth_app
 
 
 def execute(cmd):
