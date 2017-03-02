@@ -85,11 +85,11 @@ class Scope(RucioController):
         try:
             for did in scope_list(scope=scope, name=name, recursive=recursive):
                 yield render_json(**did) + '\n'
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 class Search(RucioController):
@@ -125,13 +125,13 @@ class Search(RucioController):
         try:
             for did in list_dids(scope=scope, filters=filters, type=type, long=long):
                 yield dumps(did) + '\n'
-        except UnsupportedOperation, e:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except KeyNotFound, e:
-            raise generate_http_error(404, 'KeyNotFound', e.args[0][0])
-        except Exception, e:
+        except UnsupportedOperation, error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0][0])
+        except KeyNotFound, error:
+            raise generate_http_error(404, 'KeyNotFound', error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 class BulkDIDS(RucioController):
@@ -144,23 +144,23 @@ class BulkDIDS(RucioController):
 
         try:
             add_dids(json_data, issuer=ctx.env.get('issuer'))
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except DuplicateContent, e:
-            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
-        except DataIdentifierAlreadyExists, e:
-            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation, e:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except DatabaseException, e:
-            raise generate_http_error(500, 'DatabaseException', e.args)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except DuplicateContent, error:
+            raise generate_http_error(409, 'DuplicateContent', error.args[0][0])
+        except DataIdentifierAlreadyExists, error:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except UnsupportedOperation, error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0][0])
+        except DatabaseException, error:
+            raise generate_http_error(500, 'DatabaseException', error.args)
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         raise Created()
 
 
@@ -183,21 +183,21 @@ class Attachments(RucioController):
 
         try:
             attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=ctx.env.get('issuer'))
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except DuplicateContent, e:
-            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
-        except DataIdentifierAlreadyExists, e:
-            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation, e:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except DuplicateContent, error:
+            raise generate_http_error(409, 'DuplicateContent', error.args[0][0])
+        except DataIdentifierAlreadyExists, error:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except UnsupportedOperation, error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise Created()
 
@@ -227,15 +227,15 @@ class DIDs(RucioController):
                     dynamic = True
             did = get_did(scope=scope, name=name, dynamic=dynamic)
             return render_json(**did)
-        except ScopeNotFound, e:
-            raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except ScopeNotFound, error:
+            raise generate_http_error(404, 'ScopeNotFound', error.args[0][0])
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
     def POST(self, scope, name):
         """
@@ -269,28 +269,28 @@ class DIDs(RucioController):
                 rse = json_data['rse']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
-        except KeyError, e:
-            raise generate_http_error(400, 'ValueError', str(e))
+        except KeyError, error:
+            raise generate_http_error(400, 'ValueError', str(error))
 
         try:
             add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, dids=dids, rse=rse, issuer=ctx.env.get('issuer'))
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except DuplicateContent, e:
-            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
-        except DataIdentifierAlreadyExists, e:
-            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation, e:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except DatabaseException, e:
-            raise generate_http_error(500, 'DatabaseException', e.args)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except DuplicateContent, error:
+            raise generate_http_error(409, 'DuplicateContent', error.args[0][0])
+        except DataIdentifierAlreadyExists, error:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except UnsupportedOperation, error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0][0])
+        except DatabaseException, error:
+            raise generate_http_error(500, 'DatabaseException', error.args)
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         raise Created()
 
     def PUT(self, scope, name):
@@ -315,19 +315,19 @@ class DIDs(RucioController):
 
         try:
             set_status(scope=scope, name=name, issuer=ctx.env.get('issuer'), **kwargs)
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except UnsupportedStatus, e:
-            raise generate_http_error(409, 'UnsupportedStatus', e.args[0][0])
-        except UnsupportedOperation, e:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except UnsupportedStatus, error:
+            raise generate_http_error(409, 'UnsupportedStatus', error.args[0][0])
+        except UnsupportedOperation, error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0][0])
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise OK()
 
@@ -354,13 +354,13 @@ class Attachment(RucioController):
         try:
             for did in list_content(scope=scope, name=name):
                 yield render_json(**did) + '\n'
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
     def POST(self, scope, name):
         """
@@ -383,21 +383,21 @@ class Attachment(RucioController):
 
         try:
             attach_dids(scope=scope, name=name, attachment=json_data, issuer=ctx.env.get('issuer'))
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except DuplicateContent, e:
-            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation, e:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except RSENotFound, e:
-            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except DuplicateContent, error:
+            raise generate_http_error(409, 'DuplicateContent', error.args[0][0])
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except UnsupportedOperation, error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0][0])
+        except RSENotFound, error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise Created()
 
@@ -424,15 +424,15 @@ class Attachment(RucioController):
 
         try:
             detach_dids(scope=scope, name=name, dids=dids, issuer=ctx.env.get('issuer'))
-        except UnsupportedOperation, e:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Exception, e:
+        except UnsupportedOperation, error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0][0])
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise OK()
 
@@ -459,13 +459,13 @@ class AttachmentHistory(RucioController):
         try:
             for did in list_content_history(scope=scope, name=name):
                 yield render_json(**did) + '\n'
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 class Replicas(RucioController):
@@ -497,13 +497,13 @@ class Files(RucioController):
         try:
             for file in list_files(scope=scope, name=name, long=long):
                 yield dumps(file) + "\n"
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 class Parents(RucioController):
@@ -524,13 +524,13 @@ class Parents(RucioController):
         try:
             for dataset in list_parent_dids(scope=scope, name=name):
                 yield render_json(**dataset) + "\n"
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 class Meta(RucioController):
@@ -556,13 +556,13 @@ class Meta(RucioController):
         try:
             meta = get_metadata(scope=scope, name=name)
             return render_json(**meta)
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
     def POST(self, scope, name, key):
         """
@@ -592,19 +592,19 @@ class Meta(RucioController):
         try:
             set_metadata(scope=scope, name=name, key=key, value=value,
                          issuer=ctx.env.get('issuer'), recursive=recursive)
-        except Duplicate, e:
-            raise generate_http_error(409, 'Duplicate', e[0][0])
-        except KeyNotFound, e:
-            raise generate_http_error(400, 'KeyNotFound', e[0][0])
-        except InvalidMetadata, e:
-            raise generate_http_error(400, 'InvalidMetadata', e[0][0])
-        except InvalidValueForKey, e:
-            raise generate_http_error(400, 'InvalidValueForKey', e[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except Duplicate, error:
+            raise generate_http_error(409, 'Duplicate', error[0][0])
+        except KeyNotFound, error:
+            raise generate_http_error(400, 'KeyNotFound', error[0][0])
+        except InvalidMetadata, error:
+            raise generate_http_error(400, 'InvalidMetadata', error[0][0])
+        except InvalidValueForKey, error:
+            raise generate_http_error(400, 'InvalidValueForKey', error[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise Created()
 
@@ -628,12 +628,12 @@ class Rules(RucioController):
         try:
             for rule in list_replication_rules({'scope': scope, 'name': name}):
                 yield dumps(rule, cls=APIEncoder) + '\n'
-        except RuleNotFound, e:
-            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RuleNotFound, error:
+            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
+            raise InternalError(error)
 
 
 class AssociatedRules(RucioController):
@@ -655,10 +655,10 @@ class AssociatedRules(RucioController):
         try:
             for rule in list_associated_replication_rules_for_file(scope=scope, name=name):
                 yield dumps(rule, cls=APIEncoder) + '\n'
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
+            raise InternalError(error)
 
 
 class GUIDLookup(RucioController):
@@ -680,12 +680,12 @@ class GUIDLookup(RucioController):
         try:
             for dataset in get_dataset_by_guid(guid):
                 yield dumps(dataset, cls=APIEncoder) + '\n'
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
+            raise InternalError(error)
 
 
 class Sample(RucioController):
@@ -712,23 +712,23 @@ class Sample(RucioController):
         """
         try:
             create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, issuer=ctx.env.get('issuer'), nbfiles=nbfiles)
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except DuplicateContent, e:
-            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
-        except DataIdentifierAlreadyExists, e:
-            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation, e:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except DatabaseException, e:
-            raise generate_http_error(500, 'DatabaseException', e.args)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except DuplicateContent, error:
+            raise generate_http_error(409, 'DuplicateContent', error.args[0][0])
+        except DataIdentifierAlreadyExists, error:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except UnsupportedOperation, error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0][0])
+        except DatabaseException, error:
+            raise generate_http_error(500, 'DatabaseException', error.args)
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         raise Created()
 
 
@@ -754,10 +754,10 @@ class NewDIDs(RucioController):
         try:
             for did in list_new_dids(type):
                 yield dumps(did, cls=APIEncoder) + '\n'
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
+            raise InternalError(error)
 
 
 class Resurrect(RucioController):
@@ -785,23 +785,23 @@ class Resurrect(RucioController):
 
         try:
             resurrect(dids=dids, issuer=ctx.env.get('issuer'))
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except DuplicateContent, e:
-            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
-        except DataIdentifierAlreadyExists, e:
-            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation, e:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except DatabaseException, e:
-            raise generate_http_error(500, 'DatabaseException', e.args)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
+        except DataIdentifierNotFound, error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except DuplicateContent, error:
+            raise generate_http_error(409, 'DuplicateContent', error.args[0][0])
+        except DataIdentifierAlreadyExists, error:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except UnsupportedOperation, error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0][0])
+        except DatabaseException, error:
+            raise generate_http_error(500, 'DatabaseException', error.args)
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         raise Created()
 """----------------------
    Web service startup
