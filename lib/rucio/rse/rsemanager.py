@@ -1,17 +1,18 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+'''
+ Copyright European Organization for Nuclear Research (CERN)
 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+ - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+'''
 import copy
 import os
 
@@ -54,10 +55,10 @@ def get_rse_info(rse, session=None):
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
     # __request_rse_info, rse_region are defined in /rucio/rse/__init__.py
-    rse_info = rse_region.get(str(rse))   # NOQA
+    rse_info = rse_region.get(str(rse))   # NOQA pylint: disable=undefined-variable
     if not rse_info:  # no cached entry found
-        rse_info = __request_rse_info(str(rse), session=session)  # NOQA
-        rse_region.set(str(rse), rse_info)  # NOQA
+        rse_info = __request_rse_info(str(rse), session=session)  # NOQA pylint: disable=undefined-variable
+        rse_region.set(str(rse), rse_info)  # NOQA pylint: disable=undefined-variable
     return rse_info
 
 
