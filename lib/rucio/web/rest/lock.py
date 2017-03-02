@@ -18,12 +18,12 @@ from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook
 
-logger = getLogger("rucio.lock")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.lock")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
-urls = ('/(.*)/(.*)', 'LockByScopeName',
+URLS = ('/(.*)/(.*)', 'LockByScopeName',
         '/(.*)', 'LockByRSE')
 
 
@@ -97,6 +97,6 @@ class LockByScopeName:
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()
