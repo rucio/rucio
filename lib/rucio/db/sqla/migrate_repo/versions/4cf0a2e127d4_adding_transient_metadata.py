@@ -22,8 +22,8 @@ from alembic.op import add_column, drop_column
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '4cf0a2e127d4'
-down_revision = '271a46ea6244'
+revision = '4cf0a2e127d4'  # pylint: disable=invalid-name
+down_revision = '271a46ea6244'  # pylint: disable=invalid-name
 
 
 def upgrade():
