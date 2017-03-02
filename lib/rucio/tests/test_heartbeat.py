@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 import random
 import threading
@@ -31,43 +32,43 @@ class TestHeartbeat:
     def test_heartbeat_0(self):
         """ HEARTBEAT (CORE): Single instance """
 
-        p = self.__pid()
-        t = self.__thread()
-        assert_equal(live('test0', 'host0', p, t), {'assign_thread': 0, 'nr_threads': 1})
-        assert_equal(live('test0', 'host0', p, t), {'assign_thread': 0, 'nr_threads': 1})
-        assert_equal(live('test0', 'host0', p, t), {'assign_thread': 0, 'nr_threads': 1})
+        pid = self.__pid()
+        thread = self.__thread()
+        assert_equal(live('test0', 'host0', pid, thread), {'assign_thread': 0, 'nr_threads': 1})
+        assert_equal(live('test0', 'host0', pid, thread), {'assign_thread': 0, 'nr_threads': 1})
+        assert_equal(live('test0', 'host0', pid, thread), {'assign_thread': 0, 'nr_threads': 1})
 
     def test_heartbeat_1(self):
         """ HEARTBEAT (CORE): Multiple instance """
 
-        p = [self.__pid() for tmp in xrange(4)]
-        t = [self.__thread() for tmp in xrange(4)]
-        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 1})
-        assert_equal(live('test0', 'host1', p[1], t[1]), {'assign_thread': 1, 'nr_threads': 2})
-        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 2})
-        assert_equal(live('test0', 'host2', p[2], t[2]), {'assign_thread': 2, 'nr_threads': 3})
-        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 3})
-        assert_equal(live('test0', 'host3', p[3], t[3]), {'assign_thread': 3, 'nr_threads': 4})
-        assert_equal(live('test0', 'host1', p[1], t[1]), {'assign_thread': 1, 'nr_threads': 4})
-        assert_equal(live('test0', 'host2', p[2], t[2]), {'assign_thread': 2, 'nr_threads': 4})
-        assert_equal(live('test0', 'host3', p[3], t[3]), {'assign_thread': 3, 'nr_threads': 4})
+        pids = [self.__pid() for _ in xrange(4)]
+        threads = [self.__thread() for _ in xrange(4)]
+        assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 1})
+        assert_equal(live('test0', 'host1', pids[1], threads[1]), {'assign_thread': 1, 'nr_threads': 2})
+        assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 2})
+        assert_equal(live('test0', 'host2', pids[2], threads[2]), {'assign_thread': 2, 'nr_threads': 3})
+        assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 3})
+        assert_equal(live('test0', 'host3', pids[3], threads[3]), {'assign_thread': 3, 'nr_threads': 4})
+        assert_equal(live('test0', 'host1', pids[1], threads[1]), {'assign_thread': 1, 'nr_threads': 4})
+        assert_equal(live('test0', 'host2', pids[2], threads[2]), {'assign_thread': 2, 'nr_threads': 4})
+        assert_equal(live('test0', 'host3', pids[3], threads[3]), {'assign_thread': 3, 'nr_threads': 4})
 
     def test_heartbeat_2(self):
         """ HEARTBEAT (CORE): Multiple instance with removal"""
 
-        p = [self.__pid() for tmp in xrange(4)]
-        t = [self.__thread() for tmp in xrange(4)]
-        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 1})
-        assert_equal(live('test0', 'host1', p[1], t[1]), {'assign_thread': 1, 'nr_threads': 2})
-        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 2})
-        assert_equal(live('test0', 'host2', p[2], t[2]), {'assign_thread': 2, 'nr_threads': 3})
-        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 3})
-        die('test0', 'host0', p[0], t[0])
-        assert_equal(live('test0', 'host3', p[3], t[3]), {'assign_thread': 2, 'nr_threads': 3})
-        assert_equal(live('test0', 'host1', p[1], t[1]), {'assign_thread': 0, 'nr_threads': 3})
-        assert_equal(live('test0', 'host2', p[2], t[2]), {'assign_thread': 1, 'nr_threads': 3})
-        die('test0', 'host2', p[2], t[2])
-        assert_equal(live('test0', 'host3', p[3], t[3]), {'assign_thread': 1, 'nr_threads': 2})
+        pids = [self.__pid() for _ in xrange(4)]
+        threads = [self.__thread() for _ in xrange(4)]
+        assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 1})
+        assert_equal(live('test0', 'host1', pids[1], threads[1]), {'assign_thread': 1, 'nr_threads': 2})
+        assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 2})
+        assert_equal(live('test0', 'host2', pids[2], threads[2]), {'assign_thread': 2, 'nr_threads': 3})
+        assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 3})
+        die('test0', 'host0', pids[0], threads[0])
+        assert_equal(live('test0', 'host3', pids[3], threads[3]), {'assign_thread': 2, 'nr_threads': 3})
+        assert_equal(live('test0', 'host1', pids[1], threads[1]), {'assign_thread': 0, 'nr_threads': 3})
+        assert_equal(live('test0', 'host2', pids[2], threads[2]), {'assign_thread': 1, 'nr_threads': 3})
+        die('test0', 'host2', pids[2], threads[2])
+        assert_equal(live('test0', 'host3', pids[3], threads[3]), {'assign_thread': 1, 'nr_threads': 2})
 
     def tearDown(self):
         cardiac_arrest()

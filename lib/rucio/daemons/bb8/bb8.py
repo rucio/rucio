@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 """
 BB8 is a daemon the re-balance data between RSEs.
@@ -13,15 +14,15 @@ BB8 is a daemon the re-balance data between RSEs.
 
 import logging
 import socket
-import threading
 import sys
+import threading
 import os
 
 
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.common.config import config_get
 
-graceful_stop = threading.Event()
+GRACEFUL_STOP = threading.Event()
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -41,10 +42,9 @@ def rule_rebalancer(once=False):
 
     # Make an initial heartbeat so that all have the correct worker number on the next try
     live(executable='rucio-bb8', hostname=hostname, pid=pid, thread=current_thread)
-    graceful_stop.wait(1)
+    GRACEFUL_STOP.wait(1)
 
-    while not graceful_stop.is_set():
-        pass
+    while not GRACEFUL_STOP.is_set():
         if once:
             break
 
@@ -58,7 +58,7 @@ def stop(signum=None, frame=None):
 
     raise NotImplementedError()
 
-    graceful_stop.set()
+    GRACEFUL_STOP.set()
 
 
 def run(once=False, threads=1):
@@ -75,7 +75,7 @@ def run(once=False, threads=1):
         rule_rebalancer(once)
     else:
         logging.info('BB8 starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_rebalancer, kwargs={'once': once}) for i in xrange(0, threads)]
+        threads = [threading.Thread(target=rule_rebalancer, kwargs={'once': once}) for _ in xrange(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

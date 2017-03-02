@@ -55,10 +55,10 @@ def get_rse_info(rse, session=None):
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
     # __request_rse_info, rse_region are defined in /rucio/rse/__init__.py
-    rse_info = rse_region.get(str(rse))   # NOQA pylint: disable=undefined-variable
+    rse_info = RSE_REGION.get(str(rse))   # NOQA pylint: disable=undefined-variable
     if not rse_info:  # no cached entry found
         rse_info = __request_rse_info(str(rse), session=session)  # NOQA pylint: disable=undefined-variable
-        rse_region.set(str(rse), rse_info)  # NOQA pylint: disable=undefined-variable
+        RSE_REGION.set(str(rse), rse_info)  # NOQA pylint: disable=undefined-variable
     return rse_info
 
 
