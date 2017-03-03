@@ -8,14 +8,19 @@
 
   Authors:
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
 '''
+
+"""
+Hermes Test
+"""
 
 from rucio.common.config import config_get
 from rucio.core.message import add_message
 from rucio.daemons.hermes import hermes
 
 
-class TestHermes:
+class TestHermes(object):
     ''' Test the messaging deamon. '''
 
     def test_hermes(self):
