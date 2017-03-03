@@ -7,6 +7,12 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+
+
+"""
+RFIO protocol
+"""
 
 import os
 
@@ -19,6 +25,7 @@ from rucio.rse.protocols import protocol
 
 
 class Default(protocol.RSEProtocol):
+    """ Implementing access to RSEs using the RFIO protocol. """
 
     def connect(self, credentials):
         """
@@ -82,6 +89,7 @@ class Default(protocol.RSEProtocol):
         return status == 0
 
     def mkdir(self, directory):
+        """ Create new directory. """
         cmd = 'rfmkdir -p %(path)s' % locals()
         status, out, err = execute(cmd)
         return status == 0
