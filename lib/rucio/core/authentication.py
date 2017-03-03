@@ -9,9 +9,18 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>. 2017
+
+"""
+Core authentication
+"""
 
 import datetime
 import hashlib
+
+# Create cache region used for token validation
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 
 from rucio.common.utils import generate_uuid
 from rucio.core.account import account_exists
@@ -19,17 +28,15 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 
-# Create cache region used for token validation
-from dogpile.cache import make_region
-from dogpile.cache.api import NO_VALUE
 
-
-def token_key_generator(namespace, fn, **kwargs):
+def token_key_generator(namespace, fni, **kwargs):
+    """ :returns: generate key function """
     def generate_key(token, session=None):
+        """ :returns: token """
         return token
     return generate_key
 
-token_region = make_region(
+TOKENREGION = make_region(
     function_key_generator=token_key_generator
 ).configure(
     'dogpile.cache.memory',
@@ -105,8 +112,8 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
 
     :param account: Account identifier as a string.
     :param dn: Client certificate distinguished name string, as extracted by Apache/mod_ssl.
-    :param appid: The application identifier as a string.
-    :param ip: IP address of the client as a string.
+    :param id: The application identifier as a string.
+    :param ipaddr: IP address of the client as a string.
     :param session: The database session in use.
 
     :returns: Authentication token as a variable-length string.
@@ -176,12 +183,12 @@ def validate_auth_token(token):
     token = token.strip()
 
     # Check if token ca be found in cache region
-    value = token_region.get(token)
+    value = TOKENREGION.get(token)
     if value is NO_VALUE:  # no cached entry found
         value = query_token(token)
-        value and token_region.set(token, value)
+        value and TOKENREGION.set(token, value)
     elif value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
-        token_region.delete(token)
+        TOKENREGION.delete(token)
         return
     return value
 
@@ -197,7 +204,7 @@ def query_token(token, session=None):
     :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
     """
     # Query the DB to validate token
-    r = session.query(models.Token.account, models.Token.expired_at).filter(models.Token.token == token, models.Token.expired_at > datetime.datetime.utcnow()).all()
-    if r:
-        return {'account': r[0][0], 'lifetime': r[0][1]}
+    ret = session.query(models.Token.account, models.Token.expired_at).filter(models.Token.token == token, models.Token.expired_at > datetime.datetime.utcnow()).all()
+    if ret:
+        return {'account': ret[0][0], 'lifetime': ret[0][1]}
     return None
