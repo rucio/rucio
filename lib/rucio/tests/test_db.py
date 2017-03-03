@@ -9,21 +9,14 @@
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
 '''
-
 from rucio.db.sqla.session import get_session
 
 
-class TestDB:
-    '''
-    TestDB class
-    '''
-
-    def test_db_connection(self):
-        """ DB (CORE): Test db connection """
-        session = get_session()
-        print type(session)
-        if session.bind.dialect.name == 'oracle':
-            session.execute('select 1 from dual')
-        else:
-            session.execute('select 1')
-        session.close()
+def test_db_connection():
+    """ DB (CORE): Test db connection """
+    session = get_session()
+    if session.bind.dialect.name == 'oracle':
+        session.execute('select 1 from dual')
+    else:
+        session.execute('select 1')
+    session.close()

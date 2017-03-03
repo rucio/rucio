@@ -1,13 +1,15 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2016
+'''
+ Copyright European Organization for Nuclear Research (CERN)
 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Wen Guan, <wen.guan@cern.ch>, 2016
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+'''
 import json
 import os
 import tempfile
@@ -20,7 +22,10 @@ from rsemgr_api_test import MgrTestCases
 from rucio.common.exception import FileReplicaAlreadyExists
 
 
-class TestRseSignedS3():
+class TestRseSignedS3(object):
+    '''
+    TestRseSignedS3
+    '''
     tmpdir = None
     user = None
 
