@@ -11,10 +11,9 @@
 """
 Expiring Dataset Cache
 """
-
+from uuid import uuid4
 
 from redis import StrictRedis
-from uuid import uuid4
 
 
 class ExpiringDatasetCache(object):
