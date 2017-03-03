@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
+# - Thomas Beermann, <thomas.beerman@cern.ch>, 2017
 
 """
 Conveyor stager is a daemon to manage stagein file transfers.
@@ -36,7 +37,7 @@ logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-graceful_stop = threading.Event()
+GRACEFULSTOP = threading.Event()
 
 
 def submitter(once=False, rses=[], mock=False,
@@ -93,7 +94,7 @@ def submitter(once=False, rses=[], mock=False,
     activity_next_exe_time = defaultdict(time.time)
     sleeping = False
 
-    while not graceful_stop.is_set():
+    while not GRACEFULSTOP.is_set():
 
         try:
             if not sleeping:
@@ -162,7 +163,7 @@ def stop(signum=None, frame=None):
     Graceful exit.
     """
 
-    graceful_stop.set()
+    GRACEFULSTOP.set()
 
 
 def run(once=False,
