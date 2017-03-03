@@ -18,61 +18,40 @@ from rucio.core.temporary_did import (add_temporary_dids, compose, delete_tempor
 from rucio.client.didclient import DIDClient
 
 
-class TestTemporaryDIDCore:
-    '''
-    '''
-    def test_temporary_dids(self):
-        """ TMP DATA IDENTIFIERS (CORE): """
+def test_core_temporary_dids():
+    """ TMP DATA IDENTIFIERS (CORE): """
 
-        temporary_dids = []
-        for i in xrange(10):
-            temporary_dids.append({'scope': 'mock',
-                                   'name': 'object_%s' % generate_uuid(),
-                                   'rse': 'MOCK',
-                                   'bytes': 1L,
-                                   'path': None})
+    temporary_dids = []
+    for _ in xrange(10):
+        temporary_dids.append({'scope': 'mock',
+                               'name': 'object_%s' % generate_uuid(),
+                               'rse': 'MOCK',
+                               'bytes': 1L,
+                               'path': None})
 
-        add_temporary_dids(dids=temporary_dids, account='root')
+    add_temporary_dids(dids=temporary_dids, account='root')
 
-        compose(scope='mock', name='file_%s' % generate_uuid(), rse='MOCK',
-                bytes=10L, sources=temporary_dids, account='root',
-                md5=None, adler32=None, pfn=None, meta={}, rules=[],
-                parent_scope=None, parent_name=None)
+    compose(scope='mock', name='file_%s' % generate_uuid(), rse='MOCK',
+            bytes=10L, sources=temporary_dids, account='root',
+            md5=None, adler32=None, pfn=None, meta={}, rules=[],
+            parent_scope=None, parent_name=None)
 
-        dids = list_expired_temporary_dids(rse='MOCK', limit=10)
+    dids = list_expired_temporary_dids(rse='MOCK', limit=10)
 
-        rowcount = delete_temporary_dids(dids=dids)
+    rowcount = delete_temporary_dids(dids=dids)
 
-        assert_equal(rowcount, 10)
+    assert_equal(rowcount, 10)
 
 
-class TestTemporaryDIDClient:
-    '''
-    '''
+def test_client_temporary_dids():
+    """ TMP DATA IDENTIFIERS (CLIENT): """
+    client = DIDClient()
+    temporary_dids = []
+    for _ in xrange(10):
+        temporary_dids.append({'scope': 'mock',
+                               'name': 'object_%s' % generate_uuid(),
+                               'rse': 'MOCK',
+                               'bytes': 1L,
+                               'path': None})
 
-    def setup(self):
-        self.client = DIDClient()
-
-    def test_temporary_dids(self):
-        """ TMP DATA IDENTIFIERS (CLIENT): """
-
-        temporary_dids = []
-        for i in xrange(10):
-            temporary_dids.append({'scope': 'mock',
-                                   'name': 'object_%s' % generate_uuid(),
-                                   'rse': 'MOCK',
-                                   'bytes': 1L,
-                                   'path': None})
-
-        self.client.add_temporary_dids(dids=temporary_dids)
-
-#            compose(scope='mock', name='file_%s' % generate_uuid(), rse='MOCK',
-#                    bytes=10L, sources=temporary_dids, account='root',
-#                    md5=None, adler32=None, pfn=None, meta={}, rules=[],
-#                    parent_scope=None, parent_name=None)
-
-#            dids = list_expired_temporary_dids(rse='MOCK', limit=10)
-
-#            rowcount = delete_temporary_dids(dids=dids)
-
-#        assert_equal(rowcount, 10)
+    client.add_temporary_dids(dids=temporary_dids)
