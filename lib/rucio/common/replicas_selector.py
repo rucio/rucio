@@ -1,33 +1,37 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-#
-# This product includes GeoLite data created by MaxMind,
-# available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
+'''
+ Copyright European Organization for Nuclear Research (CERN)
 
-import geoip2.database
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+
+ This product includes GeoLite data created by MaxMind,
+ available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
+'''
 import gzip
 import os
-import pygeoip
 import random
-import requests
 import socket
 import time
 
-from dogpile.cache import make_region
 from math import asin, cos, radians, sin, sqrt
+
+from dogpile.cache import make_region
+
+import requests
+import pygeoip
+import geoip2.database
 
 from rucio.common import utils
 from rucio.common.exception import InvalidRSEExpression
 from rucio.core.rse_expression_parser import parse_expression
 
-region = make_region(function_key_generator=utils.my_key_generator).configure(
+REGION = make_region(function_key_generator=utils.my_key_generator).configure(
     'dogpile.cache.memory',
     expiration_time=30 * 86400,
 )
@@ -92,7 +96,7 @@ def get_lat_long(se, gi, gi2):
             return None, None
 
 
-@region.cache_on_arguments(namespace='site_distance')
+@REGION.cache_on_arguments(namespace='site_distance')
 def getDistance(se1, se2):
     """
     Get the distance between 2 host using the GeoLite DB
