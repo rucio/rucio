@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
 
 """
 Create history table (based on the example provided in the sqlalchemy examples directory)
@@ -20,8 +21,8 @@ from sqlalchemy.orm.properties import RelationshipProperty
 
 
 def col_references_table(col, table):
-    for fk in col.foreign_keys:
-        if fk.references(table):
+    for fki in col.foreign_keys:
+        if fki.references(table):
             return True
     return False
 
@@ -78,21 +79,21 @@ def _history_mapper(local_mapper):
         bases = local_mapper.base_mapper.class_.__bases__
     versioned_cls = type.__new__(type, "%sHistory" % cls.__name__, bases, {})
 
-    m = mapper(versioned_cls,
-               table,
-               inherits=super_history_mapper,
-               polymorphic_on=polymorphic_on,
-               polymorphic_identity=local_mapper.polymorphic_identity)
-    cls.__history_mapper__ = m
+    mapr = mapper(versioned_cls,
+                  table,
+                  inherits=super_history_mapper,
+                  polymorphic_on=polymorphic_on,
+                  polymorphic_identity=local_mapper.polymorphic_identity)
+    cls.__history_mapper__ = mapr
 
 
 class Versioned(object):
     @declared_attr
     def __mapper_cls__(cls):
         def map(cls, *arg, **kw):
-            mp = mapper(cls, *arg, **kw)
-            _history_mapper(mp)
-            return mp
+            mpr = mapper(cls, *arg, **kw)
+            _history_mapper(mpr)
+            return mpr
         return map
 
 
@@ -113,13 +114,13 @@ def create_version(obj, session, deleted=False):
 
     obj_changed = False
 
-    for om, hm in zip(obj_mapper.iterate_to_root(), history_mapper.iterate_to_root()):
-        if hm.single:
+    for omi, hmi in zip(obj_mapper.iterate_to_root(), history_mapper.iterate_to_root()):
+        if hmi.single:
             continue
 
-        for hist_col in hm.local_table.c:
+        for hist_col in hmi.local_table.c:
 
-            obj_col = om.local_table.c[hist_col.key]
+            obj_col = omi.local_table.c[hist_col.key]
 
             # get the value of the
             # attribute based on the MapperProperty related to the
