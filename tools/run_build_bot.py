@@ -44,7 +44,7 @@ def needs_testing(mr_id):
             if dateutil.parser.parse(comment['created_at']) > comparison_time:
                 needs_testing = False
                 comparison_time = dateutil.parser.parse(comment['created_at'])
-        elif comment['body'].startswith('Added'):
+        elif 'Compare with previous version' in comment['body']:
             if dateutil.parser.parse(comment['created_at']) > comparison_time:
                 needs_testing = True
                 comparison_time = dateutil.parser.parse(comment['created_at'])
@@ -153,7 +153,7 @@ def start_test(mr):
         print 'Error while restarting httpd'
         sys.exit(-1)
 
-    changed_files = commands.getoutput('git diff-tree --no-commit-id --name-only -r HEAD | grep .py | grep -v .py.mako').splitlines()
+    changed_files = commands.getoutput('git diff-tree --no-commit-id --name-only -r --diff-filter=AMRT HEAD | grep .py | grep -v .py.mako').splitlines()
 
     command = """
     cd %s; source .venv/bin/activate;
