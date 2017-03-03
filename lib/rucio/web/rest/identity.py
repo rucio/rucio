@@ -8,6 +8,7 @@
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014-2015
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
 '''
 
 import json
@@ -57,14 +58,14 @@ class UserPass(RucioController):
 
         try:
             add_identity(username, 'userpass', password)
-        except Exception, e:
-            raise InternalError(e)
+        except Exception, error:
+            raise InternalError(error)
 
         try:
             add_account_identity(username, 'userpass', account,
                                  email=None, issuer=ctx.env.get('issuer'))
-        except Exception, e:
-            raise InternalError(e)
+        except Exception, error:
+            raise InternalError(error)
 
         raise Created()
 
@@ -91,14 +92,14 @@ class X509(RucioController):
         dn = ctx.env.get('SSL_CLIENT_S_DN')
         try:
             add_identity(dn, 'x509', email=None)
-        except Exception, e:
-            raise InternalError(e)
+        except Exception, error:
+            raise InternalError(error)
 
         try:
             add_account_identity(dn, 'x509', account,
                                  email=None, issuer=ctx.env.get('issuer'))
-        except Exception, e:
-            raise InternalError(e)
+        except Exception, error:
+            raise InternalError(error)
 
         raise Created()
 
@@ -125,14 +126,14 @@ class GSS(RucioController):
         gsscred = ctx.env.get('REMOTE_USER')
         try:
             add_identity(gsscred, 'gss', email=None)
-        except Exception, e:
-            raise InternalError(e)
+        except Exception, error:
+            raise InternalError(error)
 
         try:
             add_account_identity(gsscred, 'gss', account,
                                  email=None, issuer=ctx.env.get('issuer'))
-        except Exception, e:
-            raise InternalError(e)
+        except Exception, error:
+            raise InternalError(error)
 
         raise Created()
 
@@ -156,10 +157,10 @@ class Accounts(RucioController):
         """
         try:
             return json.dumps(list_accounts_for_identity(identity_key, type))
-        except Exception, e:
-            print e
+        except Exception, error:
+            print error
             print str(format_exc())
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 # ----------------------
