@@ -81,7 +81,7 @@ def trace(payload):
     LOGGER.debug(report)
 
     try:
-        conn = random.sample(conns, 1)[0]
+        conn = random.sample(CONNS, 1)[0]
         if not conn.is_connected():
             logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
             conn.start()
