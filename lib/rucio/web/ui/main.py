@@ -6,21 +6,26 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 
+"""
+Main WebUI
+"""
+
+
 from os.path import dirname, join
 
-from web import application, header, input, seeother, template
+from web import application, header, input as param_input, seeother, template
 
 from rucio.common.utils import generate_http_error
 from rucio.web.ui.common.utils import check_token, get_token
 
 
-urls = (
+URLS = (
     '/', 'Index',
     '/account_rse_usage', 'AccountRSEUsage',
     '/account_usage', 'AccountUsage',
@@ -49,39 +54,38 @@ urls = (
     '/search', 'Search',
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
-    '/subscriptions', 'Subscriptions',
-    '/api_usage', 'HTTPAPIUsage',
-    '/webstats', 'HTTPMonitoringIndex',
-    '/webstats/accounts', 'HTTPMonitoringAccounts',
-    '/webstats/accounts/(.*)', 'HTTPMonitoringAccountDetails',
-    '/webstats/scriptids', 'HTTPMonitoringScriptIDs',
-    '/webstats/scriptids/(.*)', 'HTTPMonitoringScriptIDDetails',
-    '/webstats/apiclasses', 'HTTPMonitoringApiClasses',
-    '/webstats/apiclasses/(.*)', 'HTTPMonitoringApiClassDetails',
-    '/webstats/resources', 'HTTPMonitoringResources',
+    '/subscriptions', 'Subscriptions'
 )
 
 
-class AccountUsage():
-    def GET(self):
+class AccountUsage(object):
+    """ Group Account Usage overview """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.account_usage())
 
 
-class AccountRSEUsage():
-    def GET(self):
+class AccountRSEUsage(object):
+    """ RSE usage per account  """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.account_rse_usage())
 
 
-class ApproveRules():
-    def GET(self):
+class ApproveRules(object):
+    """ R2D2 rule approval overview """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.approve_rules())
 
 
-class Auth():
-    def GET(self):
+class Auth(object):
+    """ Local Auth Proxy """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         token = get_token()
         if token:
             header('X-Rucio-Auth-Token', token)
@@ -90,214 +94,210 @@ class Auth():
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get token')
 
 
-class Accounting():
-    def GET(self):
+class Accounting(object):
+    """ Accounting """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.accounting())
 
 
-class BadReplicas():
-    def GET(self):
+class BadReplicas(object):
+    """ Bad replica monitoring """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.bad_replicas())
 
 
-class SuspiciousReplicas():
-    def GET(self):
+class SuspiciousReplicas(object):
+    """ AccountUsage """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.suspicious_replicas())
 
 
-class BadReplicasSummary():
-    def GET(self):
+class BadReplicasSummary(object):
+    """ Bad replica overview """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.bad_replicas_summary())
 
 
-class BacklogMon():
-    def GET(self):
+class BacklogMon(object):
+    """ Rule Backlog Monitor """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.backlog_mon())
 
 
-class Cond():
-    def GET(self):
+class Cond(object):
+    """ Condition DB overview """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.cond())
 
 
-class DID():
-    def GET(self):
+class DID(object):
+    """ DID detail page """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.did())
 
 
-class DBRelease():
-    def GET(self):
+class DBRelease(object):
+    """ DB release overview """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.dbrelease())
 
 
-class Dumps():
-    def GET(self):
+class Dumps(object):
+    """ Description page for dumps """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.dumps())
 
-
-class Heartbeats():
-    def GET(self):
+class Heartbeats(object):
+    """ Heartbeat monitoring """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.heartbeats())
 
 
-class ListRules():
-    def GET(self):
+class ListRules(object):
+    """ R2D2 rules list """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.list_rules())
 
 
-class ListRulesRedirect():
-    def GET(self):
-        params = input()
+class ListRulesRedirect(object):
+    """ R2D2 redirect from old url """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        params = param_input()
         url = '/r2d2?'
         for key, value in params.items():
             url += key + '=' + value + '&'
         seeother(url[:-1])
 
 
-class Rule():
-    def GET(self):
+class Rule(object):
+    """ Rule details page """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rule())
 
 
-class RequestRule():
-    def GET(self):
+class RequestRule(object):
+    """ R2D2 request page """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.request_rule())
 
 
-class RequestRuleRedirect():
-    def GET(self):
+class RequestRuleRedirect(object):
+    """ R2D2 redirect from old url """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         seeother('/r2d2/request')
 
 
-class Subscription():
-    def GET(self):
+class Subscription(object):
+    """ Subscription detail page """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.subscription())
 
 
-class SubscriptionRules():
-    def GET(self):
+class SubscriptionRules(object):
+    """ Rule list for a subscription """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.subscriptionrules())
 
 
-class Index():
-    def GET(self):
+class Index(object):
+    """ Main page """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.index())
 
 
-class Infrastructure():
-    def GET(self):
+class Infrastructure(object):
+    """ Infrastructure overview """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.infrastructure())
 
 
-class Rules():
-    def GET(self):
+class Rules(object):
+    """ Rules list """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rules())
 
 
-class RSEUsage():
-    def GET(self):
+class RSEUsage(object):
+    """ Disk space usage per RSE """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rse_usage())
 
 
-class RSEAccountUsage():
-    def GET(self):
+class RSEAccountUsage(object):
+    """ RSE account usage """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rse_account_usage())
 
 
-class RSELocks():
-    def GET(self):
+class RSELocks(object):
+    """ Locks overview per RSE """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rse_locks())
 
 
-class Search():
-    def GET(self):
+class Search(object):
+    """ Search page for dids """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.search())
 
 
-class Subscriptions():
-    def GET(self):
+class Subscriptions(object):
+    """ Subscriptions overview """
+    def GET(self): # pylint:disable=no-self-use,invalid-name
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.subscriptions())
 
-
-class HTTPAPIUsage():
-    def GET(self):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_api_usage())
-
-
-class HTTPMonitoringIndex():
-    def GET(self):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_monitoring_index())
-
-
-class HTTPMonitoringAccounts():
-    def GET(self):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_monitoring_accounts())
-
-
-class HTTPMonitoringAccountDetails():
-    def GET(self, account):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_monitoring_account_details())
-
-
-class HTTPMonitoringScriptIDs():
-    def GET(self):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_monitoring_scriptids())
-
-
-class HTTPMonitoringScriptIDDetails():
-    def GET(self, account):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_monitoring_scriptid_details())
-
-
-class HTTPMonitoringApiClasses():
-    def GET(self):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_monitoring_apiclasses())
-
-
-class HTTPMonitoringApiClassDetails():
-    def GET(self, account):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_monitoring_apiclass_details())
-
-
-class HTTPMonitoringResources():
-    def GET(self):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.http_monitoring_resources())
 
 """----------------------
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
+app = application(URLS, globals())
 application = app.wsgifunc()
