@@ -1,12 +1,15 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+'''
 
 from json import loads
 from requests import get
@@ -14,61 +17,89 @@ from requests import get
 from rucio.common.config import config_get
 
 
-class MappingCollector:
+class MappingCollector(object):
     """
     Provides mappings from PanDA / DDM resources to ATLAS sites and back.
     """
-    class __MappingCollector:
+    class _MappingCollector(object):
+        '''
+        _MappingCollector
+        '''
+
         def __init__(self):
-            self._fetchPandaMapping()
-            self._fetchDDMMapping()
+            '''
+            __init__
+            '''
+            self._fetch_panda_mapping()
+            self._fetch_ddm_mapping()
 
-        def _fetchPandaMapping(self):
-            r = get(config_get('c3po-site-mapper', 'panda_url'))
-            data = loads(r.text)
-            self._panda_to_site = {}
-            self._site_to_panda = {}
-
-            for entry in data:
-                self._panda_to_site[entry['panda_resource']] = entry['atlas_site']
-                if entry['atlas_site'] not in self._site_to_panda:
-                    self._site_to_panda[entry['atlas_site']] = []
-                self._site_to_panda[entry['atlas_site']].append(entry['panda_resource'])
-
-        def _fetchDDMMapping(self):
-            r = get(config_get('c3po-site-mapper', 'ddm_url'))
-            data = loads(r.text)
-            self._site_to_ddm = {}
-            self._ddm_to_site = {}
+        def _fetch_panda_mapping(self):
+            '''
+            _fetch_panda_mapping
+            '''
+            result = get(config_get('c3po-site-mapper', 'panda_url'))
+            data = loads(result.text)
+            self.panda_to_site = {}
+            self.site_to_panda = {}
 
             for entry in data:
-                self._ddm_to_site[entry['name']] = entry['site']
-                if entry['site'] not in self._site_to_ddm:
-                    self._site_to_ddm[entry['site']] = []
-                self._site_to_ddm[entry['site']].append(entry['name'])
+                self.panda_to_site[entry['panda_resource']] = entry['atlas_site']
+                if entry['atlas_site'] not in self.site_to_panda:
+                    self.site_to_panda[entry['atlas_site']] = []
+                self.site_to_panda[entry['atlas_site']].append(entry['panda_resource'])
+
+        def _fetch_ddm_mapping(self):
+            '''
+            _fetch_ddm_mapping
+            '''
+            result = get(config_get('c3po-site-mapper', 'ddm_url'))
+            data = loads(result.text)
+            self.site_to_ddm = {}
+            self.ddm_to_site = {}
+
+            for entry in data:
+                self.ddm_to_site[entry['name']] = entry['site']
+                if entry['site'] not in self.site_to_ddm:
+                    self.site_to_ddm[entry['site']] = []
+                self.site_to_ddm[entry['site']].append(entry['name'])
 
     instance = None
 
     def __init__(self):
+        '''
+        __init__
+        '''
         if not MappingCollector.instance:
-            MappingCollector.instance = MappingCollector.__MappingCollector()
+            MappingCollector.instance = MappingCollector._MappingCollector()
 
     def ddm_to_site(self, ddm):
-        if ddm not in self.instance._ddm_to_site:
+        '''
+        ddm_to_site
+        '''
+        if ddm not in self.instance.ddm_to_site:
             return None
-        return self.instance._ddm_to_site[ddm]
+        return self.instance.ddm_to_site[ddm]
 
     def panda_to_site(self, panda):
-        if panda not in self.instance._panda_to_site:
+        '''
+        panda_to_site
+        '''
+        if panda not in self.instance.panda_to_site:
             return None
-        return self.instance._panda_to_site[panda]
+        return self.instance.panda_to_site[panda]
 
     def site_to_ddm(self, site):
-        if site not in self.instance._site_to_ddm:
+        '''
+        site_to_ddm
+        '''
+        if site not in self.instance.site_to_ddm:
             return None
-        return self.instance._site_to_ddm[site]
+        return self.instance.site_to_ddm[site]
 
     def site_to_panda(self, site):
-        if site not in self.instance._site_to_panda:
+        '''
+        site_to_panda
+        '''
+        if site not in self.instance.site_to_panda:
             return None
-        return self.instance._site_to_panda[site]
+        return self.instance.site_to_panda[site]

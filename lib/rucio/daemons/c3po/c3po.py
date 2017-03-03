@@ -1,29 +1,30 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2017
+'''
+ Copyright European Organization for Nuclear Research (CERN)
 
-"""
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2017
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+
 Dynamic data placement daemon.
-"""
+'''
 
 import logging
 from datetime import datetime
 from json import dumps
 from Queue import Queue
-from requests import post
-from requests.auth import HTTPBasicAuth
-from requests.exceptions import RequestException
 from sys import stdout
 from time import sleep
 from uuid import uuid4
-
 from threading import Event, Thread
+
+from requests import post
+from requests.auth import HTTPBasicAuth
+from requests.exceptions import RequestException
 
 from rucio.client import Client
 from rucio.common.config import config_get, config_get_options
@@ -36,85 +37,79 @@ logging.basicConfig(stream=stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(filename)s\t%(levelname)s\t%(message)s')
 
-graceful_stop = Event()
+GRACEFUL_STOP = Event()
 
 
 def read_free_space(once=False, thread=0, waiting_time=1800):
     """
     Thread to collect the space usage information for RSEs.
     """
-
     free_space_collector = FreeSpaceCollector()
-    w = waiting_time
-    while not graceful_stop.is_set():
-        if w < waiting_time:
-            w += 10
+    timer = waiting_time
+    while not GRACEFUL_STOP.is_set():
+        if timer < waiting_time:
+            timer += 10
             sleep(10)
             continue
 
         logging.info('collecting free space')
         free_space_collector.collect_free_space()
-        w = 0
+        timer = 0
 
 
 def read_workload(once=False, thread=0, waiting_time=1800):
     """
     Thread to collect the workload information from PanDA.
     """
-
     workload_collector = WorkloadCollector()
-    w = waiting_time
-    while not graceful_stop.is_set():
-        if w < waiting_time:
-            w += 10
+    timer = waiting_time
+    while not GRACEFUL_STOP.is_set():
+        if timer < waiting_time:
+            timer += 10
             sleep(10)
             continue
 
         logging.info('collecting workload')
         workload_collector.collect_workload()
-        w = 0
+        timer = 0
 
 
 def print_workload(once=False, thread=0, waiting_time=600):
     """
     Thread to regularly output the workload to logs for debugging.
     """
-
     workload_collector = WorkloadCollector()
-    w = waiting_time
-    while not graceful_stop.is_set():
-        if w < waiting_time:
-            w += 10
+    timer = waiting_time
+    while not GRACEFUL_STOP.is_set():
+        if timer < waiting_time:
+            timer += 10
             sleep(10)
             continue
 
         logging.info('Number of sites cached %d' % len(workload_collector.get_sites()))
         for site in workload_collector.get_sites():
             logging.info('%s: %d / %d / %d' % (site, workload_collector.get_cur_jobs(site), workload_collector.get_avg_jobs(site), workload_collector.get_max_jobs(site)))
-        w = 0
+        timer = 0
 
 
 def read_dids(once=False, thread=0, did_collector=None, waiting_time=60):
     """
     Thread to collect DIDs for the placement algorithm.
     """
-
-    w = waiting_time
-    while not graceful_stop.is_set():
-        if w < waiting_time:
-            w += 10
+    timer = waiting_time
+    while not GRACEFUL_STOP.is_set():
+        if timer < waiting_time:
+            timer += 10
             sleep(10)
             continue
 
         did_collector.get_dids()
-        w = 0
+        timer = 0
 
 
 def create_rule(client, did, src_rse, dst_rse):
     logging.debug('create rule for %s from %s to %s' % (did, src_rse, dst_rse))
-
     r = client.add_replication_rule([did, ], 1, dst_rse, lifetime=604800, account='c3po', source_replica_expression=src_rse, activity='Data Brokering', asynchronous=True)
-
     logging.debug(r)
 
 
@@ -184,7 +179,7 @@ def place_replica(once=False,
             auth = HTTPBasicAuth(config_get('c3po', 'elastic_user'), config_get('c3po', 'elastic_pass'))
 
         w = waiting_time
-        while not graceful_stop.is_set():
+        while not GRACEFUL_STOP.is_set():
             if w < waiting_time:
                 w += 10
                 sleep(10)
@@ -196,7 +191,7 @@ def place_replica(once=False,
             else:
                 logging.debug('(%s) no dids in queue' % (instance_id))
 
-            for i in xrange(0, len_dids):
+            for _ in xrange(0, len_dids):
                 did = did_queue.get()
                 for algorithm, instance in instances.items():
                     logging.info('(%s:%s) Retrieved %s:%s from queue. Run placement algorithm' % (algorithm, instance_id, did[0], did[1]))
@@ -244,7 +239,7 @@ def stop(signum=None, frame=None):
     """
     Graceful exit.
     """
-    graceful_stop.set()
+    GRACEFUL_STOP.set()
 
 
 def run(once=False,
@@ -267,7 +262,6 @@ def run(once=False,
     logging.info('activating C-3PO')
 
     thread_list = []
-
     try:
         if only_workload:
             logging.info('running in workload-collector-only mode')
@@ -295,11 +289,12 @@ def run(once=False,
                                                                                           'min_recent_requests': min_recent_requests,
                                                                                           'max_replicas': max_replicas}))
 
-        [t.start() for t in thread_list]
+        for t in thread_list:
+            t.start()
 
         logging.info('waiting for interrupts')
 
         while len(thread_list) > 0:
             [t.join(timeout=3) for t in thread_list if t and t.isAlive()]
-    except Exception, e:
-        logging.critical(e)
+    except Exception as exception:
+        logging.critical(exception)
