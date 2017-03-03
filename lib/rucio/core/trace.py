@@ -7,7 +7,11 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
+
+"""
+Core tracer module
+"""
 
 import json
 import logging
@@ -20,47 +24,48 @@ import stomp
 from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
 
-errlog = logging.getLogger('errlog')
-errlog.setLevel(logging.ERROR)
+ERRLOG = logging.getLogger('errlog')
+ERRLOG.setLevel(logging.ERROR)
 
-logger = logging.getLogger('trace')
-logger.setLevel(logging.INFO)
+LOGGER = logging.getLogger('trace')
+LOGGER.setLevel(logging.INFO)
 
-handler = logging.handlers.RotatingFileHandler(filename='%s/trace' % config_get('trace', 'tracedir'), maxBytes=1000000000, backupCount=10)
+HANDLER = logging.handlers.RotatingFileHandler(filename='%s/trace' % config_get('trace', 'tracedir'), maxBytes=1000000000, backupCount=10)
 
-logFormatter = logging.Formatter('%(message)s')
-handler.setFormatter(logFormatter)
-handler.suffix = "%Y-%m-%d"
-logger.addHandler(handler)
+LOGFORMATTER = logging.Formatter('%(message)s')
+HANDLER.setFormatter(LOGFORMATTER)
+HANDLER.suffix = "%Y-%m-%d"
+LOGGER.addHandler(HANDLER)
 
-brokers_alias = []
-brokers_resolved = []
+BROKERSALIAS = []
+
 try:
-    brokers_alias = [b.strip() for b in config_get('trace', 'brokers').split(',')]
+    BROKERSALIAS = [b.strip() for b in config_get('trace', 'brokers').split(',')]
 except:
     raise Exception('Could not load brokers from configuration')
-port = config_get_int('trace', 'port')
-topic = config_get('trace', 'topic')
-username = config_get('trace', 'username')
-password = config_get('trace', 'password')
+PORT = config_get_int('trace', 'port')
+TOPIC = config_get('trace', 'topic')
+USERNAME = config_get('trace', 'username')
+PASSWORD = config_get('trace', 'password')
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
-brokers_resolved = []
-for broker in brokers_alias:
+BROKERSRESOLVED = []
+for broker in BROKERSALIAS:
     try:
-        brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
-        brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+        BROKERSRESOLVED.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
+        BROKERSRESOLVED = [item for sublist in BROKERSRESOLVED for item in sublist]
     except:
         pass
 
-conns = []
+CONNS = []
 
-for broker in brokers_resolved:
-    conns.append(stomp.Connection(host_and_ports=[(broker, port)], reconnect_attempts_max=3))
+for broker in BROKERSRESOLVED:
+    CONNS.append(stomp.Connection(host_and_ports=[(broker, PORT)], reconnect_attempts_max=3))
 
 
 def date_handler(obj):
+    """ format dates to ISO format """
     return obj.isoformat() if hasattr(obj, 'isoformat') else obj
 
 
@@ -73,14 +78,14 @@ def trace(payload):
 
     record_counter('trace.trace')
     report = json.dumps(payload, default=date_handler)
-    logger.debug(report)
+    LOGGER.debug(report)
 
     try:
         conn = random.sample(conns, 1)[0]
         if not conn.is_connected():
             logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
             conn.start()
-            conn.connect(username, password)
-        conn.send(body=report, destination=topic, headers={'persistent': 'true', 'appversion': 'rucio'})
-    except Exception, e:
-        errlog.error(e)
+            conn.connect(USERNAME, PASSWORD)
+        conn.send(body=report, destination=TOPIC, headers={'persistent': 'true', 'appversion': 'rucio'})
+    except Exception, error:
+        ERRLOG.error(error)
