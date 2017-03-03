@@ -23,7 +23,7 @@ from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupporte
 
 class TestBaseClient():
     """ To test Clients"""
-    def __init__(self):
+    def setup(self):
         self.cacert = config_get('test', 'cacert')
         self.usercert = config_get('test', 'usercert')
         try:
