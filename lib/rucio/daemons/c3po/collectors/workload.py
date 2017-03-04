@@ -6,24 +6,32 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2017
+
+"""
+C3PO PanDA workload collector
+"""
 
 import logging
 from json import loads
-from requests import get
 from time import time
+
+from requests import get
 
 from rucio.common.config import config_get, config_get_int
 from rucio.daemons.c3po.utils.timeseries import RedisTimeSeries
 
 
-class WorkloadCollector:
+class WorkloadCollector(object):
     """
     Collector to retrieve the workload from PanDA. It stores it as a time series in Redis and provides
     the average and maximum number of running jobs for a sliding window.
     """
 
-    class __WorkloadCollector:
+    class __WorkloadCollector(object):
+        """
+        Private class needed implement singleton.
+        """
         def __init__(self, delete_keys=False):
             self._avg_jobs = {}
             self._cur_jobs = {}
