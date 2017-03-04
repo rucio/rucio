@@ -238,6 +238,8 @@ def start_test(mr):
     else:
         error_lines.insert(0, '#### BUILD-BOT TEST RESULT: FAIL\n\n')
 
+    commands.getstatusoutput('/sbin/service httpd stop')
+
     update_merg_request(mr=mr, test_result=tests_passed, comment=error_lines)
 
     # Checkout original master
