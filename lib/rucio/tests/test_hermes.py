@@ -1,21 +1,24 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
+#  Copyright European Organization for Nuclear Research (CERN)
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  You may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Authors:
+#  - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+#  - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
-'''
+"""
+Hermes Test
+"""
 
 from rucio.common.config import config_get
 from rucio.core.message import add_message
 from rucio.daemons.hermes import hermes
 
 
-class TestHermes:
+class TestHermes(object):
     ''' Test the messaging deamon. '''
 
     def test_hermes(self):

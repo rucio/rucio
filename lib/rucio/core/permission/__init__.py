@@ -6,6 +6,11 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+
+"""
+Init
+"""
 
 from ConfigParser import NoOptionError, NoSectionError
 
@@ -14,13 +19,13 @@ from rucio.common import config
 if config.config_has_section('permission'):
 
     try:
-        policy = config.config_get('permission', 'policy')
+        POLICY = config.config_get('permission', 'policy')
     except (NoOptionError, NoSectionError) as error:
-        policy = 'generic'
+        POLICY = 'generic'
 
-    if policy.lower() == 'generic':
+    if POLICY.lower() == 'generic':
         from rucio.core.permission.generic import *  # NOQA
-    elif policy.lower() == 'atlas':
+    elif POLICY.lower() == 'atlas':
         from rucio.core.permission.atlas import *  # NOQA
     else:
         from rucio.core.permission.generic import *  # NOQA
