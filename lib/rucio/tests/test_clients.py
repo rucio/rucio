@@ -1,13 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+'''
 
 from os import remove
 
@@ -21,15 +24,18 @@ from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupporte
 
 
 class TestBaseClient():
+    """ To test Clients"""
+    def __init__(self):
+        pass
 
     def setup(self):
         self.cacert = config_get('test', 'cacert')
         self.usercert = config_get('test', 'usercert')
         try:
             remove(get_tmp_dir() + '/.rucio_root/auth_token_root')
-        except OSError, e:
-            if e.args[0] != 2:
-                raise e
+        except OSError as error:
+            if error.args[0] != 2:
+                raise error
 
     def tearDown(self):
         pass
@@ -70,6 +76,9 @@ class TestBaseClient():
 
 
 class TestRucioClients():
+    """ To test Clients"""
+    def __init__(self):
+        pass
 
     def setup(self):
         self.cacert = config_get('test', 'cacert')
@@ -79,6 +88,6 @@ class TestRucioClients():
         """ PING (CLIENT): Ping Rucio """
         creds = {'username': 'ddmlab', 'password': 'secret'}
 
-        c = Client(account='root', ca_cert=self.cacert, auth_type='userpass', creds=creds)
+        client = Client(account='root', ca_cert=self.cacert, auth_type='userpass', creds=creds)
 
-        print c.ping()
+        print client.ping()
