@@ -7,28 +7,30 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 import logging
 
+from json import dumps, loads
 from requests import post
 from requests.auth import HTTPBasicAuth
-from json import dumps, loads
 
 from rucio.common.config import config_get, config_get_options
 
-elastic_url = config_get('es-atlas', 'url')
+ELASTIC_URL = config_get('es-atlas', 'url')
 
-elastic_options = config_get_options('es-atlas')
+ELASTIC_OPTIONS = config_get_options('es-atlas')
 
-auth = None
-if ('username' in elastic_options) and ('password' in elastic_options):
-    auth = HTTPBasicAuth(config_get('es-atlas', 'username'), config_get('es-atlas', 'password'))
+AUTH = None
+if ('username' in ELASTIC_OPTIONS) and ('password' in ELASTIC_OPTIONS):
+    AUTH = HTTPBasicAuth(config_get('es-atlas', 'username'), config_get('es-atlas', 'password'))
 
-elastic_ca_cert = False
-if 'ca_cert' in elastic_options:
-    elastic_ca_cert = config_get('es-atlas', 'ca_cert')
+if 'ca_cert' in ELASTIC_OPTIONS:
+    ELASTIC_CA_CERT = config_get('es-atlas', 'ca_cert')
+else:
+    ELASTIC_CA_CERT = False
 
-url = elastic_url + '/atlas_rucio-popularity-*/_search'
+URL = ELASTIC_URL + '/atlas_rucio-popularity-*/_search'
 
 
 def get_popularity(did):
@@ -59,15 +61,15 @@ def get_popularity(did):
     query['query']['bool']['must'].append({"term": {"name": did[1]}})
 
     logging.debug(query)
-    if auth:
-        r = post(url, data=dumps(query), auth=auth, verify=elastic_ca_cert)
+    if AUTH:
+        res = post(URL, data=dumps(query), auth=AUTH, verify=ELASTIC_CA_CERT)
     else:
-        r = post(url, data=dumps(query), verify=elastic_ca_cert)
+        res = post(URL, data=dumps(query), verify=ELASTIC_CA_CERT)
 
-    if r.status_code != 200:
+    if res.status_code != 200:
         return None
 
-    result = loads(r.text)
+    result = loads(res.text)
 
     if 'aggregations' in result:
         if 'pop' in result['aggregations']:
