@@ -10,9 +10,10 @@
  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
  - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 '''
+
 import copy
 import os
 
@@ -55,10 +56,10 @@ def get_rse_info(rse, session=None):
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
     # __request_rse_info, rse_region are defined in /rucio/rse/__init__.py
-    rse_info = rse_region.get(str(rse))   # NOQA pylint: disable=undefined-variable
+    rse_info = RSE_REGION.get(str(rse))   # NOQA pylint: disable=undefined-variable
     if not rse_info:  # no cached entry found
         rse_info = __request_rse_info(str(rse), session=session)  # NOQA pylint: disable=undefined-variable
-        rse_region.set(str(rse), rse_info)  # NOQA pylint: disable=undefined-variable
+        RSE_REGION.set(str(rse), rse_info)  # NOQA pylint: disable=undefined-variable
     return rse_info
 
 
@@ -81,7 +82,6 @@ def select_protocol(rse_settings, operation, scheme=None):
             if protocol['scheme'] not in scheme:
                 tbr.append(protocol)
                 continue
-        # Check if operation in domain is supported
         for d in rse_settings['domain']:
             if protocol['domains'][d][operation] == 0:
                 tbr.append(protocol)
