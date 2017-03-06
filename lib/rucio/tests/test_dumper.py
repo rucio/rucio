@@ -1,3 +1,19 @@
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#              http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Fernando Lopez, <felopez@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+
+
+import __builtin__
+import os
+import tempfile
+
 from StringIO import StringIO
 from datetime import datetime
 from nose.tools import eq_
@@ -9,11 +25,8 @@ from rucio.tests.common import make_temp_file
 from rucio.tests.common import stubbed
 from rucio.tests.common import mock_open
 from rucio.tests.mock import gfal2
-import __builtin__
 import bz2file
-import os
 import requests
-import tempfile
 
 DATE_SECONDS = "2015-03-10 14:00:35"
 DATE_TENTHS = "2015-03-10T14:00:35.5"
@@ -58,7 +71,7 @@ def test_smart_open_for_bz2_file():
 
 def test_temp_file_with_final_name_creates_a_tmp_file_and_then_removes_it():
     final_name = tempfile.mktemp()
-    with dumper.temp_file('/tmp', final_name) as (tmpf, tmp_path):
+    with dumper.temp_file('/tmp', final_name) as (_, tmp_path):
         tmp_path = os.path.join('/tmp', tmp_path)
         ok_(os.path.exists(tmp_path), tmp_path)
         ok_(not os.path.exists(final_name), tmp_path)
@@ -69,7 +82,7 @@ def test_temp_file_with_final_name_creates_a_tmp_file_and_then_removes_it():
 
 
 def test_temp_file_with_final_name_creates_a_tmp_file_and_keeps_it():
-    with dumper.temp_file('/tmp') as (tmpf, tmp_path):
+    with dumper.temp_file('/tmp') as (_, tmp_path):
         tmp_path = os.path.join('/tmp', tmp_path)
         ok_(os.path.exists(tmp_path), tmp_path)
 
@@ -79,7 +92,7 @@ def test_temp_file_with_final_name_creates_a_tmp_file_and_keeps_it():
 
 def test_temp_file_cleanup_on_exception():
     try:
-        with dumper.temp_file('/tmp') as (tmpf, tmp_path):
+        with dumper.temp_file('/tmp') as (_, tmp_path):
             tmp_path = os.path.join('/tmp', tmp_path)
             raise Exception
     except:
@@ -91,7 +104,7 @@ def test_temp_file_cleanup_on_exception():
 def test_temp_file_cleanup_on_exception_with_final_name():
     final_name = tempfile.mktemp()
     try:
-        with dumper.temp_file('/tmp', final_name) as (tmpf, tmp_path):
+        with dumper.temp_file('/tmp', final_name) as (_, tmp_path):
             tmp_path = os.path.join('/tmp', tmp_path)
             raise Exception
     except:

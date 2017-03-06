@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
 
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
@@ -62,12 +62,12 @@ class Rule:
         header('Content-Type', 'application/json')
         try:
             rule = get_replication_rule(rule_id)
-        except RuleNotFound, e:
-            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RuleNotFound as error:
+            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            raise InternalError(error)
 
         return render_json(**rule)
 
@@ -88,20 +88,20 @@ class Rule:
             params = loads(json_data)
             options = params['options']
             update_replication_rule(rule_id=rule_id, options=options, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except RuleNotFound, e:
-            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except ScratchDiskLifetimeConflict, e:
-            raise generate_http_error(409, 'ScratchDiskLifetimeConflict', e.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except RuleNotFound as error:
+            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0][0])
+        except ScratchDiskLifetimeConflict as error:
+            raise generate_http_error(409, 'ScratchDiskLifetimeConflict', error.args[0])
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
-        except UnsupportedOperation:
-            raise generate_http_error(409, 'UnsupportedOperation', e.args[0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except UnsupportedOperation as error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
         raise OK()
 
     def DELETE(self, rule_id):
@@ -127,14 +127,14 @@ class Rule:
 
         try:
             delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation, e:
-            raise generate_http_error(401, 'UnsupportedOperation', e.args[0][0])
-        except RuleNotFound, e:
-            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
-        except Exception, e:
-            raise InternalError(e)
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except UnsupportedOperation as error:
+            raise generate_http_error(401, 'UnsupportedOperation', error.args[0][0])
+        except RuleNotFound as error:
+            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+        except Exception, error:
+            raise InternalError(error)
         raise OK()
 
 
@@ -163,11 +163,11 @@ class AllRule:
         try:
             for rule in list_replication_rules(filters=filters):
                 yield dumps(rule, cls=APIEncoder) + '\n'
-        except RuleNotFound, e:
-            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
-        except Exception, e:
+        except RuleNotFound as error:
+            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
     def POST(self):
         """
@@ -251,36 +251,36 @@ class AllRule:
                                             split_container=split_container,
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
-        except InvalidReplicationRule, e:
-            raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
-        except DuplicateRule, e:
-            raise generate_http_error(409, 'DuplicateRule', e.args[0])
-        except InsufficientTargetRSEs, e:
-            raise generate_http_error(409, 'InsufficientTargetRSEs', e.args[0][0])
-        except InsufficientAccountLimit, e:
-            raise generate_http_error(409, 'InsufficientAccountLimit', e.args[0][0])
-        except InvalidRSEExpression, e:
-            raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except ReplicationRuleCreationTemporaryFailed, e:
-            raise generate_http_error(409, 'ReplicationRuleCreationTemporaryFailed', e.args[0][0])
-        except InvalidRuleWeight, e:
-            raise generate_http_error(409, 'InvalidRuleWeight', e.args[0][0])
-        except StagingAreaRuleRequiresLifetime, e:
-            raise generate_http_error(409, 'StagingAreaRuleRequiresLifetime', e.args[0])
-        except ScratchDiskLifetimeConflict, e:
-            raise generate_http_error(409, 'ScratchDiskLifetimeConflict', e.args[0])
-        except ManualRuleApprovalBlocked, e:
-            raise generate_http_error(409, 'ManualRuleApprovalBlocked', e.args[0])
-        except InvalidObject, e:
-            raise generate_http_error(409, 'InvalidObject', e.args[0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            print e
+        except InvalidReplicationRule as error:
+            raise generate_http_error(409, 'InvalidReplicationRule', error.args[0][0])
+        except DuplicateRule as error:
+            raise generate_http_error(409, 'DuplicateRule', error.args[0])
+        except InsufficientTargetRSEs as error:
+            raise generate_http_error(409, 'InsufficientTargetRSEs', error.args[0][0])
+        except InsufficientAccountLimit as error:
+            raise generate_http_error(409, 'InsufficientAccountLimit', error.args[0][0])
+        except InvalidRSEExpression as error:
+            raise generate_http_error(409, 'InvalidRSEExpression', error.args[0][0])
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+        except ReplicationRuleCreationTemporaryFailed as error:
+            raise generate_http_error(409, 'ReplicationRuleCreationTemporaryFailed', error.args[0][0])
+        except InvalidRuleWeight as error:
+            raise generate_http_error(409, 'InvalidRuleWeight', error.args[0][0])
+        except StagingAreaRuleRequiresLifetime as error:
+            raise generate_http_error(409, 'StagingAreaRuleRequiresLifetime', error.args[0])
+        except ScratchDiskLifetimeConflict as error:
+            raise generate_http_error(409, 'ScratchDiskLifetimeConflict', error.args[0])
+        except ManualRuleApprovalBlocked as error:
+            raise generate_http_error(409, 'ManualRuleApprovalBlocked', error.args[0])
+        except InvalidObject as error:
+            raise generate_http_error(409, 'InvalidObject', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
+            print error
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise Created(dumps(rule_ids))
 
@@ -303,10 +303,10 @@ class ReplicaLocks:
         header('Content-Type', 'application/x-json-stream')
         try:
             locks = get_replica_locks_for_rule_id(rule_id)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            raise InternalError(error)
 
         for lock in locks:
             yield dumps(lock, cls=APIEncoder) + '\n'
@@ -346,16 +346,16 @@ class ReduceRule:
                                                exclude_expression=exclude_expression,
                                                issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
-        except RuleReplaceFailed, e:
-            raise generate_http_error(409, 'RuleReplaceFailed', e.args[0][0])
-        except RuleNotFound, e:
-            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            print e
+        except RuleReplaceFailed as error:
+            raise generate_http_error(409, 'RuleReplaceFailed', error.args[0][0])
+        except RuleNotFound as error:
+            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print error
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise Created(dumps(rule_ids))
 
@@ -378,10 +378,10 @@ class RuleHistory:
         header('Content-Type', 'application/x-json-stream')
         try:
             history = list_replication_rule_history(rule_id)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            raise InternalError(error)
 
         for hist in history:
             yield dumps(hist, cls=APIEncoder) + '\n'
@@ -405,10 +405,10 @@ class RuleHistoryFull:
         header('Content-Type', 'application/x-json-stream')
         try:
             history = list_replication_rule_full_history(scope, name)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            raise InternalError(error)
 
         for hist in history:
             yield dumps(hist, cls=APIEncoder) + '\n'
@@ -432,10 +432,10 @@ class RuleAnalysis:
         header('Content-Type', 'application/x-json-stream')
         try:
             analysis = examine_replication_rule(rule_id)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            raise InternalError(error)
 
         return render_json(**analysis)
 
