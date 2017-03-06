@@ -58,7 +58,7 @@ def get_scratchdisk_lifetime():
         try:
             scratchdisk_lifetime = config_get('policy', 'scratchdisk_lifetime')
             scratchdisk_lifetime = int(scratchdisk_lifetime)
-        except (NoOptionError, ValueError):
+        except (NoOptionError, NoSectionError, ValueError):
             scratchdisk_lifetime = 14
         REGION.set('scratchdisk_lifetime', scratchdisk_lifetime)
     return scratchdisk_lifetime
