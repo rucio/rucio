@@ -212,15 +212,14 @@ class PlacementAlgorithm:
                         # logging.debug('queued %s -> %s: %d' % (src_site, dst_site, queued))
                         if queued > 0:
                             continue
-                        rse_space = space_info.get(dst_rse, 0)
+                        rse_space = space_info.get(dst_rse, {'free': 0, 'total': 1})
                         if src_rse not in self._src_penalties:
                             self._src_penalties[src_rse] = 100.0
                         src_penalty = self._src_penalties[src_rse]
                         if dst_rse not in self._dst_penalties:
                             self._dst_penalties[dst_rse] = 100.0
                         dst_penalty = self._dst_penalties[dst_rse]
-                        if float(rse_space['total']) == 0.0:
-                            continue
+
                         free_space = float(rse_space['free']) / float(rse_space['total']) * 100.0
                         available_reps[src_rse][dst_rse] = {'free_space': free_space, 'src_penalty': src_penalty, 'dst_penalty': dst_penalty, 'mbps': float(mbps), 'metrics_type': net_metrics_type}
 
@@ -260,7 +259,7 @@ class PlacementAlgorithm:
         source_rse = sorted_ratios[0][0]
         decision['destination_rse'] = destination_rse
         decision['source_rse'] = source_rse
-        decision['rse_ratios'] = src_dst_ratios
+        # decision['rse_ratios'] = src_dst_ratios
         self._dst_penalties[destination_rse] = 10.0
         self._src_penalties[source_rse] = 10.0
 
