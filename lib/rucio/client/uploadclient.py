@@ -33,6 +33,7 @@ class UploadClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
         super(UploadClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
+    @staticmethod
     def upload_files(account, sources):
         """
         This operation is used to upload files into the system. First, file size,
@@ -66,7 +67,7 @@ class UploadClient(BaseClient):
 
         # Remove unaccessible/unexisting files from sources to avoid unnecessary checks on the server
         for src in report:
-            del(sources[src])
+            del sources[src]
 
         # ToDo the REST call for:  report = rucio_server.declare_for_upload(sources, atomic=False)
         # ToDo: Merge the response from above into the report array (per file)
@@ -79,8 +80,8 @@ class UploadClient(BaseClient):
                 # ToDo the REST call for: rucio_server.prepare_upload(account, sources[src], recommendation)
                 try:
                     RSEMgr.upload(src, recommendation)
-                except (RSEAccessDenied, FullStorage), e:
-                    report[src] = e
+                except (RSEAccessDenied, FullStorage), error:
+                    report[src] = error
                     continue
                 # ToDo the REST call for: rucio_server.confirm_upload(src, recommendation)
                 report[src] = True

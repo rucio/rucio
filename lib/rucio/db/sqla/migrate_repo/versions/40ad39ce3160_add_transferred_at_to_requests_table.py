@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 """add_transferred_at_to_requests_table
 
@@ -21,8 +22,8 @@ from alembic.op import add_column, drop_column
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '40ad39ce3160'
-down_revision = '2ba5229cb54c'
+revision = '40ad39ce3160'  # pylint: disable=invalid-name
+down_revision = '2ba5229cb54c'  # pylint: disable=invalid-name
 
 
 def upgrade():
