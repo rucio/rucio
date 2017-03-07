@@ -7,6 +7,13 @@
 # Authors:
 # - Fernando Lopez, <felopez@cern.ch>, 2015
 
+import Queue
+import glob
+import logging
+import os.path
+import select
+import sys
+
 from datetime import datetime
 from datetime import timedelta
 from rucio.common import config
@@ -16,12 +23,6 @@ from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
 from rucio.daemons.auditor.hdfs import ReplicaFromHDFS
 from rucio.daemons.auditor import srmdumps
-import Queue
-import glob
-import logging
-import os.path
-import select
-import sys
 
 
 def total_seconds(td):
@@ -32,10 +33,10 @@ def total_seconds(td):
 def consistency(rse, delta, configuration, cache_dir, results_dir):
     logger = logging.getLogger('auditor-worker')
     rsedump, rsedate = srmdumps.download_rse_dump(rse, configuration, destdir=cache_dir)
-    results_path = '{0}/{1}_{2}'.format(results_dir, rse, rsedate.strftime('%Y%m%d'))
+    results_path = '{0}/{1}_{2}'.format(results_dir, rse, rsedate.strftime('%Y%m%d'))  # pylint: disable=no-member
 
     if os.path.exists(results_path):
-        logger.warn('Consistency check for "%s" (dump dated %s) already done, skipping check', rse, rsedate.strftime('%Y%m%d'))
+        logger.warn('Consistency check for "%s" (dump dated %s) already done, skipping check', rse, rsedate.strftime('%Y%m%d'))  # pylint: disable=no-member
         return
 
     rrdump_prev = ReplicaFromHDFS.download(rse, rsedate - delta, cache_dir=cache_dir)
@@ -102,8 +103,8 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
             remove = glob.glob(os.path.join(cache_dir, 'replicafromhdfs_{0}_*'.format(rse)))
             remove.extend(glob.glob(os.path.join(cache_dir, 'ddmendpoint_{0}_*'.format(rse))))
             logger.debug('Removing: %s', remove)
-            for f in remove:
-                os.remove(f)
+            for fil in remove:
+                os.remove(fil)
 
         if not success and attemps > 0:
             retry.put((rse, attemps - 1))
