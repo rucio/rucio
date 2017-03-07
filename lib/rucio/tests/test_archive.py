@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 
 from nose.tools import assert_equal
@@ -17,9 +18,9 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.common.utils import generate_uuid
 
 
-class TestDIDClients:
+class TestDIDClients(object):
 
-    def setup(self):
+    def __init__(self):
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
 
@@ -44,7 +45,7 @@ class TestDIDClients:
                                              name=archive_file,
                                              files=files)
 
-        content = [file for file in self.did_client.list_archive_content(scope=scope,
-                                                                         name=archive_file)]
+        content = [fil for fil in self.did_client.list_archive_content(scope=scope,
+                                                                       name=archive_file)]
 
         assert_equal(len(content), 10)
