@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 import json
@@ -43,7 +43,7 @@ logging.basicConfig(stream=sys.stdout,
 
 def get_vo():
     vo_name = REGION.get('VO')
-    if type(vo_name) is NoValue:
+    if isinstance(vo_name, NoValue):
         try:
             vo_name = config_get('common', 'vo')
         except NoOptionError:
@@ -52,9 +52,21 @@ def get_vo():
     return vo_name
 
 
+def get_scratchdisk_lifetime():
+    scratchdisk_lifetime = REGION.get('scratchdisk_lifetime')
+    if isinstance(scratchdisk_lifetime, NoValue):
+        try:
+            scratchdisk_lifetime = config_get('policy', 'scratchdisk_lifetime')
+            scratchdisk_lifetime = int(scratchdisk_lifetime)
+        except (NoOptionError, NoSectionError, ValueError):
+            scratchdisk_lifetime = 14
+        REGION.set('scratchdisk_lifetime', scratchdisk_lifetime)
+    return scratchdisk_lifetime
+
+
 def get_lifetime_policy():
     lifetime_dict = REGION.get('lifetime_dict')
-    if type(lifetime_dict) is NoValue:
+    if isinstance(lifetime_dict, NoValue):
         lifetime_dict = {'data': [], 'mc': [], 'valid': [], 'other': []}
         try:
             lifetime_dir = config_get('lifetime', 'directory')
@@ -71,6 +83,18 @@ def get_lifetime_policy():
 
 @read_session
 def define_eol(scope, name, rses, session=None):
+    """
+    ATLAS policy for rules on SCRATCHDISK
+
+    :param scope:    Scope of the DID.
+    :param name:     Name of the DID.
+    :param rses:     List of RSEs.
+    :param session:  The database session in use.
+    """
+    vo_name = get_vo()
+    if vo_name != 'atlas':
+        return None
+
     # Check if on ATLAS managed space
     if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') in ['LOCALGROUPDISK', 'LOCALGROUPTAPE', 'GROUPDISK', 'GROUPTAPE']]:
         return None
@@ -166,7 +190,7 @@ def define_eol(scope, name, rses, session=None):
 
 def get_lifetime_exceptions():
     lifetime_exceptions = REGION.get('lifetime_exceptions')
-    if type(lifetime_exceptions) is NoValue:
+    if isinstance(lifetime_exceptions, NoValue):
         exceptions = {}
         try:
             lifetime_dir = config_get('lifetime', 'directory')
@@ -197,14 +221,24 @@ def get_lifetime_exceptions():
 
 @read_session
 def get_scratch_policy(account, rses, lifetime, session=None):
+    """
+    ATLAS policy for rules on SCRATCHDISK
+
+    :param account:  Account of the rule.
+    :param rses:     List of RSEs.
+    :param lifetime: Lifetime.
+    :param session:  The database session in use.
+    """
+
     vo_name = get_vo()
+    scratchdisk_lifetime = get_scratchdisk_lifetime()
     if vo_name == 'atlas':
         # Check SCRATCHDISK Policy
-        if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * 15):
+        if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * scratchdisk_lifetime):
             # Check if one of the rses is a SCRATCHDISK:
             if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
                 if len(rses) == 1:
-                    lifetime = 60 * 60 * 24 * 15 - 1
+                    lifetime = 60 * 60 * 24 * scratchdisk_lifetime - 1
                 else:
                     raise ScratchDiskLifetimeConflict()
         return lifetime
