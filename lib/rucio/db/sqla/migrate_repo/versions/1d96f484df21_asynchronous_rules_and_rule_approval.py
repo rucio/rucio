@@ -21,8 +21,8 @@ from alembic import context
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '1d96f484df21'
-down_revision = '3d9813fab443'
+revision = '1d96f484df21'  # pylint: disable=invalid-name
+down_revision = '3d9813fab443'  # pylint: disable=invalid-name
 
 
 def upgrade():

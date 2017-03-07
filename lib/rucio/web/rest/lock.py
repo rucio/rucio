@@ -27,7 +27,7 @@ URLS = ('/(.*)/(.*)', 'LockByScopeName',
         '/(.*)', 'LockByRSE')
 
 
-class LockByRSE:
+class LockByRSE(object):
     """ REST APIs for dataset locks. """
 
     def GET(self, rse):
@@ -54,13 +54,13 @@ class LockByRSE:
                     yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
+            raise InternalError(error)
 
 
-class LockByScopeName:
+class LockByScopeName(object):
     """ REST APIs for dataset locks. """
 
     def GET(self, scope, name):
@@ -87,10 +87,10 @@ class LockByScopeName:
                     yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception, error:
+            raise InternalError(error)
 
 
 """----------------------
