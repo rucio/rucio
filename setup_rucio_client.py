@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 import os
@@ -22,20 +22,19 @@ except ImportError:
     from ez_setup import use_setuptools
     use_setuptools()
 
-if sys.version_info < (2, 4):
-    print('ERROR: Rucio requires at least Python 2.5 to run.')
-    sys.exit(1)
-
-sys.path.insert(0, os.path.abspath('lib/'))
-
 from rucio import version
+
+if sys.version_info < (2, 5):
+    print('ERROR: Rucio requires at least Python 2.6 to run.')
+    sys.exit(1)
+sys.path.insert(0, os.path.abspath('lib/'))
 
 
 # Arguments to the setup script to build Basic/Lite distributions
 copy_args = sys.argv[1:]
 name = 'rucio-clients'
 IsRelease = False
-packages = ['rucio', 'rucio.client', 'rucio.client.cli', 'rucio.common',
+packages = ['rucio', 'rucio.client', 'rucio.common',
             'rucio.rse.protocols', 'rucio.rse', 'rucio.tests',
             'rucio.tests.emulation', 'rucio.tests.emulation.usecases']
 requirements_files = ['tools/pip-requires-client']
