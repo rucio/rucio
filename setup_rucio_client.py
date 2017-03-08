@@ -15,12 +15,7 @@ import subprocess
 import sys
 
 from distutils.command.sdist import sdist as _sdist  # pylint:disable=no-name-in-module,import-error
-
-try:
-    from setuptools import setup
-except ImportError:
-    from ez_setup import use_setuptools
-    use_setuptools()
+from setuptools import setup
 
 from rucio import version
 
