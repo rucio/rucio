@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 
-from distutils.command.sdist import sdist as _sdist
+from distutils.command.sdist import sdist as _sdist  # pylint:disable=no-name-in-module,import-error
 
 try:
     from setuptools import setup
@@ -25,7 +25,7 @@ except ImportError:
 from rucio import version
 
 if sys.version_info < (2, 5):
-    print('ERROR: Rucio requires at least Python 2.6 to run.')
+    print 'ERROR: Rucio requires at least Python 2.6 to run.'
     sys.exit(1)
 sys.path.insert(0, os.path.abspath('lib/'))
 
@@ -67,7 +67,7 @@ if os.path.isdir('.git'):
     else:
         git_version_cmd = '''git describe --dirty=-dev`date +%s`'''
     git_version = run_git_command(git_version_cmd)
-    branch_nick_cmd = 'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'
+    branch_nick_cmd = r'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'
     branch_nick = run_git_command(branch_nick_cmd)
     revid_cmd = "git rev-parse HEAD"
     revid = run_git_command(revid_cmd)
