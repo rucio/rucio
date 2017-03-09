@@ -8,8 +8,13 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
 
-# How to generate test outputs:
-#   nosetests --verbose --with-outputsave --save-directory=doc/source/example_outputs/ lib/rucio/tests/test_curl.py
+
+"""
+Test the API via CURL
+
+ nosetests --verbose --with-outputsave --save-directory=doc/source/example_outputs/ lib/rucio/tests/test_curl.py
+
+"""
 
 import json
 import os
@@ -19,7 +24,10 @@ from rucio.common.config import config_get
 from rucio.tests.common import account_name_generator, rse_name_generator, execute
 
 
-class TestCurlRucio():
+class TestCurlRucio(object):
+    """
+    Test the API via CURL
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -113,6 +121,7 @@ class TestCurlRucio():
     def test_get_accounts_whoami(self):
         """ACCOUNT (CURL): Test whoami method"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
+        print cmd
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):-1]
