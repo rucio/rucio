@@ -29,7 +29,7 @@ def upgrade():
     '''
     upgrade method
     '''
-    if context.get_context().dialect.name not in ('sqlite'):
+    if context.get_context().dialect.name not in ['sqlite']:
         add_column('rules', sa.Column('ignore_availability', sa.Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False))
 
 
@@ -37,5 +37,5 @@ def downgrade():
     '''
     downgrade method
     '''
-    if context.get_context().dialect.name not in ('sqlite'):
+    if context.get_context().dialect.name not in ['sqlite']:
         drop_column('rules', 'ignore_availability')

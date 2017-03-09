@@ -20,12 +20,12 @@ from dogpile.cache.api import NoValue
 
 from rucio.core import rse as rse_core
 
-region = make_region().configure('dogpile.cache.memcached',
+REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
                                  arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
 
 # for local test
-# region = make_region().configure('dogpile.cache.memory',
+# REGION = make_region().configure('dogpile.cache.memory',
 #                                  expiration_time=3600)
 
 
@@ -40,12 +40,12 @@ def get_rse_attributes(rse_id, session=None):
     :returns: A dictionary with RSE attributes for a RSE.
     """
 
-    result = region.get(rse_id)
-    if type(result) is NoValue:
+    result = REGION.get(rse_id)
+    if isinstance(result, NoValue):
         try:
             result = None
             result = rse_core.list_rse_attributes(None, rse_id=rse_id, session=session)
-            region.set(rse_id, result)
+            REGION.set(rse_id, result)
         except:
             logging.warning("Failed to get RSE %s attributes, error: %s" % (rse_id, traceback.format_exc()))
     return result

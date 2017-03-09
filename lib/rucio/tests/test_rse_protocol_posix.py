@@ -8,6 +8,10 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
 
+"""
+Test the posix protocol
+"""
+
 import json
 import os
 import shutil
@@ -19,10 +23,14 @@ from nose.tools import raises
 
 from rucio.common import exception
 from rucio.rse import rsemanager as mgr
-from rsemgr_api_test import MgrTestCases
+from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
-class TestRsePOSIX():
+class TestRsePOSIX(object):
+    """
+    Test the posix protocol
+    """
+
     tmpdir = None
     user = None
 
