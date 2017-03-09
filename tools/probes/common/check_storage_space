@@ -11,11 +11,9 @@
 # - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2017
 
-import os
 import sys
 
 from rucio.client import Client
-from rucio.common.config import config_get
 from rucio.common.exception import RSEProtocolNotSupported
 from rucio.rse import rsemanager as rsemgr
 from rucio.api.rse import list_rse_attributes
@@ -23,11 +21,10 @@ from rucio.api.rse import list_rse_attributes
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 
-def get_space(rsename, proxy, protocol='srm'):
-    client = Client()
+def get_space(rsename, protocol, client):
     retvalue = OK
     rse_settings = rsemgr.get_rse_info(rsename)
-    print protocol
+    print 'Running on %s, using %s method' % (rsename, protocol)
     if rse_settings['protocols'] and protocol == 'json':
         rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gsiftp.Default'
         protocol = 'gsiftp'
@@ -41,7 +38,7 @@ def get_space(rsename, proxy, protocol='srm'):
             print "Failed to get rse(%s) space information: %s" % (rsename, str(ret))
             retvalue = WARNING
     except RSEProtocolNotSupported as error:
-        print error
+        print 'Protocol %s not found on %s' % (protocol, rsename)
         retvalue = WARNING
     except Exception as error:
         print "Failed to get rse(%s) space information: %s" % (rsename, str(error))
@@ -63,22 +60,15 @@ if __name__ == "__main__":
     usedsize = 0
     freesize = 0
 
-    try:
-        PROXY = config_get('nagios', 'proxy')
-        os.environ["X509_USER_PROXY"] = PROXY
-    except Exception as error:
-        print "Failed to get proxy from rucio.cfg"
-
-    client = Client()
-    rses = client.list_rses('cloud=%s' % cloud)
+    CLIENT = Client()
+    rses = CLIENT.list_rses('cloud=%s' % cloud)
     for rse in sorted(rses):
         rsename = rse['rse']
-        print 'Running on %s' % rsename
         attr = list_rse_attributes(rsename)
         if 'space_usage_method' in attr.keys():
-            retvalue = get_space(rsename, PROXY, protocol=attr['space_usage_method'])
+            retvalue = get_space(rsename, protocol=attr['space_usage_method'], client=CLIENT)
         else:
-            retvalue = get_space(rsename, PROXY, protocol='srm')
+            retvalue = get_space(rsename, protocol='srm', client=CLIENT)
 
         exitvalue = max(exitvalue, retvalue)
     sys.exit(exitvalue)
