@@ -8,45 +8,51 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
+"""
+Utility classes for C3PO
+"""
 
 from collections import deque
 from threading import Lock, Timer
 
 
-class ExpiringList:
+class ExpiringList(object):
+    """
+    Simple list with time based element expiration
+    """
+
+    def __init__(self, timeout=1):
+        self._lock = Lock()
+        self._timeout = timeout
+        self._items = deque()
+
+    def add(self, item):
+        """Add event time
         """
-        Simple list with time based element expiration
+        with self._lock:
+            self._items.append(item)
+            Timer(self._timeout, self._expire).start()
+
+    def __len__(self):
         """
+        Return number of active events
+        """
+        with self._lock:
+            return len(self._items)
 
-        def __init__(self, timeout=1):
-            self._lock = Lock()
-            self._timeout = timeout
-            self._items = deque()
+    def _expire(self):
+        """
+        Remove any expired events
+        """
+        with self._lock:
+            self._items.popleft()
 
-        def add(self, item):
-            """Add event time
-            """
-            with self._lock:
-                self._items.append(item)
-                Timer(self._timeout, self._expire).start()
+    def to_set(self):
+        """
+        Return items as a set
+        """
+        return set(self._items)
 
-        def __len__(self):
-            """
-            Return number of active events
-            """
-            with self._lock:
-                return len(self._timer)
-
-        def _expire(self):
-            """
-            Remove any expired events
-            """
-            with self._lock:
-                self._items.popleft()
-
-        def to_set(self):
-            return set(self._items)
-
-        def __str__(self):
-            with self._lock:
-                return str(self._items)
+    def __str__(self):
+        with self._lock:
+            return str(self._items)
