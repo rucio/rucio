@@ -64,6 +64,7 @@ class Default(protocol.RSEProtocol):
                 space_usage_url = res['space_usage_url']
 
         import gfal2
+        gfal2.set_verbose(gfal2.verbose_level.normal)
         try:
             if os.path.exists(dest):
                 os.remove(dest)
