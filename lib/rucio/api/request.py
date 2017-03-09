@@ -8,6 +8,10 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 
+"""
+Interface for the requests abstraction layer
+"""
+
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import request
@@ -41,7 +45,7 @@ def query_request(request_id, issuer, account):
 
     kwargs = {'account': account, 'issuer': issuer, 'request_id': request_id}
     if not permission.has_permission(issuer=issuer, action='query_request', kwargs=kwargs):
-        raise exception.AccessDenied('%(account)s cannot query request %s(request_id)s' % locals())
+        raise exception.AccessDenied('%s cannot query request %s' % (account, request_id))
 
     return request.query_request(request_id)
 
@@ -57,9 +61,9 @@ def cancel_request(request_id, issuer, account):
 
     kwargs = {'account': account, 'issuer': issuer, 'request_id': request_id}
     if not permission.has_permission(issuer=issuer, action='cancel_request_', kwargs=kwargs):
-        raise exception.AccessDenied('%(account)s cannot cancel request %s(request_id)s' % locals())
+        raise exception.AccessDenied('%s cannot cancel request %s' % (account, request_id))
 
-    return request.cancel_request(request_id)
+    raise NotImplementedError
 
 
 def cancel_request_did(scope, name, dest_rse, request_type, issuer, account):

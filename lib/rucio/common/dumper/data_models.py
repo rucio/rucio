@@ -6,6 +6,11 @@
 #
 # Authors:
 # - Fernando Lopez, <felopez@cern.ch>, 2015
+
+"""
+Download dumps via HTTP
+"""
+
 import collections
 import datetime
 import hashlib
@@ -25,8 +30,15 @@ from rucio.common.dumper import to_datetime
 
 
 class DataModel(object):
+    """
+    Data model for the dumps
+    """
+
     BASE_URL = 'https://rucio-hadoop.cern.ch/'
     _FIELD_NAMES = None
+    SCHEMA = []
+    URI = None
+    name = None
 
     def __init__(self, *args):
         if len(args) != len(self.SCHEMA):
@@ -42,36 +54,51 @@ class DataModel(object):
         for (attr, parse), value in zip(self.SCHEMA, args):
             try:
                 setattr(self, attr, parse(value))
-            except ValueError, e:
-                e.args = ('str parseable with {0} expected but got "{1}"'.format(
+            except ValueError as err:
+                err.args = ('str parseable with {0} expected but got "{1}"'.format(
                     str(parse),
                     value,
                 ),)
-                raise e
+                raise err
 
         self.date = None
 
     @classmethod
     def get_fieldnames(cls):
+        """
+        Get the field names
+        """
         if cls._FIELD_NAMES is None:
             cls._FIELD_NAMES = [name for name, _ in cls.SCHEMA]
         return cls._FIELD_NAMES
 
     def pprint(self):
+        """
+        Pretty print the dump
+        """
         return ''.join(
             ['{0}: {1}\n'.format(attr, getattr(self, attr)) for attr, _ in self.SCHEMA]
         )
 
     def __getitem__(self, index):
+        """
+        Return the item
+        """
         return getattr(self, self.SCHEMA[index][0])
 
     @classmethod
     def csv_header(cls, fields=None):
+        """
+        Add the CSV header if necessary
+        """
         if fields is None:
             fields = (field for field, _ in cls.SCHEMA)
         return ','.join(fields)
 
     def formated_fields(self, print_fields=None):
+        """
+        Reformat the fields
+        """
         if print_fields is None:
             print_fields = (field for field, _ in self.SCHEMA)
 
@@ -84,6 +111,9 @@ class DataModel(object):
         return fields
 
     def csv(self, fields=None):
+        """
+        Generate a CSV line
+        """
         return ','.join(self.formated_fields(fields))
 
     @classmethod
@@ -128,7 +158,7 @@ class DataModel(object):
 
         else:
             assert isinstance(date, datetime.datetime)
-            date = date.strftime('%d-%m-%Y')
+            date = date.strftime('%d-%m-%Y')  # pylint: disable=no-member
             url = ''.join((
                 cls.BASE_URL,
                 cls.URI,
@@ -158,8 +188,8 @@ class DataModel(object):
                 )
                 raise HTTPDownloadFailed('Downloading {0} dump'.format(cls.__name__), code=response.status_code)
 
-            with temp_file(cache_dir, final_name=filename) as (f, _):
-                http_download_to_file(url, f, session=requests_session)
+            with temp_file(cache_dir, final_name=filename) as (tfile, _):
+                http_download_to_file(url, tfile, session=requests_session)
 
         return path
 
@@ -167,7 +197,7 @@ class DataModel(object):
     def dump(cls, rse, date='latest', filter_=None):
         filename = cls.download(rse, date)
 
-        # FIXME: Check errors, content size at least
+        # Should check errors, content size at least
         file = smart_open(filename)
 
         return cls.each(file, rse, date, filter_)
@@ -261,7 +291,7 @@ class Filter(object):
         self.conditions = []
         for expr in filter_str.split(','):
             key, expected = expr.split('=')
-            # FIXME: Better checks
+            # Better checks required
             assert key in record_class.get_fieldnames()
             parser = filter(lambda t: t[0] == key, record_class.SCHEMA)[0][1]
             self.conditions.append(self._Condition(
