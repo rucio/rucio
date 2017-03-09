@@ -472,7 +472,7 @@ class Identities(RucioController):
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, type=authtype, account=account, email=email, issuer=ctx.env.get('issuer'))
+            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate as e:
