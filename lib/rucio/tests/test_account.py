@@ -21,6 +21,7 @@ from paste.fixture import TestApp
 from rucio.api.account import add_account, account_exists, del_account
 from rucio.api.account import get_account_status, set_account_status
 from rucio.client.accountclient import AccountClient
+from rucio.common.config import config_get
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
 from rucio.db.sqla.constants import AccountStatus
@@ -191,7 +192,7 @@ class TestAccountRestApi():
         headers4 = {'X-Rucio-Auth-Token': str(token)}
         res4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
         body = loads(res4.body)
-        assert_true(body['status'] == AccountStatus.DELETED.description)
+        assert_true(body['status'] == AccountStatus.DELETED.description)  # pylint: disable=no-member
         assert_equal(res3.status, 200)
 
     def test_del_user_failure(self):
@@ -282,7 +283,7 @@ class TestAccountClient():
 
     def test_list_accounts(self):
         """ ACCOUNT (CLIENTS): get list of all accounts."""
-        dn = '/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch'
+        dn = config_get('bootstrap', 'x509_identity')
         acc_list = [account_name_generator() for _ in xrange(5)]
         for account in acc_list:
             self.client.add_account(account, 'USER', 'rucio@email.com')
