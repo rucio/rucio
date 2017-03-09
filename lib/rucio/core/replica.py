@@ -1174,7 +1174,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                      models.DataIdentifier.name == name))
 
     for chunk in chunks(messages, 100):
-        session.bulk_insert_mappings(models.Message, *chunk)
+        session.bulk_insert_mappings(models.Message, chunk)
 
     for chunk in chunks(deleted_dids, 100):
         session.query(models.DataIdentifier).\
