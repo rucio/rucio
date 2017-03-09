@@ -9,19 +9,29 @@
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
+"""
+Test the Permission Core and API
+"""
+
 from nose.tools import assert_true, assert_false
 
 from rucio.api.permission import has_permission
+from rucio.common.config import config_get
 from rucio.core.scope import add_scope
 from rucio.tests.common import scope_name_generator
 
 
-class TestPermissionCoreApi():
+class TestPermissionCoreApi(object):
+    """
+    Test the Permission Core and API
+    """
 
     def setup(self):
+        """ Setup Test Case """
         self.usr = 'jdoe'
 
     def tearDown(self):
+        """ Tear down Test Case """
         pass
 
     def test_permission_add_did(self):
@@ -49,7 +59,7 @@ class TestPermissionCoreApi():
 
     def test_permission_get_auth_token_x509(self):
         """ PERMISSION(CORE): Check permission to get_auth_token_x509 """
-        dn = '/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch'
+        dn = config_get('bootstrap', 'x509_identity')
         assert_true(has_permission(issuer='root', action='get_auth_token_x509', kwargs={'account': 'root', 'dn': dn}))
         assert_false(has_permission(issuer='root', action='get_auth_token_x509', kwargs={'account': self.usr, 'dn': dn}))
 

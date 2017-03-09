@@ -8,20 +8,30 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
+"""
+Collector to get the SRM free and used information for DATADISK RSEs.
+"""
+
 from rucio.db.sqla.models import RSE, RSEUsage, RSEAttrAssociation
 from rucio.db.sqla.session import read_session
 
 
-class FreeSpaceCollector():
+class FreeSpaceCollector(object):
     """
     Collector to get the SRM free and used information for DATADISK RSEs.
     """
-    class __FreeSpaceCollector:
+    class _FreeSpaceCollector(object):
+        """
+        Hidden implementation
+        """
         def __init__(self):
             self.rses = {}
 
         @read_session
         def _collect_free_space(self, session=None):
+            """
+            Retrieve free space from database
+            """
             query = session.query(RSE.rse, RSEUsage.free, RSEUsage.used).\
                 join(RSEUsage, RSE.id == RSEUsage.rse_id).\
                 join(RSEAttrAssociation, RSE.id == RSEAttrAssociation.rse_id).\
@@ -33,10 +43,16 @@ class FreeSpaceCollector():
 
     def __init__(self):
         if not FreeSpaceCollector.instance:
-            FreeSpaceCollector.instance = FreeSpaceCollector.__FreeSpaceCollector()
+            FreeSpaceCollector.instance = FreeSpaceCollector._FreeSpaceCollector()
 
     def collect_free_space(self):
+        """
+        Execute the free space collector
+        """
         self.instance._collect_free_space()
 
     def get_rse_space(self):
+        """
+        Return the RSE space
+        """
         return self.instance.rses
