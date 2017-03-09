@@ -12,6 +12,8 @@
 Fax consumer is a daemon to retrieve rucio cache operation information to synchronize rucio catalog.
 """
 
+from traceback import format_exc
+
 import logging
 import ssl
 import sys
@@ -21,8 +23,6 @@ import time
 import dns.resolver
 import json
 import stomp
-
-from traceback import format_exc
 
 from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
@@ -151,5 +151,5 @@ def run(num_thread=1):
     logging.info('waiting for interrupts')
 
     # Interruptible joins require a timeout.
-    while (t.isAlive()):
+    while t.isAlive():
         t.join(timeout=3.14)
