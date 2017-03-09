@@ -9,20 +9,28 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 
+"""
+Test the WebDAV protocol
+"""
+
 import json
 import os
-import requests
 import tempfile
 
+import requests
 from nose.tools import raises
 
 from rucio.common import exception
 from rucio.rse import rsemanager
-from rsemgr_api_test import MgrTestCases
+from rucio.tests.rsemgr_api_test import MgrTestCases
 from rucio.common.exception import FileReplicaAlreadyExists
 
 
-class TestRseWebDAV():
+class TestRseWebDAV(object):
+    """
+    Test the WebDAV protocol
+    """
+
     tmpdir = None
     user = None
 
@@ -63,8 +71,8 @@ class TestRseWebDAV():
                 storage.put('%s/%s' % (cls.tmpdir, f), destfile)
             except FileReplicaAlreadyExists, e:
                 print e
-        with open('%s/data.raw' % cls.tmpdir, 'rb') as f:
-            session.put(cls.static_file, data=f.read(), verify=False, allow_redirects=True)
+        with open('%s/data.raw' % cls.tmpdir, 'rb') as f_file:
+            session.put(cls.static_file, data=f_file.read(), verify=False, allow_redirects=True)
 
     @classmethod
     def tearDownClass(cls):
