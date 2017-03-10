@@ -15,6 +15,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
+# - Tobias Wegner <tobias.wegner@cern.ch>, 2017
 
 """
 Rucio CLI.
@@ -653,7 +654,11 @@ def list_content(args):
         scope, name = extract_scope(did)
         for content in client.list_content(scope=scope, name=name):
             table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    if args.short:
+        for did, dummy in table:
+            print did
+    else:
+        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
     return SUCCESS
 
 
@@ -2319,6 +2324,7 @@ Commands:
     list_content_parser = subparsers.add_parser('list-content', help='List the content of a collection.')
     list_content_parser.set_defaults(which='list_content')
     list_content_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    list_content_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
 
     # The list_content_history command
     list_content_history_parser = subparsers.add_parser('list-content-history', help='List the content history of a collection.')
