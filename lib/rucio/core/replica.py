@@ -1130,9 +1130,9 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                                 models.DataIdentifierAssociation.child_scope == child_scope, models.DataIdentifierAssociation.child_name == child_name))
 
                 clt_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope, models.CollectionReplica.name == parent_name,
-                                                 exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False)),  # NOQA
-                                                 ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                                                                                                                                     models.DataIdentifierAssociation.name == parent_name))))
+                                                  exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False)),  # NOQA
+                                                  ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                                                                                                                                      models.DataIdentifierAssociation.name == parent_name))))
 
                 tmp_parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name,
                                                  ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
@@ -1257,7 +1257,7 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
 
             total_bytes += bytes
             if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
-                    break
+                break
 
             total_files += 1
             if total_files > limit:
@@ -1367,7 +1367,7 @@ def touch_replica(replica, session=None):
             update({'accessed_at': accessed_at,
                     'tombstone': case([(and_(models.RSEFileAssociation.tombstone != none_value,
                                              models.RSEFileAssociation.tombstone != OBSOLETE),
-                                      accessed_at)],
+                                        accessed_at)],
                                       else_=models.RSEFileAssociation.tombstone)},
                    synchronize_session=False)
 
