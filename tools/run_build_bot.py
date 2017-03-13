@@ -160,7 +160,7 @@ def start_test(mr):
     cd .venv/lib/python2.7/site-packages/;
     ln -s %s/lib/rucio/;
     cd %s;
-    pip install cx_oracle;
+    pip install cx_oracle==5.2.1;
     python ../purge_bin.py;
     find lib -iname "*.pyc" | xargs rm; rm -rf /tmp/.rucio_*/;
     tools/reset_database.py;
