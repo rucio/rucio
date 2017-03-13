@@ -30,7 +30,7 @@ def main():
     type array_name  is table of VARCHAR2(255) index by binary_integer;   
     scopes  array_scope;
     names   array_name;
-    CURSOR get_content IS SELECT /*+ parallel(4) */ scope, name FROM ATLAS_RUCIO.ADG_ONLY_SCAN_CONTENTS WHERE rule_evaluation=1 and created_at < sys_extract_utc(localtimestamp)-2/24 GROUP BY scope, name;
+    CURSOR get_content IS SELECT /*+ parallel(4) */ scope, name FROM ATLAS_RUCIO.CONTENTS WHERE (CASE when RULE_EVALUATION = 1 then RULE_EVALUATION ELSE NULL END)=1 and created_at < sys_extract_utc(localtimestamp)-2/24 GROUP BY scope, name;
 BEGIN
     OPEN get_content;
     LOOP
