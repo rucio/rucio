@@ -938,6 +938,9 @@ def repair_rule(rule_id, session=None):
         elif rule.locks_stuck_cnt > 200:
             hard_repair = True
             logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
+        elif rule.copies > 1 and rule.grouping == RuleGrouping.NONE:
+            hard_repair = True
+            logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
 
         # Resolve the did to its contents
         datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
