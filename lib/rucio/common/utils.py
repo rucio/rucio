@@ -1,16 +1,14 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
-
 """
-Rucio utilities.
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
 """
 
 import datetime
@@ -448,7 +446,7 @@ def sizefmt(num, human=True):
         if human:
             for unit in ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z']:
                 if abs(num) < 1000.0:
-                    return "%3.1f %sB" % (num, unit)
+                    return "%3.3f %sB" % (num, unit)
                 num /= 1000.0
             return "%.1f %sB" % (num, 'Y')
         else:
