@@ -1,20 +1,21 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Wen Guan, <wen.guan@cern.ch>, 2015
+'''
+ Copyright European Organization for Nuclear Research (CERN)
 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+ - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+ - Martin Barisits, <martin.barisits@cern.ch>, 2013
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+ - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
+ - Wen Guan, <wen.guan@cern.ch>, 2015
+'''
 
 from json import dumps
 from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
@@ -33,7 +34,7 @@ from rucio.web.rest.rse import APP as rse_app
 from rucio.web.rest.authentication import APP as auth_app
 
 
-class TestRSECoreApi():
+class TestRSECoreApi(object):
 
     def test_create_and_check_for_rse(self):
         """ RSE (CORE): Test the creation, query, and deletion of a RSE """
@@ -105,7 +106,7 @@ class TestRSECoreApi():
         del_rse(rse)
 
 
-class TestRSE():
+class TestRSE(object):
 
     def test_create_rse_success(self):
         """ RSE (REST): send a POST to create a new RSE """
@@ -182,7 +183,7 @@ class TestRSE():
         assert_equal(r2.status, 200)
 
 
-class TestRSEClient():
+class TestRSEClient(object):
 
     def setup(self):
         self.client = RSEClient()
@@ -243,7 +244,7 @@ class TestRSEClient():
         """ RSE (CLIENTS): Get a RSE."""
         id = 'MOCK'
         props = self.client.get_rse(rse=id)
-        assert(props['rse'] == id)
+        assert props['rse'] == id
 
     # ADD PROTOCOLS
 
@@ -259,11 +260,9 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 4,
                                   'write': 1,
-                                  'delete': 0
-                                  }
+                                  'delete': 0}
                       },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 18,
@@ -272,11 +271,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 19,
@@ -285,11 +281,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 20,
@@ -298,12 +291,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 2,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
         resp = mgr.get_rse_info(protocol_rse)
@@ -313,7 +302,7 @@ class TestRSEClient():
                ((p['port'] == 18) and (p['domains']['lan']['read'] != 1)) or \
                ((p['port'] == 17) and (p['domains']['lan']['read'] != 4)):
                 print resp
-                assert(False)
+                assert False
 
         self.client.delete_protocols(protocol_rse, scheme='MOCK')
         self.client.delete_rse(protocol_rse)
@@ -330,11 +319,8 @@ class TestRSEClient():
                                   'domains': {
                                       'lan': {'read': 1,
                                               'write': 1,
-                                              'delete': 1
-                                              }
-                                  },
-                                  'extended_attributes': 'TheOneWithAllTheRest'
-                                  })
+                                              'delete': 1}},
+                                  'extended_attributes': 'TheOneWithAllTheRest'})
 
     @raises(InvalidObject)
     def test_add_protocol_missing_values(self):
@@ -375,11 +361,8 @@ class TestRSEClient():
                                           'domains': {
                                               'lan': {'read': 1,
                                                       'write': 1,
-                                                      'delete': 1
-                                                      }
-                                          },
-                                          'extended_attributes': 'TheOneWithAllTheRest'
-                                          })
+                                                      'delete': 1}},
+                                          'extended_attributes': 'TheOneWithAllTheRest'})
             except Exception, e:
                 self.client.delete_protocols(protocol_rse, 'MOCK_Duplicate')
                 self.client.delete_rse(protocol_rse)
@@ -401,11 +384,8 @@ class TestRSEClient():
                                   'domains': {
                                       'FIRENDS': {'read': 1,
                                                   'write': 1,
-                                                  'delete': 1
-                                                  }
-                                  },
-                                  'extended_attributes': 'TheOneWithAllTheRest'
-                                  })
+                                                  'delete': 1}},
+                                  'extended_attributes': 'TheOneWithAllTheRest'})
         self.client.delete_protocols(protocol_rse, 'Mock_Insuff_Params')
         self.client.delete_rse(protocol_rse)
 
@@ -425,11 +405,8 @@ class TestRSEClient():
                                       'domains': {
                                           'lan': {'read': 1,
                                                   'write': 1,
-                                                  'delete': 1
-                                                  }
-                                      },
-                                      'extended_attributes': 'TheOneWithAllTheRest'
-                                      })
+                                                  'delete': 1}},
+                                      'extended_attributes': 'TheOneWithAllTheRest'})
         try:
             self.client.add_protocol(protocol_rse,
                                      {'hostname': 'localhost',
@@ -440,11 +417,8 @@ class TestRSEClient():
                                       'domains': {
                                           'lan': {'read': 4,
                                                   'write': 99,
-                                                  'delete': -1
-                                                  }
-                                      },
-                                      'extended_attributes': 'TheOneWithAllTheRest'
-                                      })
+                                                  'delete': -1}},
+                                      'extended_attributes': 'TheOneWithAllTheRest'})
         except RSEProtocolPriorityError:
             self.client.delete_protocols(protocol_rse, scheme='MOCK')
             self.client.delete_rse(protocol_rse)
@@ -475,10 +449,7 @@ class TestRSEClient():
                                       'domains': {
                                           'lan': {'read': 1,
                                                   'write': 1,
-                                                  'delete': 1
-                                                  }
-                                      }
-                                      })
+                                                  'delete': 1}}})
         self.client.delete_protocols(protocol_rse, protocol_id)
 
         # check if empty
@@ -523,10 +494,8 @@ class TestRSEClient():
                                       'domains': {
                                           'lan': {'read': 1,
                                                   'write': 1,
-                                                  'delete': 1
-                                                  }},
-                                      'extended_attributes': 'TheOneWithAllTheRest'
-                                      })
+                                                  'delete': 1}},
+                                      'extended_attributes': 'TheOneWithAllTheRest'})
         self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost')
 
         # check if protocol for 'other_host' are still there
@@ -554,11 +523,8 @@ class TestRSEClient():
                                   'domains': {
                                       'lan': {'read': 1,
                                               'write': 1,
-                                              'delete': 1
-                                              }
-                                  },
-                                  'extended_attributes': 'TheOneWithAllTheRest'
-                                  })
+                                              'delete': 1}},
+                                  'extended_attributes': 'TheOneWithAllTheRest'})
         try:
             self.client.delete_protocols(protocol_rse, 'MOCK_Fail', hostname='an_other_host')
         except Exception, e:
@@ -584,10 +550,8 @@ class TestRSEClient():
                                       'domains': {
                                           'lan': {'read': 1,
                                                   'write': 1,
-                                                  'delete': 1
-                                                  }},
-                                      'extended_attributes': 'TheOneWithAllTheRest'
-                                      })
+                                                  'delete': 1}},
+                                      'extended_attributes': 'TheOneWithAllTheRest'})
         self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost', port=17)
 
         # check remaining protocols
@@ -615,11 +579,8 @@ class TestRSEClient():
                                   'domains': {
                                       'lan': {'read': 1,
                                               'write': 1,
-                                              'delete': 1
-                                              }
-                                  },
-                                  'extended_attributes': 'TheOneWithAllTheRest'
-                                  })
+                                              'delete': 1}},
+                                  'extended_attributes': 'TheOneWithAllTheRest'})
         try:
             self.client.delete_protocols(protocol_rse, 'MOCK_Fail', hostname='localhost', port=17)
         except Exception, e:
@@ -643,15 +604,11 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 1
-                                  },
+                                  'delete': 1},
                           'wan': {'read': 0,
                                   'write': 0,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE',
                       'hostname': 'localhost',
                       'port': 42,
@@ -660,15 +617,11 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 1,
-                                  'delete': 1
-                                  },
+                                  'delete': 1},
                           'wan': {'read': 0,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
@@ -677,16 +630,11 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 0,
-                                  'delete': 1
-                                  },
+                                  'delete': 1},
                           'wan': {'read': 1,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
         # GET all = 3
@@ -717,11 +665,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
                       'port': 42,
@@ -730,11 +675,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
@@ -743,12 +685,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 0,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         # Protocol identifier include supported operations
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
@@ -781,8 +719,7 @@ class TestRSEClient():
                           'lan': {'read': 1},
                           'wan': {'delete': 1}
                       },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE',
                       'hostname': 'localhost',
                       'port': 42,
@@ -792,8 +729,7 @@ class TestRSEClient():
                           'lan': {'write': 1},
                           'wan': {'read': 1}
                       },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
@@ -801,11 +737,8 @@ class TestRSEClient():
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
                           'lan': {'delete': 1},
-                          'wan': {'write': 1}
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                          'wan': {'write': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
 
@@ -847,9 +780,7 @@ class TestRSEClient():
                           'lan': {'read': 1},
                           'wan': {'delete': 1}
                       },
-                      'extended_attributes': {'Some': 'value', 'more': {'value1': 1, 'value2': 0}}
-                      }
-                     ]
+                      'extended_attributes': {'Some': 'value', 'more': {'value1': 1, 'value2': 0}}}]
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
 
@@ -869,11 +800,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
                       'port': 42,
@@ -882,11 +810,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
@@ -895,12 +820,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 0,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         # Protocol for read is undefined
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
@@ -931,12 +852,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         # Protocol for read is undefined
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
@@ -965,12 +882,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         # Protocol for read is undefined
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
@@ -999,11 +912,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
                       'port': 42,
@@ -1012,11 +922,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 1,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
@@ -1025,12 +932,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 0,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         # Protocol for read is undefined
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
@@ -1063,11 +966,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 11,
@@ -1076,12 +976,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      }
-                     ]
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}]
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
 
@@ -1106,12 +1002,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      }
-                     ]
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}]
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
 
@@ -1136,11 +1028,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCKB',
                       'hostname': 'localhost',
                       'port': 42,
@@ -1149,11 +1038,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 2,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCKC',
                       'hostname': 'localhost',
                       'port': 19,
@@ -1162,12 +1048,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 3,
                                   'write': 0,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
 
@@ -1185,303 +1067,6 @@ class TestRSEClient():
                     print prots
                     assert(False)
         assert(True)
-
-    # To make this test work again the dogpile.cache must be maintained. A lot of work for a very artificial use case?
-    # def test_update_protocols_enable_new_default(self):
-    #    """ RSE (CLIENTS): set new default protocol by setting it explicite."""
-    #    protocol_rse = rse_name_generator()
-    #    self.client.add_rse(protocol_rse)
-    #    protocols = [{'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 17,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 1,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 42,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 0,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 19,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 1,
-    #                              'write': 0,
-    #                              'delete': 1
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 ]
-    #    for p in protocols:
-    #        self.client.add_protocol(protocol_rse, p)
-
-    #    rse_attr = mgr.get_rse_info(protocol_rse)
-    #    rse_attr['domain'] = ['lan']
-    #    resp = mgr.select_protocol(rse_attr, 'read')
-    #    if resp['port'] != 19:
-    #        raise Exception('Update gave unexpected result for current default operation (i.e. insert failed): %s' % resp)
-    #    self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=42, data={'domains': {'lan': {'read': 1}}})
-    #    rse_attr = mgr.get_rse_info(protocol_rse)
-    #    rse_attr['domain'] = ['lan']
-    #    resp = mgr.select_protocol(rse_attr, 'read')
-    #    if resp['port'] != 42:
-    #        raise Exception('Update gave unexpected result for new default operation (i.e. update failed): %s' % resp)
-    #    rse_attr = mgr.get_rse_info(protocol_rse)
-    #    for r in rse_attr['protocols']:
-    #        if (r['port'] == 42 and r['domains']['lan']['read'] != 1) or (r['port'] == 19 and r['domains']['lan']['read'] != 2) or (r['port'] == 17 and r['domains']['lan']['read'] != 3):
-    #            raise Exception('Update gave unexpected result for nwe ranking (i.e. update existing failed): %s' % resp)
-    #    self.client.delete_protocols(protocol_rse, 'MOCK')
-    #    self.client.delete_rse(protocol_rse)
-    #
-    # def test_update_protocols_disable_default(self):
-    #    """ RSE (CLIENTS): set new default protocol by disabling the current default protocol."""
-    #    protocol_rse = rse_name_generator()
-    #    self.client.add_rse(protocol_rse)
-    #    protocols = [{'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 17,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 1,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 42,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 0,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 19,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 1,
-    #                              'write': 0,
-    #                              'delete': 1
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 ]
-    #    for p in protocols:
-    #        self.client.add_protocol(protocol_rse, p['scheme'], p)
-
-    #    resp = self.client.get_protocols(protocol_rse, operation='read', default=True, protocol_domain='lan')
-    #    if resp[0]['port'] != 19:
-    #        raise Exception('Update gave unexpected result for current default operation (i.e. insert failed): %s' % resp)
-    #    self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=19, data={'domains': {'lan': {'read': 0}}})
-    #    resp = self.client.get_protocols(protocol_rse, operation='read', default=True, protocol_domain='lan')
-    #    if resp[0]['port'] != 17:
-    #        raise Exception('Update gave unexpected result for new default operation (i.e. update failed): %s' % resp)
-    #    resp = self.client.get_protocols(protocol_rse, scheme='MOCK')
-    #    for r in resp:
-    #        if (r['port'] == 42 and r['domains']['lan']['read'] != 0) or (r['port'] == 19 and r['domains']['lan']['read'] != 0) or (r['port'] == 17 and r['domains']['lan']['read'] != 1):
-    #            raise Exception('Update gave unexpected result for nwe ranking (i.e. update existing failed): %s' % resp)
-    #    self.client.delete_protocols(protocol_rse, 'MOCK')
-    #    self.client.delete_rse(protocol_rse)
-
-    # def test_update_protocols_update_ranking_forward(self):
-    #    """ RSE (CLIENTS): assign high priority to one protocol."""
-    #    protocol_rse = rse_name_generator()
-    #    self.client.add_rse(protocol_rse)
-    #    protocols = [{'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 17,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 1,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 18,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 2,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 19,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 3,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 20,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 4,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 21,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 5,
-    #                              'write': 0,
-    #                              'delete': 1
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 ]
-    #    for p in protocols:
-    #        self.client.add_protocol(protocol_rse, p['scheme'], p)
-
-    #    self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=20, data={'domains': {'lan': {'read': 2}}})
-    #    resp = self.client.get_protocols(protocol_rse, scheme='MOCK')
-    #    for r in resp:
-    #        if (r['port'] == 17 and r['domains']['lan']['read'] != 1) or \
-    #           (r['port'] == 18 and r['domains']['lan']['read'] != 3) or \
-    #           (r['port'] == 19 and r['domains']['lan']['read'] != 4) or \
-    #           (r['port'] == 20 and r['domains']['lan']['read'] != 2) or \
-    #           (r['port'] == 21 and r['domains']['lan']['read'] != 5):
-    #            raise Exception('Update gave unexpected result for nwe ranking (i.e. update existing failed): %s' % resp)
-    #    self.client.delete_protocols(protocol_rse, 'MOCK')
-    #    self.client.delete_rse(protocol_rse)
-
-    # def test_update_protocols_update_ranking_backward(self):
-    #    """ RSE (CLIENTS): assign lower priority to one protocol."""
-    #    protocol_rse = rse_name_generator()
-    #    self.client.add_rse(protocol_rse)
-    #    protocols = [{'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 17,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 1,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 18,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 2,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 19,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 3,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 20,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 4,
-    #                              'write': 1,
-    #                              'delete': 0
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 {'scheme': 'MOCK',
-    #                  'hostname': 'localhost',
-    #                  'port': 21,
-    #                  'prefix': '/the/one/with/all/the/files',
-    #                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-    #                  'domains': {
-    #                      'lan': {'read': 5,
-    #                              'write': 0,
-    #                              'delete': 1
-    #                              }
-    #                  },
-    #                  'extended_attributes': 'TheOneWithAllTheRest'
-    #                  },
-    #                 ]
-    #    for p in protocols:
-    #        self.client.add_protocol(protocol_rse, p['scheme'], p)
-
-    #    self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=18, data={'domains': {'lan': {'read': 4}}})
-    #    resp = self.client.get_protocols(protocol_rse, scheme='MOCK')
-    #    for r in resp:
-    #        if (r['port'] == 17 and r['domains']['lan']['read'] != 1) or \
-    #           (r['port'] == 18 and r['domains']['lan']['read'] != 4) or \
-    #           (r['port'] == 19 and r['domains']['lan']['read'] != 2) or \
-    #           (r['port'] == 20 and r['domains']['lan']['read'] != 3) or \
-    #           (r['port'] == 21 and r['domains']['lan']['read'] != 5):
-    #            raise Exception('Update gave unexpected result for new ranking (i.e. update existing failed): %s' % resp)
-    #    self.client.delete_protocols(protocol_rse, 'MOCK')
-    #    self.client.delete_rse(protocol_rse)
 
     @raises(RSENotFound)
     def test_update_protocols_rse_not_found(self):
@@ -1501,11 +1086,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 42,
@@ -1514,11 +1096,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
+                                  'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
@@ -1527,12 +1106,8 @@ class TestRSEClient():
                       'domains': {
                           'lan': {'read': 0,
                                   'write': 0,
-                                  'delete': 1
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     ]
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
 
@@ -1592,11 +1167,8 @@ class TestRSEClient():
                                       'domains': {
                                           'lan': {'read': 1,
                                                   'write': 1,
-                                                  'delete': 1
-                                                  }
-                                      },
-                                      'extended_attributes': 'TheOneWithAllTheRest'
-                                      })
+                                                  'delete': 1}},
+                                      'extended_attributes': 'TheOneWithAllTheRest'})
         try:
             self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=42, data={'domains': {'lan': {'read': 4}}})
         except RSEProtocolPriorityError:
