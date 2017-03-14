@@ -1,14 +1,14 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Wen Guan, <wguan@cern.ch>, 2014
-
 """
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Wen Guan, <wguan@cern.ch>, 2014
+
 Fax consumer is a daemon to retrieve rucio cache operation information to synchronize rucio catalog.
 """
 
@@ -35,22 +35,33 @@ logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-graceful_stop = threading.Event()
+GRACEFUL_STOP = threading.Event()
 
 
 class Consumer(object):
-
+    '''
+    class Consumer
+    '''
     def __init__(self, broker, account, id, num_thread):
+        '''
+        __init__
+        '''
         self.__broker = broker
         self.__account = account
         self.__id = id
         self.__num_thread = num_thread
 
     def on_error(self, headers, message):
+        '''
+        on_error
+        '''
         record_counter('daemons.cache.consumer.error')
         logging.error('[%s] %s' % (self.__broker, message))
 
     def on_message(self, headers, message):
+        '''
+        on_message
+        '''
         record_counter('daemons.cache.consumer2.message')
 #        id = msg['id']
 #        if id % self.__num_thread == self.__id:
@@ -102,7 +113,7 @@ def consumer(id, num_thread=1):
 
     logging.info('consumer started')
 
-    while not graceful_stop.is_set():
+    while not GRACEFUL_STOP.is_set():
 
         for conn in conns:
 
@@ -135,7 +146,7 @@ def stop(signum=None, frame=None):
     Graceful exit.
     """
 
-    graceful_stop.set()
+    GRACEFUL_STOP.set()
 
 
 def run(num_thread=1):

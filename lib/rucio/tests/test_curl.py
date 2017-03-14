@@ -1,20 +1,17 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
 
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
-"""
-Test the API via CURL
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
 
- nosetests --verbose --with-outputsave --save-directory=doc/source/example_outputs/ lib/rucio/tests/test_curl.py
-
-"""
+  How to generate test outputs/Test the API via CURL:
+    nosetests --verbose --with-outputsave --save-directory=doc/source/example_outputs/ lib/rucio/tests/test_curl.py
+'''
 
 import json
 import os
@@ -25,19 +22,14 @@ from rucio.tests.common import account_name_generator, rse_name_generator, execu
 
 
 class TestCurlRucio(object):
-    """
-    Test the API via CURL
-    """
-
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
+    '''
+    class TestCurlRucio
+    '''
 
     def setup(self):
+        '''
+        setup
+        '''
         self.cacert = config_get('test', 'cacert')
         self.usercert = config_get('test', 'usercert')
         self.host = config_get('client', 'rucio_host')
