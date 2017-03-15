@@ -23,12 +23,13 @@ from rucio.common.utils import get_tmp_dir
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported
 
 
-class TestBaseClient():
+class TestBaseClient(object):
     """ To test Clients"""
-    def __init__(self):
-        pass
 
     def setup(self):
+        '''
+        __init__
+        '''
         self.cacert = config_get('test', 'cacert')
         self.usercert = config_get('test', 'usercert')
         try:
@@ -36,9 +37,6 @@ class TestBaseClient():
         except OSError as error:
             if error.args[0] != 2:
                 raise error
-
-    def tearDown(self):
-        pass
 
     def testUserpass(self):
         """ CLIENTS (BASECLIENT): authenticate with userpass."""
@@ -75,12 +73,13 @@ class TestBaseClient():
         BaseClient(rucio_host='localhost', auth_host='junk://localhost', account='root', auth_type='userpass', creds=creds)
 
 
-class TestRucioClients():
+class TestRucioClients(object):
     """ To test Clients"""
-    def __init__(self):
-        pass
 
     def setup(self):
+        '''
+        setup
+        '''
         self.cacert = config_get('test', 'cacert')
         self.marker = '$> '
 
