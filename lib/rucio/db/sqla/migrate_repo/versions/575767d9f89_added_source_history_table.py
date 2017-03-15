@@ -1,13 +1,14 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+"""
+ Copyright European Organization for Nuclear Research (CERN)
 
-"""added source history table
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+
+added source history table
 
 Revision ID: 575767d9f89
 Revises: 379a19b5332d
@@ -21,15 +22,15 @@ import sqlalchemy as sa
 from rucio.db.sqla.types import GUID
 
 # revision identifiers, used by Alembic.
-revision = '575767d9f89'
-down_revision = '379a19b5332d'
+revision = '575767d9f89'  # pylint:disable=invalid-name
+down_revision = '379a19b5332d'  # pylint:disable=invalid-name
 
 
 def upgrade():
     '''
     upgrade method
     '''
-    if context.get_context().dialect.name not in ('sqlite'):
+    if context.get_context().dialect.name not in ['sqlite']:
         create_table('sources_history',
                      sa.Column('request_id', GUID()),
                      sa.Column('scope', sa.String(25)),
@@ -48,7 +49,7 @@ def downgrade():
     '''
     downgrade method
     '''
-    if context.get_context().dialect.name not in ('sqlite'):
+    if context.get_context().dialect.name not in ['sqlite']:
         drop_column('requests', 'estimated_at')
         drop_column('requests_history', 'estimated_at')
         drop_table('sources_history')
