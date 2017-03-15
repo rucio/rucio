@@ -1,13 +1,15 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+'''
 
 from rucio.common.exception import ConfigNotFound
 from rucio.db.sqla import models
@@ -204,6 +206,9 @@ def remove_option(section, option, session=None):
 
 
 def __convert_type(value):
+    '''
+    __convert_type
+    '''
     if value.lower() in ['true', 'yes', 'on']:
         return True
     elif value.lower() in ['false', 'no', 'off']:
