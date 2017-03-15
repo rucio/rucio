@@ -1,12 +1,14 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+'''
 
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
@@ -37,9 +39,9 @@ class Archive(RucioController):
         try:
             for file in list_archive_content(scope=scope, name=name):
                 yield dumps(file) + '\n'
-        except Exception, e:
+        except Exception, error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 """----------------------
