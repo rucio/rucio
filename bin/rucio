@@ -1,41 +1,40 @@
 #!/usr/bin/env python
 
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2016-2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
-# - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
-# - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
-
 """
-Rucio CLI.
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2016-2017
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+ - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
+ - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+ - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
+ - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
+ - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
 """
 
-import argcomplete
 import argparse
 import hashlib
 import json
 import logging
 import os
 import random
-import requests
 import signal
 import socket
 import subprocess
 import sys
-import tabulate
 import time
 import traceback
 import uuid
+
+import argcomplete
+import requests
+import tabulate
 
 from ConfigParser import NoOptionError, NoSectionError
 from copy import deepcopy
@@ -44,7 +43,7 @@ from multiprocessing import Process
 from Queue import Queue, Empty
 from threading import Thread, Event
 
-from rucio.client import Client
+from rucio.client.client import Client
 from rucio import version
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
@@ -290,23 +289,6 @@ def whoami_account(args):
     info = client.whoami()
     for k in info:
         print k.ljust(10) + ' : ' + str(info[k])
-    return SUCCESS
-
-
-@exception_handler
-def add_file(args):
-    """
-    %(prog)s show [options] <field1=value1 field2=value2 ...>
-
-    Add file.
-    """
-    client = get_client(args)
-    scope = args.scope
-    lfn = args.lfn
-    if scope is None:
-        scope, lfn = extract_scope(lfn)
-    client.add_file(rse=args.rse, scope=scope, lfn=lfn)
-    print 'Added new file replica: %s-%s' % (args.rse, args.lfn)
     return SUCCESS
 
 
@@ -963,7 +945,7 @@ def upload(args):
             # TODO: Need to check the rules thing!!
             logger.warning("The dataset name already exist")
     else:
-            logger.debug('Skipping dataset registration')
+        logger.debug('Skipping dataset registration')
 
     # Adding files to the catalog
     for f in list_files:
@@ -1206,7 +1188,7 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
     last_chosen_rse = None
     rse_dict = {}
     try:
-        while(True):
+        while True:
             trace = deepcopy(trace_pattern)
             stime = time.time()
             file = input_queue.get_nowait()
@@ -1470,7 +1452,7 @@ def download1(args):
                     trace = deepcopy(trace_pattern)
                     # Filling and sending the trace
                     trace.update({'scope': file['scope'], 'filename': file['name'], 'datasetScope': dataset_scope, 'datasetName': dataset_name,
-                                 'filesize': file['bytes'], 'transferStart': time.time(), 'transferEnd': time.time(), 'clientState': 'ALREADY_DONE'})
+                                  'filesize': file['bytes'], 'transferStart': time.time(), 'transferEnd': time.time(), 'clientState': 'ALREADY_DONE'})
                     send_trace(trace, trace_endpoint, args.user_agent)
                     output_queue.put({'dataset_scope': dataset_scope, 'dataset_name': dataset_name, 'scope': file['scope'], 'name': file['name'], 'clientState': 'ALREADY_DONE'})
                 else:
@@ -1507,7 +1489,7 @@ def download1(args):
             thread.kill_received = True
     logger.debug('All threads finished')
 
-    while(True):
+    while True:
         try:
             item = output_queue.get_nowait()
             output_queue.task_done()
@@ -1666,10 +1648,8 @@ def download2(args):
             else:
                 pool_list = []
                 for worker_number in dict_files_to_download:
-                    proc = Process(target=_downloader2, args=(total_workers, scope, name,
-                                   dict_files_to_download[worker_number], tape_endpoints,
-                                   is_admin, last_chosen_rse, rse_dict, dest_dir, trace,
-                                   client, args.user_agent))
+                    proc = Process(target=_downloader2, args=(total_workers, scope, name, dict_files_to_download[worker_number], tape_endpoints,
+                                                              is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client, args.user_agent))
                     proc.start()
                     pool_list.append(proc)
                 active_workers = pool_list
@@ -2061,16 +2041,17 @@ def list_rse_usage(args):
     usages = client.get_rse_usage(rse=args.rse)
     print 'USAGE:'
     for usage in usages:
-        print '------'
-        print_free = False
-        if usage['source'] in ['srm']:
-            print_free = True
-        for elem in usage:
-            if not (elem == 'free' or elem == 'total') or print_free:
-                if elem == 'free' or elem == 'total' or elem == 'used':
-                    print '  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human))
-                else:
-                    print '  {0}: {1}'.format(elem, usage[elem])
+        if usage['source'] not in ['srm', 'gsiftp', 'webdav']:
+            print '------'
+            print_free = False
+            if usage['source'] in ['storage']:
+                print_free = True
+            for elem in usage:
+                if not (elem == 'free' or elem == 'total') or print_free:
+                    if elem == 'free' or elem == 'total' or elem == 'used':
+                        print '  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human))
+                    else:
+                        print '  {0}: {1}'.format(elem, usage[elem])
     print '------'
     return SUCCESS
 
