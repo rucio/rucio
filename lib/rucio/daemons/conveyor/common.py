@@ -208,7 +208,8 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
                             'job_m_replica': None,
                             'created_at': req.get('created_at', None),
                             'submitted_at': req.get('submitted_at', None),
-                            'details': None}
+                            'details': None,
+                            'account': req.get('account', None)}
 
                 err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
                 request_core.set_request_state(req['request_id'],
@@ -564,6 +565,7 @@ def add_monitor_message(request, response, session=None):
     submitted_at = response.get('submitted_at', None)
     started_at = response.get('started_at', None)
     transferred_at = response.get('transferred_at', None)
+    account = response.get('account', None)
 
     if response['external_host']:
         transfer_link = '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'), response['transfer_id'])
@@ -597,7 +599,8 @@ def add_monitor_message(request, response, session=None):
                                   'submitted_at': str(submitted_at) if submitted_at else None,
                                   'started_at': str(started_at) if started_at else None,
                                   'transferred_at': str(transferred_at) if transferred_at else None,
-                                  'tool-id': 'rucio-conveyor'},
+                                  'tool-id': 'rucio-conveyor',
+                                  'account': account},
                 session=session)
 
 
