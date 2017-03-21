@@ -50,14 +50,12 @@ def get_storage_total(name, ddm_type):
             print "WARNING: Could not get capacity of %s: %s" % (name, str(error))
             RESULT = WARNING
             return None
-    print name
     try:
         total = capacity[0]['total']
         return total
     except IndexError as error:
         print 'No storage info for %s' % error
         return None
-
 
 
 def set_group_quotas():
