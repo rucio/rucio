@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email import Encoders
-from rucio.common.config import config_get
+# from rucio.common.config import config_get
 from datetime import datetime
 
 from rucio.db.sqla.session import get_session
@@ -176,7 +176,20 @@ def send_report(mail, report_paths):
     msg['To'] = ", ".join(recepients)
 
     # email body
-    msg.attach(MIMEText('Please check the attached list of files that have been lost and can not be recovered. These files may affect you. In case of questions contact DDMops.'))
+    msg.attach(MIMEText('Please check the attached list of files that have been lost and can not be recovered. These files may affect you. In case of questions contact DDMops.' + "\n\n"))
+
+    # if report is short,lost files are reported in email body as well
+    lines = []
+    for report_path in report_paths:
+        fr = open(report_path, 'r')
+        for lost_file in fr.readlines():
+            lines.append(lost_file)
+        fr.close()
+        if len(lines) > 20:
+            break
+    if len(lines) < 21:
+        for l in lines:
+            msg.attach(MIMEText(str(l)))
 
     # attachments
     for report_path in report_paths:
@@ -356,16 +369,8 @@ def get_bad_files(session):
 def get_bad_files_from_dump(session):
 
     flog = open(log_path, 'a')
-    try:
-        proxy = config_get('nagios', 'proxy')
-        os.environ["X509_USER_PROXY"] = proxy
-    except Exception, e:
-        flog.write('ERROR: Failed to get proxy from rucio.cfg\n')
-        flog.write(str(e) + "\n")
-        return False
-
     url = 'https://rucio-hadoop.cern.ch/lost_files'
-    dump7 = requests.get(url, verify=False, cert=(proxy, proxy))
+    dump7 = requests.get(url, verify=False)
     if dump7.status_code == 404:
         flog.write('ERROR: dump of bad files not reachable on hadoop')
         return False
