@@ -878,7 +878,7 @@ def upload(args):
             checksum = adler32(name)
             logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, os.path.basename(name)))
             files_to_list.append({'scope': fscope, 'name': os.path.basename(name)})
-            if not args.guid and 'pool.root' in name.lower():  # is a root file, getting the GUID
+            if not args.guid and 'pool.root' in name.lower() and not args.no_register:  # is a root file, getting the GUID
                 status, output, err = execute('pool_extractFileIdentifier {0}'.format(name))
                 if status != 0:
                     logger.error('Trying to upload ROOT files but pool_extractFileIdentifier tool can not be found.')
