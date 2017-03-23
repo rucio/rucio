@@ -1,22 +1,26 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN) 2013
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2014
-# - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
-# - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2017
+"""
+ Copyright European Organization for Nuclear Research (CERN) 2013
 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Wen Guan, <wen.guan@cern.ch>, 2014
+ - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
+ - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2017
+"""
+
+import os
 import sys
 
 from rucio.client import Client
+from rucio.common.config import config_get
 from rucio.common.exception import RSEProtocolNotSupported
 from rucio.rse import rsemanager as rsemgr
-from rucio.api.rse import list_rse_attributes
+from rucio.api.rse import list_rse_attributes, get_rse
 
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
@@ -24,13 +28,23 @@ OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 def get_space(rsename, protocol, client):
     retvalue = OK
     rse_settings = rsemgr.get_rse_info(rsename)
+    if rse_settings['protocols']:
+        schemes = [domain['scheme'] for domain in rse_settings['protocols']]
+        if protocol == 'json':
+            if 'gsiftp' in schemes:
+                rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gsiftp.Default'
+                protocol = 'gsiftp'
+            else:
+                retvalue = WARNING
+                print 'No gsiftp endpoint defined for %s' % rsename
+                return retvalue
+        else:
+            if 'srm' not in schemes:
+                protocol = 'https'
     print 'Running on %s, using %s method' % (rsename, protocol)
-    if rse_settings['protocols'] and protocol == 'json':
-        rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gsiftp.Default'
-        protocol = 'gsiftp'
     try:
-        gs, ret = rsemgr.get_space_usage(rse_settings, protocol)
-        if gs:
+        global_status, ret = rsemgr.get_space_usage(rse_settings, protocol)
+        if global_status:
             totalsize = long(ret["totalsize"])
             freesize = long(ret["unusedsize"])
             usedsize = totalsize - freesize
@@ -53,22 +67,31 @@ def get_space(rsename, protocol, client):
 
 if __name__ == "__main__":
 
-    cloud = sys.argv[1]
+    CLOUD = sys.argv[1]
 
     exitvalue = OK
     retvalue = OK
     usedsize = 0
     freesize = 0
+    try:
+        PROXY = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = PROXY
+    except Exception as error:
+        print "Failed to get proxy from rucio.cfg"
 
     CLIENT = Client()
-    rses = CLIENT.list_rses('cloud=%s' % cloud)
-    for rse in sorted(rses):
+    RSES = CLIENT.list_rses('cloud=%s' % CLOUD)
+    for rse in sorted(RSES):
         rsename = rse['rse']
-        attr = list_rse_attributes(rsename)
-        if 'space_usage_method' in attr.keys():
-            retvalue = get_space(rsename, protocol=attr['space_usage_method'], client=CLIENT)
+        rse_info = get_rse(rsename)
+        if rse_info['availability_read']:
+            attr = list_rse_attributes(rsename)
+            if 'space_usage_method' in attr.keys():
+                retvalue = get_space(rsename, protocol=attr['space_usage_method'], client=CLIENT)
+            else:
+                retvalue = get_space(rsename, protocol='srm', client=CLIENT)
         else:
-            retvalue = get_space(rsename, protocol='srm', client=CLIENT)
+            print '%s blacklisted for read. Skipping storage space collection' % rsename
 
         exitvalue = max(exitvalue, retvalue)
     sys.exit(exitvalue)
