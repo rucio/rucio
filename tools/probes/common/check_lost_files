@@ -8,14 +8,17 @@
 # Authors:
 # - Tomas Javurek, Cedric Serfon, 2015
 
-from datetime import datetime
 import os
 import sys
 import smtplib
+import time
+import requests
 from email.mime.text import MIMEText
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email import Encoders
+# from rucio.common.config import config_get
+from datetime import datetime
 
 from rucio.db.sqla.session import get_session
 # from rucio.core import monitor
@@ -173,7 +176,20 @@ def send_report(mail, report_paths):
     msg['To'] = ", ".join(recepients)
 
     # email body
-    msg.attach(MIMEText('Please check the attached list of files that have been lost and can not be recovered. These files may affect you. In case of questions contact DDMops.'))
+    msg.attach(MIMEText('Please check the attached list of files that have been lost and can not be recovered. These files may affect you. In case of questions contact DDMops.' + "\n\n"))
+
+    # if report is short,lost files are reported in email body as well
+    lines = []
+    for report_path in report_paths:
+        fr = open(report_path, 'r')
+        for lost_file in fr.readlines():
+            lines.append(lost_file)
+        fr.close()
+        if len(lines) > 20:
+            break
+    if len(lines) < 21:
+        for l in lines:
+            msg.attach(MIMEText(str(l)))
 
     # attachments
     for report_path in report_paths:
@@ -345,7 +361,32 @@ def get_bad_files(session):
         flog = open(log_path, 'a')
         flog.write('get_bad_files\n')
         flog.write(str(e) + "\n")
-        sys.exit(CRITICAL)
+        return False
+
+    return True
+
+
+def get_bad_files_from_dump(session):
+
+    flog = open(log_path, 'a')
+    url = 'https://rucio-hadoop.cern.ch/lost_files'
+    dump7 = requests.get(url, verify=False)
+    if dump7.status_code == 404:
+        flog.write('ERROR: dump of bad files not reachable on hadoop')
+        return False
+
+    f = open(tmpdata_path, 'w')
+    for l in dump7.text.split('\n'):
+        data = l.split('\t')
+        if len(data) < 7:
+            flog.write('ERROR: line in dump does not contain full info')
+            continue
+        if data[3].startswith('panda.'):
+            continue
+        updated_at = time.strftime('%Y-%m-%d', time.localtime(float(data[6])))
+        f.write('%s %s %s %s %s %s %s\n' % (data[0], data[1], data[2], data[3], data[4], data[5], updated_at))
+
+    return True
 
 
 def main():
@@ -362,7 +403,11 @@ def main():
 
     mails = {}
     # get input
-    get_bad_files(session)
+    get_input = get_bad_files_from_dump(session)
+    if not get_input:
+        get_input = get_bad_files(session)
+        if not get_input:
+            sys.exit(CRITICAL)
     # make and sent report to groups
     if groups:
         l_rses = report_by_rses(session)
