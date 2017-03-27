@@ -36,6 +36,26 @@ class Default(protocol.RSEProtocol):
         self.__conn = None
         self.renaming = False
         self.overwrite = True
+        self.http_proxy = os.environ.get("http_proxy")
+        self.https_proxy = os.environ.get("https_proxy")
+
+    def _disable_http_proxy(self):
+        """
+           Disable http and https proxy if exists.
+        """
+        if self.http_proxy:
+            del os.environ['http_proxy']
+        if self.https_proxy:
+            del os.environ['https_proxy']
+
+    def _reset_http_proxy(self):
+        """
+           Reset http and https proxy if exists.
+        """
+        if self.http_proxy:
+            os.environ['http_proxy'] = self.http_proxy
+        if self.https_proxy:
+            os.environ['https_proxy'] = self.https_proxy
 
     def _get_path(self, scope, name):
         """ Transforms the physical file name into the local URI in the referred RSE.
@@ -150,13 +170,16 @@ class Default(protocol.RSEProtocol):
                     is_secure = self.rse['credentials'].get('is_secure', {}).\
                         get(service_url, False)
 
+            self._disable_http_proxy()
             self.__conn = connect_s3(host=self.attributes['hostname'],
                                      port=int(port),
                                      aws_access_key_id=access_key,
                                      aws_secret_access_key=secret_key,
                                      is_secure=is_secure,
                                      calling_format=OrdinaryCallingFormat())
+            self._reset_http_proxy()
         except Exception as e:
+            self._reset_http_proxy()
             raise exception.RSEAccessDenied(e)
 
     def close(self):
