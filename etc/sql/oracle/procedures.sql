@@ -219,3 +219,33 @@ BEGIN
         COMMIT;
 END;
 /
+
+-- 2017-03-23, Martin Barisits
+-- a PL/SQL Proecdure to populate the account_usage table from the UPDATED_ACCOUNT_COUNTERS table
+
+--/
+CREATE OR REPLACE PROCEDURE "ATLAS_RUCIO"."ABACUS_ACCOUNT" AS
+   type array_raw is table of RAW(16) index by binary_integer;
+   type array_number is table of NUMBER(19) index by binary_integer;
+   type array_varchar2 is table of VARCHAR2(25 CHAR) index by binary_integer;
+
+   r array_raw;
+   f array_number;
+   b array_number;
+   a array_varchar2;
+BEGIN
+       DELETE FROM ATLAS_RUCIO.UPDATED_ACCOUNT_COUNTERS
+       RETURNING rse_id, files, bytes, account BULK COLLECT INTO r,f,b,a;
+
+       FORALL i in r.FIRST .. r.LAST
+               MERGE INTO ATLAS_RUCIO.account_usage D
+               USING (select r(i) as rse_id, a(i) as account from dual) T
+               ON (D.rse_id = T.rse_id and D.account = T.account )
+               WHEN MATCHED THEN UPDATE SET files = files + f(i), bytes = bytes + b(i), updated_at = CAST(SYS_EXTRACT_UTC(LOCALTIMESTAMP) AS DATE) 
+               WHEN NOT MATCHED THEN INSERT (rse_id, account, files, bytes, updated_at, created_at)
+               VALUES (r(i), a(i), f(i), b(i), CAST(SYS_EXTRACT_UTC(LOCALTIMESTAMP) AS DATE), CAST(SYS_EXTRACT_UTC(LOCALTIMESTAMP) AS DATE) );
+
+
+       COMMIT;
+END;
+/
