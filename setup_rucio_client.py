@@ -30,8 +30,7 @@ copy_args = sys.argv[1:]
 name = 'rucio-clients'
 IsRelease = False
 packages = ['rucio', 'rucio.client', 'rucio.common',
-            'rucio.rse.protocols', 'rucio.rse', 'rucio.tests',
-            'rucio.tests.emulation', 'rucio.tests.emulation.usecases']
+            'rucio.rse.protocols', 'rucio.rse', 'rucio.tests']
 requirements_files = ['tools/pip-requires-client']
 description = "Rucio Client Lite Package"
 data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template', 'etc/rucio.cfg.atlas.client.template']),
