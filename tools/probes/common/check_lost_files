@@ -13,12 +13,14 @@ import sys
 import smtplib
 import time
 import requests
+import calendar
 from email.mime.text import MIMEText
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email import Encoders
 # from rucio.common.config import config_get
 from datetime import datetime
+from datetime import date
 
 from rucio.db.sqla.session import get_session
 # from rucio.core import monitor
@@ -29,7 +31,8 @@ OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 users = True
 groups = True
 gdp = True
-testmode = False
+testmode = True
+working_days = ['Wednesday']
 
 timestamp = datetime.today().strftime('%Y-%m-%d')
 log_dir = '/var/log/rucio/lost_files/logs/'
@@ -37,6 +40,22 @@ log_path = log_dir + timestamp + '.log'
 tmpdata_dir = '/var/log/rucio/lost_files/tmp/'
 tmpdata_path = tmpdata_dir + 'rse-lost-files.txt'
 reports_dir = '/var/log/rucio/lost_files/reports/'
+
+
+# protection against running this script every day
+def run_judger(working_days):
+
+    flog = open(log_path, 'a')
+    today_date = date.today()
+    today_day = calendar.day_name[today_date.weekday()]
+    if today_day in working_days:
+        flog.write('Today is %s.\n' % today_day)
+        flog.write('I might try to work today.\n')
+        return True
+    else:
+        flog.write('Today is %s. This is NOT my working day! I am working only on:\n' % today_day)
+        flog.write(str(working_days) + '\n')
+        return False
 
 
 def merge_dicts(d1, d2):
@@ -376,20 +395,27 @@ def get_bad_files_from_dump(session):
         return False
 
     f = open(tmpdata_path, 'w')
+    line_counter = 0
     for l in dump7.text.split('\n'):
+        line_counter += 1
         data = l.split('\t')
         if len(data) < 7:
-            flog.write('ERROR: line in dump does not contain full info')
+            flog.write('WARNING: line %i in dump does not contain full info \n' % line_counter)
             continue
         if data[3].startswith('panda.'):
             continue
         updated_at = time.strftime('%Y-%m-%d', time.localtime(float(data[6])))
         f.write('%s %s %s %s %s %s %s\n' % (data[0], data[1], data[2], data[3], data[4], data[5], updated_at))
+    flog.write('INFO: dump contains %i lines\n' % line_counter)
 
     return True
 
 
 def main():
+
+    run_flag = run_judger(working_days)
+    if not run_flag:
+        sys.exit(OK)
 
     session = get_session()
 
