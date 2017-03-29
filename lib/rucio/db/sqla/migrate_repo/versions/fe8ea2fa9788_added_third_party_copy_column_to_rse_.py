@@ -1,13 +1,14 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+"""
+  Copyright European Organization for Nuclear Research (CERN)
 
-"""Added third_party_copy column to rse_protocols
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+
+ Added third_party_copy column to rse_protocols
 
 Revision ID: fe8ea2fa9788
 Revises: 0437a40dbfd1
