@@ -1,122 +1,125 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#                       http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - David Cameron, <david.cameron@cern.ch>, 2014-2015
-# - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+"""
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+                       http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+ - David Cameron, <david.cameron@cern.ch>, 2014-2015
+ - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+"""
 
 import json
 import sys
 import traceback
+
 import requests
 
 from rucio.common.exception import RucioException, RSENotFound
-from rucio.api import rse as r
+from rucio.api.rse import add_rse_attribute, get_rse_usage, get_rse
 
 UNKNOWN = 3
 CRITICAL = 2
 WARNING = 1
 OK = 0
 
-result = OK
+RESULT = OK
 
 # Map of countries to 2-letter code
 # Eventually should be available in AGIS
-countrycodes = {'Argentina': 'ar', 'Armenia': 'am', 'Australia': 'au', 'Austria': 'at',
+COUNTRYCODES = {'Argentina': 'ar', 'Armenia': 'am', 'Australia': 'au', 'Austria': 'at',
                 'Canada': 'ca', 'Switzerland': 'ch', 'Chile': 'cl', 'China': 'cn',
                 'Czech Republic': 'cz', 'Germany': 'de', 'Denmark': 'dk', 'Spain': 'es',
                 'France': 'fr', 'Greece': 'gr', 'Israel': 'il', 'Italy': 'it',
                 'Japan': 'jp', 'Netherlands': 'nl', 'Nordic': 'dk', 'Norway': 'no',
                 'Poland': 'pl', 'Portugal': 'pt', 'Romania': 'ro', 'Russian Federation': 'ru',
-                'Sweden': 'se', 'Slovakia': 'sk', 'Turkey': 'tr', 'Taiwan': 'tw',
+                'Sweden': 'se', 'Slovakia': 'sk', 'Slovenia': 'si', 'Turkey': 'tr', 'Taiwan': 'tw',
                 'UK': 'uk', 'USA': 'us', 'South Africa': 'za'}
 
 
 # Takes DDM endpoint information from AGIS and adds selected attributes to RSEs
 if __name__ == '__main__':
 
-    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
+    URL = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
     try:
-        resp = requests.get(url=url)
-        data = json.loads(resp.content)
+        RESP = requests.get(url=URL)
+        DATA = json.loads(RESP.content)
     except Exception as error:
         print "Failed to load info from AGIS: %s" % str(error)
         sys.exit(WARNING)
 
-    for rse in data:
+    for rse in DATA:
 
         name = rse['name']
 
         # Check if RSE exists
         try:
-            r.get_rse(name)
+            get_rse(name)
         except RSENotFound:
             continue
 
         print name
 
         try:
-            r.add_rse_attribute(name, 'ALL', '1', 'root')
-            r.add_rse_attribute(name, 'tier', str(rse['tier_level']), 'root')
-            r.add_rse_attribute(name, 'istape', str(rse['is_tape']), 'root')
-            r.add_rse_attribute(name, 'cloud', str(rse['cloud']), 'root')
-            r.add_rse_attribute(name, 'spacetoken', str(rse['token']), 'root')
-            r.add_rse_attribute(name, 'site', str(rse['site']), 'root')
-            r.add_rse_attribute(name, 'type', str(rse['type']), 'root')
-            if str(rse['space_method']) == 'other':
-                r.add_rse_attribute(name, 'space_usage_method', 'json', 'root')
+            add_rse_attribute(name, 'ALL', '1', 'root')
+            add_rse_attribute(name, 'tier', str(rse['tier_level']), 'root')
+            add_rse_attribute(name, 'istape', str(rse['is_tape']), 'root')
+            add_rse_attribute(name, 'cloud', str(rse['cloud']), 'root')
+            add_rse_attribute(name, 'spacetoken', str(rse['token']), 'root')
+            add_rse_attribute(name, 'site', str(rse['site']), 'root')
+            add_rse_attribute(name, 'type', str(rse['type']), 'root')
             if rse['type'] == 'LOCALGROUPDISK' or rse['type'] == 'USERDISK':
-                country = countrycodes[str(rse['country'])]
+                country = COUNTRYCODES[str(rse['country'])]
                 if name.startswith('CERN'):
                     country = 'cern'
-                r.add_rse_attribute(name, 'country', country, 'root')
+                add_rse_attribute(name, 'country', country, 'root')
             if rse['phys_groups']:
-                r.add_rse_attribute(name, 'physgroup', str(rse['phys_groups'][0]), 'root')
+                add_rse_attribute(name, 'physgroup', str(rse['phys_groups'][0]), 'root')
             if rse['type'] not in ['OS_LOGS', 'OS_ES']:
                 if isinstance(rse['servedrestfts']['MASTER'], list):
-                    r.add_rse_attribute(name, 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
+                    add_rse_attribute(name, 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
                 else:
-                    r.add_rse_attribute(name, 'fts', str(rse['servedrestfts']['MASTER']), 'root')
+                    add_rse_attribute(name, 'fts', str(rse['servedrestfts']['MASTER']), 'root')
             if rse['type'] not in ['OS_LOGS', 'OS_ES']:
                 if isinstance(rse['servedrestfts']['TESTING'], list):
-                    r.add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
+                    add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
                 else:
-                    r.add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
+                    add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
             if 'datapolicies' in rse:
-                r.add_rse_attribute(name, 'datapolicyt0disk', 'T0Disk' in rse['datapolicies'], 'root')
-                r.add_rse_attribute(name, 'datapolicyt0tape', 'T0Tape' in rse['datapolicies'], 'root')
-                r.add_rse_attribute(name, 'datapolicyt0taskoutput', 'T0TaskOutput' in rse['datapolicies'], 'root')
-                r.add_rse_attribute(name, 'datapolicynucleus', 'Nucleus' in rse['datapolicies'], 'root')
+                add_rse_attribute(name, 'datapolicyt0disk', 'T0Disk' in rse['datapolicies'], 'root')
+                add_rse_attribute(name, 'datapolicyt0tape', 'T0Tape' in rse['datapolicies'], 'root')
+                add_rse_attribute(name, 'datapolicyt0taskoutput', 'T0TaskOutput' in rse['datapolicies'], 'root')
+                add_rse_attribute(name, 'datapolicynucleus', 'Nucleus' in rse['datapolicies'], 'root')
 
-            space_used = r.get_rse_usage(rse=name, issuer='root', source='srm')
-            unavailable_space = r.get_rse_usage(rse=name, issuer='root', source='unavailable')
+            space_used = get_rse_usage(rse=name, issuer='root', source='storage')
+            unavailable_space = get_rse_usage(rse=name, issuer='root', source='unavailable')
             if unavailable_space and unavailable_space[0]['total']:
                 unavailable_space = unavailable_space[0]['total']
             else:
                 unavailable_space = 0
-            if space_used and space_used[0]['free']:
-                freespace = space_used[0]['free']
-                freespace = float(freespace - unavailable_space) / 1000 / 1000 / 1000 / 1000
-                if freespace < 0:
-                    freespace = 0
+            if space_used:
+                if space_used[0]['used'] == -1:
+                    total_space = space_used[0]['total']
+                    space_used = get_rse_usage(rse=name, issuer='root', source='rucio')
+                    freespace = total_space - space_used[0]['used']
                 else:
-                    freespace = int(freespace)
-                r.add_rse_attribute(name, 'freespace', freespace, 'root')
+                    freespace = space_used[0]['free']
+                freespace = float(freespace - unavailable_space) / 1000 / 1000 / 1000 / 1000
+                freespace = freespace if freespace > 0 else 0
+                add_rse_attribute(name, 'freespace', freespace, 'root')
 
         except RucioException as error:
             print str(error)
             sys.exit(CRITICAL)
         except:
             print traceback.format_exc()
-            result = WARNING
+            RESULT = WARNING
 
         # TODO: set weights for data distribution here or in other collector
 
-    sys.exit(result)
+    sys.exit(RESULT)
