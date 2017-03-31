@@ -401,6 +401,14 @@ def get_transfer(rse, req, scheme, mock, max_sources=4):
             schemes.append('gsiftp')
         if 'gsiftp' in schemes and 'srm' not in schemes:
             schemes.append('srm')
+        if 'https' in schemes and 'davs' not in schemes:
+            schemes.append('davs')
+        if 'davs' in schemes and 'https' not in schemes:
+            schemes.append('https')
+        if 'https' in schemes and 's3' not in schemes:
+            schemes.append('s3')
+        if 's3' in schemes and 'https' not in schemes:
+            schemes.append('https')
         logging.debug('Schemes will be allowed for sources: %s' % (schemes))
 
         ts = time.time()
@@ -759,10 +767,21 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values()[0]
 
                 # get allowed source scheme
+
+                # TODO Change this to get the schema compatibilities from a better/centralized place
+                # scheme_map = {'srm': ['srm', 'gsiftp'], 'gsiftp': ['srm', 'gsiftp'], 'https': ['https', 'davs', 's3'], 'davs': ['https', 'davs'], 's3': ['https', 's3']}
+                # src_schemes = scheme_map.get(dest_scheme, [dest_scheme])
+
                 src_schemes = []
                 dest_scheme = dest_url.split("://")[0]
                 if dest_scheme in ['srm', 'gsiftp']:
                     src_schemes = ['srm', 'gsiftp']
+                elif dest_scheme in ['https']:
+                    src_schemes = ['https', 'davs', 's3']
+                elif dest_scheme in ['davs']:
+                    src_schemes = ['https', 'davs']
+                elif dest_scheme in ['s3']:
+                    src_schemes = ['https', 's3']
                 else:
                     src_schemes = [dest_scheme]
 
