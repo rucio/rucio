@@ -1,16 +1,18 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
+ - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+'''
 
 import copy
 import os
@@ -54,10 +56,10 @@ def get_rse_info(rse, session=None):
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
     # __request_rse_info, rse_region are defined in /rucio/rse/__init__.py
-    rse_info = rse_region.get(str(rse))   # NOQA
+    rse_info = RSE_REGION.get(str(rse))   # NOQA pylint: disable=undefined-variable
     if not rse_info:  # no cached entry found
-        rse_info = __request_rse_info(str(rse), session=session)  # NOQA
-        rse_region.set(str(rse), rse_info)  # NOQA
+        rse_info = __request_rse_info(str(rse), session=session)  # NOQA pylint: disable=undefined-variable
+        RSE_REGION.set(str(rse), rse_info)  # NOQA pylint: disable=undefined-variable
     return rse_info
 
 
@@ -80,7 +82,6 @@ def select_protocol(rse_settings, operation, scheme=None):
             if protocol['scheme'] not in scheme:
                 tbr.append(protocol)
                 continue
-        # Check if operation in domain is supported
         for d in rse_settings['domain']:
             if protocol['domains'][d][operation] == 0:
                 tbr.append(protocol)
@@ -339,7 +340,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
         if protocol.renaming:
 
             # Check if file replica is already on the storage system
-            if protocol.exists(pfn):
+            if protocol.overwrite is False and protocol.exists(pfn):
                 ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
                 gs = False
             else:
@@ -382,7 +383,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
         else:
 
             # Check if file replica is already on the storage system
-            if protocol.exists(pfn):
+            if protocol.overwrite is False and protocol.exists(pfn):
                 ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
                 gs = False
             else:

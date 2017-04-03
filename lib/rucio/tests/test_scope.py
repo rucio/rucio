@@ -10,6 +10,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 from json import dumps, loads
 
@@ -22,22 +23,22 @@ from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound, In
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.scope import get_scopes, add_scope, is_scope_owner
 from rucio.tests.common import account_name_generator, scope_name_generator
-from rucio.web.rest.account import app as account_app
-from rucio.web.rest.authentication import app as auth_app
+from rucio.web.rest.account import APP as account_app
+from rucio.web.rest.authentication import APP as auth_app
 
 
 class TestScopeCoreApi():
 
-    def setup(self):
-        self.scopes = [scope_name_generator() for i in range(5)]
+    def __init__(self):
+        self.scopes = [scope_name_generator() for _ in range(5)]
 
     def test_list_scopes(self):
         """ SCOPE (CORE): List scopes """
         for scope in self.scopes:
             add_scope(scope=scope, account='jdoe')
         scopes = get_scopes(account='jdoe')
-        for s in scopes:
-            assert_in(s, scopes)
+        for scope in scopes:
+            assert_in(scope, scopes)
 
     def test_is_scope_owner(self):
         """ SCOPE (CORE): Is scope owner """
@@ -49,96 +50,96 @@ class TestScopeCoreApi():
 
 class TestScope():
 
-    def setup(self):
-        self.scopes = [scope_name_generator() for i in range(5)]
+    def __init__(self):
+        self.scopes = [scope_name_generator() for _ in range(5)]
 
     def test_scope_success(self):
         """ SCOPE (REST): send a POST to create a new account and scope """
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert_equal(r1.status, 200)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
 
-        token = str(r1.header('X-Rucio-Auth-Token'))
+        token = str(res1.header('X-Rucio-Auth-Token'))
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
         data = dumps({'type': 'USER', 'email': 'rucio.email.com'})
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert_equal(r2.status, 201)
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
         scopeusr = scope_name_generator()
-        r3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
-        assert_equal(r3.status, 201)
+        res3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
+        assert_equal(res3.status, 201)
 
     def test_scope_failure(self):
         """ SCOPE (REST): send a POST to create a new scope for a not existing account to test the error"""
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert_equal(r1.status, 200)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
 
-        token = str(r1.header('X-Rucio-Auth-Token'))
+        token = str(res1.header('X-Rucio-Auth-Token'))
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        scopeusr = scope_name_generator()   # NOQA
-        acntusr = account_name_generator()  # NOQA
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/%(scopeusr)s/scopes/%(scopeusr)s' % locals(), headers=headers2, expect_errors=True)
-        assert_equal(r2.status, 404)
+        scopeusr = scope_name_generator()
+        account_name_generator()
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (scopeusr, scopeusr), headers=headers2, expect_errors=True)
+        assert_equal(res2.status, 404)
 
     def test_scope_duplicate(self):
         """ SCOPE (REST): send a POST to create a already existing scope to test the error"""
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert_equal(r1.status, 200)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
 
-        token = str(r1.header('X-Rucio-Auth-Token'))
+        token = str(res1.header('X-Rucio-Auth-Token'))
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
         data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert_equal(r2.status, 201)
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
         scopeusr = scope_name_generator()
-        r3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
-        assert_equal(r3.status, 201)
-        r3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
-        assert_equal(r3.status, 409)
+        res3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
+        assert_equal(res3.status, 201)
+        res3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
+        assert_equal(res3.status, 409)
 
     def test_list_scope(self):
         """ SCOPE (REST): send a GET list all scopes for one account """
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert_equal(r1.status, 200)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
 
-        token = str(r1.header('X-Rucio-Auth-Token'))
+        token = str(res1.header('X-Rucio-Auth-Token'))
 
         tmp_val = account_name_generator()
         headers2 = {'Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/%s' % tmp_val, headers=headers2, params=data, expect_errors=True)
-        assert_equal(r2.status, 201)
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/%s' % tmp_val, headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
 
         for scope in self.scopes:
             data = dumps({})
-            r3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (tmp_val, scope), headers=headers3, params=data, expect_errors=True)
-            assert_equal(r3.status, 201)
+            res3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (tmp_val, scope), headers=headers3, params=data, expect_errors=True)
+            assert_equal(res3.status, 201)
 
-        r4 = TestApp(account_app.wsgifunc(*mw)).get('/%s/scopes/' % tmp_val, headers=headers3, expect_errors=True)
+        res4 = TestApp(account_app.wsgifunc(*mw)).get('/%s/scopes/' % tmp_val, headers=headers3, expect_errors=True)
 
-        assert_equal(r4.status, 200)
+        assert_equal(res4.status, 200)
 
-        svr_list = loads(r4.body)
+        svr_list = loads(res4.body)
         for scope in self.scopes:
             assert_in(scope, svr_list)
 
@@ -147,44 +148,44 @@ class TestScope():
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert_equal(r1.status, 200)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
 
-        token = str(r1.header('X-Rucio-Auth-Token'))
+        token = str(res1.header('X-Rucio-Auth-Token'))
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
-        r3 = TestApp(account_app.wsgifunc(*mw)).get('/testaccount/scopes', headers=headers3, expect_errors=True)
+        res3 = TestApp(account_app.wsgifunc(*mw)).get('/testaccount/scopes', headers=headers3, expect_errors=True)
 
-        assert_equal(r3.status, 404)
-        assert_equal(r3.header('ExceptionClass'), 'AccountNotFound')
+        assert_equal(res3.status, 404)
+        assert_equal(res3.header('ExceptionClass'), 'AccountNotFound')
 
     def test_list_scope_no_scopes(self):
         """ SCOPE (REST): send a GET list all scopes for one account without scopes """
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert_equal(r1.status, 200)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
 
-        token = str(r1.header('X-Rucio-Auth-Token'))
+        token = str(res1.header('X-Rucio-Auth-Token'))
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
         data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert_equal(r2.status, 201)
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
 
-        r4 = TestApp(account_app.wsgifunc(*mw)).get('/%(acntusr)s/scopes/' % locals(), headers=headers3, params=data, expect_errors=True)
+        res4 = TestApp(account_app.wsgifunc(*mw)).get('/%s/scopes/' % (acntusr), headers=headers3, params=data, expect_errors=True)
 
-        assert_equal(r4.status, 404)
-        assert_equal(r4.header('ExceptionClass'), 'ScopeNotFound')
+        assert_equal(res4.status, 404)
+        assert_equal(res4.header('ExceptionClass'), 'ScopeNotFound')
 
 
 class TestScopeClient():
 
-    def setup(self):
+    def __init__(self):
         self.account_client = AccountClient()
         self.scope_client = ScopeClient()
 
@@ -217,7 +218,7 @@ class TestScopeClient():
     def test_list_scopes(self):
         """ SCOPE (CLIENTS): try to list scopes for an account."""
         account = 'jdoe'
-        scope_list = [scope_name_generator() for i in xrange(5)]
+        scope_list = [scope_name_generator() for _ in xrange(5)]
         for scope in scope_list:
             self.scope_client.add_scope(account, scope)
 

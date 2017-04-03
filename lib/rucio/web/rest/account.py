@@ -30,12 +30,12 @@ from rucio.common.utils import generate_http_error, APIEncoder, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
-logger = getLogger("rucio.account")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.account")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
-urls = (
+URLS = (
     '/(.+)/attr/', 'Attributes',
     '/(.+)/attr/(.+)', 'Attributes',
     '/(.+)/scopes/', 'Scopes',
@@ -472,7 +472,7 @@ class Identities(RucioController):
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, type=authtype, account=account, email=email, issuer=ctx.env.get('issuer'))
+            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate as e:
@@ -503,7 +503,7 @@ class Identities(RucioController):
 
     def DELETE(self, account):
 
-        """ Delete an account's identity mapping.
+        """ Delete an account's identity mAPPing.
 
         HTTP Success:
             200 Created
@@ -664,6 +664,6 @@ class Usage2(RucioController):
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

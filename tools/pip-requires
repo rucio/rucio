@@ -46,3 +46,4 @@ setuptools==24.0.2 # Easily download, build, install, upgrade, and uninstall Pyt
 retrying==1.3.3 # general-purpose retrying library to simplify the task of adding retry behavior to just about anything
 six==1.10 # Python 2 and 3 compatibility utilities
 functools32==3.2.3-2  # explicitly needed on CC7
+redis==2.10.5 # Python client for Redis key-value store

@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 # - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
 
 import json
 import os
@@ -52,11 +52,8 @@ class Default(protocol.RSEProtocol):
 
         :raises ServiceUnavailable: if some generic error occured in the library.
         """
-        # original
         rse_name = self.rse['rse']
-        endpoint_path = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), '/atlas/dq2/site-size'])
         dest = '/tmp/rucio-gsiftp-site-size_' + rse_name
-
         space_usage_url = ''
         # url of space usage json, woud be nicer to have it in rse_settings
         agis = requests.get('http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json').json()
@@ -67,6 +64,7 @@ class Default(protocol.RSEProtocol):
                 space_usage_url = res['space_usage_url']
 
         import gfal2
+        gfal2.set_verbose(gfal2.verbose_level.normal)
         try:
             if os.path.exists(dest):
                 os.remove(dest)
@@ -83,45 +81,10 @@ class Default(protocol.RSEProtocol):
                 if agis_token not in data.keys():
                     print 'ERROR: space usage json has different token as key'
                 else:
-                    totalsize = data[agis_token]['total_space']
-                    used = data[agis_token]['used_space']
+                    totalsize = int(data[agis_token]['total_space'])
+                    used = int(data[agis_token]['used_space'])
                     unusedsize = totalsize - used
                     return totalsize, unusedsize
-        except Exception as e:
-            print e
-            raise exception.ServiceUnavailable(e)
-
-        space_token = None
-        if self.attributes['extended_attributes'] is not None:
-            space_token = self.attributes['extended_attributes'].get('space_token')
-        xattr_name = 'spacetoken'
-        if space_token:
-            xattr_name = 'spacetoken?%s' % space_token
-
-        try:
-            if os.path.exists(dest):
-                os.remove(dest)
-            ctx = gfal2.creat_context()
-
-            # See if the remote server supports the the SITE USAGE command
-            try:
-                data = json.loads(ctx.getxattr(str(endpoint_path), xattr_name))
-                totalsize = data['totalsize']
-                unusedsize = data['unusedsize']
-                return totalsize, unusedsize
-            except gfal2.GError:
-                pass
-            params = ctx.transfer_parameters()
-            params.timeout = 60
-            ret = ctx.filecopy(params, str(endpoint_path), str('file://' + dest))
-            if ret == 0:
-                data_file = open(dest)
-                data = json.load(data_file)
-                data_file.close()
-                totalsize = data['sizes']['total']
-                availablesize = data['sizes']['available']
-                # unusedsize = totalsize - availablesize # tjavurek responsible for correction
-            return totalsize, availablesize
-        except Exception as e:
-            print e
-            raise exception.ServiceUnavailable(e)
+        except Exception as error:
+            print error
+            raise exception.ServiceUnavailable(error)

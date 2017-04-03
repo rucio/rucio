@@ -8,6 +8,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch> 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch> 2017
 #
 # If the connection to Elasticsearch (ES) is broken, Redis starts persisting data on disk till ES is back.
 # If the downtime of ES is longer, the disk might run full and take the node down. Currently the disk space
@@ -20,10 +21,11 @@
 # This probe should be executed every 15 minutes on the host running Redis.
 
 import os
-import redis
 import socket
 import sys
 import time
+
+import redis
 
 from pystatsd import Client
 
@@ -50,21 +52,21 @@ HOST = socket.getfqdn()
 
 
 def get_free_disk_space():
-    s = os.statvfs('/')
-    return (s.f_bavail * s.f_frsize) / 1024 / 1024
+    state = os.statvfs('/')
+    return (state.f_bavail * state.f_frsize) / 1024 / 1024
 
 
 def report_to_graphite(name, value):
-    server = 'rucio-graphite-prod.cern.ch'
+    serv = 'rucio-graphite-prod-02.cern.ch'
     port = 8125
     try:
-        Client(host=server, port=port, prefix='%s.%s' % ('rucio.monitoring.redis', HOST)).gauge(name, value)
+        Client(host=serv, port=port, prefix='%s.%s' % ('rucio.monitoring.redis', HOST)).gauge(name, value)
     except Exception:
         pass
 
 if __name__ == '__main__':
     server = redis.Redis(REDIS_URL)
-    status = OK
+    STATUS = OK
 
     for queue in REDIS_QUEUES:
         try:
@@ -72,9 +74,9 @@ if __name__ == '__main__':
             # Report to Graphite
             report_to_graphite('queue.%s' % queue, queue_len)
             if queue_len > THRESHOLD_QUEUE_SIZE:
-                status = WARNING
-        except redis.exceptions.ConnectionError as e:
-            print e
+                STATUS = WARNING
+        except redis.exceptions.ConnectionError as error:
+            print error
             sys.exit(CRITICAL)
 
     free_disk_space = get_free_disk_space()
@@ -86,7 +88,7 @@ if __name__ == '__main__':
         time.sleep(120)  # Sleeping two minutes to wait for the effects on queue trimming on disk
         free_disk_space_after = get_free_disk_space()
         report_to_graphite('avail_diskspace', free_disk_space_after)
-        status = WARNING if status == OK else status
+        STATUS = WARNING if STATUS == OK else STATUS
         if free_disk_space_after < THRESHOLD_CRITICAL_GB * (1024):
             print '[%s] Cleaning debug queue wasn\'t sufficient to free enough disk space. Last gain: %d mb (%d entries)' % (HOST, (free_disk_space_after - free_disk_space), debug_cutoff)
             server.ltrim('rucio.daemons', TRIM_CRITICAL_EVENTS, -1)
@@ -94,6 +96,6 @@ if __name__ == '__main__':
             crit_free_disk_space = get_free_disk_space()
             report_to_graphite('avail_diskspace', crit_free_disk_space)
             print '[%s] Remvoing %s events from daemon queue to gain %d mb of disk space.' % (HOST, TRIM_CRITICAL_EVENTS, (crit_free_disk_space - free_disk_space_after))
-            status = CRITICAL
+            STATUS = CRITICAL
 
-    sys.exit(status)
+    sys.exit(STATUS)
