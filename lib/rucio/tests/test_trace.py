@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 import datetime
 import json
@@ -16,15 +17,16 @@ import uuid
 from nose.tools import assert_equal
 from paste.fixture import TestApp
 
-from rucio.web.rest.trace import app as trace_app
+from rucio.web.rest.trace import APP as trace_app
 
 
-class TestTrace():
+class TestTrace(object):
 
-    def test_submit_trace(self):
+    @staticmethod
+    def test_submit_trace():
         """ TRACE (REST): submit a trace via POST """
 
-        mw = []
+        mwl = []
 
         payload = json.dumps({'uuid': str(uuid.uuid4()),  # not JSON serialisable
                               'string': 'deadbeef',
@@ -36,5 +38,5 @@ class TestTrace():
                               'datetime_str': str(datetime.datetime.utcnow()),  # not JSON serialisable
                               'boolean': True})
 
-        r = TestApp(trace_app.wsgifunc(*mw)).post('/', params=payload, headers={'Content-Type': 'application/octet-stream'})
-        assert_equal(r.status, 201)
+        ret = TestApp(trace_app.wsgifunc(*mwl)).post('/', params=payload, headers={'Content-Type': 'application/octet-stream'})
+        assert_equal(ret.status, 201)

@@ -1,25 +1,27 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#                       http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - David Cameron, <david.cameron@cern.ch>, 2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+"""
+ Copyright European Organization for Nuclear Research (CERN)
 
-#
-# Set quotas for physgroups
-# Set quotas for users on their country's localgroupdisk
-# Set quotas for all users on scratchdisk
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+                       http://www.apache.org/licenses/LICENSE-2.0
 
+ Authors:
+ - David Cameron, <david.cameron@cern.ch>, 2015
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+
+
+ Set quotas for physgroups
+ Set quotas for users on their country's localgroupdisk
+ Set quotas for all users on scratchdisk
+"""
 
 import json
-import requests
 import sys
+
+import requests
 
 from rucio.api.rse import get_rse, parse_rse_expression, get_rse_usage, list_rse_attributes
 from rucio.api.account import list_accounts
@@ -36,30 +38,24 @@ OK = 0
 RESULT = OK
 
 
-def get_srm_total(name, ddm_type):
+def get_storage_total(name, ddm_type):
     global RESULT
     try:
-        capacity = get_rse_usage(name, 'root', source='srm')
+        capacity = get_rse_usage(name, 'root', source='storage')
         tier = list_rse_attributes(name)['tier']
     except RucioException as error:
         if ddm_type == 'TEST':
             print "Ignoring failed 'get capacity' for TEST endpoint: %s: %s" % (name, str(error))
-        else:
+        elif tier in ['0', '1', '2']:
             print "WARNING: Could not get capacity of %s: %s" % (name, str(error))
             RESULT = WARNING
-        return None
-    try:
-        srmtotal = capacity[0]['total']
-    except:
-        try:
-            capacity = get_rse_usage(name, 'root', source='gsiftp')
-            srmtotal = capacity[0]['total']
-        except:
-            if tier in ['0', '1', '2'] and ddm_type != 'TEST':
-                print "WARNING: No srm info for %s" % name
-                RESULT = WARNING
             return None
-    return srmtotal
+    try:
+        total = capacity[0]['total']
+        return total
+    except IndexError as error:
+        print 'No storage info for %s' % error
+        return None
 
 
 def set_group_quotas():
@@ -112,7 +108,7 @@ def set_group_quotas():
                             except AccountNotFound, error:
                                 print error
                     elif quotas[(group, name)] != ddmendpoint['quotas'][vomsgroup] * 1000 ** 4:
-                        print 'On %s quota for %s differs Rucio : %s vs AGIS : %s' % (name, account, quotas[(group, name)], ddmendpoint['quotas'][vomsgroup] * 1000 ** 4)
+                        print 'On %s quota for %s differs Rucio : %s vs AGIS : %s' % (name, group, quotas[(group, name)], ddmendpoint['quotas'][vomsgroup] * 1000 ** 4)
                         try:
                             set_account_limit(group, name, ddmendpoint['quotas'][vomsgroup] * 1000 ** 4, 'root')
                         except AccountNotFound, error:
@@ -126,7 +122,7 @@ def set_user_quotas(ddm_type, fraction):
     session = get_session()
     user_accounts = [acc['account'] for acc in list_accounts({'account_type': 'USER'})]
     for rse in parse_rse_expression('type=%s' % (ddm_type)):
-        total_space = get_srm_total(rse, ddm_type)
+        total_space = get_storage_total(rse, ddm_type)
         val = list_rse_attributes(rse)
         if total_space:
             quotas[rse] = float(val.get('default_account_limit_bytes', float(total_space) * fraction))
@@ -154,12 +150,15 @@ rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a
 
             else:
                 for rse in accounts[account]:
-                    if abs(accounts[account][rse] - quotas[rse]) > 1000:
-                        print '%s %s : Defined quota %s different from expected quota %s' % (rse, account, accounts[account][rse], quotas[rse])
-                        try:
-                            set_account_limit(account, rse, quotas[rse], 'root')
-                        except AccountNotFound, error:
-                            print error
+                    if rse in quotas:
+                        if abs(accounts[account][rse] - quotas[rse]) > 1000:
+                            print '%s %s : Defined quota %s different from expected quota %s' % (rse, account, accounts[account][rse], quotas[rse])
+                            try:
+                                set_account_limit(account, rse, quotas[rse], 'root')
+                            except AccountNotFound, error:
+                                print error
+                    else:
+                        print '%s cannot be found in quotas dictionary' % (rse)
 
     except Exception, error:
         print error
@@ -183,7 +182,7 @@ def set_localgroupdisk_quotas(fraction):
                 dict_sites[country] = []
             dict_sites[country].append(rse)
             if rse not in total_space:
-                total_space[rse] = get_srm_total(rse, 'LOCALGROUPDISK')
+                total_space[rse] = get_storage_total(rse, 'LOCALGROUPDISK')
                 val = list_rse_attributes(rse)
                 if 'default_account_limit_bytes' in val:
                     default_values[rse] = float(val['default_account_limit_bytes'])
@@ -195,7 +194,7 @@ def set_localgroupdisk_quotas(fraction):
         query = '''select a.account, a.key, a.value, a.updated_at, a.created_at from atlas_rucio.account_attr_map a, atlas_rucio.accounts b
                    where a.account=b.account and key like 'country-%' and b.status='ACTIVE' '''
         result = session.execute(query)
-        for account, key, value, _, _ in result:
+        for account, key, _, _, _ in result:
             if key not in countries:
                 countries[key] = []
             countries[key].append(account)

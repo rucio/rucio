@@ -7,17 +7,22 @@
 #
 # Authors:
 # - Luis Rodrigues, <luis.rodrigues@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+
+"""
+Graphite counters
+"""
+
+import time
 
 from pystatsd import Client
 
 from rucio.common.config import config_get
 
-import time
-
-server = config_get('monitor', 'carbon_server')
-port = config_get('monitor', 'carbon_port')
-scope = config_get('monitor', 'user_scope')
-pystatsd_client = Client(host=server, port=port, prefix=scope)
+SERVER = config_get('monitor', 'carbon_server')
+PORT = config_get('monitor', 'carbon_port')
+SCOPE = config_get('monitor', 'user_scope')
+CLIENT = Client(host=SERVER, port=PORT, prefix=SCOPE)
 
 
 def record_counter(counters, delta=1):
@@ -27,7 +32,7 @@ def record_counter(counters, delta=1):
     :param counters: The counter or a list of counters to be updated.
     :param delta: The increment for the counter, by default increment by 1.
     """
-    pystatsd_client.update_stats(counters, delta)
+    CLIENT.update_stats(counters, delta)
 
 
 def record_gauge(stat, value):
@@ -37,7 +42,7 @@ def record_gauge(stat, value):
     :param stat: The name of the stat to be updated.
     :param value: The value to log.
     """
-    pystatsd_client.gauge(stat, value)
+    CLIENT.gauge(stat, value)
 
 
 def record_timer(stat, time):
@@ -47,7 +52,7 @@ def record_timer(stat, time):
     :param stat: The name of the stat to be updated.
     :param value: The time to log.
     """
-    pystatsd_client.timing(stat, time)
+    CLIENT.timing(stat, time)
 
 
 class record_timer_block(object):

@@ -1,12 +1,15 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+'''
 
 from rucio.common.exception import ConfigNotFound
 from rucio.db.sqla import models
@@ -22,11 +25,11 @@ def sections(session=None):
     :returns: ['section_name', ...]
     """
 
-    tmp = session.query(models.Config.section).distinct().all()
+    all_sections = session.query(models.Config.section).distinct().all()
 
     res = []
-    for t in tmp:
-        res.append(t[0])
+    for section in all_sections:
+        res.append(section[0])
 
     return res
 
@@ -67,11 +70,11 @@ def options(section, session=None):
     :returns: ['option', ...]
     """
 
-    tmp = session.query(models.Config.opt).filter_by(section=section).distinct().all()
+    optns = session.query(models.Config.opt).filter_by(section=section).distinct().all()
 
     res = []
-    for t in tmp:
-        res.append(t[0])
+    for optn in optns:
+        res.append(optn[0])
 
     return res
 
@@ -125,11 +128,11 @@ def items(section, session=None):
     :returns: [('option', auto-coerced value), ...]
     """
 
-    tmp = session.query(models.Config.opt, models.Config.value).filter_by(section=section).all()
+    itms = session.query(models.Config.opt, models.Config.value).filter_by(section=section).all()
 
     res = []
-    for t in tmp:
-        res.append((t[0], __convert_type(t[1])))
+    for itm in itms:
+        res.append((itm[0], __convert_type(itm[1])))
 
     return res
 
@@ -203,14 +206,17 @@ def remove_option(section, option, session=None):
 
 
 def __convert_type(value):
+    '''
+    __convert_type
+    '''
     if value.lower() in ['true', 'yes', 'on']:
         return True
     elif value.lower() in ['false', 'no', 'off']:
         return False
 
-    for c in (int, float):
+    for conv in (int, float):
         try:
-            return c(value)
+            return conv(value)
         except:
             pass
 

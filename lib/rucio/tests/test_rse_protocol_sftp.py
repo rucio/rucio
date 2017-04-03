@@ -8,21 +8,21 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 
+import shutil
+import tempfile
+from uuid import uuid4 as uuid
 import json
 import os
 import pysftp
-import shutil
-import tempfile
+
 
 from nose.tools import raises
-from uuid import uuid4 as uuid
-
 from rucio.common import exception
 from rucio.rse import rsemanager as mgr
-from rsemgr_api_test import MgrTestCases
+from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
-class TestRseSFTP():
+class TestRseSFTP(object):
     tmpdir = None
     user = None
 
@@ -36,22 +36,22 @@ class TestRseSFTP():
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
             out.seek((1024 * 1024) - 1)  # 1 MB
             out.write('\0')
-        for f in MgrTestCases.files_local:
-            os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
+        for fil in MgrTestCases.files_local:
+            os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, fil))
 
         # Load local credentials from file
-        with open('etc/rse-accounts.cfg') as f:
-            data = json.load(f)
+        with open('etc/rse-accounts.cfg') as fil:
+            data = json.load(fil)
         credentials = data['LXPLUS']
         lxplus = pysftp.Connection(**credentials)
-        with open('etc/rse_repository.json') as f:
-            prefix = json.load(f)['LXPLUS']['protocols']['supported']['sftp']['prefix']
+        with open('etc/rse_repository.json') as fil:
+            prefix = json.load(fil)['LXPLUS']['protocols']['supported']['sftp']['prefix']
         lxplus.execute('mkdir %s' % prefix)
         lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = 'sftp://lxplus.cern.ch:22%sdata.raw' % prefix
         protocol = mgr.create_protocol(mgr.get_rse_info('LXPLUS'), 'write')
-        for f in MgrTestCases.files_remote:
-            tmp = protocol.parse_pfns(protocol.lfns2pfns({'name': f, 'scope': 'user.%s' % cls.user}).values()[0]).values()[0]
+        for fil in MgrTestCases.files_remote:
+            tmp = protocol.parse_pfns(protocol.lfns2pfns({'name': fil, 'scope': 'user.%s' % cls.user}).values()[0]).values()[0]
             for cmd in ['mkdir -p %s' % ''.join([tmp['prefix'], tmp['path']]), 'ln -s %sdata.raw %s' % (prefix, ''.join([tmp['prefix'], tmp['path'], tmp['name']]))]:
                 lxplus.execute(cmd)
         lxplus.close()
@@ -61,12 +61,12 @@ class TestRseSFTP():
         """SFTP (RSE/PROTOCOLS): Removing created directorie s and files """
         # Load local creditentials from file
         credentials = {}
-        with open('etc/rse-accounts.cfg') as f:
-            data = json.load(f)
+        with open('etc/rse-accounts.cfg') as fil:
+            data = json.load(fil)
         credentials = data['LXPLUS']
         lxplus = pysftp.Connection(**credentials)
-        with open('etc/rse_repository.json') as f:
-            prefix = json.load(f)['LXPLUS']['protocols']['supported']['sftp']['prefix']
+        with open('etc/rse_repository.json') as fil:
+            prefix = json.load(fil)['LXPLUS']['protocols']['supported']['sftp']['prefix']
         lxplus.execute('rm -rf %s' % prefix)
         lxplus.close()
         shutil.rmtree(cls.tmpdir)

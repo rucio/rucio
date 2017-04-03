@@ -21,12 +21,12 @@ from rucio.common.exception import InvalidObject, RucioException, SubscriptionDu
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
-logger = getLogger("rucio.subscription")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.subscription")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
-urls = (
+URLS = (
     '/Id/(.*)', 'SubscriptionId',
     '/(.*)/(.*)/Rules/States', 'States',
     '/(.*)/Rules/States', 'States',
@@ -275,6 +275,6 @@ class SubscriptionId:
    Web service startup
 ----------------------"""
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

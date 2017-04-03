@@ -24,3 +24,4 @@ xmltodict==0.10.1                # Makes working with XML feel like you are work
 pytz==2016.7                     # World timezone definitions, modern and historical
 Babel==2.3.2                     # Internationalization utilities
 git-review==1.25.0               # Command-line tool for Git / Gerrit
+subprocess32==3.2.7              # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.

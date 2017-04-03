@@ -6,12 +6,20 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015, 2017
+
+"""
+Mock DID collector
+"""
 
 from random import choice
 
 
-class MockDIDCollector():
+class MockDIDCollector(object):
+    """
+    Simple collector that reads dids from a file. Used to
+    test the interface.
+    """
     def __init__(self, queue):
         self._queue = queue
         self._read_file('/opt/rucio/etc/dids_mc15_13TeV.csv')
