@@ -6,7 +6,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
@@ -267,7 +267,7 @@ class RSEAttributeSmallerCheck(BaseExpressionElement):
         rse_dict = {}
         for rse in rse_list:
             try:
-                if int(get_rse_attribute(key=self.key, rse_id=rse['id'], session=session)[0]) < int(self.value):
+                if float(get_rse_attribute(key=self.key, rse_id=rse['id'], session=session)[0]) < float(self.value):
                     rse_dict[rse['id']] = rse
                     output.append(rse['id'])
             except ValueError:
@@ -302,7 +302,7 @@ class RSEAttributeLargerCheck(BaseExpressionElement):
         rse_dict = {}
         for rse in rse_list:
             try:
-                if int(get_rse_attribute(key=self.key, rse_id=rse['id'], session=session)[0]) > int(self.value):
+                if float(get_rse_attribute(key=self.key, rse_id=rse['id'], session=session)[0]) > float(self.value):
                     rse_dict[rse['id']] = rse
                     output.append(rse['id'])
             except ValueError:
