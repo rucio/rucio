@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 """add_transferred_at_to_requests_table
 
@@ -15,19 +16,27 @@ Create Date: 2015-04-14 15:56:32.647375
 
 """
 
-from alembic import op, context
+from alembic import context
+from alembic.op import add_column, drop_column
+
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '40ad39ce3160'
-down_revision = '2ba5229cb54c'
+revision = '40ad39ce3160'  # pylint: disable=invalid-name
+down_revision = '2ba5229cb54c'  # pylint: disable=invalid-name
 
 
 def upgrade():
+    '''
+    upgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.add_column('requests', sa.Column('transferred_at', sa.DateTime()))
+        add_column('requests', sa.Column('transferred_at', sa.DateTime()))
 
 
 def downgrade():
+    '''
+    downgrade method
+    '''
     if context.get_context().dialect.name not in ('sqlite'):
-        op.drop_column('requests', 'transferred_at')
+        drop_column('requests', 'transferred_at')

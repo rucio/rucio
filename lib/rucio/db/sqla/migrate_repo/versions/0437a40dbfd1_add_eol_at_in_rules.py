@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
 # - Cedric Serfon, <vincent.garonne@cern.ch>, 2016
 
 """Add eol_at in rules
@@ -16,7 +16,9 @@ Create Date: 2016-08-04 13:06:39.424799
 
 """
 
-from alembic import context, op
+from alembic import context
+from alembic.op import add_column, drop_column
+
 import sqlalchemy as sa
 
 
@@ -26,14 +28,20 @@ down_revision = 'a5f6f6e928a7'
 
 
 def upgrade():
-    if context.get_context().dialect.name not in ('sqlite'):
-        op.add_column('rules', sa.Column('eol_at', sa.DateTime))
-        op.add_column('rules_hist_recent', sa.Column('eol_at', sa.DateTime))
-        op.add_column('rules_history', sa.Column('eol_at', sa.DateTime))
+    '''
+    upgrade method
+    '''
+    if context.get_context().dialect.name != 'sqlite':
+        add_column('rules', sa.Column('eol_at', sa.DateTime))
+        add_column('rules_hist_recent', sa.Column('eol_at', sa.DateTime))
+        add_column('rules_history', sa.Column('eol_at', sa.DateTime))
 
 
 def downgrade():
-    if context.get_context().dialect.name not in ('sqlite'):
-        op.drop_column('rules', 'eol_at')
-        op.drop_column('rules_hist_recent', 'eol_at')
-        op.drop_column('rules_history', 'eol_at')
+    '''
+    downgrade method
+    '''
+    if context.get_context().dialect.name != 'sqlite':
+        drop_column('rules', 'eol_at')
+        drop_column('rules_hist_recent', 'eol_at')
+        drop_column('rules_history', 'eol_at')

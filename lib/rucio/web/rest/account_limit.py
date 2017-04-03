@@ -8,12 +8,13 @@
 
   Authors:
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 '''
 
 from json import loads
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
-from web import application, loadhook, ctx, data, BadRequest, Created, InternalError, OK
+from web import application, loadhook, ctx, data, Created, InternalError, OK
 
 from rucio.api.account_limit import set_account_limit, delete_account_limit
 from rucio.common.exception import RSENotFound, AccessDenied, AccountNotFound
@@ -21,23 +22,20 @@ from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
-logger = getLogger("rucio.account_limit")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+LOGGER = getLogger("rucio.account_limit")
+SH = StreamHandler()
+SH.setLevel(DEBUG)
+LOGGER.addHandler(SH)
 
-urls = (
+URLS = (
     '/(.+)/(.+)', 'AccountLimit',
 )
 
 
 class AccountLimit(RucioController):
-    def GET(self, account, rse):
-        raise BadRequest()
-
-    def PUT(self, account, rse):
-        raise BadRequest()
-
+    '''
+    AccountLimit
+    '''
     def POST(self, account, rse):
         """ Create or update an account limit.
         HTTP Success:
@@ -61,23 +59,23 @@ class AccountLimit(RucioController):
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
         try:
             bytes = parameter['bytes']
-        except KeyError, e:
-            if e.args[0] == 'type':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as exception:
+            if exception.args[0] == 'type':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(exception))
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             set_account_limit(account=account, rse=rse, bytes=bytes, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except RSENotFound, e:
-            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
+        except AccessDenied as exception:
+            raise generate_http_error(401, 'AccessDenied', exception.args[0][0])
+        except RSENotFound as exception:
+            raise generate_http_error(404, 'RSENotFound', exception.args[0][0])
+        except AccountNotFound as exception:
+            raise generate_http_error(404, 'AccountNotFound', exception.args[0][0])
+        except Exception as exception:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(exception)
 
         raise Created()
 
@@ -98,22 +96,21 @@ class AccountLimit(RucioController):
         """
         try:
             delete_account_limit(account=account, rse=rse, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except RSENotFound, e:
-            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
-        except Exception, e:
+        except AccessDenied as exception:
+            raise generate_http_error(401, 'AccessDenied', exception.args[0][0])
+        except AccountNotFound as exception:
+            raise generate_http_error(404, 'AccountNotFound', exception.args[0][0])
+        except RSENotFound as exception:
+            raise generate_http_error(404, 'RSENotFound', exception.args[0][0])
+        except Exception as exception:
             print format_exc()
-            raise InternalError(e)
-
+            raise InternalError(exception)
         raise OK()
 
-"""----------------------
-   Web service startup
-----------------------"""
+# ----------------------
+#   Web service startup
+# ----------------------
 
-app = application(urls, globals())
-app.add_processor(loadhook(rucio_loadhook))
-application = app.wsgifunc()
+APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+application = APP.wsgifunc()

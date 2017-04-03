@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
 
 import os
@@ -35,6 +35,27 @@ class Default(protocol.RSEProtocol):
             self.attributes['determinism_type'] = 's3'
         self.__conn = None
         self.renaming = False
+        self.overwrite = True
+        self.http_proxy = os.environ.get("http_proxy")
+        self.https_proxy = os.environ.get("https_proxy")
+
+    def _disable_http_proxy(self):
+        """
+           Disable http and https proxy if exists.
+        """
+        if self.http_proxy:
+            del os.environ['http_proxy']
+        if self.https_proxy:
+            del os.environ['https_proxy']
+
+    def _reset_http_proxy(self):
+        """
+           Reset http and https proxy if exists.
+        """
+        if self.http_proxy:
+            os.environ['http_proxy'] = self.http_proxy
+        if self.https_proxy:
+            os.environ['https_proxy'] = self.https_proxy
 
     def _get_path(self, scope, name):
         """ Transforms the physical file name into the local URI in the referred RSE.
@@ -132,9 +153,12 @@ class Default(protocol.RSEProtocol):
             if 'S3_SECRET_KEY' in os.environ:
                 secret_key = os.environ['S3_SECRET_KEY']
             if 'S3_IS_SECURE' in os.environ:
-                is_secure = os.environ['S3_IS_SECURE']
+                if str(os.environ['S3_IS_SECURE']).lower() == 'true':
+                    is_secure = True
+                elif str(os.environ['S3_IS_SECURE']).lower() == 'false':
+                    is_secure = False
 
-            if not is_secure or not access_key or not secret_key:
+            if is_secure is None or access_key is None or secret_key is None:
                 credentials = get_rse_credentials()
                 self.rse['credentials'] = credentials.get(self.rse['rse'])
 
@@ -146,13 +170,16 @@ class Default(protocol.RSEProtocol):
                     is_secure = self.rse['credentials'].get('is_secure', {}).\
                         get(service_url, False)
 
+            self._disable_http_proxy()
             self.__conn = connect_s3(host=self.attributes['hostname'],
                                      port=int(port),
                                      aws_access_key_id=access_key,
                                      aws_secret_access_key=secret_key,
                                      is_secure=is_secure,
                                      calling_format=OrdinaryCallingFormat())
+            self._reset_http_proxy()
         except Exception as e:
+            self._reset_http_proxy()
             raise exception.RSEAccessDenied(e)
 
     def close(self):

@@ -34,8 +34,8 @@ from rucio.core.replica import (add_replica, add_replicas, delete_replicas,
                                 get_replica_atime, touch_replica)
 from rucio.daemons.necromancer import run
 from rucio.rse import rsemanager as rsemgr
-from rucio.web.rest.authentication import app as auth_app
-from rucio.web.rest.replica import app as rep_app
+from rucio.web.rest.authentication import APP as auth_app
+from rucio.web.rest.replica import APP as rep_app
 
 
 class TestReplicaCore:

@@ -1,3 +1,14 @@
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne,  <vincent.garonne@cern.ch> , 2017
+'''
+
 from datetime import datetime
 from datetime import timedelta
 from nose.tools import eq_
@@ -13,6 +24,7 @@ import tempfile
 
 
 def test_total_seconds():
+    """AUTHENTICATION (REST): Username and password (wrong credentials)."""
     dif = timedelta(days=1, hours=1, minutes=1, seconds=1, microseconds=1)
     ok_(abs(auditor.total_seconds(dif) - 90061) < 0.01)
 

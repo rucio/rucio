@@ -1,15 +1,17 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
 
-# How to generate test outputs:
-#   nosetests --verbose --with-outputsave --save-directory=doc/source/example_outputs/ lib/rucio/tests/test_curl.py
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
+
+  How to generate test outputs/Test the API via CURL:
+    nosetests --verbose --with-outputsave --save-directory=doc/source/example_outputs/ lib/rucio/tests/test_curl.py
+'''
 
 import json
 import os
@@ -19,17 +21,15 @@ from rucio.common.config import config_get
 from rucio.tests.common import account_name_generator, rse_name_generator, execute
 
 
-class TestCurlRucio():
-
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
+class TestCurlRucio(object):
+    '''
+    class TestCurlRucio
+    '''
 
     def setup(self):
+        '''
+        setup
+        '''
         self.cacert = config_get('test', 'cacert')
         self.usercert = config_get('test', 'usercert')
         self.host = config_get('client', 'rucio_host')
@@ -113,6 +113,7 @@ class TestCurlRucio():
     def test_get_accounts_whoami(self):
         """ACCOUNT (CURL): Test whoami method"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
+        print cmd
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):-1]
