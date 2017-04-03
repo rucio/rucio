@@ -272,6 +272,8 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
     for lock in rucio.core.lock.get_dataset_locks(scope=scope, name=name, session=session):
         if 'LOCALGROUPDISK' in lock['rse']:
             rses_to_rebalance.append({'rse': lock['rse'], 'account': lock['account']})
+    # Remove duplicates from list
+    rses_to_rebalance = [dict(t) for t in set([tuple(sorted(d.items())) for d in rses_to_rebalance])]
 
     # There is at least one rule on LOCALGROUPDISK
     if rses_to_rebalance:
