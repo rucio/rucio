@@ -31,7 +31,7 @@ OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 users = True
 groups = True
 gdp = True
-testmode = True
+testmode = False
 working_days = ['Wednesday']
 
 timestamp = datetime.today().strftime('%Y-%m-%d')
