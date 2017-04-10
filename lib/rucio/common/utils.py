@@ -9,6 +9,7 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
+ - Martin Barisits, <martin.barisits@cern.ch>, 2017
 """
 
 import datetime
@@ -495,7 +496,7 @@ def is_archive(name):
 
     :return: A boolean.
     '''
-    regexp = '^.*\.(zip|zipx|tar.gz|tgz|tar.Z|tar.bz2|tbz2)$'
+    regexp = '^.*\.(zip|zipx|tar.gz|tgz|tar.Z|tar.bz2|tbz2)(\.\d+)*$'
     if re.match(regexp, name, re.I):
         return True
     return False
