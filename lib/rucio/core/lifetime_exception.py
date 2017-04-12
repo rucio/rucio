@@ -18,14 +18,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common.exception import RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation
-from rucio.common.utils import generate_uuid
-# from rucio.core.message import add_message
+from rucio.common.utils import generate_uuid, str_to_date
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import LifetimeExceptionsState
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
+from rucio.db.sqla.session import transactional_session, stream_session
 
 
-@read_session
+@stream_session
 def list_exceptions(exception_id, states, session=None):
     """
     List exceptions to Lifetime Model.
@@ -49,9 +48,14 @@ def list_exceptions(exception_id, states, session=None):
                           models.LifetimeExceptions.expires_at)
     if state_clause != []:
         query = query.filter(or_(*state_clause))
-    if id:
+    if exception_id:
         query = query.filter(id=exception_id)
-    return query.all()
+
+    for exception in query.yield_per(5):
+        yield {'id': exception.id, 'scope': exception.scope, 'name': exception.name,
+               'did_type': exception.did_type, 'account': exception.account,
+               'pattern': exception.pattern, 'comments': exception.comments,
+               'state': exception.state, 'expires_at': exception.expires_at}
 
 
 @transactional_session
@@ -70,8 +74,17 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
     """
     exception_id = generate_uuid()
     for did in dids:
-        new_exception = models.LifetimeExceptions(id=exception_id, scope=did['scope'], name=did['name'], did_type=did['type'],
-                                                  account=account, pattern=pattern, state=LifetimeExceptionsState.WAITING, expires_at=expires_at)
+        did_type = None
+        if 'did_type' in did:
+            if isinstance(did['did_type'], str) or isinstance(did['did_type'], unicode):
+                did_type = DIDType.from_sym(did['did_type'])
+            else:
+                did_type = did['did_type']
+        expires_at = None
+        if expires_at and (isinstance(expires_at, str) or isinstance(expires_at, unicode)):
+            expires_at = str_to_date(expires_at)
+        new_exception = models.LifetimeExceptions(id=exception_id, scope=did['scope'], name=did['name'], did_type=did_type,
+                                                  account=account, pattern=pattern, comments=comments, state=LifetimeExceptionsState.WAITING, expires_at=expires_at)
         try:
             new_exception.save(session=session, flush=False)
         except IntegrityError as error:

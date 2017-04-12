@@ -10,13 +10,13 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
 """
 
-from json import loads
+from json import loads, dumps
 
 from web import application, ctx, data, header, BadRequest, Created, InternalError, loadhook
 
 from rucio.api.lifetime_exception import list_exceptions, add_exception, update_exception
 from rucio.common.exception import LifetimeExceptionNotFound, UnsupportedOperation, InvalidObject, RucioException, AccessDenied, LifetimeExceptionDuplicate
-from rucio.common.utils import generate_http_error, render_json
+from rucio.common.utils import generate_http_error, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
 
@@ -39,16 +39,16 @@ class LifetimeException:
             500 Internal Error
 
         """
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
         try:
-            exceptions = list_exceptions()
+            for exception in list_exceptions():
+                yield dumps(exception, cls=APIEncoder) + '\n'
         except LifetimeExceptionNotFound as error:
             raise generate_http_error(404, 'LifetimeExceptionNotFound', error.args[0][0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             raise InternalError(error)
-        return render_json(**exceptions)
 
     def POST(self):
         """
@@ -64,12 +64,17 @@ class LifetimeException:
             500 Internal Error
         """
         json_data = data()
+        dids, pattern, comments, expires_at = [], None, None, None
         try:
             params = loads(json_data)
-            dids = params['dids']
-            pattern = params['pattern']
-            comments = params['comments']
-            expires_at = params['expires_at']
+            if 'dids' in params:
+                dids = params['dids']
+            if 'pattern' in params:
+                pattern = params['pattern']
+            if 'comments' in params:
+                comments = params['comments']
+            if 'expires_at' in params:
+                expires_at = params['expires_at']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -85,8 +90,7 @@ class LifetimeException:
             raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
         except Exception as error:
             raise InternalError(error)
-
-        raise Created(exception_id)
+        raise Created(dumps(exception_id))
 
 
 class LifetimeExceptionId:
@@ -106,14 +110,15 @@ class LifetimeExceptionId:
         """
         header('Content-Type', 'application/json')
         try:
-            exceptions = list_exceptions(exception_id)
+            for exception in list_exceptions(exception_id):
+                yield dumps(exception, cls=APIEncoder) + '\n'
+
         except LifetimeExceptionNotFound as error:
             raise generate_http_error(404, 'LifetimeExceptionNotFound', error.args[0][0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             raise InternalError(error)
-        return render_json(**exceptions)
 
     def PUT(self, exception_id):
         """
@@ -155,10 +160,12 @@ class LifetimeExceptionId:
         raise BadRequest()
 
 
-"""----------------------
+"""
+----------------------
    Web service startup
-----------------------"""
+----------------------
+"""
 
 APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))
-APPLICATION = APP.wsgifunc()
+application = APP.wsgifunc()
