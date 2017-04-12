@@ -36,7 +36,7 @@ def list_exceptions(exception_id, states, session=None):
 
     state_clause = []
     if states:
-        state_clause = [models.models.LifetimeExceptions.state == state for state in states]
+        state_clause = [models.LifetimeExceptions.state == state for state in states]
 
     query = session.query(models.LifetimeExceptions.id,
                           models.LifetimeExceptions.scope, models.LifetimeExceptions.name,
