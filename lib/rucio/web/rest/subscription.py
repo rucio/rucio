@@ -79,6 +79,7 @@ class Subscription:
         json_data = data()
         try:
             params = loads(json_data)
+            params = params['options']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -142,6 +143,7 @@ class Subscription:
         json_data = data()
         try:
             params = loads(json_data)
+            params = params['options']
             filter = params['filter']
             replication_rules = params['replication_rules']
             comments = params['comments']
