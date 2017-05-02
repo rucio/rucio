@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014,2017
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 
@@ -56,8 +56,8 @@ class SubscriptionClient(BaseClient):
             raise TypeError('filter should be a dict')
         if replication_rules and type(replication_rules) != list:
             raise TypeError('replication_rules should be a list')
-        data = dumps({'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
-                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority})
+        data = dumps({'options': {'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
+                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return r.text
@@ -126,8 +126,8 @@ class SubscriptionClient(BaseClient):
             raise TypeError('filter should be a dict')
         if replication_rules and type(replication_rules) != list:
             raise TypeError('replication_rules should be a list')
-        data = dumps({'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
-                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority})
+        data = dumps({'options': {'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
+                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
         r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.created:
             return True
