@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -86,7 +86,8 @@ def has_permission(issuer, action, kwargs):
             'add_attribute': perm_add_account_attribute,
             'del_attribute': perm_del_account_attribute,
             'list_heartbeats': perm_list_heartbeats,
-            'resurrect': perm_resurrect}
+            'resurrect': perm_resurrect,
+            'update_lifetime_exceptions': perm_update_lifetime_exceptions}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -762,6 +763,16 @@ def perm_resurrect(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+
+
+def perm_update_lifetime_exceptions(issuer, kwargs):
+    """
+    Checks if an account can approve/reject Lifetime Model exceptions.
+
+    :param issuer: Account identifier which issues the command.
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
