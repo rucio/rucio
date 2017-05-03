@@ -76,12 +76,12 @@ def update_merg_request(mr, test_result, comment):
         labels.append('Tests: FAIL')
 
     data = {'labels': ', '.join(labels)}
-    requests.put(url='https://gitlab.cern.ch/api/v4/projects/651/merge_request/%s' % str(mr['id']),
+    requests.put(url='https://gitlab.cern.ch/api/v4/projects/651/merge_requests/%s' % str(mr['iid']),
                  params={'private_token': private_token},
                  data=data)
 
     data = {'body': ''.join(comment)}
-    requests.post(url='https://gitlab.cern.ch/api/v4/projects/651/merge_requests/%s/notes' % str(mr['id']),
+    requests.post(url='https://gitlab.cern.ch/api/v4/projects/651/merge_requests/%s/notes' % str(mr['iid']),
                   params={'private_token': private_token},
                   data=data)
 
