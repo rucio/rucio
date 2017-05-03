@@ -832,10 +832,7 @@ def upload(args):
     except Exception:
         logger.error('rucio upload only allows to upload files to one dataset, more than one provided.')
         return FAILURE
-    # Checking if the user can add to the scope given for the dataset
-    if dsscope and dsscope not in client.list_scopes_for_account(client.account):
-        logger.error("Cannot add to scope {scope}.".format(scope=dsscope))
-        return FAILURE
+
     files = __get_files(args.args)               # a list of file names (even if a directory is given)
     if not files:
         return FAILURE
