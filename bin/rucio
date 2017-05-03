@@ -41,6 +41,7 @@ from copy import deepcopy
 from functools import wraps
 from Queue import Queue, Empty
 from threading import Thread, Event
+from xml.etree import ElementTree
 
 from rucio.client.client import Client
 from rucio import version
@@ -49,7 +50,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, File
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException)
-from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color
+from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, get_tmp_dir
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -1226,6 +1227,52 @@ def _file_exists(type, scope, name, directory, dsn=None, no_subdir=False):
     return file_exists, dest_dir
 
 
+def _replica_mlstr_to_list(mlstr):
+    root = ElementTree.fromstring(mlstr)
+    replicas = []
+
+    # metalink namespace mapping
+    ns = {'list_replicas_ml': 'urn:ietf:params:xml:ns:metalink'}
+
+    # loop over all <file> tags of the metalink string
+    for file_ml in root.findall('list_replicas_ml:file', ns):
+        cur_replica = {'scope': None,
+                       'name': None,
+                       'bytes': None,
+                       'adler32': None,
+                       'rses': {}}
+
+        cur_did = file_ml.find('list_replicas_ml:identity', ns)
+        if cur_did is not None:
+            scope, name = extract_scope(cur_did.text)
+            cur_replica['scope'] = scope
+            cur_replica['name'] = name
+        else:
+            logger.warning('Could not extract identity tag while parsing metalink string! Skipping file tag!')
+            continue
+
+        size = file_ml.find('list_replicas_ml:size', ns)
+        if size is not None:
+            cur_replica['bytes'] = int(size.text)
+
+        adler32hash = file_ml.find('list_replicas_ml:hash', ns)
+        if adler32hash is not None:
+            cur_replica['adler32'] = adler32hash.text
+
+        for rse_ml in file_ml.findall('list_replicas_ml:url', ns):
+            # check if location attrib (rse name) is given
+            rse = rse_ml.get('location')
+            if rse is None:
+                continue
+
+            # if rse isnt in cur_replica yet, create a new pfn list
+            cur_replica['rses'].setdefault(rse, []).append(rse_ml.text)
+
+        replicas.append(cur_replica)
+
+    return replicas
+
+
 def download(args):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
@@ -1237,18 +1284,11 @@ def download(args):
 
     client = get_client(args)
     trace_endpoint = client.host
-    summary = {}
     trace_pattern = {'hostname': socket.getfqdn(), 'account': client.account,
                      'uuid': generate_uuid(), 'eventType': 'download',
                      'eventVersion': version.RUCIO_VERSION[0]}
-    nbfiles_to_download = {}
 
-    tape_endpoints = []
-    try:
-        tape_endpoints = [str(rse['rse']) for rse in client.list_rses('rse_type=TAPE')]
-    except InvalidRSEExpression, error:
-        logger.warning(error)
-
+    # is used account an admin?
     account_attributes = [acc for acc in client.list_account_attributes(client.account)]
     is_admin = False
     for attr in account_attributes[0]:
@@ -1257,6 +1297,14 @@ def download(args):
             is_admin = True
             break
 
+    # exclude tape RSEs whether it isnt an admin account
+    rse_expression = args.rse
+    if not is_admin:
+        rse_expression = 'istape=False'
+        if args.rse and len(args.rse.strip()) > 0:
+            rse_expression = '(%s)&istape=False' % args.rse
+    logger.debug('RSE-Expression: %s' % rse_expression)
+
     # Extract the scope, name from the did(s)
     dids = []
     for did in args.dids:
@@ -1264,24 +1312,107 @@ def download(args):
             scope, name = extract_scope(did)
             if name.find('*') > -1:
                 for dsn in client.list_dids(scope, filters={'name': name}):
-                    dids.append((scope, dsn))
+                    dids.append({'scope': scope, 'name': dsn})
             else:
-                dids.append((scope, name))
+                dids.append({'scope': scope, 'name': name})
         except ValueError, error:
-            logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, error))
+            logger.error('Cannot extract the scope and name from %s : [%s]' % (did, error))
             return FAILURE
 
-    total_workers = 1
-    if args.ndownloader:
-        total_workers = args.ndownloader
-        nlimit = 5
-        if total_workers > nlimit:
-            logger.warning('Cannot use more than %s parallel downloader.' % nlimit)
-            total_workers = nlimit
+    # is --aria given and installed?
+    use_aria = False
+    if args.aria:
+        # check if aria2c is installed
+        (exitcode, out, err) = execute('aria2c --version')
+        if exitcode == 0:
+            # aria2c is installed
+            use_aria = True
+        else:
+            logger.debug('aria2c --version exited with code %d' % exitcode)
+            logger.warning('--aria option given but could not start aria2c! Falling back to rucio download.')
 
+    replicas = None
+    # is a PFN explicit given?
+    if args.pfn:
+        # check if its valid written
+        schemes = args.pfn.split(':')
+        if len(schemes) <= 0:
+            logger.error('Invalid PFN given!')
+            return FAILURE
+
+        # if we shall use aria2c ensure the scheme is https
+        if use_aria and schemes[0].lower() != 'https':
+            use_aria = False
+            logger.warning('aria2c only supports https downloads! Falling back to rucio download...')
+    else:
+        not_available = []
+        was_fallback = not use_aria
+        while was_fallback != use_aria:
+            # only if use_aria changes, we need to repeat this loop and only once
+            was_fallback = use_aria
+
+            metalink = 4 if use_aria else None  # TODO remove if
+            schemes = ['https'] if use_aria else None
+            replicas = client.list_replicas(dids, rse_expression=rse_expression, metalink=metalink, schemes=schemes)
+
+            all_replicas = _replica_mlstr_to_list(replicas) if use_aria else replicas  # TODO remove if
+            for file in all_replicas:
+                rses = file['rses'].keys()
+                filename = '%s:%s' % (file['scope'], file['name'])
+                if rses == [] and use_aria:
+                    logger.warning('Falling back to rucio download because, no https replicas available for file %s' % (filename))
+                    use_aria = False
+                    break
+                elif rses == []:
+                    not_available.append(file)
+                    logger.warning('File %s has no available replicas. Cannot be downloaded.' % (filename))
+                    continue
+
+                logger.debug('File %s has potential sources: %s' % (filename, file['rses']))
+
+    if use_aria:
+        return download_aria(args, replicas)
+    return download_rucio(args, replicas)
+
+
+def download_aria(args, replicas):
+    filepath = '%sariadl_%d_%d' % (get_tmp_dir(), int(time.time()), random.randint(0, 1000))
+    cert = '$X509_USER_PROXY'
+    cacert = '/etc/pki/tls/certs/CERN-bundle.pem'
+
+    cmd = 'aria2c --certificate=%s --private-key=%s --ca-certificate=%s -l %s.log'
+    cmd = cmd % (cert, cert, cacert, filepath)
+
+    if not args.pfn:
+        try:
+            with open('%s.meta4' % filepath, 'w') as mlfile:
+                mlfile.write(replicas)
+        except:
+            logger.error('Failed to write metalink file for aria2c!')
+            raise Exception('Failed to write metalink file!')
+        cmd = '%s -M %s.meta4' % (cmd, filepath)
+        logger.debug('EXECUTING: %s' % cmd)
+        (exitcode, out, err) = execute(cmd)
+        print out
+        return 0
+    else:
+        cmd = '%s %s' % (cmd, args.pfn)
+        logger.debug('EXECUTING: %s' % cmd)
+        (exitcode, out, err) = execute(cmd)
+        if exitcode != 0:
+            logger.error('aria2c exited with code: %d' % exitcode)
+            raise Exception('aria2c exited with code: %d' % exitcode)
+        print out
+        return 0
+
+
+def download_rucio(args, replicas):
+    summary = {}
     input_queue = Queue()
     output_queue = Queue()
-    for scope, name in dids:
+    for cur_replica in replicas:
+        scope = cur_replica['scope']
+        name = cur_replica['name']
         try:
             summary['%s:%s' % (scope, name)] = {}
             logger.debug('Checking validity of DID')
@@ -1316,6 +1447,8 @@ def download(args):
                 files_to_download = files_to_download[0:args.nrandom]
             else:
                 files_to_download = replicas
+
+            nbfiles_to_download = {}
             nbfiles_to_download['%s:%s' % (scope, name)] = len(files_to_download)
 
             logger.info('Starting download for %s:%s with %s files' % (scope, name, len(files_to_download)))
@@ -1348,6 +1481,13 @@ def download(args):
             logger.error('Failed to download %(scope)s:%(name)s' % locals())
             logger.error(error)
 
+    total_workers = 1
+    if args.ndownloader:
+        total_workers = args.ndownloader
+        nlimit = 5
+        if total_workers > nlimit:
+            logger.warning('Cannot use more than %s parallel downloader.' % nlimit)
+            total_workers = nlimit
     threads = []
     for worker in range(total_workers):
         thread = Thread(target=_downloader, kwargs={'input_queue': input_queue, 'output_queue': output_queue, 'threadnb': worker + 1, 'total_threads': total_workers,
@@ -2049,6 +2189,7 @@ Commands:
     download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
     download_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     download_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
+    download_parser.add_argument('--aria', action='store_true', default=False, help=argparse.SUPPRESS)
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
