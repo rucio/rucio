@@ -26,7 +26,7 @@ ACCOUNT = {"description": "Account name",
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
             "items": ACCOUNT,
-            "minItems": 1,
+            "minItems": 0,
             "maxItems": 1000}
 
 
