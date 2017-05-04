@@ -602,7 +602,6 @@ class BadReplicasSummary(RucioController):
             if 'to_date' in params:
                 to_date = datetime.strptime(params['to_date'][0], "%Y-%m-%d")
 
-        result = get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
         try:
             result = get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
         except RucioException, e:
