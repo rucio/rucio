@@ -21,7 +21,7 @@ import traceback
 import requests
 
 from rucio.common.exception import RucioException, RSENotFound
-from rucio.api.rse import add_rse_attribute, get_rse_usage, get_rse
+from rucio.api.rse import add_rse_attribute, get_rses_with_attribute, del_rse_attribute, get_rse_usage, get_rse
 
 UNKNOWN = 3
 CRITICAL = 2
@@ -53,6 +53,8 @@ if __name__ == '__main__':
         print "Failed to load info from AGIS: %s" % str(error)
         sys.exit(WARNING)
 
+    SPACE_USAGE = get_rses_with_attribute('space_usage_method')
+    SPACE_USAGE = [rse['rse'] for rse in SPACE_USAGE]
     for rse in DATA:
 
         name = rse['name']
@@ -73,6 +75,10 @@ if __name__ == '__main__':
             add_rse_attribute(name, 'spacetoken', str(rse['token']), 'root')
             add_rse_attribute(name, 'site', str(rse['site']), 'root')
             add_rse_attribute(name, 'type', str(rse['type']), 'root')
+            if str(rse['space_method']) == 'other':
+                add_rse_attribute(name, 'space_usage_method', 'json', 'root')
+            elif name in SPACE_USAGE:
+                del_rse_attribute(name, 'space_usage_method', 'root')
             if rse['type'] == 'LOCALGROUPDISK' or rse['type'] == 'USERDISK':
                 country = COUNTRYCODES[str(rse['country'])]
                 if name.startswith('CERN'):
@@ -98,6 +104,8 @@ if __name__ == '__main__':
 
             space_used = get_rse_usage(rse=name, issuer='root', source='storage')
             unavailable_space = get_rse_usage(rse=name, issuer='root', source='unavailable')
+            expired = get_rse_usage(rse=name, issuer='root', source='expired')
+            expired = expired[0]['total'] if expired != [] else 0
             if unavailable_space and unavailable_space[0]['total']:
                 unavailable_space = unavailable_space[0]['total']
             else:
@@ -109,9 +117,9 @@ if __name__ == '__main__':
                     freespace = total_space - space_used[0]['used']
                 else:
                     freespace = space_used[0]['free']
-                freespace = float(freespace - unavailable_space) / 1000 / 1000 / 1000 / 1000
+                freespace = float(freespace - unavailable_space + expired) / 1000 / 1000 / 1000 / 1000
                 freespace = freespace if freespace > 0 else 0
-                add_rse_attribute(name, 'freespace', freespace, 'root')
+                add_rse_attribute(name, 'freespace', int(freespace), 'root')
 
         except RucioException as error:
             print str(error)
