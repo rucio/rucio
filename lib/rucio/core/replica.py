@@ -1814,7 +1814,7 @@ def list_datasets_per_rse(rse, filters=None, limit=None, session=None):
 @transactional_session
 def mark_unlocked_replicas(rse, bytes, session=None):
     """
-    Mark replicas   RSE File replicas with no locks.
+    Mark unlocked replicas as obsolete to release space quickly.
 
     :param rse: the rse name.
     :param bytes: the amount of needed bytes.
