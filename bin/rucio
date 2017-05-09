@@ -13,7 +13,7 @@
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
- - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
+ - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
  - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
  - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
  - Tobias Wegner <tobias.wegner@cern.ch>, 2017
@@ -844,9 +844,6 @@ def upload(args):
         fscope = args.scope
     else:
         fscope = 'user.' + client.account
-    if args.no_register is False and fscope not in client.list_scopes_for_account(client.account):
-        logger.error("Cannot guess the scope for the files. You must specify one with --scope option. The scope must be one of: " + ', '.join(client.list_scopes_for_account(client.account)))
-        return FAILURE
 
     if args.pfn and not args.no_register:
         logger.error('You must specify --no-register if you use the --pfn option. Aborting.')
