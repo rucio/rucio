@@ -47,7 +47,7 @@ def get_popularity(did):
                             "lt": "now"
                         }
                     }
-                } ]
+                }]
             }
         },
         "aggs": {
