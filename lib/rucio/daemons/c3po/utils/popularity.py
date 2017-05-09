@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 import logging
@@ -40,15 +40,14 @@ def get_popularity(did):
     query = {
         "query": {
             "bool": {
-                "must": []
-            }
-        },
-        "filter": {
-            "range": {
-                "timestamp": {
-                    "gt": "now-7d",
-                    "lt": "now"
-                }
+                "must": [{
+                    "range": {
+                        "timestamp": {
+                            "gt": "now-7d",
+                            "lt": "now"
+                        }
+                    }
+                } ]
             }
         },
         "aggs": {
