@@ -1809,3 +1809,48 @@ def list_datasets_per_rse(rse, filters=None, limit=None, session=None):
 
     for row in query:
         yield row._asdict()
+
+
+@transactional_session
+def mark_unlocked_replicas(rse, bytes, session=None):
+    """
+    Mark unlocked replicas as obsolete to release space quickly.
+
+    :param rse: the rse name.
+    :param bytes: the amount of needed bytes.
+    :param session: The database session in use.
+
+    :returns: The list of marked replicas.
+    """
+    rse_id = get_rse_id(rse=rse, session=session)
+
+    none_value = None  # Hack to get pep8 happy...
+#    query = session.query( func.count(), func.sum(models.RSEFileAssociation.bytes)).\
+    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.bytes).\
+        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+        filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
+        filter(models.RSEFileAssociation.lock_cnt == 0).\
+        filter(models.RSEFileAssociation.tombstone != OBSOLETE).\
+        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
+        filter(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD))).\
+        order_by(models.RSEFileAssociation.bytes.desc())
+
+    rows = []
+    needed_space, total_bytes = bytes, 0
+    for (scope, name, bytes) in query.yield_per(1000):
+
+        if total_bytes > needed_space:
+            break
+
+        rowcount = session.query(models.RSEFileAssociation).\
+            filter_by(rse_id=rse_id, scope=scope, name=name).\
+            with_hint(models.RSEFileAssociation,
+                      "index(REPLICAS REPLICAS_PK)",
+                      'oracle').\
+            filter(models.RSEFileAssociation.tombstone != none_value).\
+            update({'tombstone': OBSOLETE}, synchronize_session=False)
+
+        if rowcount:
+            total_bytes += bytes
+            rows.append({'scope': scope, 'name': name})
+    return rows
