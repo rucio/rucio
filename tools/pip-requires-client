@@ -1,22 +1,22 @@
 # All dependencies needed to run rucio client should be defined here
 
 argparse==1.4.0           # Command-line parsing library
-argcomplete==1.7.0        # Bash tab completion for argparse
+argcomplete>=1.2.2        # Bash tab completion for argparse
 kerberos==1.2.5
 pykerberos==1.1.13        # Kerberos high-level interface
 requests==2.10.0
 requests-kerberos==0.11.0 # A Kerberos authentication handler for python-requests
 urllib3==1.16             # HTTP library with thread-safe connection pooling and file post support
 wsgiref==0.1.2            # WSGI (PEP 333) Reference Library
-dogpile==0.2.2            # Caching API
-dogpile.core==0.4.1       # Caching Core API
 dogpile.cache==0.6.2      # Caching API plugins
 nose==1.3.7               # For rucio test-server
-boto==2.45.0              # S3 boto protocol
-python-swiftclient==3.1.0 # OpenStack Object Storage API Client Library
-tabulate==0.7.7           # Pretty-print tabular data
-progressbar==2.3          # Text progress bar
-bz2file==0.98             # Read and write bzip2-compressed files.
-python-magic==0.4.12      # File type identification using libmagic
-futures==3.0.5
-six==1.10.0
+boto>=2.46.1              # S3 boto protocol
+python-swiftclient>=3.3.0 # OpenStack Object Storage API Client Library
+tabulate>=0.7.7           # Pretty-print tabular data
+progressbar>=2.3          # Text progress bar
+bz2file>=0.98             # Read and write bzip2-compressed files.
+python-magic>=0.4.13      # File type identification using libmagic
+futures>=3.1.1
+six>=1.10.0
+
+
