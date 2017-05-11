@@ -1319,15 +1319,16 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
         __evaluate_did_detach(did, session=session)
 
     # Update size and length of did
-    stmt = session.query(func.sum(models.DataIdentifierAssociation.bytes),
-                         func.count(1)).\
-        with_hint(models.DataIdentifierAssociation,
-                  "index(CONTENTS CONTENTS_PK)", 'oracle').\
-        filter(models.DataIdentifierAssociation.scope == scope,
-               models.DataIdentifierAssociation.name == name)
-    for bytes, length in stmt:
-        did.bytes = bytes
-        did.length = length
+    if session.bind.dialect.name == 'oracle':
+        stmt = session.query(func.sum(models.DataIdentifierAssociation.bytes),
+                             func.count(1)).\
+            with_hint(models.DataIdentifierAssociation,
+                      "index(CONTENTS CONTENTS_PK)", 'oracle').\
+            filter(models.DataIdentifierAssociation.scope == scope,
+                   models.DataIdentifierAssociation.name == name)
+        for bytes, length in stmt:
+            did.bytes = bytes
+            did.length = length
 
     # Add an updated_col_rep
     if did.did_type == DIDType.DATASET:
