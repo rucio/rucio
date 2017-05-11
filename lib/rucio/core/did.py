@@ -34,11 +34,11 @@ from sqlalchemy.sql.expression import bindparam, text, Insert, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
+import rucio.common.policy
 
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.utils import str_to_date, is_archive
-from rucio.common.policy import archive_localgroupdisk_datasets
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
@@ -549,7 +549,7 @@ def delete_dids(dids, account, session=None):
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'] != 'archive':
-            archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+            rucio.common.policy.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
 
         if did['purge_replicas'] is False:
             not_purge_replicas.append((did['scope'], did['name']))
