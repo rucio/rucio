@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
@@ -22,9 +22,9 @@ from sqlalchemy.sql.expression import and_, or_
 
 import rucio.core.rule
 import rucio.core.did
+import rucio.common.policy
 
 from rucio.common.config import config_get
-from rucio.common.policy import define_eol
 from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
@@ -382,7 +382,7 @@ def touch_dataset_locks(dataset_locks, session=None):
                 rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
             dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
 
-        eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'id': dataset_lock['rse_id']}], session=session)
+        eol_at = rucio.common.policy.define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'id': dataset_lock['rse_id']}], session=session)
         try:
             session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
                 update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
