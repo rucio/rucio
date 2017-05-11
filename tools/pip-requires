@@ -1,5 +1,6 @@
 # All dependencies needed to run rucio should be defined here
 
+# pip==9.0.1        # PyPA recommended tool for installing Python packages
 SQLAlchemy==1.1.9 # db backend
 alembic==0.9.1 # Lightweight database migration tool for SQLAlchemy
 Mako==1.0.6 # Templating language
