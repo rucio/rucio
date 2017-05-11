@@ -2,9 +2,9 @@
 
 argparse>=1.4.0           # Command-line parsing library
 argcomplete>=1.8.2        # Bash tab completion for argparse
-kerberos>=1.2.5
+kerberos>=1.2.5           # Kerberos high-level interface
 pykerberos>=1.1.14        # Kerberos high-level interface
-requests==2.10.0
+requests==2.10.0          # Python HTTP for Humans.
 requests-kerberos==0.11.0 # A Kerberos authentication handler for python-requests
 wsgiref>=0.1.2            # WSGI (PEP 333) Reference Library
 dogpile.cache>=0.6.2      # Caching API plugins
@@ -15,5 +15,5 @@ tabulate>=0.7.7           # Pretty-print tabular data
 progressbar>=2.3          # Text progress bar
 bz2file>=0.98             # Read and write bzip2-compressed files.
 python-magic>=0.4.13      # File type identification using libmagic
-futures>=3.1.1
-six>=1.10.0
+futures>=3.1.1            # Clean single-source support for Python 3 and 2
+six>=1.10.0               # Python 2 and 3 compatibility utilities
