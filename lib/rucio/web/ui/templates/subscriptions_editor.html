@@ -14,8 +14,11 @@ $var title: Subscriptions editor
 $var script: <script src="/static/subscriptions_editor.js"></script><script src="static/chosen.jquery.min.js"></script><script src="/static/jquery.multiple.select.js"></script><link rel="stylesheet" href="/static/multiple-select.css">
 
 
-<div class="h2">Subscriptions editor</div>
+<h4>Subscriptions editor</h4>
+<div id="result" class="row" data-equalizer>
 
+     <div class="large-20 columns">
+        <div id="loader"></div>
         <div class="row">
            <div class="large-5 columns">
               <div class="row">
@@ -103,10 +106,6 @@ $var script: <script src="/static/subscriptions_editor.js"></script><script src=
 
 
 
-
-
-
-
         <div class="row">
           <div class="large-5 columns">
             <form id="submit_request">
@@ -117,4 +116,6 @@ $var script: <script src="/static/subscriptions_editor.js"></script><script src=
 
 <div id="dialogform">
 <div id="dialogtext"></div>
+</div>
+</div>
 </div>
