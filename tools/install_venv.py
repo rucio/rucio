@@ -95,7 +95,7 @@ def create_virtualenv(venv=VENV):
             die('Failed to install virtualenv with curl.')
     print 'done.'
     print 'Installing pip in virtualenv...',
-    if not run_command(['tools/with_venv.sh', 'easy_install', 'pip>1.0']).strip():
+    if not run_command(['tools/with_venv.sh', 'pip', 'install', 'pip>=9.0.1']).strip():
         die("Failed to install pip.")
     print 'done.'
 
