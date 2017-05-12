@@ -634,7 +634,11 @@ def list_content(args):
         scope, name = extract_scope(did)
         for content in client.list_content(scope=scope, name=name):
             table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    if args.short:
+        for did, dummy in table:
+            print did
+    else:
+        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
     return SUCCESS
 
 
@@ -693,12 +697,15 @@ def list_parent_dids(args):
         for guid in dict_datasets:
             print 'GUID: ', guid
             print 'Parents : ', ','.join(dict_datasets[guid])
-    else:
+    elif args.did:
         table = []
         scope, name = extract_scope(args.did)
         for dataset in client.list_parent_dids(scope=scope, name=name):
             table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
         print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    else:
+        print 'At least one option has to be given. Use -h to list the options.'
+        return FAILURE
     return SUCCESS
 
 
@@ -1824,53 +1831,6 @@ def list_datasets_rse(args):
     return SUCCESS
 
 
-@exception_handler
-def list_parent_datasets(args):
-    """
-    %(prog)s list [options] <field1=value1 field2=value2 ...>
-
-    List the possible PFN for a file at a site.
-
-    """
-    print ''
-    print 'The functionality of this command has been replicated to ' + Color.BOLD + 'rucio list-parent-dids' + Color.END
-    print 'The ' + Color.BOLD + 'rucio list-parent-datasets' + Color.END + ' command will be deactivated with Rucio version 1.11.0'
-    print ''
-
-    client = get_client(args)
-    inputs = args.inputs.split(',')
-    guids = []
-    pfns = []
-    for input in inputs:
-        try:
-            uuid.UUID(input)
-            guids.append(input)
-        except ValueError:
-            pfns.append(input)
-
-    dict_datasets = {}
-    if pfns:
-        for res in client.get_did_from_pfns(pfns):
-            for key in res:
-                if key not in dict_datasets:
-                    dict_datasets[key] = []
-                for rule in client.list_associated_rules_for_file(res[key]['scope'], res[key]['name']):
-                    if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[key]:
-                        dict_datasets[key].append('%s:%s' % (rule['scope'], rule['name']))
-    for guid in guids:
-        for did in client.get_dataset_by_guid(guid):
-            if guid not in dict_datasets:
-                dict_datasets[guid] = []
-            for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
-                if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
-                    dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
-
-    for pfn in dict_datasets:
-        print 'PFN or GUID : ', pfn
-        print 'Parents : ', ','.join(dict_datasets[pfn])
-    return SUCCESS
-
-
 def test_server(args):
     """"
     %(prog)s test-server [options] <field1=value1 field2=value2 ...>
@@ -1937,11 +1897,6 @@ Commands:
     list_file_replicas_parser.add_argument('--expression', dest='rse_expression', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
             can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
 
-    # The list_parent_datasets command
-    list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List the datasets associated to a PFN.')
-    list_parent_datasets_parser.set_defaults(which='list_parent_datasets')
-    list_parent_datasets_parser.add_argument(dest='inputs', action='store', help='The PFN of the DID is required. Must be a SURL or GUID.')
-
     # The list-dataset-replicas command
     list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas.')
     list_dataset_replicas_parser.set_defaults(which='list_dataset_replicas')
@@ -2004,6 +1959,13 @@ Commands:
     list_parent_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
 
+    # argparse 2.7 does not allow aliases for commands, thus the list-parent-datasets is a copy&paste from list-parent-dids
+    list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.')
+    list_parent_datasets_parser.set_defaults(which='list_parent_datasets')
+    list_parent_datasets_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
+    list_parent_datasets_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
+    list_parent_datasets_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
+
     # The list-scopes command
     scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes.')
     scope_list_parser.set_defaults(which='list_scopes')
@@ -2042,6 +2004,7 @@ Commands:
     list_content_parser = subparsers.add_parser('list-content', help='List the content of a collection.')
     list_content_parser.set_defaults(which='list_content')
     list_content_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    list_content_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
 
     # The list_content_history command
     list_content_history_parser = subparsers.add_parser('list-content-history', help='List the content history of a collection.')
@@ -2232,13 +2195,13 @@ Commands:
                 'list_account_usage': list_account_usage,
                 'list_datasets_rse': list_datasets_rse,
                 'list_parent_dids': list_parent_dids,
+                'list_parent_datasets': list_parent_dids,
                 'list_files': list_files,
                 'list_content': list_content,
                 'list_content_history': list_content_history,
                 'list_dids': list_dids,
                 'list_dataset_replicas': list_dataset_replicas,
                 'list_file_replicas': list_file_replicas,
-                'list_parent_datasets': list_parent_datasets,
                 'list_rses': list_rses,
                 'list_rse-attributes': list_rse_attributes,
                 'list_rse_usage': list_rse_usage,
