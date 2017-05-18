@@ -10,9 +10,9 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Evangelia Liotiri, <evangelia.liotiri@cern.ch>, 2015
+# - Tobias, Wegner, <tobias.wegner@cern.ch>, 2017
 
-noseopts="--exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_objectstore"
-dq2opts=""
+noseopts="--exclude=test_dq2* --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_objectstore"
 
 function usage {
   echo "Usage: $0 [OPTION]..."
@@ -26,7 +26,6 @@ function usage {
   echo '  -d    Delete the sqlite db file.'
   echo '  -k    Keep database.'
   echo '  -1    Only run once.'
-  echo '  -q    Exclude DQ2 tests'.
   echo '  -a    Run alembic tests at the end'
   echo '  -u    Update pip dependencies only'
   echo '  -x    Stop running tests after the first error or failure'
@@ -50,7 +49,6 @@ do
     d) delete_sqlite="true";;
     k) keep_db="true";;
     1) range=1;;
-    q) dq2opts="--exclude=test_dq2*";;
     a) alembic="true";;
     u) pip_only="true";;
     x) stop_on_failure="--stop";;
@@ -111,8 +109,8 @@ fi
 for i in $range
 do
     echo 'Running tests with nose - Iteration' $i
-    echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts $stop_on_failure
-    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts $stop_on_failure
+    echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
+    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
 done
 
 if test ${alembic}; then

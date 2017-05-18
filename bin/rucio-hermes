@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015, 2017
 
 """
 Hermes is a daemon to deliver messages to an asynchronous broker.
@@ -26,12 +26,16 @@ if __name__ == "__main__":
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
     parser.add_argument("--delay", action="store", default=10, type=int, help='Delay control: second control per cycle')
+    parser.add_argument("--broker-timeout", action="store", default=3, type=int, help='Broker control: timeout second per cycle')
+    parser.add_argument("--broker-retry", action="store", default=3, type=int, help='Broker control: number of retries per cycle')
     args = parser.parse_args()
 
     try:
         run(once=args.run_once,
             threads=args.threads,
             bulk=args.bulk,
-            delay=args.delay)
+            delay=args.delay,
+            broker_timeout=args.broker_timeout,
+            broker_retry=args.broker_retry)
     except KeyboardInterrupt:
         stop()

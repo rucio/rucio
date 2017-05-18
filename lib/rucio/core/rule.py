@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
 
@@ -28,6 +28,7 @@ from sqlalchemy.sql.expression import and_, or_, bindparam, text, true, null
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
+import rucio.common.policy  # import get_scratch_policy, define_eol
 
 from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
@@ -38,7 +39,6 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
-from rucio.common.policy import get_scratch_policy, define_eol
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account
 from rucio.core.message import add_message
@@ -109,7 +109,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise StagingAreaRuleRequiresLifetime()
 
             # Check SCRATCHDISK Policy
-            lifetime = get_scratch_policy(account, rses, lifetime, session=session)
+            lifetime = rucio.common.policy.get_scratch_policy(account, rses, lifetime, session=session)
 
             # Auto-lock rules for TAPE rses
             if not locked and lifetime is None:
@@ -152,7 +152,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise InvalidObject(error.args)
 
             # 3.5 Get the lifetime
-            eol_at = define_eol(elem['scope'], elem['name'], rses, session=session)
+            eol_at = rucio.common.policy.define_eol(elem['scope'], elem['name'], rses, session=session)
 
             # 4. Create the replication rule
             with record_timer_block('rule.add_rule.create_rule'):
@@ -359,10 +359,10 @@ def add_rules(dids, rules, session=None):
                             raise StagingAreaRuleRequiresLifetime()
 
                     # Check SCRATCHDISK Policy
-                    rule['lifetime'] = get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
+                    rule['lifetime'] = rucio.common.policy.get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
 
                     # 4.5 Get the lifetime
-                    eol_at = define_eol(did.scope, did.name, rses, session=session)
+                    eol_at = rucio.common.policy.define_eol(did.scope, did.name, rses, session=session)
 
                     # Auto-lock rules for TAPE rses
                     if not rule.get('locked', False) and rule.get('lifetime', None) is None:
@@ -1111,7 +1111,7 @@ def update_rule(rule_id, options, session=None):
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
                 rses = parse_expression(rule.rse_expression, session=session)
-                get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
+                rucio.common.policy.get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
@@ -1319,15 +1319,16 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
         __evaluate_did_detach(did, session=session)
 
     # Update size and length of did
-    stmt = session.query(func.sum(models.DataIdentifierAssociation.bytes),
-                         func.count(1)).\
-        with_hint(models.DataIdentifierAssociation,
-                  "index(CONTENTS CONTENTS_PK)", 'oracle').\
-        filter(models.DataIdentifierAssociation.scope == scope,
-               models.DataIdentifierAssociation.name == name)
-    for bytes, length in stmt:
-        did.bytes = bytes
-        did.length = length
+    if session.bind.dialect.name == 'oracle':
+        stmt = session.query(func.sum(models.DataIdentifierAssociation.bytes),
+                             func.count(1)).\
+            with_hint(models.DataIdentifierAssociation,
+                      "index(CONTENTS CONTENTS_PK)", 'oracle').\
+            filter(models.DataIdentifierAssociation.scope == scope,
+                   models.DataIdentifierAssociation.name == name)
+        for bytes, length in stmt:
+            did.bytes = bytes
+            did.length = length
 
     # Add an updated_col_rep
     if did.did_type == DIDType.DATASET:

@@ -8,7 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015,2017
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015, 2017
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2016
@@ -22,6 +22,13 @@ from rucio.common.exception import InvalidObject
 ACCOUNT = {"description": "Account name",
            "type": "string",
            "pattern": "^[a-z0-9-_]{1,30}$"}
+
+ACCOUNTS = {"description": "Array of accounts",
+            "type": "array",
+            "items": ACCOUNT,
+            "minItems": 0,
+            "maxItems": 1000}
+
 
 ACCOUNT_TYPE = {"description": "Account type",
                 "type": "string",
@@ -271,7 +278,7 @@ SUBSCRIPTION_FILTER = {"type": "object",
                                       "excluded_pattern": {"type": "string"},
                                       "group": {"type": "string"},
                                       "provenance": {"type": "string"},
-                                      "account": {"type": "string", "pattern": "^[a-z0-9-]{1,30}$"},
+                                      "account": ACCOUNTS,
                                       "grouping": {"type": "string"},
                                       "split_rule": {"type": "boolean"}}}
 

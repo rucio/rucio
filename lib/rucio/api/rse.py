@@ -8,7 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -131,6 +131,29 @@ def list_rse_attributes(rse):
     """
 
     return rse_module.list_rse_attributes(rse=rse)
+
+
+def has_rse_attribute(rse_id, key):
+    """
+    Indicates whether the named key is present for the RSE.
+
+    :param rse_id: The RSE id.
+    :param key: The key for the attribute.
+
+    :returns: True or False
+    """
+    return rse_module.has_rse_attribute(rse_id=rse_id, key=key)
+
+
+def get_rses_with_attribute(key):
+    """
+    Return all RSEs with a certain attribute.
+
+    :param key: The key for the attribute.
+
+    :returns: List of rse dictionaries
+    """
+    return rse_module.get_rses_with_attribute(key=key)
 
 
 def add_protocol(rse, issuer, **data):

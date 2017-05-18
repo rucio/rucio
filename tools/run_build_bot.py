@@ -7,6 +7,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 
 
 import commands
@@ -26,7 +27,7 @@ requests.packages.urllib3.disable_warnings()
 
 
 def needs_testing(mr_id):
-    resp = requests.get(url='https://gitlab.cern.ch/api/v3/projects/651/merge_requests/%s/notes' % str(mr_id),
+    resp = requests.get(url='https://gitlab.cern.ch/api/v4/projects/651/merge_requests/%s/notes' % str(mr_id),
                         params={'private_token': private_token})
     comments = json.loads(resp.text)
     needs_testing = True
@@ -75,12 +76,12 @@ def update_merg_request(mr, test_result, comment):
         labels.append('Tests: FAIL')
 
     data = {'labels': ', '.join(labels)}
-    requests.put(url='https://gitlab.cern.ch/api/v3/projects/651/merge_request/%s' % str(mr['id']),
+    requests.put(url='https://gitlab.cern.ch/api/v4/projects/651/merge_requests/%s' % str(mr['iid']),
                  params={'private_token': private_token},
                  data=data)
 
     data = {'body': ''.join(comment)}
-    requests.post(url='https://gitlab.cern.ch/api/v3/projects/651/merge_requests/%s/notes' % str(mr['id']),
+    requests.post(url='https://gitlab.cern.ch/api/v4/projects/651/merge_requests/%s/notes' % str(mr['iid']),
                   params={'private_token': private_token},
                   data=data)
 
@@ -90,25 +91,28 @@ def start_test(mr):
     error_lines = []
     print 'Starting testing for MR %s ...' % mr['source_branch']
     # Add remote of user
-    resp = requests.get(url='https://gitlab.cern.ch/api/v3/projects/%s' % str(mr['source_project_id']),
+    resp = requests.get(url='https://gitlab.cern.ch/api/v4/projects/%s' % str(mr['source_project_id']),
                         params={'private_token': private_token})
     proj = json.loads(resp.text)
     commands.getstatusoutput('git remote add %s %s' % (proj['namespace']['name'], proj['http_url_to_repo']))
 
     # Fetch all
     print '  git fetch --all --prune'
-    if commands.getstatusoutput('git fetch --all --prune')[0] != 0:
-        print 'Error while fetching all'
+    s, o = commands.getstatusoutput('git fetch --all --prune')
+    if s != 0:
+        print 'Error while fetching all: %s' % o
         sys.exit(-1)
 
     # Rebase master/next
     print '  git rebase origin/next next'
-    if commands.getstatusoutput('git rebase origin/next next')[0] != 0:
-        print 'Error while rebaseing next'
+    s, o = commands.getstatusoutput('git rebase origin/next next')
+    if s != 0:
+        print 'Error while rebaseing next: %s' % o
         sys.exit(-1)
     print '  git rebase origin/master master'
-    if commands.getstatusoutput('git rebase origin/master master')[0] != 0:
-        print 'Error while rebaseing master'
+    s, o = commands.getstatusoutput('git rebase origin/master master')
+    if s != 0:
+        print 'Error while rebaseing master: %s' % o
         sys.exit(-1)
 
     # Check for Cross Merges
@@ -281,12 +285,12 @@ except:
 
 # Get all open merge requests
 print 'Getting all open merge requests ...'
-resp = requests.get(url='https://gitlab.cern.ch/api/v3/projects/651/merge_requests',
+resp = requests.get(url='https://gitlab.cern.ch/api/v4/projects/651/merge_requests',
                     params={'private_token': private_token, 'state': 'opened'})
 mr_list = json.loads(resp.text)
 for mr in mr_list:
-    print 'Checking MR %s -> %s if it needs testing ...' % (mr['source_branch'], mr['target_branch']),
-    if mr['target_branch'] == 'next' and needs_testing(mr_id=mr['id']):
+    print 'Checking MR (id:%s) %s -> %s if it needs testing ...' % (mr['iid'], mr['source_branch'], mr['target_branch']),
+    if mr['target_branch'] == 'next' and needs_testing(mr_id=mr['iid']):
         print 'YES'
         start_test(mr=mr)
     else:

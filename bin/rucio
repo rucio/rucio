@@ -13,13 +13,13 @@
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
- - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
+ - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
  - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
  - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
+ - Tobias Wegner <tobias.wegner@cern.ch>, 2017
 """
 
 import argparse
-import hashlib
 import json
 import logging
 import os
@@ -39,7 +39,6 @@ import tabulate
 from ConfigParser import NoOptionError, NoSectionError
 from copy import deepcopy
 from functools import wraps
-from multiprocessing import Process
 from Queue import Queue, Empty
 from threading import Thread, Event
 
@@ -151,7 +150,7 @@ def send_trace(trace, trace_endpoint, user_agent, retries=5, threadnb=None, tota
         try:
             requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
             return 0
-        except Exception, error:
+        except Exception as error:
             if threadnb is not None and total_threads is not None:
                 logger.debug('Thread %s/%s : %s' % (threadnb, total_threads, error))
             else:
@@ -218,13 +217,13 @@ def exception_handler(function):
                              ". This should never happen. Please rerun the last command with the '-v'" +
                              " option and submit a ticket with all the necessary information at https://its.cern.ch/jira/browse/RUCIO")
             return FAILURE
-        except RucioException, error:
+        except RucioException as error:
             logger.error(error)
             return FAILURE
-        except IOError, error:
+        except IOError as error:
             logger.error(error)
             return FAILURE
-        except Exception, error:
+        except Exception as error:
             logger.error(error)
             logger.error("Rucio exited with an unexpected/unknown error. Please rerun the last command with the '-v' option and submit a ticket with all the necessary information at https://its.cern.ch/jira/browse/RUCIO")
             logger.debug(traceback.format_exc())
@@ -635,7 +634,11 @@ def list_content(args):
         scope, name = extract_scope(did)
         for content in client.list_content(scope=scope, name=name):
             table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    if args.short:
+        for did, dummy in table:
+            print did
+    else:
+        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
     return SUCCESS
 
 
@@ -694,12 +697,15 @@ def list_parent_dids(args):
         for guid in dict_datasets:
             print 'GUID: ', guid
             print 'Parents : ', ','.join(dict_datasets[guid])
-    else:
+    elif args.did:
         table = []
         scope, name = extract_scope(args.did)
         for dataset in client.list_parent_dids(scope=scope, name=name):
             table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
         print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    else:
+        print 'At least one option has to be given. Use -h to list the options.'
+        return FAILURE
     return SUCCESS
 
 
@@ -833,10 +839,7 @@ def upload(args):
     except Exception:
         logger.error('rucio upload only allows to upload files to one dataset, more than one provided.')
         return FAILURE
-    # Checking if the user can add to the scope given for the dataset
-    if dsscope and dsscope not in client.list_scopes_for_account(client.account):
-        logger.error("Cannot add to scope {scope}.".format(scope=dsscope))
-        return FAILURE
+
     files = __get_files(args.args)               # a list of file names (even if a directory is given)
     if not files:
         return FAILURE
@@ -848,9 +851,6 @@ def upload(args):
         fscope = args.scope
     else:
         fscope = 'user.' + client.account
-    if args.no_register is False and fscope not in client.list_scopes_for_account(client.account):
-        logger.error("Cannot guess the scope for the files. You must specify one with --scope option. The scope must be one of: " + ', '.join(client.list_scopes_for_account(client.account)))
-        return FAILURE
 
     if args.pfn and not args.no_register:
         logger.error('You must specify --no-register if you use the --pfn option. Aborting.')
@@ -1029,7 +1029,7 @@ def upload(args):
         for f in list_files:
             try:
                 client.add_files_to_dataset(scope=dsscope, name=dsname, files=[f])
-            except Exception, error:
+            except Exception as error:
                 logger.warning('Failed to attach file {0} to the dataset'.format(f))
                 logger.warning(error)
                 logger.warning("Continuing with the next one")
@@ -1071,120 +1071,7 @@ def upload(args):
     return SUCCESS
 
 
-def _downloader2(total_number, scope, name, files, tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client, user_agent, exit=False):
-    for file in files:
-        logger.info('Starting the download of %s:%s' % (file['scope'], file['name']))
-        stime = time.time()
-        trace['scope'] = file['scope']
-        trace['filename'] = file['name']
-        if scope == file['scope'] and name == file['name']:
-            trace['dataset'] = ''
-            trace['datasetScope'] = ''
-        else:
-            trace['dataset'] = name
-            trace['datasetScope'] = scope
-        rses = file['rses'].keys()
-        if rses == []:
-            logger.warning('File %s:%s has no available replicas. Cannot be downloaded.' % (file['scope'], file['name']))
-            trace['clientState'] = 'FILE_NOT_FOUND'
-            trace['eventType'] = 'download'
-            trace['eventVersion'] = version.RUCIO_VERSION[0]
-            send_trace(trace, client.host, user_agent)
-        else:
-            trace['filesize'] = file['bytes']
-        trace['eventType'] = 'download'
-        trace['eventVersion'] = version.RUCIO_VERSION[0]
-        rse_to_remove = []
-        for rse in rses:
-            if str(rse) in tape_endpoints:
-                rse_to_remove.append(rse)
-        if len(rses) == len(rse_to_remove):
-            if not is_admin:
-                logger.warning('File %s:%s has no replicas available on disk endpoints and cannot be downloaded. Please ask for a replication' % (file['scope'], file['name']))
-                sys.exit(1)
-            else:
-                logger.warning('File %s:%s has no replicas available on disk endpoints. Will be downloaded from TAPE.' % (file['scope'], file['name']))
-        if last_chosen_rse and last_chosen_rse in rses:
-            idx = rses.index(last_chosen_rse)
-            rses[idx], rses[0] = rses[0], rses[idx]
-        else:
-            random.shuffle(rses)
-
-        rses = list(set(rses) - set(rse_to_remove))
-        logger.debug('Potential sources : %s' % str(rses))
-        index = 0
-        download_ok = 0
-        for rse in rses:
-            if rse not in rse_dict:
-                rse_dict[rse] = rsemgr.get_rse_info(rse)
-            if args.protocol:
-                try:
-                    protocol = rsemgr.select_protocol(rse_dict[rse], operation='read', scheme=args.protocol)
-                except RSEProtocolNotSupported, error:
-                    logger.error('The protocol specfied (%s) is not supported by %s' % (args.protocol, rse))
-                    logger.debug(error)
-                    return FAILURE
-                rse_dict[rse]['protocols'] = [protocol, ]
-            if rse_dict[rse]['availability_read']:
-                logger.debug('Getting file %s:%s from %s' % (file['scope'], file['name'], rse))
-                trace['remoteSite'] = rse_dict[rse]['rse']
-                trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
-                trace['transferStart'] = time.time()
-                trace['clientState'] = 'DOWNLOAD_ATTEMPT'
-                success = False
-                retries = 5
-                for attempt in xrange(0, retries):
-                    try:
-                        logger.info('Trying %s' % rse)
-                        rsemgr.download(rse_dict[rse],
-                                        files=[{'name': file['name'],
-                                                'scope': file['scope'],
-                                                'adler32': file['adler32']}, ],
-                                        dest_dir=dest_dir)
-                        logger.info('File %s:%s successfully downloaded from %s' % (file['scope'],
-                                                                                    file['name'],
-                                                                                    rse))
-                        download_ok = 1
-                        success = True
-                        last_chosen_rse = rse
-                        break
-                    except FileConsistencyMismatch, error:
-                        logger.warning(str(error))
-                        try:
-                            pfns_dict = rsemgr.lfns2pfns(rse_dict[rse],
-                                                         lfns=[{'name': file['name'],
-                                                                'scope': file['scope']}, ],
-                                                         operation='read',
-                                                         scheme=args.protocol)
-                            pfn = pfns_dict['%s:%s' % (file['scope'], file['name'])]
-                            client.declare_suspicious_file_replicas([pfn, ], reason='Corrupted')
-                        except Exception, error:
-                            logger.debug(str(error))
-                        trace['clientState'] = 'FAIL_VALIDATE'
-                        logger.debug('Failed attempt %s/%s' % (attempt + 1, retries))
-                    except Exception, error:
-                        logger.warning(str(error))
-                        trace['clientState'] = str(type(error).__name__)
-                        logger.debug('Failed attempt %s/%s' % (attempt + 1, retries))
-                if success:
-                    trace['clientState'] = 'DONE'
-                trace['transferEnd'] = time.time()
-                send_trace(trace, client.host, args.user_agent)
-                if success:
-                    break
-                index += 1
-                if index != len(rses):
-                    logger.debug('Will retry download on an other RSE')
-        if not download_ok:
-            logger.error('Cannot download file %s:%s' % (file['scope'], file['name']))
-        else:
-            logger.info('File %s:%s successfully downloaded. %s bytes downloaded in %s seconds' % (file['scope'], file['name'], sizefmt(file['bytes'], args.human), time.time() - stime))
-    if exit:
-        sys.exit(0)
-    return
-
-
-def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoints, is_admin, trace_endpoint, trace_pattern, user_agent):
+def _downloader(input_queue, output_queue, threadnb, total_threads, tape_endpoints, is_admin, trace_endpoint, trace_pattern, user_agent):
     last_chosen_rse = None
     rse_dict = {}
     try:
@@ -1276,11 +1163,11 @@ def _downloader1(input_queue, output_queue, threadnb, total_threads, tape_endpoi
                                 pfns_dict = rsemgr.lfns2pfns(rse_dict[rse], lfns=[{'name': file['name'], 'scope': file['scope']}, ], operation='read', scheme=args.protocol)
                                 pfn = pfns_dict['%s:%s' % (file['scope'], file['name'])]
                                 output_queue.put({'dataset_scope': file['datasetScope'], 'dataset_name': file['datasetName'], 'scope': file['scope'], 'name': file['name'], 'clientState': 'CORRUPTED', 'attemptnr': attempt + 1, 'pfn': pfn})
-                            except Exception, error:
+                            except Exception as error:
                                 logger.debug('Thread %s/%s : %s' % (threadnb, total_threads, str(error)))
                             trace['clientState'] = 'FAIL_VALIDATE'
                             logger.debug('Thread %s/%s : Failed attempt %s/%s' % (threadnb, total_threads, attempt + 1, retries))
-                        except Exception, error:
+                        except Exception as error:
                             logger.warning(str(error))
                             trace['clientState'] = str(type(error).__name__)
                             logger.debug('Thread %s/%s : Failed attempt %s/%s' % (threadnb, total_threads, attempt + 1, retries))
@@ -1343,21 +1230,11 @@ def download(args):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
 
-    Download files from Rucio
-    """
-    if args.old:
-        logger.debug('Using old multi-process download model')
-        return download2(args)
-
-    return download1(args)
-
-
-def download1(args):
-    """
-    %(prog)s download [options] <field1=value1 field2=value2 ...>
-
     Download files from Rucio using new threaded model and RSE expression support
     """
+    if args.old:
+        logger.warning('--old option has no effect, since it is obsolete and has been removed.')
+
     client = get_client(args)
     trace_endpoint = client.host
     summary = {}
@@ -1467,15 +1344,15 @@ def download1(args):
                     file_download['dest_dir'] = dest_dir
                     input_queue.put(file_download)
 
-        except Exception, error:
+        except Exception as error:
             logger.error('Failed to download %(scope)s:%(name)s' % locals())
             logger.error(error)
 
     threads = []
     for worker in range(total_workers):
-        thread = Thread(target=_downloader1, kwargs={'input_queue': input_queue, 'output_queue': output_queue, 'threadnb': worker + 1, 'total_threads': total_workers,
-                                                     'tape_endpoints': tape_endpoints, 'is_admin': is_admin, 'trace_endpoint': trace_endpoint, 'trace_pattern': trace_pattern,
-                                                     'user_agent': args.user_agent})
+        thread = Thread(target=_downloader, kwargs={'input_queue': input_queue, 'output_queue': output_queue, 'threadnb': worker + 1, 'total_threads': total_workers,
+                                                    'tape_endpoints': tape_endpoints, 'is_admin': is_admin, 'trace_endpoint': trace_endpoint, 'trace_pattern': trace_pattern,
+                                                    'user_agent': args.user_agent})
         thread.start()
         threads.append(thread)
 
@@ -1499,7 +1376,10 @@ def download1(args):
                 else:
                     summary['%s:%s' % (item['dataset_scope'], item['dataset_name'])]['%s:%s' % (item['scope'], item['name'])] = item['clientState']
                 if item['clientState'] == 'CORRUPTED':
-                    client.declare_suspicious_file_replicas([item['pfn'], ], reason='Corrupted')
+                    try:
+                        client.declare_suspicious_file_replicas([item['pfn'], ], reason='Corrupted')
+                    except Exception:
+                        logger.warning('File replica %s might be corrupted. Failure to declare it bad to Rucio' % (item['pfn']))
         except Empty:
             break
 
@@ -1526,179 +1406,6 @@ def download1(args):
     else:
         print '-' * 40
         print 'No DID matching the pattern'
-    return not_downloaded_files
-
-
-def download2(args):
-    """
-    %(prog)s download [options] <field1=value1 field2=value2 ...>
-
-    Download files from Rucio, the ancient way with RSE expression support
-    """
-    client = get_client(args)
-    rse_dict = {}
-    summary = {}
-    trace = {}
-    trace_uuid = generate_uuid()
-    trace['hostname'] = socket.getfqdn()
-    trace['account'] = client.account
-    trace['uuid'] = trace_uuid
-    nbfiles_to_download = {}
-
-    try:
-        tape_endpoints = [str(rse['rse']) for rse in client.list_rses('rse_type=TAPE')]
-    except InvalidRSEExpression, error:
-        logger.warning(error)
-        tape_endpoints = []
-
-    account_attributes = [acc for acc in client.list_account_attributes(client.account)]
-    is_admin = False
-    for attr in account_attributes[0]:
-        if attr['key'] == 'admin' and attr['value'] is True:
-            is_admin = True
-            break
-
-    dids = []
-    for did in args.dids:
-        try:
-            scope, name = extract_scope(did)
-            if name.find('*') > -1:
-                for dsn in client.list_dids(scope, filters={'name': name}):
-                    dids.append((scope, dsn))
-            else:
-                dids.append((scope, name))
-        except ValueError, error:
-            logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, error))
-            return FAILURE
-
-    for scope, name in dids:
-        try:
-            did_info = client.get_did(scope, name)
-            files_to_download = [f for f in client.list_files(scope=scope, name=name)]
-            if args.nrandom:
-                files_to_download = files_to_download[0:args.nrandom]
-            nbfiles_to_download['%s:%s' % (scope, name)] = len(files_to_download)
-            logger.info('Starting download for %s:%s with %s files' % (scope, name, len(files_to_download)))
-            summary['%s:%s' % (scope, name)] = {}
-            logger.debug('Getting the list of replicas')
-            files = client.list_replicas([{'scope': scope, 'name': name}],
-                                         rse_expression=args.rse)
-
-            if args.nrandom:
-                files_to_download = [f for f in files]
-                random.shuffle(files_to_download)
-                files_to_download = files_to_download[0:args.nrandom]
-            else:
-                files_to_download = files
-            last_chosen_rse = None
-            dict_files_to_download = {}
-            dict_files_to_download[0] = []
-            total_workers = 1
-            if args.ndownloader:
-                total_workers = args.ndownloader
-                nlimit = 5
-                if total_workers > nlimit:
-                    logger.warning('Cannot use more than %s parallel downloader.' % nlimit)
-                    total_workers = nlimit
-                for i in xrange(total_workers):
-                    dict_files_to_download[i] = []
-            for file in files_to_download:
-                dest_dir = None
-                file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name, no_subdir=args.no_subdir)
-                if file_exists:
-                    logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
-                    summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
-                    # Filling and sending the trace
-                    trace['scope'] = file['scope']
-                    trace['filename'] = file['name']
-                    if scope == file['scope'] and name == file['name']:
-                        trace['dataset'] = ''
-                        trace['datasetScope'] = ''
-                    else:
-                        trace['dataset'] = name
-                        trace['datasetScope'] = scope
-                    trace['filesize'] = file['bytes']
-                    trace['eventType'] = 'download'
-                    trace['eventVersion'] = version.RUCIO_VERSION[0]
-                    trace['transferStart'] = time.time()
-                    trace['transferEnd'] = time.time()
-                    trace['clientState'] = 'ALREADY_DONE'
-                    for dummy in xrange(5):
-                        try:
-                            requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                            break
-                        except Exception:
-                            pass
-                else:
-                    logger.debug('Will start downloading file %s:%s' % (file['scope'], file['name']))
-                    if not os.path.isdir(dest_dir):
-                        os.mkdir(dest_dir)
-                    if args.no_subdir is True and os.path.isfile('%s/%s' % (dest_dir, file['name'])):
-                        # Overwrite the files
-                        os.remove("%s/%s" % (dest_dir, file['name']))
-                    hash_md5 = hashlib.md5()
-                    hash_md5.update('%s:%s' % (file['scope'], file['name']))
-                    worker_number = int(hash_md5.hexdigest(), 16) % total_workers
-                    dict_files_to_download[worker_number].append(file)
-
-            if total_workers == 1 and dict_files_to_download:
-                _downloader2(total_workers, scope, name, dict_files_to_download[0],
-                             tape_endpoints, is_admin, last_chosen_rse,
-                             rse_dict, dest_dir, trace, client, args.user_agent, exit=False)
-            else:
-                pool_list = []
-                for worker_number in dict_files_to_download:
-                    proc = Process(target=_downloader2, args=(total_workers, scope, name, dict_files_to_download[worker_number], tape_endpoints,
-                                                              is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client, args.user_agent))
-                    proc.start()
-                    pool_list.append(proc)
-                active_workers = pool_list
-
-                while active_workers:
-                    time.sleep(2)
-                    active_workers = [worker for worker in pool_list if worker.is_alive()]
-
-            for worker in dict_files_to_download:
-                for file in dict_files_to_download[worker]:
-                    file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name, no_subdir=args.no_subdir)
-                    # If no_subdir is set, "Files already found locally" should be 0, truly existing files will be overwriten...
-                    if file_exists:
-                        summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
-                    elif os.path.isfile('%s/%s' % (dest_dir, file['name'])):
-                        summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
-
-        except DataIdentifierAlreadyExists, error:
-            logger.error(error)
-            return FAILURE
-        except Exception, error:
-            logger.error('Failed to download %(scope)s:%(name)s' % locals())
-            logger.error(error)
-
-    logger.info('Download operation for %s:%s done' % (scope, name))
-    not_downloaded_files = 0
-    print '----------------------------------'
-    print 'Download summary'
-    if summary:
-        for did in summary:
-            print '-' * 40
-            print 'DID %s' % (did)
-            downloaded_files = 0
-            not_downloaded_files = 0
-            local_files = 0
-            for file in summary[did]:
-                if summary[did][file] == 1:
-                    downloaded_files += 1
-                elif summary[did][file] == 2:
-                    local_files += 1
-            not_downloaded_files = nbfiles_to_download[did] - downloaded_files - local_files
-            print '{0:40} {1:6d}'.format('Total files : ', nbfiles_to_download[did])
-            print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
-            print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
-            print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
-    else:
-        print '-' * 40
-        print 'No DID matching the pattern'
-
     return not_downloaded_files
 
 
@@ -2124,53 +1831,6 @@ def list_datasets_rse(args):
     return SUCCESS
 
 
-@exception_handler
-def list_parent_datasets(args):
-    """
-    %(prog)s list [options] <field1=value1 field2=value2 ...>
-
-    List the possible PFN for a file at a site.
-
-    """
-    print ''
-    print 'The functionality of this command has been replicated to ' + Color.BOLD + 'rucio list-parent-dids' + Color.END
-    print 'The ' + Color.BOLD + 'rucio list-parent-datasets' + Color.END + ' command will be deactivated with Rucio version 1.11.0'
-    print ''
-
-    client = get_client(args)
-    inputs = args.inputs.split(',')
-    guids = []
-    pfns = []
-    for input in inputs:
-        try:
-            uuid.UUID(input)
-            guids.append(input)
-        except ValueError:
-            pfns.append(input)
-
-    dict_datasets = {}
-    if pfns:
-        for res in client.get_did_from_pfns(pfns):
-            for key in res:
-                if key not in dict_datasets:
-                    dict_datasets[key] = []
-                for rule in client.list_associated_rules_for_file(res[key]['scope'], res[key]['name']):
-                    if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[key]:
-                        dict_datasets[key].append('%s:%s' % (rule['scope'], rule['name']))
-    for guid in guids:
-        for did in client.get_dataset_by_guid(guid):
-            if guid not in dict_datasets:
-                dict_datasets[guid] = []
-            for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
-                if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
-                    dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
-
-    for pfn in dict_datasets:
-        print 'PFN or GUID : ', pfn
-        print 'Parents : ', ','.join(dict_datasets[pfn])
-    return SUCCESS
-
-
 def test_server(args):
     """"
     %(prog)s test-server [options] <field1=value1 field2=value2 ...>
@@ -2237,11 +1897,6 @@ Commands:
     list_file_replicas_parser.add_argument('--expression', dest='rse_expression', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
             can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
 
-    # The list_parent_datasets command
-    list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List the datasets associated to a PFN.')
-    list_parent_datasets_parser.set_defaults(which='list_parent_datasets')
-    list_parent_datasets_parser.add_argument(dest='inputs', action='store', help='The PFN of the DID is required. Must be a SURL or GUID.')
-
     # The list-dataset-replicas command
     list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas.')
     list_dataset_replicas_parser.set_defaults(which='list_dataset_replicas')
@@ -2304,6 +1959,13 @@ Commands:
     list_parent_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
 
+    # argparse 2.7 does not allow aliases for commands, thus the list-parent-datasets is a copy&paste from list-parent-dids
+    list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.')
+    list_parent_datasets_parser.set_defaults(which='list_parent_datasets')
+    list_parent_datasets_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
+    list_parent_datasets_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
+    list_parent_datasets_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
+
     # The list-scopes command
     scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes.')
     scope_list_parser.set_defaults(which='list_scopes')
@@ -2342,6 +2004,7 @@ Commands:
     list_content_parser = subparsers.add_parser('list-content', help='List the content of a collection.')
     list_content_parser.set_defaults(which='list_content')
     list_content_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    list_content_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
 
     # The list_content_history command
     list_content_history_parser = subparsers.add_parser('list-content-history', help='List the content history of a collection.')
@@ -2372,7 +2035,7 @@ Commands:
     get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
     get_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
     get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
-    get_parser.add_argument('--old', action='store_true', default=False, help="Choose the old download thread model.")
+    get_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     get_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
@@ -2384,7 +2047,7 @@ Commands:
     download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
     download_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
     download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
-    download_parser.add_argument('--old', action='store_true', default=False, help="Choose the old download thread model.")
+    download_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     download_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
 
     # The get-metadata subparser
@@ -2532,13 +2195,13 @@ Commands:
                 'list_account_usage': list_account_usage,
                 'list_datasets_rse': list_datasets_rse,
                 'list_parent_dids': list_parent_dids,
+                'list_parent_datasets': list_parent_dids,
                 'list_files': list_files,
                 'list_content': list_content,
                 'list_content_history': list_content_history,
                 'list_dids': list_dids,
                 'list_dataset_replicas': list_dataset_replicas,
                 'list_file_replicas': list_file_replicas,
-                'list_parent_datasets': list_parent_datasets,
                 'list_rses': list_rses,
                 'list_rse-attributes': list_rse_attributes,
                 'list_rse_usage': list_rse_usage,
@@ -2563,6 +2226,6 @@ Commands:
         if args.verbose:
             print "Completed in %-0.4f sec." % (end_time - start_time)
         sys.exit(result)
-    except Exception, error:
+    except Exception as error:
         logger.error("Strange error {0}".format(error))
         sys.exit(FAILURE)

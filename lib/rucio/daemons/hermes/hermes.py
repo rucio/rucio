@@ -5,10 +5,11 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-#  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2016
+#  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2017
 #  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 #  - Wen Guan, <wen.guan@cern.ch>, 2014
 #  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+#  - Martin Barisits, <martin.barisits@cern.ch>, 2017
 '''
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
 '''
@@ -125,7 +126,7 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
     logging.debug('[email] %i:%i - graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
 
 
-def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10):
+def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10, broker_timeout=3, broker_retry=3):
     '''
     Main loop to deliver messages to a broker.
     '''
@@ -138,12 +139,15 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
 
     conns = []
     for broker in brokers_resolved:
-        conns.append(stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
-                                      use_ssl=True,
-                                      ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
-                                      ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
-                                      ssl_version=ssl.PROTOCOL_TLSv1,
-                                      reconnect_attempts_max=9999))
+        conns.append({'conn': stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
+                                               use_ssl=True,
+                                               ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
+                                               ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
+                                               ssl_version=ssl.PROTOCOL_TLSv1,
+                                               keepalive=True,
+                                               timeout=broker_timeout),
+                      'use': False,
+                      'retry': 0})  # reconnect safeguard counter
     destination = config_get('messaging-hermes', 'destination')
 
     executable = 'hermes [broker]'
@@ -163,12 +167,35 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
 
             for conn in conns:
 
-                if not conn.is_connected():
-                    logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-                    record_counter('daemons.hermes.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
+                if not conn['conn'].is_connected():
+                    logging.info('[broker] %i:%i - connecting to %s' % (hb['assign_thread'],
+                                                                        hb['nr_threads'],
+                                                                        conn['conn'].transport._Transport__host_and_ports[0][0]))
+                    record_counter('daemons.hermes.reconnect.%s' % conn['conn'].transport._Transport__host_and_ports[0][0].split('.')[0])
 
-                    conn.start()
-                    conn.connect()
+                    try:
+                        if conn['retry'] >= broker_retry:
+                            logging.warning('[broker] %i:%i - connection retrials exceeded, skipping this round: %s' % (hb['assign_thread'],
+                                                                                                                        hb['nr_threads'],
+                                                                                                                        conn['conn'].transport._Transport__host_and_ports[0][0]))
+                            conn['retry'] = 0
+                            conn['use'] = False
+                            continue
+                        else:
+                            conn['conn'].start()
+                            conn['conn'].connect()
+                            conn['use'] = True
+                    except stomp.exception.ConnectFailedException as e:
+                        logging.warning('[broker] %i:%i - connection timeout, retrying: %s' % (hb['assign_thread'],
+                                                                                               hb['nr_threads'],
+                                                                                               conn['conn'].transport._Transport__host_and_ports[0][0]))
+                        conn['retry'] += 1
+                        conn['use'] = False
+
+            usable_conns = [conn for conn in conns if conn['use']]
+            logging.debug('[broker] %i:%i - using: %s' % (hb['assign_thread'],
+                                                          hb['nr_threads'],
+                                                          [uc['conn'].transport._Transport__host_and_ports[0][0] for uc in usable_conns]))
 
             tmp = retrieve_messages(bulk=bulk,
                                     thread=hb['assign_thread'],
@@ -182,11 +209,11 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                 for t in tmp:
 
                     try:
-                        random.sample(conns, 1)[0].send(body=json.dumps({'event_type': str(t['event_type']).lower(),
-                                                                         'payload': t['payload'],
-                                                                         'created_at': str(t['created_at'])}),
-                                                        destination=destination,
-                                                        headers={'persistent': 'true'})
+                        random.sample(usable_conns, 1)[0]['conn'].send(body=json.dumps({'event_type': str(t['event_type']).lower(),
+                                                                                        'payload': t['payload'],
+                                                                                        'created_at': str(t['created_at'])}),
+                                                                       destination=destination,
+                                                                       headers={'persistent': 'true'})
                         to_delete.append(t['id'])
                     except ValueError:
                         logging.warn('Cannot serialize payload to JSON: %s' % str(t['payload']))
@@ -275,7 +302,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, send_email=True, threads=1, bulk=1000, delay=10):
+def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_timeout=3, broker_retry=3):
     '''
     Starts up the hermes threads.
     '''
@@ -304,7 +331,7 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10):
 
     if once:
         logging.info('executing one hermes iteration only')
-        deliver_messages(once=once, brokers_resolved=brokers_resolved, bulk=bulk, delay=delay)
+        deliver_messages(once=once, brokers_resolved=brokers_resolved, bulk=bulk, delay=delay, broker_timeout=broker_timeout, broker_retry=broker_retry)
         deliver_emails(once=once, send_email=send_email, bulk=bulk, delay=delay)
 
     else:
@@ -312,7 +339,9 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10):
         thread_list = [threading.Thread(target=deliver_messages, kwargs={'brokers_resolved': brokers_resolved,
                                                                          'thread': i,
                                                                          'bulk': bulk,
-                                                                         'delay': delay}) for i in xrange(0, threads)]
+                                                                         'delay': delay,
+                                                                         'broker_timeout': broker_timeout,
+                                                                         'broker_retry': broker_retry}) for i in xrange(0, threads)]
 
         for i in xrange(0, threads):
             thread_list.append(threading.Thread(target=deliver_emails, kwargs={'thread': i,
