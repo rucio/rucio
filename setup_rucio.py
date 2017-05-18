@@ -23,7 +23,7 @@ if sys.version_info < (2, 4):
 
 sys.path.insert(0, os.path.abspath('lib/'))
 
-from rucio import version
+from rucio import version  # noqa
 
 try:
     from setuptools import setup, find_packages
@@ -42,7 +42,7 @@ data_files = [('rucio/etc/', glob.glob('etc/*.template')),
               ('rucio/etc/schemas', glob.glob('etc/schemas/*.json')),
               ('rucio/tools/', ['tools/pip-requires', 'tools/pip-requires-client', 'tools/pip-requires-test',
                                 'tools/bootstrap.py', 'tools/reset_database.py']),
-              ('rucio/tools/probes/common/', ['tools/probes/common/graphite2nagios',]),
+              ('rucio/tools/probes/common/', ['tools/probes/common/graphite2nagios', ]),
               ('rucio/tools/probes/common/', glob.glob('tools/probes/common/check*')),
               ('rucio/etc/mail_templates/', glob.glob('etc/mail_templates/*.tmpl'))]
 

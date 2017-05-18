@@ -294,7 +294,7 @@ class BaseClient(object):
                 continue
             break
 
-        if retry == 2:
+        if retry == 2 or 'result' not in locals():
             LOG.error('cannot get auth_token')
             return False
 

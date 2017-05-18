@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 
@@ -32,7 +32,7 @@ from rucio.common import utils
 from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
                                      KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
                                      RuleState, ReplicaState, RequestState, RequestType, RSEType,
-                                     ScopeStatus, SubscriptionState, RuleNotification)
+                                     ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState)
 from rucio.db.sqla.history import Versioned
 from rucio.db.sqla.session import BASE
 from rucio.db.sqla.types import GUID, BooleanString
@@ -1164,7 +1164,7 @@ class LifetimeExceptions(BASE, ModelBase):
     account = Column(String(25))
     pattern = Column(String(255))
     comments = Column(String(4000))
-    state = Column(BadFilesStatus.db_type(name='LIFETIME_EXCEPT_STATE_CHK'))
+    state = Column(LifetimeExceptionsState.db_type(name='LIFETIME_EXCEPT_STATE_CHK'))
     expires_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', 'scope', 'name', 'did_type', 'account', name='LIFETIME_EXCEPT_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='LIFETIME_EXCEPT_SCOPE_NN'),

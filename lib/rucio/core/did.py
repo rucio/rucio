@@ -34,11 +34,11 @@ from sqlalchemy.sql.expression import bindparam, text, Insert, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
+import rucio.common.policy
 
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.utils import str_to_date, is_archive
-from rucio.common.policy import archive_localgroupdisk_datasets
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
@@ -212,8 +212,16 @@ def add_dids(dids, account, session=None):
         raise exception.RucioException(error.args)
 
 
-def __add_files_to_archive(scope, name, files, account, session=None):
+def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, session=None):
     """
+    Add files to archive.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param files: archive content.
+    :param account: The account owner.
+    :param ignore_duplicate: If True, ignore duplicate entries.
+    :param session: The database session in use.
     """
     # lookup for files
     files_query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
@@ -222,9 +230,26 @@ def __add_files_to_archive(scope, name, files, account, session=None):
                                 models.DataIdentifier.adler32, models.DataIdentifier.md5).\
         filter(models.DataIdentifier.did_type == DIDType.FILE).\
         with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')
+
     file_condition = []
     for file in files:
         file_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name']))
+
+    existing_content = []
+    if ignore_duplicate:
+        content_query = session.query(models.ConstituentAssociation.scope,
+                                      models.ConstituentAssociation.name,
+                                      models.ConstituentAssociation.child_scope,
+                                      models.ConstituentAssociation.child_name).\
+            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle')
+        content_condition = []
+        for file in files:
+            content_condition.append(and_(models.ConstituentAssociation.scope == scope,
+                                          models.ConstituentAssociation.name == name,
+                                          models.ConstituentAssociation.child_scope == file['scope'],
+                                          models.ConstituentAssociation.child_name == file['name']))
+        for row in content_query.filter(or_(*content_condition)):
+            existing_content.append(row)
 
     contents = []
     for row in files_query.filter(or_(*file_condition)):
@@ -240,28 +265,30 @@ def __add_files_to_archive(scope, name, files, account, session=None):
 
     new_files, existing_files = [], []
     for file in files:
-        content = {'child_scope': file['scope'],
-                   'child_name': file['name'],
-                   'scope': scope,
-                   'name': name,
-                   'bytes': file['bytes'],
-                   'adler32': file.get('adler32'),
-                   'md5': file.get('md5'),
-                   'guid': file.get('guid'),
-                   'length': file.get('events')}
-        if content not in contents:
-            file['constituent'] = True
-            file['did_type'] = DIDType.FILE
-            file['account'] = account
-            new_files.append(file)
-            contents.append(content)
-        else:
-            existing_files.append(and_(models.DataIdentifier.scope == file['scope'],
-                                       models.DataIdentifier.name == file['name']))
+        if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
+            content = {'child_scope': file['scope'],
+                       'child_name': file['name'],
+                       'scope': scope,
+                       'name': name,
+                       'bytes': file['bytes'],
+                       'adler32': file.get('adler32'),
+                       'md5': file.get('md5'),
+                       'guid': file.get('guid'),
+                       'length': file.get('events')}
+            if content not in contents:
+                file['constituent'] = True
+                file['did_type'] = DIDType.FILE
+                file['account'] = account
+                for key in file.get('meta', {}):
+                    file[key] = file['meta'][key]
+                new_files.append(file)
+                contents.append(content)
+            else:
+                existing_files.append(and_(models.DataIdentifier.scope == file['scope'],
+                                           models.DataIdentifier.name == file['name']))
 
     # insert into archive_contents
     try:
-
         new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
         if existing_files:
             session.query(models.DataIdentifier).\
@@ -456,6 +483,7 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                                            name=attachment['name'],
                                            files=attachment['dids'],
                                            account=account,
+                                           ignore_duplicate=ignore_duplicate,
                                            session=session)
 
                     # mark parent dataset as is_archive
@@ -521,7 +549,7 @@ def delete_dids(dids, account, session=None):
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'] != 'archive':
-            archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+            rucio.common.policy.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
 
         if did['purge_replicas'] is False:
             not_purge_replicas.append((did['scope'], did['name']))

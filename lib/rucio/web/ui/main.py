@@ -1,19 +1,17 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
-
 """
-Main WebUI
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
+ - Martin Barisits, <martin.barisits@cern.ch>, 2014
+ - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+ - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2017
 """
 
 
@@ -40,6 +38,7 @@ URLS = (
     '/dumps', 'Dumps',
     '/heartbeats', 'Heartbeats',
     '/infrastructure', 'Infrastructure',
+    '/lifetime_exception', 'LifetimeException',
     '/list_rules', 'ListRulesRedirect',
     '/r2d2/approve', 'ApproveRules',
     '/r2d2/request', 'RequestRule',
@@ -55,6 +54,8 @@ URLS = (
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions'
+    '/subscriptions_editor', 'SubscriptionsEditor',
+
 )
 
 
@@ -172,6 +173,14 @@ class Heartbeats(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.heartbeats())
+
+
+class LifetimeException():
+    """ For to request lifetime exception """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.lifetime_exception())
 
 
 class ListRules(object):
@@ -294,6 +303,14 @@ class Subscriptions(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.subscriptions())
+
+
+class SubscriptionsEditor():
+    """ Subscriptions editor """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.subscriptions_editor())
 
 
 """----------------------

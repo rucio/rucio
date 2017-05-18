@@ -11,7 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
 
@@ -385,6 +385,24 @@ class KeyNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(KeyNotFound, self).__init__(args, kwargs)
         self._message = "Key does not exist."
+
+
+class LifetimeExceptionDuplicate(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(LifetimeExceptionDuplicate, self).__init__(args, kwargs)
+        self._message = "An exception already exists."
+
+
+class LifetimeExceptionNotFound(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(LifetimeExceptionNotFound, self).__init__(args, kwargs)
+        self._message = "Exception does not exist."
 
 
 class ManualRuleApprovalBlocked(RucioException):
