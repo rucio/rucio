@@ -9,6 +9,7 @@
 #  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 #  - Wen Guan, <wen.guan@cern.ch>, 2014
 #  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+#  - Martin Barisits, <martin.barisits@cern.ch>, 2017
 '''
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
 '''
@@ -208,11 +209,11 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                 for t in tmp:
 
                     try:
-                        random.sample(usable_conns, 1)[0][0].send(body=json.dumps({'event_type': str(t['event_type']).lower(),
-                                                                                   'payload': t['payload'],
-                                                                                   'created_at': str(t['created_at'])}),
-                                                                  destination=destination,
-                                                                  headers={'persistent': 'true'})
+                        random.sample(usable_conns, 1)[0]['conn'].send(body=json.dumps({'event_type': str(t['event_type']).lower(),
+                                                                                        'payload': t['payload'],
+                                                                                        'created_at': str(t['created_at'])}),
+                                                                       destination=destination,
+                                                                       headers={'persistent': 'true'})
                         to_delete.append(t['id'])
                     except ValueError:
                         logging.warn('Cannot serialize payload to JSON: %s' % str(t['payload']))
