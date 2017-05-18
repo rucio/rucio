@@ -150,7 +150,8 @@ ignore-mixin-members=yes
 
 # List of classes names for which member attributes should not be checked
 # (useful for classes with attributes dynamically set).
-ignored-classes=SQLObject,nose.tools,nose.tools.trivial,requests.structures,SQLAlchemy,LookupDict,alembic.context,scoped_session, RSE, tuple
+ignored-classes=SQLObject,nose.tools,nose.tools.trivial,requests.structures,
+    SQLAlchemy,LookupDict,alembic.context,scoped_session, RSE, tuple,Request
 
 # When zope mode is activated, add a predefined set of Zope acquired attributes
 # to generated-members.
@@ -180,7 +181,10 @@ additional-builtins=
 
 # List of interface methods to ignore, separated by a comma. This is used for
 # instance to not check methods defines in Zope's Interface base class.
-ignore-iface-methods=isImplementedBy,deferred,extends,names,namesAndDescriptions,queryDescriptionFor,getBases,getDescriptionFor,getDoc,getName,getTaggedValue,getTaggedValueTags,isEqualOrExtendedBy,setTaggedValue,isImplementedByInstancesOf,adaptWith,is_implemented_by
+ignore-iface-methods=isImplementedBy,deferred,extends,names,namesAndDescriptions,
+    queryDescriptionFor,getBases,getDescriptionFor,getDoc,getName,getTaggedValue,
+    getTaggedValueTags,isEqualOrExtendedBy,setTaggedValue,isImplementedByInstancesOf,
+    adaptWith,is_implemented_by
 
 # List of method names used to declare (i.e. assign) instance attributes.
 defining-attr-methods=__init__,__new__,setUp

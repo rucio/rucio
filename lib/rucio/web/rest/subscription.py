@@ -1,17 +1,18 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+"""
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+"""
 
 from json import dumps, loads
 from urlparse import parse_qs
-from logging import getLogger, StreamHandler, DEBUG
 
 from web import application, ctx, data, header, BadRequest, Created, InternalError, loadhook
 
@@ -20,11 +21,6 @@ from rucio.api.subscription import list_subscriptions, add_subscription, update_
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, AccessDenied
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController
-
-LOGGER = getLogger("rucio.subscription")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
 
 URLS = (
     '/Id/(.*)', 'SubscriptionId',
@@ -60,7 +56,7 @@ class Subscription:
                 yield dumps(subscription, cls=APIEncoder) + '\n'
         except SubscriptionNotFound, error:
             raise generate_http_error(404, 'SubscriptionNotFound', error[0][0])
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
     def PUT(self, account, name):
@@ -79,6 +75,7 @@ class Subscription:
         json_data = data()
         try:
             params = loads(json_data)
+            params = params['options']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -113,15 +110,15 @@ class Subscription:
 
         try:
             update_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority, issuer=ctx.env.get('issuer'))
-        except InvalidObject, error:
+        except InvalidObject as error:
             raise generate_http_error(400, 'InvalidObject', error[0][0])
-        except AccessDenied, error:
+        except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0][0])
-        except SubscriptionNotFound, error:
+        except SubscriptionNotFound as error:
             raise generate_http_error(404, 'SubscriptionNotFound', error[0][0])
-        except RucioException, error:
+        except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
         raise Created()
 
@@ -142,6 +139,7 @@ class Subscription:
         json_data = data()
         try:
             params = loads(json_data)
+            params = params['options']
             filter = params['filter']
             replication_rules = params['replication_rules']
             comments = params['comments']
@@ -154,15 +152,15 @@ class Subscription:
 
         try:
             subscription_id = add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority, issuer=ctx.env.get('issuer'))
-        except InvalidObject, error:
+        except InvalidObject as error:
             raise generate_http_error(400, 'InvalidObject', error[0][0])
-        except AccessDenied, error:
+        except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0][0])
         except SubscriptionDuplicate as error:
             raise generate_http_error(409, 'SubscriptionDuplicate', error.args[0][0])
-        except RucioException, error:
+        except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
         raise Created(subscription_id)
@@ -201,14 +199,14 @@ class Rules:
                 else:
                     for rule in list_replication_rules({'subscription_id': subscriptions[0]}):
                         yield dumps(rule, cls=APIEncoder) + '\n'
-        except RuleNotFound, error:
+        except RuleNotFound as error:
             raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
-        except SubscriptionNotFound, error:
+        except SubscriptionNotFound as error:
             raise generate_http_error(404, 'SubscriptionNotFound', error[0][0])
-        except RucioException, error:
+        except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except Exception as error:
+            raise InternalError(error)
 
     def PUT(self):
         raise BadRequest()
@@ -238,9 +236,9 @@ class States(RucioController):
         try:
             for row in list_subscription_rule_states(account=account):
                 yield dumps(row, cls=APIEncoder) + '\n'
-        except RucioException, error:
+        except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
 
@@ -261,12 +259,12 @@ class SubscriptionId:
         header('Content-Type', 'application/json')
         try:
             subscription = get_subscription_by_id(subscription_id)
-        except SubscriptionNotFound, error:
+        except SubscriptionNotFound as error:
             raise generate_http_error(404, 'SubscriptionNotFound', error.args[0][0])
-        except RucioException, error:
+        except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception, e:
-            raise InternalError(e)
+        except Exception as error:
+            raise InternalError(error)
 
         return render_json(**subscription)
 
