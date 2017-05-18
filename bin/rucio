@@ -1321,7 +1321,7 @@ def download(args):
     # check if we shall use aria2c
     use_aria = False
     if args.aria and not args.pfn:
-        # check if aria2c is executable
+        logger.debug('Checking if aria2c is executable...')
         try:
             (exitcode, out, err) = execute('aria2c --version')
             if exitcode == 0:
@@ -1335,8 +1335,9 @@ def download(args):
     elif args.aria:
         logger.warning('--pfn with --aria is not supported yet!')
 
-    # if user wants to use aria, check if every file has an https pfn
+    # if user wants to use aria, check if every file has a https pfn
     if use_aria:
+        logger.debug('aria2c is executable! Checking if all files have https PFNs...')
         try:
             # metalink string for replicas of all arg.dids
             mlstr = client.list_replicas(dids, rse_expression=rse_expression, metalink=4, schemes=['https'])
@@ -1352,16 +1353,10 @@ def download(args):
             logger.warning('Cannot use aria2c due to following error: %s' % str(error))
 
     if args.pfn:
+        logger.debug('--pfn option overrides normal download!')
         if not args.rse:
             logger.error('--rse option is mandatory in combination with --pfn!')
             return FAILURE
-
-        # check if protocol can be extracted
-        protocol = args.pfn.split(':')
-        if len(protocol) <= 0:
-            logger.error('Invalid PFN given!')
-            return FAILURE
-        protocol = protocol[0].lower()
 
         if len(dids) > 1:
             dids = [dids[0]]
@@ -1408,7 +1403,7 @@ def download(args):
             return FAILURE
 
         if use_aria:
-            did_with_replicas['mlstr'] = rep_list
+            # did_with_replicas['mlstr'] = rep_list
             try:
                 did_with_replicas['replicas'] = _replica_mlstr_to_list(rep_list)
             except Exception as error:
@@ -1430,7 +1425,7 @@ def download(args):
             file['exists'] = file_exists
             file['dest_dir'] = dest_dir
             if file_exists:
-                logger.info('File %s already exists locally' % (file_didstr))
+                logger.info('File %s:%s already exists locally' % (file_scope, file_name))
                 trace = deepcopy(trace_pattern)
                 trace.update({'scope': file_scope,
                               'filename': file_name,
@@ -1464,10 +1459,52 @@ def download(args):
 
 def download_aria(args, client, dids_with_replicas, trace_pattern, trace_endpoint):
     logger.info('Using aria2c downloader...')
-    aria_proxy = xmlrpclib.ServerProxy('http://localhost:%d/rpc')
 
-    aria_ifile_name = './aria_input_%d' % int(time.time())
-    aria_ifile_str = ''
+    # import xmlrpc.client.ServerProxy as RPCServerProxy  # py3
+    import xmlrpclib.ServerProxy as RPCServerProxy  # py2
+
+    rpc_secret = '%x' % (random.getrandbits(64))
+    cmd = 'aria2c '\
+          '--enable-rpc '\
+          '--certificate=$X509_USER_PROXY '\
+          '--private-key=$X509_USER_PROXY '\
+          '--ca-certificate=/etc/pki/tls/certs/CERN-bundle.pem '\
+          '--rpc-secret=%s '\
+          '--rpc-listen-all=false '\
+          '--rpc-listen-port=%d'
+
+    logger.info('Starting aria2c rpc server...')
+    for i in range(3):
+        port = random.randint(1024, 65534)
+        logger.debug('Trying to start rpc server on port: %d' % port)
+        try:
+            rpcproc = subprocess.Popen(cmd % (rpc_secret, port), 
+                                       shell=True, 
+                                       stdout=subprocess.PIPE, 
+                                       stderr=subprocess.PIPE)
+        except:
+            logger.error('Failed to execute aria2c!')
+            return FAILURE
+        time.sleep(1)
+        if rpcproc.poll() != None:
+            (out, err) = rpcproc.communicate()
+            logger.debug('Failed to start aria2c with port: %d' % port)
+            logger.debug('aria2c output: %s' % out)
+        else:
+            break
+
+    if rpcproc.poll() != None:
+        logger.error('Failed to start aria2c rpc server!')
+        return FAILURE
+    try:
+        aria_rpc = RPCServerProxy('http://localhost:%d/rpc' % port)
+    except:
+        logger.error('Failed to initialise rpc proxy!')
+        rpcproc.kill()
+        return FAILURE
+
+    rpc_auth = 'token:' + rpc_secret
+    gids_with_files = {}
     for arg_did in dids_with_replicas:
         for file in arg_did['replicas']:
             # skip existing files
@@ -1485,10 +1522,11 @@ def download_aria(args, client, dids_with_replicas, trace_pattern, trace_endpoin
 
             # any replica available?
             if len(pfns) > 0:
-                aria_ifile_str += '\t'.join(pfns) + '\n'
-                aria_ifile_str += '\t' + 'dir=' + file['dest_dir'] + '\n'
-                aria_ifile_str += '\t' + 'checksum=adler32=' + file['adler32'] + '\n'
-                logger.debug('File was queued! aria gid: %s; available pfns: %s' % (gid,', '.join(pfns)))
+                options = {'dir': file['dest_dir'],
+                           'checksum': 'adler32=b01edda8'}
+                gid = aria_rpc.aria2.addUri(rpc_auth, pfns, options)
+                logger.debug('%s:%s is queued! aria gid: %s' % (file['scope'], file['name'], gid))
+                gids_with_files[gid] = file
             else:
                 trace = deepcopy(trace_pattern)
                 trace.update({'scope': file_scope,
@@ -1500,94 +1538,24 @@ def download_aria(args, client, dids_with_replicas, trace_pattern, trace_endpoin
                 send_trace(trace, trace_endpoint, args.user_agent)
                 logger.warning('No replica found for %s' % file_didstr)
 
-    if aria_ifile_str == '':
-        logger.info('No files in input queue. Nothing to do.')
-        return 0
-
+    i = 0
+    num_queued = len(gids_with_files)
+    num_stopped = 0
+    keys = ['gid', 'status']
+    logger.debug('Queued %d files' % num_queued)
     try:
-        logger.debug('Creating aria input file: %s' % aria_ifile_name)
-        with open(aria_ifile_name, 'w') as aria_ifile:
-            aria_ifile.write(aria_ifile_str)
-    except:
-        logger.error('Failed to write aria input file!')
-        return FAILURE
-
-    cert = '$X509_USER_PROXY'
-    cacert = '/etc/pki/tls/certs/CERN-bundle.pem'
-    cmd = 'aria2c --enable-rpc --certificate=%s --private-key=%s --ca-certificate=%s'
-    cmd = cmd % (cert, cert, cacert)
-    rpcproc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    time.sleep(1)
-    if not isAria2rpcRunning():
-        logger.error('Failed to start aria2c rpc server!')
-        return FAILURE
-
-    rpcuri = 'http://localhost:6800/jsonrpc'
-
-    params = [['https://eosatlashttp.cern.ch:443/eos/atlas/atlasscratchdisk/rucio/user/twegner/0d/fa/datafile1.dat']]
-    options = {'dir': '/data/rucio/testset'}
-    params.append(options)
-    j = json.dumps({
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'aria2.addUri',
-        'params': params,
-    })
-    r = requests.post(rpcuri, data=j)
-    logger.debug('Sent uri to aria! Response: %s' % r.text)
-    response = json.loads(r.text)
-    gid = response['result']
-    for k in range(10):
-        j = json.dumps({
-            'jsonrpc': '2.0',
-            'id': 1,
-            'method': 'aria2.tellStatus',
-            'params': [gid],
-        })
-        r = requests.post(rpcuri, data=j)
-        logger.debug('Asked status from aria! Response: %s' % r.text)
-        time.sleep(2)
-
-    j = json.dumps({
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'aria2.shutdown',
-    })
-    r = requests.post(rpcuri, data=j)
-    logger.debug('shutting down: %s' % r.text)
-    return FAILURE
-    response = json.loads(r.text)
-    print response
-    time.sleep(5)
-
-    cert = '$X509_USER_PROXY'
-    cacert = '/etc/pki/tls/certs/CERN-bundle.pem'
-    cmd = 'aria2c --certificate=%s --private-key=%s --ca-certificate=%s -i %s'
-    cmd = cmd % (cert, cert, cacert, aria_ifile_name)
-
-    logger.debug('EXECUTING: %s' % cmd)
-    try:
-        (exitcode, out, err) = execute(cmd)
-    except:
-        try:
-            logger.debug('Removing aria input file: %s' % aria_ifile_name)
-            os.remove(aria_ifile_name)
-        except:
-            pass
-        logger.error('Could not start aria2c process!')
-        return FAILURE
-
-    try:
-        logger.debug('Removing aria input file: %s' % aria_ifile_name)
-        #os.remove(aria_ifile_name)
-    except:
-        pass
-
-    if exitcode != 0:
-        logger.error('aria2c exited with code: %d' % exitcode)
-        return FAILURE
-
-    print out
+        while num_queued != num_stopped:
+            stopped = aria_rpc.aria2.tellStopped(rpc_auth, num_stopped, 0, keys)
+            num_stopped += len(stopped)
+            for dl in stopped:
+                logger.info('Finished download %s' % (dl['gid']))
+            active = aria_rpc.aria2.tellActive(rpc_auth, keys)
+            for dl in active:
+                logger.info('Still downloading %s' % (dl['gid']))
+            time.sleep(1)
+    except Exception as error:
+        logger.debug(error)
+    aria_rpc.aria2.shutdown(rpc_auth)
     return 0
 
 
@@ -1607,11 +1575,10 @@ def download_rucio(args, client, dids_with_replicas, trace_pattern, trace_endpoi
     input_queue = Queue()
     output_queue = Queue()
     for arg_did in dids_with_replicas:
+        arg_didstr = '%s:%s' % (arg_did['scope'], arg_did['name'])
+        logger.debug('Handling files from DID: %s' % arg_didstr)
         try:
-            arg_didstr = '%s:%s' % (arg_did['scope'], arg_did['name'])
             summary[arg_didstr] = {}
-
-            logger.debug('Operating on did: %s' % arg_didstr)
 
             if args.nrandom and not args.pfn:
                 files_to_download = arg_did['replicas']
@@ -1622,13 +1589,12 @@ def download_rucio(args, client, dids_with_replicas, trace_pattern, trace_endpoi
 
             nbfiles_to_download[arg_didstr] = len(files_to_download)
 
-            logger.info('Starting download for %s with %s files' % (arg_didstr, len(files_to_download)))
+            logger.info('Starting download for %s with %d files' % (arg_didstr, len(files_to_download)))
             for file in files_to_download:
                 file_scope = file['scope']
                 file_name = file['name']
                 file_didstr = '%s:%s' % (file_scope, file_name)
                 file_download = file
-                logger.debug('Checking replica: %s' % file_didstr)
                 if file['exists']:
                     summary[arg_didstr][file_didstr] = 2
                     output_queue.put({'dataset_scope': arg_did['dataset_scope'],
@@ -2340,6 +2306,7 @@ Commands:
     get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
     get_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     get_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
+    get_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
@@ -2352,7 +2319,7 @@ Commands:
     download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
     download_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     download_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
-    download_parser.add_argument('--aria', action='store_true', default=False, help=argparse.SUPPRESS)
+    download_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
