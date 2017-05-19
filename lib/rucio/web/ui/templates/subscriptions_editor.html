@@ -23,11 +23,11 @@ $var script: <script src="/static/subscriptions_editor.js"></script><script src=
            <div class="large-5 columns">
               <div class="row">
                   <label>Name</label>
-                     <textarea placeholder="Name of the subscription" id="name"></textarea>
+                     <textarea maxlength="64" placeholder="Name of the subscription" id="name"></textarea>
               </div>
               <div class="row">
                   <label>Account</label>
-                     <textarea placeholder="The account of the subscription" id="sub_account"></textarea>
+                     <textarea maxlength="25" placeholder="The account of the subscription" id="sub_account"></textarea>
               </div>
               <div class="row">
                  <label>Scope</label>
@@ -44,7 +44,7 @@ $var script: <script src="/static/subscriptions_editor.js"></script><script src=
               </div>
               <div class="row">
                  <label>Pattern</label>
-                 <textarea placeholder="pattern (e.g. data15.*merge.*)" id="pattern"></textarea>
+                 <textarea maxlength="255" placeholder="pattern (e.g. data15.*merge.*)" id="pattern"></textarea>
               </div>
               <div class="row">
                  <div>
@@ -89,7 +89,7 @@ $var script: <script src="/static/subscriptions_editor.js"></script><script src=
               </div>
               <div class="row">
                   <label>Comment</label>
-                     <textarea placeholder="Put a meaningful comment" id="comments"></textarea>
+                     <textarea maxlength="255" placeholder="Put a meaningful comment" id="comments"></textarea>
               </div>
               <div class="row">
                   <label>Source replica expression</label>
