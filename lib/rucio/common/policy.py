@@ -29,7 +29,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common.config import config_get
-from rucio.common.exception import ScratchDiskLifetimeConflict, DataIdentifierNotFound
+from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.account import has_account_attribute
 from rucio.core.rse import list_rse_attributes
 
@@ -237,12 +237,8 @@ def get_scratch_policy(account, rses, lifetime, session=None):
         if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * scratchdisk_lifetime):
             # Check if one of the rses is a SCRATCHDISK:
             if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
-                if len(rses) == 1:
-                    lifetime = 60 * 60 * 24 * scratchdisk_lifetime - 1
-                else:
-                    raise ScratchDiskLifetimeConflict()
-        return lifetime
-    return None
+                lifetime = 60 * 60 * 24 * scratchdisk_lifetime - 1
+    return lifetime
 
 
 @transactional_session
