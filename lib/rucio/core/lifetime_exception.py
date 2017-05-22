@@ -76,7 +76,7 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
     returns:            The id of the exception.
     """
     exception_id = generate_uuid()
-    text = 'Account ddmadmin requested a lifetime extension for a list of DIDs that can be found below\n'
+    text = 'Account %s requested a lifetime extension for a list of DIDs that can be found below\n' % account
     reason = comments
     volume = None
     if comments.find('||||') > -1:
@@ -85,8 +85,6 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
     text += 'It represents %s datasets\n' % len(dids)
     if volume:
         text += 'The estimated physical volume is %s\n' % volume
-    print text
-    print expires_at
     if expires_at and (isinstance(expires_at, str) or isinstance(expires_at, unicode)):
         expires_at = str_to_date(expires_at)
         text += 'The lifetime exception should expires on %s\n' % str(expires_at)
