@@ -17,8 +17,11 @@ from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.common.exception import RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation
+from rucio.common.exception import ConfigNotFound, RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation
 from rucio.common.utils import generate_uuid, str_to_date
+from rucio.core.config import get
+from rucio.core.message import add_message
+
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.db.sqla.session import transactional_session, stream_session
@@ -73,6 +76,23 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
     returns:            The id of the exception.
     """
     exception_id = generate_uuid()
+    text = 'Account %s requested a lifetime extension for a list of DIDs that can be found below\n' % account
+    reason = comments
+    volume = None
+    if comments.find('||||') > -1:
+        reason, volume = comments.split('||||')
+    text += 'The reason for the extension is "%s"\n' % reason
+    text += 'It represents %s datasets\n' % len(dids)
+    if volume:
+        text += 'The estimated physical volume is %s\n' % volume
+    if expires_at and (isinstance(expires_at, str) or isinstance(expires_at, unicode)):
+        expires_at = str_to_date(expires_at)
+        text += 'The lifetime exception should expires on %s\n' % str(expires_at)
+    text += 'Link to approve or reject this request can be found at the end of the mail\n'
+    text += '\n'
+    text += 'DIDTYPE SCOPE NAME\n'
+    text += '\n'
+    truncated_message = False
     for did in dids:
         did_type = None
         if 'did_type' in did:
@@ -80,11 +100,14 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
                 did_type = DIDType.from_sym(did['did_type'])
             else:
                 did_type = did['did_type']
-        expires_at = None
         if expires_at and (isinstance(expires_at, str) or isinstance(expires_at, unicode)):
             expires_at = str_to_date(expires_at)
         new_exception = models.LifetimeExceptions(id=exception_id, scope=did['scope'], name=did['name'], did_type=did_type,
-                                                  account=account, pattern=pattern, comments=comments, state=LifetimeExceptionsState.WAITING, expires_at=expires_at)
+                                                  account=account, pattern=pattern, comments=reason, state=LifetimeExceptionsState.WAITING, expires_at=expires_at)
+        if len(text) < 3500:
+            text += '%s %s %s\n' % (str(did_type), did['scope'], did['name'])
+        else:
+            truncated_message = True
         try:
             new_exception.save(session=session, flush=False)
         except IntegrityError as error:
@@ -94,6 +117,23 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
                or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
                 raise LifetimeExceptionDuplicate()
             raise RucioException(error.args[0])
+    if truncated_message:
+        text += '...\n'
+        text += 'List too long. Truncated\n'
+    text += '\n'
+    text += 'Approve:   https://rucio-ui.cern.ch/lifetime_exception?id=%s&action=approve\n' % str(exception_id)
+    text += 'Deny:      https://rucio-ui.cern.ch/lifetime_exception?id=%s&action=deny\n' % str(exception_id)
+    approvers_email = []
+    try:
+        approvers_email = get('lifetime_model', 'approvers_email', session=session)
+        approvers_email.split(',')  # pylint: disable=no-member
+    except ConfigNotFound:
+        approvers_email = []
+    add_message(event_type='email',
+                payload={'body': text,
+                         'to': approvers_email,
+                         'subject': '[RUCIO] Request to approve lifetime exception %s' % str(exception_id)},
+                session=session)
     return exception_id
 
 

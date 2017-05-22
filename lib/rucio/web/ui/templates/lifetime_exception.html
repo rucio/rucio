@@ -22,7 +22,7 @@ $var script: <script src="/static/jquery.quicksearch.js"></script><script src="/
            <div class="large-5 columns">
               <div class="row">
                   <label>Reason</label>
-                     <textarea placeholder="Reason for the exception" id="reason"></textarea>
+                     <textarea maxlength="2000" placeholder="Reason for the exception" id="reason"></textarea>
               </div>
               <div class="row">
                  <label>Choose pattern</label>
@@ -49,6 +49,10 @@ $var script: <script src="/static/jquery.quicksearch.js"></script><script src="/
                   </select>
                   <a href='#' id='select-all'>select all</a>
                   <a href='#' id='deselect-all'>deselect all</a>
+              </div>
+              <div class="row">
+                 <label>Estimated volume to keep</label>
+                     <div id='estimated_vol'></div>
               </div>
            </div>
 

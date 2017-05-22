@@ -53,7 +53,7 @@ URLS = (
     '/search', 'Search',
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
-    '/subscriptions', 'Subscriptions'
+    '/subscriptions', 'Subscriptions',
     '/subscriptions_editor', 'SubscriptionsEditor',
 
 )
