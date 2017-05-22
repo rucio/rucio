@@ -1418,13 +1418,13 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
                 queued_files.append(file)
                 logger.debug('%s is queued.' % file_didstr)
             else:
-                trace = deepcopy(trace_pattern)
-                trace.update({'scope': file_scope,
-                              'filename': file_name,
-                              'datasetScope': file['dataset_scope'],
-                              'dataset': file['dataset_name'],
-                              'filesize': file['bytes'],
-                              'clientState': 'FILE_NOT_FOUND'})
+                trace = trace_pattern  # no need for deep copy
+                trace['scope'] = file_scope
+                trace['filename'] = file_name
+                trace['datasetScope'] = file['dataset_scope']
+                trace['dataset'] = file['dataset_name']
+                trace['filesize'] = file['bytes']
+                trace['clientState'] = 'FILE_NOT_FOUND'
                 send_trace(trace, trace_endpoint, args.user_agent)
                 logger.warning('File %s has no available replicas. Cannot be downloaded.' % file_didstr)
 
@@ -1449,19 +1449,92 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
             _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc)
             return
 
-        for i in range(10):
+        while len(gid_to_file) > 0:
+            completed = []
+            failed = []
+            num_active = 0
             for gid in gid_to_file:
+                dl_info = aria_rpc.aria2.tellStatus(rpc_auth, gid)
+                status = dl_info['status'].lower()
+                if status == 'active':
+                    num_active += 1
+                elif status == 'complete':
+                    completed.append(gid)
+                elif status == 'error':
+                    failed.append(gid)
+            logger.debug('NumActive: %d, len(completed): %d len(failed): %d' % (num_active,
+                                                                               len(completed),
+                                                                               len(failed)))
+            for gid in completed:
                 file = gid_to_file[gid]
-                stat = aria_rpc.aria2.tellStatus(rpc_auth, gid)
-                logger.debug('%s:%s with gid %s is %s' % (file['scope'], file['name'], gid, stat['status']))
-                if stat['status'].lower() == 'error':
-                    logger.debug('Error Code: %s' % stat['errorCode'])
-            logger.debug(' ')
-            time.sleep(3)
+                file_scope = file['scope']
+                file_name = file['name']
+                file_didstr = '%s:%s' % (file['scope'], file['name'])
+                logger.info('Completed download of %s' % file_didstr)
+
+                # insert to output queue
+                out = {}
+                out['dataset_scope'] = file['dataset_scope']
+                out['dataset_name'] = file['dataset_name']
+                out['scope'] = file_scope
+                out['name'] = file_name
+                out['clientState'] = 'DONE'
+                out['attemptnr'] = 1
+                output_queue.put(out)
+
+                # send trace
+                trace = trace_pattern  # no need for deep copy
+                trace['scope'] = file_scope
+                trace['filename'] = file_name
+                trace['datasetScope'] = file['dataset_scope']
+                trace['dataset'] = file['dataset_name']
+                trace['filesize'] = file['bytes']
+                trace['clientState'] = 'DONE'
+                send_trace(trace, trace_endpoint, args.user_agent)
+
+                aria_rpc_aria2.removeDownloadResult(rpc_auth, gid)
+                del gid_to_file[gid]
+
+            for gid in failed:
+                file = gid_to_file[gid]
+                file_scope = file['scope']
+                file_name = file['name']
+                file_didstr = '%s:%s' % (file['scope'], file['name'])
+                logger.info('Failed to download %s' % file_didstr)
+
+                trace = trace_pattern  # no need for deep copy
+                validation_failed = False
+                if validation_failed:
+                    # insert to output queue
+                    out = {}
+                    out['dataset_scope'] = file['dataset_scope']
+                    out['dataset_name'] = file['dataset_name']
+                    out['scope'] = file_scope
+                    out['name'] = file_name
+                    out['clientState'] = 'CORRUPTED'
+                    out['attemptnr'] = 1
+                    output_queue.put(out)
+
+                    trace['clientState'] = 'FAIL_VALIDATE'
+                else:
+                    trace['clientState'] = 'DOWNLOAD_ATTEMPT'
+                trace['scope'] = file_scope
+                trace['filename'] = file_name
+                trace['datasetScope'] = file['dataset_scope']
+                trace['dataset'] = file['dataset_name']
+                trace['filesize'] = file['bytes']
+                send_trace(trace, trace_endpoint, args.user_agent)
+
+                aria_rpc_aria2.removeDownloadResult(rpc_auth, gid)
+                del gid_to_file[gid]
+            time.sleep(1)
+
     except Exception as error:
-        logger.debug(str(error))
         _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc, True)
-        raise RucioException('Caught unhandled exception! Killed aria2c rpc!')
+        raise error
+    except:
+        _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc, True)
+        raise RucioException('Caught unknown exception! Killed aria2c rpc!')
     _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc)
 
 
@@ -1667,7 +1740,7 @@ def download(args):
         else:
             download_rucio(args, input_queue, output_queue, trace_pattern, trace_endpoint)
     except Exception as error:
-        logger.error('Error during download: %s' % str(error))
+        logger.error('Exception during download: %s' % str(error))
 
     while True:
         try:
