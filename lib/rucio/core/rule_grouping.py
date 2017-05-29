@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
@@ -235,6 +235,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
                                           rule=rule,
                                           rse_id=rse_tuple[0],
                                           staging_area=rse_tuple[1],
+                                          availability_write=rse_tuple[2],
                                           locks_to_create=locks_to_create,
                                           locks=locks,
                                           source_rses=source_rses,
@@ -327,6 +328,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
                                           rule=rule,
                                           rse_id=rse_tuple[0],
                                           staging_area=rse_tuple[1],
+                                          availability_write=rse_tuple[2],
                                           locks_to_create=locks_to_create,
                                           locks=locks,
                                           source_rses=source_rses,
@@ -441,6 +443,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
                                           rule=rule,
                                           rse_id=rse_tuple[0],
                                           staging_area=rse_tuple[1],
+                                          availability_write=rse_tuple[2],
                                           locks_to_create=locks_to_create,
                                           locks=locks,
                                           source_rses=source_rses,
@@ -521,6 +524,8 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
     locks_to_delete = {}            # {'rse_id': [locks]}
 
+    selector_rse_dict = rseselector.get_rse_dictionary()
+
     # Iterate the datasetfiles structure and search for stuck locks
     for dataset in datasetfiles:
         for file in dataset['files']:
@@ -550,7 +555,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
+                    if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses) and selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
@@ -570,6 +575,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                                                       rule=rule,
                                                       rse_id=rse_tuple[0],
                                                       staging_area=rse_tuple[1],
+                                                      availability_write=rse_tuple[2],
                                                       locks_to_create=locks_to_create,
                                                       locks=locks,
                                                       source_rses=source_rses,
@@ -587,7 +593,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                                 locks_to_delete[lock.rse_id] = [lock]
                     except InsufficientTargetRSEs:
                         # Just retry the already existing lock
-                        if __is_retry_required(lock=lock, activity=rule.activity):
+                        if __is_retry_required(lock=lock, activity=rule.activity) and selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True):
                             associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                             __update_lock_replica_and_create_transfer(lock=lock,
                                                                       replica=associated_replica,
@@ -622,6 +628,8 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
     locks_to_delete = {}            # {'rse_id': [locks]}
 
+    selector_rse_dict = rseselector.get_rse_dictionary()
+
     # Iterate the datasetfiles structure and search for stuck locks
     for dataset in datasetfiles:
         for file in dataset['files']:
@@ -651,7 +659,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
+                    if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses) and selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
@@ -660,7 +668,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                                                                   session=session)
                 else:
                     # Just retry the already existing lock
-                    if __is_retry_required(lock=lock, activity=rule.activity):
+                    if __is_retry_required(lock=lock, activity=rule.activity) and selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True):
                         associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
@@ -695,6 +703,8 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
     locks_to_delete = {}            # {'rse_id': [locks]}
 
+    selector_rse_dict = rseselector.get_rse_dictionary()
+
     # Iterate the datasetfiles structure and search for stuck locks
     for dataset in datasetfiles:
         for file in dataset['files']:
@@ -724,7 +734,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
+                    if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses) and selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
@@ -733,7 +743,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                                                                   session=session)
                 else:
                     # Just retry the already existing lock
-                    if __is_retry_required(lock=lock, activity=rule.activity):
+                    if __is_retry_required(lock=lock, activity=rule.activity) and selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True):
                         associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
@@ -778,7 +788,7 @@ def __is_retry_required(lock, activity):
 
 
 @transactional_session
-def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_to_create, locks, source_rses, replicas_to_create, replicas, source_replicas, transfers_to_create, session=None):
+def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availability_write, locks_to_create, locks, source_rses, replicas_to_create, replicas, source_replicas, transfers_to_create, session=None):
     """
     This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
 
@@ -787,6 +797,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
     :param rule:                 Rule object.
     :param rse_id:               RSE id the lock and replica should be created at.
     :param staging_area:         Boolean variable if the RSE is a staging area.
+    :param availability_write:   Boolean variable if the RSE is write enabled.
     :param locks_to_create:      Dictionary of the locks to create.
     :param locks:                Dictionary of all locks.
     :param source_rses:          RSE ids of eglible source replicas.
@@ -850,12 +861,12 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                      name=file['name'],
                                      bytes=file['bytes'],
                                      existing_replica=existing_replica,
-                                     state=LockState.REPLICATING if available_source_replica else LockState.STUCK)
+                                     state=LockState.REPLICATING if (available_source_replica and availability_write) else LockState.STUCK)
             if rse_id not in locks_to_create:
                 locks_to_create[rse_id] = []
             locks_to_create[rse_id].append(new_lock)
             locks[(file['scope'], file['name'])].append(new_lock)
-            if not staging_area and available_source_replica:
+            if not staging_area and available_source_replica and availability_write:
                 transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                                 request_type=RequestType.TRANSFER,
                                                                 scope=file['scope'],
@@ -898,7 +909,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                        bytes=file['bytes'],
                                        md5=file['md5'],
                                        adler32=file['adler32'],
-                                       state=ReplicaState.COPYING if available_source_replica else ReplicaState.UNAVAILABLE)
+                                       state=ReplicaState.COPYING if (available_source_replica and availability_write) else ReplicaState.UNAVAILABLE)
         if rse_id not in replicas_to_create:
             replicas_to_create[rse_id] = []
         replicas_to_create[rse_id].append(new_replica)
@@ -910,31 +921,27 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                  name=file['name'],
                                  bytes=file['bytes'],
                                  existing_replica=new_replica,
-                                 state=LockState.REPLICATING if available_source_replica else LockState.STUCK)
+                                 state=LockState.REPLICATING if (available_source_replica and availability_write) else LockState.STUCK)
         if rse_id not in locks_to_create:
             locks_to_create[rse_id] = []
         locks_to_create[rse_id].append(new_lock)
         locks[(file['scope'], file['name'])].append(new_lock)
 
-        if not staging_area:  # Target RSE is not a staging area
-            if available_source_replica:
-                transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
-                                                                request_type=RequestType.TRANSFER,
-                                                                scope=file['scope'],
-                                                                name=file['name'],
-                                                                rule=rule,
-                                                                lock=new_lock,
-                                                                bytes=file['bytes'],
-                                                                md5=file['md5'],
-                                                                adler32=file['adler32'],
-                                                                ds_scope=dataset['scope'],
-                                                                ds_name=dataset['name'],
-                                                                session=session))
-
-        if available_source_replica:
+        if not staging_area and available_source_replica and availability_write:
+            transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                            request_type=RequestType.TRANSFER,
+                                                            scope=file['scope'],
+                                                            name=file['name'],
+                                                            rule=rule,
+                                                            lock=new_lock,
+                                                            bytes=file['bytes'],
+                                                            md5=file['md5'],
+                                                            adler32=file['adler32'],
+                                                            ds_scope=dataset['scope'],
+                                                            ds_name=dataset['name'],
+                                                            session=session))
             return True
-        else:
-            return False
+        return False
 
 
 def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica):
