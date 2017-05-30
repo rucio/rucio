@@ -138,7 +138,6 @@ def extract_scope(did):
 
 
 def send_trace(trace, trace_endpoint, user_agent, retries=5, threadnb=None, total_threads=None):
-    logger.info(trace)
     if user_agent.startswith('pilot'):
         logger.debug('pilot detected - not sending trace')
         return 0
@@ -1340,7 +1339,6 @@ def _stop_aria_rpc(auth, prox, proc, hard=False):
             proc.terminate()
     except:
         pass
-    proc.kill()
 
 
 def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint):
@@ -1358,13 +1356,18 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
           '--private-key=$X509_USER_PROXY '\
           '--ca-certificate=/etc/pki/tls/certs/CERN-bundle.pem '\
           '--quiet=true '\
+          '--allow-overwrite=true '\
+          '--auto-file-renaming=false '\
           '--stop-with-process=%d '\
           '--rpc-secret=%s '\
           '--rpc-listen-all=false '\
           '--rpc-max-request-size=100M '\
+          '--connect-timeout=5 '\
           '--rpc-listen-port=%d'
 
     logger.info('Starting aria2c rpc server...')
+
+    # trying up to 3 random ports
     for i in range(3):
         port = random.randint(1024, 65534)
         logger.debug('Trying to start rpc server on port: %d' % port)
@@ -1375,7 +1378,11 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
                                        stderr=subprocess.PIPE)
         except:
             raise RucioException('Failed to execute aria2c!')
-        time.sleep(1)
+
+        # if port is in use aria should fail to start so give it some time
+        time.sleep(2)
+
+        # did it fail?
         if rpcproc.poll() is not None:
             (out, err) = rpcproc.communicate()
             logger.debug('Failed to start aria2c with port: %d' % port)
@@ -1396,11 +1403,13 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
         rpc_auth = 'token:' + rpc_secret
 
         gid_to_file = {}
-        shall_break = False
         all_files_queued = False
+
+        # files get removed from gid_to_file when they are complete or failed
         while len(gid_to_file) or not all_files_queued:
-            last_time = time.time()
             num_queued = 0
+
+            # queue up to 100 files and then check arias status
             while (num_queued < 100) and not all_files_queued:
                 try:
                     file = input_queue.get_nowait()
@@ -1413,18 +1422,23 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
                 file_didstr = '%s:%s' % (file_scope, file_name)
 
                 # get pfns from all replicas
+                file['pfn_to_rse'] = {'': ''}
                 pfns = []
                 for rse in file['rses']:
-                    pfns.extend(file['rses'][rse])
+                    rse_pfns = file['rses'][rse]
+                    pfns.extend(rse_pfns)
+                    file['pfn_to_rse'].update(dict.fromkeys(rse_pfns, rse))
 
                 # any replica available?
                 if len(pfns) > 0:
-                    options = {'dir': file['dest_dir']}
+                    options = {'dir': file['dest_dir'],
+                               'out': file['name'] + '.part'}
                     # 'checksum': 'adler32=' + file['adler32']}
                     gid = aria_rpc.aria2.addUri(rpc_auth, pfns, options)
                     gid_to_file[gid] = file
                     num_queued += 1
                     logger.debug('Queued file: %s' % file_didstr)
+                    del file['rses']
                 else:
                     trace = trace_pattern  # no need for deep copy
                     trace['scope'] = file_scope
@@ -1436,69 +1450,81 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
                     send_trace(trace, trace_endpoint, args.user_agent)
                     logger.warning('File %s has no available replicas.' % file_didstr)
 
+            # get some statistics
+            aria_stat = aria_rpc.aria2.getGlobalStat(rpc_auth)
+            num_active = int(aria_stat['numActive'])
+            num_waiting = int(aria_stat['numWaiting'])
+            num_stopped = int(aria_stat['numStoppedTotal'])
+
             complete = []
             faulty = []
-            active = aria_rpc.aria2.tellActive(rpc_auth, ['gid'])
+
+            # save start time if one of the active downloads has started
+            active = aria_rpc.aria2.tellActive(rpc_auth, ['gid', 'completedLength'])
             for dlinfo in active:
                 gid = dlinfo['gid']
                 if 'transferStart' not in gid_to_file[gid]:
-                    gid_to_file[gid]['transferStart'] = last_time
+                    if int(dlinfo['completedLength']) > 0:
+                        gid_to_file[gid]['transferStart'] = time.time()
 
-            stopped = aria_rpc.aria2.tellStopped(rpc_auth, -1, len(gid_to_file), ['gid', 'status'])
+            stopped = aria_rpc.aria2.tellStopped(rpc_auth, -1, num_stopped, ['gid', 'status', 'files'])
             for dlinfo in stopped:
                 gid = dlinfo['gid']
                 file = gid_to_file[gid]
+
+                # ensure we didnt miss the active state
                 if 'transferStart' not in file:
                     logger.debug('Missed active state of DL with GID %s' % gid)
-                    gid_to_file[gid]['transferStart'] = last_time
+                    gid_to_file[gid]['transferStart'] = time.time()
 
                 file['transferEnd'] = time.time()
 
+                # get used pfn for traces
+                file['used_pfn'] = ''
+                for uri in dlinfo['files'][0]['uris']:
+                    if uri['status'].lower() == 'used':
+                        file['used_pfn'] = uri['uri']
+
+                # append file to the completed/error list
                 status = dlinfo['status'].lower()
                 if status == 'complete':
                     complete.append(gid)
                 elif status == 'error':
                     faulty.append(gid)
                 else:
+                    del gid_to_file[gid]
                     logger.warning('Download with GID %s has unexpected status: %s' % (gid, status))
-
-            aria_stat = aria_rpc.aria2.getGlobalStat(rpc_auth)
-            num_active = int(aria_stat['numActive'])
-            num_waiting = int(aria_stat['numWaiting'])
-            num_stopped = int(aria_stat['numStoppedTotal'])
-
-            if num_active == 0 and num_waiting == 0 and len(stopped) == 0 and not shall_break:
-                shall_break = True
-                time.sleep(0.5)
-            elif num_active == 0 and num_waiting == 0 and len(stopped) == 0:
-                logger.warning('Aborting download since aria2c doesnt activate any downloads')
-                break
-            else:
-                shall_break = False
 
             for gid in complete:
                 file = gid_to_file[gid]
-                if 'transferStart' not in file:
-                    file['transferStart'] = last_time
                 file_scope = file['scope']
                 file_name = file['name']
-                file_didstr = '%s:%s' % (file['scope'], file['name'])
+                file_didstr = '%s:%s' % (file_scope, file_name)
                 file_path = '%s/%s' % (file['dest_dir'], file_name)
-                if os.path.isfile(file_path):
-                    local_hash = adler32(file_path)
-                    if local_hash != file['adler32']:
-                        logger.debug('File: %s, localHash: %s, serverHash: %s' % (file_didstr,
-                                                                                  local_hash,
-                                                                                  file['adler32']))
-                        file['validation_failed'] = True
-                        faulty.append(gid)
-                        continue
-                stime = file['transferStart']
-                etime = file['transferEnd']
-                logger.debug('Start: %s, End: %s' % (stime, etime))
-                if stime == etime:
-                    stime -= 0.1
-                duration = round(etime - stime, 2)
+
+                # ensure file exists
+                if not os.path.isfile(file_path + '.part'):
+                    logger.error('Failed to locate downloaded file %s.part' % file_path)
+                    del gid_to_file[gid]
+                    continue
+
+                # remove .part ending
+                os.rename(file_path + '.part', file_path)
+
+                # checksum check
+                local_hash = adler32(file_path)
+                if local_hash != file['adler32']:
+                    logger.debug('File: %s, localHash: %s, serverHash: %s' % (file_didstr,
+                                                                              local_hash,
+                                                                              file['adler32']))
+                    file['validation_failed'] = True
+                    faulty.append(gid)
+                    continue
+
+                # calculate duration
+                duration = round(file['transferEnd'] - file['transferStart'], 2)
+                if duration == 0:
+                    duration += 0.01
                 logger.info('File %s successfully downloaded. %s in %s seconds = %s MBps' % (file_didstr,
                                                                                              sizefmt(file['bytes'], args.human),
                                                                                              duration,
@@ -1516,8 +1542,8 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
 
                 # send trace
                 trace = trace_pattern  # no need for deep copy
-                # TODO: aria could also has used another rse!! or even switched!
-                trace['remoteSite'] = file['rses'].keys()[0]  # rse_dict[rse]['rse']
+                trace['remoteSite'] = ''
+                trace['remoteSite'] = file['pfn_to_rse'][file['used_pfn']]
                 trace['protocol'] = 'https'
                 trace['transferStart'] = file['transferStart']
                 trace['transferEnd'] = file['transferEnd']
@@ -1550,21 +1576,16 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
                     out['name'] = file_name
                     out['clientState'] = 'CORRUPTED'
                     out['attemptnr'] = 1
-
-                    out['pfn'] = ''
-                    dl_uris = aria_rpc.aria2.getFiles(rpc_auth, gid)[0]['uris']
-                    for pfn in dl_uris:
-                        if pfn['status'].lower() == 'used':
-                            out['pfn'] = pfn['uri']
-
+                    out['pfn'] = file['used_pfn']
                     output_queue.put(out)
 
                     trace['clientState'] = 'FAIL_VALIDATE'
                 else:
                     logger.info('Download of %s failed.' % file_didstr)
                     trace['clientState'] = 'DOWNLOAD_ATTEMPT'
-                # TODO: aria could also has used another rse!! or even switched!
-                trace['remoteSite'] = file['rses'].keys()[0]  # rse_dict[rse]['rse']
+
+                trace['remoteSite'] = ''
+                trace['remoteSite'] = file['pfn_to_rse'][file['used_pfn']]
                 trace['protocol'] = 'https'
                 trace['transferStart'] = file['transferStart']
                 trace['transferEnd'] = file['transferEnd']
