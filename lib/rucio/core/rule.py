@@ -41,6 +41,7 @@ from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account
+from rucio.core.lifetime_exception import define_eol
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse
@@ -152,7 +153,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise InvalidObject(error.args)
 
             # 3.5 Get the lifetime
-            eol_at = rucio.common.policy.define_eol(elem['scope'], elem['name'], rses, session=session)
+            eol_at = define_eol(elem['scope'], elem['name'], rses, session=session)
 
             # 4. Create the replication rule
             with record_timer_block('rule.add_rule.create_rule'):
@@ -362,7 +363,7 @@ def add_rules(dids, rules, session=None):
                     rule['lifetime'] = rucio.common.policy.get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
 
                     # 4.5 Get the lifetime
-                    eol_at = rucio.common.policy.define_eol(did.scope, did.name, rses, session=session)
+                    eol_at = define_eol(did.scope, did.name, rses, session=session)
 
                     # Auto-lock rules for TAPE rses
                     if not rule.get('locked', False) and rule.get('lifetime', None) is None:
@@ -426,7 +427,7 @@ def add_rules(dids, rules, session=None):
                         except IntegrityError as error:
                             if match('.*ORA-00001.*', str(error.args[0])):
                                 raise DuplicateRule()
-                            elif '(IntegrityError) UNIQUE constraint failed: rules.scope, rules.name, rules.account, rules.rse_expression, rules.copies' == str(error.args[0]):
+                            elif str(error.args[0]) == '(IntegrityError) UNIQUE constraint failed: rules.scope, rules.name, rules.account, rules.rse_expression, rules.copies':
                                 raise DuplicateRule()
                             raise InvalidReplicationRule(error.args[0])
 
@@ -648,32 +649,32 @@ def list_rules(filters={}, session=None):
 
     query = session.query(models.ReplicationRule)
     if filters:
-        for (k, v) in filters.items():
-            if k == 'created_before':
-                query = query.filter(models.ReplicationRule.created_at <= str_to_date(v))
+        for (key, value) in filters.items():
+            if key == 'created_before':
+                query = query.filter(models.ReplicationRule.created_at <= str_to_date(value))
                 continue
-            elif k == 'created_after':
-                query = query.filter(models.ReplicationRule.created_at >= str_to_date(v))
+            elif key == 'created_after':
+                query = query.filter(models.ReplicationRule.created_at >= str_to_date(value))
                 continue
-            elif k == 'updated_before':
-                query = query.filter(models.ReplicationRule.updated_at <= str_to_date(v))
+            elif key == 'updated_before':
+                query = query.filter(models.ReplicationRule.updated_at <= str_to_date(value))
                 continue
-            elif k == 'updated_after':
-                query = query.filter(models.ReplicationRule.updated_at >= str_to_date(v))
+            elif key == 'updated_after':
+                query = query.filter(models.ReplicationRule.updated_at >= str_to_date(value))
                 continue
-            elif k == 'state':
-                if isinstance(v, basestring):
-                    v = RuleState.from_string(v)
+            elif key == 'state':
+                if isinstance(value, basestring):
+                    value = RuleState.from_string(value)
                 else:
                     try:
-                        v = RuleState.from_sym(v)
+                        value = RuleState.from_sym(value)
                     except ValueError:
                         pass
-            elif k == 'did_type' and isinstance(v, basestring):
-                v = DIDType.from_string(v)
-            elif k == 'grouping' and isinstance(v, basestring):
-                v = RuleGrouping.from_string(v)
-            query = query.filter(getattr(models.ReplicationRule, k) == v)
+            elif key == 'did_type' and isinstance(value, basestring):
+                value = DIDType.from_string(value)
+            elif key == 'grouping' and isinstance(value, basestring):
+                value = RuleGrouping.from_string(value)
+            query = query.filter(getattr(models.ReplicationRule, key) == value)
 
     try:
         for rule in query.yield_per(5):
