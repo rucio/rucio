@@ -13,8 +13,12 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2017
 """
 
+import json
 import os
 import sys
+
+import gfal2
+import requests
 
 from rucio.client import Client
 from rucio.common.config import config_get
@@ -24,6 +28,45 @@ from rucio.api.rse import list_rse_attributes, get_rse
 
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
+gfal2.set_verbose(gfal2.verbose_level.normal)
+
+
+def get_space_usage(rse_name):
+    """
+    Get RSE space usage information.
+
+    :returns: a list with dict containing 'totalsize' and 'unusedsize'
+
+    """
+    dest = '/tmp/rucio-gsiftp-site-size_' + rse_name
+    space_usage_url = ''
+    # url of space usage json, woud be nicer to have it in rse_settings
+    agis = requests.get('http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json').json()
+    agis_token = ''
+    for res in agis:
+        if rse_name == res['name']:
+            agis_token = res['token']
+            space_usage_url = res['space_usage_url']
+    print space_usage_url
+    if os.path.exists(dest):
+        os.remove(dest)
+    ctx = gfal2.creat_context()
+    ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
+    params = ctx.transfer_parameters()
+    params.timeout = 3600
+    ret = ctx.filecopy(params, str(space_usage_url), str('file://' + dest))
+    if ret == 0:
+        data_file = open(dest)
+        data = json.load(data_file)
+        data_file.close()
+        if agis_token not in data.keys():
+            print 'ERROR: space usage json has different token as key'
+        else:
+            totalsize = int(data[agis_token]['total_space'])
+            used = int(data[agis_token]['used_space'])
+            unusedsize = totalsize - used
+            return totalsize, unusedsize
+
 
 def get_space(rsename, protocol, client):
     retvalue = OK
@@ -31,32 +74,33 @@ def get_space(rsename, protocol, client):
     if rse_settings['protocols']:
         schemes = [domain['scheme'] for domain in rse_settings['protocols']]
         if protocol == 'json':
-            if 'gsiftp' in schemes:
-                rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gsiftp.Default'
-                protocol = 'gsiftp'
-            else:
+            print 'Running on %s, using json method' % (rsename)
+            try:
+                totalsize, unusedsize = get_space_usage(rsename)
+                freesize = long(unusedsize)
+                totalsize = long(totalsize)
+                usedsize = totalsize - freesize
+            except Exception as error:
+                print error
                 retvalue = WARNING
-                print 'No gsiftp endpoint defined for %s' % rsename
-                return retvalue
         else:
             if 'srm' not in schemes:
                 protocol = 'https'
-    print 'Running on %s, using %s method' % (rsename, protocol)
-    try:
-        global_status, ret = rsemgr.get_space_usage(rse_settings, protocol)
-        if global_status:
-            totalsize = long(ret["totalsize"])
-            freesize = long(ret["unusedsize"])
-            usedsize = totalsize - freesize
-        else:
-            print "Failed to get rse(%s) space information: %s" % (rsename, str(ret))
-            retvalue = WARNING
-    except RSEProtocolNotSupported as error:
-        print 'Protocol %s not found on %s' % (protocol, rsename)
-        retvalue = WARNING
-    except Exception as error:
-        print "Failed to get rse(%s) space information: %s" % (rsename, str(error))
-        retvalue = WARNING
+            try:
+                global_status, ret = rsemgr.get_space_usage(rse_settings, protocol)
+                if global_status:
+                    totalsize = long(ret["totalsize"])
+                    freesize = long(ret["unusedsize"])
+                    usedsize = totalsize - freesize
+                else:
+                    print "Failed to get rse(%s) space information: %s" % (rsename, str(ret))
+                    retvalue = WARNING
+            except RSEProtocolNotSupported as error:
+                print 'Protocol %s not found on %s' % (protocol, rsename)
+                retvalue = WARNING
+            except Exception as error:
+                print "Failed to get rse(%s) space information: %s" % (rsename, str(error))
+                retvalue = WARNING
 
     if retvalue == OK:
         print "Update RSE %s space usage (usedsize: %s, freesize: %s)" % (rsename, usedsize, freesize)
