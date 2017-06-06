@@ -8,7 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
@@ -24,7 +24,6 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
 from sqlalchemy import and_, or_, func
-from sqlalchemy.orm import aliased
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text, false, true
 
@@ -418,43 +417,6 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
 
 
 @transactional_session
-def set_request_transfers(transfers, session=None):
-    """
-    Update the transfer info of a request.
-
-    :param transfers: Dictionary containing request transfer info.
-    :param session: Database session to use.
-    """
-
-    try:
-        for request_id in transfers:
-            rowcount = session.query(models.Request).filter_by(id=request_id)\
-                              .update({'state': transfers[request_id]['state'],
-                                       'external_id': transfers[request_id]['external_id'],
-                                       'external_host': transfers[request_id]['external_host'],
-                                       'dest_url': transfers[request_id]['dest_url'],
-                                       'submitted_at': datetime.datetime.utcnow()},
-                                      synchronize_session=False)
-            if rowcount and 'file' in transfers[request_id]:
-                file = transfers[request_id]['file']
-                used_src_rse_ids = get_source_rse_ids(request_id, session=session)
-                for src_rse, src_url, src_rse_id, rank in file['sources']:
-                    if src_rse_id not in used_src_rse_ids:
-                        models.Source(request_id=file['metadata']['request_id'],
-                                      scope=file['metadata']['scope'],
-                                      name=file['metadata']['name'],
-                                      rse_id=src_rse_id,
-                                      dest_rse_id=file['metadata']['dest_rse_id'],
-                                      ranking=rank if rank else 0,
-                                      bytes=file['metadata']['filesize'],
-                                      url=src_url).\
-                            save(session=session, flush=False)
-
-    except IntegrityError, e:
-        raise RucioException(e.args)
-
-
-@transactional_session
 def prepare_request_transfers(transfers, session=None):
     """
     Prepare the transfer info for requests.
@@ -818,61 +780,6 @@ def query_latest(external_host, state, last_nhours=1):
     return ret_resps
 
 
-def bulk_query_requests(request_host, request_ids, transfertool='fts3'):
-    """
-    Query the status of a request.
-
-    :param request_host: Name of the external host.
-    :param request_ids: List of (Request-ID as a 32 character hex string, External-ID as a 32 character hex string)
-    :param transfertool: Transfertool name as a string.
-    :param session: Database session to use.
-    :returns: Request status information as a dictionary.
-    """
-
-    record_counter('core.request.query_request')
-
-    transfer_ids = []
-    for request_id, external_id in request_ids:
-        if external_id not in transfer_ids:
-            transfer_ids.append(external_id)
-
-    if transfertool == 'fts3':
-        try:
-            ts = time.time()
-            fts_resps = fts3.bulk_query(transfer_ids, request_host)
-            record_timer('core.request.query_bulk_request_fts3', (time.time() - ts) * 1000 / len(transfer_ids))
-        except Exception:
-            raise
-
-        responses = {}
-        for request_id, external_id in request_ids:
-            fts_resp = fts_resps[external_id]
-            if fts_resp is None:
-                req_status = {}
-                req_status['new_state'] = RequestState.LOST
-                req_status['request_id'] = request_id
-            elif isinstance(fts_resp, Exception):
-                req_status = fts_resp
-            else:
-                req_status = fts_resp
-                # needed for unfinished jobs
-                req_status['request_id'] = request_id
-
-                if req_status['job_state'] in (str(FTSState.FAILED),
-                                               str(FTSState.FINISHEDDIRTY),
-                                               str(FTSState.CANCELED)):
-                    req_status['new_state'] = RequestState.FAILED
-                elif req_status['job_state'] == str(FTSState.FINISHED):
-                    req_status['new_state'] = RequestState.DONE
-
-            responses[request_id] = req_status
-        return responses
-    else:
-        raise NotImplementedError
-
-    return None
-
-
 def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None):
     """
     Query the status of a request.
@@ -937,26 +844,6 @@ def query_request_details(request_id, transfertool='fts3', session=None):
         return tmp
 
     raise NotImplementedError
-
-
-@transactional_session
-def set_requests_external(transfer_ids, submitted_at, session=None):
-    """
-    Update all requests with the according external id from the transfertool.
-
-    :param transfer_ids: Transfer data as returned by transfertool.
-    :param session: Database session to use.
-    """
-
-    for transfer_id in transfer_ids:
-        session.query(models.Request)\
-               .filter_by(id=transfer_id)\
-               .update({'state': RequestState.SUBMITTED,
-                        'external_id': transfer_ids[transfer_id]['external_id'],
-                        'external_host': transfer_ids[transfer_id]['external_host'],
-                        'dest_url': transfer_ids[transfer_id]['dest_urls'][0],
-                        'submitted_at': submitted_at},
-                       synchronize_session=False)
 
 
 @transactional_session
@@ -1079,24 +966,6 @@ def set_transfer_state(external_host, transfer_id, new_state, session=None):
 
     if not rowcount:
         raise UnsupportedOperation("Transfer %s on %s state %s cannot be updated." % (transfer_id, external_host, new_state))
-
-
-@transactional_session
-def set_external_host(request_id, external_host, session=None):
-    """
-    Update the state of a request. Fails silently if the request_id does not exist.
-
-    :param request_id: Request-ID as a 32 character hex string.
-    :param external_host: Selected external host as string in format protocol://fqdn:port
-    :param session: Database session to use.
-    """
-
-    record_counter('core.request.set_external_host')
-
-    try:
-        session.query(models.Request).filter_by(id=request_id).update({'external_host': external_host}, synchronize_session=False)
-    except IntegrityError, e:
-        raise RucioException(e.args)
 
 
 @transactional_session
@@ -1580,24 +1449,6 @@ def get_sources(request_id, rse_id=None, session=None):
 
 
 @read_session
-def get_source_rse_ids(request_id, session=None):
-    """
-    Retrieve source RSE ids by its ID.
-
-    :param request_id: Request-ID as a 32 character hex string.
-    :param session: Database session to use.
-    :returns: Source RSE ids as a list.
-    """
-
-    try:
-        tmp = session.query(models.Source.rse_id).filter_by(request_id=request_id).all()
-        result = [t[0] for t in tmp]
-        return result
-    except IntegrityError, e:
-        raise RucioException(e.args)
-
-
-@read_session
 def get_heavy_load_rses(threshold, session=None):
     """
     Retrieve heavy load rses.
@@ -1624,26 +1475,6 @@ def get_heavy_load_rses(threshold, session=None):
         return result
     except IntegrityError, e:
         raise RucioException(e.args)
-
-
-@read_session
-def stats(session=None):
-    """
-    Retrieve statistics about src-destination traffic
-
-    :returns: A list of dictionaries.
-        [{'files': .., 'source': .., 'destination': .., 'bytes': ...},]
-    """
-    source, destination = aliased(models.RSE), aliased(models.RSE)
-    query = session.query(source.rse.label('source'),
-                          destination.rse.label('destination'),
-                          func.count(1).label('files'),
-                          func.sum(models.Source.bytes).label('bytes')).\
-        filter(models.Source.rse_id == source.id).\
-        filter(models.Source.dest_rse_id == destination.id).\
-        group_by(source.rse, destination.rse)
-
-    return [row._asdict() for row in query]
 
 
 @read_session
