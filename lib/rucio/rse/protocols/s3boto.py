@@ -101,11 +101,17 @@ class Default(protocol.RSEProtocol):
             bucket_name, key_name = self.get_bucket_key_name(pfn)
 
             if create:
-                bucket = self.__conn.create_bucket(bucket_name)
+                try:
+                    bucket = self.__conn.get_bucket(bucket_name, validate=True)
+                except boto.exception.S3ResponseError as e:
+                    if e.status == 404:   # bucket not found
+                        bucket = self.__conn.create_bucket(bucket_name)
+                    else:
+                        raise e
                 key = Key(bucket, key_name)
             else:
-                bucket = self.__conn.get_bucket(bucket_name)
-                key = bucket.get_key(key_name)
+                bucket = self.__conn.get_bucket(bucket_name, validate=False)
+                key = bucket.get_key(key_name, validate=True)
             return bucket, key
         except boto.exception.S3ResponseError as e:
             if e.status == 404:
