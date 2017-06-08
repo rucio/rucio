@@ -88,7 +88,7 @@ class Default(protocol.RSEProtocol):
         except Exception as e:
             raise exception.RucioException(str(e))
 
-    def get_bucket_key(self, pfn, create=False):
+    def get_bucket_key(self, pfn, create=False, validate=True):
         """
             Gets boto key for a pfn
 
@@ -111,7 +111,7 @@ class Default(protocol.RSEProtocol):
                 key = Key(bucket, key_name)
             else:
                 bucket = self.__conn.get_bucket(bucket_name, validate=False)
-                key = bucket.get_key(key_name, validate=True)
+                key = bucket.get_key(key_name, validate=validate)
             return bucket, key
         except boto.exception.S3ResponseError as e:
             if e.status == 404:
@@ -204,13 +204,18 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
          """
         try:
-            bucket, key = self.get_bucket_key(pfn)
+            bucket, key = self.get_bucket_key(pfn, validate=False)
             if key is None:
                 raise exception.SourceNotFound('Cannot get the source key from S3')
             key.get_contents_to_filename(dest)
         except IOError as e:
             if e.errno == 2:
                 raise exception.DestinationNotAccessible(e)
+            else:
+                raise exception.ServiceUnavailable(e)
+        except boto.exception.S3ResponseError as e:
+            if e.status == 404:
+                raise exception.SourceNotFound(str(e))
             else:
                 raise exception.ServiceUnavailable(e)
         except exception.SourceNotFound as e:
@@ -234,10 +239,19 @@ class Default(protocol.RSEProtocol):
         """
         full_name = source_dir + '/' + source if source_dir else source
         try:
-            bucket, key = self.get_bucket_key(target, create=True)
+            bucket, key = self.get_bucket_key(target, validate=False)
             if key is None:
                 raise exception.DestinationNotAccessible('Cannot get the destionation key from S3')
             key.set_contents_from_filename(full_name)
+        except boto.exception.S3ResponseError as e:
+            if e.status == 404 and 'NoSuchBucket' in str(e):
+                try:
+                    bucket, key = self.get_bucket_key(target, create=True)
+                    key.set_contents_from_filename(full_name)
+                except Exception as e:
+                    raise exception.ServiceUnavailable(e)
+            else:
+                raise exception.ServiceUnavailable(e)
         except exception.SourceNotFound as e:
             raise exception.SourceNotFound(e)
         except Exception as e:
