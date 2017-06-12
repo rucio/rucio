@@ -8,6 +8,7 @@
   Authors:
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+  - Martin Barisits, <martin.barisits@cern.ch>, 2017
 '''
 
 import logging
@@ -261,14 +262,14 @@ def transmogrifier(bulk=5, once=False):
                                             rse_id_dict[rse['id']] = rse['rse']
                                         try:
                                             rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
-                                            selected_rses = [rse_id_dict[rse_id] for rse_id, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=blacklisted_rse_id)]
+                                            selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=blacklisted_rse_id)]
                                         except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight) as error:
                                             logging.warning(prepend_str + 'Problem getting RSEs for subscription "%s" for account %s : %s. Try including blacklisted sites' %
                                                             (subscription['name'], account, str(error)))
                                             # Now including the blacklisted sites
                                             try:
                                                 rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
-                                                selected_rses = [rse_id_dict[rse_id] for rse_id, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=[])]
+                                                selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=[])]
                                                 ignore_availability = True
                                             except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight) as error:
                                                 logging.error(prepend_str + 'Problem getting RSEs for subscription "%s" for account %s : %s. Skipping rule creation.' %
