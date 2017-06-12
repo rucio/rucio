@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2016
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2016-2017
 
 from traceback import format_exc
 from urlparse import parse_qs
@@ -111,8 +111,7 @@ class MetaLinkRedirector(RucioController):
 
                 yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                yield '  <glfn name="%s%s">' % ('root://atlas-xrd-eu.cern.ch:1094//atlas/rucio/',
-                                                '%s:%s' % (rfile['scope'], rfile['name']))
+                yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
                 yield '</glfn>\n'
 
                 # stream URLs
