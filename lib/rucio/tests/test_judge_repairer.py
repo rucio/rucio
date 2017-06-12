@@ -6,8 +6,11 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+
+from dogpile.cache import make_region
+from hashlib import sha256
 
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_account_limit
@@ -15,13 +18,14 @@ from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import successful_transfer, failed_transfer, get_replica_locks
 from rucio.core.replica import get_replica
 from rucio.core.request import cancel_request_did
-from rucio.core.rse import add_rse_attribute, get_rse
+from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse, get_rse_id
 from rucio.core.rule import get_rule, add_rule
 from rucio.daemons.judge.repairer import rule_repairer
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla.constants import DIDType, RuleState, ReplicaState
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla import models
+from rucio.tests.common import rse_name_generator
 from rucio.tests.test_rule import create_files, tag_generator
 
 
@@ -264,3 +268,35 @@ class TestJudgeRepairer():
         rule_repairer(once=True)
         assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
         assert(get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id != old_rse_id)
+
+    def test_to_repair_a_rule_with_only_1_rse_whose_site_is_blacklisted(self):
+        """ JUDGE REPAIRER: Test to repair a rule with only 1 rse whose site is blacklisted"""
+
+        rse = rse_name_generator()
+        add_rse(rse)
+        update_rse(rse, {'availability_write': False})
+        set_account_limit('jdoe', get_rse_id(rse), -1)
+
+        rule_repairer(once=True)  # Clean out the repairer
+        scope = 'mock'
+        files = create_files(4, scope, self.rse4, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True, activity='DebugJudge')[0]
+
+        assert(RuleState.STUCK == get_rule(rule_id)['state'])
+        rule_repairer(once=True)
+
+        # Stil assert STUCK because of ignore_availability:
+        assert(RuleState.STUCK == get_rule(rule_id)['state'])
+
+        region = make_region().configure('dogpile.cache.memcached',
+                                         expiration_time=3600,
+                                         arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+        region.delete(sha256(rse).hexdigest())
+
+        update_rse(rse, {'availability_write': True})
+        rule_repairer(once=True)
+        assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
