@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
 
 from json import dumps
 from os.path import dirname, join
@@ -65,6 +65,10 @@ def check_token(rendered_tpl):
 
     dn = ctx.env.get('SSL_CLIENT_S_DN')
 
+    msg = "Your certificate (%s) is not mapped to any rucio account." % dn
+    msg += "<br><br><font color=\"red\">First, please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> and be patient until it has been fully propagated through the system.</font>"
+    msg += "<br><br>Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
+
     # try to get and check the rucio session token from cookie
     session_token = cookies().get('x-rucio-auth-token')
     validate_token = authentication.validate_auth_token(session_token)
@@ -74,9 +78,6 @@ def check_token(rendered_tpl):
         accounts = identity.list_accounts_for_identity(dn, 'x509')
 
         if len(accounts) == 0:
-            msg = "Your certificate (%s) is not mapped to any rucio account." % dn
-            msg += " Please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> first and then wait some time until it has fully propagated through the system."
-            msg += "Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
             return render.problem(msg)
 
         if ui_account not in accounts:
@@ -90,9 +91,6 @@ def check_token(rendered_tpl):
                                                            'webui',
                                                            ctx.env.get('REMOTE_ADDR'))
             except:
-                msg = "Your certificate (%s) is not registered in Rucio." % dn
-                msg += " Please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> first and then wait some time until it has fully propagated through the system."
-                msg += "Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
                 return render.problem(msg)
 
         attribs = list_account_attributes(ui_account)
@@ -104,7 +102,7 @@ def check_token(rendered_tpl):
             # get all accounts for an identity. Needed for account switcher in UI.
             accounts = identity.list_accounts_for_identity(dn, 'x509')
             if len(accounts) == 0:
-                return render.problem("Your certificate (%s) is not mapped to any rucio account. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
+                return render.problem(msg)
 
             cookie_accounts = accounts
 
@@ -125,7 +123,7 @@ def check_token(rendered_tpl):
                                                            'webui',
                                                            ctx.env.get('REMOTE_ADDR'))
             except:
-                return render.problem("Your certificate (%s) is not registered in Rucio. Please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>." % dn)
+                return render.problem(msg)
 
             attribs = list_account_attributes(def_account)
             # write the token and account to javascript variables, that will be used in the HTML templates.
