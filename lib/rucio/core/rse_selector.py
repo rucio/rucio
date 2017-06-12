@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 from random import uniform, shuffle
@@ -43,21 +43,25 @@ class RSESelector():
         if weight is not None:
             for rse in rses:
                 attributes = list_rse_attributes(rse=None, rse_id=rse['id'], session=session)
+                availability_write = True if rse.get('availability', 7) in (7, 3, 2) else False
                 if weight not in attributes:
                     continue  # The RSE does not have the required weight set, therefore it is ignored
                 try:
                     self.rses.append({'rse_id': rse['id'],
                                       'weight': float(attributes[weight]),
                                       'mock_rse': attributes.get('mock', False),
+                                      'availability_write': availability_write,
                                       'staging_area': rse['staging_area']})
                 except ValueError:
                     raise InvalidRuleWeight('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse['id'], weight))
         else:
             for rse in rses:
                 mock_rse = has_rse_attribute(rse['id'], 'mock', session=session)
+                availability_write = True if rse.get('availability', 7) in (7, 3, 2) else False
                 self.rses.append({'rse_id': rse['id'],
                                   'weight': 1,
                                   'mock_rse': mock_rse,
+                                  'availability_write': availability_write,
                                   'staging_area': rse['staging_area']})
 
         if len(self.rses) < self.copies:
@@ -92,7 +96,7 @@ class RSESelector():
         :param copies:                       Select this amount of copies, if 0 use the pre-defined rule value.
         :param blacklist:                    List of blacklisted rses. (Do not put replicas on these sites)
         :param prioritze_order_over_weight:  Prioritize the order of the preferred_rse_ids list over the picking done by weight.
-        :returns:                            List of (RSE_id, staging_area) tuples.
+        :returns:                            List of (RSE_id, staging_area, availability_write) tuples.
         :raises:                             InsufficientAccountLimit, InsufficientTargetRSEs
         """
 
@@ -119,7 +123,7 @@ class RSESelector():
             # Prioritize the preffered rses
             preferred_rses = [rses_dict[rse_id] for rse_id in preferred_rse_ids if rse_id in rses_dict]
             if prioritize_order_over_weight and preferred_rses:
-                rse = (preferred_rses[0]['rse_id'], preferred_rses[0]['staging_area'])
+                rse = (preferred_rses[0]['rse_id'], preferred_rses[0]['staging_area'], preferred_rses[0]['availability_write'])
             elif preferred_rses:
                 rse = self.__choose_rse(preferred_rses)
             else:
@@ -127,6 +131,17 @@ class RSESelector():
             result.append(rse)
             self.__update_quota(rse, size)
         return result
+
+    def get_rse_dictionary(self):
+        """
+        Return the current dictionary of potential RSEs stored in the RSE selector
+
+        :returns:  List of RSE dictionaries
+        """
+        rse_dict = {}
+        for rse in self.rses:
+            rse_dict[rse['rse_id']] = rse
+        return rse_dict
 
     def __update_quota(self, rse, size):
         """
@@ -155,4 +170,4 @@ class RSESelector():
         for rse in rses:
             weight += rse['weight']
             if pick <= weight:
-                return (rse['rse_id'], rse['staging_area'])
+                return (rse['rse_id'], rse['staging_area'], rse['availability_write'])
