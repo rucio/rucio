@@ -4,7 +4,7 @@ argparse>=1.4.0           # Command-line parsing library
 argcomplete>=1.8.2        # Bash tab completion for argparse
 kerberos>=1.2.5           # Kerberos high-level interface
 pykerberos>=1.1.14        # Kerberos high-level interface
-requests==2.10.0          # Python HTTP for Humans.
+requests==2.17.3          # Python HTTP for Humans.
 requests-kerberos==0.11.0 # A Kerberos authentication handler for python-requests
 wsgiref>=0.1.2            # WSGI (PEP 333) Reference Library
 dogpile.cache>=0.6.2      # Caching API plugins
