@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -123,10 +123,7 @@ class Replicas(RucioController):
                     idx = 0
                     yield ' <file name="' + rfile['name'] + '">\n'
 
-                    # To help support the FAX transition period, add the glfn to the metalink:
-                    # AGIS does not expose specific FAX redirectors per DDM Endpoint, so go through top-level redirector
-                    yield '  <glfn name="%s%s">' % ('root://atlas-xrd-eu.cern.ch:1094//atlas/rucio/',
-                                                    '%s:%s' % (rfile['scope'], rfile['name']))
+                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
                     yield '</glfn>\n'
 
                     yield '  <resources>\n'
@@ -148,10 +145,7 @@ class Replicas(RucioController):
 
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                    # To help support the FAX transition period, add the glfn to the metalink:
-                    # AGIS does not expose specific FAX redirectors per DDM Endpoint, so go through top-level redirector
-                    yield '  <glfn name="%s%s">' % ('root://atlas-xrd-eu.cern.ch:1094//atlas/rucio/',
-                                                    '%s:%s' % (rfile['scope'], rfile['name']))
+                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
                     yield '</glfn>\n'
 
                     idx = 0
