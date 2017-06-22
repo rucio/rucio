@@ -7,7 +7,7 @@
  http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2017
 -->
 
 $var title: Rucio Rule Definition Droid - Request Rule
@@ -167,6 +167,17 @@ $var script: <script src="/static/request_rule.js"></script>
             </div>
         </div>
         <div class="row">
+            <div class="large-5 columns">
+              <label>Notifications</label>
+              <form id="notify">
+              <input type="radio" name="notify" value="Y" id="notify_y">
+              <label for="notify_yes">Yes</label>
+              <input type="radio" name="notify" value="N" id="notify_n" checked>
+              <label for="notify_no">No</label>
+              </form>
+            </div>
+        </div>
+        <div class="row">
           <div class="large-5 columns">
             <label>Lifetime (in days). Leave empty for infinite lifetime.
               <input type="text" id="lifetime"></input>
@@ -262,6 +273,7 @@ $var script: <script src="/static/request_rule.js"></script>
     <text>
       <ol>
         <li>Grouping: The grouping option defines how replicas are distributed, if the RSE Expression covers multiple RSEs. ALL means that all files are written to the same RSE (Picked from the RSE Expression). DATASET means that all files in the same dataset are written to the same RSE. NONE means that all files are spread over all possible RSEs of the RSE Expression (A new one is essential picked for each file).</li>
+        <li>Notifications: Enable email notification. If set to "Yes" you will get an email when the rule has successfully replicated the requested DID.</li>
         <li>Lifetime: The lifetime is specified in days and defines when a rule will be deleted again. For SCRATCHDISK the maximum lifetime is 15 days and for everything else you can choose any number of days or leave it empty to set no lifetime at all.</li>
         <li>Copies: The copies also only work with RSE expression and it defines the number of replicas that should be created.</li>
         <li>Comment: The comment is optional unless you want to ask for approval. Then you have to give a justification here.</li>
