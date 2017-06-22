@@ -8,7 +8,7 @@
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015, 2017
 -->
 
 $var title: Dumps
@@ -32,7 +32,7 @@ $var script:
     <b>URL:</b> https://rucio-hadoop.cern.ch/consistency_datasets</br>
     <b>URL params:</b> rse, date (optional)</br>
     <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/consistency_datasets?rse=CERN-PROD_DATADISK&date=21-01-2015">https://rucio-hadoop.cern.ch/consistency_datasets?rse=CERN-PROD_DATADISK&date=21-01-2015</a></br>
-    <b>Format:</b> RSE, scope, name, owner, size, creation date, last accessed date</br>
+    <b>Format:</b> RSE, scope, name, owner, size, creation date, last accessed date, corresponding rule ids</br>
     <b>Notabene:</b> size can be empty (dataset is still open); last accessed date can be empty; if no date provided, the latest available dump will be taken
   </div>
   <div id="dataset_replica_dumps" class="panel">
