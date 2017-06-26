@@ -496,7 +496,7 @@ def list_dids(args):
     """
     client = get_client(args)
     filters = {}
-    type = 'collection'
+    type = 'all'
     table = []
     if args.filter:
         if args.recursive:
@@ -520,6 +520,7 @@ def list_dids(args):
             except Exception:
                 logger.error("Invalid Filter. Filter must be 'key=value'")
                 return FAILURE
+
     try:
         scope, name = extract_scope(args.did[0])
         if name == '':
@@ -530,24 +531,17 @@ def list_dids(args):
     if scope not in client.list_scopes():
         logger.error('Scope not found')
         return FAILURE
-    if name.find('*') > -1:
-        if args.recursive:
-            logger.error('Option recursive cannot be used with wildcards')
-            return FAILURE
-        elif ('name' in filters) and (name != '*'):
-            logger.error('You cannot use a wildcard query and a filter by name')
-            return FAILURE
-        filters['name'] = name
-        for did in client.list_dids(scope, filters=filters, type=type, long=True):
-            table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
-    else:
-        dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
-        no_result = True
-        for did in dids:
-            table.append(['%s:%s' % (did['scope'], did['name']), did['type'].upper()])
-        if no_result:
-            did_info = client.get_did(scope=scope, name=name)
-            table.append(['%s:%s' % (did_info['scope'], did_info['name']), did_info['type'].upper()])
+
+    if args.recursive:
+        logger.error('Option recursive cannot be used with wildcards')
+        return FAILURE
+    elif ('name' in filters) and (name != '*'):
+        logger.error('You cannot use a wildcard query and a filter by name')
+        return FAILURE
+    filters['name'] = name
+
+    for did in client.list_dids(scope, filters=filters, type=type, long=True):
+        table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
 
     if args.short:
         for did, dummy in table:
