@@ -355,10 +355,13 @@ def list_file_replicas(args):
 
     for did in args.dids:
         scope, name = extract_scope(did)
+        client.get_metadata(scope=scope, name=name)  # break with Exception before streaming replicas if DID does not exist
         dids.append({'scope': scope, 'name': name})
+
     replicas = client.list_replicas(dids, schemes=protocols,
                                     all_states=args.all_states,
                                     rse_expression=args.rse_expression)
+
     if args.missing:
         for replica in replicas:
             rses = replica['rses'].keys()
@@ -390,11 +393,13 @@ def list_file_replicas(args):
             table = []
             for rse in sorted_key:
                 table.append([rse, rse_dict[rse], nbfiles])
+
         if args.list_collections:
             logger.warning('This option is deprecated. Please use rucio list-dataset-replicas instead.')
             print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'Found', 'Total'])
         else:
             print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA'])
+
     return SUCCESS
 
 
