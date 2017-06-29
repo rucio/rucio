@@ -168,7 +168,7 @@ if __name__ == '__main__':
                         netloc = o.netloc[:-len(':' + str(o.port))]
                         port = o.port
                     else:
-                        if o.scheme == 'https' or o.scheme == 'davs':
+                        if o.scheme in ('https', 'davs'):
                             port = 443
                         elif o.scheme == 'gsiftp':
                             port = 2811
@@ -232,7 +232,7 @@ if __name__ == '__main__':
                     print 'RSE %s protocol %s : Interrupted processing with %s %s %s.' % (rse['name'], o.scheme, errno, errstr, trcbck)
             if rse['is_mkdir'] == True:
                 try:
-                    add_rse_attribute( rse['name'], 'mkdir', rse['is_mkdir'])
+                    add_rse_attribute(rse['name'], 'mkdir', rse['is_mkdir'])
                 except Exception:
                     RETVALUE = WARNING
                     errno, errstr = sys.exc_info()[:2]
