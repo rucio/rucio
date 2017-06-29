@@ -230,7 +230,7 @@ if __name__ == '__main__':
                     errno, errstr = sys.exc_info()[:2]
                     trcbck = traceback.format_exc()
                     print 'RSE %s protocol %s : Interrupted processing with %s %s %s.' % (rse['name'], o.scheme, errno, errstr, trcbck)
-            if rse['is_mkdir'] == True:
+            if rse['is_mkdir'] is True:
                 try:
                     add_rse_attribute(rse['name'], 'mkdir', rse['is_mkdir'])
                 except Exception:
