@@ -132,7 +132,7 @@ if __name__ == '__main__':
                     for protocol, agis_prio, agis_prefix in rse['aprotocols'][activity]:
                         index += 1
                         o = urlparse.urlparse(protocol)
-                        if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs'):
+                        if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs', 'dav'):
                             continue
                         if (o.scheme, o.netloc) not in priority:
                             priority[(o.scheme, o.netloc)] = {'r': 0, 'w': 0, 'd': 0}
@@ -141,7 +141,7 @@ if __name__ == '__main__':
             for protocol in rse['protocols']:
                 try:
                     o = urlparse.urlparse(protocol)
-                    if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs'):
+                    if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs', 'dav'):
                         continue
 
                     protocols = rse['protocols'][protocol]
@@ -150,9 +150,12 @@ if __name__ == '__main__':
                     if o.scheme == 'srm':
                         extended_attributes = {"web_service_path": o.path + '?SFN=', "space_token": space_token}
                         impl = 'rucio.rse.protocols.gfal.Default'
-                    elif o.scheme in ('https', 'http', 'dav', 'davs'):
+                    elif o.scheme in ('davs', 'dav'):
                         extended_attributes = None
-                        impl = 'rucio.rse.protocols.webdav.Default'
+                        impl = 'rucio.rse.protocols.gfal.Default'
+                    elif o.scheme in ('https', 'http'):
+                        extended_attributes = None
+                        impl = 'rucio.rse.protocols.gfal2.Default'
                     elif o.scheme == 'gsiftp':
                         extended_attributes = None
                         impl = 'rucio.rse.protocols.gfal.Default'
