@@ -155,9 +155,7 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
         rses = parse_expression(expression='(tier=2&type=DATADISK)\\%s' % target_rse, filter={'availability_write': True}, session=session)
 
     rseselector = RSESelector(account='ddmadmin', rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
-    return get_rse_name([rse_id for rse_id, _ in rseselector.select_rse(size=0,
-                                                                        preferred_rse_ids=[],
-                                                                        blacklist=other_rses)][0], session=session)
+    return get_rse_name([rse_id for rse_id, _, _ in rseselector.select_rse(size=0, preferred_rse_ids=[], blacklist=other_rses)][0], session=session)
 
 
 @transactional_session
