@@ -130,9 +130,10 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
     approvers_email = []
     try:
         approvers_email = get('lifetime_model', 'approvers_email', session=session)
-        approvers_email.split(',')  # pylint: disable=no-member
+        approvers_email = approvers_email.split(',')  # pylint: disable=no-member
     except ConfigNotFound:
         approvers_email = []
+
     add_message(event_type='email',
                 payload={'body': text, 'to': approvers_email,
                          'subject': '[RUCIO] Request to approve lifetime exception %s' % str(exception_id)},
