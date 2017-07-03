@@ -22,7 +22,7 @@ import urlparse
 
 from rucio.core.account import list_accounts, list_account_attributes
 from rucio.core.account_limit import set_account_limit
-from rucio.core.rse import get_rse_protocols, add_protocol, add_rse, update_protocols, add_rse_attribute
+from rucio.core.rse import get_rse_protocols, add_protocol, add_rse, update_protocols
 from rucio.common.exception import Duplicate, RSEProtocolPriorityError, RSEProtocolNotSupported, RSENotFound
 
 
@@ -132,7 +132,7 @@ if __name__ == '__main__':
                     for protocol, agis_prio, agis_prefix in rse['aprotocols'][activity]:
                         index += 1
                         o = urlparse.urlparse(protocol)
-                        if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs'):
+                        if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs', 'dav'):
                             continue
                         if (o.scheme, o.netloc) not in priority:
                             priority[(o.scheme, o.netloc)] = {'r': 0, 'w': 0, 'd': 0}
@@ -141,7 +141,7 @@ if __name__ == '__main__':
             for protocol in rse['protocols']:
                 try:
                     o = urlparse.urlparse(protocol)
-                    if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs'):
+                    if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs', 'dav'):
                         continue
 
                     protocols = rse['protocols'][protocol]
@@ -150,9 +150,12 @@ if __name__ == '__main__':
                     if o.scheme == 'srm':
                         extended_attributes = {"web_service_path": o.path + '?SFN=', "space_token": space_token}
                         impl = 'rucio.rse.protocols.gfal.Default'
-                    elif o.scheme in ('https', 'http', 'dav', 'davs'):
+                    elif o.scheme in ('davs', 'dav'):
                         extended_attributes = None
-                        impl = 'rucio.rse.protocols.webdav.Default'
+                        impl = 'rucio.rse.protocols.gfal.Default'
+                    elif o.scheme in ('https', 'http'):
+                        extended_attributes = None
+                        impl = 'rucio.rse.protocols.gfalv2.Default'
                     elif o.scheme == 'gsiftp':
                         extended_attributes = None
                         impl = 'rucio.rse.protocols.gfal.Default'
@@ -230,14 +233,6 @@ if __name__ == '__main__':
                     errno, errstr = sys.exc_info()[:2]
                     trcbck = traceback.format_exc()
                     print 'RSE %s protocol %s : Interrupted processing with %s %s %s.' % (rse['name'], o.scheme, errno, errstr, trcbck)
-            if rse['is_mkdir'] is True:
-                try:
-                    add_rse_attribute(rse['name'], 'mkdir', rse['is_mkdir'])
-                except Exception:
-                    RETVALUE = WARNING
-                    errno, errstr = sys.exc_info()[:2]
-                    trcbck = traceback.format_exc()
-                    print 'RSE %s Setting mkdir flag: Interrupted processing with %s %s %s.' % (rse['name'], errno, errstr, trcbck)
             if existing_protocols:
                 RETVALUE = WARNING
                 for scheme, hostname, port in existing_protocols:
