@@ -22,7 +22,7 @@ import urlparse
 
 from rucio.core.account import list_accounts, list_account_attributes
 from rucio.core.account_limit import set_account_limit
-from rucio.core.rse import get_rse_protocols, add_protocol, add_rse, update_protocols, add_rse_attribute
+from rucio.core.rse import get_rse_protocols, add_protocol, add_rse, update_protocols
 from rucio.common.exception import Duplicate, RSEProtocolPriorityError, RSEProtocolNotSupported, RSENotFound
 
 
