@@ -90,7 +90,7 @@ def parse_expression(expression, filter=None, session=None):
     if filter:
         for rse in result:
             if filter.get('availability_write', False):
-                if rse.get('availability') in (7, 3, 2):
+                if rse.get('availability') & 2:
                     final_result.append(rse)
         if not final_result:
             raise RSEBlacklisted('RSE excluded due to write blacklisting.')
