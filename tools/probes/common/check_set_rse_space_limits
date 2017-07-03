@@ -1,31 +1,33 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN) 2014
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - David Cameron, <david.cameron@cern.ch>, 2014-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+"""
+ Copyright European Organization for Nuclear Research (CERN) 2014
 
-# Sets the minimum free space on RSEs according to the policy, which is set in
-# the configuration table of Rucio server. A relative and absolute limit are
-# set for the relevant endpoints, for example:
-#  Spacetoken  Free ratio  Free absolute
-#  PRODDISK      25%         10.0 TB
-#
-# The smaller of ratio and absolute is the threshold below which to clean.
-# Some tokens (tape, groupdisk, localgroupdisk) are not cleaned automatically.
-#
-# The capacity of each RSE is Storage used - Rucio used of other RSEs sharing the
-# token. This allows RSEs to use space pledged but not used by other RSEs. The
-# minimum free space is evaluated based on this capacity. In the reaper Rucio
-# calculates the space to clean as MinFreeSpace limit - Storage free, where Storage
-# free is the total Storage capacity - Rucio used for this RSE. Therefore the
-# MinFreeSpace limit set here must include all the used space for all the other
-# RSEs in the token.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - David Cameron, <david.cameron@cern.ch>, 2014-2016
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+
+ Sets the minimum free space on RSEs according to the policy, which is set in
+ the configuration table of Rucio server. A relative and absolute limit are
+ set for the relevant endpoints, for example:
+  Spacetoken  Free ratio  Free absolute
+  PRODDISK      25%         10.0 TB
+
+ The smaller of ratio and absolute is the threshold below which to clean.
+ Some tokens (tape, groupdisk, localgroupdisk) are not cleaned automatically.
+
+ The capacity of each RSE is Storage used - Rucio used of other RSEs sharing the
+ token. This allows RSEs to use space pledged but not used by other RSEs. The
+ minimum free space is evaluated based on this capacity. In the reaper Rucio
+ calculates the space to clean as MinFreeSpace limit - Storage free, where Storage
+ free is the total Storage capacity - Rucio used for this RSE. Therefore the
+ MinFreeSpace limit set here must include all the used space for all the other
+ RSEs in the token.
+"""
 
 import json
 import sys
@@ -36,8 +38,8 @@ import requests
 # client.
 server = False
 try:
-    from rucio.api import rse as client
     from rucio.api import config
+    from rucio.api import rse as client
     server = True
 except:
     from rucio.client import Client
@@ -52,27 +54,27 @@ UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 max_files_to_delete = 100
 
 
-def TB(size):
+def toTB(size):
     return size / 1000.0**4
 
 # Get endpoint info from AGIS to know the RSEs in each space token
 try:
     URL = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
-    resp = requests.get(url=URL)
-    data = json.loads(resp.content)
+    RESP = requests.get(url=URL)
+    DATA = json.loads(RESP.content)
 except Exception as error:
     print "Failed to get information from AGIS: %s" % str(error)
     sys.exit(CRITICAL)
 
 # Map of RSE: hostname
-rse_host = {}
-for endpoint in data:
+RSE_HOST = {}
+for endpoint in DATA:
     host = urlparse(endpoint['se']).hostname
     if host:
-        rse_host[endpoint['name']] = host
+        RSE_HOST[endpoint['name']] = host
 
 try:
-    rses = [rse['rse'] for rse in client.list_rses()]
+    RSES = [rse['rse'] for rse in client.list_rses()]
 except Exception as error:
     print "Failed to get RSEs from Rucio: %s" % str(error)
     sys.exit(CRITICAL)
@@ -94,7 +96,7 @@ except Exception as error:
     print "Failed to get configuration information from Rucio: %s" % str(error)
     sys.exit(CRITICAL)
 
-for rse in rses:
+for rse in RSES:
 
     tokens = [token for token in policy if rse.endswith(token)]
     if not tokens:
@@ -106,12 +108,13 @@ for rse in rses:
 
     token = tokens[0]
 
-    if not [r for r in data if r['name'] == rse]:
+    if not [r for r in DATA if r['name'] == rse]:
         print "RSE %s not defined in AGIS" % rse
         continue
-    try:
+    rse_attr = client.list_rse_attributes(rse)
+    if 'spacetoken' in rse_attr:
         spacetoken = client.list_rse_attributes(rse)['spacetoken']
-    except:
+    else:
         print "No space token info for %s" % rse
         continue
 
@@ -137,13 +140,13 @@ for rse in rses:
     storageused = storageused[0]
     rucioused = rucioused[0]
 
-    print "RSE %s: total capacity %sTB, Storage used %sTB, Rucio used %sTB" % (rse, TB(capacity), TB(storageused), TB(rucioused))
+    print "RSE %s: total capacity %sTB, Storage used %sTB, Rucio used %sTB" % (rse, toTB(capacity), toTB(storageused), toTB(rucioused))
 
     # If this RSE shares space with others remove rucio used from total space
     # to calculate the limit
     used_others = 0
-    for endpoint in data:
-        if endpoint['name'] != rse and (rse_host[endpoint['name']] == rse_host[rse] and spacetoken == endpoint['token']):
+    for endpoint in DATA:
+        if endpoint['name'] != rse and (RSE_HOST[endpoint['name']] == RSE_HOST[rse] and spacetoken == endpoint['token']):
             try:
                 if server:
                     used = client.get_rse_usage(endpoint['name'], None, source='rucio')
@@ -159,14 +162,18 @@ for rse in rses:
                 continue
             used = used[0]
 
-            print "Removing %fTB used space in %s" % (TB(used), endpoint['name'])
+            print "Removing %fTB used space in %s" % (toTB(used), endpoint['name'])
             used_others += used
 
     capacity -= used_others
-    print "Remaining capacity for %s: %sTB" % (rse, TB(capacity))
+    print "Remaining capacity for %s: %sTB" % (rse, toTB(capacity))
 
-    minfree = min(capacity * policy[token][0] / 100.0, policy[token][1] * (1000**4))
-    print "RSE %s: calculated minimum free space %sTB" % (rse, TB(minfree))
+    if 'MinFreeSpace' in rse_attr:
+        minfree = int(rse_attr['MinFreeSpace'])
+        print "RSE %s: Will apply forced value for minimum free space %sTB" % (rse, toTB(minfree))
+    else:
+        minfree = min(capacity * policy[token][0] / 100.0, policy[token][1] * (1000**4))
+        print "RSE %s: calculated minimum free space %sTB" % (rse, toTB(minfree))
 
     try:
         if server:
@@ -179,6 +186,6 @@ for rse in rses:
         print "Failed to set RSE limits for %s: %s" % (rse, str(error))
         continue
 
-    print "Set MinFreeSpace for %s to %fTB" % (rse, TB(minfree))
+    print "Set MinFreeSpace for %s to %fTB" % (rse, toTB(minfree))
 
 sys.exit(OK)
