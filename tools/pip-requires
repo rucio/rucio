@@ -31,7 +31,7 @@ cffi==1.10.0                # Foreign Function Interface for Python calling C co
 cryptography==1.9           # Cryptographic recipes and primitives
 enum34==1.1.6               # Python 3.4 Enum backported
 gcloud==0.18.3              # API Client library for Google Cloud
-googleapis-common-protos==1.5.2# Common protobufs used in Google APIs
+googleapis-common-protos==1.5.2 # Common protobufs used in Google APIs
 httplib2==0.10.3            # A comprehensive HTTP client library
 idna==2.5                   # Internationalized Domain Names in Applications (IDNA)
 ipaddress==1.0.18           # IPv4/IPv6 manipulation library
