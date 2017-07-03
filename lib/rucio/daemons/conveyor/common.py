@@ -9,7 +9,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014,2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 
 """
@@ -39,20 +39,6 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
 region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
-
-
-@transactional_session
-def update_requests_states(responses, session=None):
-    """
-    Bulk version used by poller and consumer to update the internal state of requests,
-    after the response by the external transfertool.
-
-    :param reqs: List of (req, response) tuples.
-    :param session: The database session to use.
-    """
-
-    for response in responses:
-        update_request_state(response=response, session=session)
 
 
 def get_transfer_error(state, reason=None):
@@ -493,30 +479,6 @@ def handle_one_replica(replica, req_type, rule_id, session=None):
             raise
 
     return True
-
-
-@transactional_session
-def handle_submitting_requests(older_than=1800, process=None, total_processes=None, thread=None, total_threads=None, session=None):
-    """
-    used by finisher to handle submitting  requests
-
-    :param older_than: Only select requests older than this DateTime.
-    :param process: Identifier of the caller process as an integer.
-    :param total_processes: Maximum number of processes as an integer.
-    :param thread: Identifier of the caller thread as an integer.
-    :param total_threads: Maximum number of threads as an integer.
-    :param session: The database session to use.
-    """
-
-    reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                 state=RequestState.SUBMITTING,
-                                 older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
-                                 process=process, total_processes=total_processes,
-                                 thread=thread, total_threads=total_threads,
-                                 session=session)
-    for req in reqs:
-        logging.info("Requeue SUBMITTING request %s" % (req['request_id']))
-        request_core.requeue_and_archive(req['request_id'], session=session)
 
 
 @read_session
