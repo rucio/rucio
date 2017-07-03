@@ -155,7 +155,7 @@ if __name__ == '__main__':
                         impl = 'rucio.rse.protocols.gfal.Default'
                     elif o.scheme in ('https', 'http'):
                         extended_attributes = None
-                        impl = 'rucio.rse.protocols.gfal2.Default'
+                        impl = 'rucio.rse.protocols.gfalv2.Default'
                     elif o.scheme == 'gsiftp':
                         extended_attributes = None
                         impl = 'rucio.rse.protocols.gfal.Default'
