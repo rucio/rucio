@@ -100,6 +100,7 @@ def setup_gfal2_logger(logger):
     logger.setLevel(logging.CRITICAL)
     logger.addHandler(logging.StreamHandler())
 
+
 setup_logger(logger)
 setup_gfal2_logger(gfal2_logger)
 
@@ -115,6 +116,7 @@ def signal_handler(sig, frame):
             print 'Cannot kill child process'
     STOP_REQUEST.set()
     sys.exit(1)
+
 
 signal.signal(signal.SIGINT, signal_handler)
 

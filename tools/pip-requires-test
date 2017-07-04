@@ -14,7 +14,6 @@ docutils==0.13.1                 # Needed for sphinx
 pep8==1.7.0                      # checks for PEP8 code style compliance
 pyflakes==1.5.0                  # Passive checker of Python programs
 flake8==3.3.0                    # Wrapper around PyFlakes&pep8
-mccabe==0.4.0                    # McCabe checker, plugin for flake8
 pylint==1.7.1                    # static code analysis. Last release compatible with python 2.6
 virtualenv==15.1.0               # Virtual Python Environment builder
 tox==2.3.1                       # Automate and standardize testing in Python

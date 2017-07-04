@@ -115,6 +115,7 @@ def backend_graphite(url, stats, prefix):
         except Exception as e:
             logger.error('Failed reporting %s (%s): %s' % (s, stats[s], e))
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--backend', metavar='B', type=str, nargs=1, help=' Graphite server URL[:port][::scope] to which the script will report to. E.g. --backend rucio-graphite-int.cern.ch:8025/listen/now::rucio.loadbalancer')

@@ -107,6 +107,7 @@ def populateDB():
                     except RucioException, e:
                         print e
 
+
 # createRSEs()
 # createMetadata()
 populateDB()
