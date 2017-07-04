@@ -22,8 +22,9 @@ from traceback import format_exception
 from rucio.db.sqla.constants import LifetimeExceptionsState
 from rucio.common.config import config_get
 from rucio.common.exception import RuleNotFound
+import rucio.common.policy
 from rucio.core import heartbeat
-from rucio.core.lifetime_exception import list_exceptions, define_eol
+import rucio.core.lifetime_exception
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rules_beyond_eol, update_rule
@@ -58,7 +59,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
     logging.debug(prepend_str + 'Starting worker')
     summary = {}
     lifetime_exceptions = {}
-    for excep in list_exceptions(exception_id=None, states=[LifetimeExceptionsState.APPROVED, ], session=None):
+    for excep in rucio.core.lifetime_exception.list_exceptions(exception_id=None, states=[LifetimeExceptionsState.APPROVED, ], session=None):
         if '%s:%s' % (excep['scope'], excep['name']) not in lifetime_exceptions:
             lifetime_exceptions['%s:%s' % (excep['scope'], excep['name'])] = excep['expires_at']
         elif lifetime_exceptions['%s:%s' % (excep['scope'], excep['name'])] < excep['expires_at']:
@@ -86,7 +87,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
                         logging.info(prepend_str + '%s/%s rules processed' % (rule_idx, len(rules)))
                     # We compute the expended eol_at
                     rses = parse_expression(rule.rse_expression)
-                    eol_at = define_eol(rule.scope, rule.name, rses)
+                    eol_at = rucio.core.lifetime_exception.define_eol(rule.scope, rule.name, rses)
 
                     # Check the exceptions
                     if did in lifetime_exceptions:
