@@ -67,6 +67,7 @@ def parse_options():
         options.warning = options.critical
     return options
 
+
 if __name__ == "__main__":
     options = parse_options()
     pp = pprint.PrettyPrinter(indent=4)
