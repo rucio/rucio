@@ -127,7 +127,7 @@ class DataModel(object):
     @classmethod
     def each(cls, file, rse=None, date=None, filter_=None):
         if filter_ is None:
-            filter_ = lambda x: True
+            filter_ = lambda x: True  # NOQA
         for line in file:
             record = cls.parse_line(line, rse, date)
             if filter_(record):
