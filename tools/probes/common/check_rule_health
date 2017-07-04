@@ -49,5 +49,6 @@ END;'''  # NOQA
         sys.exit(UNKNOWN)
     sys.exit(OK)
 
+
 if __name__ == "__main__":
     main()

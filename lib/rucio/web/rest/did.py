@@ -803,6 +803,8 @@ class Resurrect(RucioController):
             print format_exc()
             raise InternalError(error)
         raise Created()
+
+
 """----------------------
    Web service startup
 ----------------------"""
