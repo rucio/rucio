@@ -19,7 +19,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common.exception import ConfigNotFound, RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation
 from rucio.common.utils import generate_uuid, str_to_date
-from rucio.common.policy import get_vo, get_lifetime_policy
+import rucio.common.policy
 from rucio.core.config import get
 from rucio.core.message import add_message
 from rucio.core.rse import list_rse_attributes
@@ -172,7 +172,7 @@ def define_eol(scope, name, rses, session=None):
     :param rses:     List of RSEs.
     :param session:  The database session in use.
     """
-    vo_name = get_vo()
+    vo_name = rucio.common.policy.get_vo()
     if vo_name != 'atlas':
         return None
 
@@ -185,7 +185,7 @@ def define_eol(scope, name, rses, session=None):
                                                           models.DataIdentifier.name == name).one()
     except NoResultFound:
         return None
-    policy_dict = get_lifetime_policy()
+    policy_dict = rucio.common.policy.get_lifetime_policy()
     did_type = 'other'
     if scope.startswith('mc'):
         did_type = 'mc'
