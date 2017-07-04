@@ -79,6 +79,7 @@ def cache_operation(args):
     conn.send(destination=args.destination, body=json.dumps(message), id='rucio-cache-messaging', ack='auto', headers={'vo': 'atlas'})
     conn.disconnect()
 
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]

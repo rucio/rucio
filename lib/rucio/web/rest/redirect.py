@@ -248,6 +248,7 @@ class HeaderRedirector(RucioController):
             print format_exc()
             raise InternalError(e)
 
+
 """----------------------
    Web service startup
 ----------------------"""

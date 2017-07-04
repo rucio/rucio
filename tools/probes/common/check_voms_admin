@@ -118,6 +118,7 @@ def add_cloud_admins():
                     result = WARNING
     return result
 
+
 if __name__ == '__main__':
     result = OK
     try:

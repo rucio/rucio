@@ -152,6 +152,7 @@ class OptionSet(RucioController):
             raise generate_http_error(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
         raise Created()
 
+
 """----------------------
    Web service startup
 ----------------------"""

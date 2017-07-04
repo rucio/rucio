@@ -36,6 +36,7 @@ def token_key_generator(namespace, fni, **kwargs):
         return token
     return generate_key
 
+
 TOKENREGION = make_region(
     function_key_generator=token_key_generator
 ).configure(
