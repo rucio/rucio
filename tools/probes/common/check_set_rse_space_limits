@@ -57,6 +57,7 @@ max_files_to_delete = 100
 def toTB(size):
     return size / 1000.0**4
 
+
 # Get endpoint info from AGIS to know the RSEs in each space token
 try:
     URL = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'

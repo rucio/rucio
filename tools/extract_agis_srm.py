@@ -35,5 +35,6 @@ def run():
     for r in res:
         print '%s:%s' % (r[1], ':'.join(r[0].split(':')[1:]))
 
+
 if __name__ == '__main__':
     run()
