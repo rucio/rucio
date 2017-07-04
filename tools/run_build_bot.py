@@ -252,6 +252,7 @@ def start_test(mr):
         print 'Error while checking out master'
         sys.exit(-1)
 
+
 print 'Checking if a job is currently running ...'
 if os.path.isfile('/tmp/rucio_test.pid'):
     # Check if the pid file is older than 90 minutes
