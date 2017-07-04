@@ -240,6 +240,7 @@ def set_localgroupdisk_quotas(fraction):
             print error
             RESULT = CRITICAL
 
+
 if __name__ == '__main__':
     # For group the quota is set and updated using the AGIS information
     set_group_quotas()

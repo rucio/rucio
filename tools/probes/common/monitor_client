@@ -121,5 +121,6 @@ def main():
         r = requests.post('http://xsls.cern.ch', files={'file': xmlmetric})
         sys.exit(not(r.status_code == 200))
 
+
 if __name__ == '__main__':
     main()

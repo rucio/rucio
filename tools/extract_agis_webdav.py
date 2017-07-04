@@ -41,5 +41,6 @@ def run():
     for r in res:
         print r
 
+
 if __name__ == '__main__':
     run()
