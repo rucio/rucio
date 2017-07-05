@@ -14,15 +14,17 @@ $var title: Lifetime exception
 $var script: <script src="/static/jquery.quicksearch.js"></script><script src="/static/lifetime_exception.js"></script><script src="static/chosen.jquery.min.js"></script><script src="/static/jquery.multiple.select2.js"></script><link rel="stylesheet" href="/static/multiple-select2.css"></script><script src="/static/jquery.multiple.select.js"></script><link rel="stylesheet" href="/static/multiple-select.css">
 
 
-
-<div class="h2">Lifetime exception</div>
+<h4><h4>Subscriptions editor request interface</h4></h4>
+<div class="h2">Request form</div>
+<div id="alert_box">
+  </div>
 
         <div id="loader"></div>
         <div class="row">
-           <div class="large-5 columns">
+           <div class="large-6 columns">
               <div class="row">
                   <label>Reason</label>
-                     <textarea maxlength="2000" placeholder="Reason for the exception" id="reason"></textarea>
+                     <textarea maxlength="2000" placeholder="Reason for the exception" id="reason" style="width:500px;"></textarea>
               </div>
               <div class="row">
                  <label>Choose pattern</label>
@@ -43,20 +45,9 @@ $var script: <script src="/static/jquery.quicksearch.js"></script><script src="/
                   <label>Datatype</label>
                      <select id="datatype" data-placeholder="Choose a datatype..." class="chosen-select" style="width:500px;" tabindex="4"></select>
               </div>
-              <div class="row" id="datasets_div"  style="width:500px;">
-                  <label>Datasets</label>
-                  <select id='datasets' multiple='multiple' style="width:500px;">
-                  </select>
-                  <a href='#' id='select-all'>select all</a>
-                  <a href='#' id='deselect-all'>deselect all</a>
-              </div>
-              <div class="row">
-                 <label>Estimated volume to keep</label>
-                     <div id='estimated_vol'></div>
-              </div>
            </div>
 
-           <div class="large-5 columns">
+           <div class="large-6 columns">
               <div class="row" id="lifetime_div">
                   <label>Exception duration</label>
                   <div id="datepicker" style="font-size:14px; height: 250px;"></div>
@@ -65,10 +56,23 @@ $var script: <script src="/static/jquery.quicksearch.js"></script><script src="/
         </div>
 
 
+        <div class="row" id="datasets_div"  style="width:500px;">
+            <label>Datasets</label>
+            <select id='datasets' multiple='multiple' style="width:500px;">
+            </select>
+            <a href='#' id='select-all'>select all</a>
+            <a href='#' id='deselect-all'>deselect all</a>
+        </div>
+        <div class="row">
+            <label>Estimated volume to keep</label>
+               <div id='estimated_vol'></div>
+        </div>
+
+
         <div class="row">
           <div class="large-5 columns">
             <form id="submit_request">
-                  <input type="submit">
+                  <input type="submit" value="Submit request">
             </form>
           </div>
         </div>
