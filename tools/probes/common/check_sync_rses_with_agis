@@ -42,6 +42,7 @@ if __name__ == '__main__':
     ADMIN_ACCOUNTS = [x[0] for x in ACC_ATTRS if {'key': 'admin', 'value': True} in x[1]]
     for rse in DATA:
         print rse['name']
+        deterministic = False
         try:
             deterministic = rse['is_deterministic']
             volatile = False
@@ -180,7 +181,7 @@ if __name__ == '__main__':
 
                     # For disk end-points not for tape
                     prefix = rse['protocols'][protocol][0][2]
-                    if not rse['is_tape'] and not prefix.endswith('/rucio') and not prefix.endswith('/rucio/'):
+                    if not rse['is_tape'] and deterministic and not prefix.endswith('/rucio') and not prefix.endswith('/rucio/'):
                         prefix = os.path.join(prefix, 'rucio/')
 
                     params = {'hostname': netloc,
