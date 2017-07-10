@@ -46,7 +46,8 @@ def add_message(event_type, payload, session=None):
 
 
 @transactional_session
-def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=None, session=None):
+def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=None,
+                      lock=False, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -54,6 +55,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
     :param event_type: Return only specified event_type. If None, returns everything except email.
+    :param lock: Select exclusively some rows.
     :param session: The database session to use.
 
     :returns messages: List of dictionaries {id, created_at, event_type, payload}
