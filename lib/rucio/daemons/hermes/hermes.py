@@ -387,7 +387,7 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
                                                                          'broker_timeout': broker_timeout,
                                                                          'broker_retry': broker_retry}) for i in xrange(0, threads)]
 
-        for i in xrange(0, 1):
+        for i in xrange(0, threads):
             thread_list.append(threading.Thread(target=deliver_emails, kwargs={'thread': i,
                                                                                'bulk': bulk,
                                                                                'delay': delay}))
