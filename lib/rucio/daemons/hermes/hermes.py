@@ -235,7 +235,6 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                                                           len(messages)))
                 to_delete = []
                 for message in messages:
-
                     try:
                         conn = random.sample(usable_conns, 1)[0]
                         if not conn['conn'].is_connected():
