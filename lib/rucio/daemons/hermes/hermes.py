@@ -53,8 +53,7 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
     '''
     Main loop to deliver emails via SMTP.
     '''
-
-    logging.info('[email] starting - threads (%i) bulk (%i)' % (thread, bulk))
+    logging.info('[email] starting - threads (%i) bulk (%i)', thread, bulk)
 
     executable = 'hermes [email]'
     hostname = socket.getfqdn()
@@ -196,17 +195,18 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
             for conn in conns:
 
                 if not conn['conn'].is_connected():
+                    host_and_ports = conn['conn'].transport._Transport__host_and_ports[0][0]
                     logging.info('[broker] %i:%i - connecting to %s', heartbeat['assign_thread'],
                                  heartbeat['nr_threads'],
-                                 conn['conn'].transport._Transport__host_and_ports[0][0])
-                    record_counter('daemons.hermes.reconnect.%s' % conn['conn'].transport._Transport__host_and_ports[0][0].split('.')[0])
+                                 host_and_ports)
+                    record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
 
                     try:
                         if conn['retry'] >= broker_retry:
                             logging.warning('[broker] %i:%i - connection retrials exceeded, skipping this round: %s',
                                             heartbeat['assign_thread'],
                                             heartbeat['nr_threads'],
-                                            conn['conn'].transport._Transport__host_and_ports[0][0])
+                                            host_and_ports)
                             conn['retry'] = 0
                             conn['use'] = False
                             continue
@@ -218,7 +218,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                         logging.warning('[broker] %i:%i - connection timeout, retrying: %s',
                                         heartbeat['assign_thread'],
                                         heartbeat['nr_threads'],
-                                        conn['conn'].transport._Transport__host_and_ports[0][0])
+                                        host_and_ports)
                         conn['retry'] += 1
                         conn['use'] = False
 
