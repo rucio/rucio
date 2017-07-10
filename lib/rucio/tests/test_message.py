@@ -1,14 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+  - Martin Barisits, <martin.barisits@cern.ch>, 2014
+'''
 
 from nose.tools import assert_equal, assert_in, assert_is_instance, assert_raises
 
@@ -48,7 +50,12 @@ class TestMessagesCore():
             assert_equal(i['payload']['foo'], True)
             assert_equal(i['payload']['monty'], 'python')
             assert_in(i['payload']['number'], xrange(100))
-            to_delete.append(i['id'])
+            to_delete.append({'id': i['id'],
+                              'created_at': i['created_at'],
+                              'updated_at': i['created_at'],
+                              'payload': str(i['payload']),
+                              'event_type': i['event_type']})
+
         delete_messages(to_delete)
 
         assert_equal(retrieve_messages(), [])
