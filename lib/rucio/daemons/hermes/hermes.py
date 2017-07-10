@@ -107,7 +107,6 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
                                   'payload': str(t['payload']),
                                   'event_type': 'email'})
 
-
                 logging.debug('[email] %i:%i - submitting done: %s' % (hb['assign_thread'],
                                                                        hb['nr_threads'],
                                                                        str(t['id'])))
