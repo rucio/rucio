@@ -1,16 +1,17 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-#  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2017
-#  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-#  - Wen Guan, <wen.guan@cern.ch>, 2014
-#  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-#  - Martin Barisits, <martin.barisits@cern.ch>, 2017
 '''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2017
+   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+   - Wen Guan, <wen.guan@cern.ch>, 2014
+   - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+   - Martin Barisits, <martin.barisits@cern.ch>, 2017
+
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
 '''
 
@@ -126,6 +127,23 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
     logging.debug('[email] %i:%i - graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
 
 
+class HermesListener(stomp.ConnectionListener):
+    '''
+    Hermes Listener
+    '''
+    def __init__(self, broker, num_thread):
+        '''
+        __init__
+        '''
+        self.__broker = broker
+
+    def on_error(self, headers, message):
+        '''
+        On_error handler
+        '''
+        logging.error('[broker] %s: On error message %s' % (self.__broker, message))
+
+
 def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10, broker_timeout=3, broker_retry=3):
     '''
     Main loop to deliver messages to a broker.
@@ -139,13 +157,18 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
 
     conns = []
     for broker in brokers_resolved:
-        conns.append({'conn': stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
-                                               use_ssl=True,
-                                               ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
-                                               ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
-                                               ssl_version=ssl.PROTOCOL_TLSv1,
-                                               keepalive=True,
-                                               timeout=broker_timeout),
+        conn = stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
+                                use_ssl=True,
+                                ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
+                                ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
+                                ssl_version=ssl.PROTOCOL_TLSv1,
+                                keepalive=True,
+                                timeout=broker_timeout)
+
+        conn.set_listener('rucio-hermes',
+                          HermesListener(conn.transport._Transport__host_and_ports[0]))
+
+        conns.append({'conn': conn,
                       'use': False,
                       'retry': 0})  # reconnect safeguard counter
     destination = config_get('messaging-hermes', 'destination')
@@ -183,7 +206,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                             continue
                         else:
                             conn['conn'].start()
-                            conn['conn'].connect()
+                            conn['conn'].connect(wait=True)
                             conn['use'] = True
                     except stomp.exception.ConnectFailedException as e:
                         logging.warning('[broker] %i:%i - connection timeout, retrying: %s' % (hb['assign_thread'],
@@ -209,18 +232,39 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                 for t in tmp:
 
                     try:
-                        random.sample(usable_conns, 1)[0]['conn'].send(body=json.dumps({'event_type': str(t['event_type']).lower(),
-                                                                                        'payload': t['payload'],
-                                                                                        'created_at': str(t['created_at'])}),
-                                                                       destination=destination,
-                                                                       headers={'persistent': 'true'})
-                        to_delete.append(t['id'])
+                        conn = random.sample(usable_conns, 1)[0]
+                        if not conn['conn'].is_connected():
+                            conn['conn'].start()
+                            conn['conn'].connect(wait=True)
+                        conn['conn'].send(body=json.dumps({'event_type': str(t['event_type']).lower(),
+                                                           'payload': t['payload'],
+                                                           'created_at': str(t['created_at'])}),
+                                          destination=destination,
+                                          headers={'persistent': 'true'})
+                        to_delete.append({'id': t['id'],
+                                          'created_at': t['created_at'],
+                                          'updated_at': t['created_at'],
+                                          'payload': json.dumps(t['payload']),
+                                          'event_type': t['event_type']})
                     except ValueError:
                         logging.warn('Cannot serialize payload to JSON: %s' % str(t['payload']))
-                        to_delete.append(t['id'])
+                        to_delete.append({'id': t['id'],
+                                          'created_at': t['created_at'],
+                                          'updated_at': t['created_at'],
+                                          'payload': '',
+                                          'event_type': t['event_type']})
+                        continue
+                    except stomp.exception.NotConnectedException, e:
+                        logging.warn('Could not deliver message due to NotConnectedException: %s' % str(e))
+                        conn['conn'].disconnect()
+                        continue
+                    except stomp.exception.ConnectFailedException as e:
+                        logging.warn('Could not deliver message due to ConnectFailedException: %s' % str(e))
+                        conn['conn'].disconnect()
                         continue
                     except Exception, e:
                         logging.warn('Could not deliver message: %s' % str(e))
+                        logging.critical(traceback.format_exc())
                         continue
 
                     if str(t['event_type']).lower().startswith('transfer') or str(t['event_type']).lower().startswith('stagein'):
@@ -343,7 +387,7 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
                                                                          'broker_timeout': broker_timeout,
                                                                          'broker_retry': broker_retry}) for i in xrange(0, threads)]
 
-        for i in xrange(0, threads):
+        for i in xrange(0, 1):
             thread_list.append(threading.Thread(target=deliver_emails, kwargs={'thread': i,
                                                                                'bulk': bulk,
                                                                                'delay': delay}))
