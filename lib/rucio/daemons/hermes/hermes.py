@@ -71,9 +71,8 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
     while not GRACEFUL_STOP.is_set():
 
         heartbeat = live(executable, hostname, pid, heartbeat_thread)
-        logging.debug('[email] %i:%i - bulk %i' % (heartbeat['assign_thread'],
-                                                   heartbeat['nr_threads'],
-                                                   bulk))
+        logging.debug('[email] %i:%i - bulk %i', heartbeat['assign_thread'],
+                      heartbeat['nr_threads'], bulk)
 
         t_start = time.time()
 
@@ -85,9 +84,8 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
         if messages != []:
             to_delete = []
             for message in messages:
-                logging.debug('[email] %i:%i - submitting: %s' % (heartbeat['assign_thread'],
-                                                                  heartbeat['nr_threads'],
-                                                                  str(message)))
+                logging.debug('[email] %i:%i - submitting: %s', heartbeat['assign_thread'],
+                              heartbeat['nr_threads'], str(message))
 
                 msg = MIMEText(message['payload']['body'].encode('utf-8'))
 
@@ -107,14 +105,14 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
                                   'payload': str(message['payload']),
                                   'event_type': 'email'})
 
-                logging.debug('[email] %i:%i - submitting done: %s' % (heartbeat['assign_thread'],
-                                                                       heartbeat['nr_threads'],
-                                                                       str(message['id'])))
+                logging.debug('[email] %i:%i - submitting done: %s',
+                              heartbeat['assign_thread'], heartbeat['nr_threads'],
+                              str(message['id']))
 
             delete_messages(to_delete)
-            logging.info('[email] %i:%i - submitted %i messages' % (heartbeat['assign_thread'],
-                                                                    heartbeat['nr_threads'],
-                                                                    len(to_delete)))
+            logging.info('[email] %i:%i - submitted %i messages',
+                         heartbeat['assign_thread'],
+                         heartbeat['nr_threads'], len(to_delete))
 
         if once:
             break
@@ -122,14 +120,17 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
         t_delay = delay - (time.time() - t_start)
         t_delay = t_delay if t_delay > 0 else 0
         if t_delay:
-            logging.debug('[email] %i:%i - sleeping %s seconds' % (heartbeat['assign_thread'], heartbeat['nr_threads'], t_delay))
+            logging.debug('[email] %i:%i - sleeping %s seconds',
+                          heartbeat['assign_thread'], heartbeat['nr_threads'], t_delay)
         time.sleep(t_delay)
 
-    logging.debug('[email] %i:%i - graceful stop requested' % (heartbeat['assign_thread'], heartbeat['nr_threads']))
+    logging.debug('[email] %i:%i - graceful stop requested', heartbeat['assign_thread'],
+                  heartbeat['nr_threads'])
 
     die(executable, hostname, pid, heartbeat_thread)
 
-    logging.debug('[email] %i:%i - graceful stop done' % (heartbeat['assign_thread'], heartbeat['nr_threads']))
+    logging.debug('[email] %i:%i - graceful stop done', heartbeat['assign_thread'],
+                  heartbeat['nr_threads'])
 
 
 class HermesListener(stomp.ConnectionListener):
@@ -146,15 +147,14 @@ class HermesListener(stomp.ConnectionListener):
         '''
         On_error handler
         '''
-        logging.error('[broker] %s: On error message %s' % (self.__broker, body))
+        logging.error('[broker] %s: On error message %s', self.__broker, body)
 
 
 def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10, broker_timeout=3, broker_retry=3):
     '''
     Main loop to deliver messages to a broker.
     '''
-
-    logging.info('[broker] starting - threads (%i) bulk (%i)' % (thread, bulk))
+    logging.info('[broker] starting - threads (%i) bulk (%i)', thread, bulk)
 
     if not brokers_resolved:
         logging.fatal('No brokers resolved.')
@@ -196,16 +196,17 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
             for conn in conns:
 
                 if not conn['conn'].is_connected():
-                    logging.info('[broker] %i:%i - connecting to %s' % (heartbeat['assign_thread'],
-                                                                        heartbeat['nr_threads'],
-                                                                        conn['conn'].transport._Transport__host_and_ports[0][0]))
+                    logging.info('[broker] %i:%i - connecting to %s', heartbeat['assign_thread'],
+                                 heartbeat['nr_threads'],
+                                 conn['conn'].transport._Transport__host_and_ports[0][0])
                     record_counter('daemons.hermes.reconnect.%s' % conn['conn'].transport._Transport__host_and_ports[0][0].split('.')[0])
 
                     try:
                         if conn['retry'] >= broker_retry:
-                            logging.warning('[broker] %i:%i - connection retrials exceeded, skipping this round: %s' % (heartbeat['assign_thread'],
-                                                                                                                        heartbeat['nr_threads'],
-                                                                                                                        conn['conn'].transport._Transport__host_and_ports[0][0]))
+                            logging.warning('[broker] %i:%i - connection retrials exceeded, skipping this round: %s',
+                                            heartbeat['assign_thread'],
+                                            heartbeat['nr_threads'],
+                                            conn['conn'].transport._Transport__host_and_ports[0][0])
                             conn['retry'] = 0
                             conn['use'] = False
                             continue
@@ -214,25 +215,26 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                             conn['conn'].connect(wait=True)
                             conn['use'] = True
                     except stomp.exception.ConnectFailedException:
-                        logging.warning('[broker] %i:%i - connection timeout, retrying: %s' % (heartbeat['assign_thread'],
-                                                                                               heartbeat['nr_threads'],
-                                                                                               conn['conn'].transport._Transport__host_and_ports[0][0]))
+                        logging.warning('[broker] %i:%i - connection timeout, retrying: %s',
+                                        heartbeat['assign_thread'],
+                                        heartbeat['nr_threads'],
+                                        conn['conn'].transport._Transport__host_and_ports[0][0])
                         conn['retry'] += 1
                         conn['use'] = False
 
             usable_conns = [conn for conn in conns if conn['use']]
-            logging.debug('[broker] %i:%i - using: %s' % (heartbeat['assign_thread'],
-                                                          heartbeat['nr_threads'],
-                                                          [uc['conn'].transport._Transport__host_and_ports[0][0] for uc in usable_conns]))
+            logging.debug('[broker] %i:%i - using: %s', heartbeat['assign_thread'],
+                          heartbeat['nr_threads'],
+                          [uc['conn'].transport._Transport__host_and_ports[0][0] for uc in usable_conns])
 
             messages = retrieve_messages(bulk=bulk,
                                          thread=heartbeat['assign_thread'],
                                          total_threads=heartbeat['nr_threads'])
 
             if messages != []:
-                logging.debug('[broker] %i:%i - retrieved %i messages' % (heartbeat['assign_thread'],
-                                                                          heartbeat['nr_threads'],
-                                                                          len(messages)))
+                logging.debug('[broker] %i:%i - retrieved %i messages',
+                              heartbeat['assign_thread'], heartbeat['nr_threads'],
+                              len(messages))
                 to_delete = []
                 for message in messages:
                     try:
@@ -251,7 +253,8 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                           'payload': json.dumps(message['payload']),
                                           'event_type': message['event_type']})
                     except ValueError:
-                        logging.warn('Cannot serialize payload to JSON: %s' % str(message['payload']))
+                        logging.warn('Cannot serialize payload to JSON: %s',
+                                     str(message['payload']))
                         to_delete.append({'id': message['id'],
                                           'created_at': message['created_at'],
                                           'updated_at': message['created_at'],
@@ -259,58 +262,64 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                           'event_type': message['event_type']})
                         continue
                     except stomp.exception.NotConnectedException, error:
-                        logging.warn('Could not deliver message due to NotConnectedException: %s' % str(error))
+                        logging.warn('Could not deliver message due to NotConnectedException: %s',
+                                     str(error))
                         conn['conn'].disconnect()
                         continue
                     except stomp.exception.ConnectFailedException as error:
-                        logging.warn('Could not deliver message due to ConnectFailedException: %s' % str(error))
+                        logging.warn('Could not deliver message due to ConnectFailedException: %s',
+                                     str(error))
                         conn['conn'].disconnect()
                         continue
                     except Exception, error:
-                        logging.warn('Could not deliver message: %s' % str(error))
+                        logging.warn('Could not deliver message: %s', str(error))
                         logging.critical(traceback.format_exc())
                         continue
 
                     if str(message['event_type']).lower().startswith('transfer') or str(message['event_type']).lower().startswith('stagein'):
-                        logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s' % (heartbeat['assign_thread'],
-                                                                                                                                                          heartbeat['nr_threads'],
-                                                                                                                                                          str(message['event_type']).lower(),
-                                                                                                                                                          message['payload'].get('scope', None),
-                                                                                                                                                          message['payload'].get('name', None),
-                                                                                                                                                          message['payload'].get('dst-rse', None),
-                                                                                                                                                          message['payload'].get('request-id', None),
-                                                                                                                                                          message['payload'].get('transfer-id', None),
-                                                                                                                                                          str(message['created_at'])))
+                        logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s',
+                                      heartbeat['assign_thread'], heartbeat['nr_threads'],
+                                      str(message['event_type']).lower(),
+                                      message['payload'].get('scope', None),
+                                      message['payload'].get('name', None),
+                                      message['payload'].get('dst-rse', None),
+                                      message['payload'].get('request-id', None),
+                                      message['payload'].get('transfer-id', None),
+                                      str(message['created_at']))
+
                     elif str(message['event_type']).lower().startswith('dataset'):
-                        logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)' % (heartbeat['assign_thread'],
-                                                                                                                                       heartbeat['nr_threads'],
-                                                                                                                                       str(message['event_type']).lower(),
-                                                                                                                                       message['payload']['scope'],
-                                                                                                                                       message['payload']['name'],
-                                                                                                                                       message['payload']['rse'],
-                                                                                                                                       message['payload']['rule_id'],
-                                                                                                                                       str(message['created_at'])))
+                        logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)',
+                                      heartbeat['assign_thread'],
+                                      heartbeat['nr_threads'],
+                                      str(message['event_type']).lower(),
+                                      message['payload']['scope'],
+                                      message['payload']['name'],
+                                      message['payload']['rse'],
+                                      message['payload']['rule_id'],
+                                      str(message['created_at']))
+
                     elif str(message['event_type']).lower().startswith('deletion'):
                         if 'url' not in message['payload']:
                             message['payload']['url'] = 'unknown'
-                        logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)' % (heartbeat['assign_thread'],
-                                                                                                                                   heartbeat['nr_threads'],
-                                                                                                                                   str(message['event_type']).lower(),
-                                                                                                                                   message['payload']['scope'],
-                                                                                                                                   message['payload']['name'],
-                                                                                                                                   message['payload']['rse'],
-                                                                                                                                   message['payload']['url'],
-                                                                                                                                   str(message['created_at'])))
-
+                        logging.debug('[broker] %i:%i - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)',
+                                      heartbeat['assign_thread'],
+                                      heartbeat['nr_threads'],
+                                      str(message['event_type']).lower(),
+                                      message['payload']['scope'],
+                                      message['payload']['name'],
+                                      message['payload']['rse'],
+                                      message['payload']['url'],
+                                      str(message['created_at']))
                     else:
-                        logging.debug('[broker] %i:%i - other message: %s' % (heartbeat['assign_thread'],
-                                                                              heartbeat['nr_threads'],
-                                                                              message))
+                        logging.debug('[broker] %i:%i - other message: %s',
+                                      heartbeat['assign_thread'], heartbeat['nr_threads'],
+                                      message)
 
                 delete_messages(to_delete)
-                logging.info('[broker] %i:%i - submitted %i messages' % (heartbeat['assign_thread'],
-                                                                         heartbeat['nr_threads'],
-                                                                         len(to_delete)))
+                logging.info('[broker] %i:%i - submitted %i messages',
+                             heartbeat['assign_thread'],
+                             heartbeat['nr_threads'],
+                             len(to_delete))
 
                 if once:
                     break
@@ -324,10 +333,12 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         t_delay = delay - (time.time() - t_start)
         t_delay = t_delay if t_delay > 0 else 0
         if t_delay:
-            logging.debug('[broker] %i:%i - sleeping %s seconds' % (heartbeat['assign_thread'], heartbeat['nr_threads'], t_delay))
+            logging.debug('[broker] %i:%i - sleeping %s seconds',
+                          heartbeat['assign_thread'], heartbeat['nr_threads'], t_delay)
         time.sleep(t_delay)
 
-    logging.debug('[broker] %i:%i - graceful stop requested' % (heartbeat['assign_thread'], heartbeat['nr_threads']))
+    logging.debug('[broker] %i:%i - graceful stop requested', heartbeat['assign_thread'],
+                  heartbeat['nr_threads'])
 
     for conn in conns:
         try:
@@ -337,7 +348,8 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
 
     die(executable, hostname, pid, heartbeat_thread)
 
-    logging.debug('[broker] %i:%i - graceful stop done' % (heartbeat['assign_thread'], heartbeat['nr_threads']))
+    logging.debug('[broker] %i:%i - graceful stop done', heartbeat['assign_thread'],
+                  heartbeat['nr_threads'])
 
     return
 
