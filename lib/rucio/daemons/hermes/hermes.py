@@ -96,10 +96,10 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
                 msg['Subject'] = message['payload']['subject'].encode('utf-8')
 
                 if send_email:
-                    s = smtplib.SMTP()
-                    s.connect()
-                    s.sendmail(msg['From'], message['payload']['to'], msg.as_string())
-                    s.quit()
+                    smtp = smtplib.SMTP()
+                    smtp.connect()
+                    smtp.sendmail(msg['From'], message['payload']['to'], msg.as_string())
+                    smtp.quit()
 
                 to_delete.append({'id': message['id'],
                                   'created_at': message['created_at'],
@@ -346,7 +346,6 @@ def stop(signum=None, frame=None):
     '''
     Graceful exit.
     '''
-
     GRACEFUL_STOP.set()
 
 
@@ -364,7 +363,7 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
     except:
         raise Exception('Could not load brokers from configuration')
 
-    logging.info('resolving broker dns alias: %s' % brokers_alias)
+    logging.info('resolving broker dns alias: %s', brokers_alias)
 
     brokers_resolved = []
     for broker in brokers_alias:
@@ -391,15 +390,16 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
                                                                          'broker_timeout': broker_timeout,
                                                                          'broker_retry': broker_retry}) for i in xrange(0, threads)]
 
-        for i in xrange(0, 1):
-            thread_list.append(threading.Thread(target=deliver_emails, kwargs={'thread': i,
+        for thrd in xrange(0, 1):
+            thread_list.append(threading.Thread(target=deliver_emails, kwargs={'thread': thrd,
                                                                                'bulk': bulk,
                                                                                'delay': delay}))
 
-        [t.start() for t in thread_list]
+        for thrd in thread_list:
+            thrd.start()
 
         logging.info('waiting for interrupts')
 
         # Interruptible joins require a timeout.
-        while len(thread_list) > 0:
+        while thread_list:
             thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
