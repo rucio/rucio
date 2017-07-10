@@ -149,7 +149,8 @@ class HermesListener(stomp.ConnectionListener):
         logging.error('[broker] %s: On error message %s', self.__broker, body)
 
 
-def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10, broker_timeout=3, broker_retry=3):
+def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10,
+                     broker_timeout=3, broker_retry=3):
     '''
     Main loop to deliver messages to a broker.
     '''
@@ -172,9 +173,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         conn.set_listener('rucio-hermes',
                           HermesListener(conn.transport._Transport__host_and_ports[0]))
 
-        conns.append({'conn': conn,
-                      'use': False,
-                      'retry': 0})  # reconnect safeguard counter
+        conns.append(conn)
     destination = config_get('messaging-hermes', 'destination')
 
     executable = 'hermes [broker]'
@@ -190,42 +189,12 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         try:
             t_start = time.time()
 
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=heartbeat_thread)
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid,
+                             thread=heartbeat_thread)
 
-            for conn in conns:
-
-                if not conn['conn'].is_connected():
-                    host_and_ports = conn['conn'].transport._Transport__host_and_ports[0][0]
-                    logging.info('[broker] %i:%i - connecting to %s', heartbeat['assign_thread'],
-                                 heartbeat['nr_threads'],
-                                 host_and_ports)
-                    record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
-
-                    try:
-                        if conn['retry'] >= broker_retry:
-                            logging.warning('[broker] %i:%i - connection retrials exceeded, skipping this round: %s',
-                                            heartbeat['assign_thread'],
-                                            heartbeat['nr_threads'],
-                                            host_and_ports)
-                            conn['retry'] = 0
-                            conn['use'] = False
-                            continue
-                        else:
-                            conn['conn'].start()
-                            conn['conn'].connect(wait=True)
-                            conn['use'] = True
-                    except stomp.exception.ConnectFailedException:
-                        logging.warning('[broker] %i:%i - connection timeout, retrying: %s',
-                                        heartbeat['assign_thread'],
-                                        heartbeat['nr_threads'],
-                                        host_and_ports)
-                        conn['retry'] += 1
-                        conn['use'] = False
-
-            usable_conns = [conn for conn in conns if conn['use']]
             logging.debug('[broker] %i:%i - using: %s', heartbeat['assign_thread'],
                           heartbeat['nr_threads'],
-                          [uc['conn'].transport._Transport__host_and_ports[0][0] for uc in usable_conns])
+                          [conn.transport._Transport__host_and_ports[0][0] for conn in conns])
 
             messages = retrieve_messages(bulk=bulk,
                                          thread=heartbeat['assign_thread'],
@@ -238,15 +207,21 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                 to_delete = []
                 for message in messages:
                     try:
-                        conn = random.sample(usable_conns, 1)[0]
-                        if not conn['conn'].is_connected():
-                            conn['conn'].start()
-                            conn['conn'].connect(wait=True)
-                        conn['conn'].send(body=json.dumps({'event_type': str(message['event_type']).lower(),
-                                                           'payload': message['payload'],
-                                                           'created_at': str(message['created_at'])}),
-                                          destination=destination,
-                                          headers={'persistent': 'true'})
+                        conn = random.sample(conns, 1)[0]
+                        if not conn.is_connected():
+                            host_and_ports = conn.transport._Transport__host_and_ports[0][0]
+                            record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
+                            logging.info('[broker] %i:%i - connecting to %s',
+                                         heartbeat['assign_thread'],
+                                         heartbeat['nr_threads'],
+                                         host_and_ports)
+                            conn.start()
+                            conn.connect(wait=True)
+                        conn.send(body=json.dumps({'event_type': str(message['event_type']).lower(),
+                                                   'payload': message['payload'],
+                                                   'created_at': str(message['created_at'])}),
+                                  destination=destination,
+                                  headers={'persistent': 'true'})
                         to_delete.append({'id': message['id'],
                                           'created_at': message['created_at'],
                                           'updated_at': message['created_at'],
@@ -264,12 +239,13 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                     except stomp.exception.NotConnectedException, error:
                         logging.warn('Could not deliver message due to NotConnectedException: %s',
                                      str(error))
-                        conn['conn'].disconnect()
+                        conn.disconnect()
                         continue
                     except stomp.exception.ConnectFailedException as error:
                         logging.warn('Could not deliver message due to ConnectFailedException: %s',
                                      str(error))
-                        conn['conn'].disconnect()
+                        # ToDO: remove the broker from the list of usable brokers
+                        conn.disconnect()
                         continue
                     except Exception, error:
                         logging.warn('Could not deliver message: %s', str(error))
@@ -361,7 +337,8 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_timeout=3, broker_retry=3):
+def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_timeout=3,
+        broker_retry=3):
     '''
     Starts up the hermes threads.
     '''
