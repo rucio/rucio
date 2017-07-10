@@ -162,18 +162,18 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
 
     conns = []
     for broker in brokers_resolved:
-        conn = stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
-                                use_ssl=True,
-                                ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
-                                ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
-                                ssl_version=ssl.PROTOCOL_TLSv1,
-                                keepalive=True,
-                                timeout=broker_timeout)
+        con = stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
+                               use_ssl=True,
+                               ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
+                               ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
+                               ssl_version=ssl.PROTOCOL_TLSv1,
+                               keepalive=True,
+                               timeout=broker_timeout)
 
-        conn.set_listener('rucio-hermes',
-                          HermesListener(conn.transport._Transport__host_and_ports[0]))
+        con.set_listener('rucio-hermes',
+                         HermesListener(con.transport._Transport__host_and_ports[0]))
 
-        conns.append(conn)
+        conns.append(con)
     destination = config_get('messaging-hermes', 'destination')
 
     executable = 'hermes [broker]'
