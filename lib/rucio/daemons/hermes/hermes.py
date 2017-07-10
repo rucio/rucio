@@ -251,7 +251,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                         to_delete.append({'id': t['id'],
                                           'created_at': t['created_at'],
                                           'updated_at': t['created_at'],
-                                          'payload': '',
+                                          'payload': str(t['payload']),
                                           'event_type': t['event_type']})
                         continue
                     except stomp.exception.NotConnectedException, e:
