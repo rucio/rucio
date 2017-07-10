@@ -101,7 +101,13 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
                     s.sendmail(msg['From'], t['payload']['to'], msg.as_string())
                     s.quit()
 
-                to_delete.append(t['id'])
+                to_delete.append({'id': t['id'],
+                                  'created_at': t['created_at'],
+                                  'updated_at': t['created_at'],
+                                  'payload': json.dumps(t['payload']),
+                                  'event_type': t['event_type']})
+
+
                 logging.debug('[email] %i:%i - submitting done: %s' % (hb['assign_thread'],
                                                                        hb['nr_threads'],
                                                                        str(t['id'])))
