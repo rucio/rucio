@@ -26,6 +26,7 @@ import requests
 from rucio.api.rse import get_rse, parse_rse_expression, get_rse_usage, list_rse_attributes
 from rucio.api.account import list_accounts
 from rucio.api.account_limit import set_account_limit
+from rucio.api.config import get
 from rucio.db.sqla.session import get_session
 from rucio.common.exception import RucioException, RSENotFound, AccountNotFound
 
@@ -240,15 +241,30 @@ def set_localgroupdisk_quotas(fraction):
             print error
             RESULT = CRITICAL
 
-
 if __name__ == '__main__':
+    try:
+        quota_userdisk = get('quota', 'USERDISK', 'root')
+        quota_userdisk = float(quota_userdisk) / 100
+    except:
+        quota_userdisk = 0.3
+    try:
+        quota_scratchdisk = get('quota', 'SCRATCHDISK', 'root')
+        quota_scratchdisk = float(quota_scratchdisk) / 100
+    except:
+        quota_scratchdisk = 0.3
+    try:
+        quota_localgroupdisk = get('quota', 'SCRATCHDISK', 'root')
+        quota_localgroupdisk = float(quota_localgroupdisk) / 100
+    except:
+        quota_localgroupdisk = 0.95
+
     # For group the quota is set and updated using the AGIS information
     set_group_quotas()
     # For the user area USERDISK and SCRATCHDISK, the quota is created and updated each time the size of the space token change
-    # If the RSEs have the res attribute default_account_limit_bytes set, the value will overwrite the default value (50 % of the space)
-    set_user_quotas('USERDISK', 0.5)
-    set_user_quotas('SCRATCHDISK', 0.5)
+    # If the RSEs have the res attribute default_account_limit_bytes set, the value will overwrite the default value
+    set_user_quotas('USERDISK', quota_userdisk)
+    set_user_quotas('SCRATCHDISK', quota_scratchdisk)
     # For the LOCALGROUPDISK area, the quota is created once but never updated
     # The value set is 95% of the space or default_account_limit_bytes if it is set as RSE attribute
-    set_localgroupdisk_quotas(0.95)
+    set_localgroupdisk_quotas(quota_localgroupdisk)
     sys.exit(RESULT)
