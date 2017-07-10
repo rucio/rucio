@@ -131,7 +131,7 @@ class HermesListener(stomp.ConnectionListener):
     '''
     Hermes Listener
     '''
-    def __init__(self, broker, num_thread):
+    def __init__(self, broker):
         '''
         __init__
         '''
