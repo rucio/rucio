@@ -1,20 +1,24 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2016
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2016
+  - Martin Barisits, <martin.barisits@cern.ch>, 2014
+'''
 
 import json
 import re
 
+from sqlalchemy import or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, text
+
 
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.db.sqla.models import Message, MessageHistory
@@ -30,7 +34,6 @@ def add_message(event_type, payload, session=None):
     :param payload: The message payload. Will be persisted as JSON.
     :param session: The database session to use.
     """
-
     try:
         new_message = Message(event_type=event_type, payload=json.dumps(payload))
     except TypeError, e:
@@ -39,12 +42,12 @@ def add_message(event_type, payload, session=None):
         if re.match('.*ORA-12899.*', e.args[0]) \
            or re.match('.*1406.*', e.args[0]):
             raise RucioException('Could not persist message, payload too large')
-
     new_message.save(session=session, flush=False)
 
 
 @transactional_session
-def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=None, session=None):
+def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=None,
+                      lock=False, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -52,6 +55,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
     :param event_type: Return only specified event_type. If None, returns everything except email.
+    :param lock: Select exclusively some rows.
     :param session: The database session to use.
 
     :returns messages: List of dictionaries {id, created_at, event_type, payload}
@@ -94,23 +98,24 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
 
 
 @transactional_session
-def delete_messages(ids, session=None):
+def delete_messages(messages, session=None):
     """
     Delete all messages with the given IDs, and archive them to the history.
 
-    :param ids: The message IDs, as a list of strings.
+    :param messages: The messages to delete as a list of dictionaries.
     """
+    message_condition = []
+    for message in messages:
+        message_condition.append(Message.id == message['id'])
 
     try:
-        for id in ids:
-            m = session.query(Message).filter_by(id=id).one()
-            m_prime = MessageHistory(id=m['id'],
-                                     created_at=m['created_at'],
-                                     updated_at=m['updated_at'],
-                                     payload=m['payload'],
-                                     event_type=m['event_type'])
-            m_prime.save(session=session)
-            session.query(Message).filter_by(id=id).delete(synchronize_session=False)
+        if message_condition:
+            session.query(Message).\
+                with_hint(Message, "index(messages MESSAGES_ID_PK)", 'oracle').\
+                filter(or_(*message_condition)).\
+                delete(synchronize_session=False)
+
+            session.bulk_insert_mappings(MessageHistory, messages)
     except IntegrityError, e:
         raise RucioException(e.args)
 
