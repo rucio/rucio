@@ -90,12 +90,14 @@ def setup_logger(logger):
     hdlr.emit = emit_decorator(hdlr.emit)
     logger.addHandler(hdlr)
 
+
 setup_logger(logger)
 
 
 def signal_handler(signal, frame):
     logger.warning('You pressed Ctrl+C! Exiting gracefully')
     sys.exit(1)
+
 
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -785,6 +787,7 @@ def list_pfns(args):
             else:
                 print result
     return SUCCESS
+
 
 if __name__ == '__main__':
     usage = """

@@ -25,6 +25,7 @@ def md5_file(filename):
             hash.update(chunk)
     return hash.hexdigest()
 
+
 with open(argv[1], 'r') as f:
     orig_file = f.read()
 

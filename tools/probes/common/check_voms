@@ -102,6 +102,7 @@ def validate_nickname(nickname, email, dn, debug=False):
 
     return True, OK
 
+
 if __name__ == '__main__':
     try:
         proxy = config_get('nagios', 'proxy')

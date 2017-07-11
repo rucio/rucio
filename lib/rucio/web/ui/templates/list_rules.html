@@ -7,7 +7,7 @@
  http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015, 2017
 -->
 
 $var title: Rucio Rule Definition Droid - List Rules
@@ -18,7 +18,7 @@ $var script: <script src="/static/list_rules.js"></script>
   <div id="t_data" class="columns panel">
     <div class="row">
       <div class="large-11 columns">
-        <h4>Rules</h4>
+        <h4>Rules <a href="#" data-reveal-id="infomodal"><i title="Info" class="step fi-info size-24"></i></a></h4>
       </div>
       <div class="large-1 columns">
           <a class="button small postfix" href="/r2d2/request">New request</a>
@@ -96,13 +96,37 @@ $var script: <script src="/static/list_rules.js"></script>
     <div id="loader"></div>
     <div id="results_panel" style="visibility:false;">
       <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
-        <thead><tr><th>Name</th><th>Account</th><th>RSE Expression</th><th>Creation Date</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></thead>
-        <tfoot><tr><th>Name</th><th>Account</th><th>RSE Expression</th><th>Creation Date</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></tfoot>
+        <thead><tr><th>Name</th><th>Account</th><th>RSE Expression</th><th>Creation Date</th><th>Remaining Lifetime</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></thead>
+        <tfoot><tr><th>Name</th><th>Account</th><th>RSE Expression</th><th>Creation Date</th><th>Remaining Lifetime</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></tfoot>
     </table>
     </div>
-    <div id="delete"></div>
+    </br>
+    <div class="row">
+      <div class="large-2 columns">
+        <div id="selectall"></div>
+      </div>
+      <div class="large-9 columns"></div>
+      <div class="large-1 columns">
+        <div id="delete"></div>
+      </div>
+    </div>
     <div id="downloader"></div>
   </div>
 
 </div>
 <div id="problem"></div>
+<div id="infomodal" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+  <h2>Description</h2>
+  <p>This page shows a table of all the rules requested by you. You can pre-filter the results using the fields on the top. If you have a lot of rules this can speed up the listing. The default interval is set to 14 days, i.e., only rules created by you in the last 2 week will be displayed. It is also possible to select a specific time window using the little clock symbol.</p>
+  <p>The resulting table shows you an overview of all your rules including the requested DID, the RSE, creation date, time remaining until this rule will be deleted (if applicable), the current state of the of the rule and the states of the locks (file replicas).
+  <p>To delete a rule you first have to select it by clicking anywhere except the name. Multiple rule can be selected at a time. It is also possible to first filter the rules using the search field and then select only the filtered ones by clicking on "Select all". To then delete the rules click on "Delete rule(s)". There will first be a popup asking for confirmation. Even after confirming, the rules are not directly deleted but rather their lifetime will be set to 1 hour, i.e., if you make a mistake you still have an hour to revert it. Extending the lifetime is possible on the rule detail page when clicking the name.</p>
+  <p>Possible states and their colours:</p>
+  <ul>
+    <li><font color="green">OK</font>: The rule is complete and the DID has been fully transferred.</li>
+    <li><font color="orange">REPLICATING</font>: The rule is currently copying the files.</li>
+    <li><font color="red">STUCK</font>: There has been a problem with the replication, more details can be found by clicking on the DID name.</li>
+    <li><font color="purple">WAITING_APPROVAL</font>: The rule needs approval and is currently still in waiting state.</li>
+    <li><font color="pink">INJECT</font>: The rule has just now been approved will start replicating soon.</li>
+  </ul>
+  <a class="close-reveal-modal" aria-label="Close">&#215;</a>
+</div>
