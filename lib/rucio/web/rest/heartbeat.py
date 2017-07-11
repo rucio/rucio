@@ -47,6 +47,7 @@ class Heartbeat(RucioController):
         return json.dumps(list_heartbeats(issuer=ctx.env.get('issuer')),
                           cls=APIEncoder)
 
+
 """----------------------
    Web service startup
 ----------------------"""

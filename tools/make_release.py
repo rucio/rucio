@@ -45,6 +45,7 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
 
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()

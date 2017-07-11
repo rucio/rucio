@@ -9,7 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import logging
@@ -22,9 +22,9 @@ from sqlalchemy.sql.expression import and_, or_
 
 import rucio.core.rule
 import rucio.core.did
-import rucio.common.policy
 
 from rucio.common.config import config_get
+from rucio.core.lifetime_exception import define_eol
 from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
@@ -283,11 +283,11 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                                                 rse_id=rse_id).save(flush=False, session=session)
 
         # Update the rule state
-        if (rule.state == RuleState.SUSPENDED):
+        if rule.state == RuleState.SUSPENDED:
             pass
-        elif (rule.locks_stuck_cnt > 0):
+        elif rule.locks_stuck_cnt > 0:
             pass
-        elif (rule.locks_replicating_cnt == 0 and rule.state == RuleState.REPLICATING):
+        elif rule.locks_replicating_cnt == 0 and rule.state == RuleState.REPLICATING:
             rule.state = RuleState.OK
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
@@ -382,7 +382,7 @@ def touch_dataset_locks(dataset_locks, session=None):
                 rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
             dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
 
-        eol_at = rucio.common.policy.define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'id': dataset_lock['rse_id']}], session=session)
+        eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'id': dataset_lock['rse_id']}], session=session)
         try:
             session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
                 update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
