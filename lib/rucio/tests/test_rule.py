@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 import string
@@ -27,8 +27,7 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted,
-                                    RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, InputValidationError,
-                                    UnsupportedOperation)
+                                    RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError, UnsupportedOperation)
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
@@ -43,7 +42,7 @@ from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_r
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState
+from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import rse_name_generator, account_name_generator
 
@@ -675,6 +674,9 @@ class TestReplicationRuleCore():
             add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
+        for file in files:
+            for l in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
+                assert(lock['state'] == LockState.STUCK)
 
     def test_delete_rule_country_admin(self):
         """ REPLICATION RULE (CORE): Delete a rule with a country admin account"""
@@ -742,8 +744,11 @@ class TestReplicationRuleCore():
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
-        with assert_raises(ScratchDiskLifetimeConflict):
-            add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression='MOCK|%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        assert(get_rule(rule_id)['expires_at'] is not None)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression='%s' % self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        assert(get_rule(rule_id)['expires_at'] is None)
 
     def test_add_rule_with_auto_approval(self):
         """ REPLICATION RULE (CORE): Add a replication rule with auto approval"""

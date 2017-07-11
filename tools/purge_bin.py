@@ -18,5 +18,6 @@ def purge_bin():
     finally:
         session.remove()
 
+
 if __name__ == "__main__":
     purge_bin()

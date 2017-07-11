@@ -115,7 +115,7 @@ if 'open' in dir(magic):
     _mime.load()
     mimetype = _mime.file
 else:
-    mimetype = lambda filename: magic.from_file(filename, mime=True)
+    mimetype = lambda filename: magic.from_file(filename, mime=True)  # NOQA
 
 
 def isplaintext(filename):

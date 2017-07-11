@@ -56,6 +56,7 @@ class RequestGet(RucioController):
                                                                                                             name,
                                                                                                             rse))
 
+
 """----------------------
    Web service startup
 ----------------------"""

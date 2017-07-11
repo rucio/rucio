@@ -107,6 +107,7 @@ def backend_xsls(fqdn, stats):
     r = requests.post(fqdn, files={'file': xml_str})
     return r.status_code
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Takes backend classes and Apaches URLs')
     parser.add_argument('--backend', metavar='B', type=str, nargs='+', help='a list of type::URL[:port][::scope] to which the script will report to. E.g. --backend graphite::rucio-graphite-int.cern.ch:8025/listen/now::rucio.backends xsls::xsls.cern.ch')
