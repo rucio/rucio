@@ -1349,7 +1349,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
                                      like(v.replace('*', '%')))
             else:
                 query = query.filter(getattr(models.DataIdentifier, k).
-                                     like(v.replace('*', '%'), escape='\\'))
+                                     like(v.replace('*', '%').replace('_', '\_'), escape='\\'))
         elif k == 'created_before':
             created_before = str_to_date(v)
             query = query.filter(models.DataIdentifier.created_at <= created_before)

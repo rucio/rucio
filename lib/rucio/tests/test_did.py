@@ -174,15 +174,15 @@ class TestDIDClients:
             self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, '0cc737eb')
 
         results = []
-        for result in self.did_client.list_dids(tmp_scope, {'name': 'file\_a\_*'}, type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file_a_*'}, type='file'):
             results.append(result)
         assert_equal(len(results), 2)
         results = []
-        for result in self.did_client.list_dids(tmp_scope, {'name': 'file\_a\_1*'}, type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file_a_1*'}, type='file'):
             results.append(result)
         assert_equal(len(results), 1)
         results = []
-        for result in self.did_client.list_dids(tmp_scope, {'name': 'file\__\_1*'}, type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file_*_1*'}, type='file'):
             results.append(result)
         assert_equal(len(results), 2)
         results = []
