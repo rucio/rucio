@@ -38,7 +38,6 @@ ipaddress==1.0.18           # IPv4/IPv6 manipulation library
 oauth2client==4.1.1         # OAuth 2.0 client library
 protobuf==3.3.0             # Protocol Buffers
 grpcio==1.4.0rc1            # Package for gRPC Python.
-pyOpenSSL==17.0.0           # Python wrapper module around the OpenSSL library
 pyasn1==0.2.3
 pyasn1-modules==0.0.9       # A collection of ASN.1-based protocols modules
 pycparser==2.17             # C parser in Python
