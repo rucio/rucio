@@ -44,7 +44,7 @@ from rucio.core.account import get_account
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
-from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse
+from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did, update_requests_priority
 from rucio.core.rse_selector import RSESelector
@@ -2743,6 +2743,28 @@ def __create_rule_approval_email(rule, session=None):
     did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)
     rses = [rep['rse'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
+    # RSE occupancy
+    target_rses = parse_expression(rule.rse_expression, session=session)
+    if len(target_rses) > 1:
+        target_rse = 'Multiple'
+        free_space = 'undefined'
+        free_space_after = 'undefined'
+    else:
+        target_rse = target_rses[0]['rse']
+        free_space = 'undefined'
+        free_space_after = 'undefined'
+
+        try:
+            for usage in get_rse_usage(rse=target_rse, session=session):
+                if usage['source'] == 'storage':
+                    free_space = sizefmt(usage['free'])
+                    if did['bytes'] is None:
+                        free_space_after = 'undefined'
+                    else:
+                        free_space_after = sizefmt(usage['free'] - did['bytes'])
+        except:
+            pass
+
     # Resolve recipents:
     recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
 
@@ -2762,7 +2784,10 @@ def __create_rule_approval_email(rule, session=None):
                                          'closed': not did['open'],
                                          'complete_rses': ', '.join(rses),
                                          'approvers': ','.join([r[0] for r in recipents]),
-                                         'approver': recipent[1]})
+                                         'approver': recipent[1],
+                                         'target_rse': target_rse,
+                                         'free_space': free_space,
+                                         'free_space_after': free_space_after})
 
         add_message(event_type='email',
                     payload={'body': text,
