@@ -153,7 +153,10 @@ if __name__ == '__main__':
                         impl = 'rucio.rse.protocols.gfal.Default'
                     elif o.scheme in ('davs', 'dav'):
                         extended_attributes = None
-                        impl = 'rucio.rse.protocols.gfal.Default'
+                        if rse['is_mkdir'] is True:
+                            impl = 'rucio.rse.protocols.gfalv2.Default'
+                        else:
+                            impl = 'rucio.rse.protocols.gfal.Default'
                     elif o.scheme in ('https', 'http'):
                         extended_attributes = None
                         impl = 'rucio.rse.protocols.gfalv2.Default'
