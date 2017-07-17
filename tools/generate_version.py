@@ -9,6 +9,7 @@
 
 import os
 import subprocess
+import sys
 
 
 def run_git_command(cmd):
@@ -17,8 +18,11 @@ def run_git_command(cmd):
 
 
 if os.path.isdir('.git'):
-    GIT_VERSION_CMD = 'git describe --abbrev=4'
-    GIT_VERSION = run_git_command(GIT_VERSION_CMD)
+    if len(sys.argv) > 1:
+        GIT_VERSION = sys.argv[1]
+    else:
+        GIT_VERSION_CMD = 'git describe --abbrev=4'
+        GIT_VERSION = run_git_command(GIT_VERSION_CMD)
     BRANCH_NICK_CMD = 'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'
     BRANCH_NICK = run_git_command(BRANCH_NICK_CMD)
     REVID_CMD = "git rev-parse HEAD"
