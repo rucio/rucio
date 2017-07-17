@@ -241,6 +241,7 @@ def set_localgroupdisk_quotas(fraction):
             print error
             RESULT = CRITICAL
 
+
 if __name__ == '__main__':
     try:
         quota_userdisk = get('quota', 'USERDISK', 'root')
