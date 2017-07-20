@@ -93,13 +93,11 @@ def trace(payload):
             except stomp.exception.NotConnectedException, error:
                 logging.warn('Could not connect to broker %s, try another one' %
                              conn.transport._Transport__host_and_ports[0][0])
-                conn.disconnect()
                 t_conns.remove(conn)
                 continue
             except stomp.exception.ConnectFailedException as error:
                 logging.warn('Could not connect to broker %s, try another one' %
                              conn.transport._Transport__host_and_ports[0][0])
-                conn.disconnect()
                 t_conns.remove(conn)
                 continue
 
