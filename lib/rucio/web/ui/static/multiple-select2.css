@@ -1,6 +1,5 @@
 .ms-container{
   background: transparent url('switch.png') no-repeat 50% 50%;
-  width: 2000px;
 }
 
 .ms-container:after{

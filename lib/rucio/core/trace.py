@@ -80,12 +80,30 @@ def trace(payload):
     report = json.dumps(payload, default=date_handler)
     LOGGER.debug(report)
 
+    t_conns = CONNS[:]
+
     try:
-        conn = random.sample(CONNS, 1)[0]
-        if not conn.is_connected():
-            logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
-            conn.start()
-            conn.connect(USERNAME, PASSWORD)
-        conn.send(body=report, destination=TOPIC, headers={'persistent': 'true', 'appversion': 'rucio'})
+        for i in xrange(len(t_conns)):
+            try:
+                conn = random.sample(t_conns, 1)[0]
+                if not conn.is_connected():
+                    logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
+                    conn.start()
+                    conn.connect(USERNAME, PASSWORD, wait=True)
+            except stomp.exception.NotConnectedException, error:
+                logging.warn('Could not connect to broker %s, try another one' %
+                             conn.transport._Transport__host_and_ports[0][0])
+                t_conns.remove(conn)
+                continue
+            except stomp.exception.ConnectFailedException as error:
+                logging.warn('Could not connect to broker %s, try another one' %
+                             conn.transport._Transport__host_and_ports[0][0])
+                t_conns.remove(conn)
+                continue
+
+        if conn.is_connected:
+            conn.send(body=report, destination=TOPIC, headers={'persistent': 'true', 'appversion': 'rucio'})
+        else:
+            logging.error("Unable to connect to broker. Could not send trace: %s" % report)
     except Exception, error:
-        ERRLOG.error(error)
+        logging.error(error)

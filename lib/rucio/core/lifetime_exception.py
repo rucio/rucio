@@ -108,7 +108,7 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
                 did_type = did['did_type']
         new_exception = models.LifetimeExceptions(id=exception_id, scope=did['scope'], name=did['name'], did_type=did_type,
                                                   account=account, pattern=pattern, comments=reason, state=LifetimeExceptionsState.WAITING, expires_at=lifetime)
-        if len(text) < 3500:
+        if len(text) < 3000:
             text += '%s %s %s\n' % (str(did_type), did['scope'], did['name'])
         else:
             truncated_message = True
