@@ -363,6 +363,9 @@ def list_file_replicas(args):
     if args.list_collections and len(args.dids) > 1:
         print 'Cannot use --list_collections option with multiple dids'
         return FAILURE
+    if args.link and ':' not in args.link:
+        print 'The substition parameter must equal --link="/pfn/dir:/dst/dir"'
+        return FAILURE
 
     for did in args.dids:
         scope, name = extract_scope(did)
@@ -379,6 +382,29 @@ def list_file_replicas(args):
             if args.selected_rse not in rses:
                 table.append([replica['scope'], replica['name']])
         print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME'])
+    elif args.link:
+        pfn_dir, dst_dir = args.link.split(':')
+        for replica in replicas:
+            if args.selected_rse:
+                if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
+                    for pfn in replica['rses'][args.selected_rse]:
+                        os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+            else:
+                for rse in replica['rses']:
+                    if replica['rses'][rse]:
+                        for pfn in replica['rses'][rse]:
+                            os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+    elif args.pfns:
+        for replica in replicas:
+            if args.selected_rse:
+                if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
+                    for pfn in replica['rses'][args.selected_rse]:
+                        print pfn
+            else:
+                for rse in replica['rses']:
+                    if replica['rses'][rse]:
+                        for pfn in replica['rses'][rse]:
+                            print pfn
     else:
         for replica in replicas:
             if 'bytes' in replica:
@@ -2357,6 +2383,8 @@ Commands:
     list_file_replicas_parser.add_argument('--list-collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site\
         (' + Color.BOLD + 'DEPRECATED: ' + Color.END + 'please use list-dataset-replicas instead.)', required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs', required=False)
+    list_file_replicas_parser.add_argument('--link', dest='link', default=None, action='store', help='Symlink PFNs with directory substitution', required=False)
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE', required=False)
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE.', required=False)
     list_file_replicas_parser.add_argument('--expression', dest='rse_expression', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
