@@ -76,6 +76,18 @@ for src in rses_over_ratio:
         print '  %s' % (src['rse'])
         rses_over_ratio.remove(src)
 
+print 'Excluding RSEs as desetinations which are blacklisted:'
+for des in rses_under_ratio:
+    if des['availability'] != 7:
+        print '  %s' % (des['rse'])
+        rses_under_ratio.remove(des)
+
+print 'Excluding RSEs as sources which are blacklisted:'
+for src in rses_over_ratio:
+    if src['availability'] != 7:
+        print '  %s' % (src['rse'])
+        rses_over_ratio.remove(src)
+
 # Loop over RSEs over the ratio
 for source_rse in rses_over_ratio:
     if source_rse['ratio'] > global_ratio + global_ratio * tolerance:
