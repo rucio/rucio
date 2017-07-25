@@ -11,26 +11,24 @@
 """
 This script is to be used to background rebalance ATLAS t2 datadisks
 """
-
 from sqlalchemy import or_
 
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse import get_rse_usage
-from rucio.core.rse import get_rse_attribute
-from rucio.core.rse import has_rse_attribute
 from rucio.daemons.bb8.common import rebalance_rse
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.constants import RuleState
 
+
 tolerance = 0.1
 max_total_rebalance_volume = 200 * 1E12
 max_rse_rebalance_volume = 20 * 1E12
-min_total = 100 * 1E12
+min_total = 50 * 1E12
 total_rebalance_volume = 0
 
 # Calculate the current ratios
-rses = parse_expression('(datapolicynucleus=0&tier=2)&type=DATADISK')
+rses = parse_expression("datapolicynucleus=0&tier=2&type=DATADISK\\bb8-enabled=0")
 total_primary = 0
 total_secondary = 0
 total_total = 0
@@ -44,18 +42,8 @@ for rse in rses:
     total_secondary += rse['secondary']
     total_total += float(rse['total'])
     rse['receive_volume'] = 0  # Already rebalanced volume in this run
-    # Label the disabled rses
-    if has_rse_attribute(key='bb8-enabled', rse_id=rse['id']):
-        try:
-            rse['bb8-enabled'] = eval(get_rse_attribute(key='bb8-enabled', rse_id=rse['id'])[0])
-            print rse
-        except:
-            rse['bb8-enabled'] = False
-            print 'WARNING: rse: %s has not bb8-enabled attribute set properly.' % rse['rse']
-    else:
-        rse['bb8-enabled'] = True
-global_ratio = float(total_primary) / float(total_total)
 
+global_ratio = float(total_primary) / float(total_total)
 print 'Global ratio: %f' % (global_ratio)
 for rse in sorted(rses, key=lambda k: k['ratio']):
     print '  %s (%f)' % (rse['rse'], rse['ratio'])
@@ -85,30 +73,6 @@ for des in rses_under_ratio:
 print 'Excluding RSEs as sources which are too small by size:'
 for src in rses_over_ratio:
     if src['total'] < min_total:
-        print '  %s' % (src['rse'])
-        rses_over_ratio.remove(src)
-
-print 'Excluding RSEs as desetinations which are disabled for rebalancing:'
-for des in rses_under_ratio:
-    if not des['bb8-enabled']:
-        print '  %s' % (des['rse'])
-        rses_under_ratio.remove(des)
-
-print 'Excluding RSEs as sources which are disabled for rebalancing:'
-for src in rses_over_ratio:
-    if not src['bb8-enabled']:
-        print '  %s' % (src['rse'])
-        rses_over_ratio.remove(src)
-
-print 'Excluding RSEs as desetinations which are blacklisted:'
-for des in rses_under_ratio:
-    if des['availability'] != 7:
-        print '  %s' % (des['rse'])
-        rses_under_ratio.remove(des)
-
-print 'Excluding RSEs as sources which are blacklisted:'
-for src in rses_over_ratio:
-    if src['availability'] != 7:
         print '  %s' % (src['rse'])
         rses_over_ratio.remove(src)
 
