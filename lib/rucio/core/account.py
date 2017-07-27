@@ -8,7 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
@@ -265,5 +265,5 @@ def del_account_attribute(account, key, session=None):
     """
     aid = session.query(models.AccountAttrAssociation).filter_by(key=key, account=account).first()
     if aid is None:
-        raise exception.AccountNotFound('Attribute ({0}) does not exist for the account {0}!'.format(key, account))
+        raise exception.AccountNotFound('Attribute ({0}) does not exist for the account {1}!'.format(key, account))
     aid.delete(session=session)
