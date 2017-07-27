@@ -217,13 +217,6 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                     logging.warning('Reaper %s-%s: %s', worker_number, child_number, err_msg)
                                     replica['pfn'] = None
 
-                                add_message('deletion-planned', {'scope': replica['scope'],
-                                                                 'name': replica['name'],
-                                                                 'file-size': replica['bytes'],
-                                                                 'bytes': replica['bytes'],
-                                                                 'url': replica['pfn'],
-                                                                 'rse': rse_info['rse']})
-
                             monitor.record_counter(counters='reaper.deletion.being_deleted', delta=len(files))
 
                             try:
