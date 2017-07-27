@@ -1,16 +1,15 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - David Cameron <david.cameron@cern.ch>, 2014
+"""
+ Copyright European Organization for Nuclear Research (CERN)
 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
 
-from rucio.rse.protocols import protocol
-from rucio.common.exception import FileAlreadyExists, ServiceUnavailable, SourceNotFound
+ Authors:
+ - David Cameron <david.cameron@cern.ch>, 2014
+ - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+"""
 
 import errno
 import os
@@ -19,6 +18,9 @@ try:
     import arc
 except:
     pass
+
+from rucio.rse.protocols import protocol
+from rucio.common.exception import FileAlreadyExists, ServiceUnavailable, SourceNotFound
 
 
 class DataPoint:
@@ -55,7 +57,7 @@ class Default(protocol.RSEProtocol):
 
         self.cfg = arc.UserConfig()
         try:
-            self.cfg.ProxyPath(str(os.getenv['X509_USER_PROXY']))
+            self.cfg.ProxyPath(str(os.getenv(['X509_USER_PROXY'])))
         except:
             pass
 
