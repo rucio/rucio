@@ -1557,25 +1557,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
 
 
 @transactional_session
-def delete_duplicate_updated_dids(scope, name, rule_evaluation_action, id, session=None):
-    """
-    Delete all the duplicate scope, name, rule_evaluation entries but the one specified by id.
-
-    :param scope:                   Scope of the duplicate rows.
-    :param name:                    Name of the duplicate rows.
-    :param rule_evaluation_action:  Rule evaluation action of the duplicate rows.
-    :param id:                      Id of the row not to delete.
-    :param session:                 The database session in use.
-    """
-    session.query(models.UpdatedDID).filter(models.UpdatedDID.scope == scope,
-                                            models.UpdatedDID.name == name,
-                                            models.UpdatedDID.rule_evaluation_action == rule_evaluation_action,
-                                            models.UpdatedDID.created_at < datetime.utcnow() - timedelta(seconds=60),
-                                            models.UpdatedDID.id != id).delete(synchronize_session=False)
-
-
-@transactional_session
-def delete_updated_did(id, scope, name, session=None):
+def delete_updated_did(id, session=None):
     """
     Delete an updated_did by id.
 
