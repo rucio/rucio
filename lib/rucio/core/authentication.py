@@ -1,17 +1,17 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
-# - Thomas Beermann, <thomas.beermann@cern.ch>. 2017
-
 """
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
+  - Thomas Beermann, <thomas.beermann@cern.ch>. 2017
+
 Core authentication
 """
 
@@ -197,7 +197,8 @@ def validate_auth_token(token):
 @read_session
 def query_token(token, session=None):
     """
-    Validate an authentication token using the database. This method will only be called if no entry could be found in the according cache.
+    Validate an authentication token using the database. This method will only be called
+    if no entry could be found in the according cache.
 
     :param token: Authentication token as a variable-length string.
     :param session: The database session in use.
@@ -205,7 +206,14 @@ def query_token(token, session=None):
     :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
     """
     # Query the DB to validate token
-    ret = session.query(models.Token.account, models.Token.expired_at).filter(models.Token.token == token, models.Token.expired_at > datetime.datetime.utcnow()).all()
+    ret = session.query(models.Token.account,
+                        models.Token.identity,
+                        models.Token.expired_at).\
+        filter(models.Token.token == token,
+               models.Token.expired_at > datetime.datetime.utcnow()).\
+        all()
     if ret:
-        return {'account': ret[0][0], 'lifetime': ret[0][1]}
+        return {'account': ret[0][0],
+                'lifetime': ret[0][1],
+                'identity': ret[0][1]}
     return None
