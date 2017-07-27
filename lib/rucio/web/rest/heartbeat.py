@@ -1,12 +1,15 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+'''
 
 import json
 
@@ -16,7 +19,7 @@ from web import application, ctx, loadhook, header
 
 from rucio.api.heartbeat import list_heartbeats
 from rucio.common.utils import APIEncoder
-from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrAPPer
+from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
 
 
 LOGGER = getLogger("rucio.heartbeat")
@@ -30,7 +33,7 @@ URLS = ('', 'Heartbeat')
 class Heartbeat(RucioController):
     """ REST API for Heartbeats. """
 
-    @exception_wrAPPer
+    @exception_wrapper
     def GET(self):
         """
         List all heartbeats.
