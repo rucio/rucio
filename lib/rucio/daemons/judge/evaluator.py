@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 
@@ -31,7 +31,7 @@ from sqlalchemy.orm.exc import FlushError
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did, delete_duplicate_updated_dids
+from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
 from rucio.core.monitor import record_counter
 
 graceful_stop = threading.Event()
@@ -83,13 +83,11 @@ def re_evaluator(once=False):
                     if graceful_stop.is_set():
                         break
 
-                    # Try to delete all duplicate dids
-                    delete_duplicate_updated_dids(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action, id=did.id)
-
                     # Check if this did has already been operated on
                     if '%s:%s' % (did.scope, did.name) in done_dids:
                         if did.rule_evaluation_action in done_dids['%s:%s' % (did.scope, did.name)]:
                             logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s already done' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name))
+                            delete_updated_did(id=did.id)
                             continue
                     else:
                         done_dids['%s:%s' % (did.scope, did.name)] = []
@@ -98,10 +96,10 @@ def re_evaluator(once=False):
                         start_time = time.time()
                         re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
                         logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name, time.time() - start_time))
-                        delete_updated_did(id=did.id, scope=did.scope, name=did.name)
+                        delete_updated_did(id=did.id)
                         done_dids['%s:%s' % (did.scope, did.name)].append(did.rule_evaluation_action)
                     except DataIdentifierNotFound, e:
-                        delete_updated_did(id=did.id, scope=did.scope, name=did.name)
+                        delete_updated_did(id=did.id)
                     except (DatabaseException, DatabaseError), e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_dids[(did.scope, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
