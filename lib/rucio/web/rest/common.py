@@ -57,6 +57,7 @@ def rucio_loadhook():
 
     # Propagate the issuer, request_id and start_time to the controller
     ctx.env['issuer'] = auth.get('account')
+    ctx.env['identity'] = auth.get('identity')
     ctx.env['request_id'] = generate_uuid()
     ctx.env['start_time'] = time()
 
