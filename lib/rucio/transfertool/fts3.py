@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 
@@ -29,7 +29,7 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.db.sqla.constants import FTSState
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
-requests.packages.urllib3.disable_warnings()
+requests.packages.urllib3.disable_warnings()  # pylint: disable=no-member
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
