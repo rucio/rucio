@@ -110,14 +110,15 @@ CHUNK_SIZE = 4194304  # 4MiB
 
 # There are two Python modules with the name `magic`, luckily both do
 # the same thing.
-#pylint: disable=no-member
+# pylint: disable=no-member
 if 'open' in dir(magic):
     _mime = magic.open(magic.MAGIC_MIME)
     _mime.load()
     mimetype = _mime.file
 else:
     mimetype = lambda filename: magic.from_file(filename, mime=True)  # NOQA
-#pylint: enable=no-member
+# pylint: enable=no-member
+
 
 def isplaintext(filename):
     '''
