@@ -11,6 +11,7 @@
 import logging
 from operator import itemgetter
 
+from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.did import get_did
 from rucio.core.replica import list_dataset_replicas
@@ -28,7 +29,7 @@ class PlacementAlgorithm:
     """
     def __init__(self):
         self._fsc = FreeSpaceCollector()
-        self._dc = DatasetCache()
+        self._dc = DatasetCache(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), timeout=86400)
 
         rse_expr = "tier=2&type=DATADISK"
         rse_attrs = parse_expression(rse_expr)
