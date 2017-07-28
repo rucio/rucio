@@ -33,7 +33,7 @@ from sqlalchemy.orm.exc import NoResultFound
 import dns.resolver
 import stomp
 
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
@@ -59,6 +59,7 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
     hostname = socket.getfqdn()
     pid = os.getpid()
     heartbeat_thread = threading.current_thread()
+
     sanity_check(executable=executable, hostname=hostname)
 
     # Make an initial heartbeat so that all daemons have the correct worker number on the next try
@@ -144,9 +145,9 @@ class HermesListener(stomp.ConnectionListener):
 
     def on_error(self, headers, body):
         '''
-        On_error handler
+        Error handler
         '''
-        logging.error('[broker] %s: On error message %s', self.__broker, body)
+        logging.error('[broker] [%s]: %s', self.__broker, body)
 
 
 def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10,
@@ -160,15 +161,35 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         logging.fatal('No brokers resolved.')
         return
 
+    logging.info('[broker] checking authentication method')
+    use_ssl = True
+    try:
+        use_ssl = config_get_bool('messaging-hermes', 'use_ssl')
+    except:
+        logging.info('[broker] could not find use_ssl in configuration -- please update your rucio.cfg')
+
+    port = config_get_int('messaging-hermes', 'port')
+    if not use_ssl:
+        username = config_get('messaging-hermes', 'username')
+        password = config_get('messaging-hermes', 'password')
+        port = config_get_int('messaging-hermes', 'nonssl_port')
+
     conns = []
     for broker in brokers_resolved:
-        con = stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
-                               use_ssl=True,
-                               ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
-                               ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
-                               ssl_version=ssl.PROTOCOL_TLSv1,
-                               keepalive=True,
-                               timeout=broker_timeout)
+        if not use_ssl:
+            logging.info('[broker] setting up username/password authentication: %s' % broker)
+            con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                     keepalive=True,
+                                     timeout=broker_timeout)
+        else:
+            logging.info('[broker] setting up ssl cert/key authentication: %s' % broker)
+            con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                     use_ssl=True,
+                                     ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
+                                     ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
+                                     ssl_version=ssl.PROTOCOL_TLSv1,
+                                     keepalive=True,
+                                     timeout=broker_timeout)
 
         con.set_listener('rucio-hermes',
                          HermesListener(con.transport._Transport__host_and_ports[0]))
@@ -180,9 +201,9 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
     hostname = socket.getfqdn()
     pid = os.getpid()
     heartbeat_thread = threading.current_thread()
+
     # Make an initial heartbeat so that all daemons have the correct worker number on the next try
     sanity_check(executable=executable, hostname=hostname, pid=pid, thread=heartbeat_thread)
-
     GRACEFUL_STOP.wait(1)
 
     while not GRACEFUL_STOP.is_set():
@@ -200,7 +221,8 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                          thread=heartbeat['assign_thread'],
                                          total_threads=heartbeat['nr_threads'])
 
-            if messages != []:
+            if messages:
+
                 logging.debug('[broker] %i:%i - retrieved %i messages',
                               heartbeat['assign_thread'], heartbeat['nr_threads'],
                               len(messages))
@@ -211,12 +233,19 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                         if not conn.is_connected():
                             host_and_ports = conn.transport._Transport__host_and_ports[0][0]
                             record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
-                            logging.info('[broker] %i:%i - connecting to %s',
-                                         heartbeat['assign_thread'],
-                                         heartbeat['nr_threads'],
-                                         host_and_ports)
                             conn.start()
-                            conn.connect(wait=True)
+                            if not use_ssl:
+                                logging.info('[broker] %i:%i - connecting with USERPASS to %s',
+                                             heartbeat['assign_thread'],
+                                             heartbeat['nr_threads'],
+                                             host_and_ports)
+                                conn.connect(username, password, wait=True)
+                            else:
+                                logging.info('[broker] %i:%i - connecting with SSL to %s',
+                                             heartbeat['assign_thread'],
+                                             heartbeat['nr_threads'],
+                                             host_and_ports)
+                                conn.connect(wait=True)
                         conn.send(body=json.dumps({'event_type': str(message['event_type']).lower(),
                                                    'payload': message['payload'],
                                                    'created_at': str(message['created_at'])}),
@@ -236,18 +265,15 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                           'payload': str(message['payload']),
                                           'event_type': message['event_type']})
                         continue
-                    except stomp.exception.NotConnectedException, error:
+                    except stomp.exception.NotConnectedException as error:
                         logging.warn('Could not deliver message due to NotConnectedException: %s',
                                      str(error))
-                        conn.disconnect()
                         continue
                     except stomp.exception.ConnectFailedException as error:
                         logging.warn('Could not deliver message due to ConnectFailedException: %s',
                                      str(error))
-                        # ToDO: remove the broker from the list of usable brokers
-                        conn.disconnect()
                         continue
-                    except Exception, error:
+                    except Exception as error:
                         logging.warn('Could not deliver message: %s', str(error))
                         logging.critical(traceback.format_exc())
                         continue
@@ -313,27 +339,20 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                           heartbeat['assign_thread'], heartbeat['nr_threads'], t_delay)
         time.sleep(t_delay)
 
-    logging.debug('[broker] %i:%i - graceful stop requested', heartbeat['assign_thread'],
-                  heartbeat['nr_threads'])
-
-    for conn in conns:
-        try:
-            conn.disconnect()
-        except:
-            pass
+    logging.debug('[broker] %i:%i - graceful stop requested',
+                  heartbeat['assign_thread'], heartbeat['nr_threads'])
 
     die(executable, hostname, pid, heartbeat_thread)
 
     logging.debug('[broker] %i:%i - graceful stop done', heartbeat['assign_thread'],
                   heartbeat['nr_threads'])
 
-    return
-
 
 def stop(signum=None, frame=None):
     '''
     Graceful exit.
     '''
+    logging.info('Caught CTRL-C - waiting for cycle to end before shutting down')
     GRACEFUL_STOP.set()
 
 
@@ -367,8 +386,12 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
 
     if once:
         logging.info('executing one hermes iteration only')
-        deliver_messages(once=once, brokers_resolved=brokers_resolved, bulk=bulk, delay=delay, broker_timeout=broker_timeout, broker_retry=broker_retry)
-        deliver_emails(once=once, send_email=send_email, bulk=bulk, delay=delay)
+        deliver_messages(once=once,
+                         brokers_resolved=brokers_resolved,
+                         bulk=bulk, delay=delay,
+                         broker_timeout=broker_timeout, broker_retry=broker_retry)
+        deliver_emails(once=once,
+                       send_email=send_email, bulk=bulk, delay=delay)
 
     else:
         logging.info('starting hermes threads')

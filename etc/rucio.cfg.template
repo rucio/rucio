@@ -74,7 +74,11 @@ brokers = dashb-test-mb.cern.ch
 voname = atlas
 
 [messaging-hermes]
-port = 61123
+username = ____
+password = ____
+port = 61023
+nonssl_port = 61013
+use_ssl = True
 ssl_key_file = /etc/grid-security/hostkey.pem
 ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/rucio.events
