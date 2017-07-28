@@ -1,16 +1,18 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+"""
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+ - Martin Barisits, <martin.barisits@cern.ch>, 2012
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+"""
 
 import datetime
 import re
@@ -66,15 +68,15 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
                                            retroactive=retroactive, policyid=priority, comments=comments)
     try:
         new_subscription.save(session=session)
-    except IntegrityError, e:
-        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_PK.*violated.*', e.args[0])\
-           or re.match(".*IntegrityError.*UNIQUE constraint failed: subscriptions.name, subscriptions.account.*", e.args[0])\
-           or re.match(".*columns name, account are not unique.*", e.args[0])\
-           or re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_NAME_ACCOUNT_UQ.*violated.*', e.args[0])\
-           or re.match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \
-           or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
+    except IntegrityError as error:
+        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_PK.*violated.*', error.args[0])\
+           or re.match(".*IntegrityError.*UNIQUE constraint failed: subscriptions.name, subscriptions.account.*", error.args[0])\
+           or re.match(".*columns name, account are not unique.*", error.args[0])\
+           or re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_NAME_ACCOUNT_UQ.*violated.*', error.args[0])\
+           or re.match('.*IntegrityError.*1062.*Duplicate entry.*', error.args[0]) \
+           or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
-        raise RucioException(e.args)
+        raise RucioException(error.args)
     return new_subscription.id
 
 
@@ -132,8 +134,8 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
         rowcount = session.query(models.Subscription).filter_by(account=account, name=name).update(values)
         if rowcount == 0:
             raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
 
 @stream_session
@@ -159,16 +161,16 @@ def list_subscriptions(name=None, account=None, state=None, session=None):
             query = query.filter_by(account=account)
         if state:
             query = query.filter_by(state=state)
-    except IntegrityError, e:
-        print e
+    except IntegrityError as error:
+        print error
         raise
-    d = {}
+    result = {}
     for row in query:
-        d = {}
+        result = {}
         for column in row.__table__.columns:
-            d[column.name] = getattr(row, column.name)
-        yield d
-    if d == {}:
+            result[column.name] = getattr(row, column.name)
+        yield result
+    if result == {}:
         raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
 
 
@@ -192,46 +194,23 @@ def list_subscription_rule_states(name=None, account=None, session=None):
     :param session: The database session in use.
     :returns: List with tuple (account, name, state, count)
     """
-    s = aliased(models.Subscription)
-    r = aliased(models.ReplicationRule)
-    query = session.query(s.account, s.name, r.state, func.count()).join(r, s.id == r.subscription_id)
+    subscription = aliased(models.Subscription)
+    rule = aliased(models.ReplicationRule)
+    query = session.query(subscription.account, subscription.name, rule.state, func.count()).join(rule, subscription.id == rule.subscription_id)
 
     try:
         if name:
-            query = query.filter(s.name == name)
+            query = query.filter(subscription.name == name)
         if account:
-            query = query.filter(s.account == account)
-    except IntegrityError, e:
-        print e
+            query = query.filter(subscription.account == account)
+    except IntegrityError as error:
+        print error
         raise
 
-    query = query.group_by(s.account, s.name, r.state)
+    query = query.group_by(subscription.account, subscription.name, rule.state)
 
     for row in query:
         yield row
-
-
-class SubscriptionPolicy():
-    """
-    Abstract class for advanced subscription policies; Each time a subscription with a set subscription policy is called the specifically designed process function is called to return the replication_rules and transfer_requests for the input dataset/file
-    """
-
-    def process(lfn, dsn, meta_data):
-        """
-        Specifically selects and returns the replication_rules and transfer_requests
-
-        :param lfn: Logical file name
-        :type lfn:  String
-        :param dsn: Dataset name the file belongs to
-        :type dsn:  String
-        :param meta_data: Meta data dictionary of this file
-        :type meta_data:  Dict
-        :returns: Tuple holding the List of replication_rules and List of transfer_requests: (replication_rules, transfer_requests)
-                  **Example**: ``([(1, 'T1-DATADISKS', True, True), (3, 'T2-DATADISKS', False, False)], [(1, 'T1-DATADISKS', True), (2, 'T2-DATADISKS', False)])``
-        :rtype:   List
-        """
-
-        raise NotImplementedError
 
 
 @read_session
@@ -246,10 +225,10 @@ def get_subscription_by_id(subscription_id, session=None):
 
     try:
         subscription = session.query(models.Subscription).filter_by(id=subscription_id).one()
-        d = {}
+        result = {}
         for column in subscription.__table__.columns:
-            d[column.name] = getattr(subscription, column.name)
-        return d
+            result[column.name] = getattr(subscription, column.name)
+        return result
 
     except NoResultFound:
         raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
