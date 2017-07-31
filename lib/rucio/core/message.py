@@ -8,7 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2016
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
 '''
 
@@ -34,6 +34,7 @@ def add_message(event_type, payload, session=None):
     :param payload: The message payload. Will be persisted as JSON.
     :param session: The database session to use.
     """
+
     try:
         new_message = Message(event_type=event_type, payload=json.dumps(payload))
     except TypeError, e:
@@ -77,14 +78,26 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
         else:
             subquery = subquery.filter(Message.event_type != 'email')
 
-        subquery = subquery.order_by(Message.created_at).limit(bulk)
+        # Step 1:
+        # MySQL does not support limits in nested queries, limit on the outer query instead.
+        # This is not as performant, but the best we can get from MySQL.
+        if session.bind.dialect.name == 'mysql':
+            subquery = subquery.order_by(Message.created_at)
+        else:
+            subquery = subquery.order_by(Message.created_at).limit(bulk)
 
         query = session.query(Message.id,
                               Message.created_at,
                               Message.event_type,
                               Message.payload)\
-            .filter(Message.id.in_(subquery)).\
-            with_for_update(nowait=True)
+            .filter(Message.id.in_(subquery))\
+            .with_for_update(nowait=True)
+
+        # Step 2:
+        # MySQL does not support limits in nested queries, limit on the outer query instead.
+        # This is not as performant, but the best we can get from MySQL.
+        if session.bind.dialect.name == 'mysql':
+            query = query.limit(bulk)
 
         for id, created_at, event_type, payload in query:
             messages.append({'id': id,
