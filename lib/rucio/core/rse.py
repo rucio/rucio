@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
@@ -646,8 +646,8 @@ def add_protocol(rse, parameter, session=None):
         new_protocol.save(session=session)
     except (IntegrityError, FlushError, OperationalError) as e:
         if ('UNIQUE constraint failed' in e.args[0]) or ('conflicts with persistent instance' in e.args[0]) \
-           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', e.args[0]):
-
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', e.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
         elif 'may not be NULL' in e.args[0] \
              or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', e.args[0]) \
