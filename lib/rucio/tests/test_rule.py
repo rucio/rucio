@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
@@ -546,16 +546,15 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when account limit conflict"""
 
         scope = 'mock'
-        files = create_files(3, scope, self.rse1, bytes=100)
+        files = create_files(3, scope, self.rse3, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
-        set_account_limit(account='jdoe', rse_id=self.rse1_id, bytes=5)
+        set_account_limit(account='jdoe', rse_id=self.rse3_id, bytes=5)
 
-        assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-
-        set_account_limit(account='jdoe', rse_id=self.rse1_id, bytes=-1)
+        assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        set_account_limit(account='jdoe', rse_id=self.rse3_id, bytes=-1)
 
     def test_dataset_callback(self):
         """ REPLICATION RULE (CORE): Test dataset callback"""

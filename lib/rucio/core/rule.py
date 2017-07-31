@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
 
 import logging
@@ -1360,9 +1360,9 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
                           bindparam('total_workers', total_workers)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         fetched_dids = query.order_by(models.UpdatedDID.created_at).limit(limit).all()
@@ -1403,9 +1403,9 @@ def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
     return [rule for rule in query.all()]
 
 
