@@ -11,7 +11,7 @@
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
  - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
- - Martin Barisits, <martin.barisits@cern.ch>, 2013
+ - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
  - Wen Guan, <wen.guan@cern.ch>, 2015
@@ -558,7 +558,7 @@ class TestRSEClient(object):
         resp = mgr.get_rse_info(protocol_rse)
         for r in resp['protocols']:
             if r['port'] == 17:
-                self.client.delete_rse(protocol_rse, protocol_id)
+                self.client.delete_protocols(protocol_rse, protocol_id)
                 self.client.delete_rse(protocol_rse)
                 raise Exception('Protocols not deleted. Remaining: %s' % resp)
         self.client.delete_protocols(protocol_rse, protocol_id)
