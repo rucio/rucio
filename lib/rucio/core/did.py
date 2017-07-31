@@ -8,7 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
@@ -79,9 +79,9 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
             bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
         elif session.bind.dialect.name == 'sqlite':
             row_count = 0
             dids = list()
@@ -764,9 +764,9 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
             bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_threads - 1, thread))
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
     row_count = 0
     for chunk in query.yield_per(10):

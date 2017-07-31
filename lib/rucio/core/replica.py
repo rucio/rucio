@@ -10,7 +10,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015, 2017
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
   - Wen Guan, <wen.guan@cern.ch>, 2015
@@ -189,9 +189,9 @@ def list_bad_replicas_history(limit=10000, thread=None, total_threads=None, sess
             bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_threads - 1, thread))
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
     query = query.limit(limit)
 
@@ -473,9 +473,9 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
             bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_threads - 1, thread))
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
     query = query.limit(limit)
     rows = []
@@ -1245,9 +1245,9 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
             bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
 
     needed_space = bytes
     total_bytes, total_files = 0, 0
