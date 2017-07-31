@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
 
 from paste.fixture import TestApp
 from random import choice
@@ -60,7 +61,7 @@ def create_accounts(account_list, user_type):
     """
     for account in account_list:
         try:
-            add_account(account, user_type)
+            add_account(account, user_type, email=None)
         except exception.Duplicate:
             pass  # Account already exists, no need to create it
 

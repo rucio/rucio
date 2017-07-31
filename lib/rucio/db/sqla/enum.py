@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 '''
 Class to handle enum type with sqlachelmy.
@@ -45,7 +46,7 @@ class EnumSymbol(object):
 class EnumMeta(type):
     """Generate new DeclEnum classes."""
 
-    def __init__(cls, classname, bases, dict_):
+    def __init__(cls, classname, bases, dict_):  # pylint: disable=E0101
         cls._reg = reg = cls._reg.copy()
         cls._syms = syms = cls._syms.copy()
         for k, v in dict_.items():
