@@ -7,7 +7,7 @@
 
   Authors:
   - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
   - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2016
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
   - Wen Guan, <wen.guan@cern.ch>, 2016
@@ -87,6 +87,28 @@ def mysql_ping_listener(dbapi_conn, connection_rec, connection_proxy):
             raise
 
 
+def mysql_convert_decimal_to_float(dbapi_conn, connection_rec):
+    """
+    The default datatype returned by mysql-python for numerics is decimal.Decimal.
+    This type cannot be serialised to JSON, therefore we need to autoconvert to floats.
+    Even worse, there's two types of decimals created by the MySQLdb driver, so we must
+    override both.
+
+    :param dbapi_conn: DBAPI connection
+    :param connection_rec: connection record
+    """
+
+    try:
+        import MySQLdb.converters  # pylint: disable=import-error
+        from MySQLdb.constants import FIELD_TYPE  # pylint: disable=import-error
+    except:
+        raise RucioException('Trying to use MySQL without mysql-python installed!')
+    conv = MySQLdb.converters.conversions.copy()
+    conv[FIELD_TYPE.DECIMAL] = float
+    conv[FIELD_TYPE.NEWDECIMAL] = float
+    dbapi_conn.converter = conv
+
+
 def my_on_connect(dbapi_con, connection_record):
     """ Adds information to track performance and ressource by module.
         Info are recorded in the V$SESSION and V$SQLAREA views.
@@ -117,6 +139,7 @@ def get_engine(echo=True):
         _ENGINE = create_engine(sql_connection, **params)
         if 'mysql' in sql_connection:
             event.listen(_ENGINE, 'checkout', mysql_ping_listener)
+            event.listen(_ENGINE, 'connect', mysql_convert_decimal_to_float)
         elif 'sqlite' in sql_connection:
             event.listen(_ENGINE, 'connect', _fk_pragma_on_connect)
         elif 'oracle' in sql_connection:
