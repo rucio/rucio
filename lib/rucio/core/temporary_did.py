@@ -8,6 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 """
 
 from datetime import datetime
@@ -142,9 +143,9 @@ def list_expired_temporary_dids(rse, limit, worker_number=None, total_workers=No
             bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(path))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter(text('mod(abs((\'x\'||md5(path))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
 
     return [{'path': path,
              'rse': rse,
