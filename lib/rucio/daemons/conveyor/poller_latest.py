@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -27,9 +28,8 @@ import traceback
 from requests.exceptions import RequestException
 
 from rucio.common.config import config_get
-from rucio.core import request, heartbeat
+from rucio.core import heartbeat, transfer, request
 from rucio.core.monitor import record_timer, record_counter
-from rucio.daemons.conveyor import common
 from rucio.db.sqla.constants import FTSState
 
 
@@ -70,7 +70,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                 resps = None
                 state = [str(FTSState.FINISHED), str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY), str(FTSState.CANCELED)]
                 try:
-                    resps = request.query_latest(external_host, state=state, last_nhours=last_nhours)
+                    resps = transfer.query_latest(external_host, state=state, last_nhours=last_nhours)
                 except:
                     logging.error(traceback.format_exc())
                 record_timer('daemons.conveyor.poller_latest.000-query_latest', (time.time() - ts) * 1000)
@@ -86,7 +86,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
 
                 for resp in resps:
                     try:
-                        ret = common.update_request_state(resp)
+                        ret = request.update_request_state(resp)
                         # if True, really update request content; if False, only touch request
                         record_counter('daemons.conveyor.poller_latest.update_request_state.%s' % ret)
                     except:

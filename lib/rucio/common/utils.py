@@ -30,6 +30,7 @@ from urllib import urlencode, quote
 from uuid import uuid4 as uuid
 
 from rucio.common.config import config_get
+from rucio.db.sqla.constants import RequestState, RequestErrMsg
 
 try:
     # Hack for the client distribution
@@ -500,6 +501,23 @@ def is_archive(name):
     if re.match(regexp, name, re.I):
         return True
     return False
+
+
+def get_transfer_error(state, reason=None):
+    err_msg = None
+    if state in [RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]:
+        err_msg = '%s:%s' % (RequestErrMsg.NO_SOURCES, state)
+    elif state in [RequestState.SUBMISSION_FAILED]:
+        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, state)
+    elif state in [RequestState.SUBMITTING]:
+        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, "Too long time in submitting state")
+    elif state in [RequestState.LOST]:
+        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, "Transfer job on FTS is lost")
+    elif state in [RequestState.FAILED]:
+        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, reason)
+    elif state in [RequestState.MISMATCH_SCHEME]:
+        err_msg = '%s:%s' % (RequestErrMsg.MISMATCH_SCHEME, state)
+    return err_msg
 
 
 class Color:

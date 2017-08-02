@@ -11,6 +11,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beerman@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 """
 Conveyor stager is a daemon to manage stagein file transfers.
@@ -31,7 +32,10 @@ from threadpool import ThreadPool, makeRequests
 from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
-from rucio.daemons.conveyor.utils import get_rses, get_stagein_transfers, bulk_group_transfer, submit_transfer
+from rucio.core.request import set_requests_state
+from rucio.core.staging import get_stagein_requests_and_source_replicas
+from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses
+from rucio.db.sqla.constants import RequestState
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -40,10 +44,10 @@ logging.basicConfig(stream=sys.stdout,
 GRACEFULSTOP = threading.Event()
 
 
-def submitter(once=False, rses=[], mock=False,
-              process=0, total_processes=1, thread=0, total_threads=1,
-              bulk=100, group_bulk=1, group_policy='rule', fts_source_strategy='auto',
-              activities=None, sleep_time=600, retry_other_fts=False):
+def stager(once=False, rses=[], mock=False,
+           process=0, total_processes=1, thread=0, total_threads=1,
+           bulk=100, group_bulk=1, group_policy='rule', fts_source_strategy='auto',
+           activities=None, sleep_time=600, retry_other_fts=False):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -100,7 +104,7 @@ def submitter(once=False, rses=[], mock=False,
             if not sleeping:
                 sleeping = True
                 hb = heartbeat.live(executable, hostname, pid, hb_thread)
-                logging.info('Transfer submitter - thread (%i/%i) bulk (%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
+                logging.info('Stager - thread (%i/%i) bulk (%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
 
             if activities is None:
                 activities = [None]
@@ -117,8 +121,18 @@ def submitter(once=False, rses=[], mock=False,
 
                 logging.info("%s:%s Starting to get stagein transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
-                transfers = get_stagein_transfers(process=process, total_processes=total_processes, thread=hb['assign_thread'], total_threads=hb['nr_threads'], failover_schemes=failover_scheme,
-                                                  limit=bulk, activity=activity, rses=rse_ids, mock=mock, schemes=scheme, bring_online=bring_online, retry_other_fts=retry_other_fts)
+                transfers = __get_stagein_transfers(process=process,
+                                                    total_processes=total_processes,
+                                                    thread=hb['assign_thread'],
+                                                    total_threads=hb['nr_threads'],
+                                                    failover_schemes=failover_scheme,
+                                                    limit=bulk,
+                                                    activity=activity,
+                                                    rses=rse_ids,
+                                                    mock=mock,
+                                                    schemes=scheme,
+                                                    bring_online=bring_online,
+                                                    retry_other_fts=retry_other_fts)
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.stager.get_stagein_transfers', len(transfers))
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', len(transfers))
@@ -179,7 +193,7 @@ def run(once=False,
 
     working_rses = None
     if rses or include_rses or exclude_rses:
-        working_rses = get_rses(rses, include_rses, exclude_rses)
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses)
         logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s" % (rses,
                                                                             include_rses,
                                                                             exclude_rses))
@@ -187,31 +201,31 @@ def run(once=False,
         logging.info("RSE selection: automatic")
 
     if once:
-        logging.info('executing one submitter iteration only')
-        submitter(once,
-                  rses=working_rses,
-                  mock=mock,
-                  bulk=bulk,
-                  group_bulk=group_bulk,
-                  group_policy=group_policy,
-                  fts_source_strategy=fts_source_strategy,
-                  activities=activities,
-                  retry_other_fts=retry_other_fts)
+        logging.info('executing one stager iteration only')
+        stager(once,
+               rses=working_rses,
+               mock=mock,
+               bulk=bulk,
+               group_bulk=group_bulk,
+               group_policy=group_policy,
+               fts_source_strategy=fts_source_strategy,
+               activities=activities,
+               retry_other_fts=retry_other_fts)
 
     else:
-        logging.info('starting submitter threads')
-        threads = [threading.Thread(target=submitter, kwargs={'process': process,
-                                                              'total_processes': total_processes,
-                                                              'total_threads': total_threads,
-                                                              'rses': working_rses,
-                                                              'bulk': bulk,
-                                                              'group_bulk': group_bulk,
-                                                              'group_policy': group_policy,
-                                                              'activities': activities,
-                                                              'mock': mock,
-                                                              'sleep_time': sleep_time,
-                                                              'fts_source_strategy': fts_source_strategy,
-                                                              'retry_other_fts': retry_other_fts})]
+        logging.info('starting stager threads')
+        threads = [threading.Thread(target=stager, kwargs={'process': process,
+                                                           'total_processes': total_processes,
+                                                           'total_threads': total_threads,
+                                                           'rses': working_rses,
+                                                           'bulk': bulk,
+                                                           'group_bulk': group_bulk,
+                                                           'group_policy': group_policy,
+                                                           'activities': activities,
+                                                           'mock': mock,
+                                                           'sleep_time': sleep_time,
+                                                           'fts_source_strategy': fts_source_strategy,
+                                                           'retry_other_fts': retry_other_fts})]
 
         [t.start() for t in threads]
 
@@ -220,3 +234,26 @@ def run(once=False,
         # Interruptible joins require a timeout.
         while len(threads) > 0:
             threads = [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+
+
+def __get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None, failover_schemes=None,
+                            limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, bring_online=43200,
+                            retry_other_fts=False, session=None):
+
+    transfers, reqs_no_source = get_stagein_requests_and_source_replicas(process=process,
+                                                                         total_processes=total_processes,
+                                                                         thread=thread,
+                                                                         total_threads=total_threads,
+                                                                         limit=limit,
+                                                                         activity=activity,
+                                                                         older_than=older_than,
+                                                                         rses=rses,
+                                                                         mock=mock,
+                                                                         schemes=schemes,
+                                                                         bring_online=bring_online,
+                                                                         retry_other_fts=retry_other_fts,
+                                                                         failover_schemes=failover_schemes,
+                                                                         session=session)
+
+    set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
+    return transfers
