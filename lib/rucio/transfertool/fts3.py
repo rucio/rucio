@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 import datetime
 import json
@@ -23,13 +24,14 @@ import traceback
 from ConfigParser import NoOptionError
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
+from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.sqla.constants import FTSState
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
-requests.packages.urllib3.disable_warnings()  # pylint: disable=no-member
+disable_warnings()
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
