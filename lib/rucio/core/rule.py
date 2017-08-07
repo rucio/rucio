@@ -936,9 +936,6 @@ def repair_rule(rule_id, session=None):
         if nr_files * rule.copies != (rule.locks_ok_cnt + rule.locks_stuck_cnt + rule.locks_replicating_cnt):
             hard_repair = True
             logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
-        elif rule.locks_stuck_cnt > 200:
-            hard_repair = True
-            logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
         elif rule.copies > 1 and rule.grouping == RuleGrouping.NONE:
             hard_repair = True
             logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
