@@ -647,7 +647,8 @@ def add_protocol(rse, parameter, session=None):
     except (IntegrityError, FlushError, OperationalError) as e:
         if ('UNIQUE constraint failed' in e.args[0]) or ('conflicts with persistent instance' in e.args[0]) \
            or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]) \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
         elif 'may not be NULL' in e.args[0] \
              or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', e.args[0]) \
