@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
 
 import logging
@@ -1360,9 +1360,9 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
                           bindparam('total_workers', total_workers)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         fetched_dids = query.order_by(models.UpdatedDID.created_at).limit(limit).all()
@@ -1403,9 +1403,9 @@ def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
     return [rule for rule in query.all()]
 
 
@@ -1557,25 +1557,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
 
 
 @transactional_session
-def delete_duplicate_updated_dids(scope, name, rule_evaluation_action, id, session=None):
-    """
-    Delete all the duplicate scope, name, rule_evaluation entries but the one specified by id.
-
-    :param scope:                   Scope of the duplicate rows.
-    :param name:                    Name of the duplicate rows.
-    :param rule_evaluation_action:  Rule evaluation action of the duplicate rows.
-    :param id:                      Id of the row not to delete.
-    :param session:                 The database session in use.
-    """
-    session.query(models.UpdatedDID).filter(models.UpdatedDID.scope == scope,
-                                            models.UpdatedDID.name == name,
-                                            models.UpdatedDID.rule_evaluation_action == rule_evaluation_action,
-                                            models.UpdatedDID.created_at < datetime.utcnow() - timedelta(seconds=60),
-                                            models.UpdatedDID.id != id).delete(synchronize_session=False)
-
-
-@transactional_session
-def delete_updated_did(id, scope, name, session=None):
+def delete_updated_did(id, session=None):
     """
     Delete an updated_did by id.
 

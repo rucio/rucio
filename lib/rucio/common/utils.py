@@ -147,7 +147,7 @@ class APIEncoder(json.JSONEncoder):
     """ Propretary JSONEconder subclass used by the json render function.
     This is needed to address the encoding of special values.
     """
-    def default(self, obj):
+    def default(self, obj):  # pylint: disable=E0202
         if isinstance(obj, datetime.datetime):
             # convert any datetime to RFC 1123 format
             return date_to_str(obj)
