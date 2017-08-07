@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
@@ -146,7 +146,7 @@ class ModelBase(object):
     __table_initialized__ = False
 
     @declared_attr
-    def __table_args__(cls):
+    def __table_args__(cls):  # pylint: disable=no-self-argument
         # exception for CERN Oracle identifier length limitations
         # pylint: disable=maybe-no-member
         if cls.__tablename__.upper() == 'UPDATED_ACCOUNT_COUNTERS':
@@ -166,11 +166,11 @@ class ModelBase(object):
                                   {'mysql_engine': 'InnoDB'})
 
     @declared_attr
-    def created_at(cls):
+    def created_at(cls):  # pylint: disable=no-self-argument
         return Column("created_at", DateTime, default=datetime.datetime.utcnow)
 
     @declared_attr
-    def updated_at(cls):
+    def updated_at(cls):  # pylint: disable=no-self-argument
         return Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     def save(self, flush=True, session=None):
@@ -224,7 +224,7 @@ class SoftModelBase(ModelBase):
     __table_initialized__ = False
 
     @declared_attr
-    def __table_args__(cls):
+    def __table_args__(cls):  # pylint: disable=no-self-argument
         # pylint: disable=maybe-no-member
         return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
                                   CheckConstraint('UPDATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
