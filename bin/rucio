@@ -49,7 +49,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
-                                    RucioException)
+                                    RucioException, DuplicateRule)
 from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color
 from rucio.rse import rsemanager as rsemgr
 
@@ -363,6 +363,9 @@ def list_file_replicas(args):
     if args.list_collections and len(args.dids) > 1:
         print 'Cannot use --list_collections option with multiple dids'
         return FAILURE
+    if args.link and ':' not in args.link:
+        print 'The substition parameter must equal --link="/pfn/dir:/dst/dir"'
+        return FAILURE
 
     for did in args.dids:
         scope, name = extract_scope(did)
@@ -379,6 +382,29 @@ def list_file_replicas(args):
             if args.selected_rse not in rses:
                 table.append([replica['scope'], replica['name']])
         print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME'])
+    elif args.link:
+        pfn_dir, dst_dir = args.link.split(':')
+        for replica in replicas:
+            if args.selected_rse:
+                if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
+                    for pfn in replica['rses'][args.selected_rse]:
+                        os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+            else:
+                for rse in replica['rses']:
+                    if replica['rses'][rse]:
+                        for pfn in replica['rses'][rse]:
+                            os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+    elif args.pfns:
+        for replica in replicas:
+            if args.selected_rse:
+                if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
+                    for pfn in replica['rses'][args.selected_rse]:
+                        print pfn
+            else:
+                for rse in replica['rses']:
+                    if replica['rses'][rse]:
+                        for pfn in replica['rses'][rse]:
+                            print pfn
     else:
         for replica in replicas:
             if 'bytes' in replica:
@@ -1485,7 +1511,6 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
                 if 'transferStart' not in file:
                     logger.debug('Missed active state of DL with GID %s' % gid)
                     gid_to_file[gid]['transferStart'] = time.time()
-
                 file['transferEnd'] = time.time()
 
                 # get used pfn for traces
@@ -1925,23 +1950,49 @@ def add_rule(args):
     """
     client = get_client(args)
     dids = []
+    rule_ids = []
     for did in args.dids:
         scope, name = extract_scope(did)
         dids.append({'scope': scope, 'name': name})
-    rule_ids = client.add_replication_rule(dids=dids,
-                                           copies=args.copies,
-                                           rse_expression=args.rse_expression,
-                                           weight=args.weight,
-                                           lifetime=args.lifetime,
-                                           grouping=args.grouping,
-                                           account=args.rule_account,
-                                           locked=args.locked,
-                                           source_replica_expression=args.source_replica_expression,
-                                           notify=args.notify,
-                                           activity=args.activity,
-                                           comment=args.comment,
-                                           ask_approval=args.ask_approval,
-                                           asynchronous=args.asynchronous)
+    try:
+        rule_ids = client.add_replication_rule(dids=dids,
+                                               copies=args.copies,
+                                               rse_expression=args.rse_expression,
+                                               weight=args.weight,
+                                               lifetime=args.lifetime,
+                                               grouping=args.grouping,
+                                               account=args.rule_account,
+                                               locked=args.locked,
+                                               source_replica_expression=args.source_replica_expression,
+                                               notify=args.notify,
+                                               activity=args.activity,
+                                               comment=args.comment,
+                                               ask_approval=args.ask_approval,
+                                               asynchronous=args.asynchronous)
+    except DuplicateRule as error:
+        if args.ignore_duplicate:
+            for did in dids:
+                try:
+                    rule_id = client.add_replication_rule(dids=[did],
+                                                          copies=args.copies,
+                                                          rse_expression=args.rse_expression,
+                                                          weight=args.weight,
+                                                          lifetime=args.lifetime,
+                                                          grouping=args.grouping,
+                                                          account=args.rule_account,
+                                                          locked=args.locked,
+                                                          source_replica_expression=args.source_replica_expression,
+                                                          notify=args.notify,
+                                                          activity=args.activity,
+                                                          comment=args.comment,
+                                                          ask_approval=args.ask_approval,
+                                                          asynchronous=args.asynchronous)
+                    rule_ids.extend(rule_id)
+                except DuplicateRule as error:
+                    print 'Duplicate rule for %s:%s found; Skipping.' % (did['scope'], did['name'])
+        else:
+            raise error
+
     for rule in rule_ids:
         print rule
     return SUCCESS
@@ -2357,6 +2408,8 @@ Commands:
     list_file_replicas_parser.add_argument('--list-collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site\
         (' + Color.BOLD + 'DEPRECATED: ' + Color.END + 'please use list-dataset-replicas instead.)', required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs', required=False)
+    list_file_replicas_parser.add_argument('--link', dest='link', default=None, action='store', help='Symlink PFNs with directory substitution', required=False)
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE', required=False)
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE.', required=False)
     list_file_replicas_parser.add_argument('--expression', dest='rse_expression', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
@@ -2568,6 +2621,7 @@ Commands:
     add_rule_parser.add_argument('--ask-approval', dest='ask_approval', action='store_true', help='Ask for rule approval')
     add_rule_parser.add_argument('--asynchronous', dest='asynchronous', action='store_true', help='Create rule asynchronously')
     add_rule_parser.add_argument('--account', dest='rule_account', action='store', help='The account owning the rule')
+    add_rule_parser.add_argument('--skip-duplicates', dest='ignore_duplicate', action='store_true', help='Skip duplicate rules')
 
     # Delete replication rule subparser
     delete_rule_parser = subparsers.add_parser('delete-rule', help='Delete replication rule.')
