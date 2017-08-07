@@ -89,7 +89,7 @@ def trace(payload):
                 if not conn.is_connected():
                     logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
                     conn.start()
-                    conn.connect(USERNAME, PASSWORD, wait=True)
+                    conn.connect(USERNAME, PASSWORD)
             except stomp.exception.NotConnectedException, error:
                 logging.warn('Could not connect to broker %s, try another one' %
                              conn.transport._Transport__host_and_ports[0][0])
