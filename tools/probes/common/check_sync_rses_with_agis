@@ -1,24 +1,26 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
-# - David Cameron, <david.cameron@cern.ch>, 2015
+"""
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
+ - David Cameron, <david.cameron@cern.ch>, 2015
+"""
 
 import json
 import os.path
-import requests
 import sys
 import traceback
 import urlparse
 
+import requests
 
 from rucio.core.account import list_accounts, list_account_attributes
 from rucio.core.account_limit import set_account_limit
@@ -52,7 +54,7 @@ if __name__ == '__main__':
                 set_account_limit(account, rse['name'], -1)
             if not rse['is_tape']:
                 set_account_limit('sonar', rse['name'], 10000000000000)
-        except Duplicate, error:
+        except Duplicate as error:
             pass
         except Exception:
             RETVALUE = CRITICAL
@@ -69,7 +71,7 @@ if __name__ == '__main__':
             for prot in rucio_protocols['protocols']:
                 existing_protocols.append((prot['scheme'], prot['hostname'], prot['port']))
 
-        except RSENotFound, error:
+        except RSENotFound as error:
             print error
             continue
         if rse['type'] in ['OS_ES', 'OS_LOGS']:
@@ -77,13 +79,13 @@ if __name__ == '__main__':
             priority = {}
             for activity in rse['arprotocols']:
                 index = 0
-                if activity in ['r', 'd', 'w']:
+                if activity in ['read_lan', 'read_wan', 'write_lan', 'write_wan', 'delete_lan', 'delete_wan']:
                     for protocol in rse['arprotocols'][activity]:
                         index += 1
                         path = protocol['path']
                         o = urlparse.urlparse(protocol['endpoint'])
                         if (o.scheme, o.netloc, path) not in priority:
-                            priority[(o.scheme, o.netloc, path)] = {'r': 0, 'w': 0, 'd': 0}
+                            priority[(o.scheme, o.netloc, path)] = {'read_lan': 0, 'read_wan': 0, 'write_lan': 0, 'write_wan': 0, 'delete_lan': 0, 'delete_wan': 0}
                         priority[(o.scheme, o.netloc, path)][activity] = index
             for prio in priority:
                 scheme, host_with_port, prefix = prio
@@ -106,17 +108,17 @@ if __name__ == '__main__':
                           'port': port,
                           'prefix': prefix,
                           'impl': impl,
-                          'domains': {"lan": {"read": priority[prio]['r'],
-                                              "write": priority[prio]['w'],
-                                              "delete": priority[prio]['d']},
-                                      "wan": {"read": priority[prio]['r'],
-                                              "write": priority[prio]['w'],
-                                              "delete": priority[prio]['d']}}}
+                          'domains': {"lan": {"read": priority[prio]['read_lan'],
+                                              "write": priority[prio]['write_lan'],
+                                              "delete": priority[prio]['delete_lan']},
+                                      "wan": {"read": priority[prio]['read_wan'],
+                                              "write": priority[prio]['write_wan'],
+                                              "delete": priority[prio]['delete_wan']}}}
                 print params
                 if impl:
                     try:
                         add_protocol(rse=rse['name'], parameter=params)
-                    except Duplicate, error:
+                    except Duplicate as error:
                         print error
                 else:
                     print 'No implementation defined for %s on RSE %s' % (scheme, rse['name'])
@@ -129,15 +131,24 @@ if __name__ == '__main__':
             priority = {}
             for activity in rse['aprotocols']:
                 index = 0
-                if activity in ['r', 'd', 'w']:
+                if activity in ['read_lan', 'read_wan', 'write_lan', 'write_wan', 'delete_lan', 'delete_wan']:
                     for protocol, agis_prio, agis_prefix in rse['aprotocols'][activity]:
                         index += 1
                         o = urlparse.urlparse(protocol)
                         if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs', 'dav'):
                             continue
                         if (o.scheme, o.netloc) not in priority:
-                            priority[(o.scheme, o.netloc)] = {'r': 0, 'w': 0, 'd': 0}
+                            priority[(o.scheme, o.netloc)] = {'read_lan': 0, 'read_wan': 0, 'write_lan': 0, 'write_wan': 0, 'delete_lan': 0, 'delete_wan': 0}
                         priority[(o.scheme, o.netloc)][activity] = index
+            if sum([act['read_lan'] for act in priority.values()]) == 0:
+                for key in priority:
+                    priority[key]['read_lan'] = priority[key]['read_wan']
+            if sum([act['write_lan'] for act in priority.values()]) == 0:
+                for key in priority:
+                    priority[key]['write_lan'] = priority[key]['write_wan']
+            if sum([act['delete_lan'] for act in priority.values()]) == 0:
+                for key in priority:
+                    priority[key]['delete_lan'] = priority[key]['delete_wan']
 
             for protocol in rse['protocols']:
                 try:
@@ -157,6 +168,7 @@ if __name__ == '__main__':
                             impl = 'rucio.rse.protocols.gfalv2.Default'
                         else:
                             impl = 'rucio.rse.protocols.gfal.Default'
+
                     elif o.scheme in ('https', 'http'):
                         extended_attributes = None
                         impl = 'rucio.rse.protocols.gfalv2.Default'
@@ -193,12 +205,12 @@ if __name__ == '__main__':
                               'prefix': prefix,
                               'impl': impl,
                               'extended_attributes': extended_attributes,
-                              'domains': {"lan": {"read": priority[(o.scheme, o.netloc)]['r'],
-                                                  "write": priority[(o.scheme, o.netloc)]['w'],
-                                                  "delete": priority[(o.scheme, o.netloc)]['d']},
-                                          "wan": {"read": priority[(o.scheme, o.netloc)]['r'],
-                                                  "write": priority[(o.scheme, o.netloc)]['w'],
-                                                  "delete": priority[(o.scheme, o.netloc)]['d']}}}
+                              'domains': {"lan": {"read": priority[(o.scheme, o.netloc)]['read_lan'],
+                                                  "write": priority[(o.scheme, o.netloc)]['write_lan'],
+                                                  "delete": priority[(o.scheme, o.netloc)]['delete_lan']},
+                                          "wan": {"read": priority[(o.scheme, o.netloc)]['read_wan'],
+                                                  "write": priority[(o.scheme, o.netloc)]['write_wan'],
+                                                  "delete": priority[(o.scheme, o.netloc)]['delete_wan']}}}
 
                     rucio_protocol = None
                     for prot in rucio_protocols['protocols']:
@@ -212,23 +224,27 @@ if __name__ == '__main__':
                     if params != rucio_protocol:
                         if rucio_protocol:
                             try:
-                                activity_mapping = {'read': 'r', 'write': 'w', 'delete': 'd'}
-                                for act in activity_mapping:
-                                    if rucio_protocol['domains']['lan'][act] != priority[(o.scheme, o.netloc)][activity_mapping[act]]:
-                                        print '%s : Activity %s : priority in AGIS %s != priority in Rucio %s' % (rse['name'], act, rucio_protocol['domains']['lan'][act], priority[(o.scheme, o.netloc)][activity_mapping[act]])
-                                        update_protocols(rse['name'], o.scheme, {'domains': {'lan': {act: priority[(o.scheme, o.netloc)][activity_mapping[act]]}}}, hostname=netloc, port=port)
-                                        update_protocols(rse['name'], o.scheme, {'domains': {'wan': {act: priority[(o.scheme, o.netloc)][activity_mapping[act]]}}}, hostname=netloc, port=port)
-                            except RSEProtocolNotSupported, error:
+                                for domain in ['lan', 'wan']:
+                                    for act in ['read', 'write', 'delete']:
+                                        if rucio_protocol['domains'][domain][act] != priority[(o.scheme, o.netloc)]['%s_%s' % (act, domain)]:
+                                            print '%s : Protocol %s Activity %s_%s : priority in Rucio %s != priority in AGIS %s' % (rse['name'], o.scheme, act, domain,
+                                                                                                                                     rucio_protocol['domains'][domain][act],
+                                                                                                                                     priority[(o.scheme, o.netloc)]['%s_%s' % (act, domain)])
+                                            update_protocols(rse['name'], o.scheme, {'domains': {domain: {act: priority[(o.scheme, o.netloc)]['%s_%s' % (act, domain)]}}}, hostname=netloc, port=port)
+                            except RSEProtocolNotSupported as error:
                                 print error
                         else:
-                            print 'Will create protocol %s at %s with priotities r,w,d : %s,%s,%s' % (o.scheme, rse['name'], params['domains']['lan']['read'], params['domains']['lan']['write'], params['domains']['lan']['delete'])
+                            print 'Will create protocol %s at %s with priorities read_lan,write_lan,delete_lan,read_wan,write_wan,delete_wan : ' \
+                                  '%s,%s,%s,%s,%s,%s' % (o.scheme, rse['name'],
+                                                         params['domains']['lan']['read'], params['domains']['lan']['write'], params['domains']['lan']['delete'],
+                                                         params['domains']['wan']['read'], params['domains']['wan']['write'], params['domains']['wan']['delete'])
                             try:
                                 add_protocol(rse=rse['name'], parameter=params)
-                            except Exception, error:
+                            except Exception as error:
                                 print error
-                except Duplicate, error:
+                except Duplicate as error:
                     pass
-                except RSEProtocolPriorityError, error:
+                except RSEProtocolPriorityError as error:
                     print 'RSE %s protocol %s: %s' % (rse['name'], o.scheme, error)
                     if RETVALUE != CRITICAL:
                         RETVALUE = WARNING
