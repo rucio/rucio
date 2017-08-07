@@ -74,7 +74,11 @@ brokers = dashb-test-mb.cern.ch
 voname = atlas
 
 [messaging-hermes]
-port = 61123
+username = ____
+password = ____
+port = 61023
+nonssl_port = 61013
+use_ssl = True
 ssl_key_file = /etc/grid-security/hostkey.pem
 ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/rucio.events
@@ -144,6 +148,8 @@ usercert = /opt/rucio/etc/web/usercert.pem
 
 [nagios]
 proxy = /opt/rucio/etc/ddmadmin.proxy.nagios
+rfcproxy = /opt/rucio/etc/ddmusr01.rfc.proxy
+fts_servers = https://fts3-pilot.cern.ch:8446, https://fts3-devel.cern.ch:8446, https://fts3.cern.ch:8446, https://lcgfts3.gridpp.rl.ac.uk:8446, https://fts3-test.gridpp.rl.ac.uk:8446, https://fts.usatlas.bnl.gov:8446
 
 [auditor]
 cache = /opt/rucio/auditor-cache
