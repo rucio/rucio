@@ -364,6 +364,7 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
             raise exception.DataIdentifierNotFound("Data identifier not found")
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', error.args[0]) \
                 or match('.*IntegrityError.*UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', error.args[0])\
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
                 or match('.*duplicate entry.*key.*PRIMARY.*', error.args[0]) \
                 or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
