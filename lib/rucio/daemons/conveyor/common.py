@@ -5,609 +5,254 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014,2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 """
-Methods common to different conveyor daemons.
+Methods common to different conveyor submitter daemons.
 """
-
 import datetime
 import logging
-import os
 import time
 import traceback
 
-from re import match
-from urlparse import urlparse
-
-from dogpile.cache import make_region
-from dogpile.cache.api import NoValue
-from requests.exceptions import RequestException
-from sqlalchemy.exc import DatabaseError
-
-from rucio.common.exception import DatabaseException, UnsupportedOperation, ReplicaNotFound
-from rucio.core import replica as replica_core, request as request_core, rse as rse_core
-from rucio.core.message import add_message
-from rucio.core.monitor import record_timer, record_counter
-from rucio.db.sqla.constants import RequestState, ReplicaState, RequestType, RequestErrMsg, BadFilesStatus
-from rucio.db.sqla.session import read_session, transactional_session
-from rucio.rse import rsemanager
-
-region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
+from rucio.common.exception import InvalidRSEExpression
+from rucio.common.utils import chunks
+from rucio.core import request, transfer as transfer_core
+from rucio.core.monitor import record_counter, record_timer
+from rucio.core.rse import list_rses
+from rucio.core.rse_expression_parser import parse_expression
+from rucio.db.sqla.constants import RequestState
+from rucio.rse import rsemanager as rsemgr
 
 
-def get_transfer_error(state, reason=None):
-    err_msg = None
-    if state in [RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]:
-        err_msg = '%s:%s' % (RequestErrMsg.NO_SOURCES, state)
-    elif state in [RequestState.SUBMISSION_FAILED]:
-        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, state)
-    elif state in [RequestState.SUBMITTING]:
-        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, "Too long time in submitting state")
-    elif state in [RequestState.LOST]:
-        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, "Transfer job on FTS is lost")
-    elif state in [RequestState.FAILED]:
-        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, reason)
-    elif state in [RequestState.MISMATCH_SCHEME]:
-        err_msg = '%s:%s' % (RequestErrMsg.MISMATCH_SCHEME, state)
-    return err_msg
-
-
-@transactional_session
-def update_request_state(response, session=None):
+def submit_transfer(external_host, job, submitter='submitter', process=0, thread=0, timeout=None):
     """
-    Used by poller and consumer to update the internal state of requests,
-    after the response by the external transfertool.
+    Submit a transfer or staging request
 
-    :param response: The transfertool response dictionary, retrieved via request.query_request().
-    :param session: The database session to use.
-    :returns commit_or_rollback: Boolean.
+    :param external_host:   FTS server to submit to.
+    :param job:             Job dictionary.
+    :param submitter:       Name of the submitting entity.
+    :param process:         Process which submits.
+    :param thread:          Thread which submits.
+    :param timeout:         Timeout
     """
 
+    # prepare submitting
+    xfers_ret = {}
     try:
-        if not response['new_state']:
-            request_core.touch_request(response['request_id'], session=session)
-            return False
-        else:
-            request = request_core.get_request(response['request_id'], session=session)
-            if request and request['external_id'] == response['transfer_id'] and request['state'] != response['new_state']:
-                response['submitted_at'] = request.get('submitted_at', None)
-                response['external_host'] = request['external_host']
-                transfer_id = response['transfer_id'] if 'transfer_id' in response else None
-                logging.info('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
-
-                job_m_replica = response.get('job_m_replica', None)
-                src_url = response.get('src_url', None)
-                src_rse = response.get('src_rse', None)
-                src_rse_id = response.get('src_rse_id', None)
-                started_at = response.get('started_at', None)
-                transferred_at = response.get('transferred_at', None)
-                scope = response.get('scope', None)
-                name = response.get('name', None)
-                if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
-                    try:
-                        src_rse_name, src_rse_id = get_source_rse(response['request_id'], scope, name, src_url, session=session)
-                    except:
-                        logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
-                        src_rse_name = None
-                    if src_rse_name and src_rse_name != src_rse:
-                        response['src_rse'] = src_rse_name
-                        response['src_rse_id'] = src_rse_id
-                        logging.debug('Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
-                err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
-
-                request_core.set_request_state(response['request_id'],
-                                               response['new_state'],
-                                               transfer_id=transfer_id,
-                                               started_at=started_at,
-                                               transferred_at=transferred_at,
-                                               src_rse_id=src_rse_id,
-                                               err_msg=err_msg,
-                                               session=session)
-
-                add_monitor_message(request, response, session=session)
-                return True
-            elif not request:
-                logging.debug("Request %s doesn't exist, will not update" % (response['request_id']))
-                return False
-            elif request['external_id'] != response['transfer_id']:
-                logging.warning("Reponse %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
-                return False
-            else:
-                logging.debug("Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
-                return False
-    except UnsupportedOperation as error:
-        logging.warning("Request %s doesn't exist - Error: %s" % (response['request_id'], str(error).replace('\n', '')))
-        return False
+        for file in job['files']:
+            file_metadata = file['metadata']
+            request_id = file_metadata['request_id']
+            log_str = '%s:%s PREPARING REQUEST %s DID %s:%s TO SUBMITTING STATE PREVIOUS %s FROM %s TO %s USING %s ' % (process, thread,
+                                                                                                                        file_metadata['request_id'],
+                                                                                                                        file_metadata['scope'],
+                                                                                                                        file_metadata['name'],
+                                                                                                                        file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
+                                                                                                                        file['sources'],
+                                                                                                                        file['destinations'],
+                                                                                                                        external_host)
+            xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': file['destinations'][0]}
+            logging.info("%s" % (log_str))
+            xfers_ret[request_id]['file'] = file
+        logging.debug("%s:%s start to prepare transfer" % (process, thread))
+        transfer_core.prepare_sources_for_transfers(xfers_ret)
+        logging.debug("%s:%s finished to prepare transfer" % (process, thread))
     except:
-        logging.critical(traceback.format_exc())
-
-
-def touch_transfer(external_host, transfer_id):
-    """
-    Used by poller and consumer to update the internal state of requests,
-    after the response by the external transfertool.
-
-    :param request_host: Name of the external host.
-    :param transfer_id: external transfer job id as a string.
-    :returns commit_or_rollback: Boolean.
-    """
-
-    try:
-        request_core.touch_transfer(external_host, transfer_id)
-    except UnsupportedOperation as error:
-        logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
-        return False
-
-
-@transactional_session
-def set_transfer_state(external_host, transfer_id, state, session=None):
-    """
-    Used by poller to update the internal state of transfer,
-    after the response by the external transfertool.
-
-    :param request_host: Name of the external host.
-    :param transfer_id: external transfer job id as a string.
-    :param state: request state as a string.
-    :param session: The database session to use.
-    :returns commit_or_rollback: Boolean.
-    """
-
-    try:
-        if state == RequestState.LOST:
-            reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
-            for req in reqs:
-                logging.info('REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
-                src_rse_id = req.get('source_rse_id', None)
-                dst_rse_id = req.get('dest_rse_id', None)
-                src_rse = None
-                dst_rse = None
-                if src_rse_id:
-                    src_rse = rse_core.get_rse_name(src_rse_id, session=session)
-                if dst_rse_id:
-                    dst_rse = rse_core.get_rse_name(dst_rse_id, session=session)
-                response = {'new_state': state,
-                            'transfer_id': transfer_id,
-                            'job_state': state,
-                            'src_url': None,
-                            'dst_url': req['dest_url'],
-                            'duration': 0,
-                            'reason': "The FTS job lost",
-                            'scope': req.get('scope', None),
-                            'name': req.get('name', None),
-                            'src_rse': src_rse,
-                            'dst_rse': dst_rse,
-                            'request_id': req.get('request_id', None),
-                            'activity': req.get('activity', None),
-                            'src_rse_id': req.get('source_rse_id', None),
-                            'dst_rse_id': req.get('dest_rse_id', None),
-                            'previous_attempt_id': req.get('previous_attempt_id', None),
-                            'adler32': req.get('adler32', None),
-                            'md5': req.get('md5', None),
-                            'filesize': req.get('filesize', None),
-                            'external_host': external_host,
-                            'job_m_replica': None,
-                            'created_at': req.get('created_at', None),
-                            'submitted_at': req.get('submitted_at', None),
-                            'details': None,
-                            'account': req.get('account', None)}
-
-                err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
-                request_core.set_request_state(req['request_id'],
-                                               response['new_state'],
-                                               transfer_id=transfer_id,
-                                               src_rse_id=src_rse_id,
-                                               err_msg=err_msg,
-                                               session=session)
-
-                add_monitor_message(req, response, session=session)
-        else:
-            request_core.set_transfer_state(external_host, transfer_id, state, session=session)
-        return True
-    except UnsupportedOperation as error:
-        logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
-        return False
-
-
-def get_undeterministic_rses():
-    key = 'undeterministic_rses'
-    result = region.get(key)
-    if type(result) is NoValue:
-        rses_list = rse_core.list_rses(filters={'deterministic': 0})
-        result = [rse['id'] for rse in rses_list]
-        try:
-            region.set(key, result)
-        except:
-            logging.warning("Failed to set dogpile cache, error: %s" % (traceback.format_exc()))
-    return result
-
-
-def check_suspicious_files(req, suspicious_patterns):
-    """
-    check suspicious files when a transfer failed.
-
-    :param req: request object.
-    :param suspicious_patterns: a list of regexp pattern object.
-    """
-    if not suspicious_patterns:
+        logging.error("%s:%s Failed to prepare requests %s state to SUBMITTING(Will not submit jobs but return directly) with error: %s" % (process, thread, xfers_ret.keys(), traceback.format_exc()))
         return
-    is_suspicious = False
 
+    # submit the job
+    eid = None
     try:
-        logging.debug("Checking suspicious file for request: %s, transfer error: %s" % (req['request_id'], req['err_msg']))
-        for pattern in suspicious_patterns:
-            if pattern.match(req['err_msg']):
-                is_suspicious = True
-                break
+        ts = time.time()
+        logging.info("%s:%s About to submit job to %s with timeout %s" % (process, thread, external_host, timeout))
+        eid = transfer_core.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'], timeout=timeout)
+        duration = time.time() - ts
+        logging.info("%s:%s Submit job %s to %s in %s seconds" % (process, thread, eid, external_host, duration))
+        record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - ts) * 1000 / len(job['files']))
+        record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
+        record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
+    except Exception, ex:
+        logging.error("Failed to submit a job with error %s: %s" % (str(ex), traceback.format_exc()))
 
-        if is_suspicious:
-            reason = 'Reported by conveyor'
-            urls = request_core.get_sources(req['request_id'], rse_id=req['source_rse_id'])
-            if urls:
-                pfns = []
-                for url in urls:
-                    pfns.append(url['url'])
-                if pfns:
-                    logging.debug("Found suspicious urls: %s" % pfns)
-                    replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
-    except Exception as error:
-        logging.warning("Failed to check suspicious file with request: %s - %s" % (req['request_id'], str(error)))
-    return is_suspicious
-
-
-def handle_requests(reqs, suspicious_patterns):
-    """
-    used by finisher to handle terminated requests,
-
-    :param reqs: List of requests.
-    """
-
-    undeterministic_rses = get_undeterministic_rses()
-    rses_info, protocols = {}, {}
-    replicas = {}
-    for req in reqs:
-        try:
-            replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': req['dest_rse_id'], 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
-
-            replica['pfn'] = req['dest_url']
-            replica['request_type'] = req['request_type']
-            replica['error_message'] = None
-
-            if req['request_type'] not in replicas:
-                replicas[req['request_type']] = {}
-            if req['rule_id'] not in replicas[req['request_type']]:
-                replicas[req['request_type']][req['rule_id']] = []
-
-            if req['state'] == RequestState.DONE:
-                replica['state'] = ReplicaState.AVAILABLE
-                replica['archived'] = False
-
-                # for TAPE, replica path is needed
-                if req['request_type'] == RequestType.TRANSFER and req['dest_rse_id'] in undeterministic_rses:
-                    if req['dest_rse_id'] not in rses_info:
-                        dest_rse = rse_core.get_rse_name(rse_id=req['dest_rse_id'])
-                        rses_info[req['dest_rse_id']] = rsemanager.get_rse_info(dest_rse)
-                    pfn = req['dest_url']
-                    scheme = urlparse(pfn).scheme
-                    dest_rse_id_scheme = '%s_%s' % (req['dest_rse_id'], scheme)
-                    if dest_rse_id_scheme not in protocols:
-                        protocols[dest_rse_id_scheme] = rsemanager.create_protocol(rses_info[req['dest_rse_id']], 'write', scheme)
-                    path = protocols[dest_rse_id_scheme].parse_pfns([pfn])[pfn]['path']
-                    replica['path'] = os.path.join(path, os.path.basename(pfn))
-
-                # replica should not be added to replicas until all info are filled
-                replicas[req['request_type']][req['rule_id']].append(replica)
-
-            elif req['state'] == RequestState.FAILED:
-                check_suspicious_files(req, suspicious_patterns)
-                if request_core.should_retry_request(req):
-                    tss = time.time()
-                    new_req = request_core.requeue_and_archive(req['request_id'])
-                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
-                    if new_req:
-                        # should_retry_request and requeue_and_archive are not in one session,
-                        # another process can requeue_and_archive and this one will return None.
-                        logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
-                                                                                     req['name'],
-                                                                                     req['request_id'],
-                                                                                     new_req['request_id'],
-                                                                                     new_req['retry_count']))
-                else:
-                    logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
-                    replica['state'] = ReplicaState.UNAVAILABLE
-                    replica['archived'] = False
-                    replica['error_message'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
-                    replicas[req['request_type']][req['rule_id']].append(replica)
-            elif req['state'] == RequestState.SUBMITTING or req['state'] == RequestState.SUBMISSION_FAILED or req['state'] == RequestState.LOST:
-                if req['updated_at'] > (datetime.datetime.utcnow() - datetime.timedelta(minutes=120)):
-                    continue
-
-                if request_core.should_retry_request(req):
-                    tss = time.time()
-                    new_req = request_core.requeue_and_archive(req['request_id'])
-                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
-                    if new_req:
-                        logging.warn('REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
-                                                                                                req['name'],
-                                                                                                req['request_id'],
-                                                                                                new_req['request_id'],
-                                                                                                new_req['retry_count']))
-                else:
-                    logging.warn('EXCEEDED SUBMITTING DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
-                    replica['state'] = ReplicaState.UNAVAILABLE
-                    replica['archived'] = False
-                    replica['error_message'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
-                    replicas[req['request_type']][req['rule_id']].append(replica)
-            elif req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES or req['state'] == RequestState.MISMATCH_SCHEME:
-                if request_core.should_retry_request(req):
-                    tss = time.time()
-                    new_req = request_core.requeue_and_archive(req['request_id'])
-                    record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
-                    if new_req:
-                        # should_retry_request and requeue_and_archive are not in one session,
-                        # another process can requeue_and_archive and this one will return None.
-                        logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
-                                                                                     req['name'],
-                                                                                     req['request_id'],
-                                                                                     new_req['request_id'],
-                                                                                     new_req['retry_count']))
-                else:
-                    logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
-                    replica['state'] = ReplicaState.UNAVAILABLE  # should be broken here
-                    replica['archived'] = False
-                    replica['error_message'] = req['err_msg'] if req['err_msg'] else get_transfer_error(req['state'])
-                    replicas[req['request_type']][req['rule_id']].append(replica)
-
-        except:
-            logging.error("Something unexpected happened when handling request %s(%s:%s) at %s: %s" % (req['request_id'],
-                                                                                                       req['scope'],
-                                                                                                       req['name'],
-                                                                                                       req['dest_rse_id'],
-                                                                                                       traceback.format_exc()))
-
-    handle_terminated_replicas(replicas)
-
-
-def handle_terminated_replicas(replicas):
-    """
-    Used by finisher to handle available and unavailable replicas.
-
-    :param replicas: List of replicas.
-    """
-
-    for req_type in replicas:
-        for rule_id in replicas[req_type]:
-            try:
-                handle_bulk_replicas(replicas[req_type][rule_id], req_type, rule_id)
-            except (UnsupportedOperation, ReplicaNotFound):
-                # one replica in the bulk cannot be found. register it one by one
-                for replica in replicas[req_type][rule_id]:
-                    try:
-                        handle_one_replica(replica, req_type, rule_id)
-                    except (DatabaseException, DatabaseError) as error:
-                        if isinstance(error.args[0], tuple) and (match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
-                            logging.warn("Locks detected when handling replica %s:%s at RSE %s" % (replica['scope'], replica['name'], replica['rse_id']))
-                        else:
-                            logging.error("Could not finish handling replicas %s:%s at RSE %s (%s)" % (replica['scope'], replica['name'], replica['rse_id'], traceback.format_exc()))
-                    except:
-                        logging.error("Something unexpected happened when updating replica state for transfer %s:%s at %s (%s)" % (replica['scope'],
-                                                                                                                                   replica['name'],
-                                                                                                                                   replica['rse_id'],
-                                                                                                                                   traceback.format_exc()))
-            except (DatabaseException, DatabaseError) as error:
-                if isinstance(error.args[0], tuple) and (match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
-                    logging.warn("Locks detected when handling replicas on %s rule %s, update updated time." % (req_type, rule_id))
-                    try:
-                        request_core.touch_requests_by_rule(rule_id)
-                    except (DatabaseException, DatabaseError):
-                        logging.error("Failed to touch requests by rule(%s): %s" % (rule_id, traceback.format_exc()))
-                else:
-                    logging.error("Could not finish handling replicas on %s rule %s: %s" % (req_type, rule_id, traceback.format_exc()))
-            except:
-                logging.error("Something unexpected happened when handling replicas on %s rule %s: %s" % (req_type, rule_id, traceback.format_exc()))
-
-
-@transactional_session
-def handle_bulk_replicas(replicas, req_type, rule_id, session=None):
-    """
-    Used by finisher to handle available and unavailable replicas blongs to same rule in bulk way.
-
-    :param replicas: List of replicas.
-    :param req_type: Request type: STAGEIN, STAGEOUT, TRANSFER.
-    :param rule_id: RULE id.
-    :param session: The database session to use.
-    :returns commit_or_rollback: Boolean.
-    """
+    # register transfer
+    xfers_ret = {}
     try:
-        replica_core.update_replicas_states(replicas, nowait=True, session=session)
-    except ReplicaNotFound as error:
-        logging.warn('Failed to bulk update replicas, will do it one by one: %s' % str(error))
-        raise ReplicaNotFound(error)
-
-    for replica in replicas:
-        if not replica['archived']:
-            request_core.archive_request(replica['request_id'], session=session)
-        logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
-    return True
-
-
-@transactional_session
-def handle_one_replica(replica, req_type, rule_id, session=None):
-    """
-    Used by finisher to handle a replica.
-
-    :param replica: replica as a dictionary.
-    :param req_type: Request type: STAGEIN, STAGEOUT, TRANSFER.
-    :param rule_id: RULE id.
-    :param session: The database session to use.
-    :returns commit_or_rollback: Boolean.
-    """
-
-    try:
-        replica_core.update_replicas_states([replica], nowait=True, session=session)
-        if not replica['archived']:
-            request_core.archive_request(replica['request_id'], session=session)
-        logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
-    except (UnsupportedOperation, ReplicaNotFound) as error:
-        logging.warn("ERROR WHEN HANDLING REQUEST %s DID %s:%s AT RSE %s STATE %s: %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']), str(error)))
-        # replica cannot be found. register it and schedule it for deletion
-        try:
-            if replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
-                logging.info("Replica cannot be found. Adding a replica %s:%s AT RSE %s with tombstone=utcnow" % (replica['scope'], replica['name'], replica['rse_id']))
-                rse = rse_core.get_rse(rse=None, rse_id=replica['rse_id'], session=session)
-                replica_core.add_replica(rse['rse'],
-                                         replica['scope'],
-                                         replica['name'],
-                                         replica['bytes'],
-                                         pfn=replica['pfn'] if 'pfn' in replica else None,
-                                         account='root',  # it will deleted immediately, do we need to get the accurate account from rule?
-                                         adler32=replica['adler32'],
-                                         tombstone=datetime.datetime.utcnow(),
-                                         session=session)
-            if not replica['archived']:
-                request_core.archive_request(replica['request_id'], session=session)
-            logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
-        except:
-            logging.error('Cannot register replica for DID %s:%s at RSE %s - potential dark data' % (replica['scope'],
-                                                                                                     replica['name'],
-                                                                                                     replica['rse_id']))
-            raise
-
-    return True
-
-
-@read_session
-def get_source_rse(request_id, scope, name, src_url, session=None):
-    try:
-        if not request_id:
-            return None, None
-
-        sources = request_core.get_sources(request_id, session=session)
-        for source in sources:
-            if source['url'] == src_url:
-                src_rse_id = source['rse_id']
-                src_rse_name = rse_core.get_rse_name(src_rse_id, session=session)
-                logging.debug("Find rse name %s for %s" % (src_rse_name, src_url))
-                return src_rse_name, src_rse_id
-        # cannot find matched surl
-        logging.warn('Cannot get correct RSE for source url: %s' % (src_url))
-        return None, None
+        for file in job['files']:
+            file_metadata = file['metadata']
+            request_id = file_metadata['request_id']
+            log_str = '%s:%s COPYING REQUEST %s DID %s:%s USING %s' % (process, thread, file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host)
+            if eid:
+                xfers_ret[request_id] = {'scope': file_metadata['scope'],
+                                         'name': file_metadata['name'],
+                                         'state': RequestState.SUBMITTED,
+                                         'external_host': external_host,
+                                         'external_id': eid,
+                                         'request_type': file.get('request_type', None),
+                                         'dst_rse': file_metadata.get('dst_rse', None),
+                                         'src_rse': file_metadata.get('src_rse', None),
+                                         'src_rse_id': file_metadata['src_rse_id'],
+                                         'metadata': file_metadata}
+                log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
+                logging.info("%s" % (log_str))
+            else:
+                xfers_ret[request_id] = {'scope': file_metadata['scope'],
+                                         'name': file_metadata['name'],
+                                         'state': RequestState.SUBMISSION_FAILED,
+                                         'external_host': external_host,
+                                         'external_id': None,
+                                         'request_type': file.get('request_type', None),
+                                         'dst_rse': file_metadata.get('dst_rse', None),
+                                         'src_rse': file_metadata.get('src_rse', None),
+                                         'src_rse_id': file_metadata['src_rse_id'],
+                                         'metadata': file_metadata}
+                log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMISSION_FAILED, None)
+                logging.warn("%s" % (log_str))
+        logging.debug("%s:%s start to register transfer state" % (process, thread))
+        transfer_core.set_transfers_state(xfers_ret, datetime.datetime.utcnow())
+        logging.debug("%s:%s finished to register transfer state" % (process, thread))
     except:
-        logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
-        return None, None
-
-
-@read_session
-def add_monitor_message(request, response, session=None):
-    if request['request_type']:
-        transfer_status = '%s-%s' % (request['request_type'], response['new_state'])
-    else:
-        transfer_status = 'transfer-%s' % (response['new_state'])
-    transfer_status = transfer_status.lower()
-
-    activity = response.get('activity', None)
-    src_type = response.get('src_type', None)
-    src_rse = response.get('src_rse', None)
-    src_url = response.get('src_url', None)
-    dst_type = response.get('dst_type', None)
-    dst_rse = response.get('dst_rse', None)
-    dst_url = response.get('dst_url', None)
-    dst_protocol = dst_url.split(':')[0] if dst_url else None
-    reason = response.get('reason', None)
-    duration = response.get('duration', -1)
-    filesize = response.get('filesize', None)
-    md5 = response.get('md5', None)
-    adler32 = response.get('adler32', None)
-    created_at = response.get('created_at', None)
-    submitted_at = response.get('submitted_at', None)
-    started_at = response.get('started_at', None)
-    transferred_at = response.get('transferred_at', None)
-    account = response.get('account', None)
-
-    if response['external_host']:
-        transfer_link = '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'), response['transfer_id'])
-    else:
-        # for LOST request, response['external_host'] maybe is None
-        transfer_link = None
-
-    add_message(transfer_status, {'activity': activity,
-                                  'request-id': response['request_id'],
-                                  'duration': duration,
-                                  'checksum-adler': adler32,
-                                  'checksum-md5': md5,
-                                  'file-size': filesize,
-                                  'bytes': filesize,
-                                  'guid': None,
-                                  'previous-request-id': response['previous_attempt_id'],
-                                  'protocol': dst_protocol,
-                                  'scope': response['scope'],
-                                  'name': response['name'],
-                                  'src-type': src_type,
-                                  'src-rse': src_rse,
-                                  'src-url': src_url,
-                                  'dst-type': dst_type,
-                                  'dst-rse': dst_rse,
-                                  'dst-url': dst_url,
-                                  'reason': reason,
-                                  'transfer-endpoint': response['external_host'],
-                                  'transfer-id': response['transfer_id'],
-                                  'transfer-link': transfer_link,
-                                  'created_at': str(created_at) if created_at else None,
-                                  'submitted_at': str(submitted_at) if submitted_at else None,
-                                  'started_at': str(started_at) if started_at else None,
-                                  'transferred_at': str(transferred_at) if transferred_at else None,
-                                  'tool-id': 'rucio-conveyor',
-                                  'account': account},
-                session=session)
-
-
-def poll_transfers(external_host, xfers, process=0, thread=0, timeout=None):
-    try:
+        logging.error("%s:%s Failed to register transfer state with error: %s" % (process, thread, traceback.format_exc()))
         try:
-            tss = time.time()
-            logging.info('%i:%i - polling %i transfers against %s with timeout %s' % (process, thread, len(xfers), external_host, timeout))
-            resps = request_core.bulk_query_transfers(external_host, xfers, 'fts3', timeout)
-            record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - tss) * 1000 / len(xfers))
-        except RequestException as error:
-            logging.error("Failed to contact FTS server: %s" % (str(error)))
-            return
+            if eid:
+                logging.info("%s:%s Cancel transfer %s on %s" % (process, thread, eid, external_host))
+                request.cancel_request_external_id(eid, external_host)
         except:
-            logging.error("Failed to query FTS info: %s" % (traceback.format_exc()))
-            return
+            logging.error("%s:%s Failed to cancel transfers %s on %s with error: %s" % (process, thread, eid, external_host, traceback.format_exc()))
 
-        logging.debug('%i:%i - updating %s requests status' % (process, thread, len(xfers)))
-        for transfer_id in resps:
-            try:
-                transf_resp = resps[transfer_id]
-                # transf_resp is None: Lost.
-                #             is Exception: Failed to get fts job status.
-                #             is {}: No terminated jobs.
-                #             is {request_id: {file_status}}: terminated jobs.
-                if transf_resp is None:
-                    set_transfer_state(external_host, transfer_id, RequestState.LOST)
-                    record_counter('daemons.conveyor.poller.transfer_lost')
-                elif isinstance(transf_resp, Exception):
-                    logging.warning("Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
-                    record_counter('daemons.conveyor.poller.query_transfer_exception')
-                else:
-                    for request_id in transf_resp:
-                        ret = update_request_state(transf_resp[request_id])
-                        # if True, really update request content; if False, only touch request
-                        record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
 
-                # should touch transfers.
-                # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
-                touch_transfer(external_host, transfer_id)
-            except (DatabaseException, DatabaseError) as error:
-                if isinstance(error.args[0], tuple) and (match('.*ORA-00054.*', error.args[0][0]) or match('.*ORA-00060.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
-                    logging.warn("Lock detected when handling request %s - skipping" % request_id)
-                else:
-                    logging.error(traceback.format_exc())
-        logging.debug('%i:%i - finished updating %s requests status' % (process, thread, len(xfers)))
-    except:
-        logging.error(traceback.format_exc())
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_strategy='auto', max_time_in_queue=None):
+    """
+    Group transfers in bulk based on certain criterias
+
+    :param transfers:             List of transfers to group.
+    :param plicy:                 Policy to use to group.
+    :param group_bulk:            Bulk sizes.
+    :param fts_source_strategy:   Strategy to group fts sources
+    :param max_time_in_queue:     Maximum time in queue
+    :return:                      List of grouped transfers.
+    """
+
+    grouped_transfers = {}
+    grouped_jobs = {}
+    for request_id in transfers:
+        transfer = transfers[request_id]
+        external_host = transfer['external_host']
+        if external_host not in grouped_transfers:
+            grouped_transfers[external_host] = {}
+            grouped_jobs[external_host] = []
+
+        file = {'sources': transfer['sources'],
+                'destinations': transfer['dest_urls'],
+                'metadata': transfer['file_metadata'],
+                'filesize': int(transfer['file_metadata']['filesize']),
+                'checksum': None,
+                'selection_strategy': fts_source_strategy,
+                'request_type': transfer['file_metadata'].get('request_type', None),
+                'activity': str(transfer['file_metadata']['activity'])}
+        if file['metadata'].get('verify_checksum', True):
+            if 'md5' in file['metadata'].keys() and file['metadata']['md5']:
+                file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
+            if 'adler32' in file['metadata'].keys() and file['metadata']['adler32']:
+                file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
+
+        job_params = {'verify_checksum': True if file['checksum'] and file['metadata'].get('verify_checksum', True) else False,
+                      'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else 'null',
+                      'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
+                      'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
+                      'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
+                      'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else None,
+                      'overwrite': transfer['overwrite'],
+                      'priority': 3}
+
+        if max_time_in_queue:
+            if transfer['file_metadata']['activity'] in max_time_in_queue:
+                job_params['max_time_in_queue'] = max_time_in_queue[transfer['file_metadata']['activity']]
+            elif 'default' in max_time_in_queue:
+                job_params['max_time_in_queue'] = max_time_in_queue['default']
+
+        # for multiple source replicas, no bulk submission
+        if len(transfer['sources']) > 1:
+            job_params['job_metadata']['multi_sources'] = True
+            grouped_jobs[external_host].append({'files': [file], 'job_params': job_params})
+        else:
+            job_params['job_metadata']['multi_sources'] = False
+            job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params['spacetoken'], job_params['copy_pin_lifetime'],
+                                                   job_params['bring_online'], job_params['job_metadata'], job_params['source_spacetoken'],
+                                                   job_params['overwrite'], job_params['priority'])
+            if 'max_time_in_queue' in job_params:
+                job_key = job_key + ',%s' % job_params['max_time_in_queue']
+
+            if job_key not in grouped_transfers[external_host]:
+                grouped_transfers[external_host][job_key] = {}
+
+            if policy == 'rule':
+                policy_key = '%s' % (transfer['rule_id'])
+            if policy == 'dest':
+                policy_key = '%s' % (file['metadata']['dst_rse'])
+            if policy == 'src_dest':
+                policy_key = '%s,%s' % (file['metadata']['src_rse'], file['metadata']['dst_rse'])
+            if policy == 'rule_src_dest':
+                policy_key = '%s,%s,%s' % (transfer['rule_id'], file['metadata']['src_rse'], file['metadata']['dst_rse'])
+            # maybe here we need to hash the key if it's too long
+
+            if policy_key not in grouped_transfers[external_host][job_key]:
+                grouped_transfers[external_host][job_key][policy_key] = {'files': [file], 'job_params': job_params}
+            else:
+                grouped_transfers[external_host][job_key][policy_key]['files'].append(file)
+
+    # for jobs with different job_key, we cannot put in one job.
+    for external_host in grouped_transfers:
+        for job_key in grouped_transfers[external_host]:
+            # for all policy groups in job_key, the job_params is the same.
+            for policy_key in grouped_transfers[external_host][job_key]:
+                job_params = grouped_transfers[external_host][job_key][policy_key]['job_params']
+                for xfers_files in chunks(grouped_transfers[external_host][job_key][policy_key]['files'], group_bulk):
+                    # for the last small piece, just submit it.
+                    grouped_jobs[external_host].append({'files': xfers_files, 'job_params': job_params})
+
+    return grouped_jobs
+
+
+def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
+    """
+    Get a list of rses for conveyor
+
+    :param rses:          List of rses
+    :param include_rses:  RSEs to include
+    :param exclude_rses:  RSEs to exclude
+    :return:              List of working rses
+    """
+    working_rses = []
+    rses_list = list_rses()
+    if rses:
+        working_rses = [rse for rse in rses_list if rse['rse'] in rses]
+
+    if include_rses:
+        try:
+            parsed_rses = parse_expression(include_rses, session=None)
+        except InvalidRSEExpression, e:
+            logging.error("Invalid RSE exception %s to include RSEs" % (include_rses))
+        else:
+            for rse in parsed_rses:
+                if rse not in working_rses:
+                    working_rses.append(rse)
+
+    if not (rses or include_rses):
+        working_rses = rses_list
+
+    if exclude_rses:
+        try:
+            parsed_rses = parse_expression(exclude_rses, session=None)
+        except InvalidRSEExpression, e:
+            logging.error("Invalid RSE exception %s to exclude RSEs: %s" % (exclude_rses, e))
+        else:
+            working_rses = [rse for rse in working_rses if rse not in parsed_rses]
+
+    working_rses = [rsemgr.get_rse_info(rse['rse']) for rse in working_rses]
+    return working_rses
