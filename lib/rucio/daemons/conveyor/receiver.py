@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -29,10 +30,9 @@ import json
 import stomp
 
 from rucio.common.config import config_get, config_get_int
-from rucio.core import heartbeat
+from rucio.core import heartbeat, request
 from rucio.core.monitor import record_counter
-from rucio.core.request import set_transfer_update_time
-from rucio.daemons.conveyor import common
+from rucio.core.transfer import set_transfer_update_time
 from rucio.db.sqla.constants import RequestState, FTSCompleteState
 
 
@@ -142,7 +142,7 @@ class Receiver(object):
                                                                                                               response['new_state']))
 
                         if self.__full_mode:
-                            ret = common.update_request_state(response)
+                            ret = request.update_request_state(response)
                             record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
                         else:
                             try:
