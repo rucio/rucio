@@ -79,7 +79,7 @@ if __name__ == '__main__':
                 add_rse_attribute(name, 'space_usage_method', 'json', 'root')
             elif name in SPACE_USAGE:
                 del_rse_attribute(name, 'space_usage_method', 'root')
-            if rse['type'] == 'LOCALGROUPDISK' or rse['type'] == 'USERDISK':
+            if rse['type'] == 'LOCALGROUPDISK' or rse['type'] == 'LOCALGROUPTAPE':
                 country = COUNTRYCODES[str(rse['country'])]
                 if name.startswith('CERN'):
                     country = 'cern'
@@ -127,7 +127,4 @@ if __name__ == '__main__':
         except:
             print traceback.format_exc()
             RESULT = WARNING
-
-        # TODO: set weights for data distribution here or in other collector
-
     sys.exit(RESULT)
