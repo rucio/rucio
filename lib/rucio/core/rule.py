@@ -1109,8 +1109,8 @@ def update_rule(rule_id, options, session=None):
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
                 rses = parse_expression(rule.rse_expression, session=session)
-                rucio.common.policy.get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
-                rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
+                lifetime = rucio.common.policy.get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
+                rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if options['lifetime'] is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
 
