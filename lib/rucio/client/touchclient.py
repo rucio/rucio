@@ -48,11 +48,11 @@ class TouchClient(BaseClient):
         trace['account'] = self.account
 
         if rse:
-            self.get_rse(rse) #  pylint: disable=no-member
+            self.get_rse(rse)  # pylint: disable=no-member
 
             trace['localSite'] = trace['remoteSite'] = rse
 
-        info = self.get_did(scope, name) #  pylint: disable=no-member
+        info = self.get_did(scope, name)  # pylint: disable=no-member
 
         if info['type'] == 'CONTAINER':
             raise UnsupportedDIDType("%s:%s is a container." % (scope, name))
