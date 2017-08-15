@@ -10,7 +10,7 @@
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2016-2017
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
  - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
@@ -2359,6 +2359,18 @@ def test_server(args):
     return SUCCESS
 
 
+def touch(args):
+    """
+    %(prog)s touch [options] <did1 did2 ...>
+    """
+
+    client = get_client(args)
+
+    for did in args.dids:
+        scope, name = extract_scope(did)
+        client.touch(scope, name, args.rse)
+
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -2691,6 +2703,12 @@ Commands:
     test_server_parser = subparsers.add_parser('test-server', help='Test Server', description='Run a battery of nosetests against the Rucio Servers.')
     test_server_parser.set_defaults(which='test_server')
 
+    # The get-metadata subparser
+    touch_parser = subparsers.add_parser('touch', help='Touch one or more DIDs and set the last accessed date to the current date')
+    touch_parser.set_defaults(which='touch')
+    touch_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    touch_parser.add_argument('--rse', dest='rse', action='store', help="The RSE of the DIDs that are touched.")
+
     argcomplete.autocomplete(oparser)
 
     if len(sys.argv) == 1:
@@ -2733,6 +2751,7 @@ Commands:
                 'set_metadata': set_metadata,
                 'stat': stat,
                 'test_server': test_server,
+                'touch': touch,
                 'update_rule': update_rule,
                 'upload': upload,
                 'whoami_account': whoami_account}
