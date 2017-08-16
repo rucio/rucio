@@ -19,10 +19,10 @@ from urlparse import urlparse
 from rucio.common import exception
 from rucio.rse import rsemanager
 
-if rsemanager.CLIENT_MODE:
+if getattr(rsemanager, 'CLIENT_MODE', None):
     from rucio.client.replicaclient import ReplicaClient
 
-if rsemanager.SERVER_MODE:
+if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.core import replica
 
 
@@ -39,9 +39,9 @@ class RSEProtocol(object):
         self.overwrite = False
         self.rse = rse_settings
         if not self.rse['deterministic']:
-            if rsemanager.CLIENT_MODE:
+            if getattr(rsemanager, 'CLIENT_MODE', None):
                 setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
-            if rsemanager.SERVER_MODE:
+            if getattr(rsemanager, 'SERVER_MODE', None):
                 setattr(self, '_get_path', self._get_path_nondeterministic_server)
         else:
             self.attributes['determinism_type'] = 'default'
