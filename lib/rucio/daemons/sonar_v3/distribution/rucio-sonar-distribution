@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+"""
+Sonar distribution daemon makes sure the datasets
+are at their respective RSE's.
+"""
+
+import signal
+
+from distribution_daemon import run, stop
+
+if __name__ == "__main__":
+
+    signal.signal(signal.SIGTERM, stop)
+
+    try:
+        run()
+    except KeyboardInterrupt:
+        stop()
