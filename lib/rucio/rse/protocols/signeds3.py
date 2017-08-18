@@ -11,7 +11,6 @@
 
 import os
 import requests
-import urlparse
 
 from progressbar import ProgressBar
 from sys import stdout
@@ -80,17 +79,6 @@ class Default(protocol.RSEProtocol):
         self.renaming = False
         self.overwrite = True
 
-    def _get_path(self, scope, name):
-        """ Transforms the physical file name into the local URI in the referred RSE.
-            Suitable for sites implementoing the RUCIO naming convention.
-
-            :param name: filename
-            :param scope: scope
-
-            :returns: RSE specific URI of the physical file
-        """
-        return '%s:%s' % (scope, name)
-
     def path2pfn(self, path):
         """
             Returns a fully qualified PFN for the file referred by path.
@@ -111,79 +99,6 @@ class Default(protocol.RSEProtocol):
             prefix = ''.join([prefix, '/'])
 
         return ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, path])
-
-    def lfns2pfns(self, lfns, operation='read'):
-        """
-            Retruns a fully qualified PFN for the file referred by path.
-
-            :param path: The path to the file.
-
-            :returns: Fully qualified PFN.
-        """
-        pfns = {}
-        lfns = [lfns] if type(lfns) == dict else lfns
-        for lfn in lfns:
-            scope, name = lfn['scope'], lfn['name']
-            if 'path' in lfn and lfn['path'] and self.rse['deterministic']:
-                path = lfn['path']
-            elif 'prefix' in lfn and lfn['prefix'] is not None:
-                path = os.path.join(lfn['prefix'], scope + '/' + name)
-            else:
-                path = self._get_path(scope=scope, name=name)
-
-            pfns['%s:%s' % (scope, name)] = self.path2pfn(path)
-        return pfns
-
-    def parse_pfns(self, pfns):
-        """
-            Splits the given PFN into the parts known by the protocol. It is also checked if the provided protocol supportes the given PFNs.
-
-            :param pfns: a list of a fully qualified PFNs
-
-            :returns: dic with PFN as key and a dict with path and name as value
-
-            :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
-        """
-        ret = dict()
-        pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
-
-        for pfn in pfns:
-
-            parsed = urlparse.urlparse(pfn)
-            scheme = parsed.scheme
-            hostname = parsed.netloc.partition(':')[0]
-            port = int(parsed.netloc.partition(':')[2]) if parsed.netloc.partition(':')[2] != '' else 0
-            while '//' in parsed.path:
-                parsed = parsed._replace(path=parsed.path.replace('//', '/'))
-            path = parsed.path
-
-            # Protect against 'lazy' defined prefixes for RSEs in the repository
-            if not self.attributes['prefix'].startswith('/'):
-                self.attributes['prefix'] = '/' + self.attributes['prefix']
-            if not self.attributes['prefix'].endswith('/'):
-                self.attributes['prefix'] += '/'
-
-            if self.attributes['hostname'] != hostname:
-                if self.attributes['hostname'] != 'localhost':  # In the database empty hostnames are replaced with localhost but for some URIs (e.g. file) a hostname is not included
-                    raise exception.RSEFileNameNotSupported('Invalid hostname: provided \'%s\', expected \'%s\'' % (hostname, self.attributes['hostname']))
-
-            if self.attributes['port'] != port:
-                raise exception.RSEFileNameNotSupported('Invalid port: provided \'%s\', expected \'%s\'' % (port, self.attributes['port']))
-
-            if not path.startswith(self.attributes['prefix']):
-                raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(self.attributes['prefix'].split('/')) - 1]),
-                                                                                                              self.attributes['prefix']))  # len(...)-1 due to the leading '/
-
-            # Spliting parsed.path into prefix, path, filename
-            prefix = self.attributes['prefix']
-            path = path.partition(self.attributes['prefix'])[2]
-            name = path.split('/')[-1]
-            path = path.partition(name)[0]
-            if not path.startswith('/'):
-                path = '/' + path
-            ret[pfn] = {'path': path, 'name': name, 'scheme': scheme, 'prefix': prefix, 'port': port, 'hostname': hostname, }
-
-        return ret
 
     def _connect(self):
         url = self.path2pfn('')
