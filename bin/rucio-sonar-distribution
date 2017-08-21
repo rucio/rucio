@@ -7,7 +7,7 @@ are at their respective RSE's.
 
 import signal
 
-from distribution_daemon import run, stop
+from rucio.daemons.sonar_v3.distribution.distribution_daemon import run, stop
 
 if __name__ == "__main__":
 
