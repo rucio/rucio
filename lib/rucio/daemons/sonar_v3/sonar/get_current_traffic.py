@@ -1,6 +1,18 @@
 """
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Tomas Javurek, <tomas.javurek@cern.ch>, 2017
+ - Vitjan Zavrtanik, <vitjan.zavrtanik@gmail.com>, 2017
+
 Gets current traffic for all the links.
 """
+
 import json
 import sys
 
@@ -9,7 +21,7 @@ from rucio.db.sqla.session import get_session
 
 TRAFIC_JSON = 'current_traffic.json'
 
-# get information about load per RSE link from rucio DB
+
 def get_traffic_from_db():
     """
     Gets the size of the current requests
@@ -24,13 +36,13 @@ def get_traffic_from_db():
             FROM atlas_rucio.requests WHERE
                  (state='D' or
                  state='S' or
-                 state='F' or 
+                 state='F' or
                  state='L')
             group by source_rse_id, dest_rse_id'''
     try:
         result = session.execute(query)
         for row in result:
-            link = {'bytes' : row[0], 'src_rse' : row[1], 'dst_rse' : row[2]}
+            link = {'bytes': row[0], 'src_rse': row[1], 'dst_rse': row[2]}
             collector.append(link)
 
     except Exception, exception:
@@ -58,9 +70,10 @@ def create_site_map(rse_map):
             else:
                 trafic_map[src_site][dst_site] = trafic
         else:
-            trafic_map[src_site] = {src_site : trafic}
+            trafic_map[src_site] = {src_site: trafic}
 
     return trafic_map
+
 
 def get_link_traffic():
     """
@@ -70,6 +83,7 @@ def get_link_traffic():
     rse_map = get_traffic_from_db()
     site_map = create_site_map(rse_map)
     return site_map
+
 
 def main():
     """

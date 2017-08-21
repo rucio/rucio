@@ -1,6 +1,17 @@
 """
-Sonar Test V3
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vitjan Zavrtanik, <vitjan.zavrtanik@gmail.com>, 2017
+
+Daemon for sending Sonar tests to available RSE's.
 """
+
 
 import itertools
 import logging
@@ -9,28 +20,29 @@ import sys
 import threading
 import time
 
-from rucio.daemons.sonar_v3.sonar.get_current_traffic import get_link_traffic
 from requests import ConnectionError
+
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, DuplicateRule
 from rucio.common.exception import ReplicationRuleCreationTemporaryFailed
 from rucio.common.exception import RSEBlacklisted, RuleNotFound
 from rucio.client.client import Client
+from rucio.daemons.sonar_v3.sonar.get_current_traffic import get_link_traffic
 
 
-#logging.basicConfig(filename='sonar-out.log', level=logging.INFO)
+# logging.basicConfig(filename='sonar-out.log', level=logging.INFO)
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-
-
 GRACEFUL_STOP = threading.Event()
-#dataset_prefix = 'sonar.test.small.'
+# dataset_prefix = 'sonar.test.small.'
 DATASET_PREFIX = 'sonar.test.medium.'
-#dataset_prefix = 'sonar.test.large.'
+# dataset_prefix = 'sonar.test.large.'
 SET_SCOPE = 'user.vzavrtan'
 DATASET_SIZE = 500000000
+
+
 class SonarTest(object):
     """
     SonarTest class contains functions required
@@ -61,7 +73,7 @@ class SonarTest(object):
         be removed from the RSE.
         """
         for endpoint in self.endpoint_names:
-            rep_gen = list(self.client.list_replicas([{'name':DATASET_PREFIX+endpoint+'_SCRATCHDISK', 'scope':SET_SCOPE}]))
+            rep_gen = list(self.client.list_replicas([{'name': DATASET_PREFIX+endpoint+'_SCRATCHDISK', 'scope': SET_SCOPE}]))
             if rep_gen == []:
                 continue
             replica_sites = rep_gen[0]['rses'].keys()
@@ -70,14 +82,14 @@ class SonarTest(object):
                 if endpoint not in self.rule_dict.keys():
                     self.rule_dict[endpoint] = {}
                 if site_name not in self.rule_dict[endpoint].keys():
-                    self.rule_dict[endpoint][site_name] = {'rule_id':'', 'state':'OK', 'created_at':0, 'delay':time.time()}
+                    self.rule_dict[endpoint][site_name] = {'rule_id': '', 'state': 'OK', 'created_at': 0, 'delay': time.time()}
                 else:
                     self.rule_dict[endpoint][site_name]['delay'] = time.time()
 
                 if endpoint not in self.rule_times.keys():
                     self.rule_times[endpoint] = {}
                 if site_name not in self.rule_times[endpoint].keys():
-                    self.rule_times[endpoint][site_name] = {'start_times':[], 'end_times': [], 'times_required': []}
+                    self.rule_times[endpoint][site_name] = {'start_times': [], 'end_times': [], 'times_required': []}
 
     def get_available_sites(self):
         """
@@ -113,13 +125,13 @@ class SonarTest(object):
                 self.rule_dict[src] = {}
                 self.traffic_weights[src] = {}
             if dst not in self.rule_dict[src].keys():
-                self.rule_dict[src][dst] = {'rule_id':'', 'state':'OK', 'created_at':0, 'delay':0}
+                self.rule_dict[src][dst] = {'rule_id': '', 'state': 'OK', 'created_at': 0, 'delay': 0}
                 self.traffic_weights[src][dst] = 0
 
             if src not in self.rule_times.keys():
                 self.rule_times[src] = {}
             if dst not in self.rule_times[src].keys():
-                self.rule_times[src][dst] = {'start_times':[], 'end_times': [], 'times_required': []}
+                self.rule_times[src][dst] = {'start_times': [], 'end_times': [], 'times_required': []}
 
             if src not in self.traffic_data.keys():
                 self.traffic_data[src] = {}
@@ -131,7 +143,8 @@ class SonarTest(object):
         Reads traffic data.
         """
         tmp_traffic_data = get_link_traffic()
-        for src in tmp_traffic_data.keys():
+        sites = tmp_traffic_data.keys()
+        for src in sites:
             if src not in self.traffic_data.keys():
                 self.traffic_data[src] = {}
             for dst in tmp_traffic_data[src].keys():
@@ -156,23 +169,23 @@ class SonarTest(object):
                     if src not in self.rule_times.keys():
                         self.rule_times[src] = {}
                     if dst not in self.rule_times[src].keys():
-                        self.rule_times[src][dst] = {'start_times':[], 'end_times': [], 'times_required': []}
+                        self.rule_times[src][dst] = {'start_times': [], 'end_times': [], 'times_required': []}
 
                     rule_timestamp = time.mktime(rule['created_at'].timetuple())
 
                     if rule['state'] == 'REPLICATING':
-                        self.rule_dict[src][dst] = {'rule_id':rule['id'],
-                                                    'state':rule['state'],
-                                                    'created_at':rule_timestamp,
+                        self.rule_dict[src][dst] = {'rule_id': rule['id'],
+                                                    'state': rule['state'],
+                                                    'created_at': rule_timestamp,
                                                     'delay': 0}
                         self.traffic_weights[src][dst] = 0
                     else:
                         try:
                             self.client.delete_replication_rule(rule['id'], purge_replicas=True)
-                            self.client.update_replication_rule(rule['id'], {'lifetime':1})
-                            self.rule_dict[src][dst] = {'rule_id':rule['id'],
-                                                        'state':rule['state'],
-                                                        'created_at':rule_timestamp,
+                            self.client.update_replication_rule(rule['id'], {'lifetime': 1})
+                            self.rule_dict[src][dst] = {'rule_id': rule['id'],
+                                                        'state': rule['state'],
+                                                        'created_at': rule_timestamp,
                                                         'delay': time.time()}
                         except (RuleNotFound, AccessDenied) as exception:
                             err_msg = 'Delete in get_link_data '+str(exception)
@@ -201,12 +214,12 @@ class SonarTest(object):
                     continue
 
                 if rule_r['state'] == 'STUCK' or rule_r['state'] == 'OK':
-                    self.rule_dict[src][dst] = {'state':'OK', 'delay': time.time(), 'rule_id': '', 'created_at':0}
+                    self.rule_dict[src][dst] = {'state': 'OK', 'delay': time.time(), 'rule_id': '', 'created_at': 0}
                     try:
                         log_msg = 'Deleting rule state: %s, src: %s, dst: %s' % (rule_r['state'], rule_r['name'], rule_r['rse_expression'])
                         logging.info(log_msg)
                         self.client.delete_replication_rule(rule_l['rule_id'], purge_replicas=True)
-                        self.client.update_replication_rule(rule_l['rule_id'], {'lifetime':1})
+                        self.client.update_replication_rule(rule_l['rule_id'], {'lifetime': 1})
                         counter += 1
                     except (RuleNotFound, AccessDenied) as exception:
                         err_msg = 'Delete in update_rule_data '+str(exception)
@@ -215,7 +228,7 @@ class SonarTest(object):
                 if rule_r['state'] == 'OK':
                     tmp_state = self.rule_dict[src][dst]['state']
                     self.rule_dict[src][dst]['state'] = 'OK'
-                    #Keeps track of the traffic it produces
+                    # Keeps track of the traffic it produces
                     if tmp_state != 'OK':
                         self.traffic_data[src][dst] += DATASET_SIZE
 
@@ -228,9 +241,6 @@ class SonarTest(object):
 
         log_msg = 'Deleted %d rules.' % (counter)
         logging.info(log_msg)
-
-
-
 
     def calculate_weights(self):
         """
@@ -261,14 +271,12 @@ class SonarTest(object):
                 counter_zeros += 1
             weight_sum += t_weights[src][dst]
 
-
         for src, dst in self.pairs:
             t_weights[src][dst] = t_weights[src][dst]/(weight_sum+0.00000000001)
 
         msg = "Calculated weight: zeros/total %d/%d" % (counter_zeros, len(self.pairs))
         logging.info(msg)
         return t_weights
-
 
     def sample_link(self):
         """
@@ -285,8 +293,6 @@ class SonarTest(object):
                 return src, dst
 
         return None, None
-
-
 
     def add_sonar_rule(self, did, rse, src_rse):
         """
@@ -330,8 +336,8 @@ class SonarTest(object):
                                                   self.traffic_data[site_src][site_dest])
             logging.info(log_msg)
             rule_id = self.add_sonar_rule({
-                'name':DATASET_PREFIX+site_src+'_SCRATCHDISK',
-                'scope':SET_SCOPE},
+                'name': DATASET_PREFIX+site_src+'_SCRATCHDISK',
+                'scope': SET_SCOPE},
                                           site_dest+"_SCRATCHDISK",
                                           site_src+"_SCRATCHDISK")
             if rule_id is None:
@@ -347,21 +353,22 @@ class SonarTest(object):
                     src = t_rule['name'].split(DATASET_PREFIX)[1].split('_SCRATCHDISK')[0]
                     if src == site_src and dst == site_dest:
                         rule_timestamp = time.mktime(t_rule['created_at'].timetuple())
-                        self.rule_dict[site_src][site_dest] = {'rule_id':t_rule['id'],
+                        self.rule_dict[site_src][site_dest] = {'rule_id': t_rule['id'],
                                                                'state': t_rule['state'],
                                                                'created_at': rule_timestamp,
                                                                'delay': 0}
                         break
                 continue
             add_counter += 1
-            self.rule_dict[site_src][site_dest] = {'rule_id':rule_id,
-                                                   'state':'REPLICATING',
-                                                   'created_at':time.time(),
+            self.rule_dict[site_src][site_dest] = {'rule_id': rule_id,
+                                                   'state': 'REPLICATING',
+                                                   'created_at': time.time(),
                                                    'delay': 0}
             counter += 1
         log_msg = 'Added %d rules.' % (add_counter)
         logging.info(log_msg)
         self.update_rule_data()
+
 
 def sonar_tests():
     """
@@ -377,15 +384,15 @@ def sonar_tests():
     counter = 0
     while not GRACEFUL_STOP.is_set():
         start_time = time.time()
-        if counter%2880 == 0:
+        if counter % 2880 == 0:
             sonar.get_traffic_data()
 
-        if counter%240 == 0:
+        if counter % 240 == 0:
             sonar.update_available_site_list()
 
-        if counter%20 == 0:
+        if counter % 20 == 0:
             sonar.run_iteration()
-        elif counter%2 == 0:
+        elif counter % 2 == 0:
             sonar.update_rule_data()
 
         time_elapsed = time.time() - start_time
@@ -394,6 +401,7 @@ def sonar_tests():
         if 15 - time_elapsed > 0:
             time.sleep(15 - time_elapsed)
         counter += 1
+
 
 def run():
     """
@@ -407,6 +415,7 @@ def run():
     while threads[0].is_alive():
         for thread in threads:
             thread.join(timeout=3.14)
+
 
 def stop(signum=None, frame=None):
     """
