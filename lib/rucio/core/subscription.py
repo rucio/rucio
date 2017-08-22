@@ -162,7 +162,7 @@ def list_subscriptions(name=None, account=None, state=None, session=None):
         if state:
             query = query.filter_by(state=state)
     except IntegrityError as error:
-        print error
+        print(error)
         raise
     result = {}
     for row in query:
@@ -204,7 +204,7 @@ def list_subscription_rule_states(name=None, account=None, session=None):
         if account:
             query = query.filter(subscription.account == account)
     except IntegrityError as error:
-        print error
+        print(error)
         raise
 
     query = query.group_by(subscription.account, subscription.name, rule.state)
