@@ -519,12 +519,17 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id in unavailable_read_rse_ids:
                     continue
 
-                # Get destination rse information and protocol
+                # Get destination rse information
                 if dest_rse_id not in rses_info:
                     dest_rse = get_rse_name(rse_id=dest_rse_id, session=session)
                     rses_info[dest_rse_id] = rsemgr.get_rse_info(dest_rse, session=session)
                 if dest_rse_id not in rse_attrs:
                     rse_attrs[dest_rse_id] = get_rse_attributes(dest_rse_id, session=session)
+
+                # Get the source rse information
+                if source_rse_id not in rses_info:
+                    source_rse = get_rse_name(rse_id=source_rse_id, session=session)
+                    rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
 
                 attr = None
                 if attributes:
@@ -550,10 +555,25 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # allow_tape_source = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
                 allow_tape_source = True
 
-                # Get protocol
+                # Find matching scheme between destination and source
+                try:
+                    matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=rses_info[dest_rse_id],
+                                                                  rse_settings_src=rses_info[source_rse_id],
+                                                                  operation='write',
+                                                                  domain=None,
+                                                                  scheme=current_schemes)
+                except RSEProtocolNotSupported:
+                    logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                    if id in reqs_no_source:
+                        reqs_no_source.remove(id)
+                    if id not in reqs_scheme_mismatch:
+                        reqs_scheme_mismatch.append(id)
+                    continue
+
+                # Get destination protocol
                 if dest_rse_id not in protocols:
                     try:
-                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', current_schemes)
+                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', matching_scheme[0])
                     except RSEProtocolNotSupported:
                         logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                         if id in reqs_no_source:
@@ -595,38 +615,13 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
                     dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values()[0]
 
-                # get allowed source scheme
-
-                # TODO Change this to get the schema compatibilities from a better/centralized place
-                # scheme_map = {'srm': ['srm', 'gsiftp'], 'gsiftp': ['srm', 'gsiftp'], 'https': ['https', 'davs', 's3'], 'davs': ['https', 'davs'], 's3': ['https', 's3']}
-                # src_schemes = scheme_map.get(dest_scheme, [dest_scheme])
-
-                src_schemes = []
-                dest_scheme = dest_url.split("://")[0]
-                if dest_scheme in ['srm', 'gsiftp']:
-                    src_schemes = ['srm', 'gsiftp']
-                elif dest_scheme in ['https']:
-                    src_schemes = ['https', 'davs', 's3']
-                elif dest_scheme in ['davs']:
-                    src_schemes = ['https', 'davs']
-                elif dest_scheme in ['s3']:
-                    src_schemes = ['https', 's3']
-                else:
-                    src_schemes = [dest_scheme]
-
-                # Compute the sources: urls, etc
-                if source_rse_id not in rses_info:
-                    # source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
-                    source_rse = rse
-                    rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
-
-                # Get protocol
-                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(src_schemes))
+                # Get source protocol
+                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join([matching_scheme[0], matching_scheme[1]]))
                 if source_rse_id_key not in protocols:
                     try:
-                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', src_schemes)
+                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', matching_scheme[1])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], src_schemes))
+                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], matching_scheme[1]))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -689,7 +684,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
                 transfers[id] = {'request_id': id,
-                                 'schemes': src_schemes,
+                                 'schemes': [matching_scheme[0], matching_scheme[1]],
                                  # 'src_urls': [source_url],
                                  'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
                                  'dest_urls': [dest_url],
@@ -740,10 +735,9 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # parse allow tape source expression, not finally version.
                 allow_tape_source = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
 
-                # Compute the sources: urls, etc
+                # Compute the source rse information
                 if source_rse_id not in rses_info:
-                    # source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
-                    source_rse = rse
+                    source_rse = get_rse_name(rse_id=source_rse_id, session=session)
                     rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
 
                 if ranking is None:
@@ -816,8 +810,6 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', schemes)
                     except RSEProtocolNotSupported:
                         logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], schemes))
-                        if id not in reqs_scheme_mismatch:
-                            reqs_scheme_mismatch.append(id)
                         continue
                 source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
 

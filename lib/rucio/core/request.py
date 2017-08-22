@@ -154,8 +154,7 @@ def queue_requests(requests, session=None):
                                                                                         rses[request['dest_rse_id']]))
             continue
 
-        transfer_limit = transfer_limits[request['attributes']['activity']].\
-            get(request['dest_rse_id'])
+        transfer_limit = transfer_limits[request['attributes']['activity']].get(request['dest_rse_id'])
         request['state'] = RequestState.WAITING if transfer_limit else RequestState.QUEUED
 
         if 'previous_attempt_id' in request and 'retry_count' in request:
