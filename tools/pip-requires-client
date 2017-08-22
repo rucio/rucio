@@ -6,7 +6,6 @@ kerberos>=1.2.5             # Kerberos high-level interface
 pykerberos>=1.1.14          # Kerberos high-level interface
 requests==2.18.1            # Python HTTP for Humans.
 requests-kerberos==0.11.0   # A Kerberos authentication handler for python-requests
-wsgiref>=0.1.2              # WSGI (PEP 333) Reference Library
 dogpile.cache>=0.6.3        # Caching API plugins
 nose>=1.3.7                 # For rucio test-server
 boto>=2.47.0                # S3 boto protocol
