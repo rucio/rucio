@@ -7,12 +7,16 @@
  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 """
 
 from json import dumps, loads
-from urlparse import parse_qs
+try:
+    from urllib.parse import parse_qs
+except ImportError:
+    from urlparse import parse_qs
+
 
 from web import application, ctx, data, header, BadRequest, Created, InternalError, loadhook
 
@@ -54,7 +58,7 @@ class Subscription:
         try:
             for subscription in list_subscriptions(name=name, account=account):
                 yield dumps(subscription, cls=APIEncoder) + '\n'
-        except SubscriptionNotFound, error:
+        except SubscriptionNotFound as error:
             raise generate_http_error(404, 'SubscriptionNotFound', error[0][0])
         except Exception as error:
             raise InternalError(error)
