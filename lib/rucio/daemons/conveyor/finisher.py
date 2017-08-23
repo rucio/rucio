@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 
 """
@@ -36,7 +37,7 @@ from sqlalchemy.exc import DatabaseError
 from rucio.common.config import config_get
 from rucio.common.utils import chunks
 from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound
-from rucio.core import request as request_core, heartbeat, transfer as transfer_core, replica as replica_core
+from rucio.core import request as request_core, heartbeat, replica as replica_core
 from rucio.core.config import get
 from rucio.core.monitor import record_timer, record_counter
 from rucio.core.rse import list_rses, get_rse_name, get_rse
@@ -241,7 +242,7 @@ def __handle_requests(reqs, suspicious_patterns):
                     logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = False
-                    replica['error_message'] = req['err_msg'] if req['err_msg'] else transfer_core.get_transfer_error(req['state'])
+                    replica['error_message'] = req['err_msg'] if req['err_msg'] else request_core.get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
             elif req['state'] == RequestState.SUBMITTING or req['state'] == RequestState.SUBMISSION_FAILED or req['state'] == RequestState.LOST:
                 if req['updated_at'] > (datetime.datetime.utcnow() - datetime.timedelta(minutes=120)):
@@ -261,7 +262,7 @@ def __handle_requests(reqs, suspicious_patterns):
                     logging.warn('EXCEEDED SUBMITTING DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = False
-                    replica['error_message'] = req['err_msg'] if req['err_msg'] else transfer_core.get_transfer_error(req['state'])
+                    replica['error_message'] = req['err_msg'] if req['err_msg'] else request_core.get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
             elif req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES or req['state'] == RequestState.MISMATCH_SCHEME:
                 if request_core.should_retry_request(req):
@@ -280,7 +281,7 @@ def __handle_requests(reqs, suspicious_patterns):
                     logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'], req['name'], req['request_id']))
                     replica['state'] = ReplicaState.UNAVAILABLE  # should be broken here
                     replica['archived'] = False
-                    replica['error_message'] = req['err_msg'] if req['err_msg'] else transfer_core.get_transfer_error(req['state'])
+                    replica['error_message'] = req['err_msg'] if req['err_msg'] else request_core.get_transfer_error(req['state'])
                     replicas[req['request_type']][req['rule_id']].append(replica)
 
         except:

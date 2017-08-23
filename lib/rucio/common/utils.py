@@ -1,16 +1,15 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
- - Martin Barisits, <martin.barisits@cern.ch>, 2017
-"""
 
 import datetime
 import errno
@@ -30,7 +29,6 @@ from urllib import urlencode, quote
 from uuid import uuid4 as uuid
 
 from rucio.common.config import config_get
-from rucio.db.sqla.constants import RequestState, RequestErrMsg
 
 try:
     # Hack for the client distribution
@@ -501,23 +499,6 @@ def is_archive(name):
     if re.match(regexp, name, re.I):
         return True
     return False
-
-
-def get_transfer_error(state, reason=None):
-    err_msg = None
-    if state in [RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]:
-        err_msg = '%s:%s' % (RequestErrMsg.NO_SOURCES, state)
-    elif state in [RequestState.SUBMISSION_FAILED]:
-        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, state)
-    elif state in [RequestState.SUBMITTING]:
-        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, "Too long time in submitting state")
-    elif state in [RequestState.LOST]:
-        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, "Transfer job on FTS is lost")
-    elif state in [RequestState.FAILED]:
-        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, reason)
-    elif state in [RequestState.MISMATCH_SCHEME]:
-        err_msg = '%s:%s' % (RequestErrMsg.MISMATCH_SCHEME, state)
-    return err_msg
 
 
 class Color:
