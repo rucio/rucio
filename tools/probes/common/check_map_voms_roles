@@ -1,20 +1,20 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#                       http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+"""
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+                       http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2014, 2017
+ - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+"""
 
 import os
 import sys
-import types
-
 
 from rucio.client import Client
 from rucio.common.config import config_get
@@ -30,77 +30,76 @@ OK = 0
 
 if __name__ == '__main__':
     try:
-        proxy = config_get('nagios', 'proxy')
-        os.environ["X509_USER_PROXY"] = proxy
-        cert, key = os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']
-    except Exception as e:
-        print "Failed to get proxy from rucio.cfg"
+        PROXY = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = PROXY
+        CERT, KEY = os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']
+    except Exception:
+        print("Failed to get proxy from rucio.cfg")
         sys.exit(CRITICAL)
-    account_map = {'Role=pilot': 'pilot', 'Role=production': 'pilot'}
-    status = OK
-    nbusers = 0
-    nonicknames = []
-    c = Client()
-    admin = VOMSAdminProxy(vo='atlas', host='voms2.cern.ch', port=8443,
-                           user_cert=cert, user_key=key)
-    for account in account_map:
-        nbusers = 0
+    ACCOUNT_MAP = {'Role=pilot': 'pilot', 'Role=production': 'pilot'}
+    STATUS = OK
+    NBUSERS = 0
+    CLIENT = Client()
+    ADMIN = VOMSAdminProxy(vo='atlas', host='voms2.cern.ch', port=8443,
+                           user_cert=CERT, user_key=KEY)
+    for account in ACCOUNT_MAP:
+        NBUSERS = 0
         attempts = 0
         totattemps = 3
-        for attempts in xrange(0, totattemps):
-            res = admin.call_method('list-users-with-role', '/atlas', account)
-            if isinstance(res, types.ListType) and (attempts < totattemps - 1):
+        for attempts in range(0, totattemps):
+            res = ADMIN.call_method('list-users-with-role', '/atlas', account)
+            if isinstance(res, list) and (attempts < totattemps - 1):
                 for user in res:
-                    nbusers += 1
+                    NBUSERS += 1
                     try:
                         dn = user._DN
                         ca = user._CA
                         email = user._mail
-                        print account_map[account], dn, ca, email
+                        print(ACCOUNT_MAP[account], dn, ca, email)
                         try:
-                            c.add_identity(account=account_map[account], identity=dn, authtype='X509', email=email, default=True)
-                            print 'Identity %(dn)s added' % locals()
+                            CLIENT.add_identity(account=ACCOUNT_MAP[account], identity=dn, authtype='X509', email=email, default=True)
+                            print('Identity %(dn)s added' % locals())
                         except Duplicate:
                             pass
-                        except Exception, e:
-                            print e
+                        except Exception as error:
+                            print(error)
                     except:
-                        print 'ERROR getting info for %s' % (user._DN)
-                        status = WARNING
+                        print('ERROR getting info for %s' % (user._DN))
+                        STATUS = WARNING
                 break
             else:
                 sys.exit(CRITICAL)
-        print '%i users extracted from VOMS with %s' % (nbusers, account)
+        print('%i users extracted from VOMS with %s' % (NBUSERS, account))
 
-    account_list = ['calib-muon', 'det-alfa', 'det-ibl', 'det-indet', 'det-larg', 'det-muon', 'det-slhc', 'det-tile', 'proj-sit', 'trig-daq', 'trig-hlt', 'perf-egamma', 'perf-flavtag', 'perf-idtracking', 'perf-jets', 'perf-muons', 'perf-tau',
-                    'phys-beauty', 'phys-exotics', 'phys-gener', 'phys-hi', 'phys-higgs', 'phys-sm', 'phys-susy', 'phys-top', 'phys-valid', 'dataprep']
-    for account in account_list:
-        nbusers = 0
+    ACCOUNT_LIST = ['calib-muon', 'det-alfa', 'det-ibl', 'det-indet', 'det-larg', 'det-muon', 'det-slhc', 'det-tile', 'proj-sit', 'trig-daq', 'trig-hlt', 'perf-egamma', 'perf-flavtag', 'perf-idtracking', 'perf-jets', 'perf-muons', 'perf-tau',
+                    'phys-beauty', 'phys-exotics', 'phys-gener', 'phys-hi', 'phys-higgs', 'phys-sm', 'phys-susy', 'phys-top', 'phys-valid', 'dataprep', 'trig-l1calo']
+    for account in ACCOUNT_LIST:
+        NBUSERS = 0
         attempts = 0
         totattemps = 3
-        for attempts in xrange(0, totattemps):
-            res = admin.call_method('list-members', '/atlas/{0}'.format(account))
-            if isinstance(res, types.ListType) and (attempts < totattemps - 1):
+        for attempts in range(0, totattemps):
+            res = ADMIN.call_method('list-members', '/atlas/{0}'.format(account))
+            if isinstance(res, list) and (attempts < totattemps - 1):
                 for user in res:
-                    nbusers += 1
+                    NBUSERS += 1
                     try:
                         dn = user._DN
                         ca = user._CA
                         email = user._mail
-                        print account, dn, ca, email
+                        print(account, dn, ca, email)
                         try:
-                            c.add_identity(account=account, identity=dn, authtype='X509', email=email, default=True)
-                            print 'Identity {0} added to {1}'.format(dn, account)
+                            CLIENT.add_identity(account=account, identity=dn, authtype='X509', email=email, default=True)
+                            print('Identity {0} added to {1}'.format(dn, account))
                         except Duplicate:
                             pass
-                        except Exception, e:
-                            print e
+                        except Exception as error:
+                            print(error)
                     except:
-                        print 'ERROR getting info for %s' % (user._DN)
-                        status = WARNING
+                        print('ERROR getting info for %s' % (user._DN))
+                        STATUS = WARNING
                 break
             else:
                 sys.exit(CRITICAL)
-        print '%i users extracted from VOMS with %s' % (nbusers, account)
+        print('%i users extracted from VOMS with %s' % (NBUSERS, account))
 
-    sys.exit(status)
+    sys.exit(STATUS)
