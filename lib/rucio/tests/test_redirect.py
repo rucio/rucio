@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2016
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 from nose.tools import assert_in
@@ -25,8 +25,7 @@ class TestReplicaHeaderRedirection:
         self.cacert = config_get('test', 'cacert')
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
-        self.marker = '$> '
-        # get auth token
+
         self.base_client = BaseClient()
         self.token = self.base_client.headers['X-Rucio-Auth-Token']
         self.replica_client = ReplicaClient()
@@ -42,7 +41,7 @@ class TestReplicaHeaderRedirection:
                                                                                                  tmp_name)
         _, out, _ = execute(cmd)
         assert_in('404 Not Found', out)
-        # add replicas
+
         self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope,
                                                              'name': tmp_name,
                                                              'bytes': 1L,
@@ -62,8 +61,7 @@ class TestReplicaMetalinkRedirection:
         self.cacert = config_get('test', 'cacert')
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
-        self.marker = '$> '
-        # get auth token
+
         self.base_client = BaseClient()
         self.token = self.base_client.headers['X-Rucio-Auth-Token']
         self.replica_client = ReplicaClient()
@@ -79,7 +77,7 @@ class TestReplicaMetalinkRedirection:
                                                                                                  tmp_name)
         _, out, _ = execute(cmd)
         assert_in('404 Not Found', out)
-        # add replicas
+
         self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope,
                                                              'name': tmp_name,
                                                              'bytes': 1L,
@@ -99,7 +97,6 @@ class TestReplicaMetalinkRedirection:
                                                                                                           tmp_scope,
                                                                                                           tmp_name)
         _, out, _ = execute(cmd)
-        print out
         assert_in('200 OK', out)
         assert_in('<?xml', out)
         assert_in('<metalink', out)

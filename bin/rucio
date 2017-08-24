@@ -50,7 +50,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, File
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException, DuplicateRule)
-from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color
+from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_location
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -203,7 +203,7 @@ def exception_handler(function):
             return FAILURE
         except UnsupportedOperation, error:
             logger.error(error)
-            logger.debug('That means you cannot change the status of the DID.')
+            logger.debug('This means you cannot change the status of the DID.')
             return FAILURE
         except MissingDependency, error:
             logger.error(error)
@@ -236,7 +236,7 @@ def exception_handler(function):
             return FAILURE
         except Exception as error:
             logger.error(error)
-            logger.error("Rucio exited with an unexpected/unknown error. Please rerun the last command with the '-v' option and submit a ticket with all the necessary information at https://its.cern.ch/jira/browse/RUCIO")
+            logger.error("Rucio exited with an unexpected/unknown error. Please rerun the last command with the '-v' option and submit a ticket with all the available information to reproduce this error at https://its.cern.ch/jira/browse/RUCIO")
             logger.debug(traceback.format_exc())
             return FAILURE
     return new_funct
@@ -374,68 +374,74 @@ def list_file_replicas(args):
 
     replicas = client.list_replicas(dids, schemes=protocols,
                                     all_states=args.all_states,
-                                    rse_expression=args.rse_expression)
+                                    rse_expression=args.rse_expression,
+                                    metalink=args.metalink,
+                                    location=detect_location(),
+                                    sort=args.sort)
 
-    if args.missing:
-        for replica in replicas:
-            rses = replica['rses'].keys()
-            if args.selected_rse not in rses:
-                table.append([replica['scope'], replica['name']])
-        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME'])
-    elif args.link:
-        pfn_dir, dst_dir = args.link.split(':')
-        for replica in replicas:
-            if args.selected_rse:
-                if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
-                    for pfn in replica['rses'][args.selected_rse]:
-                        os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
-            else:
-                for rse in replica['rses']:
-                    if replica['rses'][rse]:
-                        for pfn in replica['rses'][rse]:
-                            os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
-    elif args.pfns:
-        for replica in replicas:
-            if args.selected_rse:
-                if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
-                    for pfn in replica['rses'][args.selected_rse]:
-                        print pfn
-            else:
-                for rse in replica['rses']:
-                    if replica['rses'][rse]:
-                        for pfn in replica['rses'][rse]:
-                            print pfn
+    if args.metalink:
+        print replicas[:-1]  # last character is newline, no need to print that
     else:
-        for replica in replicas:
-            if 'bytes' in replica:
-                for rse in replica['rses']:
-                    if args.list_collections:
-                        if rse not in rse_dict:
-                            rse_dict[rse] = 0
-                        if replica['rses'][rse] != []:
-                            rse_dict[rse] += 1
-                    else:
-                        for pfn in replica['rses'][rse]:
-                            if args.selected_rse:
-                                if rse == args.selected_rse:
-                                    table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
-                            else:
-                                table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
-            elif not args.list_collections:
-                table.append([replica['scope'], replica['name'], '???', '???', 'Unavailable'])
-        if args.list_collections:
-            nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
-            sorted_key = rse_dict.keys()
-            sorted_key.sort()
-            table = []
-            for rse in sorted_key:
-                table.append([rse, rse_dict[rse], nbfiles])
-
-        if args.list_collections:
-            logger.warning('This option is deprecated. Please use rucio list-dataset-replicas instead.')
-            print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'Found', 'Total'])
+        if args.missing:
+            for replica in replicas:
+                rses = replica['rses'].keys()
+                if args.selected_rse not in rses:
+                    table.append([replica['scope'], replica['name']])
+            print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME'])
+        elif args.link:
+            pfn_dir, dst_dir = args.link.split(':')
+            for replica in replicas:
+                if args.selected_rse:
+                    if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
+                        for pfn in replica['rses'][args.selected_rse]:
+                            os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+                else:
+                    for rse in replica['rses']:
+                        if replica['rses'][rse]:
+                            for pfn in replica['rses'][rse]:
+                                os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+        elif args.pfns:
+            for replica in replicas:
+                if args.selected_rse:
+                    if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
+                        for pfn in replica['rses'][args.selected_rse]:
+                            print pfn
+                else:
+                    for rse in replica['rses']:
+                        if replica['rses'][rse]:
+                            for pfn in replica['rses'][rse]:
+                                print pfn
         else:
-            print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA'])
+            for replica in replicas:
+                if 'bytes' in replica:
+                    for rse in replica['rses']:
+                        if args.list_collections:
+                            if rse not in rse_dict:
+                                rse_dict[rse] = 0
+                            if replica['rses'][rse] != []:
+                                rse_dict[rse] += 1
+                        else:
+                            for pfn in replica['rses'][rse]:
+                                if args.selected_rse:
+                                    if rse == args.selected_rse:
+                                        table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
+                                else:
+                                    table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
+                elif not args.list_collections:
+                    table.append([replica['scope'], replica['name'], '???', '???', 'Unavailable'])
+            if args.list_collections:
+                nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
+                sorted_key = rse_dict.keys()
+                sorted_key.sort()
+                table = []
+                for rse in sorted_key:
+                    table.append([rse, rse_dict[rse], nbfiles])
+
+            if args.list_collections:
+                logger.warning('This option is deprecated. Please use rucio list-dataset-replicas instead.')
+                print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'Found', 'Total'])
+            else:
+                print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA'])
 
     return SUCCESS
 
@@ -1716,7 +1722,7 @@ def download(args):
         logger.debug('aria2c is executable! Checking if all files have https PFNs...')
         try:
             # metalink string for replicas of all arg.dids
-            mlstr = client.list_replicas(dids, rse_expression=rse_expression, metalink=4, schemes=['https'])
+            mlstr = client.list_replicas(dids, rse_expression=rse_expression, metalink=True, schemes=['https'])
             files = _replica_mlstr_to_list(mlstr)
             for file in files:
                 if len(file['rses']) == 0:
@@ -1760,7 +1766,7 @@ def download(args):
                 logger.error('Failed to get did info for did %s' % arg_didstr)
                 return FAILURE
 
-            metalink = 4 if use_aria else None
+            metalink = True if use_aria else None
             schemes = ['https'] if use_aria else None
             try:
                 files_with_replicas = client.list_replicas([arg_did],
@@ -1771,7 +1777,7 @@ def download(args):
                 logger.error('Failed to get list of files with their replicas for DID %s' % arg_didstr)
                 return FAILURE
 
-            if metalink is not None:
+            if metalink:
                 try:
                     files_with_replicas = _replica_mlstr_to_list(files_with_replicas)
                 except Exception as error:
@@ -2408,10 +2414,12 @@ Commands:
     list_file_replicas_parser.add_argument('--list-collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site\
         (' + Color.BOLD + 'DEPRECATED: ' + Color.END + 'please use list-dataset-replicas instead.)', required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-    list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs', required=False)
-    list_file_replicas_parser.add_argument('--link', dest='link', default=None, action='store', help='Symlink PFNs with directory substitution', required=False)
-    list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE', required=False)
+    list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs.', required=False)
+    list_file_replicas_parser.add_argument('--link', dest='link', default=None, action='store', help='Symlink PFNs with directory substitution.', required=False)
+    list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False)
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE.', required=False)
+    list_file_replicas_parser.add_argument('--metalink', dest='metalink', default=False, action='store_true', help='Output available replicas as metalink.', required=False)
+    list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: random (default), geoip', required=False)
     list_file_replicas_parser.add_argument('--expression', dest='rse_expression', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
             can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
 
