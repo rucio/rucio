@@ -30,17 +30,14 @@ from rucio.client.client import Client
 from rucio.daemons.sonar_v3.sonar.get_current_traffic import get_link_traffic
 
 
-# logging.basicConfig(filename='sonar-out.log', level=logging.INFO)
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
-# dataset_prefix = 'sonar.test.small.'
-DATASET_PREFIX = 'sonar.test.medium.'
-# dataset_prefix = 'sonar.test.large.'
-SET_SCOPE = 'user.vzavrtan'
-DATASET_SIZE = 500000000
+DATASET_PREFIX = config_get('sonar', 'dataset_prefix')
+SET_SCOPE = config_get('sonar', 'scope')
+DATASET_SIZE = config_get('sonar', 'dataset_size')
 
 
 class SonarTest(object):
