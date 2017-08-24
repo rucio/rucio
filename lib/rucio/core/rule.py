@@ -1429,9 +1429,9 @@ def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1477,9 +1477,9 @@ def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rule
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1533,9 +1533,9 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         fetched_rules = query.limit(limit).all()
