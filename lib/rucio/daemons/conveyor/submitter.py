@@ -127,12 +127,17 @@ def submitter(once=False, rses=[], mock=False,
 
                 logging.info("%s:%s Starting to get transfer transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
-                transfers = __get_transfers(process=process, total_processes=total_processes,
+                transfers = __get_transfers(process=process,
+                                            total_processes=total_processes,
                                             thread=hb['assign_thread'],
                                             total_threads=hb['nr_threads'],
-                                            failover_schemes=failover_scheme, limit=bulk,
-                                            activity=activity, rses=rse_ids, schemes=scheme,
-                                            mock=mock, max_sources=max_sources,
+                                            failover_schemes=failover_scheme,
+                                            limit=bulk,
+                                            activity=activity,
+                                            rses=rse_ids,
+                                            schemes=scheme,
+                                            mock=mock,
+                                            max_sources=max_sources,
                                             bring_online=bring_online,
                                             retry_other_fts=retry_other_fts)
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
@@ -151,8 +156,13 @@ def submitter(once=False, rses=[], mock=False,
                     for job in grouped_jobs[external_host]:
                         # submit transfers
                         # job_requests = makeRequests(submit_transfer, args_list=[((external_host, job, 'transfer_submitter', process, thread), {})])
-                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host, 'job': job, 'submitter': 'transfer_submitter', 'process': process,
-                                                                                      'thread': hb['assign_thread'], 'timeout': timeout})])
+                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host,
+                                                                                      'job': job,
+                                                                                      'submitter':
+                                                                                      'transfer_submitter',
+                                                                                      'process': process,
+                                                                                      'thread': hb['assign_thread'],
+                                                                                      'timeout': timeout})])
                         [threadPool.putRequest(job_req) for job_req in job_requests]
                 threadPool.wait()
 
