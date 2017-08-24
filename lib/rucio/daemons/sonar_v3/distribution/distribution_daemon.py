@@ -16,11 +16,13 @@ Daemon for distributing sonar test files to available RSE's
 import glob
 import os
 import subprocess
+import sys
 import threading
 import logging
 import time
 
 from rucio.client.client import Client
+from rucio.common.config import config_get
 from rucio.common.exception import DuplicateRule
 from rucio.common.exception import ReplicationRuleCreationTemporaryFailed
 from rucio.common.exception import RSEBlacklisted
@@ -28,7 +30,9 @@ from rucio.common.exception import InsufficientAccountLimit
 
 
 GRACEFUL_STOP = threading.Event()
-logging.basicConfig(filename='distribution-daemon.log', level=logging.INFO)
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def rename_files(tdir, pattern, new_name):
@@ -103,9 +107,9 @@ def run_distribution():
     """
     client = Client()
     counter = 0
-    dataset_dir = 'sonar_medium_dataset'
-    dataset_prefix = 'sonar.test.medium.'
-    scope = 'user.vzavrtan'
+    dataset_dir = config_get('sonar', 'dataset_dir')
+    dataset_prefix = config_get('sonar', 'dataset_prefix')
+    scope = config_get('sonar', 'scope')
     num_files = 10
     while not GRACEFUL_STOP.is_set():
         if counter % 12 == 0:
