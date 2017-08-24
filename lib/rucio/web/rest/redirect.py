@@ -14,14 +14,12 @@ from traceback import format_exc
 from urlparse import parse_qs
 from web import application, ctx, header, seeother, InternalError
 
-from geoip2.errors import AddressNotFoundError
-
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.api.replica import list_replicas
 from rucio.common.objectstore import connect, get_signed_urls
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
-from rucio.common.replicas_selector import random_order, geoIP_order, site_selector
+from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController
 
@@ -58,14 +56,25 @@ class MetaLinkRedirector(RucioController):
         header('Access-Control-Allow-Methods', '*')
         header('Access-Control-Allow-Credentials', 'true')
 
-        dids, schemes, select = [{'scope': scope, 'name': name}], ['http', 'https', 's3+rucio', 's3+https', 'root', 'gsiftp', 'srm'], None
+        dids, schemes, select = [{'scope': scope, 'name': name}], ['http', 'https', 's3+rucio', 's3+https', 'root', 'gsiftp', 'srm', 'davs'], None
+        location = {}
+
+        # set the correct client IP
+        client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if client_ip is None:
+            client_ip = ctx.ip
 
         if ctx.query:
             params = parse_qs(ctx.query[1:])
             if 'schemes' in params:
                 schemes = params['schemes']
+            if 'location' in params:
+                location = params['location']
+                location['ip'] = params['location'].get('ip', client_ip)
             if 'select' in params:
                 select = params['select'][0]
+            if 'sort' in params:
+                select = params['sort']
 
         try:
             tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes)]
@@ -73,14 +82,9 @@ class MetaLinkRedirector(RucioController):
             if not tmp_replicas:
                 raise ReplicaNotFound('no redirection possible - cannot find the DID')
 
-            # first, set the APPropriate content type, and stream the header
+            # first, set the appropriate content type, and stream the header
             header('Content-Type', 'application/metalink4+xml')
             yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
-
-            # set the correct client IP
-            client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
-            if client_ip is None:
-                client_ip = ctx.ip
 
             # iteratively stream the XML per file
             for rfile in tmp_replicas:
@@ -90,15 +94,6 @@ class MetaLinkRedirector(RucioController):
                     for replica in rfile['rses'][rse]:
                         replicas.append(replica)
                         dictreplica[replica] = rse
-
-                # sort the actual replicas if necessary
-                if select == 'geoip':
-                    try:
-                        replicas = geoIP_order(dictreplica, client_ip)
-                    except AddressNotFoundError:
-                        pass
-                else:
-                    replicas = random_order(dictreplica, client_ip)
 
                 # stream metadata
                 yield ' <file name="' + rfile['name'] + '">\n'
@@ -113,6 +108,18 @@ class MetaLinkRedirector(RucioController):
 
                 yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
                 yield '</glfn>\n'
+
+                # sort the actual replicas if necessary
+                if select == 'geoip':
+                    replicas = sort_geoip(dictreplica, location['ip'])
+                elif select == 'closeness':
+                    replicas = sort_closeness(dictreplica, location)
+                elif select == 'dynamic':
+                    replicas = sort_dynamic(dictreplica, location)
+                elif select == 'ranking':
+                    replicas = sort_ranking(dictreplica, location)
+                else:
+                    replicas = sort_random(dictreplica)
 
                 # stream URLs
                 idx = 1
@@ -163,6 +170,12 @@ class HeaderRedirector(RucioController):
 
             # use the default HTTP protocols if no scheme is given
             select, rse, site, schemes = 'random', None, None, ['http', 'https', 's3+rucio']
+            location = {}
+
+            client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+            if client_ip is None:
+                client_ip = ctx.ip
+
             if ctx.query:
                 params = parse_qs(ctx.query[1:])
                 if 'select' in params:
@@ -173,6 +186,9 @@ class HeaderRedirector(RucioController):
                     site = params['site'][0]
                 if 'schemes' in params:
                     schemes = params['schemes'][0]
+                if 'location' in params:
+                    location = params['location']
+                    location['ip'] = params['location'].get('ip', client_ip)
 
             # correctly forward the schemes and select to potential metalink followups
             cleaned_url = ctx.env.get('REQUEST_URI').split('?')[0]
@@ -187,7 +203,7 @@ class HeaderRedirector(RucioController):
             selected_url, selected_rse = None, None
             for r in replicas:
                 if r['rses']:
-                    replicadict = {}
+                    dictreplica = {}
 
                     if rse:
                         if rse in r['rses'] and r['rses'][rse]:
@@ -199,25 +215,29 @@ class HeaderRedirector(RucioController):
 
                         for rep in r['rses']:
                             for replica in r['rses'][rep]:
-                                replicadict[replica] = rep
+                                dictreplica[replica] = rep
 
-                        if not replicadict:
+                        if not dictreplica:
                             raise ReplicaNotFound('no redirection possible - no valid RSE for HTTP redirection found')
 
                         elif site:
-                            rep = site_selector(replicadict, site)
+                            rep = site_selector(dictreplica, site)
                             if rep:
                                 selected_url = rep[0]
                             else:
                                 raise ReplicaNotFound('no redirection possible - no valid RSE for HTTP redirection found')
                         else:
-                            client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
-                            if client_ip is None:
-                                client_ip = ctx.ip
+
                             if select == 'geoip':
-                                rep = geoIP_order(replicadict, client_ip)
+                                rep = sort_geoip(dictreplica, location['ip'])
+                            elif select == 'closeness':
+                                rep = sort_closeness(dictreplica, location)
+                            elif select == 'dynamic':
+                                rep = sort_dynamic(dictreplica, location)
+                            elif select == 'ranking':
+                                rep = sort_ranking(dictreplica, location)
                             else:
-                                rep = random_order(replicadict, client_ip)
+                                rep = sort_random(dictreplica)
 
                             selected_url = rep[0]
 

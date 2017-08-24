@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2016
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2016-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -483,15 +483,6 @@ class TestReplicaMetalink:
         self.did_client.add_files_to_dataset('mock', name=dsn, files=self.files, rse='MOCK')
         for r in rses:
             self.replica_client.add_replicas(r, self.files)
-
-    def test_list_replicas_metalink_3(self):
-        """ REPLICA (METALINK): List replicas as metalink version 3 """
-        ml = xmltodict.parse(self.replica_client.list_replicas(self.files,
-                                                               metalink=3,
-                                                               unavailable=True,
-                                                               schemes=['https', 'sftp', 'file']),
-                             xml_attribs=False)
-        assert_equal(3, len(ml['metalink']['files']['file']['resources']['url']))
 
     def test_list_replicas_metalink_4(self):
         """ REPLICA (METALINK): List replicas as metalink version 4 """
