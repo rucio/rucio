@@ -24,13 +24,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text, false, true
 
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
-from rucio.common.utils import generate_uuid, chunks, get_transfer_error
+from rucio.common.utils import generate_uuid, chunks
 from rucio.core import transfer_limits as transfer_limits_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState
+from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.transfertool import fts3
 
@@ -1102,6 +1102,30 @@ def add_monitor_message(request, response, session=None):
                                   'tool-id': 'rucio-conveyor',
                                   'account': account},
                 session=session)
+
+
+def get_transfer_error(state, reason=None):
+    """
+    Transform a specific RequestState to an error message
+
+    :param state:   State of the request.
+    :param reason:  Reason of the state.
+    :returns:       Error message
+    """
+    err_msg = None
+    if state in [RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]:
+        err_msg = '%s:%s' % (RequestErrMsg.NO_SOURCES, state)
+    elif state in [RequestState.SUBMISSION_FAILED]:
+        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, state)
+    elif state in [RequestState.SUBMITTING]:
+        err_msg = '%s:%s' % (RequestErrMsg.SUBMISSION_FAILED, "Too long time in submitting state")
+    elif state in [RequestState.LOST]:
+        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, "Transfer job on FTS is lost")
+    elif state in [RequestState.FAILED]:
+        err_msg = '%s:%s' % (RequestErrMsg.TRANSFER_FAILED, reason)
+    elif state in [RequestState.MISMATCH_SCHEME]:
+        err_msg = '%s:%s' % (RequestErrMsg.MISMATCH_SCHEME, state)
+    return err_msg
 
 
 @transactional_session

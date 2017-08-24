@@ -22,7 +22,7 @@ from sqlalchemy.sql.expression import asc, bindparam, text, false
 
 from rucio.common.exception import RucioException, UnsupportedOperation, InvalidRSEExpression, RSEProtocolNotSupported
 from rucio.common.rse_attributes import get_rse_attributes
-from rucio.common.utils import get_transfer_error, construct_surl
+from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, list_rses
@@ -437,7 +437,7 @@ def update_transfer_state(external_host, transfer_id, state, session=None):
                             'details': None,
                             'account': req.get('account', None)}
 
-                err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
+                err_msg = request_core.get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
                 request_core.set_request_state(req['request_id'],
                                                response['new_state'],
                                                transfer_id=transfer_id,
