@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -43,7 +43,7 @@ def add_identity(identity, type, email, password=None, session=None):
     new_id.update({'identity': identity, 'identity_type': type, 'email': email})
 
     if type == IdentityType.USERPASS and password is not None:
-        salt = os.urandom(256)  # make sure the salt has the length of the hash
+        salt = os.urandom(255)  # make sure the salt has the length of the hash
         password = hashlib.sha256('%s%s' % (salt, password)).hexdigest()  # hash it
         new_id.update({'salt': salt, 'password': password, 'email': email})
     try:
