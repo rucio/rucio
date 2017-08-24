@@ -12,6 +12,7 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
  - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+ - Martin Barisits, <martin.barisits@cern.ch>, 2017
 '''
 
 import copy
@@ -559,3 +560,92 @@ def get_space_usage(rse_settings, scheme=None):
 
     protocol.close()
     return [gs, ret]
+
+
+def find_matching_scheme(rse_settings_dest, rse_settings_src, operation, domain=None, scheme=None):
+    """
+    Find the best matching scheme between two RSEs
+
+    :param rse_settings_dest:    RSE settings for the destination RSE.
+    :param rse_settings_src:     RSE settings for the src RSE.
+    :param operation:            Operation such as read, write.
+    :param domain:               Domain such as lan, wan.
+    :param scheme:               List of supported schemes.
+    :returns:                    Tuple of matching schemes (dest_scheme, src_scheme).
+    """
+    operation = operation.lower()
+    src_candidates = copy.copy(rse_settings_src['protocols'])
+    dest_candidates = copy.copy(rse_settings_dest['protocols'])
+
+    if not domain:
+        if type(rse_settings_dest['domain']) is not list:
+            raise exception.RSEProtocolDomainNotSupported('Domain setting must be list.')
+        domain = rse_settings_dest['domain'][0]
+
+    # Clean up src_candidates
+    tbr = list()
+    for protocol in src_candidates:
+        # Check if scheme given and filter if so
+        if scheme:
+            if not isinstance(scheme, list):
+                scheme = scheme.split(',')
+            if protocol['scheme'] not in scheme:
+                tbr.append(protocol)
+                continue
+        if protocol['domains'].get(domain, {}).get(operation, 1) == 0:
+            tbr.append(protocol)
+    for r in tbr:
+        src_candidates.remove(r)
+
+    # Clean up dest_candidates
+    tbr = list()
+    for protocol in dest_candidates:
+        # Check if scheme given and filter if so
+        if scheme:
+            if not isinstance(scheme, list):
+                scheme = scheme.split(',')
+            if protocol['scheme'] not in scheme:
+                tbr.append(protocol)
+                continue
+        if protocol['domains'].get(domain, {}).get(operation, 1) == 0:
+            tbr.append(protocol)
+    for r in tbr:
+        dest_candidates.remove(r)
+
+    if not len(src_candidates) or not len(dest_candidates):
+        raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
+
+    # Select the one with the highest priority
+    dest_candidates = sorted(dest_candidates, key=lambda k: k['domains'][domain][operation])
+    src_candidates = sorted(src_candidates, key=lambda k: k['domains'][domain][operation])
+
+    for dest_protocol in dest_candidates:
+        for src_protocol in src_candidates:
+            if __check_compatible_scheme(dest_protocol['scheme'], src_protocol['scheme']):
+                return (dest_protocol['scheme'], src_protocol['scheme'])
+
+    raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
+
+
+def __check_compatible_scheme(dest_scheme, src_scheme):
+    """
+    Check if two schemes are compatible, such as srm and gsiftp
+
+    :param dest_scheme:    Destination scheme
+    :param src_scheme:     Source scheme
+    :param scheme:         List of supported schemes
+    :returns:              True if schemes are compatible, False otherwise.
+    """
+
+    scheme_map = {'srm': ['srm', 'gsiftp'],
+                  'gsiftp': ['srm', 'gsiftp'],
+                  'https': ['https', 'davs', 's3'],
+                  'davs': ['https', 'davs'],
+                  's3': ['https', 's3']}
+
+    if dest_scheme == src_scheme:
+        return True
+    if src_scheme in scheme_map.get(dest_scheme, []):
+        return True
+
+    return False
