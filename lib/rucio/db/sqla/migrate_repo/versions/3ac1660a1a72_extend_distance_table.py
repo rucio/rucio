@@ -46,10 +46,10 @@ def downgrade():
     downgrade method
     '''
     if context.get_context().dialect.name != 'sqlite':
-        drop_column('distances', sa.Column('packet_loss', Integer))
-        drop_column('distances', sa.Column('latency', Integer))
-        drop_column('distances', sa.Column('mbps_file', Integer))
-        drop_column('distances', sa.Column('mbps_link', Integer))
-        drop_column('distances', sa.Column('queued_total', Integer))
-        drop_column('distances', sa.Column('done_1h', Integer))
-        drop_column('distances', sa.Column('done_6h', Integer))
+        drop_column('distances', 'packet_loss')
+        drop_column('distances', 'latency')
+        drop_column('distances', 'mbps_file')
+        drop_column('distances', 'mbps_link')
+        drop_column('distances', 'queued_total')
+        drop_column('distances', 'done_1h')
+        drop_column('distances', 'done_6h')
