@@ -13,13 +13,10 @@
 Gets current traffic for all the links.
 """
 
-import json
 import sys
 
 from rucio.client import Client
 from rucio.db.sqla.session import get_session
-
-TRAFIC_JSON = 'current_traffic.json'
 
 
 def get_traffic_from_db():
@@ -83,18 +80,3 @@ def get_link_traffic():
     rse_map = get_traffic_from_db()
     site_map = create_site_map(rse_map)
     return site_map
-
-
-def main():
-    """
-    Head
-    """
-    rse_map = get_traffic_from_db()
-    site_map = create_site_map(rse_map)
-
-    with open(TRAFIC_JSON, 'w') as file_p:
-        json.dump(site_map, file_p)
-
-
-if __name__ == "__main__":
-    main()
