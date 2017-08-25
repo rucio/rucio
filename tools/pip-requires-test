@@ -1,26 +1,26 @@
 # All dependencies needed to develop/test rucio should be defined here
 
-pinocchio==0.4.2                 # Extensions for the 'nose' unit testing framework
-Paste==2.0.3                     # Utilities for web development in pyton
-unittest2==1.1.0                 # backport of unittest lib in python 2.7
-coverage==4.0.3                  # Nose module for test coverage
-Sphinx==1.6.2                    # required to build documentation
-Jinja2==2.9.6                    # template engine
-sphinxcontrib-httpdomain==1.4.0  # Provides a Sphinx domain for describing RESTful HTTP APIs
-stub==0.2.1                      # Temporarily modify callable behaviour and object attributes
+pinocchio==0.4.2            # Extensions for the 'nose' unit testing framework
+Paste==2.0.3                # Utilities for web development in pyton
+unittest2==1.1.0            # backport of unittest lib in python 2.7
+coverage==4.4.1             # Nose module for test coverage
+Sphinx==1.6.3               # required to build documentation
+Jinja2==2.9.6               # template engine
+sphinxcontrib-httpdomain==1.5.0# Provides a Sphinx domain for describing RESTful HTTP APIs
+stub==0.2.1                 # Temporarily modify callable behaviour and object attributes
 #PIL==1.1.7                      # !!! This library does not exist anymore
-Pygments==2.0                    # Python Syntax highlighter
-docutils==0.13.1                 # Needed for sphinx
-pep8==1.7.0                      # checks for PEP8 code style compliance
-pyflakes==1.5.0                  # Passive checker of Python programs
-flake8==3.3.0                    # Wrapper around PyFlakes&pep8
-pylint==1.7.1                    # static code analysis. Last release compatible with python 2.6
-virtualenv==15.1.0               # Virtual Python Environment builder
-tox==2.3.1                       # Automate and standardize testing in Python
-pytest==2.9.0
-pytest-xdist==1.14               # py.test xdist plugin for distributed testing and loop-on-failing modes
-xmltodict==0.11.0                # Makes working with XML feel like you are working with JSON
-pytz==2016.7                     # World timezone definitions, modern and historical
-Babel==2.3.2                     # Internationalization utilities
-git-review==1.25.0               # Command-line tool for Git / Gerrit
-subprocess32==3.2.7              # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
+Pygments==2.2.0             # Python Syntax highlighter
+docutils==0.14              # Needed for sphinx
+pep8==1.7.0                 # checks for PEP8 code style compliance
+pyflakes==1.6.0             # Passive checker of Python programs
+flake8==3.4.1               # Wrapper around PyFlakes&pep8
+pylint==1.7.2               # static code analysis. Last release compatible with python 2.6
+virtualenv==15.1.0          # Virtual Python Environment builder
+tox==2.7.0                  # Automate and standardize testing in Python
+pytest==3.2.1
+pytest-xdist==1.20.0        # py.test xdist plugin for distributed testing and loop-on-failing modes
+xmltodict==0.11.0           # Makes working with XML feel like you are working with JSON
+pytz==2017.2                # World timezone definitions, modern and historical
+Babel==2.5.0                # Internationalization utilities
+git-review==1.25.0          # Command-line tool for Git / Gerrit
+subprocess32==3.2.7         # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
