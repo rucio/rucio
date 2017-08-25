@@ -222,7 +222,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 continue
 
             # Force ASYNC mode for large rules
-            if did.length >= 10000:
+            if did.length is not None and (did.length * copies) >= 10000:
                 asynchronous = True
                 logging.debug("Forced injection of rule %s" % (str(new_rule.id)))
 
