@@ -16,6 +16,7 @@
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 import rucio.core.authentication
+import rucio.core.did
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
 from rucio.core.rse import list_rse_attributes
@@ -573,7 +574,11 @@ def perm_set_metadata(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    cond = issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+    if kwargs['scope'] != 'archive':
+        return cond or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    meta = rucio.core.did.get_metadata(scope=kwargs['scope'], name=kwargs['name'])
+    return cond or meta.get('account', False) == issuer
 
 
 def perm_set_status(issuer, kwargs):
@@ -587,8 +592,11 @@ def perm_set_status(issuer, kwargs):
     if kwargs.get('open', False):
         if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
             return False
-
-    return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    cond = (issuer == 'root' or has_account_attribute(account=issuer, key='admin'))
+    if kwargs['scope'] != 'archive':
+        return cond or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    meta = rucio.core.did.get_metadata(scope=kwargs['scope'], name=kwargs['name'])
+    return cond or meta.get('account', False) == issuer
 
 
 def perm_add_protocol(issuer, kwargs):
