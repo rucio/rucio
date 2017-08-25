@@ -22,7 +22,7 @@ from xml.parsers import expat
 import requests
 from progressbar import ProgressBar
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.poolmanager import PoolManager
+from urllib3.poolmanager import PoolManager
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
