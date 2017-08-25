@@ -640,8 +640,8 @@ def __check_compatible_scheme(dest_scheme, src_scheme):
     scheme_map = {'srm': ['srm', 'gsiftp'],
                   'gsiftp': ['srm', 'gsiftp'],
                   'https': ['https', 'davs', 's3'],
-                  'davs': ['https', 'davs'],
-                  's3': ['https', 's3']}
+                  'davs': ['https', 'davs', 's3'],
+                  's3': ['https', 's3', 'davs']}
 
     if dest_scheme == src_scheme:
         return True
