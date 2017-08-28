@@ -7,22 +7,22 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2016
+  - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2017
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
   - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
 '''
 
 import os
-import requests
 import ssl
+import sys
 
 import xml.etree.ElementTree as ET
+from xml.parsers import expat
 
+import requests
 from progressbar import ProgressBar
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.poolmanager import PoolManager
-from sys import stdout
-from xml.parsers import expat
+from urllib3.poolmanager import PoolManager
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
@@ -58,12 +58,12 @@ class UploadInChunks(object):
                     data = file_in.read(self.__chunksize)
                     if not data:
                         if self.__progressbar:
-                            stdout.write("\n")
+                            sys.stdout.write("\n")
                         break
                     self.__readsofar += len(data)
                     if self.__progressbar:
                         percent = self.__readsofar * 100 / self.__totalsize
-                        stdout.write("\r{percent:3.0f}%".format(percent=percent))
+                        sys.stdout.write("\r{percent:3.0f}%".format(percent=percent))
                     yield data
         except OSError as error:
             raise exception.SourceNotFound(error)
@@ -195,6 +195,8 @@ class Default(protocol.RSEProtocol):
                 raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), res.text))
         except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), error))
+        except requests.exceptions.ReadTimeout as error:
+            raise exception.ServiceUnavailable(error)
 
     def close(self):
         self.session.close()
@@ -254,15 +256,15 @@ class Default(protocol.RSEProtocol):
                 if 'content-length' in result.headers:
                     length = int(result.headers['content-length'])
                     totnchunk = int(length / chunksize) + 1
-                with open(dest, 'wb') as f:
+                with open(dest, 'wb') as file_out:
                     nchunk = 0
                     try:
                         if length:
                             pbar = ProgressBar(maxval=totnchunk).start()
                         else:
-                            print 'Malformed HTTP response (missing content-length header). Cannot show progress bar.'
+                            print('Malformed HTTP response (missing content-length header). Cannot show progress bar.')
                         for chunk in result.iter_content(chunksize):
-                            f.write(chunk)
+                            file_out.write(chunk)
                             if length:
                                 nchunk += 1
                                 pbar.update(nchunk)
@@ -278,6 +280,8 @@ class Default(protocol.RSEProtocol):
                 # catchall exception
                 raise exception.RucioException(result.status_code, result.text)
         except requests.exceptions.ConnectionError as error:
+            raise exception.ServiceUnavailable(error)
+        except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
 
     def put(self, source, target, source_dir=None, progressbar=False):
@@ -304,7 +308,7 @@ class Default(protocol.RSEProtocol):
                 raise exception.FileReplicaAlreadyExists()
             else:
                 # Create the directories before issuing the PUT
-                for directory_level in reversed(xrange(1, 4)):
+                for directory_level in reversed(range(1, 4)):
                     upper_directory = "/".join(directories[:-directory_level])
                     self.mkdir(upper_directory)
                 try:
@@ -326,6 +330,8 @@ class Default(protocol.RSEProtocol):
                 except IOError as error:
                     raise exception.SourceNotFound(error)
         except requests.exceptions.ConnectionError as error:
+            raise exception.ServiceUnavailable(error)
+        except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
         except IOError as error:
             raise exception.SourceNotFound(error)
@@ -352,7 +358,7 @@ class Default(protocol.RSEProtocol):
                 raise exception.SourceNotFound()
             else:
                 # Create the directories before issuing the MOVE
-                for directory_level in reversed(xrange(1, 4)):
+                for directory_level in reversed(range(1, 4)):
                     upper_directory = "/".join(directories[:-directory_level])
                     self.mkdir(upper_directory)
                 try:
@@ -366,9 +372,11 @@ class Default(protocol.RSEProtocol):
                     else:
                         # catchall exception
                         raise exception.RucioException(result.status_code, result.text)
-                except requests.exceptions.ConnectionError, error:
+                except requests.exceptions.ConnectionError as error:
                     raise exception.ServiceUnavailable(error)
-        except requests.exceptions.ConnectionError, error:
+        except requests.exceptions.ConnectionError as error:
+            raise exception.ServiceUnavailable(error)
+        except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
 
     def delete(self, pfn):
@@ -392,9 +400,9 @@ class Default(protocol.RSEProtocol):
             else:
                 # catchall exception
                 raise exception.RucioException(result.status_code, result.text)
-        except requests.exceptions.ConnectionError, error:
+        except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable(error)
-        except requests.exceptions.ReadTimeout, error:
+        except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
 
     def mkdir(self, directory):
@@ -416,7 +424,9 @@ class Default(protocol.RSEProtocol):
             else:
                 # catchall exception
                 raise exception.RucioException(result.status_code, result.text)
-        except requests.exceptions.ConnectionError, error:
+        except requests.exceptions.ConnectionError as error:
+            raise exception.ServiceUnavailable(error)
+        except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
 
     def ls(self, filename):
@@ -435,20 +445,22 @@ class Default(protocol.RSEProtocol):
                 raise exception.SourceNotFound()
             elif result.status_code in [401, ]:
                 raise exception.RSEAccessDenied()
-            p = Parser()
-            p.feed(result.text)
-            list = [self.server + file for file in p.list]
+            parser = Parser()
+            parser.feed(result.text)
+            list_files = [self.server + p_file for p_file in parser.list]
             try:
-                list.remove(filename + '/')
+                list_files.remove(filename + '/')
             except ValueError:
                 pass
             try:
-                list.remove(filename)
+                list_files.remove(filename)
             except ValueError:
                 pass
-            p.close()
-            return list
-        except requests.exceptions.ConnectionError, error:
+            parser.close()
+            return list_files
+        except requests.exceptions.ConnectionError as error:
+            raise exception.ServiceUnavailable(error)
+        except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
 
     def stat(self, path):
@@ -474,14 +486,16 @@ class Default(protocol.RSEProtocol):
                 raise exception.RSEAccessDenied()
             if result.status_code in [400, ]:
                 raise NotImplementedError
-            p = Parser()
-            p.feed(result.text)
-            for f in p.sizes:
-                if '%s%s' % (self.server, f) == path:
-                    dict['size'] = p.sizes['f']
-            p.close()
+            parser = Parser()
+            parser.feed(result.text)
+            for file_name in parser.sizes:
+                if '%s%s' % (self.server, file_name) == path:
+                    dict['size'] = parser.sizes[file_name]
+            parser.close()
             return dict
-        except requests.exceptions.ConnectionError, error:
+        except requests.exceptions.ConnectionError as error:
+            raise exception.ServiceUnavailable(error)
+        except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
 
     def get_space_usage(self):
@@ -501,7 +515,7 @@ class Default(protocol.RSEProtocol):
             try:
                 unusedsize = root[0][1][0].find('{DAV:}quota-available-bytes').text
             except Exception as error:
-                print 'No free space given, return -999'
+                print('No free space given, return -999')
                 unusedsize = -999
             totalsize = int(usedsize) + int(unusedsize)
             return totalsize, unusedsize
