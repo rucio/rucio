@@ -1,40 +1,37 @@
 #!/usr/bin/env python
-
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Wen Guan, <wguan@cern.ch>, 2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - David Cameron, <david.cameron@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
-# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
-
 """
-Rucio Administration Utility
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
+ - Wen Guan, <wguan@cern.ch>, 2014
+ - Martin Barisits, <martin.barisits@cern.ch>, 2014
+ - David Cameron, <david.cameron@cern.ch>, 2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
+ - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+ - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
 """
 
-import argcomplete
 import argparse
 import json
 import logging
 import os
 import signal
 import sys
-import tabulate
 import time
 import traceback
 
 from ConfigParser import NoOptionError, NoSectionError
 from functools import wraps
 
+import argcomplete
+import tabulate
 
 from rucio.client import Client
 from rucio.common.config import config_get
@@ -107,50 +104,50 @@ def exception_handler(function):
     def new_funct(*args, **kwargs):
         try:
             return function(*args, **kwargs)
-        except InvalidObject, error:
+        except InvalidObject as error:
             logger.error(error)
             return FAILURE
-        except DataIdentifierNotFound, error:
+        except DataIdentifierNotFound as error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
             return FAILURE
-        except AccessDenied, error:
+        except AccessDenied as error:
             logger.error(error)
             logger.debug('This error is a permission issue. You cannot run this command with your account.')
             return FAILURE
-        except DataIdentifierAlreadyExists, error:
+        except DataIdentifierAlreadyExists as error:
             logger.error(error)
             logger.debug('This means that the data IDentifier you try to add is already registered in Rucio.')
             return FAILURE
-        except RSENotFound, error:
+        except RSENotFound as error:
             logger.error(error)
             logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
             return FAILURE
-        except InvalidRSEExpression, error:
+        except InvalidRSEExpression as error:
             logger.error(error)
             logger.debug('This means the RSE expression you provided is not syntactically correct.')
             return FAILURE
-        except DuplicateContent, error:
+        except DuplicateContent as error:
             logger.error(error)
             logger.debug('This means that the DID you want to attach is already in the target DID.')
             return FAILURE
-        except TypeError, error:
+        except TypeError as error:
             logger.error(error)
             logger.debug('This means the parameter you passed has a wrong type.')
             return FAILURE
-        except RuleNotFound, error:
+        except RuleNotFound as error:
             logger.error(error)
             logger.debug('This means the rule you specified does not exist.')
             return FAILURE
-        except AccountNotFound, error:
+        except AccountNotFound as error:
             logger.error(error)
             logger.debug('This means that the specified account cannot be found.')
             return FAILURE
-        except NotImplementedError, error:
+        except NotImplementedError as error:
             logger.error(error)
             logger.debug('This means that the method is not implemented yet.')
             return FAILURE
-        except Exception, error:
+        except Exception as error:
             logger.error(error)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
             logger.debug(traceback.format_exc())
@@ -172,7 +169,7 @@ def get_client(args):
                         account=args.issuer,
                         auth_type=args.auth_strategy, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout)
-    except CannotAuthenticate, error:
+    except CannotAuthenticate as error:
         logger.error(error)
         if not args.auth_strategy:
             if 'RUCIO_AUTH_TYPE' in os.environ:
@@ -270,7 +267,11 @@ def list_accounts(args):
 
     """
     client = get_client(args)
-    accounts = client.list_accounts(identity=args.identity, account_type=args.account_type)
+    filters = {}
+    if args.filters:
+        for key, value in [(_.split('=')[0], _.split('=')[1]) for _ in args.filters.split(',')]:
+            filters[key] = value
+    accounts = client.list_accounts(identity=args.identity, account_type=args.account_type, filters=filters)
     for account in accounts:
         print account['account']
     return SUCCESS
@@ -588,7 +589,7 @@ def delete_config_option(args):
 @exception_handler
 def add_subscription(args):
     """
-    %(prog)s add [options] name filter replication_rules
+    %(prog)s add [options] name Filter replication_rules
 
     Add subscription.
 
@@ -762,7 +763,7 @@ def list_pfns(args):
                 result = pfn.values()[0]
             except ReplicaNotFound as error:
                 result = error
-            if isinstance(result, RSEOperationNotSupported) or isinstance(result, ReplicaNotFound):
+            if isinstance(result, (RSEOperationNotSupported, ReplicaNotFound)):
                 if not rse_info['deterministic']:
                     logger.warning('This is a non-deterministic site, so the real PFN might be different from the on suggested')
                     rse_attr = client.list_rse_attributes(rse)
@@ -828,6 +829,7 @@ Commands:
     list_account_parser = account_subparser.add_parser('list', help='List Rucio accounts')
     list_account_parser.add_argument('--type', dest='account_type', action='store', help='Account Type (USER, GROUP, SERVICE)')
     list_account_parser.add_argument('--id', dest='identity', action='store', help='Identity (e.g. DN)')
+    list_account_parser.add_argument('--filters', dest='filters', action='store', help='Filter arguments in form `key=value,another_key=next_value`')
     list_account_parser.set_defaults(which='list_accounts')
 
     # The list_account_attributes command
@@ -1106,6 +1108,6 @@ Commands:
         if args.verbose:
             print "Completed in %-0.4f sec." % (end_time - start_time)
         sys.exit(result)
-    except (RuntimeError, NotImplementedError), error:
+    except (RuntimeError, NotImplementedError) as error:
         print >> sys.stderr, "ERROR: ", error
         sys.exit(FAILURE)
