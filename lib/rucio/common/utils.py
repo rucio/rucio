@@ -516,9 +516,10 @@ class Color:
     END = '\033[0m'
 
 
-def detect_location():
+def detect_client_location():
     """
-    Open a UDP socket to a machine on the internet, to get the local IP address.
+    Open a UDP socket to a machine on the internet, to get the local IP address
+    of the requesting client.
 
     Try to determine the sitename automatically from common environment variables,
     in this order: SITE_NAME, ATLAS_SITE_NAME, OSG_SITE_NAME. If none of these exist
