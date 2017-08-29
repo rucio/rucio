@@ -214,6 +214,6 @@ def query_token(token, session=None):
         all()
     if ret:
         return {'account': ret[0][0],
-                'lifetime': ret[0][1],
-                'identity': ret[0][1]}
+                'identity': ret[0][1],
+                'lifetime': ret[0][2]}
     return None
