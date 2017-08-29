@@ -50,7 +50,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, File
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException, DuplicateRule)
-from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_location
+from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -376,7 +376,7 @@ def list_file_replicas(args):
                                     all_states=args.all_states,
                                     rse_expression=args.rse_expression,
                                     metalink=args.metalink,
-                                    location=detect_location(),
+                                    client_location=detect_client_location(),
                                     sort=args.sort)
 
     if args.metalink:
