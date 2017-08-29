@@ -1,18 +1,20 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+"""
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+ - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+ - Martin Barisits, <martin.barisits@cern.ch>, 2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015, 2017
+ - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+"""
 
 from datetime import datetime
 from re import match
@@ -145,16 +147,21 @@ def list_accounts(filter={}, session=None):
     """
     query = session.query(models.Account.account, models.Account.account_type,
                           models.Account.email).filter_by(status=AccountStatus.ACTIVE)
-    if filter:
-        if 'account_type' in filter:
+    for filter_type in filter:
+        if filter_type == 'account_type':
             if (isinstance(filter['account_type'], str) or isinstance(filter['account_type'], unicode)):
                 query = query.filter_by(account_type=AccountType.from_sym(filter['account_type']))
             elif isinstance(filter['account_type'], EnumSymbol):
                 query = query.filter_by(account_type=filter['account_type'])
 
-        if 'identity' in filter:
+        elif filter_type == 'identity':
             query = query.join(models.IdentityAccountAssociation, models.Account.account == models.IdentityAccountAssociation.account).\
                 filter(models.IdentityAccountAssociation.identity == filter['identity'])
+
+        else:
+            query = query.join(models.AccountAttrAssociation, models.Account.account == models.AccountAttrAssociation.account).\
+                filter(models.AccountAttrAssociation.key == filter_type).\
+                filter(models.AccountAttrAssociation.value == filter[filter_type])
 
     for account, account_type, email in query.order_by(models.Account.account).yield_per(25):
         yield {'account': account, 'type': account_type, 'email': email}
@@ -244,11 +251,11 @@ def add_account_attribute(account, key, value, session=None):
     new_attr = models.AccountAttrAssociation(account=account, key=key, value=value)
     try:
         new_attr.save(session=session)
-    except IntegrityError, e:
-        if match('.*IntegrityError.*ORA-00001: unique constraint.*ACCOUNT_ATTR_MAP_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', e.args[0]) \
-           or e.args[0] == "(IntegrityError) column account/key is not unique" \
-           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
+    except IntegrityError as error:
+        if match('.*IntegrityError.*ORA-00001: unique constraint.*ACCOUNT_ATTR_MAP_PK.*violated.*', error.args[0]) \
+           or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', error.args[0]) \
+           or error.args[0] == "(IntegrityError) column account/key is not unique" \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.Duplicate('Key {0} already exist for account {1}!'.format(key, account))
     except:
         raise exception.RucioException(str(format_exc()))

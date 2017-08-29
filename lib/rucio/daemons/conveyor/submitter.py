@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 """
 Conveyor transfer submitter is a daemon to manage non-tape file transfers.
@@ -17,6 +18,7 @@ Conveyor transfer submitter is a daemon to manage non-tape file transfers.
 
 import logging
 import os
+import random
 import socket
 import sys
 import threading
@@ -28,10 +30,10 @@ from ConfigParser import NoOptionError
 from threadpool import ThreadPool, makeRequests
 
 from rucio.common.config import config_get
-from rucio.core import heartbeat
+from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
-
-from rucio.daemons.conveyor.utils import get_rses, get_transfers, bulk_group_transfer, submit_transfer
+from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses
+from rucio.db.sqla.constants import RequestState
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -60,10 +62,6 @@ def submitter(once=False, rses=[], mock=False,
         failover_scheme = config_get('conveyor', 'failover_scheme')
     except NoOptionError:
         failover_scheme = None
-    try:
-        cachedir = config_get('conveyor', 'cachedir')
-    except NoOptionError:
-        cachedir = None
     try:
         timeout = config_get('conveyor', 'submit_timeout')
         timeout = float(timeout)
@@ -129,14 +127,19 @@ def submitter(once=False, rses=[], mock=False,
 
                 logging.info("%s:%s Starting to get transfer transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
-                transfers = get_transfers(process=process, total_processes=total_processes,
-                                          thread=hb['assign_thread'],
-                                          total_threads=hb['nr_threads'],
-                                          failover_schemes=failover_scheme, limit=bulk,
-                                          activity=activity, rses=rse_ids, schemes=scheme,
-                                          mock=mock, max_sources=max_sources,
-                                          bring_online=bring_online,
-                                          retry_other_fts=retry_other_fts)
+                transfers = __get_transfers(process=process,
+                                            total_processes=total_processes,
+                                            thread=hb['assign_thread'],
+                                            total_threads=hb['nr_threads'],
+                                            failover_schemes=failover_scheme,
+                                            limit=bulk,
+                                            activity=activity,
+                                            rses=rse_ids,
+                                            schemes=scheme,
+                                            mock=mock,
+                                            max_sources=max_sources,
+                                            bring_online=bring_online,
+                                            retry_other_fts=retry_other_fts)
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_transfers', len(transfers))
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', len(transfers))
@@ -153,8 +156,13 @@ def submitter(once=False, rses=[], mock=False,
                     for job in grouped_jobs[external_host]:
                         # submit transfers
                         # job_requests = makeRequests(submit_transfer, args_list=[((external_host, job, 'transfer_submitter', process, thread), {})])
-                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host, 'job': job, 'submitter': 'transfer_submitter', 'process': process,
-                                                                                      'thread': hb['assign_thread'], 'cachedir': cachedir, 'timeout': timeout})])
+                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host,
+                                                                                      'job': job,
+                                                                                      'submitter':
+                                                                                      'transfer_submitter',
+                                                                                      'process': process,
+                                                                                      'thread': hb['assign_thread'],
+                                                                                      'timeout': timeout})])
                         [threadPool.putRequest(job_req) for job_req in job_requests]
                 threadPool.wait()
 
@@ -198,7 +206,7 @@ def run(once=False,
 
     working_rses = None
     if rses or include_rses or exclude_rses:
-        working_rses = get_rses(rses, include_rses, exclude_rses)
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses)
         logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s" % (rses,
                                                                             include_rses,
                                                                             exclude_rses))
@@ -228,3 +236,135 @@ def run(once=False,
     # Interruptible joins require a timeout.
     while len(threads) > 0:
         threads = [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+
+
+def __get_transfers(process=None, total_processes=None, thread=None, total_threads=None,
+                    failover_schemes=None, limit=None, activity=None, older_than=None,
+                    rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200,
+                    retry_other_fts=False):
+    """
+    Get transfers to process
+
+    :param process:          Identifier of the caller process as an integer.
+    :param total_processes:  Maximum number of processes as an integer.
+    :param thread:           Identifier of the caller thread as an integer.
+    :param total_threads:    Maximum number of threads as an integer.
+    :param failover_schemes: Failover schemes.
+    :param limit:            Integer of requests to retrieve.
+    :param activity:         Activity to be selected.
+    :param older_than:       Only select requests older than this DateTime.
+    :param rses:             List of rse_id to select requests.
+    :param schemes:          Schemes to process.
+    :param mock:             Mock testing.
+    :param max_sources:      Max sources.
+    :bring_online:           Bring online timeout.
+    :retry_other_fts:        Retry other fts servers if needed
+    :returns:                List of transfers
+    """
+
+    transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = transfer_core.get_transfer_requests_and_source_replicas(process=process,
+                                                                                                                                     total_processes=total_processes,
+                                                                                                                                     thread=thread,
+                                                                                                                                     total_threads=total_threads,
+                                                                                                                                     limit=limit,
+                                                                                                                                     activity=activity,
+                                                                                                                                     older_than=older_than,
+                                                                                                                                     rses=rses,
+                                                                                                                                     schemes=schemes,
+                                                                                                                                     bring_online=bring_online,
+                                                                                                                                     retry_other_fts=retry_other_fts,
+                                                                                                                                     failover_schemes=failover_schemes)
+    request_core.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
+    request_core.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES)
+    request_core.set_requests_state(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME)
+
+    for request_id in transfers:
+        sources = transfers[request_id]['sources']
+        sources = __sort_ranking(sources)
+        if len(sources) > max_sources:
+            sources = sources[:max_sources]
+        if not mock:
+            transfers[request_id]['sources'] = sources
+        else:
+            transfers[request_id]['sources'] = __mock_sources(sources)
+
+        # remove link_ranking in the final sources
+        sources = transfers[request_id]['sources']
+        transfers[request_id]['sources'] = []
+        for source in sources:
+            rse, source_url, source_rse_id, ranking, link_ranking = source
+            transfers[request_id]['sources'].append((rse, source_url, source_rse_id, ranking))
+
+        transfers[request_id]['file_metadata']['src_rse'] = sources[0][0]
+        transfers[request_id]['file_metadata']['src_rse_id'] = sources[0][2]
+        logging.debug("Transfer for request(%s): %s" % (request_id, transfers[request_id]))
+    return transfers
+
+
+def __sort_link_ranking(sources):
+    """
+    Sort a list of sources based on link ranking
+
+    :param sources:  List of sources
+    :return:         Sorted list
+    """
+
+    rank_sources = {}
+    ret_sources = []
+    for source in sources:
+        rse, source_url, source_rse_id, ranking, link_ranking = source
+        if link_ranking not in rank_sources:
+            rank_sources[link_ranking] = []
+        rank_sources[link_ranking].append(source)
+    rank_keys = rank_sources.keys()
+    rank_keys.sort(reverse=True)
+    for rank_key in rank_keys:
+        sources_list = rank_sources[rank_key]
+        random.shuffle(sources_list)
+        ret_sources = ret_sources + sources_list
+    return ret_sources
+
+
+def __sort_ranking(sources):
+    """
+    Sort a list of sources based on ranking
+
+    :param sources:  List of sources
+    :return:         Sorted list
+    """
+
+    logging.debug("Sources before sorting: %s" % sources)
+    rank_sources = {}
+    ret_sources = []
+    for source in sources:
+        # ranking is from sources table, is the retry times
+        # link_ranking is from distances table, is the link rank.
+        # link_ranking should not be None(None means no link, the source will not be used).
+        rse, source_url, source_rse_id, ranking, link_ranking = source
+        if ranking is None:
+            ranking = 0
+        if ranking not in rank_sources:
+            rank_sources[ranking] = []
+        rank_sources[ranking].append(source)
+    rank_keys = rank_sources.keys()
+    rank_keys.sort(reverse=True)
+    for rank_key in rank_keys:
+        sources_list = __sort_link_ranking(rank_sources[rank_key])
+        ret_sources = ret_sources + sources_list
+    logging.debug("Sources after sorting: %s" % ret_sources)
+    return ret_sources
+
+
+def __mock_sources(sources):
+    """
+    Create mock sources
+
+    :param sources:  List of sources
+    :return:         List of mock sources
+    """
+
+    tmp_sources = []
+    for s in sources:
+        tmp_sources.append((s[0], ':'.join(['mock'] + s[1].split(':')[1:]), s[2], s[3]))
+    sources = tmp_sources
+    return tmp_sources

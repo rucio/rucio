@@ -31,7 +31,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
-from rucio.common.replicas_selector import random_order, geoIP_order
+from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
@@ -65,16 +65,11 @@ class Replicas(RucioController):
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
 
-        metalink = None
+        metalink = False
         if ctx.env.get('HTTP_ACCEPT') is not None:
             tmp = ctx.env.get('HTTP_ACCEPT').split(',')
-            # first check if client accepts metalink
-            if 'application/metalink+xml' in tmp:
-                metalink = 3
-            # but prefer metalink4 if the client has support for it
-            # (clients can put both in their ACCEPT header!)
             if 'application/metalink4+xml' in tmp:
-                metalink = 4
+                metalink = True
 
         dids, schemes, select, limit = [{'scope': scope, 'name': name}], None, None, None
         if ctx.query:
@@ -87,13 +82,10 @@ class Replicas(RucioController):
                 limit = int(params['limit'][0])
 
         try:
-            # first, set the APPropriate content type, and stream the header
-            if metalink is None:
+            # first, set the appropriate content type, and stream the header
+            if not metalink:
                 header('Content-Type', 'application/x-json-stream')
-            elif metalink == 3:
-                header('Content-Type', 'application/metalink+xml')
-                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink version="3.0" xmlns="http://www.metalinker.org/">\n<files>\n'
-            elif metalink == 4:
+            else:
                 header('Content-Type', 'application/metalink4+xml')
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
@@ -111,30 +103,14 @@ class Replicas(RucioController):
                         dictreplica[replica] = rse
                 if select == 'geoip':
                     try:
-                        replicas = geoIP_order(dictreplica, client_ip)
+                        replicas = sort_geoip(dictreplica, client_ip)
                     except AddressNotFoundError:
                         pass
                 else:
-                    replicas = random_order(dictreplica, client_ip)
-                if metalink is None:
+                    replicas = sort_random(dictreplica)
+                if not metalink:
                     yield dumps(rfile) + '\n'
-
-                elif metalink == 3:
-                    idx = 0
-                    yield ' <file name="' + rfile['name'] + '">\n'
-
-                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
-                    yield '</glfn>\n'
-
-                    yield '  <resources>\n'
-                    for replica in replicas:
-                        yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
-                        idx += 1
-                        if limit and limit == idx:
-                            break
-                    yield '  </resources>\n </file>\n'
-
-                elif metalink == 4:
+                else:
                     yield ' <file name="' + rfile['name'] + '">\n'
                     yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
 
@@ -158,10 +134,7 @@ class Replicas(RucioController):
 
             # don't forget to send the metalink footer
             if metalink:
-                if metalink == 3:
-                    yield '</files>\n</metalink>\n'
-                elif metalink == 4:
-                    yield '</metalink>\n'
+                yield '</metalink>\n'
 
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
@@ -293,19 +266,20 @@ class ListReplicas(RucioController):
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
 
-        metalink = None
+        metalink = False
         if ctx.env.get('HTTP_ACCEPT') is not None:
             tmp = ctx.env.get('HTTP_ACCEPT').split(',')
-            # first check if client accepts metalink
-            if 'application/metalink+xml' in tmp:
-                metalink = 3
-            # but prefer metalink4 if the client has support for it
-            # (clients can put both in their ACCEPT header!)
             if 'application/metalink4+xml' in tmp:
-                metalink = 4
+                metalink = True
+
+        client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if client_ip is None:
+            client_ip = ctx.ip
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states = False, None, False
+        location = {}
+
         json_data = data()
         try:
             params = parse_response(json_data)
@@ -320,7 +294,11 @@ class ListReplicas(RucioController):
                 all_states = params['all_states']
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression']
-
+            if 'location' in params:
+                location = params['location']
+                location['ip'] = params['location'].get('ip', client_ip)
+            if 'sort' in params:
+                select = params['sort']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -330,15 +308,14 @@ class ListReplicas(RucioController):
                 select = params['select'][0]
             if 'limit' in params:
                 limit = params['limit'][0]
+            if 'sort' in params:
+                select = params['sort']
 
         try:
-            # first, set the APPropriate content type, and stream the header
-            if metalink is None:
+            # first, set the appropriate content type, and stream the header
+            if not metalink:
                 header('Content-Type', 'application/x-json-stream')
-            elif metalink == 3:
-                header('Content-Type', 'application/metalink+xml')
-                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink version="3.0" xmlns="http://www.metalinker.org/">\n<files>\n'
-            elif metalink == 4:
+            else:
                 header('Content-Type', 'application/metalink4+xml')
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
@@ -349,31 +326,16 @@ class ListReplicas(RucioController):
                                        ignore_availability=ignore_availability,
                                        all_states=all_states,
                                        rse_expression=rse_expression):
-                client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
-                if client_ip is None:
-                    client_ip = ctx.ip
                 replicas = []
                 dictreplica = {}
                 for rse in rfile['rses']:
                     for replica in rfile['rses'][rse]:
                         replicas.append(replica)
                         dictreplica[replica] = rse
-                if select == 'geoip':
-                    replicas = geoIP_order(dictreplica, client_ip)
-                else:
-                    replicas = random_order(dictreplica, client_ip)
-                if metalink is None:
+
+                if not metalink:
                     yield dumps(rfile, cls=APIEncoder) + '\n'
-                elif metalink == 3:
-                    idx = 0
-                    yield ' <file name="' + rfile['name'] + '">\n  <resources>\n'
-                    for replica in replicas:
-                        yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
-                        idx += 1
-                        if limit and limit == idx:
-                            break
-                    yield '  </resources>\n </file>\n'
-                elif metalink == 4:
+                else:
                     yield ' <file name="' + rfile['name'] + '">\n'
                     yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
                     if rfile['adler32'] is not None:
@@ -381,6 +343,21 @@ class ListReplicas(RucioController):
                     if rfile['md5'] is not None:
                         yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+
+                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
+                    yield '</glfn>\n'
+
+                    if select == 'geoip':
+                        replicas = sort_geoip(dictreplica, location['ip'])
+                    elif select == 'closeness':
+                        replicas = sort_closeness(dictreplica, location)
+                    elif select == 'dynamic':
+                        replicas = sort_dynamic(dictreplica, location)
+                    elif select == 'ranking':
+                        replicas = sort_ranking(dictreplica, location)
+                    else:
+                        replicas = sort_random(dictreplica)
+
                     idx = 0
                     for replica in replicas:
                         yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + replica + '</url>\n'
@@ -391,10 +368,7 @@ class ListReplicas(RucioController):
 
             # don't forget to send the metalink footer
             if metalink:
-                if metalink == 3:
-                    yield '</files>\n</metalink>\n'
-                elif metalink == 4:
-                    yield '</metalink>\n'
+                yield '</metalink>\n'
 
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
@@ -621,7 +595,6 @@ class DatasetReplicas(RucioController):
             500 InternalError
 
         :returns: A dictionary containing all replicas information.
-        :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
         header('Content-Type', 'application/x-json-stream')
         deep = False
