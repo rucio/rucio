@@ -57,17 +57,6 @@ class Default(protocol.RSEProtocol):
         if self.https_proxy:
             os.environ['https_proxy'] = self.https_proxy
 
-    def _get_path(self, scope, name):
-        """ Transforms the physical file name into the local URI in the referred RSE.
-            Suitable for sites implementoing the RUCIO naming convention.
-
-            :param name: filename
-            :param scope: scope
-
-            :returns: RSE specific URI of the physical file
-        """
-        return '%s:%s' % (scope, name)
-
     def get_bucket_key_name(self, pfn):
         """
             Gets boto key for a pfn

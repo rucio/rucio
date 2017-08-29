@@ -1,16 +1,16 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
- - Martin Barisits, <martin.barisits@cern.ch>, 2017
-"""
 
 import datetime
 import errno
@@ -18,6 +18,7 @@ import json
 import os
 import pwd
 import re
+import socket
 import subprocess
 import zlib
 
@@ -513,3 +514,30 @@ class Color:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     END = '\033[0m'
+
+
+def detect_location():
+    """
+    Open a UDP socket to a machine on the internet, to get the local IP address.
+
+    Try to determine the sitename automatically from common environment variables,
+    in this order: SITE_NAME, ATLAS_SITE_NAME, OSG_SITE_NAME. If none of these exist
+    use the fixed string 'ROAMING'.
+    """
+
+    ip = '0.0.0.0'
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except:
+        pass
+
+    site = os.environ.get('SITE_NAME',
+                          os.environ.get('ATLAS_SITE_NAME',
+                                         os.environ.get('OSG_SITE_NAME',
+                                                        'ROAMING')))
+
+    return {'ip': ip,
+            'fqdn': socket.getfqdn(),
+            'site': site}

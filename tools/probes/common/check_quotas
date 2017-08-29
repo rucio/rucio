@@ -70,7 +70,7 @@ def set_group_quotas():
         result = session.execute(query)
         for account, rse, bytes_size in result:
             quotas[account, rse] = bytes_size
-    except Exception, error:
+    except Exception as error:
         print error
 
     url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
@@ -99,20 +99,20 @@ def set_group_quotas():
                         print 'Will add quota on RSE %s for group %s' % (name, group)
                         try:
                             set_account_limit(group, name, ddmendpoint['quotas'][vomsgroup] * 1000 ** 4, 'root')
-                        except AccountNotFound, error:
+                        except AccountNotFound as error:
                             print error
                     elif ddmendpoint['quotas'][vomsgroup] == 999999:
                         if quotas[(group, name)] != -1:
                             print 'Infinite quota defined in AGIS for group %s on %s' % (group, name)
                             try:
                                 set_account_limit(group, name, -1, 'root')
-                            except AccountNotFound, error:
+                            except AccountNotFound as error:
                                 print error
                     elif quotas[(group, name)] != ddmendpoint['quotas'][vomsgroup] * 1000 ** 4:
                         print 'On %s quota for %s differs Rucio : %s vs AGIS : %s' % (name, group, quotas[(group, name)], ddmendpoint['quotas'][vomsgroup] * 1000 ** 4)
                         try:
                             set_account_limit(group, name, ddmendpoint['quotas'][vomsgroup] * 1000 ** 4, 'root')
-                        except AccountNotFound, error:
+                        except AccountNotFound as error:
                             print error
 
 
@@ -122,17 +122,18 @@ def set_user_quotas(ddm_type, fraction):
     accounts = {}
     session = get_session()
     user_accounts = [acc['account'] for acc in list_accounts({'account_type': 'USER'})]
-    for rse in parse_rse_expression('type=%s' % (ddm_type)):
-        total_space = get_storage_total(rse, ddm_type)
-        val = list_rse_attributes(rse)
-        if total_space:
-            quotas[rse] = float(val.get('default_account_limit_bytes', float(total_space) * fraction))
-        elif 'default_account_limit_bytes' in val:
-            quotas[rse] = float(val['default_account_limit_bytes'])
 
-    query = '''select account, atlas_rucio.id2rse(rse_id), bytes from atlas_rucio.account_limits where
-rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a.id=b.rse_id and b.key='type' and b.value='%s' and a.deleted!=1) ''' % (ddm_type)
     try:
+        for rse in parse_rse_expression('type=%s' % (ddm_type)):
+            total_space = get_storage_total(rse, ddm_type)
+            val = list_rse_attributes(rse)
+            if total_space:
+                quotas[rse] = float(val.get('default_account_limit_bytes', float(total_space) * fraction))
+            elif 'default_account_limit_bytes' in val:
+                quotas[rse] = float(val['default_account_limit_bytes'])
+
+        query = '''select account, atlas_rucio.id2rse(rse_id), bytes from atlas_rucio.account_limits where
+rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a.id=b.rse_id and b.key='type' and b.value='%s' and a.deleted!=1) ''' % (ddm_type)
         result = session.execute(query)
         for account, rse, bytes_size in result:
             if account not in accounts:
@@ -146,7 +147,7 @@ rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a
                     print 'Will add quota for account %s on %s' % (account, rse)
                     try:
                         set_account_limit(account, rse, quotas[rse], 'root')
-                    except AccountNotFound, error:
+                    except AccountNotFound as error:
                         print error
 
             else:
@@ -156,12 +157,12 @@ rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a
                             print '%s %s : Defined quota %s different from expected quota %s' % (rse, account, accounts[account][rse], quotas[rse])
                             try:
                                 set_account_limit(account, rse, quotas[rse], 'root')
-                            except AccountNotFound, error:
+                            except AccountNotFound as error:
                                 print error
                     else:
                         print '%s cannot be found in quotas dictionary' % (rse)
 
-    except Exception, error:
+    except Exception as error:
         print error
         RESULT = CRITICAL
 
@@ -187,7 +188,7 @@ def set_localgroupdisk_quotas(fraction):
                 val = list_rse_attributes(rse)
                 if 'default_account_limit_bytes' in val:
                     default_values[rse] = float(val['default_account_limit_bytes'])
-    except Exception, error:
+    except Exception as error:
         print error
         RESULT = CRITICAL
 
@@ -199,7 +200,7 @@ def set_localgroupdisk_quotas(fraction):
             if key not in countries:
                 countries[key] = []
             countries[key].append(account)
-    except Exception, error:
+    except Exception as error:
         print error
         RESULT = CRITICAL
 
@@ -235,37 +236,31 @@ def set_localgroupdisk_quotas(fraction):
                         print "Set quota of %dTB on %s for %s" % (quota / 1000 ** 4, rse, account)
                         try:
                             set_account_limit(account, rse, quota, 'root')
-                        except AccountNotFound, error:
+                        except AccountNotFound as error:
                             print error
-        except Exception, error:
+        except Exception as error:
             print error
             RESULT = CRITICAL
 
 
 if __name__ == '__main__':
     try:
-        quota_userdisk = get('quota', 'USERDISK', 'root')
-        quota_userdisk = float(quota_userdisk) / 100
+        QUOTA_SCRATCHDISK = get('quota', 'SCRATCHDISK', 'root')
+        QUOTA_SCRATCHDISK = float(QUOTA_SCRATCHDISK) / 100
     except:
-        quota_userdisk = 0.3
+        QUOTA_SCRATCHDISK = 0.3
     try:
-        quota_scratchdisk = get('quota', 'SCRATCHDISK', 'root')
-        quota_scratchdisk = float(quota_scratchdisk) / 100
+        QUOTA_LOCALGROUPDISK = get('quota', 'LOCALGROUPDISK', 'root')
+        QUOTA_LOCALGROUPDISK = float(QUOTA_LOCALGROUPDISK) / 100
     except:
-        quota_scratchdisk = 0.3
-    try:
-        quota_localgroupdisk = get('quota', 'SCRATCHDISK', 'root')
-        quota_localgroupdisk = float(quota_localgroupdisk) / 100
-    except:
-        quota_localgroupdisk = 0.95
+        QUOTA_LOCALGROUPDISK = 0.95
 
     # For group the quota is set and updated using the AGIS information
     set_group_quotas()
-    # For the user area USERDISK and SCRATCHDISK, the quota is created and updated each time the size of the space token change
+    # For the SCRATCHDISK area, the quota is created and updated each time the size of the space token change
     # If the RSEs have the res attribute default_account_limit_bytes set, the value will overwrite the default value
-    set_user_quotas('USERDISK', quota_userdisk)
-    set_user_quotas('SCRATCHDISK', quota_scratchdisk)
+    set_user_quotas('SCRATCHDISK', QUOTA_SCRATCHDISK)
     # For the LOCALGROUPDISK area, the quota is created once but never updated
     # The value set is 95% of the space or default_account_limit_bytes if it is set as RSE attribute
-    set_localgroupdisk_quotas(quota_localgroupdisk)
+    set_localgroupdisk_quotas(QUOTA_LOCALGROUPDISK)
     sys.exit(RESULT)

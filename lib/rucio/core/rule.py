@@ -39,14 +39,13 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
-from rucio.core import account_counter, rse_counter
+from rucio.core import account_counter, rse_counter, request as request_core
 from rucio.core.account import get_account
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did, update_requests_priority
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db.sqla import models
@@ -191,6 +190,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     if match('.*ORA-00001.*', str(error.args[0]))\
                        or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
                        or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
+                       or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
                        or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
                         raise DuplicateRule()
                     raise InvalidReplicationRule(error.args[0])
@@ -222,7 +222,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 continue
 
             # Force ASYNC mode for large rules
-            if did.length >= 10000:
+            if did.length is not None and (did.length * copies) >= 10000:
                 asynchronous = True
                 logging.debug("Forced injection of rule %s" % (str(new_rule.id)))
 
@@ -830,7 +830,7 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
         rule.delete(session=session)
 
         for transfer in transfers_to_delete:
-            cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], session=session)
+            request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], session=session)
 
 
 @transactional_session
@@ -934,9 +934,6 @@ def repair_rule(rule_id, session=None):
         else:
             nr_files = 1
         if nr_files * rule.copies != (rule.locks_ok_cnt + rule.locks_stuck_cnt + rule.locks_replicating_cnt):
-            hard_repair = True
-            logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
-        elif rule.locks_stuck_cnt > 200:
             hard_repair = True
             logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
         elif rule.copies > 1 and rule.grouping == RuleGrouping.NONE:
@@ -1112,8 +1109,8 @@ def update_rule(rule_id, options, session=None):
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
                 rses = parse_expression(rule.rse_expression, session=session)
-                rucio.common.policy.get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
-                rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
+                lifetime = rucio.common.policy.get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
+                rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if options['lifetime'] is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
 
@@ -1122,15 +1119,15 @@ def update_rule(rule_id, options, session=None):
                 rule.activity = options['activity']
                 # Cancel transfers and re-submit them:
                 for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
-                    cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                    request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
                     md5, bytes, adler32 = session.query(models.RSEFileAssociation.md5, models.RSEFileAssociation.bytes, models.RSEFileAssociation.adler32).filter(models.RSEFileAssociation.scope == lock.scope,
                                                                                                                                                                   models.RSEFileAssociation.name == lock.name,
                                                                                                                                                                   models.RSEFileAssociation.rse_id == lock.rse_id).one()
                     session.flush()
-                    queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
-                                                                  request_type=RequestType.TRANSFER,
-                                                                  scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
-                                                                  ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity, session=session)], session=session)
+                    request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
+                                                                               request_type=RequestType.TRANSFER,
+                                                                               scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
+                                                                               ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity, session=session)], session=session)
 
             elif key == 'account':
                 # Check if the account exists
@@ -1161,7 +1158,7 @@ def update_rule(rule_id, options, session=None):
                         for l in session.query(models.ReplicaLock).filter_by(scope=lock.scope, name=lock.name, rse_id=lock.rse_id, state=LockState.REPLICATING).all():
                             l.state = LockState.STUCK
                             rule_ids_to_stuck.add(l.rule_id)
-                        cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                        request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
                         replica = session.query(models.RSEFileAssociation).filter(
                             models.RSEFileAssociation.scope == lock.scope,
                             models.RSEFileAssociation.name == lock.name,
@@ -1189,7 +1186,7 @@ def update_rule(rule_id, options, session=None):
             elif key == 'priority':
                 try:
                     rule.priority = options[key]
-                    update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
+                    request_core.update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
                 except Exception:
                     raise UnsupportedOperation('The FTS Requests are already in a final state.')
 
@@ -1432,9 +1429,9 @@ def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1480,9 +1477,9 @@ def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rule
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1536,9 +1533,9 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
                       bindparam('total_workers', total_workers)]
         query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
     elif session.bind.dialect.name == 'mysql':
-        query = query.filter('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
     elif session.bind.dialect.name == 'postgresql':
-        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1682,15 +1679,15 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         rule.locks_replicating_cnt += 1
         # Generate the request
         try:
-            get_request_by_did(scope, name, rse, session=session)
+            request_core.get_request_by_did(scope, name, rse, session=session)
         except RequestNotFound:
             bytes = replica.bytes
             md5 = replica.md5
             adler32 = replica.adler32
-            queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
-                                                          request_type=RequestType.TRANSFER,
-                                                          scope=scope, name=name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
-                                                          ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery', session=session)], session=session)
+            request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
+                                                                       request_type=RequestType.TRANSFER,
+                                                                       scope=scope, name=name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
+                                                                       ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery', session=session)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
             pass
@@ -2147,7 +2144,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, source_rep
         session.delete(lock)
 
     # Add the transfers
-    queue_requests(requests=transfers_to_create, session=session)
+    request_core.queue_requests(requests=transfers_to_create, session=session)
     session.flush()
     logging.debug("Finished finding and repairing stuck locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
@@ -2235,7 +2232,7 @@ def __evaluate_did_detach(eval_did, session=None):
             account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
         for transfer in transfers_to_delete:
-            cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], session=session)
+            request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], session=session)
 
 
 @transactional_session
@@ -2667,7 +2664,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_repl
 
     # Add the transfers
     logging.debug("Rule %s  [%d/%d/%d] queued %d transfers" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt, len(transfers_to_create)))
-    queue_requests(requests=transfers_to_create, session=session)
+    request_core.queue_requests(requests=transfers_to_create, session=session)
     session.flush()
     logging.debug("Finished creating locks and replicas for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 

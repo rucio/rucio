@@ -9,6 +9,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 '''
 
 from json import dumps, loads
@@ -77,7 +78,8 @@ class ReplicaClient(BaseClient):
         raise exc_cls(exc_msg)
 
     def list_replicas(self, dids, schemes=None, unavailable=False,
-                      all_states=False, metalink=None, rse_expression=None):
+                      all_states=False, metalink=False, rse_expression=None,
+                      location=None, sort=None):
         """
         List file replicas for a list of data identifiers (DIDs).
 
@@ -85,10 +87,14 @@ class ReplicaClient(BaseClient):
         [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
         :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
         :param unavailable: Also include unavailable replicas in the list.
-        :param metalink: ``None`` (default) retrieves as JSON,
-                         ``3`` retrieves as metalink+xml,
-                         ``4`` retrieves as metalink4+xml
+        :param metalink: ``False`` (default) retrieves as JSON,
+                         ``True`` retrieves as metalink4+xml.
         :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
+        :param location: Specify location of the client as a dictionary {'ip', 'fqdn', 'site'}.
+                         Dictionary members are allowed to be None.
+        :param sort: Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
+                                        ``closeness`` - based on src/dst closeness
+                                        ``dynamic`` - Rucio Dynamic Smart Sort (tm)
         """
         data = {'dids': dids}
 
@@ -101,15 +107,18 @@ class ReplicaClient(BaseClient):
         if rse_expression:
             data['rse_expression'] = rse_expression
 
+        if location:
+            data['location'] = location
+
+        if sort:
+            data['sort'] = sort
+
         url = build_url(choice(self.list_hosts),
                         path='/'.join([self.REPLICAS_BASEURL, 'list']))
 
         headers = {}
-        if metalink is not None:
-            if metalink == 3:
-                headers['Accept'] = 'application/metalink+xml'
-            elif metalink == 4:
-                headers['Accept'] = 'application/metalink4+xml'
+        if metalink:
+            headers['Accept'] = 'application/metalink4+xml'
 
         # pass json dict in querystring
         r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
