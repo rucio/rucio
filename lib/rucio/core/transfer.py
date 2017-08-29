@@ -698,7 +698,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'rule_id': rule_id,
                                  'file_metadata': file_metadata}
             else:
-                schemes = transfers[id]['schemes']
+                current_schemes = transfers[id]['schemes']
 
                 # source_rse_id will be None if no source replicas
                 # rse will be None if rse is staging area
@@ -804,12 +804,12 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             continue
 
                 # Get protocol
-                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(schemes))
+                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(current_schemes))
                 if source_rse_id_key not in protocols:
                     try:
-                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', schemes)
+                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', current_schemes)
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], schemes))
+                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], current_schemes))
                         continue
                 source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
 
