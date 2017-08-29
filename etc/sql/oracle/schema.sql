@@ -1200,6 +1200,7 @@ CREATE TABLE tokens (
     account VARCHAR2(25 CHAR),
     expired_at DATE,
     token VARCHAR2(352 CHAR),
+    identity VARCHAR2(255 CHAR),
     ip VARCHAR2(39 CHAR),
     updated_at DATE,
     created_at DATE,
