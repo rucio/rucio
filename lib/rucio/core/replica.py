@@ -62,6 +62,8 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
         to_days = func.trunc(models.BadReplicas.created_at, 'DD')
     elif session.bind.dialect.name == 'mysql':
         to_days = func.date(models.BadReplicas.created_at)
+    elif session.bind.dialect.name == 'postgresql':
+        to_days = func.date_trunc('day', models.BadReplicas.created_at)
     else:
         to_days = func.strftime(models.BadReplicas.created_at, '%Y-%m-%d')
     query = session.query(func.count(), to_days, models.RSE.rse, models.BadReplicas.state, models.BadReplicas.reason).filter(models.RSE.id == models.BadReplicas.rse_id)
@@ -412,7 +414,7 @@ def get_pfn_to_rse(pfns, session=None):
             storage_elements.append(storage_element)
             se_condition.append(models.RSEProtocols.hostname == storage_element)
     query = session.query(models.RSE.rse, models.RSEProtocols.scheme, models.RSEProtocols.hostname, models.RSEProtocols.port, models.RSEProtocols.prefix).\
-        filter(models.RSEProtocols.rse_id == models.RSE.id).filter(and_(or_(*se_condition), models.RSEProtocols.scheme == scheme)).filter(models.RSE.staging_area != 1)
+        filter(models.RSEProtocols.rse_id == models.RSE.id).filter(and_(or_(*se_condition), models.RSEProtocols.scheme == scheme)).filter(models.RSE.staging_area == false())
     protocols = {}
 
     for rse, protocol, hostname, port, prefix in query.yield_per(10000):
@@ -1501,6 +1503,7 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
     :param session:        The db session in use.
     :returns:              (files in dataset, replicas in dataset)
     """
+
     query = session.query(models.DataIdentifierAssociation.child_scope,
                           models.DataIdentifierAssociation.child_name,
                           models.DataIdentifierAssociation.bytes,

@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps
@@ -63,7 +63,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
                     validate_schema(name='activity', obj=rule.get('activity', 'default'))
         else:
             raise InvalidObject('You must specify a rule')
-    except ValueError, error:
+    except ValueError as error:
         raise TypeError(error)
 
     return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
@@ -110,7 +110,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
             else:
                 for rule in replication_rules:
                     validate_schema(name='activity', obj=rule.get('activity', 'default'))
-    except ValueError, error:
+    except ValueError as error:
         raise TypeError(error)
     return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, state=state, priority=priority)
 
