@@ -8,24 +8,23 @@
  Authors:
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
 
-${message}
+added column identity to table tokens
 
-Revision ID: ${up_revision}
-Revises: ${down_revision}
-Create Date: ${create_date}
+Revision ID: b4293a99f344
+Revises: 3ac1660a1a72
+Create Date: 2017-08-29 10:06:07.184267
 
 '''
-from alembic.op import (create_primary_key, create_check_constraint,
-                        drop_constraint, rename_table)
+from alembic.op import add_column, drop_column
 
 from alembic import context
 
 import sqlalchemy as sa
-${imports if imports else ""}
+
 
 # revision identifiers, used by Alembic.
-revision = ${repr(up_revision)}  # pylint: disable=invalid-name
-down_revision = ${repr(down_revision)}  # pylint: disable=invalid-name
+revision = 'b4293a99f344'  # pylint: disable=invalid-name
+down_revision = '3ac1660a1a72'  # pylint: disable=invalid-name
 
 
 def upgrade():
@@ -33,7 +32,7 @@ def upgrade():
     upgrade method
     '''
     if context.get_context().dialect.name != 'sqlite':
-        ${upgrades if upgrades else "pass"}
+        add_column('tokens', sa.Column('identity', sa.String(255)))
 
 
 def downgrade():
@@ -41,4 +40,4 @@ def downgrade():
     downgrade method
     '''
     if context.get_context().dialect.name != 'sqlite':
-        ${downgrades if downgrades else "pass"}
+        drop_column('tokens', 'identity')
