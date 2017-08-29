@@ -55,6 +55,20 @@ def rebalance_rule(parent_rule_id, activity, rse_expression, priority, source_re
     else:
         grouping = 'DATASET'
 
+    # check if concurrent replica at target rse does not exist
+    concurrent_replica = False
+    try:
+        for lock in get_dataset_locks(parent_rule['scope'], parent_rule['name']):
+            if lock['rse'] == rse_expression:
+                concurrent_replica = True
+    except Exception as error:
+        concurrent_replica = True
+        print 'Exception: get_dataset_locks not feasible for %s %s:' % (parent_rule['scope'], parent_rule['name'])
+        raise error
+    if concurrent_replica:
+        return 'Concurrent replica exists at target rse!'
+    print concurrent_replica
+
     child_rule = add_rule(dids=[{'scope': parent_rule['scope'],
                                  'name': parent_rule['name']}],
                           account=parent_rule['account'],
@@ -225,6 +239,9 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
             except (InsufficientTargetRSEs, DuplicateRule, RuleNotFound):
                 continue
             print '%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes / 1E9), target_rse_exp, child_rule_id)
+            if 'Concurrent' in str(child_rule_id):
+                print str(child_rule_id)
+                continue
             rebalanced_bytes += bytes
             rebalanced_files += length
             rebalanced_datasets.append((scope, name, bytes, length, target_rse_exp, rule_id, child_rule_id))
