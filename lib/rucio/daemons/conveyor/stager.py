@@ -41,7 +41,7 @@ logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-GRACEFULSTOP = threading.Event()
+graceful_stop = threading.Event()
 
 
 def stager(once=False, rses=[], mock=False,
@@ -96,15 +96,11 @@ def stager(once=False, rses=[], mock=False,
 
     threadPool = ThreadPool(total_threads)
     activity_next_exe_time = defaultdict(time.time)
-    sleeping = False
 
-    while not GRACEFULSTOP.is_set():
+    while not graceful_stop.is_set():
 
         try:
-            if not sleeping:
-                sleeping = True
-                hb = heartbeat.live(executable, hostname, pid, hb_thread)
-                logging.info('Stager - thread (%i/%i) bulk (%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
+            hb = heartbeat.live(executable, hostname, pid, hb_thread)
 
             if activities is None:
                 activities = [None]
@@ -115,9 +111,8 @@ def stager(once=False, rses=[], mock=False,
 
             for activity in activities:
                 if activity_next_exe_time[activity] > time.time():
-                    time.sleep(1)
+                    graceful_stop.wait(1)
                     continue
-                sleeping = False
 
                 logging.info("%s:%s Starting to get stagein transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
@@ -177,7 +172,7 @@ def stop(signum=None, frame=None):
     Graceful exit.
     """
 
-    GRACEFULSTOP.set()
+    graceful_stop.set()
 
 
 def run(once=False,

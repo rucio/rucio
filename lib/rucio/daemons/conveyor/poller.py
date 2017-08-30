@@ -82,7 +82,6 @@ def poller(once=False,
 
     activity_next_exe_time = defaultdict(time.time)
     threadPool = ThreadPool(total_threads)
-    sleeping = False
 
     while not graceful_stop.is_set():
 
@@ -90,16 +89,12 @@ def poller(once=False,
             hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
             logging.debug('poller - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
 
-            if not sleeping:
-                sleeping = True
-
             if activities is None:
                 activities = [None]
             for activity in activities:
                 if activity_next_exe_time[activity] > time.time():
-                    time.sleep(1)
+                    graceful_stop.wait(1)
                     continue
-                sleeping = False
 
                 ts = time.time()
                 logging.debug('%i:%i - start to poll transfers older than %i seconds for activity %s' % (process, hb['assign_thread'], older_than, activity))
