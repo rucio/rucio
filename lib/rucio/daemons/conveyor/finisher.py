@@ -94,7 +94,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
 
             if sleeping:
                 logging.info(prepend_str + 'Nothing to do. will sleep %s seconds' % (sleep_time))
-                time.sleep(sleep_time)
+                graceful_stop.wait(sleep_time)
 
             sleeping = True
             for activity in activities:
