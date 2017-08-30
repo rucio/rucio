@@ -100,17 +100,11 @@ def submitter(once=False, rses=[], mock=False,
 
     threadPool = ThreadPool(total_threads)
     activity_next_exe_time = defaultdict(time.time)
-    sleeping = False
 
     while not graceful_stop.is_set():
 
         try:
-
-            if not sleeping:
-                hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-                logging.info('Transfer submitter - thread (%i/%i) bulk(%i)' % (hb['assign_thread'], hb['nr_threads'], bulk))
-
-                sleeping = True
+            hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
 
             if activities is None:
                 activities = [None]
@@ -121,9 +115,8 @@ def submitter(once=False, rses=[], mock=False,
 
             for activity in activities:
                 if activity_next_exe_time[activity] > time.time():
-                    time.sleep(1)
+                    graceful_stop.wait(1)
                     continue
-                sleeping = False
 
                 logging.info("%s:%s Starting to get transfer transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
