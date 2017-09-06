@@ -740,6 +740,16 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     source_rse = get_rse_name(rse_id=source_rse_id, session=session)
                     rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
 
+                # Get protocol
+                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(current_schemes))
+                if source_rse_id_key not in protocols:
+                    try:
+                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', current_schemes)
+                    except RSEProtocolNotSupported:
+                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], current_schemes))
+                        continue
+                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+
                 if ranking is None:
                     ranking = 0
                 # TAPE should not mixed with Disk and should not use as first try
@@ -802,16 +812,6 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             transfers[id]['file_metadata']['src_rse'] = rse
                         else:
                             continue
-
-                # Get protocol
-                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(current_schemes))
-                if source_rse_id_key not in protocols:
-                    try:
-                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', current_schemes)
-                    except RSEProtocolNotSupported:
-                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], current_schemes))
-                        continue
-                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
 
                 # transfers[id]['src_urls'].append((source_rse_id, source_url))
                 transfers[id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
