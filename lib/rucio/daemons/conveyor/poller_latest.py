@@ -126,6 +126,9 @@ def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_thr
     Starts up the conveyer threads.
     """
 
+    if not external_hosts:
+        external_hosts = []
+
     if once:
         logging.info('executing one poller iteration only')
         poller_latest(external_hosts, once=once, last_nhours=last_nhours)
