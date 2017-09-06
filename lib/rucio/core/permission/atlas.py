@@ -452,7 +452,8 @@ def perm_update_rule(issuer, kwargs):
     if 'account' in kwargs['options'] or\
        'state' in kwargs['options'] or\
        'priority' in kwargs['options'] or\
-       'child_rule_id' in kwargs['options']:
+       'child_rule_id' in kwargs['options'] or\
+       'meta' in kwargs['options']:
         return False  # Only priv accounts are allowed to change that
 
     # Country admins are allowed to change the rest.
