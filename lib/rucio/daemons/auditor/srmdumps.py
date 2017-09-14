@@ -1,3 +1,15 @@
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Fernando Lopez, <felopez@cern.ch>, 2015
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+'''
+
 from rucio.common.config import __CONFIGFILES as __RUCIOCONFIGFILES
 from rucio.common.dumper import DUMPS_CACHE_DIR
 from rucio.common.dumper import http_download_to_file, srm_download_to_file, ddmendpoint_url, temp_file
@@ -97,7 +109,7 @@ def srm_links(base_url):
     '''
     Returns a list of the urls contained in `base_url`.
     '''
-    ctxt = gfal2.creat_context()
+    ctxt = gfal2.creat_context()  # pylint: disable=no-member
     return ['/'.join((base_url, f)) for f in ctxt.listdir(str(base_url))]
 
 
