@@ -1,3 +1,14 @@
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Fernando Lopez, <felopez@cern.ch>, 2015
+'''
+
 from rucio.common.dumper import DUMPS_CACHE_DIR
 from rucio.common.dumper import temp_file
 from rucio.common.dumper.data_models import Replica

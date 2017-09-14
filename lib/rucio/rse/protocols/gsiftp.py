@@ -1,15 +1,18 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
-# - Wen Guan, <wen.guan@cern.ch>, 2015
-# - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+ - Wen Guan, <wen.guan@cern.ch>, 2015
+ - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+'''
 
 import json
 import os
@@ -64,11 +67,11 @@ class Default(protocol.RSEProtocol):
                 space_usage_url = res['space_usage_url']
 
         import gfal2
-        gfal2.set_verbose(gfal2.verbose_level.normal)
+        gfal2.set_verbose(gfal2.verbose_level.normal)  # pylint: disable=no-member
         try:
             if os.path.exists(dest):
                 os.remove(dest)
-            ctx = gfal2.creat_context()
+            ctx = gfal2.creat_context()  # pylint: disable=no-member
             ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
             params = ctx.transfer_parameters()
             params.timeout = 3600
