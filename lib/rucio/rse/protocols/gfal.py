@@ -1,15 +1,17 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Wen Guan, <wguan@cern.ch>, 2014-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2016
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Wen Guan, <wguan@cern.ch>, 2014-2016
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
+'''
 
 import errno
 import json
@@ -157,7 +159,7 @@ class Default(protocol.RSEProtocol):
         :raises RSEAccessDenied
         """
 
-        self.__ctx = gfal2.creat_context()
+        self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
         # self.__ctx.set_opt_string("X509", "CERT", proxy)
         # self.__ctx.set_opt_string("X509", "KEY", proxy)
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
@@ -331,7 +333,7 @@ class Default(protocol.RSEProtocol):
         try:
             ret = ctx.filecopy(params, str(src), str(dest))
             return ret
-        except gfal2.GError as error:
+        except gfal2.GError as error:  # pylint: disable=no-member
             if error.code == errno.ENOENT or 'No such file' in error.message:
                 raise exception.SourceNotFound(error)
             raise exception.RucioException(error)
@@ -356,7 +358,7 @@ class Default(protocol.RSEProtocol):
                 if ret:
                     return ret
             return ret
-        except gfal2.GError as error:
+        except gfal2.GError as error:  # pylint: disable=no-member
             if error.code == errno.ENOENT or 'No such file' in error.message:
                 raise exception.SourceNotFound(error)
             raise exception.RucioException(error)
@@ -378,8 +380,8 @@ class Default(protocol.RSEProtocol):
             if ctx.stat(str(path)):
                 return 0
             return -1
-        except gfal2.GError as error:
-            if error.code == errno.ENOENT or 'No such file' in error.message:
+        except gfal2.GError as error:  # pylint: disable=no-member
+            if error.code == errno.ENOENT or 'No such file' in error.message:  # pylint: disable=no-member
                 return -1
             raise exception.RucioException(error)
 
@@ -406,7 +408,7 @@ class Default(protocol.RSEProtocol):
                 pass
             ret = ctx.rename(str(path), str(new_path))
             return ret
-        except gfal2.GError as error:
+        except gfal2.GError as error:  # pylint: disable=no-member
             if error.code == errno.ENOENT or 'No such file' in error.message:
                 raise exception.SourceNotFound(error)
             raise exception.RucioException(error)
@@ -453,5 +455,5 @@ class Default(protocol.RSEProtocol):
             totalsize = usage[0]["totalsize"]
             unusedsize = usage[0]["unusedsize"]
             return totalsize, unusedsize
-        except gfal2.GError as error:
+        except gfal2.GError as error:  # pylint: disable=no-member
             raise Exception(str(error))
