@@ -230,7 +230,6 @@ class BaseClient(object):
         :param params: (optional) Dictionary or bytes to be sent in the url query string.
         :return: the HTTP return body.
         """
-        result, retry = None, 0
         hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account,
                'Connection': 'Keep-Alive', 'User-Agent': self.user_agent,
                'X-Rucio-Script': self.script_id}
@@ -238,7 +237,8 @@ class BaseClient(object):
         if headers is not None:
             hds.update(headers)
 
-        while retry <= self.request_retries:
+        result = None
+        for retry in range(self.AUTH_RETRIES + 1):
             try:
                 if type == 'GET':
                     result = self.session.get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
@@ -250,15 +250,8 @@ class BaseClient(object):
                     result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
-#             except ConnectionError, e:
-#                 LOG.warning('ConnectionError: ' + str(e))
-#                 retry += 1
-#                 if retry > self.request_retries:
-#                     raise
-#                 continue
             except SSLError as error:
                 LOG.warning('SSLError: ' + str(error))
-                retry += 1
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
@@ -282,20 +275,18 @@ class BaseClient(object):
         headers = {'X-Rucio-Account': self.account, 'X-Rucio-Username': self.creds['username'], 'X-Rucio-Password': self.creds['password']}
         url = build_url(self.auth_host, path='auth/userpass')
 
-        retry = 0
-        while retry <= self.AUTH_RETRIES:
+        result = None
+        for retry in range(self.AUTH_RETRIES + 1):
             try:
                 result = self.session.get(url, headers=headers, verify=self.ca_cert)
+                break
             except SSLError as error:
                 LOG.warning('SSLError: ' + str(error))
                 self.ca_cert = False
-                retry += 1
                 if retry > self.request_retries:
                     raise
-                continue
-            break
 
-        if retry == 2 or 'result' not in locals():
+        if not result or 'result' not in locals():
             LOG.error('cannot get auth_token')
             return False
 
@@ -335,34 +326,31 @@ class BaseClient(object):
         if client_key is not None and not path.exists(client_key):
             LOG.error('given client key (%s) doesn\'t exist' % client_key)
 
-        retry = 0
-        result = None
-
         if client_key is None:
             cert = client_cert
         else:
             cert = (client_cert, client_key)
 
-        while retry <= self.AUTH_RETRIES:
+        result = None
+        for retry in range(self.AUTH_RETRIES + 1):
             try:
                 result = self.session.get(url, headers=headers, cert=cert,
                                           verify=self.ca_cert)
+                break
             except SSLError as error:
+                print str(error)
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
                 LOG.warning('SSLError: ' + str(error))
                 self.ca_cert = False
-                retry += 1
                 if retry > self.request_retries:
                     raise
-                continue
-            break
 
-        if retry == 2:
+        if not result:
             LOG.error('cannot get auth_token')
             return False
 
-        if result and result.status_code != codes.ok:   # pylint: disable-msg=E1101
+        if result.status_code != codes.ok:   # pylint: disable-msg=E1101
             exc_cls, exc_msg = self._get_exception(headers=result.headers,
                                                    status_code=result.status_code,
                                                    data=result.content)
@@ -382,21 +370,19 @@ class BaseClient(object):
         headers = {'X-Rucio-Account': self.account}
         url = build_url(self.auth_host, path='auth/gss')
 
-        retry = 0
-        while retry <= self.AUTH_RETRIES:
+        result = None
+        for retry in range(self.AUTH_RETRIES + 1):
             try:
                 result = self.session.get(url, headers=headers,
                                           verify=self.ca_cert, auth=HTTPKerberosAuth())
+                break
             except SSLError as error:
                 LOG.warning('SSLError: ' + str(error))
                 self.ca_cert = False
-                retry += 1
                 if retry > self.request_retries:
                     raise
-                continue
-            break
 
-        if retry == 2:
+        if not result:
             LOG.error('cannot get auth_token')
             return False
 
@@ -415,9 +401,8 @@ class BaseClient(object):
         Calls the corresponding method to receive an auth token depending on the auth type. To be used if a 401 - Unauthorized error is received.
         """
 
-        retry = 0
         LOG.debug('get a new token')
-        while retry <= self.AUTH_RETRIES:
+        for retry in range(self.AUTH_RETRIES + 1):
             if self.auth_type == 'userpass':
                 if not self.__get_token_userpass():
                     raise CannotAuthenticate('userpass authentication failed')
@@ -434,8 +419,6 @@ class BaseClient(object):
                 self.__write_token()
                 self.headers['X-Rucio-Auth-Token'] = self.auth_token
                 break
-
-            retry += 1
 
         if self.auth_token is None:
             raise CannotAuthenticate('cannot get an auth token from server')
