@@ -1,4 +1,4 @@
-# Copyright European Organization for Nuclear Research (CERN)
+
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ from ConfigParser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
 from requests import session
 from requests.status_codes import codes, _codes
-from requests.exceptions import SSLError
+from requests.exceptions import ConnectionError
 from requests_kerberos import HTTPKerberosAuth
 # See https://github.com/kennethreitz/requests/issues/2214
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
@@ -250,8 +250,8 @@ class BaseClient(object):
                     result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
-            except SSLError as error:
-                LOG.warning('SSLError: ' + str(error))
+            except ConnectionError as error:
+                LOG.warning('ConnectionError: ' + str(error))
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
@@ -280,8 +280,8 @@ class BaseClient(object):
             try:
                 result = self.session.get(url, headers=headers, verify=self.ca_cert)
                 break
-            except SSLError as error:
-                LOG.warning('SSLError: ' + str(error))
+            except ConnectionError as error:
+                LOG.warning('ConnectionError: ' + str(error))
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
@@ -337,11 +337,10 @@ class BaseClient(object):
                 result = self.session.get(url, headers=headers, cert=cert,
                                           verify=self.ca_cert)
                 break
-            except SSLError as error:
-                print str(error)
+            except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
-                LOG.warning('SSLError: ' + str(error))
+                LOG.warning('ConnectionError: ' + str(error))
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
@@ -376,8 +375,8 @@ class BaseClient(object):
                 result = self.session.get(url, headers=headers,
                                           verify=self.ca_cert, auth=HTTPKerberosAuth())
                 break
-            except SSLError as error:
-                LOG.warning('SSLError: ' + str(error))
+            except ConnectionError as error:
+                LOG.warning('ConnectionError: ' + str(error))
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
