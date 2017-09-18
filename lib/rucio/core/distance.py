@@ -131,7 +131,8 @@ def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, session
 
     params = {}
     for key in parameters:
-        if key in ['ranking', 'agis_distance', 'geoip_distance', 'active', 'submitted', 'finished', 'failed', 'transfer_speed']:
+        if key in ['ranking', 'agis_distance', 'geoip_distance', 'active', 'submitted', 'finished', 'failed', 'transfer_speed', 'packet_loss', 'latency', 'mbps_file', 'mbps_link', 'queued_total', 'done_1h', 'done_6h']:
+
             params[key] = parameters[key]
     try:
         query = session.query(Distance)
