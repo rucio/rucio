@@ -79,7 +79,7 @@ class ReplicaClient(BaseClient):
 
     def list_replicas(self, dids, schemes=None, unavailable=False,
                       all_states=False, metalink=False, rse_expression=None,
-                      location=None, sort=None):
+                      client_location=None, sort=None):
         """
         List file replicas for a list of data identifiers (DIDs).
 
@@ -90,8 +90,7 @@ class ReplicaClient(BaseClient):
         :param metalink: ``False`` (default) retrieves as JSON,
                          ``True`` retrieves as metalink4+xml.
         :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
-        :param location: Specify location of the client as a dictionary {'ip', 'fqdn', 'site'}.
-                         Dictionary members are allowed to be None.
+        :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
         :param sort: Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
                                         ``closeness`` - based on src/dst closeness
                                         ``dynamic`` - Rucio Dynamic Smart Sort (tm)
@@ -107,8 +106,8 @@ class ReplicaClient(BaseClient):
         if rse_expression:
             data['rse_expression'] = rse_expression
 
-        if location:
-            data['location'] = location
+        if client_location:
+            data['client_location'] = client_location
 
         if sort:
             data['sort'] = sort
