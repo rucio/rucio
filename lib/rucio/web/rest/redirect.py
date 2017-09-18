@@ -57,27 +57,34 @@ class MetaLinkRedirector(RucioController):
         header('Access-Control-Allow-Credentials', 'true')
 
         dids, schemes, select = [{'scope': scope, 'name': name}], ['http', 'https', 's3+rucio', 's3+https', 'root', 'gsiftp', 'srm', 'davs'], None
-        location = {}
 
         # set the correct client IP
         client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
         if client_ip is None:
             client_ip = ctx.ip
 
+        client_location = {'ip': client_ip,
+                           'fqdn': None,
+                           'site': None}
+
         if ctx.query:
             params = parse_qs(ctx.query[1:])
             if 'schemes' in params:
                 schemes = params['schemes']
-            if 'location' in params:
-                location = params['location']
-                location['ip'] = params['location'].get('ip', client_ip)
             if 'select' in params:
                 select = params['select'][0]
             if 'sort' in params:
-                select = params['sort']
+                select = params['sort'][0]
+
+            if 'ip' in params:
+                client_location['ip'] = params['ip'][0]
+            if 'fqdn' in params:
+                client_location['fqdn'] = params['fqdn'][0]
+            if 'site' in params:
+                client_location['site'] = params['site'][0]
 
         try:
-            tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes)]
+            tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes, client_location=client_location)]
 
             if not tmp_replicas:
                 raise ReplicaNotFound('no redirection possible - cannot find the DID')
@@ -111,13 +118,13 @@ class MetaLinkRedirector(RucioController):
 
                 # sort the actual replicas if necessary
                 if select == 'geoip':
-                    replicas = sort_geoip(dictreplica, location['ip'])
+                    replicas = sort_geoip(dictreplica, client_location['ip'])
                 elif select == 'closeness':
-                    replicas = sort_closeness(dictreplica, location)
+                    replicas = sort_closeness(dictreplica, client_location)
                 elif select == 'dynamic':
-                    replicas = sort_dynamic(dictreplica, location)
+                    replicas = sort_dynamic(dictreplica, client_location)
                 elif select == 'ranking':
-                    replicas = sort_ranking(dictreplica, location)
+                    replicas = sort_ranking(dictreplica, client_location)
                 else:
                     replicas = sort_random(dictreplica)
 
@@ -170,11 +177,14 @@ class HeaderRedirector(RucioController):
 
             # use the default HTTP protocols if no scheme is given
             select, rse, site, schemes = 'random', None, None, ['http', 'https', 's3+rucio']
-            location = {}
 
             client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
             if client_ip is None:
                 client_ip = ctx.ip
+
+            client_location = {'ip': client_ip,
+                               'fqdn': None,
+                               'site': None}
 
             if ctx.query:
                 params = parse_qs(ctx.query[1:])
@@ -186,9 +196,13 @@ class HeaderRedirector(RucioController):
                     site = params['site'][0]
                 if 'schemes' in params:
                     schemes = params['schemes'][0]
-                if 'location' in params:
-                    location = params['location']
-                    location['ip'] = params['location'].get('ip', client_ip)
+
+                if 'ip' in params:
+                    client_location['ip'] = params['ip'][0]
+                if 'fqdn' in params:
+                    client_location['fqdn'] = params['fqdn'][0]
+                if 'site' in params:
+                    client_location['site'] = params['site'][0]
 
             # correctly forward the schemes and select to potential metalink followups
             cleaned_url = ctx.env.get('REQUEST_URI').split('?')[0]
@@ -198,7 +212,7 @@ class HeaderRedirector(RucioController):
                 header('Link', '<%s/metalink?schemes=%s&select=%s>; rel=describedby; type="application/metalink+xml"' % (cleaned_url, schemes, select))
                 schemes = [schemes]  # list_replicas needs a list
 
-            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=schemes)]
+            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=schemes, client_location=client_location)]
 
             selected_url, selected_rse = None, None
             for r in replicas:
@@ -229,13 +243,13 @@ class HeaderRedirector(RucioController):
                         else:
 
                             if select == 'geoip':
-                                rep = sort_geoip(dictreplica, location['ip'])
+                                rep = sort_geoip(dictreplica, client_location['ip'])
                             elif select == 'closeness':
-                                rep = sort_closeness(dictreplica, location)
+                                rep = sort_closeness(dictreplica, client_location)
                             elif select == 'dynamic':
-                                rep = sort_dynamic(dictreplica, location)
+                                rep = sort_dynamic(dictreplica, client_location)
                             elif select == 'ranking':
-                                rep = sort_ranking(dictreplica, location)
+                                rep = sort_ranking(dictreplica, client_location)
                             else:
                                 rep = sort_random(dictreplica)
 
