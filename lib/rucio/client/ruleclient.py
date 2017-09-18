@@ -1,14 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+  - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+'''
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -29,7 +31,8 @@ class RuleClient(BaseClient):
 
     def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None,
                              locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False,
-                             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, priority=3):
+                             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, priority=3,
+                             meta=None):
         """
         :param dids:                       The data identifier set.
         :param copies:                     The number of replicas.
@@ -50,6 +53,7 @@ class RuleClient(BaseClient):
         :param asynchronous:               Create rule asynchronously by judge-injector.
         :param priority:                   Priority of the transfers.
         :param comment:                    Comment about the rule.
+        :param meta:                       Metadata, as dictionary.
         """
         path = self.RULE_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
@@ -59,7 +63,7 @@ class RuleClient(BaseClient):
                       'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression,
                       'activity': activity, 'notify': notify, 'purge_replicas': purge_replicas,
                       'ignore_availability': ignore_availability, 'comment': comment, 'ask_approval': ask_approval,
-                      'asynchronous': asynchronous, 'priority': priority})
+                      'asynchronous': asynchronous, 'priority': priority, 'meta': meta})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)
