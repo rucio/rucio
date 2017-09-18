@@ -21,10 +21,13 @@ import json
 import sqlalchemy
 import sqlalchemy.orm
 
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
+
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import or_
+from sqlalchemy.sql.expression import or_, false
 
 import rucio.core.account_counter
 
@@ -34,6 +37,12 @@ from rucio.common import exception, utils
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+
+
+REGION = make_region().configure('dogpile.cache.memcached',
+                                 expiration_time=3600,
+                                 arguments={'url': "127.0.0.1:11211",
+                                            'distributed_lock': True})
 
 
 @transactional_session
@@ -368,6 +377,48 @@ def get_rses_with_attribute(key, session=None):
         rse_list.append(d)
 
     return rse_list
+
+
+@read_session
+def get_rses_with_attribute_value(key, value, lookup_key, session=None):
+    """
+    Return all RSEs with a certain attribute.
+
+    :param key: The key for the attribute.
+    :param value: The value for the attribute.
+    :param lookup_key: The value of the this key will be returned.
+    :param session: The database session in use.
+
+    :returns: List of rse dictionaries with the rse_id and lookup_key/value pair
+    """
+
+    result = REGION.get('%s-%s-%s' % (key, value, lookup_key))
+    if result is NO_VALUE:
+
+        rse_list = []
+
+        subquery = session.query(models.RSEAttrAssociation.rse_id)\
+                          .filter(models.RSEAttrAssociation.key == key,
+                                  models.RSEAttrAssociation.value == value)\
+                          .subquery()
+
+        query = session.query(models.RSEAttrAssociation.rse_id,
+                              models.RSEAttrAssociation.key,
+                              models.RSEAttrAssociation.value)\
+                       .join(models.RSE, models.RSE.id == models.RSEAttrAssociation.rse_id)\
+                       .join(subquery, models.RSEAttrAssociation.rse_id == subquery.c.rse_id)\
+                       .filter(models.RSE.deleted == false(),
+                               models.RSEAttrAssociation.key == lookup_key)
+
+        for row in query:
+            rse_list.append({'rse_id': row[0],
+                             'key': row[1],
+                             'value': row[2]})
+
+        REGION.set('%s-%s-%s' % (key, value, lookup_key), rse_list)
+        return rse_list
+
+    return result
 
 
 @read_session
