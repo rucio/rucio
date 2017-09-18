@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2016
@@ -26,9 +26,10 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.configclient import ConfigClient
+from rucio.client.touchclient import TouchClient
 
 
-class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient, SubscriptionClient, LockClient, ConfigClient):
+class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient, SubscriptionClient, LockClient, ConfigClient, TouchClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 

@@ -176,5 +176,11 @@ ddm_url = http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json
 panda_url = http://bigpanda.cern.ch/jobs/?category=analysis&jobstatus=running
 window = 604800
 
+[sonar]
+dataset_prefix = sonar.test.medium.
+dataset_size = 5000000000
+dataset_dir = ~/public/sonar_medium_dataset/
+scope = user.vzavrtan
+
 [permission]
 policy=atlas
