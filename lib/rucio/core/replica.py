@@ -32,7 +32,7 @@ import rucio.core.lock
 
 from rucio.common import exception
 from rucio.common.utils import chunks, clean_surls, str_to_date
-from rucio.core.rse import get_rse, get_rse_id, get_rse_name
+from rucio.core.rse import get_rse, get_rse_id, get_rse_name, get_rse_attribute, get_rses_with_attribute_value
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -717,7 +717,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
         #    raise exception.DataIdentifierNotFound("Files not found %s", str(files))
 
 
-def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, rse_clause, session):
+def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, rse_clause, client_location, session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
@@ -768,6 +768,21 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                                                        'name': name,
                                                        'path': path}).\
                             values()[0]
+
+                        # server side root proxy handling if location is set.
+                        # cannot be pushed into protocols because we need to lookup rse attributes.
+                        # ultra-conservative implementation.
+                        if protocol.attributes['scheme'] == 'root' and client_location:
+                            if 'site' in client_location and client_location['site']:
+                                replica_site = get_rse_attribute('site', rse_info[rse]['id'], session=session)[0]
+                                if client_location['site'] != replica_site:
+                                    root_proxy_internal = get_rses_with_attribute_value('site', client_location['site'],
+                                                                                        'root-proxy-internal',
+                                                                                        session=session)
+                                    # assume all RSEs at site have same proxy, just prepend the first one
+                                    if root_proxy_internal and 'value' in root_proxy_internal[0]:
+                                        pfn = root_proxy_internal[0]['value'] + '//' + pfn
+
                         pfns.append(pfn)
                     except:
                         # temporary protection
@@ -811,8 +826,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 @stream_session
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
-                  rse_expression=None,
-                  session=None):
+                  rse_expression=None, client_location=None, session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -823,6 +837,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param ignore_availability: Ignore the RSE blacklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict list_replicas on a set of RSEs.
+    :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
     :param session: The database session in use.
     """
     file_clause, dataset_clause, state_clause, files = _resolve_dids(dids=dids, unavailable=unavailable,
@@ -834,7 +849,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
         for rse in parse_expression(expression=rse_expression, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 
-    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, rse_clause, session):
+    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, rse_clause, client_location, session):
         yield file
 
 

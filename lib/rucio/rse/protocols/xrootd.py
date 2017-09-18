@@ -1,14 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - WeiJen Chang, <wchang@cern.ch>, 2013
-# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2016
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - WeiJen Chang, <wchang@cern.ch>, 2013
+  - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
+'''
 
 import os
 
@@ -92,9 +94,9 @@ class Default(protocol.RSEProtocol):
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), '/', prefix, lfn['path']])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, lfn['path']])
             else:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), '/', prefix, self._get_path(scope=scope, name=name)])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, self._get_path(scope=scope, name=name)])
         return pfns
 
     def connect(self):
