@@ -10,7 +10,7 @@
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2016-2017
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
  - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
@@ -1178,8 +1178,7 @@ def _replica_mlstr_to_list(mlstr):
     return files
 
 
-def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_endpoint, trace_pattern, user_agent):
-    last_chosen_rse = None
+def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_endpoint, trace_pattern):
     rse_dict = {}
     thread_prefix = 'Thread %s/%s' % (threadnb, total_threads)
     while True:
@@ -1193,9 +1192,17 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
         file_name = file['name']
         file_didstr = '%s:%s' % (file_scope, file_name)
 
+        # arguments for rsemgr.download already known
+        dlfile = {}
+        dlfile['name'] = file_name
+        dlfile['scope'] = file_scope
+        dlfile['adler32'] = file['adler32']
+        ignore_checksum = True if args.pfn else False
+        if args.pfn:
+            dlfile['pfn'] = args.pfn
+
         logger.info('%s : Starting the download of %s' % (thread_prefix, file_didstr))
 
-        stime = time.time()
         trace = deepcopy(trace_pattern)
         trace.update({'scope': file_scope,
                       'filename': file_name,
@@ -1211,31 +1218,46 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
             input_queue.task_done()
             continue
 
-        if last_chosen_rse and last_chosen_rse in rses:
-            idx = rses.index(last_chosen_rse)
-            rses[idx], rses[0] = rses[0], rses[idx]
-        else:
-            random.shuffle(rses)
+        random.shuffle(rses)
 
         logger.debug('%s : Potential sources : %s' % (thread_prefix, str(rses)))
-        index = 0
-        download_ok = 0
-        for rse in rses:
-            if rse not in rse_dict:
-                rse_dict[rse] = rsemgr.get_rse_info(rse)
-            if args.protocol:
+        success = False
+        while not success and len(rses):
+            rse_name = rses.pop()
+            if rse_name not in rse_dict:
                 try:
-                    protocol = rsemgr.select_protocol(rse_dict[rse], operation='read', scheme=args.protocol)
-                except RSEProtocolNotSupported as error:
-                    logger.error('%s : The protocol specfied (%s) is not supported by %s' % (thread_prefix, args.protocol, rse))
-                    logger.debug(error)
-                    return FAILURE  # why dont try another rse? or at least dl next file?
-                rse_dict[rse]['protocols'] = [protocol]
-            if rse_dict[rse]['availability_read']:
-                trace['remoteSite'] = rse_dict[rse]['rse']
-                trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
-                trace['transferStart'] = time.time()
-                trace['clientState'] = 'DOWNLOAD_ATTEMPT'
+                    rse_dict[rse_name] = rsemgr.get_rse_info(rse_name)
+                except RSENotFound:
+                    logger.warning('%s : Could not get info of RSE %s' % (thread_prefix, rse_name))
+                    continue
+
+            rse = rse_dict[rse_name]
+
+            if not rse['availability_read']:
+                logger.info('%s : %s is blacklisted for reading' % (thread_prefix, rse_name))
+                continue
+
+            try:
+                if args.pfn:
+                    protocols = [rsemgr.select_protocol(rse, operation='read', scheme=args.pfn.split(':')[0])]
+                else:
+                    protocols = rsemgr.get_protocols_ordered(rse, operation='read', scheme=args.protocol)
+                    protocols.reverse()
+            except RSEProtocolNotSupported as error:
+                logger.info('%s : The protocol specfied (%s) is not supported by %s' % (thread_prefix, args.protocol, rse_name))
+                logger.debug(error)
+                continue
+
+            logger.debug('%s : %d possible protocol(s) for read' % (thread_prefix, len(protocols)))
+            trace['remoteSite'] = rse_name
+            trace['clientState'] = 'DOWNLOAD_ATTEMPT'
+
+            while not success and len(protocols):
+                protocol = protocols.pop()
+                rse['read_protocol'] = protocol
+
+                logger.debug('%s : Trying protocol %s at %s' % (thread_prefix, protocol['scheme'], rse_name))
+                trace['protocol'] = protocol['scheme']
 
                 out = {}
                 out['dataset_scope'] = file['dataset_scope']
@@ -1243,79 +1265,56 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
                 out['scope'] = file_scope
                 out['name'] = file_name
 
-                success = False
-                retries = 5
-                for attempt in xrange(0, retries):
+                attempt = 0
+                retries = 2
+                while not success and attempt < retries:
+                    attempt += 1
+                    out['attemptnr'] = attempt
+
+                    logger.info('%s : File %s trying from %s' % (thread_prefix, file_didstr, rse_name))
                     try:
-                        logger.info('%s : File %s trying from %s' % (thread_prefix, file_didstr, rse))
-                        if args.pfn:
-                            rsemgr.download(rse_dict[rse],
-                                            files=[{'name': file_name,
-                                                    'scope': file_scope,
-                                                    'adler32': file['adler32'],
-                                                    'pfn': args.pfn}],
-                                            dest_dir=dest_dir,
-                                            force_scheme=args.pfn.split(':')[0],
-                                            ignore_checksum=True)
-                        else:
-                            rsemgr.download(rse_dict[rse],
-                                            files=[{'name': file_name,
-                                                    'scope': file_scope,
-                                                    'adler32': file['adler32']}],
-                                            dest_dir=dest_dir)
-                        logger.info('%s : File %s successfully downloaded from %s' % (thread_prefix, file_didstr, rse))
-                        download_ok = 1
+                        trace['transferStart'] = time.time()
+
+                        rsemgr.download(rse,
+                                        files=[dlfile],
+                                        dest_dir=dest_dir,
+                                        ignore_checksum=ignore_checksum)
+
+                        trace['transferEnd'] = time.time()
+                        trace['clientState'] = 'DONE'
+                        out['clientState'] = 'DONE'
                         success = True
-                        last_chosen_rse = rse
-                        break
+                        output_queue.put(out)
+                        logger.info('%s : File %s successfully downloaded from %s' % (thread_prefix, file_didstr, rse_name))
                     except KeyboardInterrupt:
                         logger.warning('You pressed Ctrl+C! Exiting gracefully')
                         os.kill(os.getpgid(), signal.SIGINT)
-                        break
-                    except FileConsistencyMismatch, error:
+                        return
+                    except FileConsistencyMismatch as error:
                         logger.warning(str(error))
                         try:
-                            pfns_dict = rsemgr.lfns2pfns(rse_dict[rse],
+                            pfns_dict = rsemgr.lfns2pfns(rse,
                                                          lfns=[{'name': file_name, 'scope': file_scope}],
                                                          operation='read',
                                                          scheme=args.protocol)
                             pfn = pfns_dict[file_didstr]
 
                             out['clientState'] = 'CORRUPTED'
-                            out['attemptnr'] = attempt + 1
                             out['pfn'] = pfn
                             output_queue.put(out)
                         except Exception as error:
                             logger.debug('%s : %s' % (thread_prefix, str(error)))
                         trace['clientState'] = 'FAIL_VALIDATE'
-                        logger.debug('%s : Failed attempt %s/%s' % (thread_prefix, attempt + 1, retries))
+                        logger.debug('%s : Failed attempt %s/%s' % (thread_prefix, attempt, retries))
                     except Exception as error:
                         logger.warning(str(error))
                         trace['clientState'] = str(type(error).__name__)
-                        logger.debug('%s : Failed attempt %s/%s' % (thread_prefix, attempt + 1, retries))
+                        logger.debug('%s : Failed attempt %s/%s' % (thread_prefix, attempt, retries))
 
-                if success:
-                    trace['clientState'] = 'DONE'
-                    out['clientState'] = 'DONE'
-                    out['attemptnr'] = attempt + 1
-                    output_queue.put(out)
-                trace['transferEnd'] = time.time()
+                send_trace(trace, trace_endpoint, args.user_agent, threadnb=threadnb, total_threads=total_threads)
 
-                send_trace(trace, trace_endpoint, user_agent, threadnb=threadnb, total_threads=total_threads)
-
-                if success:
-                    break
-                index += 1
-
-                if index != len(rses):
-                    logger.debug('%s : Will retry download on an other RSE' % thread_prefix)
-            else:
-                logger.info('%s : %s is blacklisted for reading' % (thread_prefix, rse))
-
-        if not download_ok:
-            logger.error('%s : Cannot download file %s' % (thread_prefix, file_didstr))
-        else:
-            duration = round(time.time() - stime, 2)
+        if success:
+            duration = round(trace['transferEnd'] - trace['transferStart'], 2)
             if args.pfn:
                 logger.info('%s : File %s successfully downloaded in %s seconds' % (thread_prefix, file_didstr, duration))
             else:
@@ -1324,6 +1323,8 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
                                                                                                   sizefmt(file['bytes'], args.human),
                                                                                                   duration,
                                                                                                   round((file['bytes'] / duration) * 1e-6, 2)))
+        else:
+            logger.error('%s : Cannot download file %s' % (thread_prefix, file_didstr))
 
         input_queue.task_done()
 
@@ -1349,8 +1350,7 @@ def download_rucio(args, input_queue, output_queue, trace_pattern, trace_endpoin
                   'threadnb': worker + 1,
                   'total_threads': total_workers,
                   'trace_endpoint': trace_endpoint,
-                  'trace_pattern': trace_pattern,
-                  'user_agent': args.user_agent}
+                  'trace_pattern': trace_pattern}
         try:
             thread = Thread(target=_downloader, kwargs=kwargs)
             thread.start()
@@ -2365,6 +2365,18 @@ def test_server(args):
     return SUCCESS
 
 
+def touch(args):
+    """
+    %(prog)s touch [options] <did1 did2 ...>
+    """
+
+    client = get_client(args)
+
+    for did in args.dids:
+        scope, name = extract_scope(did)
+        client.touch(scope, name, args.rse)
+
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -2699,6 +2711,12 @@ Commands:
     test_server_parser = subparsers.add_parser('test-server', help='Test Server', description='Run a battery of nosetests against the Rucio Servers.')
     test_server_parser.set_defaults(which='test_server')
 
+    # The get-metadata subparser
+    touch_parser = subparsers.add_parser('touch', help='Touch one or more DIDs and set the last accessed date to the current date')
+    touch_parser.set_defaults(which='touch')
+    touch_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    touch_parser.add_argument('--rse', dest='rse', action='store', help="The RSE of the DIDs that are touched.")
+
     argcomplete.autocomplete(oparser)
 
     if len(sys.argv) == 1:
@@ -2741,6 +2759,7 @@ Commands:
                 'set_metadata': set_metadata,
                 'stat': stat,
                 'test_server': test_server,
+                'touch': touch,
                 'update_rule': update_rule,
                 'upload': upload,
                 'whoami_account': whoami_account}

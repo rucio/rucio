@@ -65,6 +65,8 @@ def throttler(once=False, sleep_time=600):
             logging.info('Throttler - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
             if hb['assign_thread'] != 0:
                 logging.info('Throttler thread id is not 0, will sleep. Only thread 0 will work')
+                if once:
+                    break
                 if time.time() < current_time + sleep_time:
                     graceful_stop.wait(int((current_time + sleep_time) - time.time()))
                 current_time = time.time()
@@ -73,6 +75,8 @@ def throttler(once=False, sleep_time=600):
             logging.info("Throttler thread %s - schedule requests" % hb['assign_thread'])
             __schedule_requests()
 
+            if once:
+                    break
             if time.time() < current_time + sleep_time:
                 graceful_stop.wait(int((current_time + sleep_time) - time.time()))
             current_time = time.time()

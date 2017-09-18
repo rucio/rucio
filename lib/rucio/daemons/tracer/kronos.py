@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
@@ -118,12 +118,13 @@ class AMQConsumer(object):
                 # check if scope in report. if not skip this one.
                 if 'scope' not in report:
                     record_counter('daemons.tracer.kronos.missing_scope')
-                    continue
+                    if report['eventType'] != 'touch':
+                        continue
                 else:
                     record_counter('daemons.tracer.kronos.with_scope')
 
-                # for the moment only report with eventType get* are handled.
-                if not report['eventType'].startswith('get') and not report['eventType'].startswith('sm_get') and not report['eventType'] == 'download':
+                # handle all events starting with get* and download and touch events.
+                if not report['eventType'].startswith('get') and not report['eventType'].startswith('sm_get') and not report['eventType'] == 'download' and not report['eventType'] == 'touch':
                     continue
                 if report['eventType'].endswith('_es'):
                     continue
@@ -142,32 +143,53 @@ class AMQConsumer(object):
                         record_counter('daemons.tracer.kronos.panda_analysis')
                 elif report['eventType'] == 'download':
                     record_counter('daemons.tracer.kronos.rucio_download')
+                elif report['eventType'] == 'touch':
+                    record_counter('daemons.tracer.kronos.rucio_touch')
                 else:
                     record_counter('daemons.tracer.kronos.other_get')
 
-                # check if the report has the right state.
-                if report['eventVersion'] != 'aCT':
-                    if report['clientState'] in self.__excluded_states:
-                        continue
-
-                if report['eventType'] == 'download':
+                if report['eventType'] == 'download' or report['eventType'] == 'touch':
                     report['usrdn'] = report['account']
 
                 if report['usrdn'] in self.__excluded_usrdns:
                     continue
-                if 'remoteSite' not in report:
-                    continue
-                if not report['remoteSite']:
-                    continue
 
-                if 'filename' not in report:
-                    if 'name' in report:
-                        report['filename'] = report['name']
+                # handle touch and non-touch traces differently
+                if report['eventType'] != 'touch':
+                    # check if the report has the right state.
+                    if 'eventVersion' in report:
+                        if report['eventVersion'] != 'aCT':
+                            if report['clientState'] in self.__excluded_states:
+                                continue
 
-                rses = report['remoteSite'].strip().split(',')
-                for rse in rses:
-                    replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']),
-                                     'traceTimeentryUnix': report['traceTimeentryUnix'], 'eventVersion': report['eventVersion']})
+                    if 'remoteSite' not in report:
+                        continue
+                    if not report['remoteSite']:
+                        continue
+
+                    if 'filename' not in report:
+                        if 'name' in report:
+                            report['filename'] = report['name']
+
+                    rses = report['remoteSite'].strip().split(',')
+                    for rse in rses:
+                        replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']),
+                                         'traceTimeentryUnix': report['traceTimeentryUnix'], 'eventVersion': report['eventVersion']})
+                else:
+                    # if touch event and if datasetScope is in the report then it means
+                    # that there is no file scope/name and therefore only the dataset is
+                    # put in the queue to be updated and the rest is skipped.
+                    if 'datasetScope' in report:
+                        rse = None
+                        if 'remoteSite' in report:
+                            rse = report['remoteSite']
+                        self.__dataset_queue.put({'scope': report['datasetScope'], 'name': report['dataset'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+                        continue
+                    else:
+                        if 'remoteSite' not in report:
+                            continue
+                        replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+
             except (KeyError, AttributeError):
                 logging.error(format_exc())
                 record_counter('daemons.tracer.kronos.report_error')

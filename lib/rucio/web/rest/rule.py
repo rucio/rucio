@@ -1,14 +1,15 @@
-#!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
+'''
 
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
@@ -187,8 +188,8 @@ class AllRule:
         try:
             grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify,\
                 purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority,\
-                split_container = 'DATASET', None, None, False, None, None, None, None, False, False, None,\
-                False, False, 3, False
+                split_container, meta = 'DATASET', None, None, False, None, None, None, None, False, False, None,\
+                False, False, 3, False, None
 
             params = loads(json_data)
             dids = params['dids']
@@ -225,6 +226,8 @@ class AllRule:
                 priority = params['priority']
             if 'split_container' in params:
                 split_container = params['split_container']
+            if 'meta' in params:
+                meta = params['meta']
 
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
@@ -249,6 +252,7 @@ class AllRule:
                                             asynchronous=asynchronous,
                                             priority=priority,
                                             split_container=split_container,
+                                            meta=meta,
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule as error:

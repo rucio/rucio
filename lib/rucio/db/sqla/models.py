@@ -800,6 +800,7 @@ class ReplicationRule(BASE, ModelBase):
     child_rule_id = Column(GUID())
     eol_at = Column(DateTime)
     split_container = Column(Boolean(name='RULES_SPLIT_CONTAINER_CHK'), default=False)
+    meta = Column(String(4000))
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
@@ -857,6 +858,7 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     child_rule_id = Column(GUID())
     eol_at = Column(DateTime)
     split_container = Column(Boolean())
+    meta = Column(String(4000))
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_RECENT_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HIST_RECENT_ID_IDX', 'id'),
                    Index('RULES_HIST_RECENT_SC_NA_IDX', 'scope', 'name'))
@@ -895,6 +897,7 @@ class ReplicationRuleHistory(BASE, ModelBase):
     child_rule_id = Column(GUID())
     eol_at = Column(DateTime)
     split_container = Column(Boolean())
+    meta = Column(String(4000))
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
                    Index('RULES_HISTORY_SCOPENAME_IDX', 'scope', 'name'))
 
@@ -1033,6 +1036,13 @@ class Distance(BASE, ModelBase):
     finished = Column(Integer())
     failed = Column(Integer())
     transfer_speed = Column(Integer())
+    packet_loss = Column(Integer())
+    latency = Column(Integer())
+    mbps_file = Column(Integer())
+    mbps_link = Column(Integer())
+    queued_total = Column(Integer())
+    done_1h = Column(Integer())
+    done_6h = Column(Integer())
     _table_args = (PrimaryKeyConstraint('src_rse_id', 'dest_rse_id', name='DISTANCES_PK'),
                    ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='DISTANCES_SRC_RSES_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='DISTANCES_DEST_RSES_FK'),
@@ -1066,6 +1076,7 @@ class Token(BASE, ModelBase):
     __tablename__ = 'tokens'
     token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(String(25))
+    identity = Column(String(255))
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),  # not supported for primary key constraint mysql_length=255
