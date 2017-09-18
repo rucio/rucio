@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -80,7 +80,8 @@ def get_did_from_pfns(pfns, rse):
 
 
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
-                  ignore_availability=True, all_states=False, rse_expression=None):
+                  ignore_availability=True, all_states=False, rse_expression=None,
+                  client_location=None):
     """
     List file replicas for a list of data identifiers.
 
@@ -90,12 +91,14 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param request_id: ID associated with the request for debugging.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
+    :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
     """
     validate_schema(name='r_dids', obj=dids)
     return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable,
                                  request_id=request_id,
                                  ignore_availability=ignore_availability,
-                                 all_states=all_states, rse_expression=rse_expression)
+                                 all_states=all_states, rse_expression=rse_expression,
+                                 client_location=client_location)
 
 
 def add_replicas(rse, files, issuer, ignore_availability=False):
