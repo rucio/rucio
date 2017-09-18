@@ -1,16 +1,19 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
+'''
+  Copyright European Organization for Nuclear Research (CERN)
 
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
+'''
+
+import json
 import logging
 import sys
 
@@ -63,7 +66,7 @@ logging.basicConfig(stream=sys.stdout,
 def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
              source_replica_expression=None, activity='User Subscriptions', notify=None, purge_replicas=False,
              ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, ignore_account_limit=False,
-             priority=3, split_container=False, session=None):
+             priority=3, split_container=False, meta=None, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -89,6 +92,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param ignore_account_limit:       Ignore quota and create the rule outside of the account limits.
     :param priority:                   Priority of the rule and the transfers which should be submitted.
     :param split_container:            Should a container rule be split into individual dataset rules.
+    :param meta:                       Dictionary with metadata from the WFMS.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
@@ -163,6 +167,12 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 else:
                     grouping = RuleGrouping.DATASET
 
+                if meta is not None:
+                    try:
+                        meta = json.dumps(meta)
+                    except:
+                        meta = None
+
                 new_rule = models.ReplicationRule(account=account,
                                                   name=elem['name'],
                                                   scope=elem['scope'],
@@ -183,6 +193,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   ignore_account_limit=ignore_account_limit,
                                                   priority=priority,
                                                   split_container=split_container,
+                                                  meta=meta,
                                                   eol_at=eol_at)
                 try:
                     new_rule.save(session=session)
@@ -402,6 +413,14 @@ def add_rules(dids, rules, session=None):
                         else:
                             notify = RuleNotification.NO
 
+                        if rule.get('meta') is not None:
+                            try:
+                                meta = json.dumps(rule.get('meta'))
+                            except:
+                                meta = None
+                        else:
+                            meta = None
+
                         new_rule = models.ReplicationRule(account=rule['account'],
                                                           name=did.name,
                                                           scope=did.scope,
@@ -421,6 +440,7 @@ def add_rules(dids, rules, session=None):
                                                           comments=rule.get('comment', None),
                                                           priority=rule.get('priority', 3),
                                                           split_container=rule.get('split_container', False),
+                                                          meta=meta,
                                                           eol_at=eol_at)
                         try:
                             new_rule.save(session=session)
@@ -1097,7 +1117,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta']
 
     for key in options:
         if key not in valid_options:
@@ -1197,6 +1217,10 @@ def update_rule(rule_id, options, session=None):
                     raise InputValidationError('Parent and child rule must be set on the same dataset.')
                 if child_rule.state != RuleState.OK:
                     rule.child_rule_id = options[key]
+
+            elif key == 'meta':
+                # Need to json.dump the metadata
+                rule.meta = json.dumps(options[key])
 
             else:
                 setattr(rule, key, options[key])
@@ -1798,7 +1822,8 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
                                             locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
                                             activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
                                             ignore_availability=rule.ignore_availability, ignore_account_limit=rule.ignore_account_limit, comments=rule.comments, created_at=rule.created_at,
-                                            updated_at=rule.updated_at).save(session=session)
+                                            updated_at=rule.updated_at, child_rule_id=rule.child_rule_id, eol_at=rule.eol_at,
+                                            split_container=rule.split_container, meta=rule.meta).save(session=session)
     if longterm:
         models.ReplicationRuleHistory(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
                                       did_type=rule.did_type, state=rule.state, error=rule.error, rse_expression=rule.rse_expression, copies=rule.copies,
@@ -1806,7 +1831,8 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
                                       locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
                                       activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
                                       ignore_availability=rule.ignore_availability, ignore_account_limit=rule.ignore_account_limit, comments=rule.comments, created_at=rule.created_at,
-                                      updated_at=rule.updated_at).save(session=session)
+                                      updated_at=rule.updated_at, child_rule_id=rule.child_rule_id, eol_at=rule.eol_at,
+                                      split_container=rule.split_container, meta=rule.meta).save(session=session)
 
 
 @transactional_session
