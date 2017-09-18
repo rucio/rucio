@@ -182,7 +182,6 @@ def stop(signum=None, frame=None):
     """
     Graceful exit.
     """
-
     graceful_stop.set()
 
 

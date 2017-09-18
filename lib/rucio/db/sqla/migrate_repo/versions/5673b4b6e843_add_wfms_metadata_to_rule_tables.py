@@ -8,7 +8,7 @@
  Authors:
  - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
-Add wfms_metadata to rule tables
+Add metadata to rule tables
 
 Revision ID: 5673b4b6e843
 Revises: e59300c8b179
@@ -31,9 +31,9 @@ def upgrade():
     '''
     upgrade method
     '''
-    add_column('rules', sa.Column('wfms_metadata', sa.String(4000)))
-    add_column('rules_history', sa.Column('wfms_metadata', sa.String(4000)))
-    add_column('rules_hist_recent', sa.Column('wfms_metadata', sa.String(4000)))
+    add_column('rules', sa.Column('meta', sa.String(4000)))
+    add_column('rules_history', sa.Column('meta', sa.String(4000)))
+    add_column('rules_hist_recent', sa.Column('meta', sa.String(4000)))
 
 
 def downgrade():
@@ -41,6 +41,6 @@ def downgrade():
     downgrade method
     '''
     if context.get_context().dialect.name not in ('sqlite'):  # pylint: disable=no-member
-        drop_column('rules', 'wfms_metadata')
-        drop_column('rules_history', 'wfms_metadata')
-        drop_column('rules_hist_recent', 'wfms_metadata')
+        drop_column('rules', 'meta')
+        drop_column('rules_history', 'meta')
+        drop_column('rules_hist_recent', 'meta')
