@@ -6,7 +6,7 @@
   You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2017
 '''
@@ -159,7 +159,7 @@ def transmogrifier(bulk=5, once=False):
             sub_dict = {3: []}
             for sub in list_subscriptions(None, None):
                 if sub['state'] != SubscriptionState.INACTIVE and sub['lifetime'] and (datetime.now() > sub['lifetime']):
-                    update_subscription(name=sub['name'], account=sub['account'], state=SubscriptionState.INACTIVE)
+                    update_subscription(name=sub['name'], account=sub['account'], metadata={'state': SubscriptionState.INACTIVE})
 
                 elif sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
                     priority = 3
@@ -172,11 +172,11 @@ def transmogrifier(bulk=5, once=False):
             priorities.sort()
             for priority in priorities:
                 subscriptions.extend(sub_dict[priority])
-        except SubscriptionNotFound, error:
+        except SubscriptionNotFound as error:
             logging.warning(prepend_str + 'No subscriptions defined: %s' % (str(error)))
             time.sleep(10)
             continue
-        except Exception, error:
+        except Exception as error:
             logging.error(prepend_str + 'Failed to get list of new DIDs or subscriptions: %s' % (str(error)))
 
             if once:
@@ -232,7 +232,7 @@ def transmogrifier(bulk=5, once=False):
                                     activity = rule.get('activity', 'User Subscriptions')
                                     try:
                                         validate_schema(name='activity', obj=activity)
-                                    except InputValidationError, error:
+                                    except InputValidationError as error:
                                         logging.error(prepend_str + 'Error validating the activity %s' % (str(error)))
                                         activity = 'User Subscriptions'
                                     if lifetime:
@@ -316,7 +316,7 @@ def transmogrifier(bulk=5, once=False):
                                             # Errors to be retried
                                             logging.error(prepend_str + '%s Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
-                                        except Exception, error:
+                                        except Exception as error:
                                             # Unexpected errors
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
                                             exc_type, exc_value, exc_traceback = exc_info()
@@ -327,7 +327,7 @@ def transmogrifier(bulk=5, once=False):
                                         logging.error(prepend_str + 'Rule for %s:%s on %s cannot be inserted' % (did['scope'], did['name'], rse_expression))
                                     else:
                                         logging.info(prepend_str + '%s rule(s) inserted in %f seconds' % (str(nb_rule), time.time() - stime))
-                    except DataIdentifierNotFound, error:
+                    except DataIdentifierNotFound as error:
                         logging.warning(prepend_str + error)
 
                 if did_success:
@@ -347,6 +347,8 @@ def transmogrifier(bulk=5, once=False):
 
             logging.info(prepend_str + 'Time to set the new flag : %f' % (time.time() - time1))
             tottime = time.time() - start_time
+            for sub in subscriptions:
+                update_subscription(name=sub['name'], account=sub['account'], metadata={'last_processed': datetime.now()})
             logging.info(prepend_str + 'It took %f seconds to process %i DIDs' % (tottime, len(dids)))
             logging.debug(prepend_str + 'DIDs processed : %s' % (str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)
