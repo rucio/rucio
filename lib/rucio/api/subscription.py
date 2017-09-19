@@ -52,11 +52,11 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
         raise AccessDenied('Account %s can not add subscription' % (issuer))
     try:
         if filter:
-            if type(filter) != dict:
+            if isinstance(filter, dict):
                 raise TypeError('filter should be a dict')
             validate_schema(name='subscription_filter', obj=filter)
         if replication_rules:
-            if type(replication_rules) != list:
+            if isinstance(replication_rules, list):
                 raise TypeError('replication_rules should be a list')
             else:
                 for rule in replication_rules:
@@ -69,7 +69,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
 
 
-def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, state=None, dry_run=None, priority=None, issuer=None):
+def update_subscription(name, account, metadata=None, issuer=None):
     """
     Updates a subscription
 
@@ -77,42 +77,28 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
     :type:  String
     :param account: Account identifier
     :type account:  String
-    :param filter: Dictionary of attributes by which the input data should be filtered
-                   **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-    :type filter:  Dict
-    :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
-    :type replication_rules:  Dict
-    :param comments: Comments for the subscription
-    :type comments:  String
-    :param lifetime: Subscription's lifetime (seconds); False if subscription has no lifetime
-    :type lifetime:  Integer or False
-    :param retroactive: Flag to know if the subscription should be applied on previous data
-    :type retroactive:  Boolean
-    :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
-    :type dry_run:  Boolean
-    :param state: The state of the subscription
-    :param priority: The priority of the subscription
-    :type priority: Integer
-    :param issuer:  The account issuing this operation.
-    :type comments:  String
-    :raises: exception.NotFound if subscription is not found
+    :param metadata: Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed
+    :type metadata:  Dict
+    :raises: SubscriptionNotFound if subscription is not found
     """
     if not has_permission(issuer=issuer, action='update_subscription', kwargs={'account': account}):
         raise AccessDenied('Account %s can not update subscription' % (issuer))
     try:
-        if filter:
-            if type(filter) != dict:
+        if isinstance(metadata, dict):
+            raise TypeError('metadata should be a dict')
+        if 'filter' in metadata and metadata['filter']:
+            if isinstance(metadata['filter'], dict):
                 raise TypeError('filter should be a dict')
-            validate_schema(name='subscription_filter', obj=filter)
-        if replication_rules:
-            if type(replication_rules) != list:
+            validate_schema(name='subscription_filter', obj=metadata['filter'])
+        if 'replication_rules' in metadata and metadata['replication_rules']:
+            if isinstance(metadata['replication_rules'], list):
                 raise TypeError('replication_rules should be a list')
             else:
-                for rule in replication_rules:
+                for rule in metadata['replication_rules']:
                     validate_schema(name='activity', obj=rule.get('activity', 'default'))
     except ValueError as error:
         raise TypeError(error)
-    return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, state=state, priority=priority)
+    return subscription.update_subscription(name=name, account=account, metadata=metadata)
 
 
 def list_subscriptions(name=None, account=None, state=None):
