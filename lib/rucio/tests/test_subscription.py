@@ -1,14 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
+"""
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+ - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
+"""
 
 from json import dumps, loads
 
@@ -53,10 +55,10 @@ class TestSubscriptionCoreApi():
         result = add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                   replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
         with assert_raises(TypeError):
-            result = update_subscription(name=subscription_name, account='root', filter='toto', issuer='root')
+            result = update_subscription(name=subscription_name, account='root', metadata={'filter': 'toto'}, issuer='root')
         with assert_raises(InvalidObject):
-            result = update_subscription(name=subscription_name, account='root', filter={'project': 'toto'}, issuer='root')
-        result = update_subscription(name=subscription_name, account='root', filter={'project': ['toto', ]}, issuer='root')
+            result = update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': 'toto'}}, issuer='root')
+        result = update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root')
         assert_equal(result, None)
         result = list_subscriptions(name=subscription_name, account='root')
         sub = []
@@ -86,7 +88,7 @@ class TestSubscriptionCoreApi():
     def test_update_nonexisting_subscription(self):
         """ SUBSCRIPTION (API): Test the update of a non-existing subscription """
         subscription_name = uuid()
-        update_subscription(name=subscription_name, account='root', filter={'project': ['toto', ]}, issuer='root')
+        update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root')
 
     def test_list_rules_states(self):
         """ SUBSCRIPTION (API): Test listing of rule states for subscription """
@@ -144,7 +146,8 @@ class TestSubscriptionRestApi():
         subscription_name = uuid()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'options': {'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'}})
+                                  'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
+                                  'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'}})
         res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
@@ -169,7 +172,8 @@ class TestSubscriptionRestApi():
         subscription_name = uuid()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'options': {'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'}})
+                                  'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
+                                  'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'}})
         res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
@@ -191,7 +195,8 @@ class TestSubscriptionRestApi():
         subscription_name = uuid()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'options': {'name': subscription_name, 'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                      'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'We are the knights who say Ni !'}})
+                                  'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
+                                  'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'We are the knights who say Ni !'}})
         res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/' + subscription_name, headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
