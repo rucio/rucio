@@ -54,11 +54,11 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
         raise AccessDenied('Account %s can not add subscription' % (issuer))
     try:
         if filter:
-            if isinstance(filter, dict):
+            if not isinstance(filter, dict):
                 raise TypeError('filter should be a dict')
             validate_schema(name='subscription_filter', obj=filter)
         if replication_rules:
-            if isinstance(replication_rules, list):
+            if not isinstance(replication_rules, list):
                 raise TypeError('replication_rules should be a list')
             else:
                 for rule in replication_rules:
@@ -86,14 +86,14 @@ def update_subscription(name, account, metadata=None, issuer=None):
     if not has_permission(issuer=issuer, action='update_subscription', kwargs={'account': account}):
         raise AccessDenied('Account %s can not update subscription' % (issuer))
     try:
-        if isinstance(metadata, dict):
+        if not isinstance(metadata, dict):
             raise TypeError('metadata should be a dict')
         if 'filter' in metadata and metadata['filter']:
-            if isinstance(metadata['filter'], dict):
+            if not isinstance(metadata['filter'], dict):
                 raise TypeError('filter should be a dict')
             validate_schema(name='subscription_filter', obj=metadata['filter'])
         if 'replication_rules' in metadata and metadata['replication_rules']:
-            if isinstance(metadata['replication_rules'], list):
+            if not isinstance(metadata['replication_rules'], list):
                 raise TypeError('replication_rules should be a list')
             else:
                 for rule in metadata['replication_rules']:
