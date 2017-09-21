@@ -10,7 +10,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2016-2017
@@ -356,7 +356,7 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
     try:
         contents and session.bulk_insert_mappings(models.DataIdentifierAssociation, contents)
         session.flush()
-    except IntegrityError, error:
+    except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
                 or error.args[0] == "(IntegrityError) foreign key constraint failed" \
@@ -431,7 +431,7 @@ def __add_collections_to_container(scope, name, collections, account, session):
                     session=session)
     try:
         session.flush()
-    except IntegrityError, error:
+    except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
            or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
            or error.args[0] == "(IntegrityError) foreign key constraint failed" \
@@ -1455,11 +1455,11 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, accoun
     :param nbfiles: The number of files to register in the output dataset.
     :param session: The database session in use.
     """
-    files = [f for f in list_files(scope=input_scope, name=input_name, long=False, session=session)]
+    files = [did for did in list_files(scope=input_scope, name=input_name, long=False, session=session)]
     random.shuffle(files)
     output_files = files[:int(nbfiles)]
     add_did(scope=output_scope, name=output_name, type=DIDType.DATASET, account=account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse=None, session=session)
-    __add_files_to_dataset(scope=output_scope, name=output_name, files=output_files, account=account, rse=None, ignore_duplicate=False, session=session)
+    attach_dids(scope=output_scope, name=output_name, dids=output_files, account=account, rse=None, session=session)
 
 
 @transactional_session
