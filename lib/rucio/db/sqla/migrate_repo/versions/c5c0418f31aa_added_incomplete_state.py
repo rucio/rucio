@@ -29,8 +29,8 @@ def upgrade():
     upgrade method
     '''
     if context.get_context().dialect.name != 'sqlite':
-        drop_constraint('DIDS_AVAILABILITY_CHK')
-        drop_constraint('DEL_DIDS_AVAIL_CHK')
+        drop_constraint('DIDS_AVAILABILITY_CHK', 'dids')
+        drop_constraint('DEL_DIDS_AVAIL_CHK', 'deleted_dids')
         create_check_constraint(name='DIDS_AVAILABILITY_CHK',
                                 source='dids',
                                 condition="availability in ('L', 'D', 'A', 'I')")
@@ -44,8 +44,8 @@ def downgrade():
     downgrade method
     '''
     if context.get_context().dialect.name != 'sqlite':
-        drop_constraint('DIDS_AVAILABILITY_CHK')
-        drop_constraint('DEL_DIDS_AVAIL_CHK')
+        drop_constraint('DIDS_AVAILABILITY_CHK', 'dids')
+        drop_constraint('DEL_DIDS_AVAIL_CHK', 'deleted_dids')
         create_check_constraint(name='DIDS_AVAILABILITY_CHK',
                                 source='dids',
                                 condition="availability in ('L', 'D', 'A')")
