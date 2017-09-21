@@ -1,23 +1,26 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+'''
+ Copyright European Organization for Nuclear Research (CERN)
 
-"""
-Create history table (based on the example provided in the sqlalchemy examples directory)
-"""
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+'''
 
 from sqlalchemy import Table, ForeignKeyConstraint
 from sqlalchemy import event
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import mapper, attributes, object_mapper
 from sqlalchemy.orm.exc import UnmappedColumnError
-from sqlalchemy.orm.properties import RelationshipProperty
+from sqlalchemy.orm.properties import RelationshipProperty  # pylint: disable=no-name-in-module
+
+'''
+Create history table (based on the example provided in the sqlalchemy examples directory)
+'''
 
 
 def col_references_table(col, table):
@@ -89,7 +92,7 @@ def _history_mapper(local_mapper):
 
 class Versioned(object):
     @declared_attr
-    def __mapper_cls__(cls):
+    def __mapper_cls__(cls):  # pylint: disable=no-self-argument
         def map(cls, *arg, **kw):
             mpr = mapper(cls, *arg, **kw)
             _history_mapper(mpr)
