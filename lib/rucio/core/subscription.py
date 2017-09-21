@@ -17,6 +17,8 @@
 import datetime
 import re
 
+from json import dumps
+
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import aliased
@@ -81,7 +83,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
 
 
 @transactional_session
-def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, state=None, priority=None, session=None):
+def update_subscription(name, account, metadata=None, session=None):
     """
     Updates a subscription
 
@@ -89,44 +91,29 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
     :type:  String
     :param account: Account identifier
     :type account:  String
-    :param filter: Dictionary of attributes by which the input data should be filtered
-                   **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-    :type filter:  Dict
-    :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
-    :type replication_rules:  Dict
-    :param transfer_requests: Transfer requests to be issued. List of tuples holding count, RSE-tag, group; If the group flag is set to ``true``, this transfer_request will resolve to the same RSE for all files in the same dataset
-                              **Example**: ``[(1, 'T1-DATADISKS', True), (2, 'T2-DATADISKS', False)]``
-    :type transfer_requests:  List
-    :param comments: Comments for the subscription
-    :type comments:  String
-    :param lifetime: Subscription's lifetime (days)
-    :type lifetime:  Integer or None
-    :param retroactive: Flag to know if the subscription should be applied on previous data
-    :type retroactive:  Boolean
-    :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
-    :type dry_run:  Boolean
-    :param state: The state of the subscription
-    :param priority: The priority of the subscription
-    :type priority: Integer
+    :param metadata: Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed
+    :type metadata:  Dict
     :param session: The database session in use.
-    :raises: exception.NotFound if subscription is not found
+    :raises: SubscriptionNotFound if subscription is not found
     """
     values = {'state': SubscriptionState.UPDATED}
-    if filter:
-        values['filter'] = filter
-    if replication_rules:
-        values['replication_rules'] = replication_rules
-    if lifetime:
-        values['lifetime'] = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
-    if retroactive:
-        values['retroactive'] = retroactive
-    if dry_run:
-        values['dry_run'] = dry_run
-    if comments:
-        values['comments'] = comments
-    if priority:
-        values['policyid'] = priority
-    if state and state == SubscriptionState.INACTIVE:
+    if 'filter' in metadata and metadata['filter']:
+        values['filter'] = dumps(metadata['filter'])
+    if 'replication_rules' in metadata and metadata['replication_rules']:
+        values['replication_rules'] = dumps(metadata['replication_rules'])
+    if 'lifetime' in metadata and metadata['lifetime']:
+        values['lifetime'] = datetime.datetime.utcnow() + datetime.timedelta(days=float(metadata['lifetime']))
+    if 'retroactive' in metadata and metadata['retroactive']:
+        values['retroactive'] = metadata['retroactive']
+    if 'dry_run' in metadata and metadata['dry_run']:
+        values['dry_run'] = metadata['dry_run']
+    if 'comments' in metadata and metadata['comments']:
+        values['comments'] = metadata['comments']
+    if 'priority' in metadata and metadata['priority']:
+        values['policyid'] = metadata['priority']
+    if 'last_processed' in metadata and metadata['last_processed']:
+        values['last_processed'] = metadata['last_processed']
+    if 'state' in metadata and metadata['state'] == SubscriptionState.INACTIVE:
         values['state'] = SubscriptionState.INACTIVE
         values['expired_at'] = datetime.datetime.utcnow()
 
