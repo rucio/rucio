@@ -1,12 +1,15 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Fernando Lopez, <felopez@cern.ch>, 2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Fernando Lopez, <felopez@cern.ch>, 2015
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+'''
 
 from rucio.common import config
 import contextlib
@@ -311,7 +314,7 @@ def srm_download_to_file(url, file_):
     object.
     '''
     logger = logging.getLogger('dumper.__init__')
-    ctx = gfal2.creat_context()
+    ctx = gfal2.creat_context()  # pylint: disable=no-member
     infile = ctx.open(url, 'r')
 
     try:
