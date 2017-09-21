@@ -83,38 +83,16 @@ class Subscription:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
+        metadata = {}
+        metadata['filter'] = params.get('filter', None)
+        metadata['replication_rules'] = params.get('replication_rules', None)
+        metadata['comments'] = params.get('comments', None)
+        metadata['lifetime'] = params.get('lifetime', None)
+        metadata['retroactive'] = params.get('retroactive', None)
+        metadata['priority'] = params.get('priority', None)
         try:
-            filter = params['filter']
-        except KeyError:
-            filter = None
-        try:
-            replication_rules = params['replication_rules']
-        except KeyError:
-            replication_rules = None
-        try:
-            comments = params['comments']
-        except KeyError:
-            comments = None
-        try:
-            lifetime = params['lifetime']
-        except KeyError:
-            lifetime = None
-        try:
-            retroactive = params['retroactive']
-        except KeyError:
-            retroactive = None
-        try:
-            dry_run = params['dry_run']
-        except KeyError:
-            dry_run = None
-        try:
-            priority = params['priority']
-        except KeyError:
-            priority = None
-
-        try:
-            update_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority, issuer=ctx.env.get('issuer'))
-        except InvalidObject as error:
+            update_subscription(name=name, account=account, metadata=metadata, issuer=ctx.env.get('issuer'))
+        except (InvalidObject, TypeError) as error:
             raise generate_http_error(400, 'InvalidObject', error[0][0])
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0][0])
@@ -156,7 +134,7 @@ class Subscription:
 
         try:
             subscription_id = add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority, issuer=ctx.env.get('issuer'))
-        except InvalidObject as error:
+        except (InvalidObject, TypeError) as error:
             raise generate_http_error(400, 'InvalidObject', error[0][0])
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0][0])
