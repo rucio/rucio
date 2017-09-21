@@ -1,13 +1,15 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
+'''
+ Copyright European Organization for Nuclear Research (CERN)
 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+'''
 
 from subprocess import call
 from urlparse import urlparse
@@ -113,7 +115,7 @@ class Default(protocol.RSEProtocol):
         tf = None
         try:
             tf = open(dest, 'wb')
-            self.__s3.object_get(S3Uri(pfn), tf)
+            self.__s3.object_get(S3Uri(pfn), tf)  # pylint: disable=no-value-for-parameter
             tf.close()
         except S3Error as e:
             tf.close()
@@ -223,7 +225,7 @@ class Default(protocol.RSEProtocol):
         return ret
 
     def pfn2path(self, pfn):
-        tmp = self.parse_pfn(pfn)
+        tmp = self.parse_pfns(pfn)
         return '/'.join([tmp['path'], tmp['name']])
 
     def stat(self, pfn):
