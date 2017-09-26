@@ -110,6 +110,10 @@ COMMENT = {"description": "Rule comment",
            "type": ["string", "null"],
            "maxLength": 250}
 
+METADATA = {"description": "Rule wfms metadata",
+            "type": ["string", "null"],
+            "maxLength": 3999}
+
 BYTES = {"description": "Size in bytes",
          "type": "integer"}
 
@@ -173,7 +177,8 @@ RULE = {"description": "Replication rule",
                        "ask_approval": ASK_APPROVAL,
                        "asynchronous": ASYNCHRONOUS,
                        "priority": PRIORITY,
-                       'split_container': SPLIT_CONTAINER},
+                       'split_container': SPLIT_CONTAINER,
+                       'meta': METADATA},
         "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 
