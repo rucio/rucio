@@ -1,12 +1,15 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+'''
+ Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+'''
 
 import json
 
@@ -16,7 +19,7 @@ from web import application, ctx, Created, loadhook, header
 
 from rucio.api import config
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrAPPer
+from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
 
 
 LOGGER = getLogger("rucio.config")
@@ -33,7 +36,7 @@ URLS = ('/(.+)/(.+)/(.*)', 'OptionSet',
 class Config(RucioController):
     """ REST API for full configuration. """
 
-    @exception_wrAPPer
+    @exception_wrapper
     def GET(self):
         """
         List full configuration.
@@ -59,7 +62,7 @@ class Config(RucioController):
 class Section(RucioController):
     """ REST API for the sections in the configuration. """
 
-    @exception_wrAPPer
+    @exception_wrapper
     def GET(self, section):
         """
         List configuration of a section
@@ -87,7 +90,7 @@ class Section(RucioController):
 class OptionGetDel(RucioController):
     """ REST API for reading or deleting the options in the configuration. """
 
-    @exception_wrAPPer
+    @exception_wrapper
     def GET(self, section, option):
         """
         Retrieve the value of an option.
@@ -108,7 +111,7 @@ class OptionGetDel(RucioController):
         except:
             raise generate_http_error(404, 'ConfigNotFound', 'No configuration found for section \'%s\' option \'%s\'' % (section, option))
 
-    @exception_wrAPPer
+    @exception_wrapper
     def DELETE(self, section, option):
         """
         Delete an option.
@@ -129,7 +132,7 @@ class OptionGetDel(RucioController):
 class OptionSet(RucioController):
     """ REST API for setting the options in the configuration. """
 
-    @exception_wrAPPer
+    @exception_wrapper
     def PUT(self, section, option, value):
         """
         Set the value of an option.

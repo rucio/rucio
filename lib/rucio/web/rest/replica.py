@@ -278,7 +278,7 @@ class ListReplicas(RucioController):
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states = False, None, False
-        location = {}
+        client_location = {}
 
         json_data = data()
         try:
@@ -294,9 +294,9 @@ class ListReplicas(RucioController):
                 all_states = params['all_states']
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression']
-            if 'location' in params:
-                location = params['location']
-                location['ip'] = params['location'].get('ip', client_ip)
+            if 'client_location' in params:
+                client_location = params['client_location']
+                client_location['ip'] = params['client_location'].get('ip', client_ip)
             if 'sort' in params:
                 select = params['sort']
         except ValueError:
@@ -325,7 +325,8 @@ class ListReplicas(RucioController):
                                        request_id=ctx.env.get('request_id'),
                                        ignore_availability=ignore_availability,
                                        all_states=all_states,
-                                       rse_expression=rse_expression):
+                                       rse_expression=rse_expression,
+                                       client_location=client_location):
                 replicas = []
                 dictreplica = {}
                 for rse in rfile['rses']:
@@ -348,13 +349,13 @@ class ListReplicas(RucioController):
                     yield '</glfn>\n'
 
                     if select == 'geoip':
-                        replicas = sort_geoip(dictreplica, location['ip'])
+                        replicas = sort_geoip(dictreplica, client_location['ip'])
                     elif select == 'closeness':
-                        replicas = sort_closeness(dictreplica, location)
+                        replicas = sort_closeness(dictreplica, client_location)
                     elif select == 'dynamic':
-                        replicas = sort_dynamic(dictreplica, location)
+                        replicas = sort_dynamic(dictreplica, client_location)
                     elif select == 'ranking':
-                        replicas = sort_ranking(dictreplica, location)
+                        replicas = sort_ranking(dictreplica, client_location)
                     else:
                         replicas = sort_random(dictreplica)
 

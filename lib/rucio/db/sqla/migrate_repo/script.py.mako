@@ -32,7 +32,7 @@ def upgrade():
     '''
     upgrade method
     '''
-    if context.get_context().dialect.name not in ('sqlite'):
+    if context.get_context().dialect.name != 'sqlite':
         ${upgrades if upgrades else "pass"}
 
 
@@ -40,5 +40,5 @@ def downgrade():
     '''
     downgrade method
     '''
-    if context.get_context().dialect.name not in ('sqlite'):
+    if context.get_context().dialect.name != 'sqlite':
         ${downgrades if downgrades else "pass"}

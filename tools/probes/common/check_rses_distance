@@ -1,13 +1,16 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2015-2016
+"""
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Wen Guan, <wen.guan@cern.ch>, 2015-2016
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+"""
 
 import json
 import requests
@@ -19,7 +22,7 @@ import urlparse
 from rucio.db.sqla.constants import RSEType
 from rucio.common.config import config_get
 from rucio.core import request as request_core
-from rucio.core.distance import add_distance_short, get_distances, update_distances_short
+from rucio.core.distance import add_distance_short, get_distances, update_distances
 from rucio.core.rse import list_rses, get_rse_attribute
 
 UNKNOWN = 3
@@ -327,7 +330,7 @@ if __name__ == '__main__':
                                                                                                                       old_distances[src_rse_id][dest_rse_id]['ranking'],
                                                                                                                       new_distance['ranking'])
                     """
-                    update_distances_short(src_rse_id=src_rse_id, dest_rse_id=dest_rse_id, distance=new_distance)
+                    update_distances(src_rse_id=src_rse_id, dest_rse_id=dest_rse_id, parameters=new_distance, session=None)
             else:
                 # print 'add'
                 add_distance_short(src_rse_id=src_rse_id, dest_rse_id=dest_rse_id, distance=new_distance)
