@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch> , 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch> , 2012, 2017
 # - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
@@ -670,6 +670,15 @@ class SubscriptionNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(SubscriptionNotFound, self).__init__(args, kwargs)
         self._message = "Subscription not found."
+
+
+class UnsupportedDIDType(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedDIDType, self).__init__(args, kwargs)
+        self._message = "Unsupported DID type for this operation. Only DATASET or FILE is allowed."
 
 
 class UnsupportedOperation(RucioException):

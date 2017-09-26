@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+"""
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+"""
+
+import json
+from math import asin, cos, radians, sin, sqrt
+import sys
+
+import requests
+
+from rucio.core.rse import update_rse, get_rse_id
+from rucio.core.distance import update_distances
+from rucio.common.exception import RSENotFound
+
+
+UNKNOWN = 3
+CRITICAL = 2
+WARNING = 1
+OK = 0
+
+
+if __name__ == '__main__':
+
+    URL = 'http://atlas-agis-api.cern.ch/request/site/query/list/?json'
+    try:
+        resp = requests.get(url=URL)
+        data = json.loads(resp.content)
+        retvalue = OK
+        agis_rses = []
+        rse_matrix = {}
+        rse_ids = {}
+        for site in data:
+            if site['latitude'] and site['longitude']:
+                for rse in site['ddmendpoints']:
+                    try:
+                        update_rse(rse=rse, parameters={'latitude': site['latitude'], 'longitude': site['longitude']}, session=None)
+                        rse_matrix[rse] = (float(site['latitude']), float(site['longitude']))
+                        if rse not in rse_ids:
+                            rse_ids[rse] = get_rse_id(rse, session=None)
+                    except RSENotFound:
+                        pass
+
+        for rse1 in rse_matrix:
+            for rse2 in rse_matrix:
+                long1, lat1, long2, lat2 = rse_matrix[rse1][1], rse_matrix[rse1][0], rse_matrix[rse2][1], rse_matrix[rse2][0]
+                long1, lat1, long2, lat2 = map(radians, [long1, lat1, long2, lat2])
+                dlon = long2 - long1
+                dlat = lat2 - lat1
+                dist = 6378 * 2 * asin(sqrt(sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2))
+                update_distances(src_rse_id=rse_ids[rse1], dest_rse_id=rse_ids[rse2], parameters={'geoip_distance': dist}, session=None)
+    except Exception:
+        retvalue = CRITICAL
+    sys.exit(retvalue)

@@ -13,6 +13,7 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
  - Wen Guan, <wen.guan@cern.ch>, 2014-2015
  - Martin Barisits, <martin.barisits@cern.ch>, 2017
+ - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
 '''
 
 import copy
@@ -38,13 +39,13 @@ def get_rse_info(rse, session=None):
                     type              ...     the storage type odf the RSE e.g. DISK
                     volatile          ...     boolean indictaing if the RSE is volatile
                     deteministic      ...     boolean indicating of the nameing of the files follows the defined determinism
-                    domain            ...     indictaing the domain that should bes assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
+                    domain            ...     indictaing the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
                     delete_protocol   ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
-                    write_protocol    ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
-                    read_protocol     ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
+                    write_protocol    ...     the protocol to be used for write, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
+                    read_protocol     ...     the protocol to be used for read, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
                     third_party_copy  ...     the protocol to be used for third_party_copy, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
 
-                    protocols       ...     all supported protocol in form of alist of dict objects with the followig structure
+                    protocols       ...     all supported protocol in form of a list of dict objects with the followig structure
                         scheme              ...     protocol scheme e.g. http, srm, ...
                         hostname            ...     hostname of the site
                         prefix              ...     path to the folder where the files are stored
@@ -64,9 +65,9 @@ def get_rse_info(rse, session=None):
     return rse_info
 
 
-def select_protocol(rse_settings, operation, scheme=None):
+def _get_possible_protocols(rse_settings, operation, scheme=None):
     operation = operation.lower()
-    candidates = copy.copy(rse_settings['protocols'])
+    candidates = rse_settings['protocols']
     if type(rse_settings['domain']) is not list:
         raise exception.RSEProtocolDomainNotSupported('Domain setting must be list.')
 
@@ -74,34 +75,38 @@ def select_protocol(rse_settings, operation, scheme=None):
         if d not in utils.rse_supported_protocol_domains():
             raise exception.RSEProtocolDomainNotSupported('Domain %s is not supported by Rucio.' % d)
 
-    tbr = list()
+    # convert scheme to list, if given as string
+    if scheme and not isinstance(scheme, list):
+        scheme = scheme.split(',')
+
+    tbr = []
     for protocol in candidates:
         # Check if scheme given and filter if so
-        if scheme:
-            if not isinstance(scheme, list):
-                scheme = scheme.split(',')
-            if protocol['scheme'] not in scheme:
-                tbr.append(protocol)
-                continue
+        if scheme and protocol['scheme'] not in scheme:
+            tbr.append(protocol)
+            continue
         for d in rse_settings['domain']:
             if protocol['domains'][d][operation] == 0:
                 tbr.append(protocol)
                 break
-    for r in tbr:
-        candidates.remove(r)
 
-    if not len(candidates):
+    if len(candidates) <= len(tbr):
         raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings))
 
-    # Select the one with the highest priority
-    candidates = sorted(candidates, key=lambda k: k['scheme'])
-    best_choice = candidates[0]
-    candidates.remove(best_choice)
+    return [c for c in candidates if c not in tbr]
+
+
+def get_protocols_ordered(rse_settings, operation, scheme=None):
+    candidates = _get_possible_protocols(rse_settings, operation, scheme)
     domain = rse_settings['domain'][0]
-    for p in candidates:
-        if p['domains'][domain][operation] < best_choice['domains'][domain][operation]:
-            best_choice = p
-    return best_choice
+    candidates.sort(key=lambda k: k['domains'][domain][operation])
+    return candidates
+
+
+def select_protocol(rse_settings, operation, scheme=None):
+    candidates = _get_possible_protocols(rse_settings, operation, scheme)
+    domain = rse_settings['domain'][0]
+    return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
 def create_protocol(rse_settings, operation, scheme=None):

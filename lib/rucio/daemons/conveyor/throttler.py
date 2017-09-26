@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 """
 Conveyor throttler is a daemon to manage rucio internal queue.
@@ -64,20 +65,20 @@ def throttler(once=False, sleep_time=600):
             logging.info('Throttler - thread (%i/%i)' % (hb['assign_thread'], hb['nr_threads']))
             if hb['assign_thread'] != 0:
                 logging.info('Throttler thread id is not 0, will sleep. Only thread 0 will work')
-                while time.time() < current_time + sleep_time:
-                    time.sleep(1)
-                    if graceful_stop.is_set() or once:
-                        break
+                if once:
+                    break
+                if time.time() < current_time + sleep_time:
+                    graceful_stop.wait(int((current_time + sleep_time) - time.time()))
                 current_time = time.time()
                 continue
 
             logging.info("Throttler thread %s - schedule requests" % hb['assign_thread'])
             __schedule_requests()
 
-            while time.time() < current_time + sleep_time:
-                time.sleep(1)
-                if graceful_stop.is_set() or once:
+            if once:
                     break
+            if time.time() < current_time + sleep_time:
+                graceful_stop.wait(int((current_time + sleep_time) - time.time()))
             current_time = time.time()
         except:
             logging.critical('Throtter thread %s - %s' % (hb['assign_thread'], traceback.format_exc()))

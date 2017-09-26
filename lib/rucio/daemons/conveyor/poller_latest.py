@@ -97,7 +97,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
             time_left = fts_wait - abs(time.time() - start_time)
             if time_left > 0:
                 logging.debug("Waiting %s seconds until next FTS terminal state retrieval" % time_left)
-                time.sleep(time_left)
+                graceful_stop.wait(time_left)
         except RequestException, e:
             logging.error("Failed to contact FTS server: %s" % (str(e)))
         except:
@@ -125,6 +125,9 @@ def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_thr
     """
     Starts up the conveyer threads.
     """
+
+    if not external_hosts:
+        external_hosts = []
 
     if once:
         logging.info('executing one poller iteration only')

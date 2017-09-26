@@ -652,6 +652,7 @@ CREATE TABLE rules (
     priority NUMBER(1),
     eol_at DATE,
     split_container NUMBER(1) DEFAULT 0,
+    meta VARCHAR2(4000 CHAR),
     CONSTRAINT "RULES_PK" PRIMARY KEY (id),   -- id, scope, name
     CONSTRAINT "RULES_SCOPE_NAME_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
     CONSTRAINT "RULES_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
@@ -1142,6 +1143,13 @@ CREATE TABLE ATLAS_RUCIO.DISTANCES (
         FINISHED INTEGER,
         FAILED INTEGER,
         TRANSFER_SPEED INTEGER,
+        PACKET_LOSS = INTEGER,
+        LATENCY = INTEGER,
+        MBPS_FILE = INTEGER,
+        MBPS_LINK = INTEGER,
+        QUEUED_TOTAL = INTEGER,
+        DONE_1H = INTEGER,
+        DONE_6H = INTEGER,
         UPDATED_AT DATE,
         CREATED_AT DATE,
         CONSTRAINT "DISTANCES_PK" PRIMARY KEY (SRC_RSE_ID, DEST_RSE_ID) USING INDEX COMPRESS 1,
@@ -1192,6 +1200,7 @@ CREATE TABLE tokens (
     account VARCHAR2(25 CHAR),
     expired_at DATE,
     token VARCHAR2(352 CHAR),
+    identity VARCHAR2(255 CHAR),
     ip VARCHAR2(39 CHAR),
     updated_at DATE,
     created_at DATE,
@@ -1548,6 +1557,7 @@ CREATE TABLE rules_hist_recent (
     priority NUMBER(1)
     eol_at DATE,
     split_container NUMBER(1) DEFAULT 0,
+    meta VARCHAR2(4000 CHAR),
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
 PARTITION BY RANGE(updated_at)
 INTERVAL ( NUMTODSINTERVAL(7,'DAY') )
@@ -1606,6 +1616,7 @@ CREATE TABLE rules_history (
     priority NUMBER(1)
     eol_at DATE,
     split_container NUMBER(1) DEFAULT 0,
+    meta VARCHAR2(4000 CHAR),
 ) PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA01
 PARTITION BY RANGE(updated_at)
 INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') )

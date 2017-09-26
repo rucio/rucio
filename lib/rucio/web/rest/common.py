@@ -1,14 +1,14 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-
 """
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+
 REST utilities
 """
 
@@ -57,6 +57,7 @@ def rucio_loadhook():
 
     # Propagate the issuer, request_id and start_time to the controller
     ctx.env['issuer'] = auth.get('account')
+    ctx.env['identity'] = auth.get('identity')
     ctx.env['request_id'] = generate_uuid()
     ctx.env['start_time'] = time()
 
@@ -86,7 +87,7 @@ def load_json_data():
         raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary/list')
 
 
-def exception_wrAPPer(f):
+def exception_wrapper(f):
     """ Decorator to catch exception. """
     def decorated(*args, **kwargs):
         try:
