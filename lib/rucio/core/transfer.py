@@ -20,6 +20,7 @@ from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text, false
 
+from rucio.common import constants
 from rucio.common.exception import RucioException, UnsupportedOperation, InvalidRSEExpression, RSEProtocolNotSupported
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.utils import construct_surl
@@ -559,7 +560,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 try:
                     matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=rses_info[dest_rse_id],
                                                                   rse_settings_src=rses_info[source_rse_id],
-                                                                  operation='write',
+                                                                  operation_src='read',
+                                                                  operation_dest='write',
                                                                   domain=None,
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
@@ -684,7 +686,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
                 transfers[id] = {'request_id': id,
-                                 'schemes': [matching_scheme[0], matching_scheme[1]],
+                                 'schemes': __add_compatible_schemes(schemes=[matching_scheme[0], matching_scheme[1]], allowed_schemes=current_schemes),
                                  # 'src_urls': [source_url],
                                  'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
                                  'dest_urls': [dest_url],
@@ -975,3 +977,24 @@ def __get_unavailable_read_rse_ids(session=None):
             logging.warning("Failed to refresh unavailable read rses, error: %s" % (traceback.format_exc()))
             return []
     return result
+
+
+def __add_compatible_schemes(schemes, allowed_schemes):
+    """
+    Add the compatible schemes to a list of schemes
+
+    :param schemes:           Schemes as input.
+    :param allowed_schemes:   Allowed schemes, only these can be in the output.
+    :returns:                 List of schemes
+    """
+
+    return_schemes = []
+    for scheme in schemes:
+        if scheme in allowed_schemes:
+            return_schemes.append(scheme)
+            for scheme_map_scheme in constants.SCHEME_MAP.get(scheme, []):
+                if scheme_map_scheme not in allowed_schemes:
+                    continue
+                else:
+                    return_schemes.append(scheme_map_scheme)
+    return list(set(return_schemes))
