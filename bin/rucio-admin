@@ -7,7 +7,7 @@
  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
  - Wen Guan, <wguan@cern.ch>, 2014
@@ -110,27 +110,27 @@ def exception_handler(function):
         except DataIdentifierNotFound as error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
-            return FAILURE
+            return error.error_code
         except AccessDenied as error:
             logger.error(error)
             logger.debug('This error is a permission issue. You cannot run this command with your account.')
-            return FAILURE
+            return error.error_code
         except DataIdentifierAlreadyExists as error:
             logger.error(error)
             logger.debug('This means that the data IDentifier you try to add is already registered in Rucio.')
-            return FAILURE
+            return error.error_code
         except RSENotFound as error:
             logger.error(error)
             logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
-            return FAILURE
+            return error.error_code
         except InvalidRSEExpression as error:
             logger.error(error)
             logger.debug('This means the RSE expression you provided is not syntactically correct.')
-            return FAILURE
+            return error.error_code
         except DuplicateContent as error:
             logger.error(error)
             logger.debug('This means that the DID you want to attach is already in the target DID.')
-            return FAILURE
+            return error.error_code
         except TypeError as error:
             logger.error(error)
             logger.debug('This means the parameter you passed has a wrong type.')
@@ -138,11 +138,11 @@ def exception_handler(function):
         except RuleNotFound as error:
             logger.error(error)
             logger.debug('This means the rule you specified does not exist.')
-            return FAILURE
+            return error.error_code
         except AccountNotFound as error:
             logger.error(error)
             logger.debug('This means that the specified account cannot be found.')
-            return FAILURE
+            return error.error_code
         except NotImplementedError as error:
             logger.error(error)
             logger.debug('This means that the method is not implemented yet.')
