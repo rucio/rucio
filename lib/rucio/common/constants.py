@@ -21,3 +21,9 @@ RESERVED_KEYS = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic',
 
 KEY_TYPES = ['ALL', 'COLLECTION', 'FILE', 'DERIVED']
 # all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection)
+
+SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
+              'gsiftp': ['srm', 'gsiftp'],
+              'https': ['https', 'davs', 's3'],
+              'davs': ['https', 'davs', 's3'],
+              's3': ['https', 's3', 'davs']}
