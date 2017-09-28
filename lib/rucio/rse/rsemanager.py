@@ -21,7 +21,7 @@ import os
 
 from urlparse import urlparse
 
-from rucio.common import exception, utils
+from rucio.common import exception, utils, constants
 
 DEFAULT_PROTOCOL = 1
 
@@ -567,18 +567,21 @@ def get_space_usage(rse_settings, scheme=None):
     return [gs, ret]
 
 
-def find_matching_scheme(rse_settings_dest, rse_settings_src, operation, domain=None, scheme=None):
+def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, operation_dest, domain=None, scheme=None):
     """
     Find the best matching scheme between two RSEs
 
     :param rse_settings_dest:    RSE settings for the destination RSE.
     :param rse_settings_src:     RSE settings for the src RSE.
-    :param operation:            Operation such as read, write.
+    :param operation_src:        Source Operation such as read, write.
+    :param operation_dest:       Dest Operation such as read, write.
     :param domain:               Domain such as lan, wan.
     :param scheme:               List of supported schemes.
     :returns:                    Tuple of matching schemes (dest_scheme, src_scheme).
     """
-    operation = operation.lower()
+    operation_src = operation_src.lower()
+    operation_dest = operation_dest.lower()
+
     src_candidates = copy.copy(rse_settings_src['protocols'])
     dest_candidates = copy.copy(rse_settings_dest['protocols'])
 
@@ -597,7 +600,7 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation, domain=
             if protocol['scheme'] not in scheme:
                 tbr.append(protocol)
                 continue
-        if protocol['domains'].get(domain, {}).get(operation, 1) == 0:
+        if protocol['domains'].get(domain, {}).get(operation_src, 1) == 0:
             tbr.append(protocol)
     for r in tbr:
         src_candidates.remove(r)
@@ -612,7 +615,7 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation, domain=
             if protocol['scheme'] not in scheme:
                 tbr.append(protocol)
                 continue
-        if protocol['domains'].get(domain, {}).get(operation, 1) == 0:
+        if protocol['domains'].get(domain, {}).get(operation_dest, 1) == 0:
             tbr.append(protocol)
     for r in tbr:
         dest_candidates.remove(r)
@@ -621,8 +624,8 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation, domain=
         raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
 
     # Select the one with the highest priority
-    dest_candidates = sorted(dest_candidates, key=lambda k: k['domains'][domain][operation])
-    src_candidates = sorted(src_candidates, key=lambda k: k['domains'][domain][operation])
+    dest_candidates = sorted(dest_candidates, key=lambda k: k['domains'][domain][operation_dest])
+    src_candidates = sorted(src_candidates, key=lambda k: k['domains'][domain][operation_src])
 
     for dest_protocol in dest_candidates:
         for src_protocol in src_candidates:
@@ -642,15 +645,9 @@ def __check_compatible_scheme(dest_scheme, src_scheme):
     :returns:              True if schemes are compatible, False otherwise.
     """
 
-    scheme_map = {'srm': ['srm', 'gsiftp'],
-                  'gsiftp': ['srm', 'gsiftp'],
-                  'https': ['https', 'davs', 's3'],
-                  'davs': ['https', 'davs', 's3'],
-                  's3': ['https', 's3', 'davs']}
-
     if dest_scheme == src_scheme:
         return True
-    if src_scheme in scheme_map.get(dest_scheme, []):
+    if src_scheme in constants.SCHEME_MAP.get(dest_scheme, []):
         return True
 
     return False
