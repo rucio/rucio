@@ -1,47 +1,56 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN) 2013
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+"""
+ Copyright European Organization for Nuclear Research (CERN) 2013
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+"""
 
 import os
 import sys
 import requests
+import urllib3
 from urlparse import urlparse
 
 from rucio.common.config import config_get
 from rucio.core import monitor
 
+from rucio.core.distance import update_distances
+
+from rucio.db.sqla.session import get_session
+
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
-requests.packages.urllib3.disable_warnings()
+urllib3.disable_warnings()
 
 if __name__ == "__main__":
 
+    se_matrix = {}
     try:
         VO = sys.argv[1]
-    except IndexError, error:
+    except IndexError as error:
         VO = 'atlas'
     WORST_RETVALUE = OK
 
     try:
-        proxy = config_get('nagios', 'proxy')
-        os.environ["X509_USER_PROXY"] = proxy
+        PROXY = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = PROXY
     except Exception as error:
         print "Failed to get proxy from rucio.cfg"
+        PROXY = '/opt/rucio/etc/ddmusr01.rfc.proxy'
         WORST_RETVALUE = WARNING
 
     try:
-        ftshosts = config_get('conveyor', 'ftsmonhosts')
+        FTSHOSTS = config_get('conveyor', 'ftsmonhosts')
     except Exception as error:
         print "Failed to get ftsmonhosts"
         WORST_RETVALUE = WARNING
-    for ftshost in ftshosts.split(','):
+    for ftshost in FTSHOSTS.split(','):
         print "=== %s ===" % (ftshost)
         parsed_url = urlparse(ftshost)
         scheme, hostname, port = parsed_url.scheme, parsed_url.hostname, parsed_url.port
@@ -50,17 +59,30 @@ if __name__ == "__main__":
         busy_channels = []
         busylimit = 5000
         for attempt in xrange(0, 5):
+            result = None
             try:
-                result = requests.get(url, verify=False, cert=(proxy, proxy))
+                result = requests.get(url, verify=False, cert=(PROXY, PROXY))
                 res = result.json()
                 for channel in res['overview']['items']:
                     src = channel['source_se']
                     dst = channel['dest_se']
+                    if (src, dst) not in se_matrix:
+                        se_matrix[(src, dst)] = {'active': 0, 'submitted': 0, 'finished': 0, 'failed': 0, 'transfer_speed': 0, 'mbps_link': 0}
+                    for state in ['submitted', 'active', 'finished', 'failed']:
+                        try:
+                            se_matrix[(src, dst)][state] += channel[state]
+                        except Exception:
+                            pass
+                    try:
+                        se_matrix[(src, dst)]['transfer_speed'] += channel['current']
+                        se_matrix[(src, dst)]['mbps_link'] += channel['current']
+                    except Exception:
+                        pass
                     if 'submitted' in channel and channel['submitted'] >= busylimit:
                         url_activities = '%s/fts3/ftsmon/config/activities/%s?source_se=%s&dest_se=%s' % (ftshost, VO, src, dst)
                         activities = {}
                         try:
-                            s = requests.get(url_activities, verify=False, cert=(proxy, proxy))
+                            s = requests.get(url_activities, verify=False, cert=(PROXY, PROXY))
                             for key, val in s.json().items():
                                 activities[key] = val['SUBMITTED']
                         except Exception, error:
@@ -72,7 +94,7 @@ if __name__ == "__main__":
                 print '%s : Active : %s' % (hostname, summary['active'])
                 print '%s : Staging : %s' % (hostname, summary['staging'])
                 print '%s : Started : %s' % (hostname, summary['started'])
-                if len(busy_channels) > 0:
+                if busy_channels != []:
                     print 'Busy channels (>%s submitted):' % (busylimit)
                     for bc in busy_channels:
                         activities_str = ", ".join([("%s: %s" % (key, val)) for key, val in bc['activities'].items()])
@@ -82,11 +104,36 @@ if __name__ == "__main__":
                 break
             except Exception, error:
                 retvalue = CRITICAL
-                if result.status_code:
+                if result and result.status_code:
                     errmsg = 'Error when trying to get info from %s : HTTP status code %s. [%s]' % (ftshost, str(result.status_code), str(error))
                 else:
                     errmsg = 'Error when trying to get info from %s. %s' % (ftshost, str(error))
         if retvalue == CRITICAL:
             print "All attempts failed. %s" % (errmsg)
         WORST_RETVALUE = max(retvalue, WORST_RETVALUE)
+    se_map = {}
+    try:
+        session = get_session()
+        for sename, rse_id in session.execute("select scheme||'://'||hostname, rawtohex(rse_id) from atlas_rucio.rse_protocols").fetchall():
+            if sename not in se_map:
+                se_map[sename] = []
+            se_map[sename].append(rse_id)
+    except:
+        sys.exit(WORST_RETVALUE)
+    QUERY = """
+            update atlas_rucio.distances set active=null, submitted=null, finished=null, failed=null, transfer_speed=null
+            where not (active is null and submitted is null and finished is null and failed is null and transfer_speed is null)
+            """
+    try:
+        session = get_session()
+        session.execute(QUERY)
+        session.commit()
+    except:
+        sys.exit(WORST_RETVALUE)
+
+    for source_rse, dest_rse in se_matrix:
+        for source_rse_id in se_map[source_rse]:
+            for dest_rse_id in se_map[dest_rse]:
+                # print source_rse_id, dest_rse_id, se_matrix[(source_rse, dest_rse)]
+                update_distances(src_rse_id=source_rse_id, dest_rse_id=dest_rse_id, parameters=se_matrix[(source_rse, dest_rse)], session=None)
     sys.exit(WORST_RETVALUE)
