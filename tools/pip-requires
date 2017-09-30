@@ -33,6 +33,7 @@ enum34==1.1.6               # Python 3.4 Enum backported
 gcloud==0.18.3              # API Client library for Google Cloud
 googleapis-common-protos==1.5.2 # Common protobufs used in Google APIs
 httplib2==0.10.3            # A comprehensive HTTP client library
+pyOpenSSL==17.3.0           # Python wrapper module around the OpenSSL library
 idna==2.6                   # Internationalized Domain Names in Applications (IDNA)
 ipaddress==1.0.18           # IPv4/IPv6 manipulation library
 oauth2client==4.1.2         # OAuth 2.0 client library
