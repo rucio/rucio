@@ -17,10 +17,11 @@ import logging
 from datetime import datetime
 from json import dumps
 from Queue import Queue
+import random
 from sys import stdout
 from time import sleep
-from uuid import uuid4
 from threading import Event, Thread
+from uuid import uuid4
 
 from requests import post
 from requests.auth import HTTPBasicAuth
@@ -107,8 +108,8 @@ def read_dids(once=False, thread=0, did_collector=None, waiting_time=60):
         timer = 0
 
 
-def create_rule(client, did, src_rse, dst_rse):
-    logging.debug('create rule for %s from %s to %s' % (did, src_rse, dst_rse))
+def add_rule(client, did, src_rse, dst_rse):
+    logging.debug('add rule for %s from %s to %s' % (did, src_rse, dst_rse))
     r = client.add_replication_rule([did, ], 1, dst_rse, lifetime=604800, account='c3po', source_replica_expression=src_rse, activity='Data Brokering', asynchronous=True)
     logging.debug(r)
 
@@ -118,6 +119,7 @@ def place_replica(once=False,
                   did_queue=None,
                   waiting_time=100,
                   dry_run=False,
+                  sampling=False,
                   algorithms='t2_free_space_only_pop_with_network',
                   datatypes='NTUP,DAOD',
                   dest_rse_expr='type=DATADISK',
@@ -132,6 +134,7 @@ def place_replica(once=False,
     Thread to run the placement algorithm to decide if and where to put new replicas.
     """
     try:
+        random.seed()
         c3po_options = config_get_options('c3po')
         client = None
 
@@ -155,6 +158,7 @@ def place_replica(once=False,
 
         params = {
             'dry_run': dry_run,
+            'sampling': sampling,
             'datatypes': datatypes,
             'dest_rse_expr': dest_rse_expr,
             'max_bytes_hour': max_bytes_hour,
@@ -201,6 +205,10 @@ def place_replica(once=False,
                     decision['instance_id'] = instance_id
                     decision['params'] = params
 
+                    create_rule = True
+                    if sampling and 'error_reason' not in decision:
+                        create_rule = bool(random.getrandbits(1))
+                        decision['create_rule'] = create_rule
                     # write the output to ES for further analysis
                     index_url = elastic_url + '/' + elastic_index + '-' + datetime.utcnow().strftime('%Y-%m') + '/record/'
                     try:
@@ -223,10 +231,11 @@ def place_replica(once=False,
 
                     logging.info('(%s:%s) Decided to place a new replica for %s on %s' % (algorithm, instance_id, decision['did'], decision['destination_rse']))
 
-                    if not dry_run:
+
+                    if (not dry_run) and create_rule:
                         # DO IT!
                         try:
-                            create_rule(client, {'scope': did[0], 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
+                            add_rule(client, {'scope': did[0], 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
                         except RucioException, e:
                             logging.debug(e)
 
@@ -246,6 +255,7 @@ def run(once=False,
         threads=1,
         only_workload=False,
         dry_run=False,
+        sampling=False,
         algorithms='t2_free_space_only_pop_with_network',
         datatypes='NTUP,DAOD',
         dest_rse_expr='type=DATADISK',
@@ -279,6 +289,7 @@ def run(once=False,
                                                                                           'waiting_time': 10,
                                                                                           'algorithms': algorithms,
                                                                                           'dry_run': dry_run,
+                                                                                          'sampling': sampling,
                                                                                           'datatypes': datatypes,
                                                                                           'dest_rse_expr': dest_rse_expr,
                                                                                           'max_bytes_hour': max_bytes_hour,
