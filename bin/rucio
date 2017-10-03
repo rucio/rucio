@@ -55,6 +55,8 @@ from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
 FAILURE = 1
+NO_FILE_DOWNLOADED = 254
+NOT_ALL_FILES_DOWNLOADED = 253
 
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
@@ -172,27 +174,27 @@ def exception_handler(function):
         except DataIdentifierNotFound, error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
-            return FAILURE
+            return error.error_code
         except AccessDenied, error:
             logger.error(error)
             logger.debug('This error is a permission issue. You cannot run this command with your account.')
-            return FAILURE
+            return error.error_code
         except DataIdentifierAlreadyExists, error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you try to add is already registered in Rucio.')
-            return FAILURE
+            return error.error_code
         except RSENotFound, error:
             logger.error(error)
             logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
-            return FAILURE
+            return error.error_code
         except InvalidRSEExpression, error:
             logger.error(error)
             logger.debug('This means the RSE expression you provided is not syntactically correct.')
-            return FAILURE
+            return error.error_code
         except DuplicateContent, error:
             logger.error(error)
             logger.debug('This means that the DID you want to attach is already in the target DID.')
-            return FAILURE
+            return error.error_code
         except TypeError, error:
             logger.error(error)
             logger.debug('This means the parameter you passed has a wrong type.')
@@ -200,15 +202,15 @@ def exception_handler(function):
         except RuleNotFound, error:
             logger.error(error)
             logger.debug('This means the rule you specified does not exist.')
-            return FAILURE
+            return error.error_code
         except UnsupportedOperation, error:
             logger.error(error)
             logger.debug('This means you cannot change the status of the DID.')
-            return FAILURE
+            return error.error_code
         except MissingDependency, error:
             logger.error(error)
             logger.debug('This means one dependency is missing.')
-            return FAILURE
+            return error.error_code
         except KeyError, error:
             if 'x-rucio-auth-token' in error:
                 used_account = None
@@ -230,7 +232,7 @@ def exception_handler(function):
             return FAILURE
         except RucioException as error:
             logger.error(error)
-            return FAILURE
+            return error.error_code
         except IOError as error:
             logger.error(error)
             return FAILURE
@@ -1330,8 +1332,6 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
 
 
 def download_rucio(args, input_queue, output_queue, trace_pattern, trace_endpoint):
-    logger.info('Using rucio downloader...')
-
     total_workers = 1
     if args.ndownloader and not args.pfn:
         total_workers = args.ndownloader
@@ -1902,7 +1902,13 @@ def download(args):
     else:
         print '-' * 40
         print 'No DID matching the pattern'
-    return not_downloaded_files
+
+    # The RucioExceptions go from 1-74 already. Use highest possible non-allocated exit codes.
+    if num_files_to_dl[did] > 0 and num_files_to_dl[did] == not_downloaded_files:
+        return NO_FILE_DOWNLOADED  # no file downloaded
+    if not_downloaded_files > 0:
+        return NOT_ALL_FILES_DOWNLOADED  # not all files downloaded
+    return SUCCESS  # all files ok
 
 
 @exception_handler
