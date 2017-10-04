@@ -1,6 +1,21 @@
-FROM cern/cc7-base
+# Copyright 2017
+#   European Organization for Nuclear Research (CERN)
+#   University of Oslo (Norway)
+# for the benefit of the ATLAS collaboration
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+# - Vincent Garonne, <cedric.serfon@cern.ch>, 2017
 
-ADD etc/docker/ca.repo /etc/yum.repos.d/ca.repo
+
+# FROM cern/cc7-base
+FROM gitlab-registry.cern.ch/rucio01/rucio/cc7_systemd
+
+ADD etc/docker/dev/ca.repo /etc/yum.repos.d/ca.repo
 
 RUN yum -y update
 RUN yum clean all
@@ -24,6 +39,7 @@ WORKDIR /opt
 RUN mkdir /opt/rucio
 
 COPY .pep8 /opt/rucio/
+COPY .flake8 /opt/rucio/
 COPY pylintrc /opt/rucio/
 
 RUN mkdir /opt/rucio/bin
@@ -43,6 +59,7 @@ WORKDIR /opt/rucio
 RUN pip install -r tools/pip-requires-client
 RUN pip install -r tools/pip-requires
 RUN pip install -r tools/pip-requires-test
+RUN chmod 755 -R /opt/rucio/
 
 RUN ln -s /opt/rucio/lib/rucio /usr/lib/python2.7/site-packages/rucio
 
