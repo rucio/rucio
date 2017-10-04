@@ -24,4 +24,3 @@ pytz==2017.2                # World timezone definitions, modern and historical
 Babel==2.5.0                # Internationalization utilities
 git-review==1.25.0          # Command-line tool for Git / Gerrit
 subprocess32==3.2.7         # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
-pyyaml==3.12                # YAML parser and emitter
