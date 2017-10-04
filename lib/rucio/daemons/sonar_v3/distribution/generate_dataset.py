@@ -35,7 +35,7 @@ def main():
         os.makedirs(dataset_name)
 
     for i in range(file_number):
-        tmp_file = open('./'+dataset_name+'/'+dataset_name+'.file'+str(i), 'w+')
+        tmp_file = open('./' + dataset_name + '/' + dataset_name + '.file' + str(i), 'w+')
         tmp_file.write(os.urandom(file_size))
         tmp_file.close()
 

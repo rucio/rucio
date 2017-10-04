@@ -70,7 +70,7 @@ class SonarTest(object):
         be removed from the RSE.
         """
         for endpoint in self.endpoint_names:
-            rep_gen = list(self.client.list_replicas([{'name': DATASET_PREFIX+endpoint+'_SCRATCHDISK', 'scope': SET_SCOPE}]))
+            rep_gen = list(self.client.list_replicas([{'name': DATASET_PREFIX + endpoint + '_SCRATCHDISK', 'scope': SET_SCOPE}]))
             if rep_gen == []:
                 continue
             replica_sites = rep_gen[0]['rses'].keys()
@@ -185,7 +185,7 @@ class SonarTest(object):
                                                         'created_at': rule_timestamp,
                                                         'delay': time.time()}
                         except (RuleNotFound, AccessDenied) as exception:
-                            err_msg = 'Delete in get_link_data '+str(exception)
+                            err_msg = 'Delete in get_link_data ' + str(exception)
                             logging.warning(err_msg)
 
     def update_rule_data(self):
@@ -205,7 +205,7 @@ class SonarTest(object):
                 try:
                     rule_r = self.client.get_replication_rule(rule_l['rule_id'])
                 except (RuleNotFound, AccessDenied, ConnectionError) as exception:
-                    err_msg = 'Get Rule in update_rule_data '+str(exception)
+                    err_msg = 'Get Rule in update_rule_data ' + str(exception)
                     logging.warning(err_msg)
                     self.rule_dict[src][dst]['state'] = 'OK'
                     continue
@@ -219,7 +219,7 @@ class SonarTest(object):
                         self.client.update_replication_rule(rule_l['rule_id'], {'lifetime': 1})
                         counter += 1
                     except (RuleNotFound, AccessDenied) as exception:
-                        err_msg = 'Delete in update_rule_data '+str(exception)
+                        err_msg = 'Delete in update_rule_data ' + str(exception)
                         logging.warning(err_msg)
 
                 if rule_r['state'] == 'OK':
@@ -247,14 +247,14 @@ class SonarTest(object):
         """
         t_weights = self.traffic_weights
         byte_data = [x for y in self.traffic_data.values() for x in y.values()]
-        byte_sum = min(5000000000, max(1000000000, sum(byte_data)/(2*len(byte_data))))
+        byte_sum = min(5000000000, max(1000000000, sum(byte_data) / (2 * len(byte_data))))
         msg = "Weight threshold is %d bytes" % (byte_sum)
         logging.info(msg)
         weight_sum = 0.0
         counter_zeros = 0
         for src, dst in self.pairs:
             if src in self.traffic_data.keys() and dst in self.traffic_data[src].keys():
-                t_weights[src][dst] = max(0, byte_sum-self.traffic_data[src][dst])
+                t_weights[src][dst] = max(0, byte_sum - self.traffic_data[src][dst])
                 t_weights[src][dst] = t_weights[src][dst]**4
             else:
                 t_weights[src][dst] = byte_sum**4
@@ -269,7 +269,7 @@ class SonarTest(object):
             weight_sum += t_weights[src][dst]
 
         for src, dst in self.pairs:
-            t_weights[src][dst] = t_weights[src][dst]/(weight_sum+0.00000000001)
+            t_weights[src][dst] = t_weights[src][dst] / (weight_sum + 0.00000000001)
 
         msg = "Calculated weight: zeros/total %d/%d" % (counter_zeros, len(self.pairs))
         logging.info(msg)
@@ -332,11 +332,10 @@ class SonarTest(object):
                                                   self.traffic_weights[site_src][site_dest],
                                                   self.traffic_data[site_src][site_dest])
             logging.info(log_msg)
-            rule_id = self.add_sonar_rule({
-                'name': DATASET_PREFIX+site_src+'_SCRATCHDISK',
-                'scope': SET_SCOPE},
-                                          site_dest+"_SCRATCHDISK",
-                                          site_src+"_SCRATCHDISK")
+            rule_id = self.add_sonar_rule({'name': DATASET_PREFIX + site_src + '_SCRATCHDISK',
+                                           'scope': SET_SCOPE},
+                                          site_dest + "_SCRATCHDISK",
+                                          site_src + "_SCRATCHDISK")
             if rule_id is None:
                 logging.info("Adding rule failed.")
                 failure_counter += 1
