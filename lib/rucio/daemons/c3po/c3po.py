@@ -231,7 +231,6 @@ def place_replica(once=False,
 
                     logging.info('(%s:%s) Decided to place a new replica for %s on %s' % (algorithm, instance_id, decision['did'], decision['destination_rse']))
 
-
                     if (not dry_run) and create_rule:
                         # DO IT!
                         try:
