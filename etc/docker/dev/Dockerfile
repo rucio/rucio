@@ -9,6 +9,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 
