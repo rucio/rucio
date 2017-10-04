@@ -370,7 +370,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
                     if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
                         valid = stats['filesize'] == lfn['filesize']
                 except NotImplementedError:
-                    valid = True  # If the protocol doesn't support stat of a file, we agreed on assuming that the file was uploaded without error
+                    valid = False
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
