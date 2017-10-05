@@ -1,0 +1,107 @@
+#!/usr/bin/python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
+
+"""
+Merge all sub results into the final metrix.
+"""
+
+import copy
+import datetime
+import json
+
+INPUTS = ['closeness-agis',
+          'latency-perfsonar',
+          'mbps-fts',
+          'mbps-dashb',
+          'packetloss-perfsonar',
+          'files-done-dashb',
+          'files-queued-rucio-total']
+
+
+def dict_merge(dct, merge_dct):
+
+    """ Merge two dictionaries. """
+
+    for k, v in merge_dct.iteritems():  # pylint: disable=invalid-name,unused-variable
+        if k in dct and isinstance(dct[k], dict and isinstance(merge_dct[k], dict)):
+            dict_merge(dct[k], merge_dct[k])
+        else:
+            dct[k] = merge_dct[k]
+
+
+if __name__ == '__main__':
+
+    DATA = {}
+
+    for input_file in INPUTS:
+        with open('/data/metrix/data/%s/latest.json' % input_file, 'r') as open_file:
+            tmp = json.load(open_file)
+            dict_merge(DATA, tmp)
+
+    # add separate src & dst
+    for link in DATA:
+        src, dst = link.split(':')
+        DATA[link]['src'] = src
+        DATA[link]['dst'] = dst
+
+    # add convenience total
+    for link in DATA:
+        if 'files' in DATA[link].keys():
+            if 'done' in DATA[link]['files'].keys():
+                DATA[link]['files']['done-total-1h'] = 0
+                for activity in DATA[link]['files']['done'].keys():
+                    if activity in DATA[link]['files']['done'].keys():
+                        DATA[link]['files']['done-total-1h'] += DATA[link]['files']['done'][activity]['1h']
+                    else:
+                        DATA[link]['files']['done-total-1h'] = DATA[link]['files']['done'][activity]['1h']
+
+                DATA[link]['files']['done-total-6h'] = 0
+                for activity in DATA[link]['files']['done'].keys():
+                    if activity in DATA[link]['files']['done'].keys():
+                        DATA[link]['files']['done-total-6h'] += DATA[link]['files']['done'][activity]['6h']
+                    else:
+                        DATA[link]['files']['done-total-6h'] = DATA[link]['files']['done'][activity]['6h']
+
+            if 'queued' in DATA[link]['files'].keys():
+                DATA[link]['files']['queued-total'] = 0
+                for activity in DATA[link]['files']['queued'].keys():
+                    if activity in DATA[link]['files']['queued'].keys():
+                        DATA[link]['files']['queued-total'] += DATA[link]['files']['queued'][activity]['latest']
+                    else:
+                        DATA[link]['files']['queued-total'] = DATA[link]['files']['queued'][activity]['latest']
+
+    # ndgf to signet fix
+    NDGF_SRC_ALL = [tmp_link for tmp_link in DATA if tmp_link.startswith('NDGF-T1')]
+    NDGF_DST_ALL = [tmp_link for tmp_link in DATA if tmp_link.endswith('NDGF-T1')]
+
+    for ndgf_link in NDGF_SRC_ALL:
+        n_src, n_dst = ndgf_link.split(':')
+        if 'SiGNET:%s' % n_dst in DATA.keys():
+            tmp = dict(DATA[ndgf_link].items() + DATA['SiGNET:%s' % n_dst].items())
+            DATA['SiGNET:%s' % n_dst] = tmp
+        else:
+            DATA['SiGNET:%s' % n_dst] = copy.deepcopy(DATA[ndgf_link])
+            DATA['SiGNET:%s' % n_dst]['src'] = 'SiGNET'
+
+    for ndgf_link in NDGF_DST_ALL:
+        n_src, n_dst = ndgf_link.split(':')
+        if '%s:SiGNET' % n_src in DATA.keys():
+            tmp = dict(DATA[ndgf_link].items() + DATA['%s:SiGNET' % n_src].items())
+            DATA['%s:SiGNET' % n_src] = tmp
+        else:
+            DATA['%s:SiGNET' % n_src] = copy.deepcopy(DATA[ndgf_link])
+            DATA['%s:SiGNET' % n_src]['dst'] = 'SiGNET'
+
+    with open('/data/metrix/data/metrix/metrix-{0}.json'.format(datetime.datetime.utcnow().isoformat()[:-7]), 'w') as f:
+        json.dump(DATA, f, indent=8, sort_keys=True)
+
+    with open('/data/metrix/data/metrix/latest.json', 'w') as f:
+        json.dump(DATA, f, indent=8, sort_keys=True)
