@@ -62,7 +62,7 @@ def main():
         print "Destination RSE not available for writing."
         sys.exit(0)
 
-    rep_gen = list(client.list_replicas([{'name': dataset_prefix+source_rse, 'scope': scope}]))
+    rep_gen = list(client.list_replicas([{'name': dataset_prefix + source_rse, 'scope': scope}]))
     if rep_gen == []:
         replica_sites = rep_gen[0]['rses'].keys()
         if destination_rse in replica_sites:
@@ -72,7 +72,7 @@ def main():
             print "Dataset replica not contained on the source RSE. Not setting rule."
             sys.exit(0)
     try:
-        did = {'name': dataset_prefix+source_rse, 'scope': scope}
+        did = {'name': dataset_prefix + source_rse, 'scope': scope}
         rule_id = client.add_replication_rule([did], 1, destination_rse,
                                               lifetime=36000,
                                               purge_replicas=True,
