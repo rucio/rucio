@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2017
 
 """
 C-3PO is a dynamic data placement daemon.
@@ -26,6 +26,7 @@ if __name__ == "__main__":
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--only-workload", action="store_true", default=False, help='Only run the workload collector')
     parser.add_argument("--dry_run", action="store_true", default=False, help='Do not create any rules')
+    parser.add_argument("--sampling", action="store_true", default=False, help='In the end flip a to decide to create a rule or not')
     parser.add_argument("--algorithms", action="store", default="t2_free_space_only_pop_with_network", type=str, help='The placement algorithm or, if in dry_run, a comma separated list of algorithms')
     parser.add_argument("--datatypes", action="store", default="NTUP,DAOD", type=str, help='Comma separated list of datatype that should trigger the placement')
     parser.add_argument("--dest_rse_expr", action="store", default="type=DATADISK", type=str, help='RSE expression defining the allowed destination RSEs')
@@ -43,6 +44,7 @@ if __name__ == "__main__":
             threads=args.threads,
             only_workload=args.only_workload,
             dry_run=args.dry_run,
+            sampling=args.sampling,
             algorithms=args.algorithms,
             datatypes=args.datatypes,
             dest_rse_expr=args.dest_rse_expr,
