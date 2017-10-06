@@ -11,6 +11,7 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
+ - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
 '''
 
 import errno
@@ -299,6 +300,40 @@ class Default(protocol.RSEProtocol):
 
         del self.__ctx
         self.__ctx = None
+
+    def stat(self, path):
+        """
+            Returns the stats of a file.
+
+            :param path: path to file
+
+            :raises ServiceUnavailable: if some generic error occured in the library.
+
+            :returns: a dict with two keys, filesize and adler32 of the file provided in path.
+        """
+        ret = {}
+        ctx = self.__ctx
+
+        try:
+            stat_str = str(ctx.stat(str(path)))
+        except Exception as error:
+            msg = 'Error while processing gfal stat call. Error: %s'
+            raise exception.ServiceUnavailable(msg % str(error))
+
+        stats = stat_str.split()
+        if len(stats) < 8:
+            msg = 'gfal stat call result has unknown format. Result: %s'
+            raise exception.ServiceUnavailable(msg % stat_str)
+
+        ret['filesize'] = stat_str.split()[7]
+
+        try:
+            ret['adler32'] = ctx.checksum(str(path), str('ADLER32'))
+        except Exception as error:
+            msg = 'Error while processing gfal checksum call. Error: %s'
+            raise exception.ServiceUnavailable(msg % str(error))
+
+        return ret
 
     def __gfal2_copy(self, src, dest, src_spacetoken=None, dest_spacetoken=None):
         """
