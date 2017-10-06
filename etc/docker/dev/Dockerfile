@@ -9,7 +9,8 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
-# - Vincent Garonne, <cedric.serfon@cern.ch>, 2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 # FROM cern/cc7-base
 FROM gitlab-registry.cern.ch/rucio01/rucio/cc7_systemd
@@ -89,3 +90,4 @@ ENV PATH $PATH:/opt/rucio/bin
 
 RUN systemctl enable httpd.service
 CMD ["/usr/sbin/init"]
+RUN httpd -k restart
