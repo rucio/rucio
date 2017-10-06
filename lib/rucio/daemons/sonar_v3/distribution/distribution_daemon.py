@@ -42,10 +42,10 @@ def rename_files(tdir, pattern, new_name):
     """
     for cnt, file_name in enumerate(glob.iglob(os.path.join(tdir, pattern))):
         logging.info(file_name)
-        logging.info(new_name+str(cnt)+'.rnd')
-        if not os.path.isfile(os.path.join(tdir, new_name+str(cnt)+'.rnd')):
+        logging.info(new_name + str(cnt) + '.rnd')
+        if not os.path.isfile(os.path.join(tdir, new_name + str(cnt) + '.rnd')):
             logging.info("renaming..")
-            os.rename(file_name, os.path.join(tdir, new_name+str(cnt)+'.rnd'))
+            os.rename(file_name, os.path.join(tdir, new_name + str(cnt) + '.rnd'))
 
 
 def distribute_files(client, data_dir='small_sonar_dataset', dataset_prefix='sonar.test.small.', scope='user.vzavrtan', num_files=1):
@@ -72,26 +72,26 @@ def distribute_files(client, data_dir='small_sonar_dataset', dataset_prefix='son
         if GRACEFUL_STOP.is_set():
             break
         if site not in ready:
-            rename_files(data_dir, '*.rnd', dataset_prefix+site+'.file')
+            rename_files(data_dir, '*.rnd', dataset_prefix + site + '.file')
             msg = "Uploading to %s " % (site)
             logging.info(msg)
             process = subprocess.Popen(['rucio', 'upload', data_dir, '--rse', site], stdout=subprocess.PIPE)
             process.communicate()
-            msg = "Adding dataset %s " % (dataset_prefix+site)
+            msg = "Adding dataset %s " % (dataset_prefix + site)
             logging.info(msg)
             try:
-                client.add_dataset('user.vzavrtan', dataset_prefix+site)
+                client.add_dataset('user.vzavrtan', dataset_prefix + site)
             except Exception as exception:
-                logging.warning("Error adding dataset: "+str(exception))
+                logging.warning("Error adding dataset: " + str(exception))
             for file_name in glob.iglob(os.path.join(data_dir, '*.rnd')):
-                logging.info('Attaching to dataset:'+dataset_prefix+site+' '+scope+':'+os.path.basename(file_name))
+                logging.info('Attaching to dataset:' + dataset_prefix + site + ' ' + scope + ':' + os.path.basename(file_name))
                 try:
-                    client.attach_dids(scope, dataset_prefix+site, [{'scope': scope, 'name': os.path.basename(file_name)}])
+                    client.attach_dids(scope, dataset_prefix + site, [{'scope': scope, 'name': os.path.basename(file_name)}])
                 except Exception as exception:
-                    logging.warning('Error attaching dids: '+str(exception))
+                    logging.warning('Error attaching dids: ' + str(exception))
             logging.info('Adding rule for dataset')
             try:
-                client.add_replication_rule([{'scope': scope, 'name': dataset_prefix+site}], 1, site)
+                client.add_replication_rule([{'scope': scope, 'name': dataset_prefix + site}], 1, site)
             except (DuplicateRule, RSEBlacklisted, ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit) as exception:
                 msg = 'Error adding replication rule: %s' % (str(exception))
                 logging.warning(msg)
