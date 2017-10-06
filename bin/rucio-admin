@@ -106,7 +106,7 @@ def exception_handler(function):
             return function(*args, **kwargs)
         except InvalidObject as error:
             logger.error(error)
-            return FAILURE
+            return error.error_code
         except DataIdentifierNotFound as error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
