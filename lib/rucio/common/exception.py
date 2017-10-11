@@ -57,7 +57,7 @@ class RucioException(Exception):
 
 
 # Please insert new exceptions in alphabetic order
-# and add a new unique error code
+# and add a new unique error code (current highest = 76)
 
 class AccessDenied(RucioException):
     """
@@ -504,6 +504,26 @@ class NoAuthInformation(RucioException):
         super(NoAuthInformation, self).__init__(args, kwargs)
         self._message = "No authentication information passed."
         self.error_code = 46
+
+
+class NoFilesDownloaded(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(NoFilesDownloaded, self).__init__(args, kwargs)
+        self._message = "None of the requested files have been downloaded."
+        self.error_code = 75
+
+
+class NotAllFilesDownloaded(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(NotAllFilesDownloaded, self).__init__(args, kwargs)
+        self._message = "Not all of the requested files have been downloaded."
+        self.error_code = 76
 
 
 class ReplicationRuleCreationTemporaryFailed(RucioException):
