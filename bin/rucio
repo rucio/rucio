@@ -49,14 +49,12 @@ from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
-                                    RucioException, DuplicateRule)
+                                    RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
 from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
 FAILURE = 1
-NO_FILE_DOWNLOADED = 254
-NOT_ALL_FILES_DOWNLOADED = 253
 
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
@@ -170,7 +168,7 @@ def exception_handler(function):
             return function(*args, **kwargs)
         except InvalidObject, error:
             logger.error(error)
-            return FAILURE
+            return error.error_code
         except DataIdentifierNotFound, error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
@@ -210,6 +208,10 @@ def exception_handler(function):
         except MissingDependency, error:
             logger.error(error)
             logger.debug('This means one dependency is missing.')
+            return error.error_code
+        except NoFilesDownloaded, error:
+            return error.error_code
+        except NotAllFilesDownloaded, error:
             return error.error_code
         except KeyError, error:
             if 'x-rucio-auth-token' in error:
@@ -1652,6 +1654,7 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
     _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc)
 
 
+@exception_handler
 def download(args):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
@@ -1880,6 +1883,8 @@ def download(args):
             break
 
     not_downloaded_files = 0
+    total_successes = 0
+    total_failures = 0
     print '----------------------------------'
     print 'Download summary'
     if len(summary) > 0:
@@ -1895,6 +1900,8 @@ def download(args):
                 elif summary[did][file] == 'ALREADY_DONE':
                     local_files += 1
             not_downloaded_files = num_files_to_dl[did] - downloaded_files - local_files
+            total_successes += downloaded_files + local_files
+            total_failures += not_downloaded_files
             print '{0:40} {1:6d}'.format('Total files : ', num_files_to_dl[did])
             print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
             print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
@@ -1903,12 +1910,11 @@ def download(args):
         print '-' * 40
         print 'No DID matching the pattern'
 
-    # The RucioExceptions go from 1-74 already. Use highest possible non-allocated exit codes.
-    if num_files_to_dl[did] > 0 and num_files_to_dl[did] == not_downloaded_files:
-        return NO_FILE_DOWNLOADED  # no file downloaded
-    if not_downloaded_files > 0:
-        return NOT_ALL_FILES_DOWNLOADED  # not all files downloaded
-    return SUCCESS  # all files ok
+    if total_successes == 0 and total_failures > 0:
+        raise NoFilesDownloaded
+    if total_successes > 0 and total_failures > 0:
+        raise NotAllFilesDownloaded
+    return SUCCESS
 
 
 @exception_handler
