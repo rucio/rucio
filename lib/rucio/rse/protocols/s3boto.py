@@ -158,9 +158,9 @@ class Default(protocol.RSEProtocol):
                 self.rse['credentials'] = credentials.get(self.rse['rse'])
 
                 if not access_key:
-                    access_key = self.rse['credentials']['access_key'],
+                    access_key = self.rse['credentials']['access_key']
                 if not secret_key:
-                    secret_key = self.rse['credentials']['secret_key'],
+                    secret_key = self.rse['credentials']['secret_key']
                 if not is_secure:
                     is_secure = self.rse['credentials'].get('is_secure', {}).\
                         get(service_url, False)
