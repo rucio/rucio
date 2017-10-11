@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016-2017
 
 """
 Collector to get the SRM free and used information for DATADISK RSEs.
@@ -35,7 +35,7 @@ class FreeSpaceCollector(object):
             query = session.query(RSE.rse, RSEUsage.free, RSEUsage.used).\
                 join(RSEUsage, RSE.id == RSEUsage.rse_id).\
                 join(RSEAttrAssociation, RSE.id == RSEAttrAssociation.rse_id).\
-                filter(RSEUsage.source == 'srm').filter(RSEAttrAssociation.key == 'type', RSEAttrAssociation.value == 'DATADISK')
+                filter(RSEUsage.source == 'storage').filter(RSEAttrAssociation.key == 'type', RSEAttrAssociation.value == 'DATADISK')
             for rse, free, used in query:
                 self.rses[rse] = {'total': used + free, 'used': used, 'free': free}
 
