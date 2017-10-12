@@ -195,4 +195,4 @@ def get_count_of_expired_temporary_dids(rse, session=None):
         filter(case([(models.TemporaryDataIdentifier.expired_at != is_none, models.TemporaryDataIdentifier.rse_id), ]) == rse_id).\
         one()
 
-    return count or 0
+    return count[0] or 0

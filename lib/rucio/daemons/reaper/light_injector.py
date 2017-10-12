@@ -12,10 +12,11 @@ Ligh injector is a daemon to inject OS files for deletion
 """
 
 import datetime
-import dateutil
+import dateutil.parser
 import hashlib
 import logging
 import os
+import pytz
 import random
 import socket
 import sys
@@ -41,11 +42,13 @@ GRACEFUL_STOP = threading.Event()
 
 
 def inject(rse, older_than):
+    logging.info('Starting to inject objects for RSE: %s' % rse)
     num_of_queued_dids = get_count_of_expired_temporary_dids(rse)
     rse_id = rse_core.get_rse_id(rse)
     if num_of_queued_dids < 1000:
         max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse, rse_id=rse_id)
-        if needed_free_space > 0:
+        logging.info("needed_free_space: %s" % needed_free_space)
+        if needed_free_space is None or needed_free_space > 0:
             rse_info = rsemgr.get_rse_info(rse)
             for protocol in rse_info['protocols']:
                 protocol['impl'] = 'rucio.rse.protocols.s3boto.Default'
@@ -55,6 +58,7 @@ def inject(rse, older_than):
                 prot.connect()
                 dids = []
                 older_than_time = datetime.datetime.utcnow() - datetime.timedelta(days=older_than)
+                older_than_time = older_than_time.replace(tzinfo=pytz.utc)
                 for key in prot.list():
                     d = dateutil.parser.parse(key.last_modified)
                     if d < older_than_time:
@@ -70,8 +74,12 @@ def inject(rse, older_than):
                             dids = []
                     else:
                         logging.info('Found objects newer than %s days, quit to list(normally objects in os are returned with order by time)' % older_than)
+                    if GRACEFUL_STOP.is_set():
+                        logging.info('GRACEFUL_STOP is set. quit')
             except:
                 logging.critical(traceback.format_exc())
+    else:
+        logging.info("Number of queued deletion for %s is %s, which is bigger than 1000. quit." % (rse, num_of_queued_dids))
 
 
 def injector(rses=[], once=False, scheme=None, worker_number=0, total_workers=1, older_than=30, sleep_time=1):
@@ -108,8 +116,10 @@ def injector(rses=[], once=False, scheme=None, worker_number=0, total_workers=1,
             if once:
                 break
 
-            while time.time() < injecting_time + 3600 * 24:
-                time.sleep(60)
+            next_inject_time = injecting_time + 3600 * 24 * sleep_time
+            logging.info('Will sleep %s seconds(about %s days)' % (next_inject_time - time.time(), (next_inject_time - time.time()) * 1.0 / 86400))
+            while not GRACEFUL_STOP.is_set() and time.time() < next_inject_time:
+                time.sleep(1)
         except:
             logging.critical(traceback.format_exc())
 
