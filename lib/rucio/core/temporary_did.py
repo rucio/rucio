@@ -13,7 +13,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 from sqlalchemy.sql.expression import bindparam, case, text
 
 from rucio.core.did import attach_dids
@@ -175,3 +175,24 @@ def delete_temporary_dids(dids, session=None):
             with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_PK)", 'oracle').\
             filter(or_(*where_clause)).delete(synchronize_session=False)
     return
+
+
+@read_session
+def get_count_of_expired_temporary_dids(rse, session=None):
+    """
+    List expired temporary DIDs.
+
+    :param rse: the rse name.
+    :param session: The database session in use.
+
+    :returns: a count number.
+    """
+    rse_id = get_rse_id(rse, session=session)
+
+    is_none = None
+    count = session.query(func.count(models.TemporaryDataIdentifier.scope)).\
+        with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_EXPIRED_AT_IDX)", 'oracle').\
+        filter(case([(models.TemporaryDataIdentifier.expired_at != is_none, models.TemporaryDataIdentifier.rse_id), ]) == rse_id).\
+        one()
+
+    return count or 0
