@@ -70,6 +70,7 @@ def inject(rse, older_than):
                                'created_at': d}
                         dids.append(did)
                         if len(dids) == 1000:
+                            logging.info('Adding 1000 dids to temp dids.')
                             add_temporary_dids(dids=dids, account='root')
                             dids = []
                     else:
