@@ -10,6 +10,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Frank Besrghaus, <frank.berghaus@cern.ch>, 2017
 
 
 import datetime

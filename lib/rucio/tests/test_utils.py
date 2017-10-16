@@ -19,12 +19,13 @@ class TestUtils(object):
     """UTILS (COMMON): test utilisty functions"""
 
     _test_fn = 'testutils.fix'
-    def setup_func():
+
+    def setup_func(self):
         "set up test fixtures"
         with open(self._test_fn, 'w') as f:
             f.write('hello test')
 
-    def teardown_func():
+    def teardown_func(self):
         "tear down test fixtures"
         os.remove(self._test_fn)
 
