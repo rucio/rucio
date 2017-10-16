@@ -130,16 +130,16 @@ def adler32(file):
     return str('%08x' % adler)
 
 
-def md5(fname):
+def md5(file):
     """
-    Runs the MD5 algorithm (RFC-1321) on the binary content of the file named fname and returns the hexadecimal digest
+    Runs the MD5 algorithm (RFC-1321) on the binary content of the file named file and returns the hexadecimal digest
 
     :param string: file name
     :returns: string of 32 hexadecimal digits
     """
     hash_md5 = hashlib.md5()
     try:
-        with open(fname, "rb") as f:
+        with open(file, "rb") as f:
             map(hash_md5.update, iter(lambda: f.read(4096), b""))
     except:
         raise Exception('FATAL - could not get MD5 checksum of file %s' % file)
