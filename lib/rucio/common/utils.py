@@ -14,6 +14,7 @@
 
 import datetime
 import errno
+import hashlib
 import json
 import os
 import pwd
@@ -126,6 +127,23 @@ def adler32(file):
         adler = adler + 2 ** 32
 
     return str('%08x' % adler)
+
+
+def md5(fname):
+    """
+    Runs the MD5 algorithm (RFC-1321) on the binary content of the file named fname and returns the hexadecimal digest
+
+    :param string: file name
+    :returns: string of 32 hexadecimal digits
+    """
+    hash_md5 = hashlib.md5()
+    try:
+        with open(fname, "rb") as f:
+            map(hash_md5.update, iter(lambda: f.read(4096), b""))
+    except:
+        Exception('FATAL - could not get MD5 checksum of file %s' % file)
+
+    return hash_md5.hexdigest()
 
 
 def str_to_date(string):
