@@ -9,24 +9,27 @@
  - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 '''
 
-from nose.tools import assert_equal, assert_is_instance
 import os
+import unittest
 
+from nose.tools import assert_equal, assert_is_instance
 from rucio.common.utils import md5
 
 
-class TestUtils(object):
+class TestUtils(unittest.TestCase):
     """UTILS (COMMON): test utilisty functions"""
 
     _test_fn = 'testutils.fix'
 
-    def setup_func(self):
+    def setUp(self):
         "set up test fixtures"
+        print('creating:', self._test_fn)
         with open(self._test_fn, 'w') as f:
             f.write('hello test')
 
-    def teardown_func(self):
+    def tearDown(self):
         "tear down test fixtures"
+        print('deleting:', self._test_fn)
         os.remove(self._test_fn)
 
     def test_util_md5(self):
