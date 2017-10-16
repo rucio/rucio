@@ -142,7 +142,7 @@ def md5(fname):
         with open(fname, "rb") as f:
             map(hash_md5.update, iter(lambda: f.read(4096), b""))
     except:
-        Exception('FATAL - could not get MD5 checksum of file %s' % file)
+        raise Exception('FATAL - could not get MD5 checksum of file %s' % file)
 
     return hash_md5.hexdigest()
 
