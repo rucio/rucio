@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -34,7 +35,7 @@ if __name__ == "__main__":
                         help='Bulk control: number of transfers per db query')
     parser.add_argument("--bulk", action="store", default=100, type=int,
                         help='Bulk control: number of requests')
-    parser.add_argument('--sleep-time', action="store", default=300, type=int,
+    parser.add_argument('--sleep-time', action="store", default=30, type=int,
                         help='Seconds to sleep if few requests')
     parser.add_argument('--activities', nargs='+', type=str,
                         help='Explicit list of activities to include')
