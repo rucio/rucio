@@ -159,7 +159,7 @@ def transmogrifier(bulk=5, once=False):
             sub_dict = {3: []}
             for sub in list_subscriptions(None, None):
                 if sub['state'] != SubscriptionState.INACTIVE and sub['lifetime'] and (datetime.now() > sub['lifetime']):
-                    update_subscription(name=sub['name'], account=sub['account'], metadata={'state': SubscriptionState.INACTIVE})
+                    update_subscription(name=sub['name'], account=sub['account'], metadata={'state': SubscriptionState.INACTIVE}, issuer='root')
 
                 elif sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
                     priority = 3
@@ -348,7 +348,7 @@ def transmogrifier(bulk=5, once=False):
             logging.info(prepend_str + 'Time to set the new flag : %f' % (time.time() - time1))
             tottime = time.time() - start_time
             for sub in subscriptions:
-                update_subscription(name=sub['name'], account=sub['account'], metadata={'last_processed': datetime.now()})
+                update_subscription(name=sub['name'], account=sub['account'], metadata={'last_processed': datetime.now()}, issuer='root')
             logging.info(prepend_str + 'It took %f seconds to process %i DIDs' % (tottime, len(dids)))
             logging.debug(prepend_str + 'DIDs processed : %s' % (str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)
