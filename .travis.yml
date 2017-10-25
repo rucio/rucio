@@ -7,22 +7,19 @@ services:
 
 install:
   - cp etc/docker/travis/Dockerfile Dockerfile
-  - docker build -t tbeerman/rucio .
+  - docker build -t rucio/rucio .
 
 before_script:
-  - docker run --name=mysql -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
-  - docker run --name postgres -e POSTGRES_PASSWORD=secret -d postgres
-  - sleep 60
-  - docker run -d --link mysql:mysql --link postgres:postgres --name=rucio tbeerman/rucio
+  - docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true sath89/oracle-xe-11g
+  - docker run --name=activemq -d webcenter/activemq:latest
+  - sleep 300
+  - docker run -d --link oracle:oracle --link activemq:activemq --name=rucio rucio/rucio
   - docker ps -a
 
 script:
-  - docker exec -it rucio /bin/sh -c "httpd; tools/run_tests_docker.sh -1q;"
-  - docker cp etc/docker/rucio_postgres.cfg rucio:/opt/rucio/etc/rucio.cfg
-  - docker exec -it rucio /bin/sh -c "httpd -k restart; tools/run_tests_docker.sh -1q;"
+  - docker exec -it rucio /bin/sh -c "tools/travis_scripts.sh"
 
 after_script:
   - docker stop rucio
-  - docker stop postgres
-  - docker stop mysql
-
+  - docker stop oracle
+  - docker stop activemq
