@@ -1,0 +1,28 @@
+sudo: required
+
+language: bash
+
+services:
+  - docker
+
+install:
+  - cp /opt/rucio/etc/docker/travis/Dockerfile /opt/rucio/Dockerfile
+  - docker build -t tbeerman/rucio .
+
+before_script:
+  - docker run --name=mysql -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
+  - docker run --name postgres -e POSTGRES_PASSWORD=secret -d postgres
+  - sleep 60
+  - docker run -d --link mysql:mysql --link postgres:postgres --name=rucio tbeerman/rucio
+  - docker ps -a
+
+script:
+  - docker exec -it rucio /bin/sh -c "httpd; tools/run_tests_docker.sh -1q;"
+  - docker cp etc/docker/rucio_postgres.cfg rucio:/opt/rucio/etc/rucio.cfg
+  - docker exec -it rucio /bin/sh -c "httpd -k restart; tools/run_tests_docker.sh -1q;"
+
+after_script:
+  - docker stop rucio
+  - docker stop postgres
+  - docker stop mysql
+
