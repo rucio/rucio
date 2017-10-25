@@ -6,7 +6,7 @@ services:
   - docker
 
 install:
-  - cp /opt/rucio/etc/docker/travis/Dockerfile /opt/rucio/Dockerfile
+  - cp etc/docker/travis/Dockerfile Dockerfile
   - docker build -t tbeerman/rucio .
 
 before_script:
