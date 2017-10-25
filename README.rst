@@ -17,6 +17,7 @@ Guidelines::
 
 
 Configure git::
+
     # Fork the repo https://github.com/rucio/rucio/ on https://github.com/<YOUR_USER>/rucio/
     $ git clone https://github.com/<YOUR_USER>/rucio/
     $ git remote add YOUR_USER https://github.com/YOUR_USER/rucio.git
@@ -41,10 +42,12 @@ Workflow for contributing to rucio::
     # if an issue should be associated to the pull requests
     # then add the issue url <ISSUE-URL> at the end
     # e.g. git pull-request  -m "new patch"  -b master https://github.com/rucio/rucio/issues/<number>
+    # remark: Labels, milestones, and assignees are only available in the hub 2.3.0-prereleases
 
 Once pull requests are merged, delete remote and local branches::
-    git push -d <remote_name> <branch_name>
-    git branch -d <branch_name>
+
+    $ git push -d <remote_name> <branch_name>
+    $ git branch -d <branch_name>
 
 Link issue and pull requests::
 
