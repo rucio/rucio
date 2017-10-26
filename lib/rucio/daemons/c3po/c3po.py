@@ -206,7 +206,7 @@ def place_replica(once=False,
 
                     create_rule = True
                     if sampling and 'error_reason' not in decision:
-                        create_rule = bool(int(md5(decision['did']).hexdigest()[-1]) & 1)
+                        create_rule = bool(ord(md5(decision['did']).hexdigest()[-1]) & 1)
                         decision['create_rule'] = create_rule
                     # write the output to ES for further analysis
                     index_url = elastic_url + '/' + elastic_index + '-' + datetime.utcnow().strftime('%Y-%m') + '/record/'
