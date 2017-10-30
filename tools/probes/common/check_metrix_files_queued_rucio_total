@@ -1,0 +1,75 @@
+#!/usr/bin/python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
+# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
+
+"""
+Build the files queued for transfer.
+"""
+
+import datetime
+import json
+
+import requests
+
+if __name__ == '__main__':
+
+    URL = 'http://rucio-nagios-prod.cern.ch/files-queued-rucio-total/latest.json'
+
+    R = requests.get(URL)
+
+    DATA = {}
+    if R.status_code == 200:
+        DATA = R.json()
+
+        with open('/data/metrix/data/files-queued-rucio-total/files-queued-rucio-total-{0}.json'.format(datetime.datetime.utcnow().isoformat()[:-7]), 'w') as f:
+            json.dump(DATA, f, indent=1, sort_keys=True)
+
+        with open('/data/metrix/data/files-queued-rucio-total/latest.json', 'w') as f:
+            json.dump(DATA, f, indent=1, sort_keys=True)
+    else:
+        print 'cannot get', URL, R.status_code
+
+
+CONTENT_OF_PROBE_FOR_REFERENCE = """
+#!/usr/bin/env python
+
+import datetime
+import pprint
+import json
+
+from rucio.db.sqla.session import get_session
+
+if __name__ == "__main__":
+
+    session = get_session()
+    result = session.execute('''
+select src_site, dst_site, activity, count(*)
+from (
+select
+ (select value from atlas_rucio.rse_attr_map where rse_id=source_rse_id and key='site') as src_site,
+ (select value from atlas_rucio.rse_attr_map where rse_id=dest_rse_id and key='site') as dst_site,
+ activity
+from atlas_rucio.requests
+where source_rse_id is not null
+)
+group by src_site, dst_site, activity
+order by src_site, dst_site, activity''')
+
+    data = {}
+    for row in result.fetchall():
+        if '%s:%s' % (row[0], row[1]) in data.keys():
+            data['%s:%s' % (row[0], row[1])]['files']['queued'][row[2]] = {'latest': row[3], 'timestamp': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')}
+        else:
+            data['%s:%s' % (row[0], row[1])] = {'files': {'queued': {row[2]: {'latest': row[3], 'timestamp': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')}}}}
+
+with open('/var/www/html/files-queued-rucio-total/latest.json', 'w') as f:
+    json.dump(data, f, indent=1, sort_keys=True)
+"""
