@@ -15,9 +15,9 @@ Dynamic data placement daemon.
 
 import logging
 from datetime import datetime
+from hashlib import md5
 from json import dumps
 from Queue import Queue
-import random
 from sys import stdout
 from time import sleep
 from threading import Event, Thread
@@ -134,7 +134,6 @@ def place_replica(once=False,
     Thread to run the placement algorithm to decide if and where to put new replicas.
     """
     try:
-        random.seed()
         c3po_options = config_get_options('c3po')
         client = None
 
@@ -207,7 +206,7 @@ def place_replica(once=False,
 
                     create_rule = True
                     if sampling and 'error_reason' not in decision:
-                        create_rule = bool(random.getrandbits(1))
+                        create_rule = bool(ord(md5(decision['did']).hexdigest()[-1]) & 1)
                         decision['create_rule'] = create_rule
                     # write the output to ES for further analysis
                     index_url = elastic_url + '/' + elastic_index + '-' + datetime.utcnow().strftime('%Y-%m') + '/record/'
