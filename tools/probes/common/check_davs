@@ -30,16 +30,26 @@ index = 1
 def set_browser_enabled(rse, browser_enabled):
     '''
     Sets a new rse attribute 'browser_enabled' to True/False.
+
+    :param rse: The RSE name.
+    :param browser_enabled: The new boolean value for the browser_enabled attribute.
     '''
 
     if 'browser_enabled' in c.list_rse_attributes(rse):
         c.delete_rse_attribute(rse, 'browser_enabled')
-    c.add_rse_attribute(str(rse), 'browser_enabled', browser_enabled)
+    c.add_rse_attribute(rse, 'browser_enabled', browser_enabled)
 
 
 def verifyDownload(rse, response, checksum, success_list, error_list, wrong_checksum_list):
     '''
     Verifies the response byte sequence by comparing its adler32 hash with the stored checksum.
+
+    :param rse: The RSE name.
+    :param response: The Response object returned by the requests GET call.
+    :param checksum: The correct checksum stored in the database.
+    :param success_list: A list to keep track of all successful file downloads.
+    :param error_list: A list to keep track of all errors except http errors during the GET request.
+    :param wrong_checksum_list: A list to keep track of all files that produce an adler32 hash different to the one stored in the database.
     '''
 
     try:
