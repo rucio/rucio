@@ -1,0 +1,56 @@
+#!/usr/bin/python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2016
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
+
+"""
+Dictionary to map the SE to a site.
+"""
+
+import datetime
+import json
+import requests
+
+if __name__ == '__main__':
+
+    RES = requests.get('http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json')
+
+    if RES.ok:
+        RESJ = json.loads(RES.text)
+
+        DATA = {}
+        for site in RESJ:
+            for p in site['protocols']:
+                se = '%s:%s' % (p.split(':')[0], p.split(':')[1])
+                DATA[se] = site['site']
+                # if se in DATA:
+                #     if site['site'] not in DATA[se]:
+                #         DATA[se].append(site['site'])
+                # else:
+                #     DATA[se] = [site['site']]
+
+        # there are a few duplicates:
+        # for x in DATA:
+        #    if len(DATA[x])>1:
+        #        print x, DATA[x], len(DATA[x])
+        # manually fix them for now:
+        DATA['davs://dav.ndgf.org'] = 'NDGF-T1'
+        DATA['gsiftp://gridftp.pic.es'] = 'pic'
+        DATA['srm://srm.ndgf.org'] = 'NDGF-T1'
+        DATA['davs://grid05.lal.in2p3.fr'] = 'GRIF-LAL'
+
+        with open('/data/metrix/data/mapping-se-site/mapping-se-site-{0}.json'.format(datetime.datetime.utcnow().isoformat()[:-7]), 'w') as f:
+            json.dump(DATA, f, indent=1, sort_keys=True)
+
+        with open('/data/metrix/data/mapping-se-site/latest.json', 'w') as f:
+            json.dump(DATA, f, indent=1, sort_keys=True)
+
+    else:
+        print 'could not load json'
