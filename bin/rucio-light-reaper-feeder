@@ -9,13 +9,13 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2017
 
 """
-Ligh injector is a daemon to inject OS files for deletion
+Ligh feeder is a daemon to inject OS files for deletion
 """
 
 import argparse
 import signal
 
-from rucio.daemons.reaper.light_injector import run, stop
+from rucio.daemons.reaper.light_feeder import run, stop
 
 if __name__ == "__main__":
 

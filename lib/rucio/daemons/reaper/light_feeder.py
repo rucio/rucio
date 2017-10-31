@@ -8,7 +8,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2017
 
 """
-Ligh injector is a daemon to inject OS files for deletion
+Ligh feeder is a daemon to inject OS files for deletion
 """
 
 import datetime
@@ -83,7 +83,7 @@ def inject(rse, older_than):
         logging.info("Number of queued deletion for %s is %s, which is bigger than 1000. quit." % (rse, num_of_queued_dids))
 
 
-def injector(rses=[], once=False, scheme=None, worker_number=0, total_workers=1, older_than=30, sleep_time=1):
+def feeder(rses=[], once=False, scheme=None, worker_number=0, total_workers=1, older_than=30, sleep_time=1):
     """
     Main loop to select and delete files.
 
@@ -93,7 +93,7 @@ def injector(rses=[], once=False, scheme=None, worker_number=0, total_workers=1,
     :param older_than: List control: older objects more than this value of days to list.
     :param sleep_time: Days to sleep.
     """
-    logging.info('Starting Light Injector %s-%s: Will work on RSEs: %s', worker_number, total_workers, str(rses))
+    logging.info('Starting Light feeder %s-%s: Will work on RSEs: %s', worker_number, total_workers, str(rses))
 
     pid = os.getpid()
     thread = threading.current_thread()
@@ -107,7 +107,7 @@ def injector(rses=[], once=False, scheme=None, worker_number=0, total_workers=1,
         try:
             # heartbeat
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
-            logging.info('Light Injector({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
+            logging.info('Light feeder({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
             nothing_to_do = True
 
             random.shuffle(rses)
@@ -139,7 +139,7 @@ def stop(signum=None, frame=None):
 
 def run(one_worker_per_rse=False, once=False, rses=[], scheme=None, all_os_rses=False, older_than=30, sleep_time=1):
     """
-    Starts up the injector threads.
+    Starts up the feeder threads.
 
     :param one_worker_per_rse: If True, one worker per RSE; Otherwise, one worker for all RSEs.
     :param once: If True, only runs one iteration of the main loop.
@@ -164,11 +164,11 @@ def run(one_worker_per_rse=False, once=False, rses=[], scheme=None, all_os_rses=
         for rse in rses:
             kwargs = {'once': once, 'rses': [rse], 'scheme': scheme, 'worker_number': worker, 'total_workers': len(rses),
                       'older_than': older_than, 'sleep_time': sleep_time}
-            threads.append(threading.Thread(target=injector, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (worker, len(rses))))
+            threads.append(threading.Thread(target=feeder, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (worker, len(rses))))
             worker += 1
     else:
         kwargs = {'once': once, 'rses': rses, 'scheme': scheme, 'older_than': older_than, 'sleep_time': sleep_time}
-        threads.append(threading.Thread(target=injector, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (0, 1)))
+        threads.append(threading.Thread(target=feeder, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (0, 1)))
 
     [t.start() for t in threads]
     while threads[0].is_alive():
