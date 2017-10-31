@@ -28,8 +28,6 @@ if __name__ == "__main__":
                         help='Select Objectstore RSEs from the quarantined queues')
     parser.add_argument("--one-worker-per-rse", action="store_true", default=False,
                         help='Enable to use one worker per RSE')
-    parser.add_argument("--scheme", action="store", default=None, type=str,
-                        help='Force the reaper to use a particular protocol, e.g., mock.')
     parser.add_argument("--older-than", action="store", default=30, type=int,
                         help='List control: older objects more than this value of days to list')
     parser.add_argument('--sleep-time', action="store", default=1, type=int,
@@ -38,7 +36,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     try:
-        run(one_worker_per_rse=args.one_worker_per_rse, once=args.run_once, scheme=args.scheme, rses=args.rses,
+        run(one_worker_per_rse=args.one_worker_per_rse, once=args.run_once, rses=args.rses,
             all_os_rses=args.all_os_rses, older_than=args.older_than, sleep_time=args.sleep_time)
     except KeyboardInterrupt:
         stop()

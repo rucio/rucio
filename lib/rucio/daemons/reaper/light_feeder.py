@@ -12,17 +12,17 @@ Ligh feeder is a daemon to inject OS files for deletion
 """
 
 import datetime
-import dateutil.parser
 import hashlib
 import logging
 import os
-import pytz
 import random
 import socket
 import sys
 import threading
 import time
 import traceback
+import pytz
+import dateutil.parser
 
 from rucio.common.config import config_get
 from rucio.core import rse as rse_core
@@ -41,49 +41,56 @@ logging.basicConfig(stream=sys.stdout,
 GRACEFUL_STOP = threading.Event()
 
 
-def inject(rse, older_than):
+def inject(rse, older_than=30):
+    """
+    Inject list of files in RSE to rucio.
+
+    :param rse: RSE name.
+    :param older_than: Files older than days of this value to be listed.
+    """
     logging.info('Starting to inject objects for RSE: %s' % rse)
     num_of_queued_dids = get_count_of_expired_temporary_dids(rse)
     rse_id = rse_core.get_rse_id(rse)
-    if num_of_queued_dids < 1000:
-        max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse, rse_id=rse_id)
-        logging.info("needed_free_space: %s" % needed_free_space)
-        if needed_free_space is None or needed_free_space > 0:
-            rse_info = rsemgr.get_rse_info(rse)
-            for protocol in rse_info['protocols']:
-                protocol['impl'] = 'rucio.rse.protocols.s3boto.Default'
-
-            prot = rsemgr.create_protocol(rse_info, 'delete')
-            try:
-                prot.connect()
-                dids = []
-                older_than_time = datetime.datetime.utcnow() - datetime.timedelta(days=older_than)
-                older_than_time = older_than_time.replace(tzinfo=pytz.utc)
-                for key in prot.list():
-                    d = dateutil.parser.parse(key.last_modified)
-                    if d < older_than_time:
-                        did = {'scope': 'transient',
-                               'name': key.name.encode('utf-8'),
-                               'rse': rse,
-                               'rse_id': rse_id,
-                               'bytes': key.size,
-                               'created_at': d}
-                        dids.append(did)
-                        if len(dids) == 1000:
-                            logging.info('Adding 1000 dids to temp dids.')
-                            add_temporary_dids(dids=dids, account='root')
-                            dids = []
-                    else:
-                        logging.info('Found objects newer than %s days, quit to list(normally objects in os are returned with order by time)' % older_than)
-                    if GRACEFUL_STOP.is_set():
-                        logging.info('GRACEFUL_STOP is set. quit')
-            except:
-                logging.critical(traceback.format_exc())
-    else:
+    if num_of_queued_dids > 1000:
         logging.info("Number of queued deletion for %s is %s, which is bigger than 1000. quit." % (rse, num_of_queued_dids))
+        return
+
+    _, needed_free_space, _, _ = __check_rse_usage(rse=rse, rse_id=rse_id)
+    logging.info("needed_free_space: %s" % needed_free_space)
+    if needed_free_space is None or needed_free_space > 0:
+        rse_info = rsemgr.get_rse_info(rse)
+        for protocol in rse_info['protocols']:
+            protocol['impl'] = 'rucio.rse.protocols.s3boto.Default'
+
+        prot = rsemgr.create_protocol(rse_info, 'delete')
+        try:
+            prot.connect()
+            dids = []
+            older_than_time = datetime.datetime.utcnow() - datetime.timedelta(days=older_than)
+            older_than_time = older_than_time.replace(tzinfo=pytz.utc)
+            for key in prot.list():
+                modify_time = dateutil.parser.parse(key.last_modified)
+                if modify_time < older_than_time:
+                    did = {'scope': 'transient',
+                           'name': key.name.encode('utf-8'),
+                           'rse': rse,
+                           'rse_id': rse_id,
+                           'bytes': key.size,
+                           'created_at': modify_time}
+                    dids.append(did)
+                    if len(dids) == 1000:
+                        logging.info('Adding 1000 dids to temp dids.')
+                        add_temporary_dids(dids=dids, account='root')
+                        dids = []
+                else:
+                    logging.info('Found objects newer than %s days, quit to list(normally objects in os are returned with order by time)' % older_than)
+                if GRACEFUL_STOP.is_set():
+                    logging.info('GRACEFUL_STOP is set. quit')
+        except Exception:
+            logging.critical(traceback.format_exc())
 
 
-def feeder(rses=[], once=False, scheme=None, worker_number=0, total_workers=1, older_than=30, sleep_time=1):
+def feeder(rses=[], once=False, worker_number=0, total_workers=1, older_than=30, sleep_time=1):
     """
     Main loop to select and delete files.
 
@@ -107,8 +114,7 @@ def feeder(rses=[], once=False, scheme=None, worker_number=0, total_workers=1, o
         try:
             # heartbeat
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
-            logging.info('Light feeder({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
-            nothing_to_do = True
+            logging.info('Light feeder (%s/%s): Live gives %s' % (worker_number, total_workers, heartbeat))
 
             random.shuffle(rses)
             for rse in rses:
@@ -130,21 +136,20 @@ def feeder(rses=[], once=False, scheme=None, worker_number=0, total_workers=1, o
     return
 
 
-def stop(signum=None, frame=None):
+def stop():
     """
     Graceful exit.
     """
     GRACEFUL_STOP.set()
 
 
-def run(one_worker_per_rse=False, once=False, rses=[], scheme=None, all_os_rses=False, older_than=30, sleep_time=1):
+def run(one_worker_per_rse=False, once=False, rses=[], all_os_rses=False, older_than=30, sleep_time=1):
     """
     Starts up the feeder threads.
 
     :param one_worker_per_rse: If True, one worker per RSE; Otherwise, one worker for all RSEs.
     :param once: If True, only runs one iteration of the main loop.
     :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
-    :param scheme: Force the reaper to use a particular protocol/scheme, e.g., mock.
     :param all_os_rses: All Objectstore RSEs.
     :param older_than: List control: older objects more than this value of days to list.
     :param sleep_time: Days to sleep.
@@ -162,12 +167,12 @@ def run(one_worker_per_rse=False, once=False, rses=[], scheme=None, all_os_rses=
     if one_worker_per_rse:
         worker = 0
         for rse in rses:
-            kwargs = {'once': once, 'rses': [rse], 'scheme': scheme, 'worker_number': worker, 'total_workers': len(rses),
+            kwargs = {'once': once, 'rses': [rse], 'worker_number': worker, 'total_workers': len(rses),
                       'older_than': older_than, 'sleep_time': sleep_time}
             threads.append(threading.Thread(target=feeder, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (worker, len(rses))))
             worker += 1
     else:
-        kwargs = {'once': once, 'rses': rses, 'scheme': scheme, 'older_than': older_than, 'sleep_time': sleep_time}
+        kwargs = {'once': once, 'rses': rses, 'older_than': older_than, 'sleep_time': sleep_time}
         threads.append(threading.Thread(target=feeder, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (0, 1)))
 
     [t.start() for t in threads]
