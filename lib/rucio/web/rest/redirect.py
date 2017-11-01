@@ -190,12 +190,16 @@ class HeaderRedirector(RucioController):
                 params = parse_qs(ctx.query[1:])
                 if 'select' in params:
                     select = params['select'][0]
+                if 'sort' in params:
+                    select = params['sort'][0]
                 if 'rse' in params:
                     rse = params['rse'][0]
                 if 'site' in params:
                     site = params['site'][0]
                 if 'schemes' in params:
                     schemes = params['schemes'][0]
+                else:
+                    schemes = ['davs', 'https', 's3']
 
                 if 'ip' in params:
                     client_location['ip'] = params['ip'][0]
@@ -229,6 +233,9 @@ class HeaderRedirector(RucioController):
 
                         for rep in r['rses']:
                             for replica in r['rses'][rep]:
+                                # since this is HTTP-only redirection, and to ensure compatibility with as many http clients as possible
+                                # forcibly replacement davs and s3 URLs to https
+                                replica = replica.replace('davs://', 'https://').replace('s3://', 'https://')
                                 dictreplica[replica] = rep
 
                         if not dictreplica:
@@ -241,7 +248,6 @@ class HeaderRedirector(RucioController):
                             else:
                                 raise ReplicaNotFound('no redirection possible - no valid RSE for HTTP redirection found')
                         else:
-
                             if select == 'geoip':
                                 rep = sort_geoip(dictreplica, client_location['ip'])
                             elif select == 'closeness':
