@@ -84,8 +84,10 @@ def inject(rse, older_than=30):
                         dids = []
                 else:
                     logging.info('Found objects newer than %s days, quit to list(normally objects in os are returned with order by time)' % older_than)
+                    break
                 if GRACEFUL_STOP.is_set():
                     logging.info('GRACEFUL_STOP is set. quit')
+                    break
         except Exception:
             logging.critical(traceback.format_exc())
 
