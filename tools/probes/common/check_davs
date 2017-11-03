@@ -13,12 +13,11 @@
 Probe that checks for each RSE if it is possible to download data using the webdav door and an X509 certificate without any extensions.
 '''
 
-
-from rucio.client.client import Client
+import re
 import requests
+from rucio.client.client import Client
 import sys
 import zlib
-import re
 
 
 # Exit statuses
