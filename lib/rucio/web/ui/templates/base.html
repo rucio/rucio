@@ -9,7 +9,7 @@ $def with (token, account, rucio_ui_version, content)
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
  - Martin Barisits, <martin.barisits@cern.ch>, 2014
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
@@ -98,6 +98,13 @@ $def with (token, account, rucio_ui_version, content)
               <a>Reports</a>
               <ul class="dropdown">
                 <li><a href="/dumps">Dumps</a></li>
+              </ul>
+            </li>
+
+            <li id="admin_dropdown" class="has-dropdown" style="display:none;">
+              <a>Admin</a>
+              <ul class="dropdown">
+                <li><a href="/list_account">Account management</a></li>
               </ul>
             </li>
 
