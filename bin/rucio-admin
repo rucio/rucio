@@ -810,7 +810,7 @@ Commands:
     oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The Rucio API host")
     oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host")
     oparser.add_argument('-a', '--account', dest="issuer", metavar="ACCOUNT", help="Rucio account to use")
-    oparser.add_argument('-S', '--auth-strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('-S', '--auth-strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass, x509, ssh ...)")
     oparser.add_argument('-T', '--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
@@ -909,7 +909,7 @@ Commands:
     identity_add_parser = identity_subparser.add_parser('add', help='Grant an identity access to an account')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS'], help='Authentication type [X509|GSS|USERPASS]', required=True)
+    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
     identity_add_parser.add_argument('--email', dest='email', action='store', help='Email address associated with the identity', required=True)
 
@@ -917,11 +917,11 @@ Commands:
     identity_delete_parser = identity_subparser.add_parser('delete', help="Revoke an identity's access to an account")
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_delete_parser.add_argument('--type', dest='authtype', action='store', help='Authentivation type(e.g. X509, gss)', required=True)
+    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
     identity_delete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
 
     # The RSE subparser
-    rse_parser = subparsers.add_parser('rse', help='RSE(Rucio Storage Element) methods')
+    rse_parser = subparsers.add_parser('rse', help='RSE (Rucio Storage Element) methods')
     rse_subparser = rse_parser.add_subparsers()
 
     # The list_rses command
