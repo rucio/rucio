@@ -59,7 +59,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
             rse_clause.append(models.RSE.rse == rse['rse'])
 
     if session.bind.dialect.name == 'oracle':
-        to_days = func.trunc(models.BadReplicas.created_at, 'DD')
+        to_days = func.trunc(models.BadReplicas.created_at, str('DD'))
     elif session.bind.dialect.name == 'mysql':
         to_days = func.date(models.BadReplicas.created_at)
     elif session.bind.dialect.name == 'postgresql':
@@ -550,7 +550,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
     """
     did_clause, dataset_clause, file_clause, files = [], [], [], []
     for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
-        if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):
+        if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):  # pylint: disable=no-member
             files.append({'scope': did['scope'], 'name': did['name']})
             file_clause.append(and_(models.RSEFileAssociation.scope == did['scope'],
                                     models.RSEFileAssociation.name == did['name']))
