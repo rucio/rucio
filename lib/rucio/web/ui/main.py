@@ -27,6 +27,7 @@ URLS = (
     '/', 'Index',
     '/account_rse_usage', 'AccountRSEUsage',
     '/account_usage', 'AccountUsage',
+    '/account', 'Account',
     '/auth', 'Auth',
     '/accounting', 'Accounting',
     '/bad_replicas', 'BadReplicas',
@@ -39,6 +40,7 @@ URLS = (
     '/heartbeats', 'Heartbeats',
     '/infrastructure', 'Infrastructure',
     '/lifetime_exception', 'LifetimeException',
+    '/list_accounts', 'ListAccounts',
     '/list_rules', 'ListRulesRedirect',
     '/r2d2/approve', 'ApproveRules',
     '/r2d2/request', 'RequestRule',
@@ -54,9 +56,16 @@ URLS = (
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
-    '/subscriptions_editor', 'SubscriptionsEditor',
-
+    '/subscriptions_editor', 'SubscriptionsEditor'
 )
+
+
+class Account(object):
+    """ Account info page """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.account())
 
 
 class AccountUsage(object):
@@ -181,6 +190,14 @@ class LifetimeException():
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.lifetime_exception())
+
+
+class ListAccounts(object):
+    """ Account list """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.accounts())
 
 
 class ListRules(object):
