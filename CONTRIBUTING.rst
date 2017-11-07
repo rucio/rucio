@@ -4,7 +4,8 @@ Contributor Guide
 * Thank you for participating!
 * A contribution(pull request) requires to have one `issue <https://github.com/rucio/rucio/issues/new>`_ created.
 * The issue should contain the motivation, modification and expected results (discussions usually happen there).
-* No pull request will be merged without an associated issue.
+* No pull request will be merged without an associated issue (release notes are generated from issues).
+release notes for your Git project. Works with GitHub, Jira and YouTrack. TFS Support coming soon.
 * You should make sure to add your name (and the organisation) to `AUTHORS`_.
 
 A contribution can be either be an **patch**, **feature**, or **hotfix**:
@@ -21,7 +22,7 @@ Thus, on release day of a feature release both master and next are the same,
 afterwards they diverge until the next feature release.
 Pull requests for **features** are only made against the **next** branch.
 Pull requests for **patches** are made against the **next** and **master** branch.
-simultaneously, as these bugfixes need to be represented in both branches. Thus two
+Simultaneously, as these bugfixes need to be represented in both branches. Thus two
 pull requests are needed for patches, and the helper scripts do it
 automatically for you.
 
