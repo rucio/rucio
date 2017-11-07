@@ -4,9 +4,8 @@ Rucio: Client Lite Package
 Rucio is a project that provides services and associated libraries for allowing scientific
 collaborations to manage large volumes of data spread across facilities at
 multiple institutions and organisations. Rucio has been developed by
-`the ATLAS experiment <https://atlas.cern/>`_.
-
-Rucio offers advanced features, is highly scalable and modular. It is a data management
+`the ATLAS experiment <https://atlas.cern/>`_. It offers advanced features, is
+highly scalable and modular. Rucio is a data management
 solution that could cover the needs of different communities in the scientific
 domain (e.g., HEP, astronomy, biology).
 
