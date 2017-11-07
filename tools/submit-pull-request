@@ -28,9 +28,11 @@ root_git_dir = commands.getstatusoutput('git rev-parse --show-toplevel')[1]
 print 'Checking if current branch is a patch/feature/hotfix branch ...',
 current_branch = commands.getstatusoutput('git rev-parse --abbrev-ref HEAD')[1]
 commit_msg = current_branch
-for line in commands.getstatusoutput('git show')[1].splitlines():
-    if line.strip().startswith('GH-'):
-        commit_msg = line.strip()
+for line in commands.getstatusoutput('git log -1')[1].splitlines():
+    if line.strip().startswith('Author') or line.strip().startswith('Date') or line.strip() == '':
+        continue
+    commit_msg = line.strip()
+    break
 if current_branch == 'master' or current_branch == 'next' or current_branch == 'hotfix':
     print 'ERROR'
     print 'You are currently on branch \'%s\'. Please change to a feature/patch/hotfix branch.' % current_branch
@@ -65,21 +67,21 @@ else:
 # Create the Pull-requests
 if current_branch.startswith('hotfix'):
     print 'Submitting merge request against hotfix ...',
-    if submit_pull_request('hotfix', commit_msg, label, ticket_nr):
+    if submit_pull_request('hotfix', commit_msg, label):
         print 'OK'
     else:
         print 'ERROR'
 
 if current_branch.startswith('patch') or current_branch.startswith('hotfix'):
     print 'Submitting merge request against master ...',
-    if submit_pull_request('master', commit_msg, label, ticket_nr):
+    if submit_pull_request('master', commit_msg, label):
         print 'OK'
     else:
         print 'ERROR'
 
 # Submit against NEXT
 print 'Submitting merge request against next ...',
-if submit_pull_request('next', commit_msg, label, ticket_nr):
+if submit_pull_request('next', commit_msg, label):
     print 'OK'
 else:
     print 'ERROR'
