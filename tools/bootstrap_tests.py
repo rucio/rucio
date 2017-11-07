@@ -50,6 +50,7 @@ if __name__ == '__main__':
                                 ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=barisits/CN=692443/CN=Martin Barisits', 'x509', 'martin.barisits@cern.ch'),
                                 ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=tbeerman/CN=722011/CN=Thomas Beermann', 'x509', 'thomas.beermann@cern.ch'),
                                 ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=ruciobuildbot/CN=692443/CN=Robot: Rucio build bot', 'x509', 'rucio.build.bot@cern.ch'),
+                                ('/CN=docker client', 'x509', 'dummy@cern.ch'),
                                 ('mlassnig@CERN.CH', 'GSS', 'mario.lassnig@cern.ch')]
 
     for i in additional_test_accounts:

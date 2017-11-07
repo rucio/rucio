@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cp /opt/rucio/etc/docker/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
+cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
 
 httpd -k start
 
