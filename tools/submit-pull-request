@@ -12,25 +12,52 @@
 
 import commands
 import sys
+import requests
+import json
+
+requests.packages.urllib3.disable_warnings()
 
 
-def submit_pull_request(branch, message, label):
-    op = commands.getstatusoutput('hub pull-request -m "%s" -b %s -l %s' % (message, branch, label))
-    op = (0, 0)
-    if op[0] == 0:
+def submit_pull_request(user, current_branch, target_branch, message, label):
+    data = {'title': message,
+            'head': '%s:%s' % (user, current_branch),
+            'base': target_branch}
+
+    r = requests.post(url='https://api.github.com/user/repos/%s/rucio/pulls' % user,
+                      params={'access_token': github_token},
+                      data=data)
+    if r.status_code == 200:
         return True
     return False
 
 
 root_git_dir = commands.getstatusoutput('git rev-parse --show-toplevel')[1]
 
+# Load OAUTH token
+print 'Loading github OAUTH token ...',
+try:
+    with open(root_git_dir + '/.githubtoken', 'r') as f:
+        github_token = f.readline().strip()
+        print 'OK'
+except:
+    print 'ERROR'
+    print 'No github token file found at %s' % root_git_dir + '/.githubtoken'
+    sys.exit(-1)
+
+# Get the current GitHub user
+r = requests.get(url='https://api.github.com/user',
+                 params={'access_token': github_token})
+user = json.loads(r.text)['login']
+
 # Check if current branch is not master or next
 print 'Checking if current branch is a patch/feature/hotfix branch ...',
 current_branch = commands.getstatusoutput('git rev-parse --abbrev-ref HEAD')[1]
 commit_msg = current_branch
-for line in commands.getstatusoutput('git show')[1].splitlines():
-    if line.strip().startswith('GH-'):
-        commit_msg = line.strip()
+for line in commands.getstatusoutput('git log -1')[1].splitlines():
+    if line.strip().startswith('Author') or line.strip().startswith('Date') or line.strip().startswith('commit') or line.strip() == '':
+        continue
+    commit_msg = line.strip()
+    break
 if current_branch == 'master' or current_branch == 'next' or current_branch == 'hotfix':
     print 'ERROR'
     print 'You are currently on branch \'%s\'. Please change to a feature/patch/hotfix branch.' % current_branch
@@ -65,21 +92,21 @@ else:
 # Create the Pull-requests
 if current_branch.startswith('hotfix'):
     print 'Submitting merge request against hotfix ...',
-    if submit_pull_request('hotfix', commit_msg, label, ticket_nr):
+    if submit_pull_request(user, current_branch, 'hotfix', commit_msg, label):
         print 'OK'
     else:
         print 'ERROR'
 
 if current_branch.startswith('patch') or current_branch.startswith('hotfix'):
     print 'Submitting merge request against master ...',
-    if submit_pull_request('master', commit_msg, label, ticket_nr):
+    if submit_pull_request(user, current_branch, 'master', commit_msg, label):
         print 'OK'
     else:
         print 'ERROR'
 
 # Submit against NEXT
 print 'Submitting merge request against next ...',
-if submit_pull_request('next', commit_msg, label, ticket_nr):
+if submit_pull_request(user, current_branch, 'next', commit_msg, label):
     print 'OK'
 else:
     print 'ERROR'
