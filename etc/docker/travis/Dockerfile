@@ -43,7 +43,6 @@ RUN pip install cx_Oracle
 
 RUN ln -s /opt/rucio/lib/rucio /usr/lib/python2.7/site-packages/rucio
 
-ADD etc/docker/travis/rucio_oracle.cfg etc/rucio.cfg
 RUN cp etc/alembic.ini.template etc/alembic.ini
 ADD etc/docker/travis/aliases-py27.conf etc/web/
 
