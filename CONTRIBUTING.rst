@@ -5,7 +5,6 @@ Contributor Guide
 * A contribution(pull request) requires to have one `issue <https://github.com/rucio/rucio/issues/new>`_ created.
 * The issue should contain the motivation, modification and expected results (discussions usually happen there).
 * No pull request will be merged without an associated issue (release notes are generated from issues).
-release notes for your Git project. Works with GitHub, Jira and YouTrack. TFS Support coming soon.
 * You should make sure to add your name (and the organisation) to `AUTHORS`_.
 
 A contribution can be either be an **patch**, **feature**, or **hotfix**:
