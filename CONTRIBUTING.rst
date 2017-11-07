@@ -1,53 +1,69 @@
 Contributor Guide
 =================
 
-When an developer does a Rucio contribution, he/she should make sure to add his/her name
-(and the possible organisation) to `AUTHORS`_.
+* Thank you for participating!
+* A contribution(pull request) requires to have one `issue <https://github.com/rucio/rucio/issues/new>`_ created.
+* The issue should contain the motivation, modification and expected results (discussions usually happen there).
+* No pull request will be merged without an associated issue.
+* You should make sure to add your name (and the organisation) to `AUTHORS`_.
 
-  Step 1. Fork the Rucio github repository `https://github.com/rucio/rucio/ <https://github.com/rucio/rucio/>`_ and configure it::
+A contribution can be either be an **patch**, **feature**, or **hotfix**:
+ * **Patch** include bugfixes and minor changes to the code and goes in Patch releases (usually made on a bi-weekly schedule).
+ * **Feature** include major developments or potentially disruptive changes and goes in Feature release (made multiple times a year).
+ * **Hotfix** are specific patch happening due to the necessity of important fixes and goes in postfix release (made when needed).
 
-    $ git clone https://github.com/<YOUR_USER>/rucio/
-    $ git remote add YOUR_USER https://github.com/YOUR_USER/rucio.git
-    $ git remote add upstream https://github.com/rucio/rucio.git
+Accordingly, the `repository <https://github.com/rucio/rucio/>`_  consists of three different branches:
+ * the **master** branch includes the patch/minor development of the current major version.
+ * the **next** branch includes the development for the next major version.
+ * the **hotfix** branch includes the patch for postfix releases.
 
-  Step 2. Create an issue on `https://github.com/rucio/rucio/issues/new <https://github.com/rucio/rucio/issues/new>`_ with the mandatory tag to know the contribution types: bug, New Feature, Improvement and
-  the millestone: X.Y.Z, X.Y.Z-clients, X.Y.Z-webui.
+Thus, on release day of a feature release both master and next are the same,
+afterwards they diverge until the next feature release.
+Pull requests for **features** are only made against the **next** branch.
+Pull requests for **patches** are made against the **next** and **master** branch.
+simultaneously, as these bugfixes need to be represented in both branches. Thus two
+pull requests are needed for patches, and the helper scripts do it
+automatically for you.
 
-  Step 3. Create a local branch. For this, there are utility scripts::
+Setting up the repository
+=========================
 
-    $ ./tools/create-patch-branch <issue number> 'new patch'
-    $ ./tools/create-feature-branch <issue number> 'new patch'
+**Step 1**: Fork the `repository <https://github.com/rucio/rucio/>`_ on Github
 
-  Step 4. Commit your change to your forked repository. The commit message should
-  include the touched components and the issue number, e.g.,::
+**Step 2**: Clone the repository to your development machine and configure it::
 
-    $ git commit -m "clients: Fix #1"
-    # push the changes to your remote
-    $ git push YOUR_USER <local branch>
+  $ git clone https://github.com/<YOUR_USER>/rucio/
+  $ git remote add YOUR_USER https://github.com/YOUR_USER/rucio.git
+  $ git remote add upstream https://github.com/rucio/rucio.git
 
-   Valid components are: Accounting & Dumps, Atropos / Lifetime Model, Auditor / Consistency checks, Automatix / Functional test, Data injector, BB8 / Data Rebalancing, C3PO / Data Pre-Placement, Conveyor / Transfers, Core / Rucio internals, Documentation, Hermes / Messaging, Infrastructure, Judge / Rules, Kronos / Traces, Popularity, last access time support, Monitoring & Logging, Necromancer / Recovery, Probes & Alarms, Protocols & RSE Manager, Python clients / CLIs, Reaper / Deletion, Release management & deployment, Rucio WebUI, Testing & Code quality, Transmogrifier / Subscriptions, Undertaker / Expired datasets deletion
+Contributing
+============
 
+**Step 1**: Create an `issue <https://github.com/rucio/rucio/issues/new>`_ with the description
+of the contribution (motivation, modification and expected results) with the
+label **Patch**, **Feature** or **Hotfix** and a milestone. Every issue will
+get a **unique issue number**.
 
-  Step 5. Create a pull request::
+**Step 2**: Create a local branch that corresponds to the issue. There are utility scripts to help you with this::
 
-    # For feature
-    $ git pull-request -m "clients: Fix #1"  -b next  https://github.com/rucio/rucio/issues/<number>
-    # For patch
-    $ git pull-request -m "clients: Fix #1"  -b master https://github.com/rucio/rucio/issues/<number>
-    $ git pull-request -m "clients: Fix #1"  -b next  https://github.com/rucio/rucio/issues/<number>
-    # For hotfix
-    $ git pull-request -m "clients: Fix #1"  -b master https://github.com/rucio/rucio/issues/<number>
-    $ git pull-request -m "clients: Fix #1"  -b next  https://github.com/rucio/rucio/issues/<number>
-    $ git pull-request -m "clients: Fix #1"  -b hotfix  https://github.com/rucio/rucio/issues/<number>
+  $ ./tools/create-patch-branch <unique issue number> '<component> #<issue number>: <short_change_message>'
+  $ ./tools/create-feature-branch <unique issue number> '<component> #<issue number>: <short_change_message>'
 
-    or use the script:
+**Step 3**: Commit your change. The format of the commit message must be::
 
-    $ tools/submit-pull-request
+<component> #<issue number>: <change_message>
 
-    To iterate on the requests: commit and push.
+Valid component names are listed in the `label list <https://github.com/rucio/rucio/labels>`_
 
-  Once pull requests are merged, the associate issue will be closed automatically. Locally, you can then delete remote and local branches::
+**Step 4**: Push the commit to your forked repository and create the pull request(s). There is a helper script to assist you::
 
-    $ git push -d <remote_name> <branch_name>
-    $ git branch -d <branch_name>
+  $ ./tools/submit-pull-request
 
+**Step 5**: Watch the pull request for comments
+
+***********
+Code sanity
+***********
+
+- We use nosetests, flake8, and pylint to sanitize our code. Please do the same before submitting a pull request.
+- Every submitted pull request will automatically be run through automated testing with Travis.
