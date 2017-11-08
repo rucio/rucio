@@ -35,6 +35,13 @@ Setting up the repository
   $ git clone https://github.com/<YOUR_USER>/rucio/
   $ git remote add YOUR_USER https://github.com/YOUR_USER/rucio.git
   $ git remote add upstream https://github.com/rucio/rucio.git
+  $ git branch --track next
+
+We can either establishing a virtualenv_. to run rucio within. A docker image is also
+doable (cf. developing notes)
+
+.. _virtualenv: http://www.virtualenv.org/
+
 
 Contributing
 ============
