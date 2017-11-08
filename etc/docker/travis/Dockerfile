@@ -1,4 +1,4 @@
-FROM gitlab-registry.cern.ch/rucio01/rucio/cc7_systemd
+FROM rucio/rucio-systemd-cc7
 
 RUN yum -y update
 RUN yum clean all
