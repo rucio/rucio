@@ -11,6 +11,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 #
 # Client class for callers of the Rucio system
 
@@ -20,7 +21,7 @@ import sys
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter
-from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response
+from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
 from rucio import version
 
 from logging import getLogger, StreamHandler, ERROR
@@ -115,8 +116,8 @@ class BaseClient(object):
         if auth_type is None:
             LOG.debug('no auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
             if 'RUCIO_AUTH_TYPE' in environ:
-                if environ['RUCIO_AUTH_TYPE'] not in ('userpass', 'x509', 'x509_proxy', 'gss'):
-                    raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss vs. ' + environ['RUCIO_AUTH_TYPE'])
+                if environ['RUCIO_AUTH_TYPE'] not in ('userpass', 'x509', 'x509_proxy', 'gss', 'ssh'):
+                    raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, vs. ' + environ['RUCIO_AUTH_TYPE'])
                 self.auth_type = environ['RUCIO_AUTH_TYPE']
             else:
                 try:
@@ -136,6 +137,8 @@ class BaseClient(object):
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
                 elif self.auth_type == 'x509_proxy':
                     self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
+                elif self.auth_type == 'ssh':
+                    self.creds['ssh_private_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'ssh_private_key'))))
             except (NoOptionError, NoSectionError) as error:
                 if error.args[0] != 'client_key':
                     raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
@@ -358,6 +361,86 @@ class BaseClient(object):
         LOG.debug('got new token \'%s\'' % self.auth_token)
         return True
 
+    def __get_token_ssh(self):
+        """
+        Sends a request to get an auth token from the server and stores it as a class attribute. Uses SSH key exchange authentication.
+
+        :returns: True if the token was successfully received. False otherwise.
+        """
+
+        headers = {'X-Rucio-Account': self.account}
+
+        private_key_path = self.creds['ssh_private_key']
+        if not path.exists(private_key_path):
+            LOG.error('given private key (%s) doesn\'t exist' % private_key_path)
+            return False
+        if private_key_path is not None and not path.exists(private_key_path):
+            LOG.error('given private key (%s) doesn\'t exist' % private_key_path)
+            return False
+
+        url = build_url(self.auth_host, path='auth/ssh_challenge_token')
+
+        result = None
+        for retry in range(self.AUTH_RETRIES + 1):
+            try:
+                result = self.session.get(url, headers=headers, verify=self.ca_cert)
+                break
+            except ConnectionError as error:
+                if 'alert certificate expired' in str(error):
+                    raise CannotAuthenticate(str(error))
+                LOG.warning('ConnectionError: ' + str(error))
+                self.ca_cert = False
+                if retry > self.request_retries:
+                    raise
+
+        if not result:
+            LOG.error('cannot get ssh_challenge_token')
+            return False
+
+        if result.status_code != codes.ok:   # pylint: disable-msg=E1101
+            exc_cls, exc_msg = self._get_exception(headers=result.headers,
+                                                   status_code=result.status_code,
+                                                   data=result.content)
+            raise exc_cls(exc_msg)
+
+        self.ssh_challenge_token = result.headers['x-rucio-ssh-challenge-token']
+        LOG.debug('got new ssh challenge token \'%s\'' % self.ssh_challenge_token)
+
+        # sign the challenge token with the private key
+        with open(private_key_path, 'r') as fd_private_key_path:
+            private_key = fd_private_key_path.read()
+            signature = ssh_sign(private_key, self.ssh_challenge_token)
+            headers['X-Rucio-SSH-Signature'] = signature
+
+        url = build_url(self.auth_host, path='auth/ssh')
+
+        result = None
+        for retry in range(self.AUTH_RETRIES + 1):
+            try:
+                result = self.session.get(url, headers=headers, verify=self.ca_cert)
+                break
+            except ConnectionError as error:
+                if 'alert certificate expired' in str(error):
+                    raise CannotAuthenticate(str(error))
+                LOG.warning('ConnectionError: ' + str(error))
+                self.ca_cert = False
+                if retry > self.request_retries:
+                    raise
+
+        if not result:
+            LOG.error('cannot get auth_token')
+            return False
+
+        if result.status_code != codes.ok:   # pylint: disable-msg=E1101
+            exc_cls, exc_msg = self._get_exception(headers=result.headers,
+                                                   status_code=result.status_code,
+                                                   data=result.content)
+            raise exc_cls(exc_msg)
+
+        self.auth_token = result.headers['x-rucio-auth-token']
+        LOG.debug('got new token \'%s\'' % self.auth_token)
+        return True
+
     def __get_token_gss(self):
         """
         Sends a request to get an auth token from the server and stores it as a class attribute. Uses Kerberos authentication.
@@ -410,6 +493,9 @@ class BaseClient(object):
             elif self.auth_type == 'gss':
                 if not self.__get_token_gss():
                     raise CannotAuthenticate('kerberos authentication failed')
+            elif self.auth_type == 'ssh':
+                if not self.__get_token_ssh():
+                    raise CannotAuthenticate('ssh authentication failed')
             else:
                 raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)
 
@@ -483,6 +569,9 @@ class BaseClient(object):
         elif self.auth_type == 'x509_proxy':
             if self.creds['client_proxy'] is None:
                 raise NoAuthInformation('The client proxy has to be defined')
+        elif self.auth_type == 'ssh':
+            if self.creds['ssh_private_key'] is None:
+                raise NoAuthInformation('The SSH private key has to be defined')
         elif self.auth_type == 'gss':
             pass
         else:
