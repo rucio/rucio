@@ -16,6 +16,7 @@ RUN mkdir /opt/rucio
 
 COPY .pep8 /opt/rucio/
 COPY pylintrc /opt/rucio/
+COPY changed_files.txt /opt/rucio/
 
 RUN mkdir /opt/rucio/bin
 COPY bin /opt/rucio/bin
