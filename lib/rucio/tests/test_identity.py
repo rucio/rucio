@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 
 """
@@ -52,3 +52,14 @@ class TestIdentity(object):
         del_account_identity('ddmlab_%s' % self.account, IdentityType.GSS, self.account)
 
         del_identity('ddmlab_%s' % self.account, IdentityType.USERPASS)
+
+    def test_ssh(self):
+        """ IDENTITY (CORE): Test adding and removing SSH public key authentication """
+
+        add_identity(self.account, IdentityType.SSH, email='ph-adp-ddm-lab@cern.ch')
+        add_account_identity('my_public_key', IdentityType.SSH, self.account, email='ph-adp-ddm-lab@cern.ch')
+
+        list_identities()
+
+        del_account_identity('my_public_key', IdentityType.SSH, self.account)
+        del_identity(self.account, IdentityType.SSH)

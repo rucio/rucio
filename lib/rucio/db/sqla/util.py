@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from datetime import datetime
@@ -107,6 +107,12 @@ def create_root_account():
     x509_email = 'ph-adp-ddm-lab@cern.ch'
     gss_id = 'ddmlab@CERN.CH'
     gss_email = 'ph-adp-ddm-lab@cern.ch'
+    ssh_id = 'ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/'\
+             '0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydn'\
+             'Vy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2'\
+             'iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5'\
+             'Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab'
+    ssh_email = 'ph-adp-ddm-lab@cern.ch'
 
     try:
         up_id = config_get('bootstrap', 'userpass_identity')
@@ -116,6 +122,8 @@ def create_root_account():
         x509_email = config_get('bootstrap', 'x509_email')
         gss_id = config_get('bootstrap', 'gss_identity')
         gss_email = config_get('bootstrap', 'gss_email')
+        gss_id = config_get('bootstrap', 'ssh_identity')
+        gss_email = config_get('bootstrap', 'ssh_email')
     except:
         pass
         # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
@@ -135,13 +143,17 @@ def create_root_account():
     identity3 = models.Identity(identity=gss_id, identity_type=IdentityType.GSS, email=gss_email)
     iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, identity_type=identity3.identity_type, account=account.account, is_default=True)
 
+    # SSH authentication
+    identity4 = models.Identity(identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email)
+    iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
+
     # Account counters
     create_counters_for_new_account(account='root', session=s)
 
     # Apply
-    s.add_all([account, identity1, identity2, identity3])
+    s.add_all([account, identity1, identity2, identity3, identity4])
     s.commit()
-    s.add_all([iaa1, iaa2, iaa3])
+    s.add_all([iaa1, iaa2, iaa3, iaa4])
     s.commit()
 
 
