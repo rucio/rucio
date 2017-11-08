@@ -24,22 +24,21 @@ if [ $? -ne 0 ]; then
 fi
 
 
-# pylint tests will be added later
-#echo '==============================='
-#echo 'Running pylint                 '
-#echo '==============================='
+echo '==============================='
+echo 'Running pylint                 '
+echo '==============================='
 
-#pylint lib/rucio > pylint.out
+pylint `cat changed_files.txt` > pylint.out
 
-#grep '^E:' pylint.out
+grep '^E:' pylint.out
 
-#if [ $? -ne 1 ]; then
-#    echo 'PYLINT FAILED'
-#    tail -n 3 pylint.out
-#    exit 1
-#fi
+if [ $? -ne 1 ]; then
+    echo 'PYLINT FAILED'
+    tail -n 3 pylint.out
+    exit 1
+fi
 
-#echo 'PYLINT SUCCEEDED'
-#tail -n 3 pylint.out
+echo 'PYLINT SUCCEEDED'
+tail -n 3 pylint.out
 
 exit 0
