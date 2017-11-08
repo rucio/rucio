@@ -58,7 +58,7 @@ get a **unique issue number**.
 
 **Step 3**: Commit your change. The format of the commit message must be::
 
-<component> #<issue number>: <change_message>
+<component>: <change_message> Fix #<issue number>
 
 Valid component names are listed in the `label list <https://github.com/rucio/rucio/labels>`_
 
