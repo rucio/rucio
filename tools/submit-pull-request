@@ -20,13 +20,14 @@ requests.packages.urllib3.disable_warnings()
 
 def submit_pull_request(user, current_branch, target_branch, message, label):
     data = {'title': message,
-            'head': '%s:%s' % (user, current_branch),
+            'body': message,
+            'head': str('%s:%s' % (user, current_branch)),
             'base': target_branch}
 
-    r = requests.post(url='https://api.github.com/user/repos/%s/rucio/pulls' % user,
-                      params={'access_token': github_token},
-                      data=data)
-    if r.status_code == 200:
+    r = requests.post(url='https://api.github.com/repos/rucio/rucio/pulls',
+                      headers={'Authorization': 'token %s' % github_token},
+                      data=json.dumps(data))
+    if r.status_code == 201:
         return True
     return False
 
@@ -46,7 +47,7 @@ except:
 
 # Get the current GitHub user
 r = requests.get(url='https://api.github.com/user',
-                 params={'access_token': github_token})
+                 headers={'Authorization': 'token %s' % github_token})
 user = json.loads(r.text)['login']
 
 # Check if current branch is not master or next
