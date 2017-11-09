@@ -986,6 +986,8 @@ class Request(BASE, ModelBase, Versioned):
     transferred_at = Column(DateTime)
     estimated_at = Column(DateTime)
     submitter_id = Column(Integer)
+    estimated_started_at = Column(DateTime)
+    estimated_transferred_at = Column(DateTime)
     account = Column(String(25))
     requested_at = Column(DateTime)
     priority = Column(Integer)
