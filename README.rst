@@ -1,5 +1,7 @@
-Rucio: Data Management for science in the Big Data era
-======================================================
+Rucio
+======
+
+Data Management for science in the Big Data era.
 
 Rucio is a project that provides services and associated libraries for allowing scientific
 collaborations to manage large volumes of data spread across facilities at
@@ -20,7 +22,7 @@ Developers
 ----------
 
 For information on how to contribute to Rucio, please refer and follow our
-`Guidelines <http://rucio.readthedocs.io/contributing.html>`_ or CONTRIBUTING_.
+Guidelines: CONTRIBUTING_.
 
 Operators
 ----------
