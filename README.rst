@@ -24,7 +24,6 @@ Developers
 For information on how to contribute to Rucio, please refer and follow our
 Guidelines: CONTRIBUTING_.
 
-
 Operators
 ----------
 
