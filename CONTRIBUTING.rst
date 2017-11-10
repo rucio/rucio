@@ -74,9 +74,8 @@ Human Review
 Anyone is welcome to review merge requests and make comments!
 
 All collaborators, thus the Rucio core development team can approve, request
-changes or close pull requests. When a pull request receives an approved review,
-it is merged by the librarian, the component maintainer or a collaborator (in order of
-availability).
+changes or close pull requests. Merging of approved pull requests is done by the Rucio
+development lead.
 
 
 Coding Style and testing
