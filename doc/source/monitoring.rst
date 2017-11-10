@@ -7,12 +7,10 @@ There are mainly three different things:
  * File/Dataset Access monitoring using the traces
 
 
-
 Internal Monitoring:
 --------------------
 
 This is to monitor the internals of Rucio server and
-
 daemons, e.g., submission rate of the conveyor, state of conveyor queues, reaper
 deletion rate, server response times, server active session, etc. We use Graphite[1]
 for this. It’s easy to setup and then you just have to point your Rucio instance to the
@@ -23,6 +21,7 @@ The different Rucio components then will send metrics using those “record_*”
 
 Transfer monitoring:
 -------------------_
+
 If a transfer is submitted, queued, waiting, done or failed  messages are sent to ActiveMQ via Hermes and are also archived in the messages_history table. Same is true for deletions.
 In the ATLAS, case we have a dedicated monitoring infrastructure,
 that reads the messages from ActiveMQ, aggregates them and then writes the aggregated data
