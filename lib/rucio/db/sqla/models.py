@@ -266,7 +266,7 @@ class AccountAttrAssociation(BASE, ModelBase):
 class Identity(BASE, SoftModelBase):
     """Represents an identity"""
     __tablename__ = 'identities'
-    identity = Column(String(255))
+    identity = Column(String(2048))
     identity_type = Column(IdentityType.db_type(name='IDENTITIES_TYPE_CHK'))
     username = Column(String(255))
     password = Column(String(255))
@@ -280,7 +280,7 @@ class Identity(BASE, SoftModelBase):
 class IdentityAccountAssociation(BASE, ModelBase):
     """Represents a map account-identity"""
     __tablename__ = 'account_map'
-    identity = Column(String(255))
+    identity = Column(String(2048))
     identity_type = Column(IdentityType.db_type(name='ACCOUNT_MAP_ID_TYPE_CHK'))
     account = Column(String(25))
     is_default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
@@ -986,6 +986,8 @@ class Request(BASE, ModelBase, Versioned):
     transferred_at = Column(DateTime)
     estimated_at = Column(DateTime)
     submitter_id = Column(Integer)
+    estimated_started_at = Column(DateTime)
+    estimated_transferred_at = Column(DateTime)
     account = Column(String(25))
     requested_at = Column(DateTime)
     priority = Column(Integer)
@@ -1076,7 +1078,7 @@ class Token(BASE, ModelBase):
     __tablename__ = 'tokens'
     token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(String(25))
-    identity = Column(String(255))
+    identity = Column(String(2048))
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),  # not supported for primary key constraint mysql_length=255

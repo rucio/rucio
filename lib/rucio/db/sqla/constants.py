@@ -5,8 +5,8 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2016
 # - Wen Guan, <wen.guan>, 2016
@@ -49,6 +49,7 @@ class DIDAvailability(DeclEnum):
     LOST = 'L', 'LOST'
     DELETED = 'D', 'DELETED'
     AVAILABLE = 'A', 'AVAILABLE'
+    INCOMPLETE = 'I', 'INCOMPLETE'
 
 
 class DIDReEvaluation(DeclEnum):
@@ -85,6 +86,7 @@ class IdentityType(DeclEnum):
     X509 = 'X509', 'X509'
     GSS = 'GSS', 'GSS'
     USERPASS = 'USERPASS', 'USERPASS'
+    SSH = 'SSH', 'SSH'
 
 
 class KeyType(DeclEnum):

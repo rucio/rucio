@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2013
 
 from rucio.api import permission
@@ -77,6 +77,45 @@ def get_auth_token_x509(account, dn, appid, ip=None):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (dn, account))
 
     return authentication.get_auth_token_x509(account, dn, appid, ip)
+
+
+def get_auth_token_ssh(account, signature, appid, ip=None):
+    """
+    Authenticate a Rucio account temporarily via SSH key exchange.
+
+    The token lifetime is 1 hour.
+
+    :param account: Account identifier as a string.
+    :param signature: Response to challenge token signed with SSH private key as a base64 encoded string.
+    :param appid: The application identifier as a string.
+    :param ip: IP address of the client as a string.
+    :returns: Authentication token as a variable-length string.
+    """
+
+    kwargs = {'account': account, 'signature': signature}
+    if not permission.has_permission(issuer=account, action='get_auth_token_ssh', kwargs=kwargs):
+        raise exception.AccessDenied('User with provided signature can not log to account %s' % account)
+
+    return authentication.get_auth_token_ssh(account, signature, appid, ip)
+
+
+def get_ssh_challenge_token(account, appid, ip=None):
+    """
+    Get a challenge token for subsequent SSH public key authentication.
+
+    The challenge token lifetime is 5 seconds.
+
+    :param account: Account identifier as a string.
+    :param appid: The application identifier as a string.
+    :param ip: IP address of the client as a string.
+    :returns: Challenge token as a variable-length string.
+    """
+
+    kwargs = {'account': account}
+    if not permission.has_permission(issuer=account, action='get_ssh_challenge_token', kwargs=kwargs):
+        raise exception.AccessDenied('User can not get challenge token for account %s' % account)
+
+    return authentication.get_ssh_challenge_token(account, appid, ip)
 
 
 def validate_auth_token(token):
