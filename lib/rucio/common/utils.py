@@ -10,10 +10,12 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 
-
+import base64
 import datetime
 import errno
+import hashlib
 import json
 import os
 import pwd
@@ -22,13 +24,15 @@ import socket
 import subprocess
 import zlib
 
-
 from getpass import getuser
 from itertools import izip_longest
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from urllib import urlencode, quote
 from uuid import uuid4 as uuid
+from StringIO import StringIO
+
+from paramiko import RSAKey
 
 from rucio.common.config import config_get
 
@@ -126,6 +130,23 @@ def adler32(file):
         adler = adler + 2 ** 32
 
     return str('%08x' % adler)
+
+
+def md5(file):
+    """
+    Runs the MD5 algorithm (RFC-1321) on the binary content of the file named file and returns the hexadecimal digest
+
+    :param string: file name
+    :returns: string of 32 hexadecimal digits
+    """
+    hash_md5 = hashlib.md5()
+    try:
+        with open(file, "rb") as f:
+            map(hash_md5.update, iter(lambda: f.read(4096), b""))
+    except:
+        raise Exception('FATAL - could not get MD5 checksum of file %s' % file)
+
+    return hash_md5.hexdigest()
 
 
 def str_to_date(string):
@@ -542,3 +563,20 @@ def detect_client_location():
     return {'ip': ip,
             'fqdn': socket.getfqdn(),
             'site': site}
+
+
+def ssh_sign(private_key, message):
+    """
+    Sign a string message using the private key.
+
+    :param private_key: The SSH RSA private key as a string.
+    :param message: The message to sign as a string.
+    :return: Base64 encoded signature as a string.
+    """
+
+    sio_private_key = StringIO(private_key)
+    priv_k = RSAKey.from_private_key(sio_private_key)
+    sio_private_key.close()
+    signature_stream = priv_k.sign_ssh_data(message)
+    signature_stream.rewind()
+    return base64.b64encode(signature_stream.get_remainder())
