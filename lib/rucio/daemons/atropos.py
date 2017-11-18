@@ -55,6 +55,8 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     now = datetime.datetime.now()
     hb = heartbeat.live(executable, hostname, pid, hb_thread)
+    time.sleep(10)
+    hb = heartbeat.live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
     logging.debug(prepend_str + 'Starting worker')
     summary = {}
