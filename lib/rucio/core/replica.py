@@ -8,12 +8,13 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-  - Martin Barisits, <martin.barisits@cern.ch>, 2014
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015, 2017
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
-  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2016
-  - Wen Guan, <wen.guan@cern.ch>, 2015
+  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+  - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
+  - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
+  - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2017
+  - David Cameron <d.g.cameron@gmail.com>, 2014
+  - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2016
+  - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 """
 
 from collections import defaultdict
@@ -1083,12 +1084,15 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     replica_rse = get_rse(rse=rse, session=session)
 
     if not (replica_rse.availability & 1) and not ignore_availability:
-        raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for deleting' % rse)
+        raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
+                                                     'for deleting' % rse)
 
     replica_condition, parent_condition, did_condition = [], [], []
     clt_replica_condition, dst_replica_condition = [], []
+    incomplete_condition, messages = [], []
     for file in files:
-        replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))
+        replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'],
+                                      models.RSEFileAssociation.name == file['name']))
 
         dst_replica_condition.\
             append(and_(models.DataIdentifierAssociation.child_scope == file['scope'],
@@ -1160,11 +1164,38 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
 
         if child_did_condition:
+
+            # get the list of modified parent scope, name
+            for chunk in chunks(child_did_condition, 10):
+                modifieds = session.query(models.DataIdentifierAssociation.scope,
+                                          models.DataIdentifierAssociation.name,
+                                          models.DataIdentifierAssociation.did_type).\
+                            distinct().\
+                            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)",
+                                      'oracle').\
+                            filter(or_(*chunk)).\
+                            filter(exists(select([1]).
+                                          prefix_with("/*+ INDEX(DIDS DIDS_PK) */",
+                                                      dialect='oracle')).
+                                   where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
+                                              models.DataIdentifierAssociation.name == models.DataIdentifier.name,
+                                              models.DataIdentifier.complete != false())))
+                for parent_scope, parent_name, parent_did_type in modifieds:
+                    message = {'scope': parent_scope,
+                               'name': parent_name,
+                               'did_type': parent_did_type,
+                               'event_type': 'INCOMPLETE'}
+                    if message not in messages:
+                        messages.append(message)
+                        incomplete_condition.\
+                            append(and_(models.DataIdentifier.scope == parent_scope,
+                                        models.DataIdentifier.name == parent_name,
+                                        models.DataIdentifier.did_type == parent_did_type))
+
             for chunk in chunks(child_did_condition, 10):
                 rowcount = session.query(models.DataIdentifierAssociation).\
                     filter(or_(*chunk)).\
                     delete(synchronize_session=False)
-            # TODO: update parent counters and archive content
 
         parent_condition = tmp_parent_condition
 
@@ -1173,8 +1204,16 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
             filter(or_(*chunk)).\
             delete(synchronize_session=False)
 
+    # Update incomplete state
+    for chunk in chunks(incomplete_condition, 10):
+        rowcount = session.query(models.DataIdentifier).\
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+            filter(or_(*chunk)).\
+            filter(models.DataIdentifier.complete != false()).\
+            update({'complete': False}, synchronize_session=False)
+
     # delete empty dids
-    messages, deleted_dids = [], []
+    deleted_dids = []
     for chunk in chunks(did_condition, 100):
         query = session.query(models.DataIdentifier.scope,
                               models.DataIdentifier.name,

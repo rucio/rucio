@@ -49,7 +49,6 @@ class DIDAvailability(DeclEnum):
     LOST = 'L', 'LOST'
     DELETED = 'D', 'DELETED'
     AVAILABLE = 'A', 'AVAILABLE'
-    INCOMPLETE = 'I', 'INCOMPLETE'
 
 
 class DIDReEvaluation(DeclEnum):
