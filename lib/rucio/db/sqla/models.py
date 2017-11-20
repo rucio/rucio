@@ -1,17 +1,19 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Wen Guan, <wen.guan@cern.ch>, 2015
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
+  - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+  - Wen Guan, <wen.guan@cern.ch>, 2015
+'''
 
 """
 SQLAlchemy models for rucio data
@@ -318,7 +320,7 @@ class DataIdentifier(BASE, ModelBase):
     monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK'), server_default='0')
     hidden = Column(Boolean(name='DIDS_HIDDEN_CHK'), server_default='0')
     obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK'), server_default='0')
-    complete = Column(Boolean(name='DIDS_COMPLETE_CHK'))
+    complete = Column(Boolean(name='DIDS_COMPLETE_CHK'), server_default=None)
     is_new = Column(Boolean(name='DIDS_IS_NEW_CHK'), server_default='1')
     availability = Column(DIDAvailability.db_type(name='DIDS_AVAILABILITY_CHK'),
                           default=DIDAvailability.AVAILABLE)
