@@ -67,9 +67,8 @@ class RuleClient(BaseClient):
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def delete_replication_rule(self, rule_id, purge_replicas=None):
         """
@@ -89,9 +88,8 @@ class RuleClient(BaseClient):
 
         if r.status_code == codes.ok:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def get_replication_rule(self, rule_id):
         """
@@ -121,9 +119,8 @@ class RuleClient(BaseClient):
         r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.ok:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def reduce_replication_rule(self, rule_id, copies, exclude_expression=None):
         """
@@ -139,9 +136,26 @@ class RuleClient(BaseClient):
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.ok:
             return loads(r.text)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
+    def move_replication_rule(self, rule_id, rse_expression):
+        """
+        Move a replication rule to another RSE and, once done, delete the original one.
+
+        :param rule_id:             Rule to be moved.
+        :param rse_expression:      RSE expression of the new rule.
+        :raises:                    RuleNotFound, RuleReplaceFailed
+        """
+
+        path = self.RULE_BASEURL + '/' + rule_id + '/move'
+        url = build_url(choice(self.list_hosts), path=path)
+        data = dumps({'rule_id': rule_id, 'rse_expression': rse_expression})
+        r = self._send_request(url, type='POST', data=data)
+        if r.status_code == codes.created:
+            return loads(r.text)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def approve_replication_rule(self, rule_id):
         """
@@ -155,9 +169,8 @@ class RuleClient(BaseClient):
         r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.ok:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def deny_replication_rule(self, rule_id):
         """
@@ -171,9 +184,8 @@ class RuleClient(BaseClient):
         r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.ok:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def list_replication_rule_full_history(self, scope, name):
         """
@@ -187,9 +199,8 @@ class RuleClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
-        else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+        raise exc_cls(exc_msg)
 
     def examine_replication_rule(self, rule_id):
         """
@@ -203,6 +214,5 @@ class RuleClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
-        else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+        raise exc_cls(exc_msg)
