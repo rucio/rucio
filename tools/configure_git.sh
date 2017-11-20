@@ -7,10 +7,9 @@
 #
 # Authors:
 # Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# Martin Barisits, <martin.barisits@cern.ch>, 2017
 
-git branch --track next
-git remote add upstream https://gitlab.cern.ch/rucio01/rucio.git
-git remote set-url --push upstream xxx
+git remote add upstream https://github.com/rucio/rucio.git
 
 cp tools/pre-commit .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
