@@ -48,3 +48,4 @@ retrying==1.3.3             # general-purpose retrying library to simplify the t
 six==1.10.0                 # Python 2 and 3 compatibility utilities
 functools32==3.2.3.post2    # explicitly needed on CC7
 redis==2.10.6               # Python client for Redis key-value store
+numpy==1.13.1               # Numpy for forecasting T3C
