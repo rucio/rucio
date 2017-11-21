@@ -29,7 +29,7 @@ DEFAULT_PROTOCOL = 1
 def get_rse_info(rse, session=None):
     """ Returns all protocol related RSE attributes.
 
-        :param rse: Name of the reqeusted RSE
+        :param rse: Name of the requested RSE
         :param session: The eventual database session.
 
 
@@ -66,6 +66,15 @@ def get_rse_info(rse, session=None):
 
 
 def _get_possible_protocols(rse_settings, operation, scheme=None):
+    """ Filter the list of available protocols or provided by the supported ones.
+
+        :param rse_settings: The rse settings.
+        :param operation: The operation (write, read).
+        :param scheme: optional filter if no specific protocol is defined in
+                       rse_setting for the provided operation.
+
+        :returns: The list of possible protocols.
+    """
     operation = operation.lower()
     candidates = rse_settings['protocols']
     if type(rse_settings['domain']) is not list:
@@ -73,7 +82,8 @@ def _get_possible_protocols(rse_settings, operation, scheme=None):
 
     for d in rse_settings['domain']:
         if d not in utils.rse_supported_protocol_domains():
-            raise exception.RSEProtocolDomainNotSupported('Domain %s is not supported by Rucio.' % d)
+            raise exception.RSEProtocolDomainNotSupported('Domain %s is not supported'
+                                                          ' by Rucio.' % d)
 
     # convert scheme to list, if given as string
     if scheme and not isinstance(scheme, list):
@@ -85,13 +95,17 @@ def _get_possible_protocols(rse_settings, operation, scheme=None):
         if scheme and protocol['scheme'] not in scheme:
             tbr.append(protocol)
             continue
+
+        filtered = True
         for d in rse_settings['domain']:
-            if protocol['domains'][d][operation] == 0:
-                tbr.append(protocol)
-                break
+            if protocol['domains'][d][operation] != 0:
+                filtered = False
+        if filtered:
+            tbr.append(protocol)
 
     if len(candidates) <= len(tbr):
-        raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings))
+        raise exception.RSEProtocolNotSupported('No protocol for provided settings'
+                                                ' found : %s.' % str(rse_settings))
 
     return [c for c in candidates if c not in tbr]
 
