@@ -12,8 +12,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
-# FROM cern/cc7-base
-FROM gitlab-registry.cern.ch/rucio01/rucio/cc7_systemd
+FROM rucio/rucio-systemd-cc7
 
 ADD etc/docker/dev/ca.repo /etc/yum.repos.d/ca.repo
 
