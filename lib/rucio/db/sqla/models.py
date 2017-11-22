@@ -13,11 +13,10 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
   - Wen Guan, <wen.guan@cern.ch>, 2015
+
+SQLAlchemy models for rucio data
 '''
 
-"""
-SQLAlchemy models for rucio data
-"""
 import datetime
 import uuid
 
