@@ -220,7 +220,8 @@ class T3CModel():
         """
         Make a prediction for queue and network time for a collection of transfers
 
-        :param transfers: A list of dictionaries, each of wich at least have the keys src: The name of the source RSE for the transfer. dst: The name of the destination RSE for the transfer. act: The activity of the transfer. size: The size in bytes of the transfer.
+        :param transfers: A list of dictionaries, each of wich at least have the keys src: The name of the source RSE for the transfer.
+                          dst: The name of the destination RSE for the transfer. act: The activity of the transfer. size: The size in bytes of the transfer.
         :returns: A list of the previous dictionaries extended with two new keys ntime: Number of seconds the transfer is going to spend in in the network. qtime: Number of seconds the transfer is going to spend in FTS queue.
         """
         result = []
