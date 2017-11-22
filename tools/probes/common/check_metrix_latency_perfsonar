@@ -23,8 +23,8 @@ if __name__ == '__main__':
 
     ES = Elasticsearch([{'host': 'atlas-kibana.mwt2.org', 'port': 9200}])
 
-    BEGIN_TIME = int(time.mktime((datetime.datetime.now() - datetime.timedelta(hours=1)).timetuple())*1000)
-    END_TIME = int(time.mktime((datetime.datetime.now()).timetuple())*1000)
+    BEGIN_TIME = int(time.mktime((datetime.datetime.now() - datetime.timedelta(hours=1)).timetuple()) * 1000)
+    END_TIME = int(time.mktime((datetime.datetime.now()).timetuple()) * 1000)
 
     BODY = """
     {
