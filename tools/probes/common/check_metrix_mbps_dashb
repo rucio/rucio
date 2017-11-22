@@ -116,9 +116,9 @@ if __name__ == '__main__':
             SITE_DATA[link]['mbps']['dashb']['1w'].remove([])
 
     for link in SITE_DATA:
-        SITE_DATA[link]['mbps']['dashb']['1h'] = round(sum(SITE_DATA[link]['mbps']['dashb']['1h'])*0.0000000002778, 2)
-        SITE_DATA[link]['mbps']['dashb']['1d'] = round(sum(SITE_DATA[link]['mbps']['dashb']['1d'])*0.00000000001157, 2)
-        SITE_DATA[link]['mbps']['dashb']['1w'] = round(sum(SITE_DATA[link]['mbps']['dashb']['1w'])*0.000000000001653, 2)
+        SITE_DATA[link]['mbps']['dashb']['1h'] = round(sum(SITE_DATA[link]['mbps']['dashb']['1h']) * 0.0000000002778, 2)
+        SITE_DATA[link]['mbps']['dashb']['1d'] = round(sum(SITE_DATA[link]['mbps']['dashb']['1d']) * 0.00000000001157, 2)
+        SITE_DATA[link]['mbps']['dashb']['1w'] = round(sum(SITE_DATA[link]['mbps']['dashb']['1w']) * 0.000000000001653, 2)
 
     for link in SITE_DATA:
         if SITE_DATA[link]['mbps']['dashb']['1h'] == 0:
