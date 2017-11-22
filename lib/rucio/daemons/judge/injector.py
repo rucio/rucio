@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2017
 
 """
 Judge-Injector is a daemon to asynchronously create replication rules
@@ -27,9 +27,10 @@ from random import randint
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException, RuleNotFound, RSEBlacklisted, ReplicationRuleCreationTemporaryFailed
+from rucio.common.exception import (DatabaseException, RuleNotFound, RSEBlacklisted,
+                                    ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit)
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.rule import inject_rule, get_injected_rules
+from rucio.core.rule import inject_rule, get_injected_rules, update_rule
 from rucio.core.monitor import record_counter
 
 graceful_stop = threading.Event()
@@ -110,6 +111,12 @@ def rule_injector(once=False):
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                     except RuleNotFound, e:
                         pass
+                    except InsufficientAccountLimit, e:
+                        # A rule with InsufficientAccountLimit on injection hangs there potentially forever
+                        # It should be marked as SUSPENDED
+                        logging.info('rule_injector[%s/%s]: Marking rule %s as SUSPENDED due to InsufficientAccountLimit' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
+                        update_rule(rule_id=rule_id, options={'state': 'SUSPENDED'})
+
         except (DatabaseException, DatabaseError), e:
             if match('.*QueuePool.*', str(e.args[0])):
                 logging.warning(traceback.format_exc())
