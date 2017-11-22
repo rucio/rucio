@@ -31,8 +31,7 @@ ACTIVITIES = [
     'T0 Export',
     'T0 Tape',
     'User Subscriptions',
-    'default',
-    ]
+    'default']
 
 
 def get_link_done(hour):
@@ -44,7 +43,7 @@ def get_link_done(hour):
     for tmp_activity in ACTIVITIES:
         url1 = 'http://dashb-atlas-ddm.cern.ch/dashboard/request.py/matrix.json?activity='
         url2 = '&src_grouping=site&src_grouping=token&dst_grouping=site&dst_grouping=token&interval='
-        url = url1 + tmp_activity.replace(' ', '%20') + url2 + str(int(hour*60))
+        url = url1 + tmp_activity.replace(' ', '%20') + url2 + str(int(hour * 60))
         tmp = requests.get(url).json()
         for tmp_row in tmp['transfers']['rows']:
             res.append((tmp_row[0], tmp_row[1], tmp_row[2], tmp_row[3], tmp_row[5], tmp_activity))

@@ -35,8 +35,8 @@ def get_mbps(label, hours):
 
     """ Retrieve the data from ElasticSearch. """
 
-    begin_time = int(time.mktime((datetime.datetime.now() - datetime.timedelta(hours=hours)).timetuple())*1000)
-    end_time = int(time.mktime((datetime.datetime.now()).timetuple())*1000)
+    begin_time = int(time.mktime((datetime.datetime.now() - datetime.timedelta(hours=hours)).timetuple()) * 1000)
+    end_time = int(time.mktime((datetime.datetime.now()).timetuple()) * 1000)
 
     body = """
 {
