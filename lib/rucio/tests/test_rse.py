@@ -1195,3 +1195,45 @@ class TestRSEClient(object):
         assert_equal(self.client.set_rse_limits(rse='MOCK', name='MinFreeSpace', value=1000000L), True)
         limits = self.client.get_rse_limits(rse='MOCK')
         assert_equal(limits['MinFreeSpace'], 1000000)
+
+    def test_rsemgr_possible_protocols(self):
+        """ RSE (Manager): Test of possible protocols."""
+        rse_settings = {'availability_delete': True,
+                        'availability_read': True,
+                        'availability_write': True,
+                        'credentials': None,
+                        'delete_protocol': 1,
+                        'deterministic': True,
+                        'domain': ['lan', 'wan'],
+                        'protocols': [{'domains': {'lan': {'delete': 2, 'read': 0, 'write': 0},
+                                                   'wan': {'delete': 2, 'read': 2, 'write': 0}},
+                                       'extended_attributes': None,
+                                       'hostname': u'atlas-xrd.gridpp.rl.ac.uk',
+                                       'impl': u'rucio.rse.protocols.gfal.Default',
+                                       'port': 1094,
+                                       'prefix': u'//castor/ads.rl.ac.uk/prod/atlas/stripInput/atlasdatadisk/rucio/',
+                                       'scheme': u'root'},
+                                      {'domains': {'lan': {'delete': 0, 'read': 1, 'write': 0},
+                                                   'wan': {'delete': 0, 'read': 0, 'write': 0}},
+                                       'extended_attributes': None,
+                                       'hostname': u'catlasdlf.ads.rl.ac.uk',
+                                       'impl': u'rucio.rse.protocols.gfal.Default',
+                                       'port': 1094,
+                                       'prefix': u'//castor/ads.rl.ac.uk/prod/atlas/stripInput/atlasdatadisk/rucio/',
+                                       'scheme': u'root'},
+                                      {'domains': {'lan': {'delete': 1, 'read': 0, 'write': 1},
+                                                   'wan': {'delete': 1, 'read': 1, 'write': 1}},
+                                       'extended_attributes': {u'space_token': u'ATLASDATADISK',
+                                                               u'web_service_path': u'/srm/managerv2?SFN='},
+                                       'hostname': u'srm-atlas.gridpp.rl.ac.uk',
+                                       'impl': u'rucio.rse.protocols.gfal.Default',
+                                       'port': 8443,
+                                       'prefix': u'/castor/ads.rl.ac.uk/prod/atlas/stripInput/atlasdatadisk/rucio/',
+                                       'scheme': u'srm'}],
+                        'read_protocol': 1,
+                        'rse': u'MOCK',
+                        'rse_type': 'DISK',
+                        'staging_area': False,
+                        'volatile': False,
+                        'write_protocol': 1}
+        assert_equal(len(mgr._get_possible_protocols(rse_settings, 'read')), 3)
