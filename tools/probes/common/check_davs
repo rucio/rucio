@@ -103,7 +103,7 @@ if __name__ == "__main__":
             try:
                 link = tmp.pop()
                 print(str(index) + ': ' + str(rse) + ' ...')
-                link = 'https' + link[4:]
+                link = link.replace('davs', 'https', 1)
                 response = requests.get(link, cert=cert_location, verify=False)
                 try:
                     if 'text/html' in response.headers.get('content-type'):
