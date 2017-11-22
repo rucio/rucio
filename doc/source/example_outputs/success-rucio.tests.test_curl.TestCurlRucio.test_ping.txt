@@ -1,2 +1,0 @@
-$> curl -s  -X GET http://localhost/ping
-{"version": "0-37-g7213ca2-dev1350298880"}
