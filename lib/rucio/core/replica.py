@@ -37,7 +37,8 @@ from rucio.core.rse import get_rse, get_rse_id, get_rse_name, get_rse_attribute,
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability, BadFilesStatus
+from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
+                                     BadFilesStatus, RuleState)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME)
 from rucio.rse import rsemanager as rsemgr
@@ -1213,7 +1214,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
             update({'complete': False}, synchronize_session=False)
 
     # delete empty dids
-    deleted_dids = []
+    messages, deleted_dids, deleted_rules = [], [], []
     for chunk in chunks(did_condition, 100):
         query = session.query(models.DataIdentifier.scope,
                               models.DataIdentifier.name,
@@ -1226,8 +1227,19 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                  'payload': dumps({'scope': scope,
                                                    'name': name,
                                                    'account': 'root'})})
+            deleted_rules.append(and_(models.ReplicationRule.scope == scope,
+                                      models.ReplicationRule.name == name))
             deleted_dids.append(and_(models.DataIdentifier.scope == scope,
                                      models.DataIdentifier.name == name))
+
+    # Remove rules in Waiting for approval or Suspended
+    for chunk in chunks(deleted_rules, 100):
+        session.query(models.ReplicationRule).\
+            with_hint(models.ReplicationRule, "INDEX(RULES RULES_SCOPE_NAME_IDX)", 'oracle').\
+            filter(or_(*chunk)).\
+            filter(models.ReplicationRule.state.in_((RuleState.SUSPENDED,
+                                                     RuleState.WAITING_APPROVAL))).\
+            delete(synchronize_session=False)
 
     for chunk in chunks(messages, 100):
         session.bulk_insert_mappings(models.Message, chunk)
