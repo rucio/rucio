@@ -102,11 +102,12 @@ def get_space(rsename, protocol, client):
                 print "Failed to get rse(%s) space information: %s" % (rsename, str(error))
                 retvalue = WARNING
 
-    if retvalue == OK:
-        print "Update RSE %s space usage (usedsize: %s, freesize: %s)" % (rsename, usedsize, freesize)
-        client.set_rse_usage(rsename, protocol, usedsize, freesize)
-        client.set_rse_usage(rsename, 'storage', usedsize, freesize)
-    return retvalue
+        if retvalue == OK:
+            print "Update RSE %s space usage (usedsize: %s, freesize: %s)" % (rsename, usedsize, freesize)
+            client.set_rse_usage(rsename, protocol, usedsize, freesize)
+            client.set_rse_usage(rsename, 'storage', usedsize, freesize)
+            return retvalue
+    return WARNING
 
 
 if __name__ == "__main__":
@@ -127,6 +128,7 @@ if __name__ == "__main__":
     RSES = CLIENT.list_rses('cloud=%s' % CLOUD)
     for rse in sorted(RSES):
         rsename = rse['rse']
+        print rsename
         rse_info = get_rse(rsename)
         if rse_info['availability_read']:
             attr = list_rse_attributes(rsename)
