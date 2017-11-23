@@ -15,7 +15,8 @@ Revises: c5c0418f31aa
 Create Date: 2017-10-31 17:52:21.313035
 
 '''
-from alembic.op import alter_column
+from alembic.op import alter_column, create_check_constraint, drop_constraint
+from alembic import context
 
 import sqlalchemy as sa
 
@@ -39,17 +40,25 @@ def upgrade():
                  existing_type=sa.String(255),
                  type_=sa.String(2048))
 
+    if context.get_context().dialect.name not in ('sqlite', 'mysql'):
+        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
+        create_check_constraint(name='IDENTITIES_TYPE_CHK',
+                                source='identities',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        create_check_constraint(name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                source='account_map',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+
 
 def downgrade():
     '''
     downgrade method
     '''
 
-    pass
-
     # attention!
-    # we would have to delete all SSH  entries so we can shrink the colum.
-    # since we don't want this to happen automatically, this downgrade is disabled
+    # we would have to delete all SSH entries so we can shrink the colum.
+    # since we don't want this to happen automatically, this part of the downgrade is disabled
 
     # alter_column('tokens', 'identity',
     #              existing_type=sa.String(2048),
@@ -60,3 +69,13 @@ def downgrade():
     # alter_column('account_map', 'identity',
     #              existing_type=sa.String(2048),
     #              type_=sa.String(255))
+
+    if context.get_context().dialect.name not in ('sqlite', 'mysql'):
+        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
+        create_check_constraint(name='IDENTITIES_TYPE_CHK',
+                                source='identities',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        create_check_constraint(name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                source='account_map',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
