@@ -265,7 +265,7 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
     crypto_rand = rng.randint(0, sys.maxint)
 
     # give the client 10 seconds max to sign the challenge token
-    expiration = datetime.datetime.utcnow()+datetime.timedelta(seconds=10)
+    expiration = datetime.datetime.utcnow() + datetime.timedelta(seconds=10)
     expiration_unix = expiration.strftime("%s")
 
     challenge_token = 'challenge-%(crypto_rand)s-%(account)s-%(expiration_unix)s' % locals()
