@@ -13,6 +13,8 @@
 
 import commands
 import os
+import re
+import urlparse
 
 from rucio.common import exception
 from rucio.common.utils import execute
@@ -69,6 +71,63 @@ class Default(protocol.RSEProtocol):
                                                          web_service_path, prefix, path])
 
         return pfns
+
+    def parse_pfns(self, pfns):
+        """
+        Splits the given PFN into the parts known by the protocol. During parsing the PFN is also checked for
+        validity on the given RSE with the given protocol.
+
+        :param pfn: a fully qualified PFN
+        :returns: a dict containing all known parts of the PFN for the protocol e.g. scheme, path, filename
+        :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
+        """
+
+        ret = dict()
+        pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
+        for pfn in pfns:
+            parsed = urlparse.urlparse(pfn)
+            if parsed.path.startswith('/srm/managerv2') or\
+               parsed.path.startswith('/srm/managerv1') or\
+               parsed.path.startswith('/srm/v2/server'):
+                scheme, hostname, port, service_path, path = re.findall(r"([^:]+)://([^:/]+):?(\d+)?([^:]+=)?([^:]+)", pfn)[0]
+            else:
+                scheme = parsed.scheme
+                hostname = parsed.netloc.partition(':')[0]
+                port = parsed.netloc.partition(':')[2]
+                path = parsed.path
+                service_path = ''
+
+            # force type conversion
+            try:
+                port = int(port)
+            except:
+                port = ''
+
+            if self.attributes['hostname'] != hostname and\
+               self.attributes['hostname'] != scheme + "://" + hostname:
+                raise exception.RSEFileNameNotSupported('Invalid hostname: provided \'%s\', expected \'%s\'' % (hostname,
+                                                                                                                self.attributes['hostname']))
+
+            if port != '' and str(self.attributes['port']) != str(port):
+                raise exception.RSEFileNameNotSupported('Invalid port: provided \'%s\', expected \'%s\'' % (port,
+                                                                                                            self.attributes['port']))
+            elif port == '':
+                port = self.attributes['port']
+
+            if not path.startswith(self.attributes['prefix']):
+                raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(self.attributes['prefix'].split('/')) - 1]),
+                                                                                                              self.attributes['prefix']))  # len(...)-1 due to the leading '/
+
+            # Spliting path into prefix, path, filename
+            prefix = self.attributes['prefix']
+            path = path.partition(self.attributes['prefix'])[2]
+            name = path.split('/')[-1]
+            path = '/' + path.partition(name)[0] if not self.rse['staging_area'] else None
+            ret[pfn] = {'scheme': scheme, 'port': port, 'hostname': hostname,
+                        'path': path, 'name': name, 'prefix': prefix,
+                        'web_service_path': service_path}
+
+        return ret
 
     def path2pfn(self, path):
         """

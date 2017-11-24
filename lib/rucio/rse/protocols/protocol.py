@@ -176,7 +176,7 @@ class RSEProtocol(object):
                 raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(self.attributes['prefix'].split('/')) - 1]),
                                                                                                               self.attributes['prefix']))  # len(...)-1 due to the leading '/
 
-            # Splitting path into prefix, path, filename
+            # Spliting parsed.path into prefix, path, filename
             prefix = self.attributes['prefix']
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
