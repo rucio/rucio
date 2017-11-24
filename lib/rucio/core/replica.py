@@ -1171,16 +1171,16 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                 modifieds = session.query(models.DataIdentifierAssociation.scope,
                                           models.DataIdentifierAssociation.name,
                                           models.DataIdentifierAssociation.did_type).\
-                            distinct().\
-                            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)",
-                                      'oracle').\
-                            filter(or_(*chunk)).\
-                            filter(exists(select([1]).
-                                          prefix_with("/*+ INDEX(DIDS DIDS_PK) */",
-                                                      dialect='oracle')).
-                                   where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
-                                              models.DataIdentifierAssociation.name == models.DataIdentifier.name,
-                                              models.DataIdentifier.complete != false())))
+                    distinct().\
+                    with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)",
+                              'oracle').\
+                    filter(or_(*chunk)).\
+                    filter(exists(select([1]).
+                                  prefix_with("/*+ INDEX(DIDS DIDS_PK) */",
+                                              dialect='oracle')).
+                           where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
+                                      models.DataIdentifierAssociation.name == models.DataIdentifier.name,
+                                      models.DataIdentifier.complete != false())))
                 for parent_scope, parent_name, parent_did_type in modifieds:
                     message = {'scope': parent_scope,
                                'name': parent_name,
