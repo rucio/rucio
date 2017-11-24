@@ -1523,6 +1523,13 @@ def resurrect(dids, session=None):
                 filter_by(scope=did['scope'], name=did['name']).\
                 one()
         except NoResultFound:
+            # Dataset might still exist, but could have an expiration date, if it has, remove it
+            rowcount = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == did['scope'],
+                                                                   models.DataIdentifier.name == did['name'],
+                                                                   models.DataIdentifier.expired_at < datetime.utcnow()).\
+                update({'expired_at': None}, synchronize_session=False)
+            if rowcount:
+                continue
             raise exception.DataIdentifierNotFound("Deleted Data identifier '%(scope)s:%(name)s' not found" % did)
 
         # Check did_type
