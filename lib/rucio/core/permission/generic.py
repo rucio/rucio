@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -52,6 +53,7 @@ def has_permission(issuer, action, kwargs):
             'approve_rule': perm_approve_rule,
             'update_subscription': perm_update_subscription,
             'reduce_rule': perm_reduce_rule,
+            'move_rule': perm_move_rule,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
@@ -419,6 +421,19 @@ def perm_reduce_rule(issuer, kwargs):
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
+    """
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+    return False
+
+
+def perm_move_rule(issuer, kwargs):
+    """
+    Checks if an issuer can move a replication rule.
+
+    :param issuer:   Account identifier which issues the command.
+    :param kwargs:   List of arguments for the action.
+    :returns:        True if account is allowed to call the API call, otherwise False
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True

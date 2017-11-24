@@ -38,7 +38,7 @@ from rucio.core.request import get_request_by_did
 from rucio.core.replica import add_replica, get_replica
 from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse, get_rse_id, del_rse_attribute
 from rucio.core.rse_counter import get_counter as get_rse_counter
-from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule
+from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.db.sqla import models
@@ -729,6 +729,23 @@ class TestReplicationRuleCore():
 
         with assert_raises(RuleReplaceFailed):
             reduce_rule(rule_id=rule_id, copies=1, exclude_expression=self.rse1 + '|' + self.rse3)
+
+    def test_move_rule(self):
+        """ REPLICATION RULE (CORE): Move a rule"""
+        scope = 'mock'
+        files = create_files(3, scope, [self.rse1])
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        assert(get_rule(rule_id)['state'] == RuleState.OK)
+
+        rule_id2 = move_rule(rule_id, self.rse3)
+
+        assert(get_rule(rule_id2)['state'] == RuleState.REPLICATING)
+        assert(get_rule(rule_id)['child_rule_id'] == rule_id2)
 
     def test_add_rule_with_scratchdisk(self):
         """ REPLICATION RULE (CORE): Add a replication rule for scratchdisk"""
