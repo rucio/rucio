@@ -137,12 +137,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
 
-        if notify == 'Y':
-            notify = RuleNotification.YES
-        elif notify == 'C':
-            notify = RuleNotification.CLOSE
-        else:
-            notify = RuleNotification.NO
+        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE}.get(notify, RuleNotification.NO)
 
         for elem in dids:
             # 3. Get the did
@@ -160,12 +155,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             # 4. Create the replication rule
             with record_timer_block('rule.add_rule.create_rule'):
-                if grouping == 'ALL':
-                    grouping = RuleGrouping.ALL
-                elif grouping == 'NONE':
-                    grouping = RuleGrouping.NONE
-                else:
-                    grouping = RuleGrouping.DATASET
+                grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(grouping, RuleGrouping.DATASET)
 
                 if meta is not None:
                     try:
@@ -398,20 +388,11 @@ def add_rules(dids, rules, session=None):
 
                     # 4. Create the replication rule
                     with record_timer_block('rule.add_rules.create_rule'):
-                        if rule.get('grouping') == 'ALL':
-                            grouping = RuleGrouping.ALL
-                        elif rule.get('grouping') == 'NONE':
-                            grouping = RuleGrouping.NONE
-                        else:
-                            grouping = RuleGrouping.DATASET
+                        grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(rule.get('grouping'), RuleGrouping.DATASET)
+
                         expires_at = datetime.utcnow() + timedelta(seconds=rule.get('lifetime')) if rule.get('lifetime') is not None else None
-                        notify = rule.get('notify')
-                        if notify == 'Y':
-                            notify = RuleNotification.YES
-                        elif notify == 'C':
-                            notify = RuleNotification.CLOSE
-                        else:
-                            notify = RuleNotification.NO
+
+                        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE}.get(rule.get('notify'), RuleNotification.NO)
 
                         if rule.get('meta') is not None:
                             try:
@@ -554,12 +535,9 @@ def inject_rule(rule_id, session=None):
             lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
         else:
             lifetime = None
-        if rule.notification == RuleNotification.YES:
-            notify = 'Y'
-        elif rule.notification == RuleNotification.CLOSE:
-            notify = 'C'
-        else:
-            notify = 'N'
+
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C'}.get(rule.notification, 'N')
+
         add_rule(dids=dids,
                  account=rule.account,
                  copies=rule.copies,
@@ -1266,24 +1244,14 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
         else:
             rse_expression = rule.rse_expression
 
-        if rule.grouping == RuleGrouping.ALL:
-            grouping = 'ALL'
-        elif rule.grouping == RuleGrouping.NONE:
-            grouping = 'NONE'
-        else:
-            grouping = 'DATASET'
+        grouping = {RuleGrouping.ALL: 'ALL', RuleGrouping.NONE: 'NONE'}.get(rule.grouping, 'DATASET')
 
         if rule.expires_at:
             lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
         else:
             lifetime = None
 
-        if rule.notification == RuleNotification.YES:
-            notify = 'Y'
-        elif rule.notification == RuleNotification.CLOSE:
-            notify = 'C'
-        else:
-            notify = 'N'
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C'}.get(rule.notification, 'N')
 
         new_rule_id = add_rule(dids=[{'scope': rule.scope, 'name': rule.name}],
                                account=rule.account,
@@ -1310,6 +1278,58 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
 
         delete_rule(rule_id=rule_id,
                     session=session)
+
+        return new_rule_id[0]
+
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+
+
+@transactional_session
+def move_rule(rule_id, rse_expression, session=None):
+    """
+    Move a replication rule to another RSE and, once done, delete the original one.
+
+    :param rule_id:             Rule to be moved.
+    :param rse_expression:      RSE expression of the new rule.
+    :param session:             The DB Session.
+    :raises:                    RuleNotFound, RuleReplaceFailed
+    """
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+
+        if rule.state != RuleState.OK:
+            raise RuleReplaceFailed('The source rule must be in state OK.')
+
+        grouping = {RuleGrouping.ALL: 'ALL', RuleGrouping.NONE: 'NONE'}.get(rule.grouping, 'DATASET')
+
+        if rule.expires_at:
+            lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
+        else:
+            lifetime = None
+
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C'}.get(rule.notification, 'N')
+
+        new_rule_id = add_rule(dids=[{'scope': rule.scope, 'name': rule.name}],
+                               account=rule.account,
+                               copies=rule.copies,
+                               rse_expression=rse_expression,
+                               grouping=grouping,
+                               weight=rule.weight,
+                               lifetime=lifetime,
+                               locked=rule.locked,
+                               subscription_id=rule.subscription_id,
+                               source_replica_expression=rule.source_replica_expression,
+                               activity=rule.activity,
+                               notify=notify,
+                               purge_replicas=rule.purge_replicas,
+                               ignore_availability=rule.ignore_availability,
+                               comment=rule.comments,
+                               session=session)
+
+        session.flush()
+
+        update_rule(rule_id=rule_id, options={'child_rule_id': new_rule_id[0], 'lifetime': 0}, session=session)
 
         return new_rule_id[0]
 
