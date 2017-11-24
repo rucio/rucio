@@ -194,3 +194,18 @@ def examine_replication_rule(rule_id):
     :param rule_id: The rule_id to get.
     """
     return rule.examine_rule(rule_id)
+
+
+def move_replication_rule(rule_id, rse_expression, issuer):
+    """
+    Move a replication rule to another RSE and, once done, delete the original one.
+
+    :param rule_id:             Rule to be moved.
+    :param rse_expression:      RSE expression of the new rule.
+    :param session:             The DB Session.
+    :raises:                    RuleNotFound, RuleReplaceFailed
+    """
+    kwargs = {'rule_id': rule_id, 'rse_expression': rse_expression}
+    if not has_permission(issuer=issuer, action='move_rule', kwargs=kwargs):
+        raise AccessDenied('Account %s can not move this replication rule.' % (issuer))
+    return rule.move_rule(rule_id=rule_id, rse_expression=rse_expression)
