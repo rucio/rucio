@@ -21,7 +21,7 @@ from web import application, ctx, data, header, Created, InternalError, OK, load
 from rucio.api.lock import get_replica_locks_for_rule_id
 from rucio.api.rule import (add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule,
                             reduce_replication_rule, list_replication_rule_history, list_replication_rule_full_history,
-                            list_replication_rules, examine_replication_rule)
+                            list_replication_rules, examine_replication_rule, move_replication_rule)
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
@@ -37,6 +37,7 @@ LOGGER.addHandler(SH)
 
 URLS = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
+        '/(.+)/move', 'MoveRule',
         '/(.+)/(.+)/history', 'RuleHistoryFull',
         '/(.+)/history', 'RuleHistory',
         '/(.+)/analysis', 'RuleAnalysis',
@@ -350,6 +351,49 @@ class ReduceRule:
                                                exclude_expression=exclude_expression,
                                                issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
+        except RuleReplaceFailed as error:
+            raise generate_http_error(409, 'RuleReplaceFailed', error.args[0][0])
+        except RuleNotFound as error:
+            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print error
+            print format_exc()
+            raise InternalError(error)
+
+        raise Created(dumps(rule_ids))
+
+
+class MoveRule:
+    """ REST APIs for moving rules. """
+
+    def POST(self, rule_id):
+        """
+        Move a replication rule.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+        """
+        json_data = data()
+        try:
+            params = loads(json_data)
+            rule_id = params['rule_id']
+            rse_expression = params['rse_expression']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            rule_ids = move_replication_rule(rule_id=rule_id,
+                                             rse_expression=rse_expression,
+                                             issuer=ctx.env.get('issuer'))
         except RuleReplaceFailed as error:
             raise generate_http_error(409, 'RuleReplaceFailed', error.args[0][0])
         except RuleNotFound as error:
