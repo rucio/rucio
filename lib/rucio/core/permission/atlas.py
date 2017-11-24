@@ -481,6 +481,47 @@ def perm_update_rule(issuer, kwargs):
     return False
 
 
+def perm_move_rule(issuer, kwargs):
+    """
+    Checks if an issuer can move a replication rule.
+
+    :param issuer:   Account identifier which issues the command.
+    :param kwargs:   List of arguments for the action.
+    :returns:        True if account is allowed to call the API call, otherwise False
+    """
+    # Admin accounts can do everything
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+
+    # Country admins are allowed to change the but need to be admin for the original, as well as future rule
+    admin_in_country = []
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            admin_in_country.append(kv['key'].partition('-')[2])
+
+    admin_source = False
+    admin_destination = False
+
+    if admin_in_country:
+        rule = get_rule(rule_id=kwargs['rule_id'])
+        rses = parse_expression(rule['rse_expression'])
+        for rse in rses:
+            if list_rse_attributes(rse=None, rse_id=rse['id']).get('country') in admin_in_country:
+                admin_source = True
+                break
+
+        rses = parse_expression(kwargs['rse_expression'])
+        for rse in rses:
+            if list_rse_attributes(rse=None, rse_id=rse['id']).get('country') in admin_in_country:
+                admin_destination = True
+                break
+
+        if admin_source and admin_destination:
+            return True
+
+    return False
+
+
 def perm_approve_rule(issuer, kwargs):
     """
     Checks if an issuer can approve a replication rule.
