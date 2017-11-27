@@ -614,10 +614,13 @@ def archive_request(request_id, session=None):
                                                                 md5=req['md5'],
                                                                 adler32=req['adler32'],
                                                                 dest_url=req['dest_url'],
+                                                                requested_at=req['requested_at'],
                                                                 submitted_at=req['submitted_at'],
                                                                 started_at=req['started_at'],
+                                                                estimated_started_at=req['estimated_started_at'],
                                                                 estimated_at=req['estimated_at'],
-                                                                transferred_at=req['transferred_at'])
+                                                                transferred_at=req['transferred_at'],
+                                                                estimated_transferred_at=req['estimated_transferred_at'])
         hist_request.save(session=session)
         try:
             time_diff = req['updated_at'] - req['created_at']
