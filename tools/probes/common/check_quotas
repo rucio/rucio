@@ -162,6 +162,15 @@ rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a
                     else:
                         print '%s cannot be found in quotas dictionary' % (rse)
 
+                for rse in quotas:
+                    if rse not in accounts[account]:
+                        print 'Will add quota for account %s on %s' % (account, rse)
+                        try:
+                            set_account_limit(account, rse, quotas[rse], 'root')
+                        except AccountNotFound as error:
+                            print error
+
+
     except Exception as error:
         print error
         RESULT = CRITICAL
