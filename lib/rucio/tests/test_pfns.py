@@ -20,7 +20,6 @@ class TestPFNs(object):
 
         rse_info = rsemgr.get_rse_info('MOCK')
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
-        pfn = 'srm://mock.com:8443/rucio/tmpdisk/rucio_tests/whatever'
         pfns = ['srm://mock.com:8443/rucio/tmpdisk/rucio_tests/whatever',
                 'srm://mock.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/whatever',
                 'srm://mock.com:8443/srm/v2/server?SFN=/rucio/tmpdisk/rucio_tests/whatever']
@@ -81,5 +80,5 @@ class TestPFNs(object):
         assert_equal(ret[pfn]['hostname'], 'mock.com')
         assert_equal(ret[pfn]['port'], 8443)
         assert_equal(ret[pfn]['prefix'], '/rucio/tmpdisk/rucio_tests/')
-        assert_equal(ret[pfn]['path'], '/group/phys-fake/mc15_13TeV/group.phys-fake.mc15_13TeV')
+        assert_equal(ret[pfn]['path'], '/group/phys-fake/mc15_13TeV/group.phys-fake.mc15_13TeV/')
         assert_equal(ret[pfn]['name'], 'mc15c.MGHwpp_tHjb125_yt_minus1.MxAODFlavorSys.p2908.h015.totape_20170825.root')
