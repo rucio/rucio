@@ -21,13 +21,17 @@ class TestPFNs(object):
         rse_info = rsemgr.get_rse_info('MOCK')
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
         pfn = 'srm://mock.com:8443/rucio/tmpdisk/rucio_tests/whatever'
-        ret = proto.parse_pfns([pfn])
-        assert_equal(ret[pfn]['scheme'], 'srm')
-        assert_equal(ret[pfn]['hostname'], 'mock.com')
-        assert_equal(ret[pfn]['port'], 8443)
-        assert_equal(ret[pfn]['prefix'], '/rucio/tmpdisk/rucio_tests/')
-        assert_equal(ret[pfn]['path'], '/')
-        assert_equal(ret[pfn]['name'], 'whatever')
+        pfns = ['srm://mock.com:8443/rucio/tmpdisk/rucio_tests/whatever',
+                'srm://mock.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/whatever',
+                'srm://mock.com:8443/srm/v2/server?SFN=/rucio/tmpdisk/rucio_tests/whatever']
+        for pfn in pfns:
+            ret = proto.parse_pfns([pfn])
+            assert_equal(ret[pfn]['scheme'], 'srm')
+            assert_equal(ret[pfn]['hostname'], 'mock.com')
+            assert_equal(ret[pfn]['port'], 8443)
+            assert_equal(ret[pfn]['prefix'], '/rucio/tmpdisk/rucio_tests/')
+            assert_equal(ret[pfn]['path'], '/')
+            assert_equal(ret[pfn]['name'], 'whatever')
 
     def test_pfn_https(self):
         """ PFN (CORE): Test the splitting of PFNs with https"""
@@ -60,6 +64,7 @@ class TestPFNs(object):
         """ PFN (CORE): Test the splitting of PFNs cornercase: filename in prefix"""
         rse_info = rsemgr.get_rse_info('MOCK')
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='mock')
+
         pfn = 'mock://localhost/tmp/rucio_rse/rucio_rse'
         ret = proto.parse_pfns([pfn])
         assert_equal(ret[pfn]['scheme'], 'mock')
@@ -68,3 +73,13 @@ class TestPFNs(object):
         assert_equal(ret[pfn]['prefix'], '/tmp/rucio_rse/')
         assert_equal(ret[pfn]['path'], '/')
         assert_equal(ret[pfn]['name'], 'rucio_rse')
+
+        proto = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
+        pfn = 'srm://mock.com/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/group/phys-fake/mc15_13TeV/group.phys-fake.mc15_13TeV/mc15c.MGHwpp_tHjb125_yt_minus1.MxAODFlavorSys.p2908.h015.totape_20170825.root'
+        ret = proto.parse_pfns([pfn])
+        assert_equal(ret[pfn]['scheme'], 'srm')
+        assert_equal(ret[pfn]['hostname'], 'mock.com')
+        assert_equal(ret[pfn]['port'], 8443)
+        assert_equal(ret[pfn]['prefix'], '/rucio/tmpdisk/rucio_tests/')
+        assert_equal(ret[pfn]['path'], '/group/phys-fake/mc15_13TeV/group.phys-fake.mc15_13TeV')
+        assert_equal(ret[pfn]['name'], 'mc15c.MGHwpp_tHjb125_yt_minus1.MxAODFlavorSys.p2908.h015.totape_20170825.root')
