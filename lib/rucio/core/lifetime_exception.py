@@ -256,14 +256,10 @@ def define_eol(scope, name, rses, session=None):
                     extension = int(policy['extension']) * 30
 
                 default_eol_at = did.created_at + timedelta(days=lifetime_value)
-                if default_eol_at > datetime.utcnow():
-                    eol_at = default_eol_at
-                elif did.accessed_at:
+                eol_at = default_eol_at
+                if did.accessed_at:
                     eol_at = did.accessed_at + timedelta(days=extension)
                     if eol_at < default_eol_at:
                         eol_at = default_eol_at
-                else:
-                    eol_at = default_eol_at
-
                 return eol_at
     return None
