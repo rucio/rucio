@@ -657,6 +657,7 @@ CREATE TABLE rules (
     CONSTRAINT "RULES_SCOPE_NAME_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
     CONSTRAINT "RULES_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
     CONSTRAINT "RULES_SUBS_ID_FK" FOREIGN KEY(subscription_id) REFERENCES subscriptions (id),
+    CONSTRAINT "RULES_CHILD_RULE_ID_FK" FOREIGN KEY(child_rule_id) REFERENCES rules(id),
     CONSTRAINT "RULES_STATE_NN" CHECK ("STATE" IS NOT NULL),
     CONSTRAINT "RULES_SCOPE_NN" CHECK ("SCOPE" IS NOT NULL),
     CONSTRAINT "RULES_NAME_NN" CHECK ("NAME" IS NOT NULL),
@@ -691,8 +692,6 @@ CREATE UNIQUE INDEX "RULES_SC_NA_AC_RS_CO_UQ_IDX" ON "RULES" ("SCOPE", "NAME", "
 CREATE INDEX RULES_INJECTSTATE_IDX ON rules (CASE when state='I' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE INDEX RULES_APPROVALSTATE_IDX ON rules (CASE when state='W' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE INDEX RULES_CHILD_RULE_ID_IDX on ATLAS_RUCIO.rules(child_rule_id) tablespace ATLAS_RUCIO_FACT_DATA01;
-
-ALTER TABLE rules ADD constraint rules_child_rule_id_fk FOREIGN KEY(child_rule_id) REFERENCES rules(id);
 
 
 -- ========================================= LOCKS (List partitioned table) =========================================
@@ -995,6 +994,8 @@ CREATE INDEX ATLAS_RUCIO.CONTENTS_HISTORY_INDX on ATLAS_RUCIO.CONTENTS_HISTORY(s
 -- ========================================= REQUESTS =========================================
 -- Description: Table to store transfer requests
 -- Estimated volume: 2 millions
+-- When you add a new column here, don't forget to add it to requests_history table too
+-- Also, add the corresponding variables in core/requests.py archive_request method to correct propagation.s
 
 CREATE TABLE REQUESTS
    ("ID" RAW(16),
@@ -1019,11 +1020,15 @@ CREATE TABLE REQUESTS
     "ACTIVITY" VARCHAR2(50 CHAR),
     "UPDATED_AT" DATE,
     "CREATED_AT" DATE,
+    "SUBMITTED_AT" DATE,
+    "STARTED_AT" DATE,
+    "TRANSFERRED_AT" DATE,
     "ESTIMATED_AT" DATE,
     "REQUESTED_AT" DATE,
     "ESTIMATED_STARTED_AT" DATE,
     "ESTIMATED_TRANSFERRED_AT" DATE,
     "ACCOUNT" VARCHAR2(25 CHAR),
+    "SUBMITTER_ID" NUMBER(10),
     "PRIORITY" NUMBER(1),
      CONSTRAINT "REQUESTS_PK" PRIMARY KEY (ID),
      CONSTRAINT "REQUESTS_RSES_FK" FOREIGN KEY ("DEST_RSE_ID") REFERENCES "RSES" ("ID") ,
@@ -1051,20 +1056,6 @@ CREATE INDEX "REQUESTS_TYP_STA_UPD_IDX" ON "REQUESTS" ("REQUEST_TYPE", "STATE", 
 CREATE INDEX "REQUESTS_RULEID_IDX" ON "REQUESTS" ("RULE_ID") COMPRESS 1 ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
 
 CREATE INDEX "REQUESTS_EXTERNALID_UQ" ON "REQUESTS" ("EXTERNAL_ID") ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
-
-ALTER TABLE REQUESTS ADD submitted_at DATE;
-ALTER TABLE REQUESTS ADD started_at DATE;
-ALTER TABLE REQUESTS ADD transferred_at  DATE;
-ALTER TABLE REQUESTS ADD estimated_started_at DATE,
-ALTER TABLE REQUESTS ADD estimated_transferred_at DATE,
-
-ALTER TABLE REQUESTS_HISTORY ADD submitted_at DATE;
-ALTER TABLE REQUESTS_HISTORY ADD started_at DATE;
-ALTER TABLE REQUESTS_HISTORY ADD transferred_at  DATE;
-ALTER TABLE REQUESTS_HISTORY ADD estimated_started_at DATE,
-ALTER TABLE REQUESTS_HISTORY ADD estimated_transferred_at DATE,
-
-ALTER TABLE REQUESTS ADD submitter_id NUMBER(10);
 
 ALTER session set DDL_LOCK_TIMEOUT=300;
 
@@ -1358,30 +1349,37 @@ CREATE TABLE DELETED_DIDS
 
 CREATE TABLE requests_history
   (
-    created_at DATE CONSTRAINT CREATED_AT_NN NOT NULL,
-    updated_at DATE,
-    state CHAR(1 CHAR),
-    request_type CHAR(1 CHAR),
-    is_type CHAR(1 CHAR),
-    external_id VARCHAR2(64 CHAR),
+    "CREATED_AT" DATE CONSTRAINT CREATED_AT_NN NOT NULL,
+    "UPDATED_AT" DATE,
+    "STATE" CHAR(1 CHAR),
+    "REQUEST_TYPE" CHAR(1 CHAR),
+    "IS_TYPE" CHAR(1 CHAR),
+    "EXTERNAL_ID" VARCHAR2(64 CHAR),
     "EXTERNAL_HOST" VARCHAR2(256 CHAR),
-    scope VARCHAR2(25 CHAR) CONSTRAINT SCOPE_NN NOT NULL,
-    name VARCHAR2(255 CHAR),
-    dest_rse_id RAW(16),
-    source_rse_id RAW(16),
-    id RAW(16),
-    previous_attempt_id RAW(16),
-    retry_count NUMBER(3,0),
-    attributes VARCHAR2(4000 CHAR),
-    err_msg VARCHAR2(4000 CHAR),
-    RULE_ID RAW(16),
+    "SCOPE" VARCHAR2(25 CHAR) CONSTRAINT SCOPE_NN NOT NULL,
+    "NAME" VARCHAR2(255 CHAR),
+    "DEST_RSE_ID" RAW(16),
+    "SOURCE_RSE_ID" RAW(16),
+    "ID" RAW(16),
+    "PREVIOUS_ATTEMPT_ID" RAW(16),
+    "RETRY_COUNT" NUMBER(3,0),
+    "ATTRIBUTES" VARCHAR2(4000 CHAR),
+    "ERR_MSG" VARCHAR2(4000 CHAR),
+    "RULE_ID" RAW(16),
     "BYTES" NUMBER(19),
+    "ACTIVITY" VARCHAR2(50 CHAR),
     "MD5" VARCHAR2(32 CHAR),
     "ADLER32" VARCHAR2(8 CHAR),
     "DEST_URL" VARCHAR2(2048 CHAR),
     "ESTIMATED_AT" DATE,
     "REQUESTED_AT" DATE,
+    "SUBMITTED_AT" DATE,
+    "STARTED_AT" DATE,
+    "ESTIMATED_STARTED_AT" DATE,
+    "TRANSFERRED_AT" DATE,
+    "ESTIMATED_TRANSFERRED_AT" DATE,
     "ACCOUNT" VARCHAR2(25 CHAR),
+    "SUBMITTER_ID" NUMBER(10),
     "PRIORITY" NUMBER(1)
   ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
 	COMPRESS FOR OLTP
@@ -1579,8 +1577,6 @@ CREATE INDEX ATLAS_RUCIO.RULES_HIST_RECENT_SC_NA_IDX ON ATLAS_RUCIO.rules_hist_r
 COMMENT ON TABLE ATLAS_RUCIO.rules_hist_recent IS 'Recent history table (1 month) for rules';
 COMMENT ON COLUMN ATLAS_RUCIO.rules_hist_recent.history_id IS 'Fake id necessary for sqlalchemy';
 
-ALTER TABLE ATLAS_RUCIO.rules_hist_recent ADD ignore_account_limit NUMBER(1);
-
 
 -- ========================================= RULES_HISTORY ==============================================
 -- Description: Table of longterm rules (deleted)
@@ -1634,8 +1630,6 @@ CREATE INDEX ATLAS_RUCIO.RULES_HISTORY_SCOPENAME_IDX ON ATLAS_RUCIO.RULES_HISTOR
 COMMENT ON TABLE ATLAS_RUCIO.rules_history IS 'Full history table for rules';
 COMMENT ON COLUMN ATLAS_RUCIO.rules_history.history_id IS 'Fake id necessary for sqlalchemy';
 
-
-ALTER TABLE ATLAS_RUCIO.rules_history ADD ignore_account_limit NUMBER(1);
 
 -- ========================================= BAD_REPLICAS ==============================================
 -- Description: Table that stores the bad files
