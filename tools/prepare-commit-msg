@@ -25,4 +25,6 @@ NUMBER=$(git branch | grep '*'|grep 'patch\|feature\|hotfix'|cut -d- -f2)
 if [ -z $NUMBER ]
 then
     echo "Not a patch or feature or hotfix branch"
+else
+    sed -i "1s/^/\<component\>: \<message\> \#$NUMBER/" $1
 fi
