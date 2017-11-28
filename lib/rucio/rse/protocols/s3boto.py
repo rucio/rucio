@@ -311,3 +311,12 @@ class Default(protocol.RSEProtocol):
             raise exception.SourceNotFound(e)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
+
+    def list(self):
+        try:
+            prefix = self.attributes.get('prefix')
+            prefix = prefix.replace('/', '')
+            bucket = self.__conn.get_bucket(prefix, validate=True)
+        except boto.exception.S3ResponseError as e:
+            raise e
+        return bucket.list()

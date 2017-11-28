@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
 import rucio.core.authentication
@@ -89,7 +90,8 @@ def has_permission(issuer, action, kwargs):
             'del_attribute': perm_del_account_attribute,
             'list_heartbeats': perm_list_heartbeats,
             'resurrect': perm_resurrect,
-            'update_lifetime_exceptions': perm_update_lifetime_exceptions}
+            'update_lifetime_exceptions': perm_update_lifetime_exceptions,
+            'get_ssh_challenge_token': perm_get_ssh_challenge_token}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -791,3 +793,13 @@ def perm_update_lifetime_exceptions(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+
+
+def perm_get_ssh_challenge_token(issuer, kwargs):
+    """
+    Checks if an account can request a challenge token.
+
+    :param issuer: Account identifier which issues the command.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return True

@@ -30,7 +30,7 @@ def add_identity(identity, type, email, password=None, session=None):
     Creates a user identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass)
+    :param type: The type of the authentication (x509, gss, userpass, ssh)
     :param email: The Email address associated with the identity.
     :param password: If type==userpass, this sets the password.
     :param session: The database session in use.
@@ -76,7 +76,7 @@ def add_account_identity(identity, type, account, email, default=False, session=
     Adds a membership association between identity and account.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass).
+    :param type: The type of the authentication (x509, gss, userpass, ssh).
     :param account: The account name.
     :param email: The Email address associated with the identity.
     :param default: If True, the account should be used by default with the provided identity.
