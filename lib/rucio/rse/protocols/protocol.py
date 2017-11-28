@@ -10,6 +10,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 
 import hashlib
 
@@ -179,7 +180,7 @@ class RSEProtocol(object):
             prefix = self.attributes['prefix']
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
-            path = path.partition(name)[0]
+            path = '/'.join(path.split('/')[:-1])
             if not path.startswith('/'):
                 path = '/' + path
             ret[pfn] = {'path': path, 'name': name, 'scheme': scheme, 'prefix': prefix, 'port': port, 'hostname': hostname, }
