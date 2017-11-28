@@ -31,12 +31,12 @@ fi
 echo '==============================='
 echo 'Running flake8                 '
 echo '==============================='
+
 flake8 --ignore=E501 --exclude="*.cfg" bin/* lib/ tools/*.py tools/probes/common/*
 
 if [ $? -ne 0 ]; then
     exit 1
 fi
-
 
 echo '==============================='
 echo 'Running pylint                 '
@@ -44,15 +44,12 @@ echo '==============================='
 
 pylint `cat changed_files.txt` > pylint.out
 
-grep '^E:' pylint.out
-
-if [ $? -ne 1 ]; then
-    echo 'PYLINT FAILED'
-    tail -n 3 pylint.out
+if [ $(($? & 3)) -ne 0 ]; then
+    echo "PYLINT FAILED"
+    grep '^E:' pylint.out
     exit 1
+else
+    echo "PYLINT PASSED"
+    tail -n 3 pylint.out
+    exit 0
 fi
-
-echo 'PYLINT SUCCEEDED'
-tail -n 3 pylint.out
-
-exit 0
