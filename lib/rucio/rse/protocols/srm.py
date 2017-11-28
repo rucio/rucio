@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wguan@cern.ch>, 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2017
 
 import commands
 import os
@@ -97,6 +97,12 @@ class Default(protocol.RSEProtocol):
                 path = parsed.path
                 service_path = ''
 
+            # force type conversion
+            try:
+                port = int(port)
+            except:
+                port = ''
+
             if self.attributes['hostname'] != hostname and\
                self.attributes['hostname'] != scheme + "://" + hostname:
                 raise exception.RSEFileNameNotSupported('Invalid hostname: provided \'%s\', expected \'%s\'' % (hostname,
@@ -116,7 +122,11 @@ class Default(protocol.RSEProtocol):
             prefix = self.attributes['prefix']
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
-            path = '/' + path.partition(name)[0] if not self.rse['staging_area'] else None
+            path = '/' + '/'.join(path.split('/')[:-1]) if not self.rse['staging_area'] else None
+
+            if path != '/' and path[:-1] != '/':
+                path += '/'
+
             ret[pfn] = {'scheme': scheme, 'port': port, 'hostname': hostname,
                         'path': path, 'name': name, 'prefix': prefix,
                         'web_service_path': service_path}
