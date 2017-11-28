@@ -7,7 +7,7 @@ services:
 
 install:
   - cp etc/docker/travis/Dockerfile Dockerfile
-  - git diff-tree --no-commit-id --name-only -r --diff-filter=AMRT HEAD | grep .py | grep -v .py.mako | paste -sd " " - > changed_files.txt
+  - git diff --name-only HEAD $(git merge-base HEAD master) | grep .py | grep -v .py.mako | paste -sd " " - > changed_files.txt
   - docker build -t rucio/rucio .
 
 before_script:
