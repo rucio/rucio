@@ -8,7 +8,7 @@
 # Authors:
 # Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# Martin Barisits, <martin.barisits@cern.ch>, 2016
+# Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
 
 if [ "$#" -ne 1 ]; then
     echo "At least one of these arguments has to be specified:"
@@ -42,6 +42,7 @@ if [ "$1" == "webui" ]; then
     echo "Building WEBUI package"
 fi
 
+/bin/rm setup.py
 /bin/cp README.rucio.rst README.rst
 /bin/cp MANIFEST.in.rucio MANIFEST.in
 /bin/cp setup_rucio.py setup.py
