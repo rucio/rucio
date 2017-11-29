@@ -1672,6 +1672,21 @@ def download(args):
                      'eventType': 'download',
                      'eventVersion': version.RUCIO_VERSION[0]}
 
+    if args.trace_appid:
+        trace_pattern['appid'] = args.trace_appid
+    if args.trace_dataset:
+        trace_pattern['dataset'] = args.trace_dataset
+    if args.trace_datasetscope:
+        trace_pattern['datasetScope'] = args.trace_datasetscope
+    if args.trace_eventtype:
+        trace_pattern['eventType'] = args.trace_eventtype
+    if args.trace_pq:
+        trace_pattern['pq'] = args.trace_pq
+    if args.trace_taskid:
+        trace_pattern['taskid'] = args.trace_taskid
+    if args.trace_usrdn:
+        trace_pattern['usrdn'] = args.trace_usrdn
+
     # is used account an admin account?
     account_attributes = [acc for acc in client.list_account_attributes(client.account)]
     is_admin = False
@@ -1829,10 +1844,13 @@ def download(args):
                 output_queue.put(out)
 
                 trace = deepcopy(trace_pattern)
+
+                if 'datasetScope' not in trace:
+                    trace['datasetScope'] = dataset_scope
+                if 'dataset' not in trace:
+                    trace['dataset'] = dataset_name
                 trace.update({'scope': file_scope,
                               'filename': file_name,
-                              'datasetScope': dataset_scope,
-                              'dataset': dataset_name,
                               'filesize': file['bytes'],
                               'transferStart': time.time(),
                               'transferEnd': time.time(),
@@ -2601,6 +2619,13 @@ Commands:
     get_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     get_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
     get_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
+    get_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_datasetscope', dest='trace_datasetscope', action='store', default=os.environ.get('RUCIO_TRACE_DATASETSCOPE', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_eventtype', dest='trace_eventtype', action='store', default=os.environ.get('RUCIO_TRACE_EVENTTYPE', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_pq', dest='trace_pq', action='store', default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_taskid', dest='trace_taskid', action='store', default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
@@ -2614,6 +2639,13 @@ Commands:
     download_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     download_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
     download_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
+    download_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_datasetscope', dest='trace_datasetscope', action='store', default=os.environ.get('RUCIO_TRACE_DATASETSCOPE', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_eventtype', dest='trace_eventtype', action='store', default=os.environ.get('RUCIO_TRACE_EVENTTYPE', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_pq', dest='trace_pq', action='store', default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_taskid', dest='trace_taskid', action='store', default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
