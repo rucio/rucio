@@ -160,6 +160,9 @@ class Default(protocol.RSEProtocol):
         :raises RSEAccessDenied
         """
 
+        # force GSI-based authentication for root before creating the GFAL context
+        os.environ['XrdSecPROTOCOL'] = 'gsi'
+
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
         # self.__ctx.set_opt_string("X509", "CERT", proxy)
         # self.__ctx.set_opt_string("X509", "KEY", proxy)
