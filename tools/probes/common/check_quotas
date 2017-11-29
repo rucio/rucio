@@ -170,7 +170,6 @@ rse_id in (select id from atlas_rucio.rses a, atlas_rucio.rse_attr_map b where a
                         except AccountNotFound as error:
                             print error
 
-
     except Exception as error:
         print error
         RESULT = CRITICAL
