@@ -11,14 +11,15 @@
 import os
 import sys
 
-from distutils.command.sdist import sdist as _sdist
-from rucio import version
+from distutils.command.sdist import sdist as _sdist  # pylint: disable=no-name-in-module,import-error
 
 if sys.version_info < (2, 4):
     print('ERROR: Rucio requires at least Python 2.5 to run.')
     sys.exit(1)
 
 sys.path.insert(0, os.path.abspath('lib/'))
+
+from rucio import version  # noqa: E402
 
 try:
     from setuptools import setup
