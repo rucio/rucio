@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+#
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+
+
+import commands
+import sys
+import requests
+import json
+
+requests.packages.urllib3.disable_warnings()
+
+COMPONENT_COLOR = 'd4c5f9'
+
+if len(sys.argv) == 1:
+    print 'You need to specify a milestone title'
+    sys.exit(-1)
+else:
+    milestone_title = sys.argv[1]
+
+
+def format_issue(issue):
+    if issue['component']:
+        return '- %s: %s #%s' % (issue['component'], issue['title'], issue['number'])
+    else:
+        return '- %s #%s' % (issue['title'], issue['number'])
+
+
+root_git_dir = commands.getstatusoutput('git rev-parse --show-toplevel')[1]
+# Load OAUTH token
+try:
+    with open(root_git_dir + '/.githubtoken', 'r') as f:
+        github_token = f.readline().strip()
+except:
+    print 'No github token file found at %s' % root_git_dir + '/.githubtoken'
+    sys.exit(-1)
+
+# Get all Milestones
+r = requests.get(url='https://api.github.com/repos/rucio/rucio/milestones',
+                 headers={'Authorization': 'token %s' % github_token},
+                 params={'state': 'all'})
+for milestone in json.loads(r.text):
+    if milestone['title'] == milestone_title:
+        milestone_number = milestone['number']
+        break
+
+# Get the issues
+issues = []
+r = requests.get(url='https://api.github.com/repos/rucio/rucio/issues',
+                 headers={'Authorization': 'token %s' % github_token},
+                 params={'milestone': milestone_number, 'state': 'closed'})
+for issue in json.loads(r.text):
+    component = None
+    type = 'enhancement'
+    for label in issue['labels']:
+        if label['color'] == COMPONENT_COLOR and not component:
+            component = label['name']
+            next
+        elif label['name'].lower() == 'enhancement':
+            type = 'enhancement'
+        elif label['name'].lower() == 'bug':
+            type = 'bug'
+        elif label['name'].lower() == 'feature':
+            type = 'feature'
+    issues.append({'component': component,
+                   'type': type,
+                   'number': issue['number'],
+                   'title': issue['title']})
+
+# Generate the formated printout
+bugs = [issue for issue in issues if issue['type'] == 'bug']
+bugs = sorted(bugs, key=lambda k: "%s %d" % (k['component'], k['number']))
+enhancements = [issue for issue in issues if issue['type'] == 'enhancement']
+enhancements = sorted(enhancements, key=lambda k: "%s %d" % (k['component'], k['number']))
+features = [issue for issue in issues if issue['type'] == 'feature']
+features = sorted(features, key=lambda k: "%s %d" % (k['component'], k['number']))
+
+if features:
+    print '## Features\n'
+    for issue in features:
+        print format_issue(issue)
+    print ''
+if enhancements:
+    print '## Enhancements\n'
+    for issue in enhancements:
+        print format_issue(issue)
+    print ''
+if bugs:
+    print '## Bugs\n'
+    for issue in bugs:
+        print format_issue(issue)
