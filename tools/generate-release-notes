@@ -15,7 +15,8 @@ import sys
 import requests
 import json
 
-requests.packages.urllib3.disable_warnings()
+if __name__ == "__main__":
+    requests.packages.urllib3.disable_warnings()
 
 COMPONENT_COLOR = 'd4c5f9'
 
