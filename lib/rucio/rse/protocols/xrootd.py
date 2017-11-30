@@ -20,7 +20,7 @@ from rucio.common.utils import execute
 
 
 class Default(protocol.RSEProtocol):
-    """ Implementing access to RSEs using the XRootD protocol."""
+    """ Implementing access to RSEs using the XRootD protocol using GSI authentication."""
 
     def __init__(self, protocol_attr, rse_settings):
         """ Initializes the object with information about the referred RSE.
@@ -109,10 +109,11 @@ class Default(protocol.RSEProtocol):
 
             :raises RSEAccessDenied
         """
+
         try:
             # The query stats call is not implemented on some xroot doors.
             # Workaround: fail, if server does not reply within 10 seconds for static config query
-            cmd = 'XRD_REQUESTTIMEOUT=10 xrdfs %s:%s query config %s:%s' % (self.hostname, self.port, self.hostname, self.port)
+            cmd = 'XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs %s:%s query config %s:%s' % (self.hostname, self.port, self.hostname, self.port)
             status, out, err = execute(cmd)
             if not status == 0:
                 raise exception.RSEAccessDenied(err)
@@ -133,7 +134,7 @@ class Default(protocol.RSEProtocol):
         """
 
         try:
-            cmd = 'xrdcp -f %s %s' % (pfn, dest)
+            cmd = 'XrdSecPROTOCOL=gsi xrdcp -f %s %s' % (pfn, dest)
             status, out, err = execute(cmd)
             if status == 54:
                 raise exception.SourceNotFound()
@@ -160,7 +161,7 @@ class Default(protocol.RSEProtocol):
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
         try:
-            cmd = 'xrdcp -f %s %s' % (source_url, path)
+            cmd = 'XrdSecPROTOCOL=gsi xrdcp -f %s %s' % (source_url, path)
             status, out, err = execute(cmd)
             if not status == 0:
                 raise exception.RucioException(err)
@@ -180,7 +181,7 @@ class Default(protocol.RSEProtocol):
             raise exception.SourceNotFound()
         try:
             path = self.pfn2path(pfn)
-            cmd = 'xrdfs %s:%s rm %s' % (self.hostname, self.port, path)
+            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s rm %s' % (self.hostname, self.port, path)
             status, out, err = execute(cmd)
             if not status == 0:
                 raise exception.RucioException(err)
@@ -202,9 +203,9 @@ class Default(protocol.RSEProtocol):
             path = self.pfn2path(pfn)
             new_path = self.pfn2path(new_pfn)
             new_dir = new_path[:new_path.rindex('/') + 1]
-            cmd = 'xrdfs %s:%s mkdir -p %s' % (self.hostname, self.port, new_dir)
+            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s mkdir -p %s' % (self.hostname, self.port, new_dir)
             status, out, err = execute(cmd)
-            cmd = 'xrdfs %s:%s mv %s %s' % (self.hostname, self.port, path, new_path)
+            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s mv %s %s' % (self.hostname, self.port, path, new_path)
             status, out, err = execute(cmd)
             if not status == 0:
                 raise exception.RucioException(err)
