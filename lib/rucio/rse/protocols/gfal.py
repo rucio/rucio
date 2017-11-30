@@ -24,7 +24,7 @@ from rucio.common import exception, config
 from rucio.rse.protocols import protocol
 
 try:
-    import gfal2
+    import gfal2  # pylint: disable=import-error
 except:
     if not config.config_has_section('database'):
         raise exception.MissingDependency('Missing dependency : gfal2')
@@ -164,6 +164,7 @@ class Default(protocol.RSEProtocol):
         # self.__ctx.set_opt_string("X509", "CERT", proxy)
         # self.__ctx.set_opt_string("X509", "KEY", proxy)
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
+        self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi")
 
     def get(self, path, dest):
         """
