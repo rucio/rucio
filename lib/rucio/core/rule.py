@@ -28,10 +28,11 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, bindparam, text, true, null
 
+from rucio.core.account import has_account_attribute
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
-import rucio.common.policy  # import get_scratch_policy, define_eol
+from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
 
 from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
@@ -113,7 +114,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise StagingAreaRuleRequiresLifetime()
 
             # Check SCRATCHDISK Policy
-            lifetime = rucio.common.policy.get_scratch_policy(account, rses, lifetime, session=session)
+            lifetime = get_scratch_policy(account, rses, lifetime, session=session)
 
             # Auto-lock rules for TAPE rses
             if not locked and lifetime is None:
@@ -361,7 +362,7 @@ def add_rules(dids, rules, session=None):
                             raise StagingAreaRuleRequiresLifetime()
 
                     # Check SCRATCHDISK Policy
-                    rule['lifetime'] = rucio.common.policy.get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
+                    rule['lifetime'] = get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
 
                     # 4.5 Get the lifetime
                     eol_at = define_eol(did.scope, did.name, rses, session=session)
@@ -1107,7 +1108,7 @@ def update_rule(rule_id, options, session=None):
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
                 rses = parse_expression(rule.rse_expression, session=session)
-                lifetime = rucio.common.policy.get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
+                lifetime = get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if options['lifetime'] is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
@@ -2880,3 +2881,90 @@ def __create_recipents_list(rse_expression, session=None):
         recipents = [('atlas-adc-ddm-support@cern.ch', 'ddmadmin')]
 
     return list(set(recipents))
+
+
+@policy_filter
+@transactional_session
+def archive_localgroupdisk_datasets(scope, name, session=None):
+    """
+    ATLAS policy to archive a dataset which has a replica on LOCALGROUPDISK
+
+    :param scope:    Scope of the dataset.
+    :param name:     Name of the dataset.
+    :param session:  The database session in use.
+    """
+
+    rses_to_rebalance = []
+
+    # Check if the archival dataset already exists
+    try:
+        rucio.core.did.get_did(scope='archive', name=name, session=session)
+        return
+    except DataIdentifierNotFound:
+        pass
+
+    # Check if the dataset has a rule on a LOCALGROUPDISK
+    for lock in rucio.core.lock.get_dataset_locks(scope=scope, name=name, session=session):
+        if 'LOCALGROUPDISK' in lock['rse']:
+            rses_to_rebalance.append({'rse': lock['rse'], 'account': lock['account']})
+    # Remove duplicates from list
+    rses_to_rebalance = [dict(t) for t in set([tuple(sorted(d.items())) for d in rses_to_rebalance])]
+
+    # There is at least one rule on LOCALGROUPDISK
+    if rses_to_rebalance:
+        content = [x for x in rucio.core.did.list_content(scope=scope, name=name, session=session)]
+        if len(content) > 0:
+            # Create the archival dataset
+            did = rucio.core.did.get_did(scope=scope, name=name, session=session)
+            meta = rucio.core.did.get_metadata(scope=scope, name=name, session=session)
+            new_meta = {k: v for k, v in meta.items() if k in ['project', 'datatype', 'run_number', 'stream_name', 'prod_step', 'version', 'campaign', 'task_id', 'panda_id'] and v is not None}
+            rucio.core.did.add_did(scope='archive',
+                                   name=name,
+                                   type=DIDType.DATASET,
+                                   account=did['account'],
+                                   statuses={},
+                                   meta=new_meta,
+                                   rules=[],
+                                   lifetime=None,
+                                   dids=[],
+                                   rse=None,
+                                   session=session)
+            rucio.core.did.attach_dids(scope='archive', name=name, dids=content, account=did['account'], session=session)
+            if not did['open']:
+                rucio.core.did.set_status(scope='archive', name=name, open=False, session=session)
+
+            for rse in rses_to_rebalance:
+                add_rule(dids=[{'scope': 'archive', 'name': name}],
+                         account=rse['account'],
+                         copies=1,
+                         rse_expression=rse['rse'],
+                         grouping='DATASET',
+                         weight=None,
+                         lifetime=None,
+                         locked=False,
+                         subscription_id=None,
+                         ignore_account_limit=True,
+                         ignore_availability=True,
+                         session=session)
+            logging.debug('Re-Scoped %s:%s' % (scope, name))
+
+
+@policy_filter
+@read_session
+def get_scratch_policy(account, rses, lifetime, session=None):
+    """
+    ATLAS policy for rules on SCRATCHDISK
+
+    :param account:  Account of the rule.
+    :param rses:     List of RSEs.
+    :param lifetime: Lifetime.
+    :param session:  The database session in use.
+    """
+
+    scratchdisk_lifetime = get_scratchdisk_lifetime()
+    # Check SCRATCHDISK Policy
+    if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * scratchdisk_lifetime):
+        # Check if one of the rses is a SCRATCHDISK:
+        if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
+            lifetime = 60 * 60 * 24 * scratchdisk_lifetime - 1
+    return lifetime
