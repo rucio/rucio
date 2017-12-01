@@ -2472,14 +2472,14 @@ Commands:
     add_dataset_parser.set_defaults(which='add_dataset')
     add_dataset_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True.')
     add_dataset_parser.add_argument(dest='did', action='store', help='The name of the dataset to add.')
-    add_dataset_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
+    add_dataset_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Lifetime in seconds.')
 
     # The add-container command
     add_container_parser = subparsers.add_parser('add-container', help='Add a container to Rucio Catalog.')
     add_container_parser.set_defaults(which='add_container')
     add_container_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True.')
     add_container_parser.add_argument(dest='did', action='store', help='The name of the container to add.')
-    add_container_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
+    add_container_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Lifetime in seconds.')
 
     # The attach command
     attach_parser = subparsers.add_parser('attach', help='Attach a list of DIDs to a parent DID.',
@@ -2703,7 +2703,7 @@ Commands:
     update_rule_parser = subparsers.add_parser('update-rule', help='Update replication rule.')
     update_rule_parser.set_defaults(which='update_rule')
     update_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
-    update_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
+    update_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Lifetime in seconds.')
     update_rule_parser.add_argument('--locked', dest='locked', action='store', help='Locked (True/False).')
     update_rule_parser.add_argument('--account', dest='rule_account', action='store', help='Account to change.')
     update_rule_parser.add_argument('--stuck', dest='state_stuck', action='store_true', help='Set state to STUCK.')
