@@ -32,15 +32,15 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-def get_vo():
-    vo_name = REGION.get('VO')
-    if isinstance(vo_name, NoValue):
+def get_policy():
+    policy = REGION.get('policy')
+    if isinstance(policy, NoValue):
         try:
-            vo_name = config_get('common', 'vo')
+            policy = config_get('permission', 'policy')
         except NoOptionError:
-            vo_name = 'atlas'
-        REGION.set('VO', vo_name)
-    return vo_name
+            policy = 'atlas'
+        REGION.set('policy', policy)
+    return policy
 
 
 def get_scratchdisk_lifetime():
@@ -74,8 +74,8 @@ def get_lifetime_policy():
 
 def policy_filter(function):
     mapping = {'atlas': ['get_scratch_policy', 'archive_localgroupdisk_datasets']}
-    vo_name = get_vo()
-    if vo_name in mapping and function.__name__ in mapping[vo_name]:
+    policy = get_policy()
+    if policy in mapping and function.__name__ in mapping[policy]:
         @wraps(function)
         def new_funct(*args, **kwargs):
             return function(*args, **kwargs)
