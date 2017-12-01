@@ -12,6 +12,7 @@
 Forecast library to predict the Transfers Time To Complete (T3C)
 """
 
+import datetime as dt
 import json
 import logging
 import time
@@ -20,8 +21,6 @@ import numpy as np
 from rucio.core.rse import list_rses, list_rse_attributes
 from rucio.db.sqla.session import read_session
 from rucio.db.sqla import models
-
-from sqlalchemy.sql.expression import and_
 
 
 def ewma(x_values, span):
@@ -160,6 +159,8 @@ class T3CModel():
         :param size: size in bytes of the transfer.
         :returns: Number of seconds the transfer is going to take.
         """
+        src = self.rse2site(src)
+        dst = self.rse2site(dst)
         link = '__'.join([src, dst])
         link_true, rate, overhead, diskrw = self.recover_params(src, dst)
         if link_true == 'STANDARD_LINK':
@@ -171,7 +172,7 @@ class T3CModel():
 
     # Queue time prediction
     @read_session
-    def get_submitted_at_to_rucio(self, src, dst, act, session=None):
+    def get_submitted_at_rucio(self, src, dst, act, session=None):
         """
         Get the latest active transfer for the link from Rucio DB
 
@@ -184,20 +185,14 @@ class T3CModel():
         site_dst = self.rse2site(dst)
         rses_id_src = self.site2rseids(site_src)
         rses_id_dst = self.site2rseids(site_dst)
-        submitted_times = session.query(models.Request.submitted_at).filter(
-            and_(and_(models.Request.source_rse_id in rses_id_src,
-                      models.Request.dest_rse_id in rses_id_dst),
-                 models.Request.activity == act))
+        submitted_times = session.query(models.Request.submitted_at)\
+                                 .filter(models.Request.state == models.RequestState.SUBMITTED,
+                                         models.Request.source_rse_id.in_(rses_id_src),
+                                         models.Request.dest_rse_id.in_(rses_id_dst),
+                                         models.Request.activity == act).all()
+        submitted_times = [(datetuple[0] - dt.datetime.utcfromtimestamp(0)).total_seconds() for datetuple in submitted_times]
+        submitted_times.sort(reverse=True)
         return submitted_times
-
-    def get_submitted_at_random(self, src, dst, act):
-        """
-        Generate a random sample of active transfers for the link.
-        This function will be removed when get_submitted_at_to_rucio is in place
-        """
-        submitted = [np.random.randint(time.time() - 7 * 24 * 60 * 60,
-                                       time.time()) for i in xrange(150)]
-        return submitted
 
     def predict_q(self, src, dst, act):
         """
@@ -209,8 +204,16 @@ class T3CModel():
         :param act: The activity of the transfer.
         :returns: Number of seconds the transfer is going to spend in FTS queue.
         """
-        submitted = self.get_submitted_at_random(src, dst, act)
-        submitted.sort(reverse=True)
+        start = time.time()
+        submitted = self.get_submitted_at_rucio(src, dst, act)
+        debug = True
+        if debug is True:
+            logging.warning('Query took ' + str(time.time() - start) + ' seconds to retrieve (' + str(len(submitted)) + ') rows.')
+            f = open('/tmp/forecast.log', 'a')
+            f.write(src + ' --> ' + dst + ' (' + act + ') time:' + str(time.time() - start) + '\n')
+            f.write(str(submitted))
+            f.write('\n')
+            f.close()
         submitted = np.array(submitted)
         submitted = int(time.time()) - submitted
         return ewma(submitted, span=10)[-1]
@@ -220,14 +223,13 @@ class T3CModel():
         """
         Make a prediction for queue and network time for a collection of transfers
 
-        :param transfers: A list of dictionaries, each of wich at least have the keys src: The name of the source RSE for the transfer.
-                          dst: The name of the destination RSE for the transfer. act: The activity of the transfer. size: The size in bytes of the transfer.
+        :param transfers: A list of dictionaries, each of wich at least have the keys src: The name of the source RSE for the transfer. dst: The name of the destination RSE for the transfer. act: The activity of the transfer. size: The size in bytes of the transfer.
         :returns: A list of the previous dictionaries extended with two new keys ntime: Number of seconds the transfer is going to spend in in the network. qtime: Number of seconds the transfer is going to spend in FTS queue.
         """
         result = []
         for transfer in transfers:
-            src = self.rse2site(transfer['src'])
-            dst = self.rse2site(transfer['dst'])
+            src = transfer['src']
+            dst = transfer['dst']
             act = transfer['activity']
             size = transfer['size']
             transfer['ntime'] = self.predict_n(src, dst, size)
