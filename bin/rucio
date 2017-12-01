@@ -226,11 +226,10 @@ def exception_handler(function):
                     pass
                 logger.error('Specified account %s does not have an associated identity.' % used_account)
             else:
-                logger.error(error)
                 logger.debug(traceback.format_exc())
-                logger.error("This means that the object doesn't have the property " + str(error) +
-                             ". This should never happen. Please rerun the last command with the '-v'" +
-                             " option and submit a ticket with all the necessary information at https://its.cern.ch/jira/browse/RUCIO")
+                logger.error('The object is missing this property: ' + str(error))
+                logger.error('This should never happen. Please rerun the last command with the "-v" option to gather more information.')
+                logger.error('Please followup with all relevant information at: %s' % config_get('client', 'support_rucio'))
             return FAILURE
         except RucioException as error:
             logger.error(error)
@@ -239,9 +238,12 @@ def exception_handler(function):
             logger.error(error)
             return FAILURE
         except Exception as error:
-            logger.error(error)
-            logger.error("Rucio exited with an unexpected/unknown error. Please rerun the last command with the '-v' option and submit a ticket with all the available information to reproduce this error at https://its.cern.ch/jira/browse/RUCIO")
             logger.debug(traceback.format_exc())
+            logger.error(error)
+            logger.error('Rucio exited with an unexpected/unknown error.')
+            logger.error('Please rerun the last command with the "-v" option to gather more information.')
+            logger.error('If it is a problem concerning your experiment or if you unsure what to do, please followup at: %s' % config_get('client', 'support_experiment'))
+            logger.error('If it is a problem concerning Rucio itself, please followup at: %s' % config_get('client', 'support_rucio'))
             return FAILURE
     return new_funct
 
