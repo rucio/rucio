@@ -30,6 +30,8 @@ client_x509_proxy = $X509_USER_PROXY
 ssh_private_key = $HOME/.ssh/id_rsa
 account = root
 request_retries = 3
+support_experiment = hn-atlas-dist-analysis-help@cern.ch
+support_rucio = https://github.com/rucio/rucio/issues
 
 [database]
 default = sqlite:////tmp/rucio.db
