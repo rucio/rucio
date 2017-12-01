@@ -32,10 +32,6 @@ COPY tools /opt/rucio/tools
 
 WORKDIR /opt/rucio
 
-RUN yum install -y /opt/rucio/etc/docker/travis/oic.rpm
-RUN echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf
-RUN ldconfig
-
 RUN pip install --upgrade pip
 RUN pip install -r tools/pip-requires-client
 RUN pip install -r tools/pip-requires
