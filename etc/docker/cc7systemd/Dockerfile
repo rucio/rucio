@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
 
 FROM centos:7
 ENV container docker
@@ -44,7 +45,7 @@ RUN yum install -y \
 # DB packages
 # Oracle
 RUN rpm -i /tmp/oic.rpm; \
-    echo "/usr/lib/oracle/12.1/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
+    echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
     ldconfig
 # MySQL
 RUN yum install -y MySQL-python
