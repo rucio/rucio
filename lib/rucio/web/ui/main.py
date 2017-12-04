@@ -19,26 +19,20 @@ from os.path import dirname, join
 
 from web import application, header, input as param_input, seeother, template
 
+from rucio.common.config import config_get
 from rucio.common.utils import generate_http_error
 from rucio.web.ui.common.utils import check_token, get_token
 
 
-URLS = (
-    '/', 'Index',
+COMMON_URLS = (
     '/account_rse_usage', 'AccountRSEUsage',
-    '/account_usage', 'AccountUsage',
     '/account', 'Account',
     '/auth', 'Auth',
-    '/accounting', 'Accounting',
     '/bad_replicas', 'BadReplicas',
     '/suspicious_replicas', 'SuspiciousReplicas',
     '/bad_replicas/summary', 'BadReplicasSummary',
-    '/conditions_summary', 'Cond',
     '/did', 'DID',
-    '/dbrelease_summary', 'DBRelease',
-    '/dumps', 'Dumps',
     '/heartbeats', 'Heartbeats',
-    '/infrastructure', 'Infrastructure',
     '/lifetime_exception', 'LifetimeException',
     '/list_accounts', 'ListAccounts',
     '/list_rules', 'ListRulesRedirect',
@@ -51,7 +45,6 @@ URLS = (
     '/rule', 'Rule',
     '/rules', 'Rules',
     '/request_rule', 'RequestRuleRedirect',
-    '/rule_backlog_monitor', 'BacklogMon',
     '/search', 'Search',
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
@@ -59,6 +52,26 @@ URLS = (
     '/subscriptions_editor', 'SubscriptionsEditor'
 )
 
+POLICY = config_get('permission', 'policy')
+
+ATLAS_URLS = ()
+OTHER_URLS = ()
+
+if POLICY == 'atlas':
+    ATLAS_URLS = (
+        '/', 'AtlasIndex',
+        '/account_usage', 'AccountUsage',
+        '/dumps', 'Dumps',
+        '/accounting', 'Accounting',
+        '/conditions_summary', 'Cond',
+        '/dbrelease_summary', 'DBRelease',
+        '/infrastructure', 'Infrastructure',
+        '/rule_backlog_monitor', 'BacklogMon'
+    )
+else:
+    OTHER_URLS = (
+        '/', 'Index'
+    )
 
 class Account(object):
     """ Account info page """
@@ -90,6 +103,14 @@ class ApproveRules(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.approve_rules())
+
+
+class AtlasIndex(object):
+    """ Main page """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.atlas_index())
 
 
 class Auth(object):
@@ -334,5 +355,5 @@ class SubscriptionsEditor():
    Web service startup
 ----------------------"""
 
-app = application(URLS, globals())
+app = application(COMMON_URLS + ATLAS_URLS + OTHER_URLS, globals())
 application = app.wsgifunc()
