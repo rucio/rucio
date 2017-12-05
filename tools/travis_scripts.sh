@@ -28,6 +28,21 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+cp /opt/rucio/etc/docker/travis/rucio_postgresql.cfg /opt/rucio/etc/rucio.cfg
+
+httpd -k restart
+
+echo '==============================='
+echo "Run Postgresql tests"
+echo '==============================='
+
+/opt/rucio/tools/run_tests_docker.sh -1q
+
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+
 echo '==============================='
 echo 'Running flake8                 '
 echo '==============================='
