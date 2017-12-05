@@ -73,6 +73,7 @@ else:
         '/', 'Index'
     )
 
+
 class Account(object):
     """ Account info page """
     def GET(self):  # pylint:disable=no-self-use,invalid-name
