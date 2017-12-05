@@ -555,30 +555,32 @@ def delete_dids(dids, account, session=None):
             not_purge_replicas.append((did['scope'], did['name']))
 
             # Archive content
-            q = session.query(models.DataIdentifierAssociation.scope,
-                              models.DataIdentifierAssociation.name,
-                              models.DataIdentifierAssociation.child_scope,
-                              models.DataIdentifierAssociation.child_name,
-                              models.DataIdentifierAssociation.did_type,
-                              models.DataIdentifierAssociation.child_type,
-                              models.DataIdentifierAssociation.bytes,
-                              models.DataIdentifierAssociation.adler32,
-                              models.DataIdentifierAssociation.md5,
-                              models.DataIdentifierAssociation.guid,
-                              models.DataIdentifierAssociation.events,
-                              models.DataIdentifierAssociation.rule_evaluation,
-                              bindparam("did_created_at", did.get('created_at')),
-                              models.DataIdentifierAssociation.created_at,
-                              models.DataIdentifierAssociation.updated_at,
-                              bindparam("deleted_at", datetime.utcnow())).\
-                filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
-                            models.DataIdentifierAssociation.name == did['name']))
-            ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
-                from_select(('scope', 'name', 'child_scope', 'child_name', 'did_type',
-                             'child_type', 'bytes', 'adler32', 'md5', 'guid', 'events',
-                             'rule_evaluation', 'did_created_at', 'created_at', 'updated_at',
-                             'deleted_at'), q)
-            session.execute(ins)
+            # Disable for postgres
+            if session.bind.dialect.name != 'postgresql':
+                q = session.query(models.DataIdentifierAssociation.scope,
+                                  models.DataIdentifierAssociation.name,
+                                  models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifierAssociation.did_type,
+                                  models.DataIdentifierAssociation.child_type,
+                                  models.DataIdentifierAssociation.bytes,
+                                  models.DataIdentifierAssociation.adler32,
+                                  models.DataIdentifierAssociation.md5,
+                                  models.DataIdentifierAssociation.guid,
+                                  models.DataIdentifierAssociation.events,
+                                  models.DataIdentifierAssociation.rule_evaluation,
+                                  bindparam("did_created_at", did.get('created_at')),
+                                  models.DataIdentifierAssociation.created_at,
+                                  models.DataIdentifierAssociation.updated_at,
+                                  bindparam('deleted_at', datetime.utcnow())).\
+                    filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
+                                models.DataIdentifierAssociation.name == did['name']))
+                ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
+                    from_select(('scope', 'name', 'child_scope', 'child_name', 'did_type',
+                                 'child_type', 'bytes', 'adler32', 'md5', 'guid', 'events',
+                                 'rule_evaluation', 'did_created_at', 'created_at', 'updated_at',
+                                 'deleted_at'), q)
+                session.execute(ins)
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
@@ -788,9 +790,9 @@ def set_new_dids(dids, new_flag, session=None):
     """
     for did in dids:
         try:
-            # session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).with_for_update(nowait=True).first()
-            # session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).first()
-            rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).update({'is_new': new_flag}, synchronize_session=False)
+            rowcount = session.query(models.DataIdentifier).\
+                filter_by(scope=did['scope'], name=did['name']).\
+                update({'is_new': bool(new_flag)}, synchronize_session=False)
             if not rowcount:
                 raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
         except DatabaseError as error:
