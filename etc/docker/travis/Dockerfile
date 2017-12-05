@@ -40,6 +40,7 @@ RUN pip install -r tools/pip-requires-client
 RUN pip install -r tools/pip-requires
 RUN pip install -r tools/pip-requires-test
 RUN pip install cx_Oracle
+RUN pip install psycopg2
 
 RUN ln -s /opt/rucio/lib/rucio /usr/lib/python2.7/site-packages/rucio
 
