@@ -16,6 +16,7 @@ from web import cookies, ctx, input, setcookie, template
 from rucio import version
 from rucio.api import authentication, identity
 from rucio.api.account import get_account_info, list_account_attributes
+from rucio.common.config import config_get
 from rucio.db.sqla.constants import AccountType
 
 
@@ -54,6 +55,7 @@ def check_token(rendered_tpl):
     accounts = None
     cookie_accounts = None
     rucio_ui_version = version.version_string()
+    policy = config_get('permission', 'policy')
 
     ui_account = None
     if 'ui_account' in input():
@@ -146,4 +148,4 @@ def check_token(rendered_tpl):
 
     if ui_account:
         setcookie('rucio-selected-account', value=ui_account, path='/')
-    return render.base(js_token, js_account, rucio_ui_version, rendered_tpl)
+    return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
