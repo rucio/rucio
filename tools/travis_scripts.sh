@@ -42,11 +42,11 @@ echo '==============================='
 echo 'Running pylint                 '
 echo '==============================='
 
-pylint `cat changed_files.txt` > pylint.out
+pylint --rcfile=/opt/rucio/pylintrc `cat changed_files.txt` > pylint.out
 
 if [ $(($? & 3)) -ne 0 ]; then
     echo "PYLINT FAILED"
-    grep '^E:' pylint.out
+    cat pylint.out
     exit 1
 else
     echo "PYLINT PASSED"
