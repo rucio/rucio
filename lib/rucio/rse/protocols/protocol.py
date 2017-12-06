@@ -183,6 +183,8 @@ class RSEProtocol(object):
             path = '/'.join(path.split('/')[:-1])
             if not path.startswith('/'):
                 path = '/' + path
+            if path != '/' and not path.endswith('/'):
+                path = path + '/'
             ret[pfn] = {'path': path, 'name': name, 'scheme': scheme, 'prefix': prefix, 'port': port, 'hostname': hostname, }
 
         return ret
