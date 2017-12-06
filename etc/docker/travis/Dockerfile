@@ -7,7 +7,7 @@ RUN yum install -y epel-release.noarch
 
 RUN yum install -y gcc
 
-RUN yum install -y httpd 
+RUN yum install -y httpd
 RUN yum install -y python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 gridsite which MySQL-python libaio
 
 WORKDIR /opt
@@ -17,6 +17,7 @@ RUN mkdir /opt/rucio
 COPY .pep8 /opt/rucio/
 COPY pylintrc /opt/rucio/
 COPY changed_files.txt /opt/rucio/
+COPY setup*.py /opt/rucio/
 
 RUN mkdir /opt/rucio/bin
 COPY bin /opt/rucio/bin
