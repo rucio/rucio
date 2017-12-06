@@ -8,7 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -194,38 +194,74 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
                            and as value: [LockObject]
     :raises:               NoResultFound
     """
-    # with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
-    query = session.query(models.DataIdentifierAssociation.child_scope,
-                          models.DataIdentifierAssociation.child_name,
-                          models.ReplicaLock).\
-        with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
-        outerjoin(models.ReplicaLock,
-                  and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                       models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
-        .filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
+    locks = {}
+    if session.bind.dialect.name == 'postgresql':
+        content_query = session.query(models.DataIdentifierAssociation.child_scope,
+                                      models.DataIdentifierAssociation.child_name).\
+            with_hint(models.DataIdentifierAssociation,
+                      "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                      'oracle').\
+            filter(models.DataIdentifierAssociation.scope == scope,
+                   models.DataIdentifierAssociation.name == name)
 
-    if restrict_rses is not None:
-        rse_clause = []
-        for rse_id in restrict_rses:
-            rse_clause.append(models.ReplicaLock.rse_id == rse_id)
-        if rse_clause:
-            query = session.query(models.DataIdentifierAssociation.child_scope,
-                                  models.DataIdentifierAssociation.child_name,
-                                  models.ReplicaLock).\
-                with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
-                outerjoin(models.ReplicaLock,
-                          and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                               models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
-                               or_(*rse_clause)))\
-                .filter(models.DataIdentifierAssociation.scope == scope,
-                        models.DataIdentifierAssociation.name == name)
+        for child_scope, child_name in content_query.yield_per(1000):
+            locks[(child_scope, child_name)] = []
+
+        query = session.query(models.DataIdentifierAssociation.child_scope,
+                              models.DataIdentifierAssociation.child_name,
+                              models.ReplicaLock).\
+            with_hint(models.DataIdentifierAssociation,
+                      "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                      'oracle').\
+            filter(and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                        models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
+            .filter(models.DataIdentifierAssociation.scope == scope,
+                    models.DataIdentifierAssociation.name == name)
+
+        if restrict_rses is not None:
+            rse_clause = []
+            for rse_id in restrict_rses:
+                rse_clause.append(models.ReplicaLock.rse_id == rse_id)
+            if rse_clause:
+                query = session.query(models.DataIdentifierAssociation.child_scope,
+                                      models.DataIdentifierAssociation.child_name,
+                                      models.ReplicaLock).\
+                    with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
+                    filter(and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                                models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
+                                or_(*rse_clause)))\
+                    .filter(models.DataIdentifierAssociation.scope == scope,
+                            models.DataIdentifierAssociation.name == name)
+    else:
+        query = session.query(models.DataIdentifierAssociation.child_scope,
+                              models.DataIdentifierAssociation.child_name,
+                              models.ReplicaLock).\
+            with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
+            outerjoin(models.ReplicaLock,
+                      and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                           models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
+            .filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
+
+        if restrict_rses is not None:
+            rse_clause = []
+            for rse_id in restrict_rses:
+                rse_clause.append(models.ReplicaLock.rse_id == rse_id)
+            if rse_clause:
+                query = session.query(models.DataIdentifierAssociation.child_scope,
+                                      models.DataIdentifierAssociation.child_name,
+                                      models.ReplicaLock).\
+                    with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
+                    outerjoin(models.ReplicaLock,
+                              and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                                   models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
+                                   or_(*rse_clause)))\
+                    .filter(models.DataIdentifierAssociation.scope == scope,
+                            models.DataIdentifierAssociation.name == name)
 
     if only_stuck:
         query = query.filter(models.ReplicaLock.state == LockState.STUCK)
 
     query = query.with_for_update(nowait=nowait, of=models.ReplicaLock.state)
-
-    locks = {}
 
     for child_scope, child_name, lock in query:
         if (child_scope, child_name) not in locks:
