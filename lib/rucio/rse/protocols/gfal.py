@@ -119,6 +119,8 @@ class Default(protocol.RSEProtocol):
             path = '/'.join(path.split('/')[:-1])
             if not path.startswith('/'):
                 path = '/' + path
+            if path != '/' and not path.endswith('/'):
+                path = path + '/'
             ret[pfn] = {'scheme': scheme, 'port': port, 'hostname': hostname, 'path': path, 'name': name, 'prefix': prefix, 'web_service_path': service_path}
 
         return ret
