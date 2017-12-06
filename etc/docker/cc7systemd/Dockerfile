@@ -49,6 +49,8 @@ RUN rpm -i /tmp/oic.rpm; \
     ldconfig
 # MySQL
 RUN yum install -y MySQL-python
+# Postgres
+RUN yum install -y python-psycopg2.x86_64
 
 VOLUME [ "/sys/fs/cgroup" ]
 CMD ["/usr/sbin/init"]
