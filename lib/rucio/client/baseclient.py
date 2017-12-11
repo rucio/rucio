@@ -25,7 +25,7 @@ from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_r
 from rucio import version
 
 from logging import getLogger, StreamHandler, ERROR
-from os import environ, fdopen, path, makedirs
+from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
 from urlparse import urlparse
@@ -136,7 +136,22 @@ class BaseClient(object):
                     self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
                 elif self.auth_type == 'x509_proxy':
-                    self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
+                    try:
+                        self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
+                    except NoOptionError as error:
+                        # Recreate the classic GSI logic for locating the proxy:
+                        # - $X509_USER_PROXY, if it is set.
+                        # - /tmp/x509up_u`id -u` otherwise.
+                        # If neither exists (at this point, we don't care if it exists but is invalid), then rethrow
+                        if 'X509_USER_PROXY' in environ:
+                            self.creds['client_proxy'] = environ['X509_USER_PROXY']
+                        else:
+                            fname = '/tmp/x509up_u%d' % geteuid()
+                            if path.exists(fname):
+                                self.creds['client_proxy'] = path
+                            else:
+                                raise MissingClientParameter('Cannot find a valid X509 proxy; not in %s, $X509_USER_PROXY not set, and '
+                                                             '\'x509_proxy\' not set in the configuration file.' % fname)
                 elif self.auth_type == 'ssh':
                     self.creds['ssh_private_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'ssh_private_key'))))
             except (NoOptionError, NoSectionError) as error:
