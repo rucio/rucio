@@ -2420,6 +2420,15 @@ def touch(args):
         client.touch(scope, name, args.rse)
 
 
+# Auto-completers for argument parsing.
+def rse_completer(prefix, parsed_args, **kwargs):
+    """
+    Completes the argument with a list of RSEs
+    """
+    client = get_client(parsed_args)
+    return ["%(rse)s" % rse for rse in client.list_rses()]
+
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -2471,7 +2480,7 @@ Commands:
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs.', required=False)
     list_file_replicas_parser.add_argument('--link', dest='link', default=None, action='store', help='Symlink PFNs with directory substitution.', required=False)
-    list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False)
+    list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False).completer = rse_completer
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE.', required=False)
     list_file_replicas_parser.add_argument('--metalink', dest='metalink', default=False, action='store_true', help='Output available replicas as metalink.', required=False)
     list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: random (default), geoip', required=False)
@@ -2595,7 +2604,7 @@ Commands:
     # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')
     upload_parser.set_defaults(which='upload')
-    upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True)
+    upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True).completer = rse_completer
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
@@ -2666,7 +2675,7 @@ Commands:
     # The list-rse-usage subparser
     list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='Shows the total/free/used space for a given RSE. This values can differ for different RSE source.')
     list_rse_usage_parser.set_defaults(which='list_rse_usage')
-    list_rse_usage_parser.add_argument(dest='rse', action='store', help='Rucio Storage Element (RSE) name.')
+    list_rse_usage_parser.add_argument(dest='rse', action='store', help='Rucio Storage Element (RSE) name.').completer = rse_completer
     list_rse_usage_parser.add_argument('--history', dest='history', default=False, action='store', help='List RSE usage history. [Unimplemented]')
 
     # The list-account-usage subparser
@@ -2679,7 +2688,7 @@ Commands:
     list_account_limits_parser = subparsers.add_parser('list-account-limits', help='List quota limits for an account in every RSEs.')
     list_account_limits_parser.set_defaults(which='list_account_limits')
     list_account_limits_parser.add_argument('limit_account', action='store', help='The account name.')
-    list_account_limits_parser.add_argument('--rse', dest='rse', action='store', help='If this option is given, the results are restricted to only this RSE.')
+    list_account_limits_parser.add_argument('--rse', dest='rse', action='store', help='If this option is given, the results are restricted to only this RSE.').completer = rse_completer
 
     # Add replication rule subparser
     add_rule_parser = subparsers.add_parser('add-rule', help='Add replication rule.')
@@ -2761,13 +2770,13 @@ Commands:
     # The list-rses-attributes command
     list_rse_attributes_parser = subparsers.add_parser('list-rse-attributes', help='List the attributes of an RSE.', description='This command is useful to create RSE filter expressions.')
     list_rse_attributes_parser.set_defaults(which='list_rse-attributes')
-    list_rse_attributes_parser.add_argument(dest='rse', action='store', help='The RSE name')
+    list_rse_attributes_parser.add_argument(dest='rse', action='store', help='The RSE name').completer = rse_completer
 
     # The list-datasets-rse command
     list_datasets_rse_parser = subparsers.add_parser('list-datasets-rse', help='List all the datasets at a RSE', description='This method allows to list all the datasets on a given Rucio Storage Element.\
         ' + Color.BOLD + 'Warning: ' + Color.END + 'This command can take a long time depending on the number of datasets in the RSE.')
     list_datasets_rse_parser.set_defaults(which='list_datasets_rse')
-    list_datasets_rse_parser.add_argument(dest='rse', action='store', default=None, help='The RSE name')
+    list_datasets_rse_parser.add_argument(dest='rse', action='store', default=None, help='The RSE name').completer = rse_completer
     list_datasets_rse_parser.add_argument('--long', dest='long', action='store_true', default=False, help='The long option')
 
     # The test-server command
@@ -2778,7 +2787,7 @@ Commands:
     touch_parser = subparsers.add_parser('touch', help='Touch one or more DIDs and set the last accessed date to the current date')
     touch_parser.set_defaults(which='touch')
     touch_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-    touch_parser.add_argument('--rse', dest='rse', action='store', help="The RSE of the DIDs that are touched.")
+    touch_parser.add_argument('--rse', dest='rse', action='store', help="The RSE of the DIDs that are touched.").completer = rse_completer
 
     argcomplete.autocomplete(oparser)
 
