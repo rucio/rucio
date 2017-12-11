@@ -500,6 +500,7 @@ def delete_attribute_rse(args):
     print 'Deleted RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value)
     return SUCCESS
 
+
 @exception_handler
 def add_protocol_rse(args):
     """
@@ -514,7 +515,7 @@ def add_protocol_rse(args):
              'impl': args.impl,
              'prefix': args.prefix}
     if args.domain_json:
-        proto['domain'] = args.domain_json
+        proto['domains'] = args.domain_json
     proto.setdefault('extended_attributes', {})
     if args.ext_attr_json:
         proto['extended_attributes'] = args.ext_attr_json
@@ -530,6 +531,22 @@ def add_protocol_rse(args):
         del proto['extended_attributes']
     client.add_protocol(args.rse, proto)
     return SUCCESS
+
+
+@exception_handler
+def del_protocol_rse(args):
+    """
+    %(prog)s delete-protocol-rse [options] <rse>
+
+    Remove a protocol handler for a RSE
+    """
+    client = get_client(args)
+    kwargs = {}
+    if args.port:
+        kwargs['port'] = args.port
+    if args.hostname:
+        kwargs['hostname'] = args.hostname
+    client.delete_protocols(args.rse, args.scheme, **kwargs)
 
 
 @exception_handler
@@ -1002,6 +1019,14 @@ Commands:
     add_protocol_rse_parser.add_argument('--domain-json', dest='domain_json', action='store', type=json.loads, help='JSON describing the WAN / LAN setup')
     add_protocol_rse_parser.add_argument('--extended-attributes-json', dest='ext_attr_json', action='store', type=json.loads, help='JSON describing any extended attributes')
 
+    # The del_protocol_rse command
+    del_protocol_rse_parser = rse_subparser.add_parser('delete-protocol', help='Delete a protocol from a RSE')
+    del_protocol_rse_parser.set_defaults(which='del_protocol_rse')
+    del_protocol_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
+    del_protocol_rse_parser.add_argument('--hostname', dest='hostname', action='store', help='Endpoint hostname')
+    del_protocol_rse_parser.add_argument('--scheme', dest='scheme', action='store', help='Endpoint URL scheme', required=True)
+    del_protocol_rse_parser.add_argument('--port', dest='port', action='store', type=int, help='URL port')
+
     # The disable_location command
     disable_rse_parser = rse_subparser.add_parser('delete', help='Disable RSE')
     disable_rse_parser.set_defaults(which='disable_rse')
@@ -1123,6 +1148,7 @@ Commands:
                 'get_attribute_rse': get_attribute_rse,
                 'delete_attribute_rse': delete_attribute_rse,
                 'add_protocol_rse': add_protocol_rse,
+                'del_protocol_rse': del_protocol_rse,
                 'list_rses': list_rses,
                 'disable_rse': disable_rse,
                 'add_scope': add_scope,
