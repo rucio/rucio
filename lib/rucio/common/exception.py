@@ -8,7 +8,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch> , 2012, 2017
 # - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014-2015, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2017
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
@@ -801,3 +801,13 @@ class UnsupportedValueType(RucioException):
         super(UnsupportedValueType, self).__init__(args, kwargs)
         self._message = "Unsupported type for the value. List of supported types: %s." % str(AUTHORIZED_VALUE_TYPES)
         self.error_code = 74
+
+
+class MissingModuleException(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(MissingModuleException, self).__init__(args, kwargs)
+        self._message = "The module is not installed."
+        self.error_code = 75
