@@ -16,6 +16,7 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
  - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
+ - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017
 """
 
 import argparse
