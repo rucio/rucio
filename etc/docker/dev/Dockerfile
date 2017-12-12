@@ -43,13 +43,13 @@ COPY .flake8 /opt/rucio/
 COPY pylintrc /opt/rucio/
 
 RUN mkdir /opt/rucio/bin
-COPY bin /opt/rucio/bin
+#COPY bin /opt/rucio/bin
 
 RUN mkdir /opt/rucio/etc
 COPY etc /opt/rucio/etc
 
 RUN mkdir -p /opt/rucio/lib/rucio
-COPY lib/rucio /opt/rucio/lib/rucio
+#COPY lib/rucio /opt/rucio/lib/rucio
 
 RUN mkdir /opt/rucio/tools
 COPY tools /opt/rucio/tools
@@ -82,12 +82,14 @@ ADD etc/docker/dev/certs/server.crt /etc/grid-security/hostcert.pem
 ADD etc/docker/dev/certs/server.key /etc/grid-security/hostkey.pem
 RUN chmod 400 /etc/grid-security/hostkey.pem
 
+WORKDIR /opt/rucio
+
 RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf
 
 EXPOSE 443
 
 ENV PATH $PATH:/opt/rucio/bin
 
-RUN systemctl enable httpd.service
-CMD ["/usr/sbin/init"]
-RUN httpd -k restart
+RUN rm -rf /opt/rucio/tools && mkdir -p /opt/rucio/tools
+
+CMD ["httpd","-D","FOREGROUND"]
