@@ -16,6 +16,7 @@ import base64
 import datetime
 import errno
 import hashlib
+import imp
 import json
 import os
 import pwd
@@ -33,14 +34,30 @@ from uuid import uuid4 as uuid
 from StringIO import StringIO
 
 from rucio.common.config import config_get
+from rucio.common.exception import MissingModuleException
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'web': False,
+                 'paramiko': False}
 
 try:
-    # Hack for the client distribution
-    from web import HTTPError
     from rucio.db.sqla.enum import EnumSymbol
-except:
-    pass
+    EXTRA_MODULES['rucio.db.sqla.enum'] = True
+except ImportError:
+    EXTRA_MODULES['rucio.db.sqla.enum'] = False
 
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['web']:
+    from web import HTTPError
+
+if EXTRA_MODULES['paramiko']:
+    from paramiko import RSAKey
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
 codes = {
@@ -220,7 +237,6 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     :param exc_msg: The error message.
     :returns: a web.py HTTP response object.
     """
-
     status = codes[status_code]
     data = {'ExceptionClass': exc_cls,
             'ExceptionMessage': exc_msg}
@@ -571,9 +587,8 @@ def ssh_sign(private_key, message):
     :param message: The message to sign as a string.
     :return: Base64 encoded signature as a string.
     """
-
-    from paramiko import RSAKey
-
+    if not EXTRA_MODULES['paramiko']:
+        raise MissingModuleException('The paramiko module is not installed.')
     sio_private_key = StringIO(private_key)
     priv_k = RSAKey.from_private_key(sio_private_key)
     sio_private_key.close()
