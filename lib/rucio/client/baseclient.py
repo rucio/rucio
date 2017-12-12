@@ -12,6 +12,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017
 #
 # Client class for callers of the Rucio system
 
