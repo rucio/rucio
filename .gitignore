@@ -17,6 +17,7 @@ etc/alembic.ini
 etc/ldap.cfg
 alembic.ini
 .gitlabkey
+.githubtoken
 
 # ignore test proxies
 *.proxy
@@ -59,4 +60,3 @@ rucio.egg-info
 # Conveyor test files
 tools/test.file.1G
 
-.gitlabkey
