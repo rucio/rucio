@@ -62,7 +62,7 @@ RUN pip install -r tools/pip-requires-test
 
 RUN ln -s /opt/rucio/lib/rucio /usr/lib/python2.7/site-packages/rucio
 
-ADD etc/docker/dev/rucio.conf etc/
+ADD etc/docker/dev/rucio.cfg etc/
 RUN cp etc/alembic.ini.template etc/alembic.ini
 ADD etc/docker/dev/aliases-py27.conf etc/web/
 RUN chmod 755 -R /opt/rucio/
