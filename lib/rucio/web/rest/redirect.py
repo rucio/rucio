@@ -176,7 +176,7 @@ class HeaderRedirector(RucioController):
         try:
 
             # use the default HTTP protocols if no scheme is given
-            select, rse, site, schemes = 'random', None, None, ['http', 'https', 's3+rucio']
+            select, rse, site, schemes = 'random', None, None, ['davs', 'http', 'https', 's3+rucio']
 
             client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
             if client_ip is None:
