@@ -43,13 +43,11 @@ COPY .flake8 /opt/rucio/
 COPY pylintrc /opt/rucio/
 
 RUN mkdir /opt/rucio/bin
-#COPY bin /opt/rucio/bin
 
 RUN mkdir /opt/rucio/etc
 COPY etc /opt/rucio/etc
 
 RUN mkdir -p /opt/rucio/lib/rucio
-#COPY lib/rucio /opt/rucio/lib/rucio
 
 RUN mkdir /opt/rucio/tools
 COPY tools /opt/rucio/tools
