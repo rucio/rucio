@@ -185,5 +185,6 @@ dataset_size = 5000000000
 dataset_dir = ~/public/sonar_medium_dataset/
 scope = user.vzavrtan
 
-[permission]
-policy=atlas
+[policy]
+permission=atlas
+schema=atlas
