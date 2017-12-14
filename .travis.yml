@@ -7,13 +7,13 @@ services:
 
 install:
   - cp etc/docker/travis/Dockerfile Dockerfile
-  - git diff --name-only HEAD $(git merge-base HEAD master) | grep .py | grep -v .py.mako | paste -sd " " - > changed_files.txt
+  - git diff --name-status HEAD $(git merge-base HEAD master) | grep .py | grep -v '^A' | cut -f 2 | paste -sd " " - > changed_files.txt
   - docker build -t rucio/rucio .
 
 before_script:
   - docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true sath89/oracle-xe-11g
   - docker run --name=mysql -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
-  - docker run --name postgres -e POSTGRES_PASSWORD=secret -d postgres
+  - docker run --name=postgres -e POSTGRES_PASSWORD=secret -d postgres
   - docker run --name=activemq -d webcenter/activemq:latest
   - sleep 150
   - docker run -d --link oracle:oracle --link mysql:mysql --link postgres:postgres --link activemq:activemq --name=rucio rucio/rucio
@@ -26,4 +26,5 @@ after_script:
   - docker stop rucio
   - docker stop oracle
   - docker stop mysql
+  - docker stop postgres
   - docker stop activemq
