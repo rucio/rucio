@@ -1,0 +1,19 @@
+version: "2"
+services:
+  rucio:
+    image: rucio/rucio-dev
+    ports:
+      - "443:443"
+    links:
+      - mysql:mysql
+    volumes:
+      - ../../../tools:/opt/rucio/tools
+      - ../../../bin:/opt/rucio/bin
+      - ../../../lib:/opt/rucio/lib
+  mysql:
+    image: mysql/mysql-server:5.7
+    environment:
+      - MYSQL_RANDOM_ROOT_PASSWORD=True
+      - MYSQL_DATABASE=rucio
+      - MYSQL_USER=rucio
+      - MYSQL_PASSWORD=rucio
