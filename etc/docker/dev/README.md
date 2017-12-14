@@ -25,7 +25,7 @@ docker run -it -d --name rucio -p "443:443" \
            -v `pwd`/bin/:/opt/rucio/bin \
            -v `pwd`/lib/:/opt/rucio/lib \
            --link mysql:mysql \
-           rucio-dev
+           rucio/rucio-dev
 ```
 
 ### Running Tests
@@ -40,3 +40,6 @@ Note that the names of the containers may end up looking different on your syste
 ```
 docker exec -it dev_rucio_1 tools/run_tests.sh
 ```
+
+### Git Hook
+Replace the `pre-commit` hook provided in `tools` with the one provided here. It runs `pylint` in the rucio development container rather then in the local system.
