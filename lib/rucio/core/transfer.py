@@ -708,7 +708,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id is None or rse is None:
                     continue
 
-                if link_ranking is None:
+                if link_ranking is None or link_ranking == 0:
                     logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
                     continue
 
@@ -785,7 +785,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     else:
                         # the sources already founded is Tape too.
                         # multiple Tape source replicas are not allowed in FTS3.
-                        if transfers[id]['sources'][0][3] > ranking or (transfers[id]['sources'][0][3] == ranking and transfers[id]['sources'][0][4] >= link_ranking):
+                        if transfers[id]['sources'][0][3] > ranking or (transfers[id]['sources'][0][3] == ranking and transfers[id]['sources'][0][4] <= link_ranking):
                             continue
                         else:
                             transfers[id]['sources'] = []
