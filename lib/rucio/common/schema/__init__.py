@@ -6,22 +6,16 @@
  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 """
 
 from ConfigParser import NoOptionError, NoSectionError
 
 from rucio.common import config
 
-if config.config_has_section('permission'):
+if config.config_has_section('policy'):
     try:
-        POLICY = config.config_get('permission', 'policy')
-    except (NoOptionError, NoSectionError) as error:
-        POLICY = 'generic'
-elif config.config_has_section('policy'):
-    try:
-        POLICY = config.config_get('policy', 'permission')
+        POLICY = config.config_get('policy', 'schema')
     except (NoOptionError, NoSectionError) as error:
         POLICY = 'generic'
 else:
