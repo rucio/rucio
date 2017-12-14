@@ -28,7 +28,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-cp /opt/rucio/etc/docker/travis/rucio_postgresql.cfg /opt/rucio/etc/rucio.cfg
+cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
 
 httpd -k restart
 
