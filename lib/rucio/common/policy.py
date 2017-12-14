@@ -9,6 +9,7 @@
  Authors:
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
  - Martin Barisits, <martin.barisits@cern.ch>, 2017
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 """
 
 import json
@@ -79,7 +80,6 @@ def policy_filter(function):
         @wraps(function)
         def new_funct(*args, **kwargs):
             return function(*args, **kwargs)
-        print function.__name__
         return new_funct
 
     @wraps(function)

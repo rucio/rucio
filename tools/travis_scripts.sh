@@ -1,5 +1,31 @@
 #!/bin/bash
 
+echo '==============================='
+echo 'Running flake8                 '
+echo '==============================='
+
+flake8 --ignore=E501 --exclude="*.cfg" bin/* lib/ tools/*.py tools/probes/common/*
+
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+echo '==============================='
+echo 'Running pylint                 '
+echo '==============================='
+
+pylint --rcfile=/opt/rucio/pylintrc `cat changed_files.txt` > pylint.out
+
+if [ $(($? & 3)) -ne 0 ]; then
+    echo "PYLINT FAILED"
+    cat pylint.out
+    exit 1
+else
+    echo "PYLINT PASSED"
+    tail -n 3 pylint.out
+    exit 0
+fi
+
 cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
 
 httpd -k start
@@ -40,31 +66,4 @@ echo '==============================='
 
 if [ $? -ne 0 ]; then
     exit 1
-fi
-
-
-echo '==============================='
-echo 'Running flake8                 '
-echo '==============================='
-
-flake8 --ignore=E501 --exclude="*.cfg" bin/* lib/ tools/*.py tools/probes/common/*
-
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-echo '==============================='
-echo 'Running pylint                 '
-echo '==============================='
-
-pylint --rcfile=/opt/rucio/pylintrc `cat changed_files.txt` > pylint.out
-
-if [ $(($? & 3)) -ne 0 ]; then
-    echo "PYLINT FAILED"
-    cat pylint.out
-    exit 1
-else
-    echo "PYLINT PASSED"
-    tail -n 3 pylint.out
-    exit 0
 fi
