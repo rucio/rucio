@@ -23,7 +23,6 @@ if [ $(($? & 3)) -ne 0 ]; then
 else
     echo "PYLINT PASSED"
     tail -n 3 pylint.out
-    exit 0
 fi
 
 cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
@@ -54,16 +53,16 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
+#cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
 
-httpd -k restart
+#httpd -k restart
 
-echo '==============================='
-echo "Run Postgresql tests"
-echo '==============================='
+#echo '==============================='
+#echo "Run Postgresql tests"
+#echo '==============================='
 
-/opt/rucio/tools/run_tests_docker.sh -1q
+#/opt/rucio/tools/run_tests_docker.sh -1q
 
-if [ $? -ne 0 ]; then
-    exit 1
-fi
+#if [ $? -ne 0 ]; then
+#    exit 1
+#fi
