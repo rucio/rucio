@@ -166,54 +166,54 @@ def exception_handler(function):
     def new_funct(*args, **kwargs):
         try:
             return function(*args, **kwargs)
-        except InvalidObject, error:
+        except InvalidObject as error:
             logger.error(error)
             return error.error_code
-        except DataIdentifierNotFound, error:
+        except DataIdentifierNotFound as error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
             return error.error_code
-        except AccessDenied, error:
+        except AccessDenied as error:
             logger.error(error)
             logger.debug('This error is a permission issue. You cannot run this command with your account.')
             return error.error_code
-        except DataIdentifierAlreadyExists, error:
+        except DataIdentifierAlreadyExists as error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you try to add is already registered in Rucio.')
             return error.error_code
-        except RSENotFound, error:
+        except RSENotFound as error:
             logger.error(error)
             logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
             return error.error_code
-        except InvalidRSEExpression, error:
+        except InvalidRSEExpression as error:
             logger.error(error)
             logger.debug('This means the RSE expression you provided is not syntactically correct.')
             return error.error_code
-        except DuplicateContent, error:
+        except DuplicateContent as error:
             logger.error(error)
             logger.debug('This means that the DID you want to attach is already in the target DID.')
             return error.error_code
-        except TypeError, error:
+        except TypeError as error:
             logger.error(error)
             logger.debug('This means the parameter you passed has a wrong type.')
             return FAILURE
-        except RuleNotFound, error:
+        except RuleNotFound as error:
             logger.error(error)
             logger.debug('This means the rule you specified does not exist.')
             return error.error_code
-        except UnsupportedOperation, error:
+        except UnsupportedOperation as error:
             logger.error(error)
             logger.debug('This means you cannot change the status of the DID.')
             return error.error_code
-        except MissingDependency, error:
+        except MissingDependency as error:
             logger.error(error)
             logger.debug('This means one dependency is missing.')
             return error.error_code
-        except NoFilesDownloaded, error:
+        except NoFilesDownloaded as error:
             return error.error_code
-        except NotAllFilesDownloaded, error:
+        except NotAllFilesDownloaded as error:
             return error.error_code
-        except KeyError, error:
+        except KeyError as error:
             if 'x-rucio-auth-token' in error:
                 used_account = None
                 try:  # get the configured account from the configuration file
@@ -618,7 +618,10 @@ def list_files(args):
             scope, name = extract_scope(did)
             for f in client.list_files(scope=scope, name=name):
                 guid = f['guid']
-                guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                if guid:
+                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                else:
+                    guid = '(None)'
                 print "{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events'])
         return SUCCESS
     elif args.LOCALPATH:
@@ -639,7 +642,11 @@ def list_files(args):
         for did in args.dids:
             scope, name = extract_scope(did)
             for f in client.list_files(scope=scope, name=name):
-                guid = '%s-%s-%s-%s-%s' % (f['guid'][0:8], f['guid'][8:12], f['guid'][12:16], f['guid'][16:20], f['guid'][20:32])
+                guid = f['guid']
+                if guid:
+                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                else:
+                    guid = '(None)'
                 print file_str % (guid, args.LOCALPATH, f['name'], f['name'])
 
         print '</POOLFILECATALOG>'
@@ -657,7 +664,10 @@ def list_files(args):
                 if file['events']:
                     totevents += int(file.get('events', 0))
                 guid = file['guid']
-                guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                if guid:
+                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                else:
+                    guid = '(None)'
                 table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), file['events']])
             print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'])
             print 'Total files : %s' % totfiles
@@ -908,7 +918,7 @@ def upload(args):
             rse_settings['hostname'] = ''
             rse_settings['prefix'] = ''
             protocol = rsemgr.select_protocol(rse_settings, operation='read', scheme=selected_pfn_protocol)
-        except RSEProtocolNotSupported, error:
+        except RSEProtocolNotSupported as error:
             logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
             logger.debug(error)
             return FAILURE
@@ -948,7 +958,7 @@ def upload(args):
             lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': fscope, 'adler32': checksum, 'filesize': size})
             revert_dict[fscope, os.path.basename(name)] = os.path.dirname(name)
 
-        except OSError, error:
+        except OSError as error:
             logger.error(error)
             logger.error("No operation will be performed. Exiting!")
             return FAILURE
@@ -960,7 +970,7 @@ def upload(args):
             protocol = rsemgr.select_protocol(rse_settings,
                                               operation='read',
                                               scheme=args.protocol)
-        except RSEProtocolNotSupported, error:
+        except RSEProtocolNotSupported as error:
             logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
             logger.debug(error)
             return FAILURE
@@ -1026,7 +1036,7 @@ def upload(args):
                     f.pop('upstate', None)
                 else:
                     raise DataIdentifierAlreadyExists
-        except NotImplementedError, error:
+        except NotImplementedError as error:
             for proto in rse_settings['protocols']:
                 if proto['domains']['wan']['read'] == 1:
                     prot = proto['scheme']
@@ -1061,13 +1071,13 @@ def upload(args):
                 send_trace(trace, client.host, args.user_agent)
                 summary.append(deepcopy(f))
                 f.pop('upstate', None)
-            except (Duplicate, FileAlreadyExists), error:
+            except (Duplicate, FileAlreadyExists) as error:
                 logger.warning(error)
                 return FAILURE
-            except ResourceTemporaryUnavailable, error:
+            except ResourceTemporaryUnavailable as error:
                 logger.error(error)
                 return FAILURE
-        except DataIdentifierAlreadyExists, error:
+        except DataIdentifierAlreadyExists as error:
             logger.debug(error)
             logger.error("Some of the files already exist in the catalog. No one will be added.")
     if dsname:
@@ -1097,7 +1107,7 @@ def upload(args):
         for chunk_replicas in chunks(replicas, 20):
             try:
                 client.update_replicas_states(rse=args.rse, files=chunk_replicas)
-            except AccessDenied, error:
+            except AccessDenied as error:
                 logger.error(error)
                 return FAILURE
         logger.info('File replicas states successfully updated')
@@ -1714,7 +1724,7 @@ def download(args):
                     dids.append({'scope': scope, 'name': dsn})
             else:
                 dids.append({'scope': scope, 'name': name})
-        except ValueError, error:
+        except ValueError as error:
             logger.error('Cannot extract the scope and name from %s : [%s]' % (did, error))
             return FAILURE
 
