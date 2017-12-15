@@ -47,6 +47,7 @@ RUN yum install -y \
 RUN rpm -i /tmp/oic.rpm; \
     echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
     ldconfig
+RUN pip install cx_Oracle
 # MySQL
 RUN yum install -y MySQL-python
 # Postgres
