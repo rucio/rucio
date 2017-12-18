@@ -32,8 +32,6 @@ from urllib import urlencode, quote
 from uuid import uuid4 as uuid
 from StringIO import StringIO
 
-from paramiko import RSAKey
-
 from rucio.common.config import config_get
 
 try:
@@ -573,6 +571,8 @@ def ssh_sign(private_key, message):
     :param message: The message to sign as a string.
     :return: Base64 encoded signature as a string.
     """
+
+    from paramiko import RSAKey
 
     sio_private_key = StringIO(private_key)
     priv_k = RSAKey.from_private_key(sio_private_key)
