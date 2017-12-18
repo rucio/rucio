@@ -53,7 +53,7 @@ R_SCOPE = {"description": "Scope name",
 
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "pattern": "^\/[A-Za-z0-9][A-Za-z0-9\\.\\-\\_\/]{1,255}$"}
+        "pattern": "^\/[A-Za-z0-9][A-Za-z0-9\\.\\-\\_\/\#]{1,255}$"}
 
 R_NAME = {"description": "Data Identifier name",
           "type": "string",
