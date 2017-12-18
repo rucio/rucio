@@ -1346,9 +1346,10 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
         if (isinstance(v, unicode) or isinstance(v, str)) and ('*' in v or '%' in v):
             if v in ('*', '%', u'*', u'%'):
                 continue
-            if session.bind.dialect.name == 'postgresql':  # PostgreSQL escapes automatically
+            if session.bind.dialect.name == 'postgresql':
                 query = query.filter(getattr(models.DataIdentifier, k).
-                                     like(v.replace('*', '%')))
+                                     like(v.replace('*', '%').replace('_', '\_'),
+                                          escape='\\'))
             else:
                 query = query.filter(getattr(models.DataIdentifier, k).
                                      like(v.replace('*', '%').replace('_', '\_'), escape='\\'))
