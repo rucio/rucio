@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
@@ -16,12 +16,15 @@
 #
 # Client class for callers of the Rucio system
 
+import imp
 import random
 import sys
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter
+from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
+                                    NoAuthInformation, MissingClientParameter,
+                                    MissingModuleException)
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
 from rucio import version
 
@@ -30,16 +33,28 @@ from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
 from urlparse import urlparse
-
 from ConfigParser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
 from requests import session
 from requests.status_codes import codes, _codes
 from requests.exceptions import ConnectionError
-from requests_kerberos import HTTPKerberosAuth
+
 # See https://github.com/kennethreitz/requests/issues/2214
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 disable_warnings()
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'requests_kerberos': False}
+
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['requests_kerberos']:
+    from requests_kerberos import HTTPKerberosAuth
 
 
 LOG = getLogger(__name__)
@@ -383,7 +398,6 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
-
         headers = {'X-Rucio-Account': self.account}
 
         private_key_path = self.creds['ssh_private_key']
@@ -463,6 +477,8 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
+        if not EXTRA_MODULES['requests-kerberos']:
+            raise MissingModuleException('The requests-kerberos module is not installed.')
 
         headers = {'X-Rucio-Account': self.account}
         url = build_url(self.auth_host, path='auth/gss')
