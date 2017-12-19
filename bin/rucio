@@ -50,7 +50,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, File
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location
+from rucio.common.utils import adler32, md5, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -932,6 +932,7 @@ def upload(args):
         try:
             size = os.stat(name).st_size
             checksum = adler32(name)
+            md5_digest = md5(name)
             logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, os.path.basename(name)))
             files_to_list.append({'scope': fscope, 'name': os.path.basename(name)})
             if not args.guid and 'pool.root' in name.lower() and not args.no_register:  # is a root file, getting the GUID
@@ -946,16 +947,16 @@ def upload(args):
                 except Exception:
                     logger.error('Error during GUID extraction. Failing. None of the files will be uploaded.')
                     return FAILURE
-                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': guid}})
+                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'md5': md5_digest, 'state': 'C', 'meta': {'guid': guid}})
             elif args.guid:
                 logger.info('Manually set GUID: %s' % args.guid.replace('-', ''))
-                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': args.guid.replace('-', '')}})
+                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'md5': md5_digest, 'state': 'C', 'meta': {'guid': args.guid.replace('-', '')}})
             else:
                 logger.debug('Automatically setting new GUID')
-                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': generate_uuid()}})
+                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'md5': md5_digest, 'state': 'C', 'meta': {'guid': generate_uuid()}})
             if not os.path.dirname(name) in lfns:
                 lfns[os.path.dirname(name)] = []
-            lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': fscope, 'adler32': checksum, 'filesize': size})
+            lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': fscope, 'adler32': checksum, 'md5': md5_digest, 'filesize': size})
             revert_dict[fscope, os.path.basename(name)] = os.path.dirname(name)
 
         except OSError as error:
@@ -1025,6 +1026,7 @@ def upload(args):
                                                  lfns=[{'name': f['name'],
                                                         'scope': f['scope'],
                                                         'adler32': f['adler32'],
+                                                        'md5': f['md5'],
                                                         'filesize': f['bytes']}],
                                                  source_dir=directory,
                                                  force_pfn=args.pfn)
@@ -1062,6 +1064,7 @@ def upload(args):
                                              lfns=[{'name': f['name'],
                                                     'scope': f['scope'],
                                                     'adler32': f['adler32'],
+                                                    'md5': f['md5'],
                                                     'filesize': f['bytes']}],
                                              source_dir=directory,
                                              force_pfn=args.pfn)
@@ -1121,7 +1124,8 @@ def upload(args):
                                                        'rse': args.rse,
                                                        'pfn': file['upstate']['pfn'],
                                                        'guid': file['meta']['guid'],
-                                                       'adler32': file['adler32']}
+                                                       'adler32': file['adler32'],
+                                                       'md5': file['md5']}
         with open('rucio_upload.json', 'wb') as summary_file:
             json.dump(final_summary, summary_file, sort_keys=True, indent=1)
     return SUCCESS
