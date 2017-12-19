@@ -1197,7 +1197,7 @@ class TestRSEClient(object):
         assert_equal(limits['MinFreeSpace'], 1000000)
 
     def test_rsemgr_possible_protocols(self):
-        """ RSE (Manager): Test of possible protocols."""
+        """ RSE (MANAGER): Test of possible protocols."""
         rse_settings = {'availability_delete': True,
                         'availability_read': True,
                         'availability_write': True,
@@ -1237,3 +1237,23 @@ class TestRSEClient(object):
                         'volatile': False,
                         'write_protocol': 1}
         assert_equal(len(mgr._get_possible_protocols(rse_settings, 'read')), 3)
+
+    def test_add_distance(self):
+        """ RSE (CLIENTS): add/get/update RSE distances."""
+        source, destination = rse_name_generator(), rse_name_generator()
+        self.client.add_rse(source)
+        self.client.add_rse(destination)
+        self.client.add_distance(source=source,
+                                 destination=destination,
+                                 parameters={'distance': 1})
+
+        for distance in self.client.get_distance(source=source, destination=destination):
+            assert_equal(distance['distance'], 1)
+
+        self.client.update_distance(source=source,
+                                    destination=destination,
+                                    parameters={'distance': 0})
+
+        for distance in self.client.get_distance(source=source, destination=destination):
+            print distance
+            assert_equal(distance['distance'], 0)
