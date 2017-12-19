@@ -22,8 +22,9 @@ import nose.tools
 import re
 
 from rucio import version
+from rucio.client.didclient import DIDClient
 from rucio.common.config import config_get
-from rucio.common.utils import generate_uuid
+from rucio.common.utils import generate_uuid, md5
 from rucio.core.account_limit import set_account_limit
 from rucio.core.rse import get_rse_id
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
@@ -42,6 +43,7 @@ class TestBinRucio():
         self.auth_host = config_get('client', 'auth_host')
         self.user = 'data13_hip'
         self.def_rse = 'MOCK4'
+        self.did_client = DIDClient()
 
         set_account_limit('root', get_rse_id(self.def_rse), -1)
 
@@ -305,6 +307,23 @@ class TestBinRucio():
         print err
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out), None)
 
+    def test_upload_adds_md5digest(self):
+        """CLIENT(USER): Upload Checksums"""
+        # user has a file to upload
+        filename = file_generator()
+        file_md5 = md5(filename)
+        # user uploads file
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, filename)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        # When inspecting the metadata of the new file the user finds the md5 checksum
+        meta = self.did_client.get_metadata(scope=self.user, name=filename[5:])
+        nose.tools.assert_in('md5', meta)
+        nose.tools.assert_equal(meta['md5'], file_md5)
+        remove(filename)
+
     def test_create_dataset(self):
         """CLIENT(USER): Rucio add dataset"""
         tmp_name = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
@@ -364,7 +383,7 @@ class TestBinRucio():
             for i in listdir('data13_hip'):
                 unlink('data13_hip/%s' % i)
             rmdir('data13_hip')
-        except:
+        except Exception:
             pass
 
     def test_download_dataset(self):
