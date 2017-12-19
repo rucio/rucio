@@ -77,7 +77,6 @@ def get_distances(src_rse_id=None, dest_rse_id=None, session=None):
 
     try:
         query = session.query(Distance)
-
         if src_rse_id:
             query = query.filter(Distance.src_rse_id == src_rse_id)
         if dest_rse_id:
@@ -88,6 +87,7 @@ def get_distances(src_rse_id=None, dest_rse_id=None, session=None):
         if tmp:
             for t in tmp:
                 t2 = dict(t)
+                t2['distance'] = t2['agis_distance']
                 t2.pop('_sa_instance_state')
                 distances.append(t2)
         return distances
@@ -128,11 +128,9 @@ def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, session
     :param  parameters: A dictionnary with property
     :param session: The database session to use.
     """
-
     params = {}
     for key in parameters:
         if key in ['ranking', 'agis_distance', 'geoip_distance', 'active', 'submitted', 'finished', 'failed', 'transfer_speed', 'packet_loss', 'latency', 'mbps_file', 'mbps_link', 'queued_total', 'done_1h', 'done_6h']:
-
             params[key] = parameters[key]
     try:
         query = session.query(Distance)

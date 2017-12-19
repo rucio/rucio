@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
@@ -16,7 +16,8 @@
 from json import dumps, loads
 from traceback import format_exc
 from urlparse import parse_qs
-from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, input, loadhook
+from web import (application, ctx, data, header, Created, InternalError, OK,
+                 input, loadhook)
 
 from rucio.api.account_limit import get_rse_account_usage
 from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attribute,
@@ -24,14 +25,19 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
                            add_protocol, get_rse_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
-                           set_rse_limits, get_rse_limits, parse_rse_expression)
-from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, InvalidRSEExpression
+                           set_rse_limits, get_rse_limits, parse_rse_expression,
+                           add_distance, get_distance, update_distance)
+from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioException,
+                                    RSEOperationNotSupported, RSEProtocolNotSupported,
+                                    InvalidObject, RSEProtocolDomainNotSupported,
+                                    RSEProtocolPriorityError, InvalidRSEExpression)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 URLS = (
     '/(.+)/attr/(.+)', 'Attributes',
     '/(.+)/attr/', 'Attributes',
+    '/(.+)/distances/(.+)', 'Distance',  # List (GET), create (POST), Updates (PUT) distance
     '/(.+)/protocols/(.+)/(.+)/(.+)', 'Protocol',  # Updates (PUT) protocol attributes
     '/(.+)/protocols/(.+)/(.+)/(.+)', 'Protocol',  # delete (DELETE) a specific protocol
     '/(.+)/protocols/(.+)/(.+)', 'Protocol',  # delete (DELETE) all protocols with the same identifier and the same hostname
@@ -218,7 +224,7 @@ class RSE(RucioController):
         raise OK()
 
 
-class Attributes(object):
+class Attributes(RucioController):
     """ Create, update, get and disable RSE attribute."""
 
     def POST(self, rse, key):
@@ -276,9 +282,6 @@ class Attributes(object):
         header('Content-Type', 'application/json')
         return dumps(list_rse_attributes(rse))
 
-    def PUT(self):
-        raise BadRequest()
-
     def DELETE(self, rse, key):
         try:
             del_rse_attribute(rse=rse, key=key, issuer=ctx.env.get('issuer'))
@@ -292,12 +295,8 @@ class Attributes(object):
         raise OK()
 
 
-class Protocols(object):
+class Protocols(RucioController):
     """ List supported protocols. """
-
-    def POST(self, rse):
-        """ Not supported. """
-        raise BadRequest()
 
     def GET(self, rse):
         """ List all supported protocols of the given RSE.
@@ -332,16 +331,8 @@ class Protocols(object):
         else:
             raise generate_http_error(404, 'RSEProtocolNotSupported', 'No prptocols found for this RSE')
 
-    def PUT(self, rse):
-        """ Not supported. """
-        raise BadRequest()
 
-    def DELETE(self, rse):
-        """ Not supported. """
-        raise BadRequest()
-
-
-class Protocol(object):
+class Protocol(RucioController):
     """ Create, Update, Read and delete a specific protocol. """
 
     def POST(self, rse, scheme):
@@ -488,11 +479,8 @@ class Protocol(object):
         raise OK()
 
 
-class Usage:
-
-    def POST(self, rse):
-        """ Not supported. """
-        raise BadRequest()
+class Usage(RucioController):
+    """ Update and read RSE space usage information. """
 
     def GET(self, rse):
         """
@@ -556,16 +544,9 @@ class Usage:
 
         raise OK()
 
-    def DELETE(self, rse):
-        """ Not supported. """
-        raise BadRequest()
 
-
-class UsageHistory:
-
-    def POST(self, rse):
-        """ Not supported. """
-        raise BadRequest()
+class UsageHistory(RucioController):
+    """ Read RSE space usage history information. """
 
     def GET(self, rse):
         """
@@ -591,20 +572,9 @@ class UsageHistory:
             print format_exc()
             raise InternalError(error)
 
-    def PUT(self, rse):
-        """ Not supported. """
-        raise BadRequest()
 
-    def DELETE(self, rse):
-        """ Not supported. """
-        raise BadRequest()
-
-
-class Limits:
-
-    def POST(self, rse):
-        """ Not supported. """
-        raise BadRequest()
+class Limits(RucioController):
+    """ Create, Update, Read and delete RSE limits. """
 
     def GET(self, rse):
         """
@@ -659,12 +629,9 @@ class Limits:
 
         raise OK()
 
-    def DELETE(self, rse):
-        """ Not supported. """
-        raise BadRequest()
 
-
-class RSEAccountUsageLimit:
+class RSEAccountUsageLimit(RucioController):
+    """ Read and delete RSE limits for accounts. """
 
     def GET(self, rse):
         """
@@ -684,6 +651,103 @@ class RSEAccountUsageLimit:
         except Exception, error:
             print format_exc()
             raise InternalError(error)
+
+
+class Distance(RucioController):
+    """ Create/Update and read distances between RSEs. """
+
+    def GET(self, source, destination):
+        """
+        Get RSE distance between source and destination.
+
+        :param rse: the RSE name.
+        """
+        header('Content-Type', 'application/json')
+        try:
+            distance = get_distance(source=source,
+                                    destination=destination,
+                                    issuer=ctx.env.get('issuer'))
+            return dumps(distance, cls=APIEncoder)
+        except RSENotFound, error:
+            raise generate_http_error(404, 'RSENotFound', error[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
+            print format_exc()
+            raise InternalError(error)
+
+    def POST(self, source, destination):
+        """ Create distance information between source RSE and destination RSE.
+
+        HTTP Success:
+            200 Updated
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+
+        :param rse: The RSE name.
+        """
+        header('Content-Type', 'application/json')
+        json_data = data()
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+        try:
+            add_distance(source=source,
+                         destination=destination,
+                         issuer=ctx.env.get('issuer'),
+                         **parameter)
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except RSENotFound, error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
+            print format_exc()
+            raise InternalError(error)
+        raise Created()
+
+    def PUT(self, source, destination):
+        """ Update distance information between source RSE and destination RSE.
+
+        HTTP Success:
+            200 Updated
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+
+        :param rse: The RSE name.
+        """
+        header('Content-Type', 'application/json')
+        json_data = data()
+        try:
+            parameters = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+        try:
+            update_distance(source=source, destination=destination,
+                            issuer=ctx.env.get('issuer'),
+                            parameters=parameters)
+        except AccessDenied, error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+        except RSENotFound, error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0][0])
+        except RucioException, error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+        except Exception, error:
+            print format_exc()
+            raise InternalError(error)
+        raise OK()
 
 
 """----------------------

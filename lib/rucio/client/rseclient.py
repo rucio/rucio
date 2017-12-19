@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
@@ -26,8 +26,10 @@ class RSEClient(BaseClient):
 
     RSE_BASEURL = 'rses'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
-        super(RSEClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
+                 auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+        super(RSEClient, self).__init__(rucio_host, auth_host, account, ca_cert,
+                                        auth_type, creds, timeout, user_agent)
 
     def get_rse(self, rse):
         """
@@ -423,7 +425,9 @@ class RSEClient(BaseClient):
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers,
+                                                   status_code=r.status_code,
+                                                   data=r.content)
             raise exc_cls(exc_msg)
 
     def set_rse_limits(self, rse, name, value):
@@ -440,11 +444,11 @@ class RSEClient(BaseClient):
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='PUT', data=dumps({'name': name, 'value': value}))
-
         if r.status_code == codes.ok:
             return True
-
-        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers,
+                                               status_code=r.status_code,
+                                               data=r.content)
         raise exc_cls(exc_msg)
 
     def get_rse_limits(self, rse):
@@ -455,13 +459,69 @@ class RSEClient(BaseClient):
 
         :returns: True if successful, otherwise false.
         """
-
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers,
+                                               status_code=r.status_code,
+                                               data=r.content)
+        raise exc_cls(exc_msg)
+
+    def add_distance(self, source, destination, parameters):
+        """
+        Add a src-dest distance.
+
+        :param source: The source.
+        :param destination: The destination.
+        :param parameters: A dictionnary with property.
+        """
+        path = [self.RSE_BASEURL, source, 'distances', destination]
+        path = '/'.join(path)
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='POST', data=dumps(parameters))
+        if r.status_code == codes.created:
+            return True
+        exc_cls, exc_msg = self._get_exception(headers=r.headers,
+                                               status_code=r.status_code,
+                                               data=r.content)
+        raise exc_cls(exc_msg)
+
+    def update_distance(self, source, destination, parameters):
+        """
+        Update distances with the given RSE ids.
+
+        :param source: The source.
+        :param destination: The destination.
+        :param parameters: A dictionnary with property.
+        """
+        path = [self.RSE_BASEURL, source, 'distances', destination]
+        path = '/'.join(path)
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='PUT', data=dumps(parameters))
+        if r.status_code == codes.ok:
+            return True
+        exc_cls, exc_msg = self._get_exception(headers=r.headers,
+                                               status_code=r.status_code,
+                                               data=r.content)
+        raise exc_cls(exc_msg)
+
+    def get_distance(self, source, destination):
+        """
+        Get distances between rses.
+
+        :param source: The source RSE.
+        :param destination: The destination RSE.
+
+        :returns distance: List of dictionaries.
+        """
+        path = [self.RSE_BASEURL, source, 'distances', destination]
+        path = '/'.join(path)
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r).next()
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
