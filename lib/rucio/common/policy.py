@@ -38,7 +38,7 @@ def get_policy():
     if isinstance(policy, NoValue):
         try:
             policy = config_get('permission', 'policy')
-        except NoOptionError:
+        except (NoOptionError, NoSectionError):
             policy = 'atlas'
         REGION.set('policy', policy)
     return policy
