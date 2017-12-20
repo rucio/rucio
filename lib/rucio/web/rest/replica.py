@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
@@ -32,7 +32,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
-
+from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
 
@@ -41,8 +41,8 @@ URLS = ('/list/?$', 'ListReplicas',
         '/bad/states/?$', 'BadReplicasStates',
         '/bad/summary/?$', 'BadReplicasSummary',
         '/rse/(.*)/?$', 'ReplicasRSE',
-        '/(.*)/(.*)/datasets$', 'DatasetReplicas',
-        '/(.*)/(.*)/?$', 'Replicas',
+        '%s/datasets$' % SCOPE_NAME_REGEXP, 'DatasetReplicas',
+        '%s/?$' % SCOPE_NAME_REGEXP, 'Replicas',
         '/bad/?$', 'BadReplicas',
         '/suspicious/?$', 'SuspiciousReplicas',
         '/dids/?$', 'ReplicasDIDs')

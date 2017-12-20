@@ -339,6 +339,8 @@ ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
                      "pattern": r'^[a-z0-9-_]{1,30}$'}
 
+SCOPE_NAME_REGEXP = '/(.*)/(.*)'
+
 SCHEMAS = {'account': ACCOUNT,
            'account_type': ACCOUNT_TYPE,
            'activity': ACTIVITY,

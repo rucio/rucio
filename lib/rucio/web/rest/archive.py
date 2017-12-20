@@ -16,13 +16,14 @@ from traceback import format_exc
 from web import application, loadhook, header, InternalError
 
 from rucio.api.did import list_archive_content
+from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 LOGGER, SH = getLogger("rucio.meta"), StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('/(.*)/(.*)/files', 'Archive')
+URLS = ('%s/files' % SCOPE_NAME_REGEXP, 'Archive')
 
 
 class Archive(RucioController):
