@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
 
 
 import traceback
