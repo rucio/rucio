@@ -6,7 +6,7 @@
   You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
 '''
@@ -27,6 +27,7 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
                                     DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
+from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
@@ -38,7 +39,7 @@ LOGGER.addHandler(SH)
 URLS = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
         '/(.+)/move', 'MoveRule',
-        '/(.+)/(.+)/history', 'RuleHistoryFull',
+        '%s/history' % SCOPE_NAME_REGEXP, 'RuleHistoryFull',
         '/(.+)/history', 'RuleHistory',
         '/(.+)/analysis', 'RuleAnalysis',
         '/', 'AllRule',
