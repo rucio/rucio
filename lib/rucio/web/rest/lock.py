@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 
 
 from logging import getLogger, StreamHandler, DEBUG
@@ -15,6 +16,7 @@ from web import application, ctx, header, InternalError, loadhook
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException
+from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook
 
@@ -23,7 +25,7 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('/(.*)/(.*)', 'LockByScopeName',
+URLS = ('%s' % SCOPE_NAME_REGEXP, 'LockByScopeName',
         '/(.*)', 'LockByRSE')
 
 
