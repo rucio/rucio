@@ -22,7 +22,6 @@ from traceback import format_exception
 from rucio.db.sqla.constants import LifetimeExceptionsState
 from rucio.common.config import config_get
 from rucio.common.exception import RuleNotFound
-import rucio.common.policy
 from rucio.core import heartbeat
 import rucio.core.lifetime_exception
 from rucio.core.lock import get_dataset_locks
@@ -87,24 +86,10 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
 
                     if (rule_idx % 1000) == 0:
                         logging.info(prepend_str + '%s/%s rules processed' % (rule_idx, len(rules)))
-                    # We compute the expended eol_at
+                    # We compute the expected eol_at
                     rses = parse_expression(rule.rse_expression)
                     eol_at = rucio.core.lifetime_exception.define_eol(rule.scope, rule.name, rses)
-
-                    # Check the exceptions
-                    if did in lifetime_exceptions:
-                        if rule.eol_at > lifetime_exceptions[did]:
-                            logging.info(prepend_str + 'Rule %s on DID %s on %s expired. Extension requested till %s' % (rule.id, did, rule.rse_expression,
-                                                                                                                         lifetime_exceptions[did]))
-                        else:
-                            # If eol_at < requested extension, update eol_at
-                            logging.info(prepend_str + 'Updating rule %s on DID %s on %s according to the exception till %s' % (rule.id, did, rule.rse_expression,
-                                                                                                                                lifetime_exceptions[did]))
-                            try:
-                                update_rule(rule.id, options={'eol_at': lifetime_exceptions[did]})
-                            except RuleNotFound:
-                                logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
-                    elif eol_at != rule.eol_at:
+                    if eol_at != rule.eol_at:
                         logging.warning(prepend_str + 'The computed eol %s differs from the one recorded %s for rule %s on %s at %s' % (eol_at, rule.eol_at, rule.id,
                                                                                                                                         did, rule.rse_expression))
                         try:
@@ -112,22 +97,39 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
                         except RuleNotFound:
                             logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
 
-                    no_locks = True
-                    for lock in get_dataset_locks(rule.scope, rule.name):
-                        if lock['rule_id'] == rule[4]:
-                            no_locks = False
-                            if lock['rse'] not in summary:
-                                summary[lock['rse']] = {}
-                            if did not in summary[lock['rse']]:
-                                summary[lock['rse']][did] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
-                    if no_locks:
-                        logging.warning(prepend_str + 'Cannot find a lock for rule %s on DID %s' % (rule.id, did))
-                    if not dry_run:
-                        logging.info(prepend_str + 'Setting %s seconds lifetime for rule %s' % (grace_period, rule.id))
-                        try:
-                            update_rule(rule.id, options={'lifetime': grace_period})
-                        except RuleNotFound:
-                            logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
+                    # Check the exceptions
+                    if did in lifetime_exceptions:
+                        if eol_at > lifetime_exceptions[did]:
+                            logging.info(prepend_str + 'Rule %s on DID %s on %s has longer expiration date than the one requested : %s' % (rule.id, did, rule.rse_expression,
+                                                                                                                                           lifetime_exceptions[did]))
+                        else:
+                            # If eol_at < requested extension, update eol_at
+                            logging.info(prepend_str + 'Updating rule %s on DID %s on %s according to the exception till %s' % (rule.id, did, rule.rse_expression,
+                                                                                                                                lifetime_exceptions[did]))
+                            eol_at = lifetime_exceptions[did]
+                            try:
+                                update_rule(rule.id, options={'eol_at': lifetime_exceptions[did]})
+                            except RuleNotFound:
+                                logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
+
+                    # Now check that the new eol_at is expired
+                    if eol_at < date_check:
+                        no_locks = True
+                        for lock in get_dataset_locks(rule.scope, rule.name):
+                            if lock['rule_id'] == rule[4]:
+                                no_locks = False
+                                if lock['rse'] not in summary:
+                                    summary[lock['rse']] = {}
+                                if did not in summary[lock['rse']]:
+                                    summary[lock['rse']][did] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
+                        if no_locks:
+                            logging.warning(prepend_str + 'Cannot find a lock for rule %s on DID %s' % (rule.id, did))
+                        if not dry_run:
+                            logging.info(prepend_str + 'Setting %s seconds lifetime for rule %s' % (grace_period, rule.id))
+                            try:
+                                update_rule(rule.id, options={'lifetime': grace_period})
+                            except RuleNotFound:
+                                logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
             except Exception:
                 exc_type, exc_value, exc_traceback = exc_info()
                 logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
