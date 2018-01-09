@@ -11,7 +11,7 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
@@ -60,6 +60,7 @@ def has_permission(issuer, action, kwargs):
             'approve_rule': perm_approve_rule,
             'update_subscription': perm_update_subscription,
             'reduce_rule': perm_reduce_rule,
+            'move_rule': perm_move_rule,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
