@@ -12,7 +12,7 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
  - Wen Guan, <wen.guan@cern.ch>, 2014-2015
- - Martin Barisits, <martin.barisits@cern.ch>, 2017
+ - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
  - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
 '''
 
@@ -65,25 +65,19 @@ def get_rse_info(rse, session=None):
     return rse_info
 
 
-def _get_possible_protocols(rse_settings, operation, scheme=None):
-    """ Filter the list of available protocols or provided by the supported ones.
+def _get_possible_protocols(rse_settings, operation, scheme=None, domain=None):
+    """
+    Filter the list of available protocols or provided by the supported ones.
 
-        :param rse_settings: The rse settings.
-        :param operation: The operation (write, read).
-        :param scheme: optional filter if no specific protocol is defined in
-                       rse_setting for the provided operation.
-
-        :returns: The list of possible protocols.
+    :param rse_settings: The rse settings.
+    :param operation:    The operation (write, read).
+    :param scheme:       Optional filter if no specific protocol is defined in
+                         rse_setting for the provided operation.
+    :param domain:       Optional domain (lan/wan), if not specified, both will be returned
+    :returns:            The list of possible protocols.
     """
     operation = operation.lower()
     candidates = rse_settings['protocols']
-    if type(rse_settings['domain']) is not list:
-        raise exception.RSEProtocolDomainNotSupported('Domain setting must be list.')
-
-    for d in rse_settings['domain']:
-        if d not in utils.rse_supported_protocol_domains():
-            raise exception.RSEProtocolDomainNotSupported('Domain %s is not supported'
-                                                          ' by Rucio.' % d)
 
     # convert scheme to list, if given as string
     if scheme and not isinstance(scheme, list):
@@ -97,9 +91,15 @@ def _get_possible_protocols(rse_settings, operation, scheme=None):
             continue
 
         filtered = True
-        for d in rse_settings['domain']:
-            if protocol['domains'][d][operation] != 0:
+
+        if not domain:
+            for d in protocol['domains'].keys():
+                if protocol['domains'][d][operation] != 0:
+                    filtered = False
+        else:
+            if protocol['domains'].get(domain, {operation: 0}).get(operation) != 0:
                 filtered = False
+
         if filtered:
             tbr.append(protocol)
 
@@ -110,45 +110,49 @@ def _get_possible_protocols(rse_settings, operation, scheme=None):
     return [c for c in candidates if c not in tbr]
 
 
-def get_protocols_ordered(rse_settings, operation, scheme=None):
-    candidates = _get_possible_protocols(rse_settings, operation, scheme)
-    domain = rse_settings['domain'][0]
+def get_protocols_ordered(rse_settings, operation, scheme=None, domain='wan'):
+    if operation not in utils.rse_supported_protocol_operations():
+        raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
+
+    if domain and domain not in utils.rse_supported_protocol_domains():
+        raise exception.RSEProtocolDomainNotSupported('Domain %s not supported' % domain)
+
+    candidates = _get_possible_protocols(rse_settings, operation, scheme, domain)
     candidates.sort(key=lambda k: k['domains'][domain][operation])
     return candidates
 
 
-def select_protocol(rse_settings, operation, scheme=None):
-    candidates = _get_possible_protocols(rse_settings, operation, scheme)
-    domain = rse_settings['domain'][0]
+def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
+    if operation not in utils.rse_supported_protocol_operations():
+        raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
+
+    if domain and domain not in utils.rse_supported_protocol_domains():
+        raise exception.RSEProtocolDomainNotSupported('Domain %s not supported' % domain)
+
+    candidates = _get_possible_protocols(rse_settings, operation, scheme, domain)
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
-def create_protocol(rse_settings, operation, scheme=None):
-    """ Instanciates the protocol defined for the given operation.
+def create_protocol(rse_settings, operation, scheme=None, domain='wan'):
+    """
+    Instanciates the protocol defined for the given operation.
 
-        :param rse_attr: RSE attributes
-        :param operation: the intended operation for this protocol
-        :param scheme: optional filter if no specific protocol is defined in rse_setting for the provided operation
-
-        :returns: an instance of the requested protocol
+    :param rse_attr:  RSE attributes
+    :param operation: Intended operation for this protocol
+    :param scheme:    Optional filter if no specific protocol is defined in rse_setting for the provided operation
+    :parma domain:    Optional specification of the domain
+    :returns:         An instance of the requested protocol
     """
 
     # Verify feasibility of Protocol
     operation = operation.lower()
     if operation not in utils.rse_supported_protocol_operations():
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
-    rse_settings['domain'] = [rse_settings['domain']] if type(rse_settings['domain']) is not list else rse_settings['domain']
-    for domain in rse_settings['domain']:
-        if domain.lower() not in utils.rse_supported_protocol_domains():
-            raise exception.RSEOperationNotSupported('Domain %s not supported' % rse_settings['domain'])
 
-    if rse_settings['%s_protocol' % operation] == DEFAULT_PROTOCOL:
-        protocol_attr = select_protocol(rse_settings, operation, scheme)
-    else:
-        protocol_attr = rse_settings['%s_protocol' % operation]
-        for d in rse_settings['domain']:
-            if protocol_attr['domains'][d][operation] == 0:
-                raise exception.RSEOperationNotSupported('Operation %s for domain %s not supported by %s' % (operation, rse_settings['domain'], protocol_attr['scheme']))
+    if domain and domain not in utils.rse_supported_protocol_domains():
+        raise exception.RSEProtocolDomainNotSupported('Domain %s not supported' % domain)
+
+    protocol_attr = select_protocol(rse_settings, operation, scheme, domain)
 
     # Instanciate protocol
     comp = protocol_attr['impl'].split('.')
@@ -163,7 +167,7 @@ def create_protocol(rse_settings, operation, scheme=None):
     return protocol
 
 
-def lfns2pfns(rse_settings, lfns, operation='write', scheme=None):
+def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan'):
     """
         Convert the lfn to a pfn
 
@@ -173,10 +177,10 @@ def lfns2pfns(rse_settings, lfns, operation='write', scheme=None):
         :returns: a dict with scope:name as key and the PFN as value
 
     """
-    return create_protocol(rse_settings, operation, scheme).lfns2pfns(lfns)
+    return create_protocol(rse_settings, operation, scheme, domain).lfns2pfns(lfns)
 
 
-def parse_pfns(rse_settings, pfns, operation='read'):
+def parse_pfns(rse_settings, pfns, operation='read', domain='wan'):
     """
         Checks if a PFN is feasible for a given RSE. If so it splits the pfn in its various components.
 
@@ -192,10 +196,10 @@ def parse_pfns(rse_settings, pfns, operation='read'):
     """
     if len(set([urlparse(pfn).scheme for pfn in pfns])) != 1:
         raise ValueError('All PFNs must provide the same protocol scheme')
-    return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme).parse_pfns(pfns)
+    return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain).parse_pfns(pfns)
 
 
-def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_checksum=False, printstatements=False):
+def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_checksum=False, printstatements=False, domain='wan'):
     """
         Copy a file from the connected storage to the local file system.
         Providing a list indicates the bulk mode.
@@ -221,7 +225,7 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'read', scheme=force_scheme)
+    protocol = create_protocol(rse_settings, 'read', scheme=force_scheme, domain=domain)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
@@ -581,7 +585,7 @@ def get_space_usage(rse_settings, scheme=None):
     return [gs, ret]
 
 
-def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, operation_dest, domain=None, scheme=None):
+def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, operation_dest, domain='wan', scheme=None):
     """
     Find the best matching scheme between two RSEs
 
@@ -598,11 +602,6 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
 
     src_candidates = copy.copy(rse_settings_src['protocols'])
     dest_candidates = copy.copy(rse_settings_dest['protocols'])
-
-    if not domain:
-        if type(rse_settings_dest['domain']) is not list:
-            raise exception.RSEProtocolDomainNotSupported('Domain setting must be list.')
-        domain = rse_settings_dest['domain'][0]
 
     # Clean up src_candidates
     tbr = list()
