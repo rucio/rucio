@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2017
 # - Wen Guan, <wen.guan@cern.ch>, 2015-2016
@@ -949,14 +949,15 @@ def del_protocols(rse, scheme, hostname=None, port=None, session=None):
     for domain in utils.rse_supported_protocol_domains():
         for op in utils.rse_supported_protocol_operations():
             op_name = ''.join([op, '_', domain])
-            prots = session.query(models.RSEProtocols).\
-                filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                       getattr(models.RSEProtocols, op_name) > 0)).\
-                order_by(getattr(models.RSEProtocols, op_name).asc())
-            i = 1
-            for p in prots:
-                p.update({op_name: i})
-                i += 1
+            if getattr(models.RSEProtocols, op_name, None):
+                prots = session.query(models.RSEProtocols).\
+                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                           getattr(models.RSEProtocols, op_name) > 0)).\
+                    order_by(getattr(models.RSEProtocols, op_name).asc())
+                i = 1
+                for p in prots:
+                    p.update({op_name: i})
+                    i += 1
 
 
 @transactional_session

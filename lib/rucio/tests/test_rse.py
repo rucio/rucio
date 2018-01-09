@@ -11,7 +11,7 @@
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
  - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
- - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+ - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
  - Wen Guan, <wen.guan@cern.ch>, 2015
@@ -24,7 +24,8 @@ from paste.fixture import TestApp
 from rucio.client.rseclient import RSEClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
-                                    InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, ResourceTemporaryUnavailable)
+                                    InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError,
+                                    ResourceTemporaryUnavailable)
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes,
                             set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits)
@@ -693,10 +694,9 @@ class TestRSEClient(object):
 
         ops = {'read': 1, 'write': 2, 'delete': 3}
         rse_attr = mgr.get_rse_info(protocol_rse)
-        rse_attr['domain'] = ['lan']
         for op in ops:
             # resp = self.client.get_protocols(protocol_rse, operation=op, protocol_domain='lan')
-            p = mgr.select_protocol(rse_attr, op)
+            p = mgr.select_protocol(rse_attr, op, domain='lan')
             if op not in p['scheme'].lower():
                 for p in protocols:
                     self.client.delete_protocols(protocol_rse, p['scheme'])
@@ -743,10 +743,9 @@ class TestRSEClient(object):
             self.client.add_protocol(protocol_rse, p)
 
         rse_attr = mgr.get_rse_info(protocol_rse)
-        rse_attr['domain'] = ['lan']
         for op in ['delete', 'read', 'write']:
             # resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='lan')
-            p = mgr.select_protocol(rse_attr, op)
+            p = mgr.select_protocol(rse_attr, op, domain='lan')
             print p['scheme']
             print op
             if op not in p['scheme'].lower():
@@ -754,10 +753,9 @@ class TestRSEClient(object):
                     self.client.delete_protocols(protocol_rse, p['scheme'])
                 self.client.delete_rse(protocol_rse)
                 raise Exception('Unexpected protocols returned for %s: %s' % (op, p))
-        rse_attr['domain'] = ['wan']
         for op in ['delete', 'read', 'write']:
             # resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='wan')
-            p = mgr.select_protocol(rse_attr, op)
+            p = mgr.select_protocol(rse_attr, op, domain='wan')
             if ((op == 'delete') and (p['port'] != 17)) or ((op == 'read') and (p['port'] != 42)) or ((op == 'write') and (p['port'] != 19)):
                 for p in protocols:
                     self.client.delete_protocols(protocol_rse, p['scheme'])
@@ -860,8 +858,7 @@ class TestRSEClient(object):
 
         try:
             rse_attr = mgr.get_rse_info(protocol_rse)
-            rse_attr['domain'] = ['FRIENDS']
-            mgr.select_protocol(rse_attr, 'write')
+            mgr.select_protocol(rse_attr, 'write', domain='FRIENDS')
         except Exception, e:
             self.client.delete_protocols(protocol_rse, 'MOCK')
             self.client.delete_rse(protocol_rse)
@@ -964,7 +961,7 @@ class TestRSEClient(object):
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
+                          'wan': {'read': 1,
                                   'write': 1,
                                   'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
@@ -974,7 +971,7 @@ class TestRSEClient(object):
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
+                          'wan': {'read': 1,
                                   'write': 1,
                                   'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}]
@@ -1009,8 +1006,7 @@ class TestRSEClient(object):
 
         self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'prefix': 'where/the/files/are', 'extended_attributes': 'Something else', 'port': '12'})
         rse_attr = mgr.get_rse_info(protocol_rse)
-        rse_attr['domain'] = ['lan']
-        p = mgr.select_protocol(rse_attr, 'read', scheme='MOCK')
+        p = mgr.select_protocol(rse_attr, 'read', scheme='MOCK', domain='lan')
         if p['prefix'] != 'where/the/files/are' and p['extended_attributes'] != 'Something else':
             raise Exception('Update gave unexpected results: %s' % p)
         self.client.delete_protocols(protocol_rse, 'MOCK')
