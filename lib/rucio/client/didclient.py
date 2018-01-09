@@ -13,8 +13,10 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
+  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 '''
 
+from urllib import quote_plus
 from json import dumps
 from requests.status_codes import codes
 
@@ -44,7 +46,7 @@ class DIDClient(BaseClient):
         :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         :param long: Long format option to display more information for each DID.
         """
-        path = '/'.join([self.DIDS_BASEURL, scope, 'dids', 'search'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
         payload = {}
         if long:
             payload['long'] = 1
@@ -80,7 +82,7 @@ class DIDClient(BaseClient):
         :param dids: The content.
         :param rse: The RSE name when registering replicas.
         """
-        path = '/'.join([self.DIDS_BASEURL, scope, name])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
         # Build json
         data = {'type': type}
@@ -171,7 +173,7 @@ class DIDClient(BaseClient):
         :param dids: The content.
         :param rse: The RSE name when registering replicas.
         """
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
         url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids}
         if rse:
@@ -192,7 +194,7 @@ class DIDClient(BaseClient):
         :param dids: The content.
         """
 
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
         url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids}
         r = self._send_request(url, type='DEL', data=render_json(**data))
@@ -305,7 +307,7 @@ class DIDClient(BaseClient):
         :param name: The data identifier name.
         """
 
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -321,7 +323,7 @@ class DIDClient(BaseClient):
         :param name: The data identifier name.
         """
 
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids', 'history'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids', 'history'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -339,7 +341,7 @@ class DIDClient(BaseClient):
         """
 
         payload = {}
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'files'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'files'])
         if long:
             payload['long'] = True
         url = build_url(choice(self.list_hosts), path=path, params=payload)
@@ -359,7 +361,7 @@ class DIDClient(BaseClient):
         :param name: The data identifier name.
         """
 
-        path = '/'.join([self.DIDS_BASEURL, scope, name])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -375,7 +377,7 @@ class DIDClient(BaseClient):
         :param scope: The scope name.
         :param name: The data identifier name.
         """
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'meta'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -395,7 +397,7 @@ class DIDClient(BaseClient):
         :param value: the value.
         :param recursive: Option to propagate the metadata change to content.
         """
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'meta', key])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta', key])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'value': value, 'recursive': recursive})
         r = self._send_request(url, type='POST', data=data)
@@ -413,7 +415,7 @@ class DIDClient(BaseClient):
         :param name: The data identifier name.
         :param kwargs:  Keyword arguments of the form status_name=value.
         """
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'status'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'status'])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps(kwargs)
         r = self._send_request(url, type='PUT', data=data)
@@ -440,7 +442,7 @@ class DIDClient(BaseClient):
         :param name: The data identifier.
         :param key: the key.
         """
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'meta', key])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta', key])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='DEL')
 
@@ -458,7 +460,7 @@ class DIDClient(BaseClient):
         :param name: The data identifier name.
         """
 
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'rules'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'rules'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -475,7 +477,7 @@ class DIDClient(BaseClient):
         :param name:  The file name.
         """
 
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'associated_rules'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'associated_rules'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -510,7 +512,7 @@ class DIDClient(BaseClient):
         """
 
         payload = {}
-        path = '/'.join([self.DIDS_BASEURL, scope, ''])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), ''])
         if name:
             payload['name'] = name
         if recursive:
@@ -532,7 +534,7 @@ class DIDClient(BaseClient):
         :param name:  The name.
         """
 
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'parents'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'parents'])
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='GET')
@@ -553,7 +555,7 @@ class DIDClient(BaseClient):
         :param account: The account.
         :param nbfiles: The number of files to register in the output dataset.
         """
-        path = '/'.join([self.DIDS_BASEURL, input_scope, input_name, output_scope, output_name, str(nbfiles), 'sample'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(input_scope), quote_plus(input_name), quote_plus(output_scope), quote_plus(output_name), str(nbfiles), 'sample'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=dumps({}))
         if r.status_code == codes.created:
@@ -597,7 +599,7 @@ class DIDClient(BaseClient):
         :param scope: The scope name.
         :param name: The data identifier name.
         """
-        path = '/'.join([self.ARCHIVES_BASEURL, scope, name, 'files'])
+        path = '/'.join([self.ARCHIVES_BASEURL, quote_plus(scope), quote_plus(name), 'files'])
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='GET')

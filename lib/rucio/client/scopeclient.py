@@ -9,7 +9,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 
+from urllib import quote_plus
 from json import loads
 from requests.status_codes import codes
 
@@ -38,7 +40,7 @@ class ScopeClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = '/'.join([self.SCOPE_BASEURL, account, 'scopes', scope])
+        path = '/'.join([self.SCOPE_BASEURL, account, 'scopes', quote_plus(scope)])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST')
         if r.status_code == codes.created:
