@@ -11,6 +11,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 
 import base64
 import datetime
@@ -281,7 +282,7 @@ def execute(cmd):
 
 def rse_supported_protocol_operations():
     """ Returns a list with operations supported by all RSE protocols."""
-    return ['read', 'write', 'delete']
+    return ['read', 'write', 'delete', 'third_party_copy']
 
 
 def rse_supported_protocol_domains():
