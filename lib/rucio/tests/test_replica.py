@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2016-2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2016-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -32,8 +32,10 @@ from rucio.core.replica import (add_replica, add_replicas, delete_replicas,
                                 declare_bad_file_replicas, list_bad_replicas,
                                 update_replicas_paths, update_replica_state,
                                 get_replica_atime, touch_replica)
+from rucio.core.rse import add_rse, add_protocol
 from rucio.daemons.necromancer import run
 from rucio.rse import rsemanager as rsemgr
+from rucio.tests.common import rse_name_generator
 from rucio.web.rest.authentication import APP as auth_app
 from rucio.web.rest.replica import APP as rep_app
 
@@ -245,6 +247,59 @@ class TestReplicaCore:
             replica_cpt += 1
 
         assert_equal(nbfiles, replica_cpt)
+
+
+    def test_list_replica_with_domain(self):
+        """ REPLICA (CORE): Add and list file replicas forcing domain"""
+
+        tmp_rse = rse_name_generator()
+        add_rse(tmp_rse)
+
+        protocols = [{'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/i/prefer/the/lan',
+                      'impl': 'rucio.rse.protocols.mock.Default',
+                      'domains': {
+                          'lan': {'read': 1,
+                                  'write': 1,
+                                  'delete': 1},
+                          'wan': {'read': 2,
+                                  'write': 2,
+                                  'delete': 2}}},
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 18,
+                      'prefix': '/i/prefer/the/wan',
+                      'impl': 'rucio.rse.protocols.mock.Default',
+                      'domains': {
+                          'lan': {'read': 2,
+                                  'write': 2,
+                                  'delete': 2},
+                          'wan': {'read': 1,
+                                  'write': 1,
+                                  'delete': 1}}},]
+        for p in protocols:
+            add_protocol(tmp_rse, p)
+
+        nbfiles = 3
+        files = [{'scope': 'mock',
+                  'name': 'file_%s' % generate_uuid(),
+                  'bytes': 1234L,
+                  'adler32': '01234567',
+                  'meta': {'events': 1234}} for i in xrange(nbfiles)]
+
+        add_replicas(rse=tmp_rse, files=files, account='root', ignore_availability=True)
+
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                     schemes=['MOCK'],
+                                     domain='wan'):
+            assert_in('/i/prefer/the/wan', replica['pfns'].keys()[0])
+
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                     schemes=['MOCK'],
+                                     domain='lan'):
+            assert_in('/i/prefer/the/lan', replica['pfns'].keys()[0])
 
 
 class TestReplicaClients:
