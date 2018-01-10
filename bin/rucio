@@ -946,8 +946,8 @@ def upload(args):
             if args.name:
                 name = args.name
             logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, name))
-            files_to_list.append({'scope': fscope, 'lfn': name, 'name': base_name})
-            current_file_info = {'scope': fscope, 'name': base_name, 'lfn': name, 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {}}
+            files_to_list.append({'scope': fscope, 'name': name, 'filename': base_name})
+            current_file_info = {'scope': fscope, 'filename': base_name, 'name': name, 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {}}
             if not args.guid and 'pool.root' in filename.lower() and not args.no_register:  # is a root file, getting the GUID
                 status, output, err = execute('pool_extractFileIdentifier {0}'.format(filename))
                 if status != 0:
@@ -970,7 +970,7 @@ def upload(args):
             list_files.append(current_file_info)
             directory_worklist = lfns.setdefault(dir_name, [])
             # TODO: why is this different from current_file_info?
-            directory_worklist.append({'name': base_name, 'lfn': name, 'scope': fscope, 'adler32': checksum, 'filesize': size})
+            directory_worklist.append({'filename': base_name, 'name': name, 'scope': fscope, 'adler32': checksum, 'filesize': size})
             revert_dict[fscope, name] = dir_name
 
         except OSError as error:
@@ -1024,36 +1024,36 @@ def upload(args):
         transform it to a DID that can be registered with Rucio.
         """
         lfn_copy = dict(lfn_dict)
-        lfn_copy['name'] = lfn_copy.get('lfn', lfn_copy['name'])
-        del lfn_copy['lfn']
+        lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
+        del lfn_copy['filename']
         return lfn_copy
 
     # Adding files to the catalog
     for f in list_files:
-        logger.debug("Processing file %s:%s for upload" % (f['scope'], f['lfn']))
+        logger.debug("Processing file %s:%s for upload" % (f['scope'], f['name']))
         try:  # If the did already exist in the catalog, only should be upload if the checksum is the same
-            meta = client.get_metadata(f['scope'], f['lfn'])
-            replicastate = [rep for rep in client.list_replicas([{'scope': f['scope'], 'name': f['lfn']}], all_states=True)]
+            meta = client.get_metadata(f['scope'], f['name'])
+            replicastate = [rep for rep in client.list_replicas([{'scope': f['scope'], 'name': f['name']}], all_states=True)]
             if args.rse not in replicastate[0]['rses']:
                 try:
                     client.add_replicas(files=[f], rse=args.rse)
                 except RucioException:
                     logger.error("A Rucio exception occurred when registering a file replica in Rucio.")
                     raise
-            # logger.warning("The file {0}:{1} already exist in the catalog and will not be added.".format(f['scope'], f['lfn']))
-            if rsemgr.exists(rse_settings=rse_settings, files={'name': f['lfn'], 'scope': f['scope']}):
-                logger.warning('File {0}:{1} already exists on RSE. Will not try to reupload'.format(f['scope'], f['lfn']))
+            # logger.warning("The file {0}:{1} already exist in the catalog and will not be added.".format(f['scope'], f['name']))
+            if rsemgr.exists(rse_settings=rse_settings, files={'name': f['name'], 'scope': f['scope']}):
+                logger.warning('File {0}:{1} already exists on RSE. Will not try to reupload'.format(f['scope'], f['name']))
             else:
                 if meta['adler32'] == f['adler32']:
-                    logger.info('Local files and file %s:%s recorded in Rucio have the same checksum. Will try the upload' % (f['scope'], f['lfn']))
-                    directory = revert_dict[f['scope'], f['lfn']]
+                    logger.info('Local files and file %s:%s recorded in Rucio have the same checksum. Will try the upload' % (f['scope'], f['name']))
+                    directory = revert_dict[f['scope'], f['name']]
                     trace['remoteSite'] = rse_settings['rse']
                     trace['protocol'] = rse_settings['protocols'][0]['scheme']
                     trace['filesize'] = f['bytes']
                     trace['transferStart'] = time.time()
                     f['upstate'] = rsemgr.upload(rse_settings=rse_settings,
-                                                 lfns=[{'name': f['name'],
-                                                        'lfn': f['lfn'],
+                                                 lfns=[{'filename': f['filename'],
+                                                        'name': f['name'],
                                                         'scope': f['scope'],
                                                         'adler32': f['adler32'],
                                                         'filesize': f['bytes']}],
@@ -1061,7 +1061,7 @@ def upload(args):
                                                  force_pfn=args.pfn)
                     trace['transferEnd'] = time.time()
                     trace['clientState'] = 'DONE'
-                    logger.info('File %s:%s successfully uploaded on the storage' % (f['scope'], f['lfn']))
+                    logger.info('File %s:%s successfully uploaded on the storage' % (f['scope'], f['name']))
                     send_trace(trace, client.host, args.user_agent)
                     summary.append(deepcopy(f))
                     f.pop('upstate', None)
@@ -1081,24 +1081,25 @@ def upload(args):
                     try:
                         client.add_replicas(files=[make_valid_did(f)], rse=args.rse)
                     except RucioException:
-                        logger.error("A Rucio exception occurred when adding replicas for %s:%s" % (f['scope'], f['lfn']))
+                        logger.error("A Rucio exception occurred when adding replicas for %s:%s" % (f['scope'], f['name']))
                         raise
                     logger.info('Replicas successfully added')
                     if not dsscope:
                         # only need to add rules for files if no dataset is given
-                        logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['lfn']))
+                        logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
                         try:
                             client.add_replication_rule([make_valid_did(f)], copies=1, rse_expression=args.rse, lifetime=args.lifetime)
                         except RucioException:
-                            logger.error("A Rucio exception occurred when adding a replication rule for %s:%s" % (f['scope'], f['lfn']))
-                directory = revert_dict[f['scope'], f['lfn']]
+                            logger.error("A Rucio exception occurred when adding a replication rule for %s:%s" % (f['scope'], f['name']))
+                directory = revert_dict[f['scope'], f['name']]
                 trace['remoteSite'] = rse_settings['rse']
                 trace['protocol'] = rse_settings['protocols'][0]['scheme']
                 trace['filesize'] = f['bytes']
                 trace['transferStart'] = time.time()
+                logger.debug("Uploading source file to RSE")
                 f['upstate'] = rsemgr.upload(rse_settings=rse_settings,
-                                             lfns=[{'name': f['name'],
-                                                    'lfn': f['lfn'],
+                                             lfns=[{'filename': f['filename'],
+                                                    'name': f['name'],
                                                     'scope': f['scope'],
                                                     'adler32': f['adler32'],
                                                     'filesize': f['bytes']}],
@@ -1106,7 +1107,7 @@ def upload(args):
                                              force_pfn=args.pfn)
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'DONE'
-                logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['lfn']))
+                logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
                 send_trace(trace, client.host, args.user_agent)
                 summary.append(deepcopy(f))
                 f.pop('upstate', None)
@@ -1140,10 +1141,10 @@ def upload(args):
         for rep in client.list_replicas([make_valid_did(f) for f in chunk_files_to_list]):
             replica_dictionary[rep['scope'], rep['name']] = rep['rses'].keys()
     for file in list_files:
-        if (file['scope'], file['lfn']) not in replica_dictionary:
+        if (file['scope'], file['name']) not in replica_dictionary:
             file['state'] = 'A'
             replicas.append(file)
-        elif args.rse not in replica_dictionary[file['scope'], file['lfn']]:
+        elif args.rse not in replica_dictionary[file['scope'], file['name']]:
             file['state'] = 'A'
             replicas.append(file)
     if args.no_register is False and replicas != []:
@@ -1159,13 +1160,13 @@ def upload(args):
         final_summary = {}
         for file in summary:
             final_summary['%s:%s' % (file['scope'],
-                                     file['lfn'])] = {'scope': file['scope'],
-                                                      'name': file['lfn'],
-                                                      'bytes': file['bytes'],
-                                                      'rse': args.rse,
-                                                      'pfn': file['upstate']['pfn'],
-                                                      'guid': file['meta']['guid'],
-                                                      'adler32': file['adler32']}
+                                     file['name'])] = {'scope': file['scope'],
+                                                       'name': file['name'],
+                                                       'bytes': file['bytes'],
+                                                       'rse': args.rse,
+                                                       'pfn': file['upstate']['pfn'],
+                                                       'guid': file['meta']['guid'],
+                                                       'adler32': file['adler32']}
         with open('rucio_upload.json', 'wb') as summary_file:
             json.dump(final_summary, summary_file, sort_keys=True, indent=1)
     return SUCCESS
