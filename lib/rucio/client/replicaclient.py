@@ -10,7 +10,10 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 '''
+
+from urllib import quote_plus
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -220,7 +223,7 @@ class ReplicaClient(BaseClient):
             payload = {'deep': True}
 
         url = build_url(self.host,
-                        path='/'.join([self.REPLICAS_BASEURL, scope, name, 'datasets']),
+                        path='/'.join([self.REPLICAS_BASEURL, quote_plus(scope), quote_plus(name), 'datasets']),
                         params=payload)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:

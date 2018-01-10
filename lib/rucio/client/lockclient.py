@@ -8,7 +8,10 @@
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 '''
+
+from urllib import quote_plus
 
 from requests.status_codes import codes
 
@@ -36,7 +39,7 @@ class LockClient(BaseClient):
         :param name: the name of the did of the locks to list.
         """
 
-        path = '/'.join([self.LOCKS_BASEURL, scope, name])
+        path = '/'.join([self.LOCKS_BASEURL, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path, params={'did_type': 'dataset'})
 
         result = self._send_request(url)
