@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017-2018
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from datetime import datetime
@@ -122,8 +122,8 @@ def create_root_account():
         x509_email = config_get('bootstrap', 'x509_email')
         gss_id = config_get('bootstrap', 'gss_identity')
         gss_email = config_get('bootstrap', 'gss_email')
-        gss_id = config_get('bootstrap', 'ssh_identity')
-        gss_email = config_get('bootstrap', 'ssh_email')
+        ssh_id = config_get('bootstrap', 'ssh_identity')
+        ssh_email = config_get('bootstrap', 'ssh_email')
     except:
         pass
         # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
