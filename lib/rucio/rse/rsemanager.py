@@ -324,7 +324,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
 
         :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'},
                                                                                                     {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}]
-                            If the 'lfn' key is present, it will be used for the LFN in Rucio over the actual name on disk (in the 'name' key).
+                            If the 'filename' key is present, it will be used by Rucio as the actual name of the file on disk (separate from the Rucio 'name').
         :param source_dir:  path to the local directory including the source files
         :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
 
@@ -349,14 +349,14 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
         transform it to a DID that can be registered with Rucio.
         """
         lfn_copy = dict(lfn_dict)
-        lfn_copy['name'] = lfn_copy.get('lfn', lfn_copy['name'])
-        del lfn_copy['lfn']
+        lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
+        del lfn_copy['filename']
         return lfn_copy
 
     lfns = [lfns] if not type(lfns) is list else lfns
     for lfn in lfns:
-        base_name = lfn['name']
-        name = lfn.get('lfn', base_name)
+        base_name = lfn.get('filename', lfn['name'])
+        name = lfn.get('name', base_name)
         scope = lfn['scope']
         if 'adler32' not in lfn:
             gs = False

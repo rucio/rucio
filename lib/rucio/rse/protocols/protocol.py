@@ -65,7 +65,7 @@ class RSEProtocol(object):
 
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
-            scope, name = lfn['scope'], lfn.get('lfn', lfn['name'])
+            scope, name = lfn['scope'], lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
                                                          '://',
@@ -99,7 +99,7 @@ class RSEProtocol(object):
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope = lfn['scope']
-            name = lfn.get('lfn', lfn['name'])
+            name = lfn['name']
             replicas = [r for r in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[self.attributes['scheme'], ])]  # schemes is used to narrow down the response message.
             if len(replicas) > 1:
                 pfns['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('This operation can only be performed for files.')
