@@ -8,7 +8,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 
+from urllib import quote_plus
 from json import loads
 from requests.status_codes import codes
 
@@ -35,7 +37,7 @@ class FileClient(BaseClient):
 
         :return: List of replicas.
         """
-        path = '/'.join([self.BASEURL, scope, lfn, 'rses'])
+        path = '/'.join([self.BASEURL, quote_plus(scope), quote_plus(lfn), 'rses'])
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='GET')
