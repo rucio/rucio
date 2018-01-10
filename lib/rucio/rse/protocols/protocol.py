@@ -45,7 +45,7 @@ class RSEProtocol(object):
             if getattr(rsemanager, 'SERVER_MODE', None):
                 setattr(self, '_get_path', self._get_path_nondeterministic_server)
         else:
-            self.attributes['determinism_type'] = self.rse.get('determinism_type', 'default')
+            self.attributes['lfn2pfn_algorithm'] = self.rse.get('lfn2pfn_algorithm', None)
 
     def lfns2pfns(self, lfns):
         """
@@ -120,7 +120,7 @@ class RSEProtocol(object):
         hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
         if scope.startswith('user') or scope.startswith('group'):
             scope = scope.replace('.', '/')
-        if self.attributes.get('determinism_type', 'default') == 'identity':
+        if self.attributes.get('lfn2pfn_algorithm', 'default') == 'identity':
             return '%s/%s' % (scope, name)
         else:
             return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
