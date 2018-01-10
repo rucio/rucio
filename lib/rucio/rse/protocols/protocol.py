@@ -45,7 +45,7 @@ class RSEProtocol(object):
             if getattr(rsemanager, 'SERVER_MODE', None):
                 setattr(self, '_get_path', self._get_path_nondeterministic_server)
         else:
-            self.attributes['determinism_type'] = 'default'
+            self.attributes['determinism_type'] = self.rse.get('determinism_type', 'default')
 
     def lfns2pfns(self, lfns):
         """
@@ -65,7 +65,7 @@ class RSEProtocol(object):
 
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
-            scope, name = lfn['scope'], lfn['name']
+            scope, name = lfn['scope'], lfn.get('lfn', lfn['name'])
             if 'path' in lfn and lfn['path'] is not None:
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
                                                          '://',
@@ -99,7 +99,7 @@ class RSEProtocol(object):
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope = lfn['scope']
-            name = lfn['name']
+            name = lfn.get('lfn', lfn['name'])
             replicas = [r for r in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[self.attributes['scheme'], ])]  # schemes is used to narrow down the response message.
             if len(replicas) > 1:
                 pfns['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('This operation can only be performed for files.')
@@ -120,7 +120,10 @@ class RSEProtocol(object):
         hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
         if scope.startswith('user') or scope.startswith('group'):
             scope = scope.replace('.', '/')
-        return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
+        if self.attributes.get('determinism_type', 'default') == 'identity':
+            return '%s/%s' % (scope, name)
+        else:
+            return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
 
     def _get_path_nondeterministic_server(self, scope, name):
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
