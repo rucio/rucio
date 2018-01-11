@@ -248,7 +248,6 @@ class TestReplicaCore:
 
         assert_equal(nbfiles, replica_cpt)
 
-
     def test_list_replica_with_domain(self):
         """ REPLICA (CORE): Add and list file replicas forcing domain"""
 
@@ -278,7 +277,7 @@ class TestReplicaCore:
                                   'delete': 2},
                           'wan': {'read': 1,
                                   'write': 1,
-                                  'delete': 1}}},]
+                                  'delete': 1}}}, ]
         for p in protocols:
             add_protocol(tmp_rse, p)
 
