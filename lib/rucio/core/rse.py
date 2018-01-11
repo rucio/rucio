@@ -728,7 +728,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
     if not _rse:
         raise exception.RSENotFound('RSE \'%s\' not found')
 
-    lfn2pfn_algorithms = get_rse_attribute('lfn2pfn_algorithm', rse_id=_rse.id)
+    lfn2pfn_algorithms = get_rse_attribute('lfn2pfn_algorithm', rse_id=_rse.id, session=session)
     lfn2pfn_algorithm = 'default'
     if lfn2pfn_algorithms:
         lfn2pfn_algorithm = lfn2pfn_algorithms[0]
