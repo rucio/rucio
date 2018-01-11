@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2018
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
@@ -788,11 +788,14 @@ def set_new_dids(dids, new_flag, session=None):
     :param new_flag: A boolean to flag new DIDs.
     :param session: The database session in use.
     """
+    if session.bind.dialect.name == 'postgresql':
+        new_flag = bool(new_flag)
     for did in dids:
         try:
+
             rowcount = session.query(models.DataIdentifier).\
                 filter_by(scope=did['scope'], name=did['name']).\
-                update({'is_new': bool(new_flag)}, synchronize_session=False)
+                update({'is_new': new_flag}, synchronize_session=False)
             if not rowcount:
                 raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
         except DatabaseError as error:
