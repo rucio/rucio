@@ -11,7 +11,7 @@
   - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
   - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
   - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
-  - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2017
+  - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
   - David Cameron <d.g.cameron@gmail.com>, 2014
   - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2016
   - Wen Guan, <wen.guan@cern.ch>, 2014-2015
@@ -719,7 +719,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
         #    raise exception.DataIdentifierNotFound("Files not found %s", str(files))
 
 
-def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, rse_clause, client_location, session):
+def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, rse_clause, client_location, domain, session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
@@ -740,7 +740,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                     if not rse_schemes:
                         try:
                             rse_schemes = [rsemgr.select_protocol(rse_settings=rse_info[rse],
-                                                                  operation='read')['scheme']]
+                                                                  operation='read',
+                                                                  domain=domain)['scheme']]
                         except:
                             print format_exc()
 
@@ -749,7 +750,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                         try:
                             protocols.append(rsemgr.create_protocol(rse_settings=rse_info[rse],
                                                                     operation='read',
-                                                                    scheme=s))
+                                                                    scheme=s,
+                                                                    domain=domain))
                         except exception.RSEProtocolNotSupported:
                             pass  # no need to be verbose
                         except:
@@ -828,7 +830,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 @stream_session
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
-                  rse_expression=None, client_location=None, session=None):
+                  rse_expression=None, client_location=None, domain=None,
+                  session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -840,8 +843,16 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict list_replicas on a set of RSEs.
     :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
+    :param domain: The network domain for the call, either None, 'wan' or 'lan'. Compatibility fallback: None falls back to 'wan'.
     :param session: The database session in use.
     """
+
+    # Compatibility fallback:
+    # Old clients expect WAN replicas always, domain=None could potentially retrieve LAN replicas for WAN sources.
+    # TODO: Automated WAN/LAN selection in _list_replicas
+    if not domain:
+        domain = 'wan'
+
     file_clause, dataset_clause, state_clause, files = _resolve_dids(dids=dids, unavailable=unavailable,
                                                                      ignore_availability=ignore_availability,
                                                                      all_states=all_states, session=session)
@@ -851,7 +862,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
         for rse in parse_expression(expression=rse_expression, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 
-    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, rse_clause, client_location, session):
+    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, rse_clause, client_location, domain, session):
         yield file
 
 
