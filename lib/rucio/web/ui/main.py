@@ -23,6 +23,13 @@ from rucio.common.config import config_get
 from rucio.common.utils import generate_http_error
 from rucio.web.ui.common.utils import check_token, get_token
 
+import gzip
+import io
+import json
+import requests
+import sys
+import tarfile
+import web
 
 COMMON_URLS = (
     '/account_rse_usage', 'AccountRSEUsage',
@@ -49,7 +56,9 @@ COMMON_URLS = (
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
-    '/subscriptions_editor', 'SubscriptionsEditor'
+    '/subscriptions_editor', 'SubscriptionsEditor',
+    '/loadLogfile', 'LoadLogfile',
+    '/extractLogfile', 'ExtractLogfile'
 )
 
 POLICY = config_get('permission', 'policy')
@@ -350,6 +359,62 @@ class SubscriptionsEditor():
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.subscriptions_editor())
+
+
+class LoadLogfile():
+    """ Loads logfile content list """
+    def GET(self):
+        try:
+            data = web.input()
+            response = requests.get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)   # TODO: cert to ddmadmin
+            cont = response.content
+            file_like_object = io.BytesIO(cont)
+            tar = tarfile.open(mode='r:gz', fileobj=file_like_object)
+            jsonResponse = {}
+            for member in tar.getmembers():
+                jsonResponse[member.name] = member.size
+            web.header('Content-Type', 'application/json')
+            return json.dumps(jsonResponse)
+        except Exception, e:
+            print e
+            e_type = sys.exc_info()[0]
+            e_value = sys.exc_info()[1]
+            e_traceback = sys.exc_info()[2]
+            return 'Error: ' + str(e_type) + ' ' + str(e_value) + ' ' + str(e_traceback)
+
+
+class ExtractLogfile():
+    """ Extracts selected logfile content """
+    def GET(self):
+        try:
+            pyDict = {}
+            data = web.input()
+            response = requests.get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)   # TODO: cert to ddmadmin
+            cont = response.content
+            file_like_object = io.BytesIO(cont)
+            tar = tarfile.open(mode='r:gz', fileobj=file_like_object)
+            for member in tar.getmembers():
+                if member.name == str(data.file_name):
+                    try:
+                        f = tar.extractfile(member)
+                        pyDict['content'] = f.read(20971520)
+                        pyDict['size'] = f.tell()
+                        jsonResponse = json.dumps(pyDict)
+                        tar.close()
+                        return jsonResponse
+                    except UnicodeDecodeError, u:
+                        print u
+                        f = tar.extractfile(member)
+                        out = gzip.GzipFile(fileobj=f)
+                        pyDict['content'] = out.read(20971520)
+                        pyDict['size'] = out.tell()
+                        jsonResponse = json.dumps(pyDict)
+                        tar.close()
+                        return jsonResponse
+                    return "ok"
+        except Exception, e:
+            print e
+            return 'Error:' + str(sys.exc_info()[0]) + ' ' + str(sys.exc_info()[1]) + ' ' + str(sys.exc_info()[2])
 
 
 """----------------------
