@@ -901,7 +901,6 @@ def upload(args):
         return FAILURE
     list_files = []
     files_to_list = []
-    lfns = {}
     revert_dict = {}
     if args.scope:
         fscope = args.scope
@@ -968,9 +967,6 @@ def upload(args):
                 logger.debug('Automatically setting new GUID')
                 current_file_info['meta']['guid'] = generate_uuid()
             list_files.append(current_file_info)
-            directory_worklist = lfns.setdefault(dir_name, [])
-            # TODO: why is this different from current_file_info?
-            directory_worklist.append({'filename': base_name, 'name': name, 'scope': fscope, 'adler32': checksum, 'filesize': size})
             revert_dict[fscope, name] = dir_name
 
         except OSError as error:
