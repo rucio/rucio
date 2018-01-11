@@ -57,8 +57,8 @@ COMMON_URLS = (
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
     '/subscriptions_editor', 'SubscriptionsEditor',
-    '/loadLogfile', 'LoadLogfile',
-    '/extractLogfile', 'ExtractLogfile'
+    '/load_logfile', 'LoadLogfile',
+    '/extract_logfile', 'ExtractLogfile'
 )
 
 POLICY = config_get('permission', 'policy')
@@ -366,7 +366,7 @@ class LoadLogfile():
     def GET(self):
         try:
             data = web.input()
-            response = requests.get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)   # TODO: cert to ddmadmin
+            response = requests.get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)
             cont = response.content
             file_like_object = io.BytesIO(cont)
             tar = tarfile.open(mode='r:gz', fileobj=file_like_object)
@@ -375,8 +375,7 @@ class LoadLogfile():
                 jsonResponse[member.name] = member.size
             web.header('Content-Type', 'application/json')
             return json.dumps(jsonResponse)
-        except Exception, e:
-            print e
+        except Exception:
             e_type = sys.exc_info()[0]
             e_value = sys.exc_info()[1]
             e_traceback = sys.exc_info()[2]
@@ -389,7 +388,7 @@ class ExtractLogfile():
         try:
             pyDict = {}
             data = web.input()
-            response = requests.get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)   # TODO: cert to ddmadmin
+            response = requests.get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)
             cont = response.content
             file_like_object = io.BytesIO(cont)
             tar = tarfile.open(mode='r:gz', fileobj=file_like_object)
@@ -397,23 +396,21 @@ class ExtractLogfile():
                 if member.name == str(data.file_name):
                     try:
                         f = tar.extractfile(member)
-                        pyDict['content'] = f.read(20971520)
+                        pyDict['content'] = f.read(16000000)
                         pyDict['size'] = f.tell()
                         jsonResponse = json.dumps(pyDict)
                         tar.close()
                         return jsonResponse
-                    except UnicodeDecodeError, u:
-                        print u
+                    except UnicodeDecodeError:
                         f = tar.extractfile(member)
                         out = gzip.GzipFile(fileobj=f)
-                        pyDict['content'] = out.read(20971520)
+                        pyDict['content'] = out.read(16000000)
                         pyDict['size'] = out.tell()
                         jsonResponse = json.dumps(pyDict)
                         tar.close()
                         return jsonResponse
                     return "ok"
-        except Exception, e:
-            print e
+        except Exception:
             return 'Error:' + str(sys.exc_info()[0]) + ' ' + str(sys.exc_info()[1]) + ' ' + str(sys.exc_info()[2])
 
 
