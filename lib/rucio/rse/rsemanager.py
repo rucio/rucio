@@ -22,6 +22,7 @@ import os
 from urlparse import urlparse
 
 from rucio.common import exception, utils, constants
+from rucio.common.utils import make_valid_did
 
 DEFAULT_PROTOCOL = 1
 
@@ -342,16 +343,6 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
     protocol.connect()
     protocol_delete = create_protocol(rse_settings, 'delete')
     protocol_delete.connect()
-
-    def make_valid_did(lfn_dict):
-        """
-        Given a LFN dictionary describing all the local state of an LFN,
-        transform it to a DID that can be registered with Rucio.
-        """
-        lfn_copy = dict(lfn_dict)
-        lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
-        del lfn_copy['filename']
-        return lfn_copy
 
     lfns = [lfns] if not type(lfns) is list else lfns
     for lfn in lfns:
