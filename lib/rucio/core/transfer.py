@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 
 import datetime
 import json
@@ -558,12 +558,13 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 allow_tape_source = True
 
                 # Find matching scheme between destination and source
+                # TODO: In the future, move to domain "third_party_copy"
                 try:
                     matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=rses_info[dest_rse_id],
                                                                   rse_settings_src=rses_info[source_rse_id],
                                                                   operation_src='read',
                                                                   operation_dest='write',
-                                                                  domain=None,
+                                                                  domain='wan',
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
                     logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
