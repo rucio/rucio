@@ -503,6 +503,58 @@ def delete_attribute_rse(args):
 
 
 @exception_handler
+def set_distance_rses(args):
+    """
+    %(prog)s set-distance [options] SOURCE_RSE DEST_RSE
+
+    Set the distance between two RSEs.
+    """
+    client = get_client(args)
+    params = {'ranking': args.ranking, 'distance': args.distance}
+    client.add_distance(args.source, args.destination, params)
+    print 'Set distance from %s to %s to %d with ranking %d' % (args.source, args.destination, args.distance, args.ranking)
+    return SUCCESS
+
+
+@exception_handler
+def get_distance_rses(args):
+    """
+    %(prog)s get-distance SOURCE_RSE DEST_RSE
+
+    Retrieve the existing distance information between two RSEs.
+    """
+    client = get_client(args)
+    distance_info = client.get_distance(args.source, args.destination)
+    if distance_info:
+        print 'Distance information from %s to %s: distance=%d, ranking=%d' % (args.source, args.destination, distance_info[0]['distance'], distance_info[0]['ranking'])
+    else:
+        print "No distance set from %s to %s" % (args.source, args.destination)
+    return SUCCESS
+
+
+@exception_handler
+def update_distance_rses(args):
+    """
+    %(prog)s update-distance [options] SOURCE_RSE DEST_RSE
+
+    Update the existing distance entry between two RSEs.
+    """
+    client = get_client(args)
+    params = {}
+    if args.ranking is not None:
+        params['ranking'] = args.ranking
+    if args.distance is not None:
+        params['distance'] = args.distance
+    client.update_distance(args.source, args.destination, params)
+    print 'Update distance information from %s to %s:' % (args.source, args.destination)
+    if args.distance is not None:
+        print "- Distance set to %d" % args.distance
+    if args.ranking is not None:
+        print "- Ranking set to %d" % args.ranking
+    return SUCCESS
+
+
+@exception_handler
 def add_protocol_rse(args):
     """
     %(prog)s add-protocol-rse [options] <rse>
@@ -1001,6 +1053,28 @@ Commands:
     delete_attribute_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     delete_attribute_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
+    # The set_distance_rses command
+    set_distance_rses_parser = rse_subparser.add_parser('set-distance', help='Set the distance between a pair of RSEs')
+    set_distance_rses_parser.set_defaults(which='set_distance_rses')
+    set_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
+    set_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
+    set_distance_rses_parser.add_argument('--distance', dest='distance', default=1, type=int, help='Distance between RSEs')
+    set_distance_rses_parser.add_argument('--ranking', dest='ranking', default=1, type=int, help='Ranking of link')
+
+    # The update_distance_rses command
+    update_distance_rses_parser = rse_subparser.add_parser('update-distance', help='Update the existing distance between a pair of RSEs')
+    update_distance_rses_parser.set_defaults(which='update_distance_rses')
+    update_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
+    update_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
+    update_distance_rses_parser.add_argument('--distance', dest='distance', type=int, help='Distance between RSEs')
+    update_distance_rses_parser.add_argument('--ranking', dest='ranking', type=int, help='Ranking of link')
+
+    # The get_distance_rses command
+    get_distance_rses_parser = rse_subparser.add_parser('get-distance', help='Get the distance information between a pair of RSEs')
+    get_distance_rses_parser.set_defaults(which='get_distance_rses')
+    get_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
+    get_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
+
     # The get_attribute_rse command
     get_attribute_rse_parser = rse_subparser.add_parser('get-attribute', help='List RSE attributes')
     get_attribute_rse_parser.set_defaults(which='get_attribute_rse')
@@ -1148,6 +1222,9 @@ Commands:
                 'set_attribute_rse': set_attribute_rse,
                 'get_attribute_rse': get_attribute_rse,
                 'delete_attribute_rse': delete_attribute_rse,
+                'set_distance_rses': set_distance_rses,
+                'update_distance_rses': update_distance_rses,
+                'get_distance_rses': get_distance_rses,
                 'add_protocol_rse': add_protocol_rse,
                 'del_protocol_rse': del_protocol_rse,
                 'list_rses': list_rses,
