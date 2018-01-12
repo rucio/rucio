@@ -14,6 +14,7 @@
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
   - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
+  - Eric Vaandering, <ewv@fnal.gov>, 2018
 '''
 
 from urllib import quote_plus
@@ -150,11 +151,11 @@ class DIDClient(BaseClient):
         :param scope: The scope name.
         :param name: The data identifier name.
         :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
-        :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-        :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+        :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
         """
-        return self.add_did(scope=scope, name=name, type='CONTAINER', statuses=statuses, meta=meta, rules=rules)
+        return self.add_did(scope=scope, name=name, type='CONTAINER', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
     def add_containers(self, cnts):
         """
