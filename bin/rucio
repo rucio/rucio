@@ -50,7 +50,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, File
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location
+from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location, make_valid_did
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -1013,16 +1013,6 @@ def upload(args):
             logger.warning("The dataset name already exist")
     else:
         logger.debug('Skipping dataset registration')
-
-    def make_valid_did(lfn_dict):
-        """
-        Given a LFN dictionary describing all the local state of an LFN,
-        transform it to a DID that can be registered with Rucio.
-        """
-        lfn_copy = dict(lfn_dict)
-        lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
-        del lfn_copy['filename']
-        return lfn_copy
 
     # Adding files to the catalog
     for f in list_files:
