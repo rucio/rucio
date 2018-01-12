@@ -15,21 +15,19 @@
 """
 
 
+from io import BytesIO
+from json import dumps
 from os.path import dirname, join
 
+from gzip import GzipFile
+from requests import get, ConnectionError
+from tarfile import open, TarError
 from web import application, header, input as param_input, seeother, template
 
 from rucio.common.config import config_get
 from rucio.common.utils import generate_http_error
 from rucio.web.ui.common.utils import check_token, get_token
 
-import gzip
-import io
-import json
-import requests
-import sys
-import tarfile
-import web
 
 COMMON_URLS = (
     '/account_rse_usage', 'AccountRSEUsage',
@@ -57,8 +55,8 @@ COMMON_URLS = (
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
     '/subscriptions_editor', 'SubscriptionsEditor',
-    '/load_logfile', 'LoadLogfile',
-    '/extract_logfile', 'ExtractLogfile'
+    '/logfiles/load', 'LoadLogfile',
+    '/logfiles/extract', 'ExtractLogfile'
 )
 
 POLICY = config_get('permission', 'policy')
@@ -365,21 +363,26 @@ class LoadLogfile():
     """ Loads logfile content list """
     def GET(self):
         try:
-            data = web.input()
-            response = requests.get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)
+            data = param_input()
+            response = get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)
+            if not response.ok:
+                response.raise_for_status()
             cont = response.content
-            file_like_object = io.BytesIO(cont)
-            tar = tarfile.open(mode='r:gz', fileobj=file_like_object)
+            file_like_object = BytesIO(cont)
+            tar = open(mode='r:gz', fileobj=file_like_object)
             jsonResponse = {}
             for member in tar.getmembers():
                 jsonResponse[member.name] = member.size
-            web.header('Content-Type', 'application/json')
-            return json.dumps(jsonResponse)
-        except Exception:
-            e_type = sys.exc_info()[0]
-            e_value = sys.exc_info()[1]
-            e_traceback = sys.exc_info()[2]
-            return 'Error: ' + str(e_type) + ' ' + str(e_value) + ' ' + str(e_traceback)
+            header('Content-Type', 'application/json')
+            return dumps(jsonResponse)
+        except ConnectionError, err:
+            raise generate_http_error(503, str(type(err)), str(err))
+        except TarError, err:
+            raise generate_http_error(415, str(type(err)), str(err))
+        except IOError, err:
+            raise generate_http_error(422, str(type(err)), str(err))
+        except Exception, err:
+            raise generate_http_error(500, str(type(err)), str(err))
 
 
 class ExtractLogfile():
@@ -387,31 +390,39 @@ class ExtractLogfile():
     def GET(self):
         try:
             pyDict = {}
-            data = web.input()
-            response = requests.get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)
+            data = param_input()
+            response = get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)
+            if not response.ok:
+                response.raise_for_status()
             cont = response.content
-            file_like_object = io.BytesIO(cont)
-            tar = tarfile.open(mode='r:gz', fileobj=file_like_object)
+            file_like_object = BytesIO(cont)
+            tar = open(mode='r:gz', fileobj=file_like_object)
             for member in tar.getmembers():
                 if member.name == str(data.file_name):
                     try:
                         f = tar.extractfile(member)
                         pyDict['content'] = f.read(16000000)
                         pyDict['size'] = f.tell()
-                        jsonResponse = json.dumps(pyDict)
+                        jsonResponse = dumps(pyDict)
                         tar.close()
                         return jsonResponse
                     except UnicodeDecodeError:
                         f = tar.extractfile(member)
-                        out = gzip.GzipFile(fileobj=f)
+                        out = GzipFile(fileobj=f)
                         pyDict['content'] = out.read(16000000)
                         pyDict['size'] = out.tell()
-                        jsonResponse = json.dumps(pyDict)
+                        jsonResponse = dumps(pyDict)
                         tar.close()
                         return jsonResponse
                     return "ok"
-        except Exception:
-            return 'Error:' + str(sys.exc_info()[0]) + ' ' + str(sys.exc_info()[1]) + ' ' + str(sys.exc_info()[2])
+        except ConnectionError, err:
+            raise generate_http_error(503, str(type(err)), str(err))
+        except TarError, err:
+            raise generate_http_error(415, str(type(err)), str(err))
+        except IOError, err:
+            raise generate_http_error(422, str(type(err)), str(err))
+        except Exception, err:
+            raise generate_http_error(500, str(type(err)), str(err))
 
 
 """----------------------
