@@ -22,6 +22,7 @@ import os
 from urlparse import urlparse
 
 from rucio.common import exception, utils, constants
+from rucio.common.utils import make_valid_did
 
 DEFAULT_PROTOCOL = 1
 
@@ -324,6 +325,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
 
         :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'},
                                                                                                     {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}]
+                            If the 'filename' key is present, it will be used by Rucio as the actual name of the file on disk (separate from the Rucio 'name').
         :param source_dir:  path to the local directory including the source files
         :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
 
@@ -344,37 +346,38 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
 
     lfns = [lfns] if not type(lfns) is list else lfns
     for lfn in lfns:
-        name = lfn['name']
+        base_name = lfn.get('filename', lfn['name'])
+        name = lfn.get('name', base_name)
         scope = lfn['scope']
         if 'adler32' not in lfn:
             gs = False
-            ret['%s:%s' % (scope, name)] = exception.RucioException('Missing checksum for file %s:%s' % (lfn['scope'], lfn['name']))
+            ret['%s:%s' % (scope, name)] = exception.RucioException('Missing checksum for file %s:%s' % (lfn['scope'], name))
             continue
         if 'filesize' not in lfn:
             gs = False
-            ret['%s:%s' % (scope, name)] = exception.RucioException('Missing filesize for file %s:%s' % (lfn['scope'], lfn['name']))
+            ret['%s:%s' % (scope, name)] = exception.RucioException('Missing filesize for file %s:%s' % (lfn['scope'], name))
             continue
 
         if force_pfn:
             pfn = force_pfn
         else:
-            pfn = protocol.lfns2pfns(lfn).values()[0]
+            pfn = protocol.lfns2pfns(make_valid_did(lfn)).values()[0]
 
         # First check if renaming operation is supported
         if protocol.renaming:
 
             # Check if file replica is already on the storage system
             if protocol.overwrite is False and protocol.exists(pfn):
-                ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
+                ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))
                 gs = False
             else:
                 if protocol.exists('%s.rucio.upload' % pfn):  # Check for left over of previous unsuccessful attempts
                     try:
-                        protocol_delete.delete('%s.rucio.upload', protocol_delete.lfns2pfns(lfn).values()[0])
+                        protocol_delete.delete('%s.rucio.upload', protocol_delete.lfns2pfns(make_valid_did(lfn)).values()[0])
                     except Exception as e:
                         ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
                 try:  # Try uploading file
-                    protocol.put(name, '%s.rucio.upload' % pfn, source_dir)
+                    protocol.put(base_name, '%s.rucio.upload' % pfn, source_dir)
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
@@ -408,11 +411,11 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
 
             # Check if file replica is already on the storage system
             if protocol.overwrite is False and protocol.exists(pfn):
-                ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
+                ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))
                 gs = False
             else:
                 try:  # Try uploading file
-                    protocol.put(name, pfn, source_dir)
+                    protocol.put(base_name, pfn, source_dir)
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e

@@ -728,6 +728,11 @@ def get_rse_protocols(rse, schemes=None, session=None):
     if not _rse:
         raise exception.RSENotFound('RSE \'%s\' not found')
 
+    lfn2pfn_algorithms = get_rse_attribute('lfn2pfn_algorithm', rse_id=_rse.id, session=session)
+    lfn2pfn_algorithm = 'default'
+    if lfn2pfn_algorithms:
+        lfn2pfn_algorithm = lfn2pfn_algorithms[0]
+
     read = True if _rse.availability & 4 else False
     write = True if _rse.availability & 2 else False
     delete = True if _rse.availability & 1 else False
@@ -740,6 +745,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
             'domain': utils.rse_supported_protocol_domains(),
             'protocols': list(),
             'deterministic': _rse.deterministic,
+            'lfn2pfn_algorithm': lfn2pfn_algorithm,
             'rse_type': str(_rse.rse_type),
             'credentials': None,
             'volatile': _rse.volatile,
