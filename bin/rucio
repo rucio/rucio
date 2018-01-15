@@ -939,7 +939,7 @@ def upload(args):
         try:
             size = os.stat(filename).st_size
             checksum = adler32(filename)
-            md5_digest = md5(name)
+            md5_digest = md5(filename)
             base_name = os.path.basename(filename)
             dir_name = os.path.dirname(filename)
             name = base_name
