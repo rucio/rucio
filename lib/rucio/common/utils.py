@@ -11,6 +11,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 
 import base64
 import datetime
@@ -281,7 +282,7 @@ def execute(cmd):
 
 def rse_supported_protocol_operations():
     """ Returns a list with operations supported by all RSE protocols."""
-    return ['read', 'write', 'delete']
+    return ['read', 'write', 'delete', 'third_party_copy']
 
 
 def rse_supported_protocol_domains():
@@ -595,3 +596,20 @@ def ssh_sign(private_key, message):
     signature_stream = priv_k.sign_ssh_data(message)
     signature_stream.rewind()
     return base64.b64encode(signature_stream.get_remainder())
+
+
+def make_valid_did(lfn_dict):
+    """
+    When managing information about a LFN (such as in `rucio upload` or
+    the RSE manager's upload), we add the `filename` attribute to record
+    the name of the file on the local disk in addition to the remainder
+    of the DID information.
+
+    This function will take that python dictionary, and strip out the
+    additional `filename` key.  If this is not done, then the dictionary
+    will not pass the DID JSON schema validation.
+    """
+    lfn_copy = dict(lfn_dict)
+    lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
+    del lfn_copy['filename']
+    return lfn_copy

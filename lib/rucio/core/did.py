@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2018
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
@@ -788,11 +788,14 @@ def set_new_dids(dids, new_flag, session=None):
     :param new_flag: A boolean to flag new DIDs.
     :param session: The database session in use.
     """
+    if session.bind.dialect.name == 'postgresql':
+        new_flag = bool(new_flag)
     for did in dids:
         try:
+
             rowcount = session.query(models.DataIdentifier).\
                 filter_by(scope=did['scope'], name=did['name']).\
-                update({'is_new': bool(new_flag)}, synchronize_session=False)
+                update({'is_new': new_flag}, synchronize_session=False)
             if not rowcount:
                 raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
         except DatabaseError as error:
@@ -1157,6 +1160,16 @@ def set_metadata(scope, name, key, value, type=None, did=None,
             session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
         except TypeError as error:
             raise exception.InvalidValueForKey(error)
+    elif key in ['guid', 'events']:
+        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+        if not rowcount:
+            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
+        session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+        if key == 'events':
+            for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
+                events = session.query(func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()
+                session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name).update({'events': events}, synchronize_session=False)
+
     elif key == 'adler32':
         rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
         if not rowcount:

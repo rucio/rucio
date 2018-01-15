@@ -1,25 +1,30 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+'''
 
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
+from rucio.core import distance as distance_module
 from rucio.core import rse as rse_module
 from rucio.core.rse_expression_parser import parse_expression
 
 
-def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None, staging_area=False):
+def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_code=None,
+            country_name=None, continent=None, time_zone=None, ISP=None,
+            staging_area=False):
     """
     Creates a new Rucio Storage Element(RSE).
 
@@ -321,3 +326,68 @@ def update_rse(rse, parameters, issuer):
     if not permission.has_permission(issuer=issuer, action='update_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update RSE' % (issuer))
     return rse_module.update_rse(rse=rse, parameters=parameters)
+
+
+def add_distance(source, destination, issuer, ranking=None, distance=None,
+                 geoip_distance=None, active=None, submitted=None, finished=None,
+                 failed=None, transfer_speed=None):
+    """
+    Add a src-dest distance.
+
+    :param source: The source.
+    :param destination: The destination.
+    :param issuer: The issuer account.
+    :param ranking: Ranking as an integer.
+    :param distance: Distance as an integer.
+    :param geoip_distance: GEOIP Distance as an integer.
+    :param active: Active FTS transfers as an integer.
+    :param submitted: Submitted FTS transfers as an integer.
+    :param finished: Finished FTS transfers as an integer.
+    :param failed: Failed FTS transfers as an integer.
+    :param transfer_speed: FTS transfer speed as an integer.
+    """
+    kwargs = {'source': source, 'destination': destination}
+    if not permission.has_permission(issuer=issuer, action='add_distance', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not add RSE distances' % (issuer))
+    return distance_module.add_distance(src_rse_id=rse_module.get_rse_id(source),
+                                        dest_rse_id=rse_module.get_rse_id(destination),
+                                        ranking=ranking, agis_distance=distance,
+                                        geoip_distance=geoip_distance, active=active,
+                                        submitted=submitted, finished=finished,
+                                        failed=failed, transfer_speed=transfer_speed)
+
+
+def update_distance(source, destination, parameters, issuer):
+    """
+    Update distances with the given RSE ids.
+
+    :param source: The source RSE.
+    :param destination: The destination RSE.
+    :param  parameters: A dictionnary with property
+    :param session: The database session to use.
+    :param issuer: The issuer account.
+    """
+    kwargs = {'source': source, 'destination': destination}
+    if not permission.has_permission(issuer=issuer, action='update_distance', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not update RSE distances' % (issuer))
+    if 'distance' in parameters:
+        parameters['agis_distance'] = parameters['distance']
+        parameters.pop('distance', None)
+
+    return distance_module.update_distances(src_rse_id=rse_module.get_rse_id(source),
+                                            dest_rse_id=rse_module.get_rse_id(destination),
+                                            parameters=parameters)
+
+
+def get_distance(source, destination, issuer):
+    """
+    Get distances between rses.
+
+    :param source: The source RSE.
+    :param destination: The destination RSE.
+    :param issuer: The issuer account.
+
+    :returns distance: List of dictionaries.
+    """
+    return distance_module.get_distances(src_rse_id=rse_module.get_rse_id(source),
+                                         dest_rse_id=rse_module.get_rse_id(destination))

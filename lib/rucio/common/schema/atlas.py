@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015, 2017
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
@@ -43,17 +43,21 @@ ACTIVITY = {"description": "Activity name",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions"]}
 
+SCOPE_LENGTH = 25
+
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "pattern": "^[a-zA-Z'_'-.0-9]{1,30}$"}
+         "pattern": "^[a-zA-Z'_'-.0-9]{1,%s}$" % SCOPE_LENGTH}
 
 R_SCOPE = {"description": "Scope name",
            "type": "string",
            "pattern": "\\w"}
 
+NAME_LENGTH = 250
+
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "pattern": "^[A-Za-z0-9][A-Za-z0-9\\.\\-\\_]{1,255}$"}
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9\\.\\-\\_]{1,%s}$" % NAME_LENGTH}
 
 R_NAME = {"description": "Data Identifier name",
           "type": "string",
@@ -334,6 +338,8 @@ MESSAGE_OPERATION = {"type": "object",
 ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
                      "pattern": r'^[a-z0-9-_]{1,30}$'}
+
+SCOPE_NAME_REGEXP = '/(.*)/(.*)'
 
 SCHEMAS = {'account': ACCOUNT,
            'account_type': ACCOUNT_TYPE,
