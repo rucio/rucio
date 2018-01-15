@@ -1215,6 +1215,7 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
         dlfile['name'] = file_name
         dlfile['scope'] = file_scope
         dlfile['adler32'] = file['adler32']
+        dlfile['md5'] = file['md5']
         ignore_checksum = True if args.pfn else False
         if args.pfn:
             dlfile['pfn'] = args.pfn
