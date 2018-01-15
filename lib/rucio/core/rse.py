@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2017
 # - Wen Guan, <wen.guan@cern.ch>, 2015-2016
@@ -728,6 +728,11 @@ def get_rse_protocols(rse, schemes=None, session=None):
     if not _rse:
         raise exception.RSENotFound('RSE \'%s\' not found')
 
+    lfn2pfn_algorithms = get_rse_attribute('lfn2pfn_algorithm', rse_id=_rse.id, session=session)
+    lfn2pfn_algorithm = 'default'
+    if lfn2pfn_algorithms:
+        lfn2pfn_algorithm = lfn2pfn_algorithms[0]
+
     read = True if _rse.availability & 4 else False
     write = True if _rse.availability & 2 else False
     delete = True if _rse.availability & 1 else False
@@ -740,6 +745,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
             'domain': utils.rse_supported_protocol_domains(),
             'protocols': list(),
             'deterministic': _rse.deterministic,
+            'lfn2pfn_algorithm': lfn2pfn_algorithm,
             'rse_type': str(_rse.rse_type),
             'credentials': None,
             'volatile': _rse.volatile,
@@ -949,14 +955,15 @@ def del_protocols(rse, scheme, hostname=None, port=None, session=None):
     for domain in utils.rse_supported_protocol_domains():
         for op in utils.rse_supported_protocol_operations():
             op_name = ''.join([op, '_', domain])
-            prots = session.query(models.RSEProtocols).\
-                filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                       getattr(models.RSEProtocols, op_name) > 0)).\
-                order_by(getattr(models.RSEProtocols, op_name).asc())
-            i = 1
-            for p in prots:
-                p.update({op_name: i})
-                i += 1
+            if getattr(models.RSEProtocols, op_name, None):
+                prots = session.query(models.RSEProtocols).\
+                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                           getattr(models.RSEProtocols, op_name) > 0)).\
+                    order_by(getattr(models.RSEProtocols, op_name).asc())
+                i = 1
+                for p in prots:
+                    p.update({op_name: i})
+                    i += 1
 
 
 @transactional_session

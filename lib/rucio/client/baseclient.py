@@ -292,6 +292,7 @@ class BaseClient(object):
                 continue
 
             if result is not None and result.status_code == codes.unauthorized:  # pylint: disable-msg=E1101
+                self.session = session()
                 self.__get_token()
                 hds['X-Rucio-Auth-Token'] = self.auth_token
             else:
@@ -378,8 +379,10 @@ class BaseClient(object):
                 if retry > self.request_retries:
                     raise
 
-        if not result:
-            LOG.error('cannot get auth_token')
+        # Note a response object for a failed request evaluates to false, so we cannot
+        # use "not result" here
+        if result is None:
+            LOG.error('Internal error: Request for authentication token returned no result!')
             return False
 
         if result.status_code != codes.ok:   # pylint: disable-msg=E1101
