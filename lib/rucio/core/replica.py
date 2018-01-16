@@ -27,7 +27,7 @@ from traceback import format_exc
 from sqlalchemy import func, and_, or_, exists, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError, NoResultFound
-from sqlalchemy.sql.expression import case, bindparam, select, text, false
+from sqlalchemy.sql.expression import case, bindparam, select, text, false, true
 
 import rucio.core.lock
 
@@ -1180,7 +1180,8 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                               dialect='oracle')).
                            where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
                                       models.DataIdentifierAssociation.name == models.DataIdentifier.name,
-                                      models.DataIdentifier.complete != false())))
+                                      or_(models.DataIdentifier.complete == true(),
+                                          models.DataIdentifier.complete is None))))
                 for parent_scope, parent_name, parent_did_type in modifieds:
                     message = {'scope': parent_scope,
                                'name': parent_name,
