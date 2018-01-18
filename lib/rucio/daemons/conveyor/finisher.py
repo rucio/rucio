@@ -8,7 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 
@@ -308,7 +308,7 @@ def __get_undeterministic_rses():
     key = 'undeterministic_rses'
     result = region.get(key)
     if type(result) is NoValue:
-        rses_list = list_rses(filters={'deterministic': 0})
+        rses_list = list_rses(filters={'deterministic': False})
         result = [rse['id'] for rse in rses_list]
         try:
             region.set(key, result)
