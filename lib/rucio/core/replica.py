@@ -8,7 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
   - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
   - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
   - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
@@ -332,6 +332,11 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                 new_bad_replica.save(session=session, flush=False)
                 session.query(models.Source).filter_by(scope=scope, name=name, rse_id=rse_id).delete(synchronize_session=False)
                 declared_replicas.append(pfn)
+                path_clause.append(models.RSEFileAssociation.path == path)
+                if path.startswith('/'):
+                    path_clause.append(models.RSEFileAssociation.path == path[1:])
+                else:
+                    path_clause.append(models.RSEFileAssociation.path == '/%s' % path)
             else:
                 if already_declared:
                     unknown_replicas.append('%s %s' % (pfn, 'Already declared'))
@@ -344,13 +349,8 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                             break
                     if no_hidden_char:
                         unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
-            path_clause.append(models.RSEFileAssociation.path == path)
-            if path.startswith('/'):
-                path_clause.append(models.RSEFileAssociation.path == path[1:])
-            else:
-                path_clause.append(models.RSEFileAssociation.path == '/%s' % path)
 
-        if status == BadFilesStatus.BAD:
+        if status == BadFilesStatus.BAD and declared_replicas != []:
             # For BAD file, we modify the replica state, not for suspicious
             query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
                 with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
