@@ -13,7 +13,7 @@
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
- - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
+ - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
  - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
  - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
  - Tobias Wegner <tobias.wegner@cern.ch>, 2017
@@ -2786,7 +2786,7 @@ Commands:
     update_rule_parser = subparsers.add_parser('update-rule', help='Update replication rule.')
     update_rule_parser.set_defaults(which='update_rule')
     update_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
-    update_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Lifetime in seconds.')
+    update_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
     update_rule_parser.add_argument('--locked', dest='locked', action='store', help='Locked (True/False).')
     update_rule_parser.add_argument('--account', dest='rule_account', action='store', help='Account to change.')
     update_rule_parser.add_argument('--stuck', dest='state_stuck', action='store_true', help='Set state to STUCK.')
