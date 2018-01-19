@@ -50,7 +50,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, File
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location, make_valid_did
+from rucio.common.utils import adler32, md5, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location, make_valid_did
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -939,6 +939,7 @@ def upload(args):
         try:
             size = os.stat(filename).st_size
             checksum = adler32(filename)
+            md5_digest = md5(filename)
             base_name = os.path.basename(filename)
             dir_name = os.path.dirname(filename)
             name = base_name
@@ -946,7 +947,7 @@ def upload(args):
                 name = args.name
             logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, name))
             files_to_list.append({'scope': fscope, 'name': name, 'filename': base_name})
-            current_file_info = {'scope': fscope, 'filename': base_name, 'name': name, 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {}}
+            current_file_info = {'scope': fscope, 'filename': base_name, 'name': name, 'bytes': size, 'adler32': checksum, 'md5': md5_digest, 'state': 'C', 'meta': {}}
             if not args.guid and 'pool.root' in filename.lower() and not args.no_register:  # is a root file, getting the GUID
                 status, output, err = execute('pool_extractFileIdentifier {0}'.format(filename))
                 if status != 0:
@@ -1042,6 +1043,7 @@ def upload(args):
                                                         'name': f['name'],
                                                         'scope': f['scope'],
                                                         'adler32': f['adler32'],
+                                                        'md5': f['md5'],
                                                         'filesize': f['bytes']}],
                                                  source_dir=directory,
                                                  force_pfn=args.pfn)
@@ -1088,6 +1090,7 @@ def upload(args):
                                                     'name': f['name'],
                                                     'scope': f['scope'],
                                                     'adler32': f['adler32'],
+                                                    'md5': f['md5'],
                                                     'filesize': f['bytes']}],
                                              source_dir=directory,
                                              force_pfn=args.pfn)
@@ -1152,7 +1155,8 @@ def upload(args):
                                                        'rse': args.rse,
                                                        'pfn': file['upstate']['pfn'],
                                                        'guid': file['meta']['guid'],
-                                                       'adler32': file['adler32']}
+                                                       'adler32': file['adler32'],
+                                                       'md5': file['md5']}
         with open('rucio_upload.json', 'wb') as summary_file:
             json.dump(final_summary, summary_file, sort_keys=True, indent=1)
     return SUCCESS
@@ -1242,6 +1246,7 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
         dlfile['name'] = file_name
         dlfile['scope'] = file_scope
         dlfile['adler32'] = file['adler32']
+        dlfile['md5'] = file['md5']
         ignore_checksum = True if args.pfn else False
         if args.pfn:
             dlfile['pfn'] = args.pfn
