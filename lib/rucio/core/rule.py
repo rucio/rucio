@@ -8,7 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
 '''
@@ -1916,12 +1916,13 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
 
 
 @transactional_session
-def deny_rule(rule_id, approver=None, session=None):
+def deny_rule(rule_id, approver=None, reason=None, session=None):
     """
     Deny a specific replication rule.
 
     :param rule_id:   The rule_id to approve.
     :param approver:  The account which is denying the rule.
+    :param reason:    The reason why the rule was denied.
     :param session:   The database session in use.
     :raises:          RuleNotFound if no Rule can be found.
     """
@@ -1945,7 +1946,8 @@ def deny_rule(rule_id, approver=None, session=None):
                                                  'scope': rule.scope,
                                                  'name': rule.name,
                                                  'did_type': rule.did_type,
-                                                 'approver': approver})
+                                                 'approver': approver,
+                                                 'reason': reason})
                 add_message(event_type='email',
                             payload={'body': text,
                                      'to': [email],
@@ -1956,7 +1958,8 @@ def deny_rule(rule_id, approver=None, session=None):
             with open('%s/rule_denied_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                 template = Template(templatefile.read())
             text = template.safe_substitute({'rule_id': str(rule.id),
-                                             'approver': approver})
+                                             'approver': approver,
+                                             'reason': reason})
             recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
             for recipent in recipents:
                 add_message(event_type='email',

@@ -7,7 +7,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 '''
 
@@ -164,7 +164,7 @@ def update_replication_rule(rule_id, options, issuer):
         if options['approve']:
             rule.approve_rule(rule_id=rule_id, approver=issuer)
         else:
-            rule.deny_rule(rule_id=rule_id, approver=issuer)
+            rule.deny_rule(rule_id=rule_id, approver=issuer, reason=options.get('comment', None))
     else:
         if not has_permission(issuer=issuer, action='update_rule', kwargs=kwargs):
             raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
