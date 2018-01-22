@@ -12,6 +12,7 @@
  - Martin Barisits, <martin.barisits@cern.ch>, 2014
  - Ralph Vigne <ralph.vigne@cern.ch>, 2015
  - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2017
+ - Stefan Prenner <stefan.prenner@cern.ch>, 2017-2018
 """
 
 
