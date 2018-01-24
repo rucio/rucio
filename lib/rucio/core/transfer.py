@@ -688,7 +688,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
                 transfers[id] = {'request_id': id,
-                                 'schemes': __add_compatible_schemes(schemes=[matching_scheme[0], matching_scheme[1]], allowed_schemes=current_schemes),
+                                 'schemes': __add_compatible_schemes(schemes=[matching_scheme[0]], allowed_schemes=current_schemes),
                                  # 'src_urls': [source_url],
                                  'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
                                  'dest_urls': [dest_url],
