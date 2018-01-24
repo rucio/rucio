@@ -24,8 +24,6 @@ from urlparse import urlparse
 from rucio.common import exception, utils, constants
 from rucio.common.utils import make_valid_did
 
-DEFAULT_PROTOCOL = 1
-
 
 def get_rse_info(rse, session=None):
     """ Returns all protocol related RSE attributes.
@@ -41,11 +39,6 @@ def get_rse_info(rse, session=None):
                     volatile          ...     boolean indictaing if the RSE is volatile
                     deteministic      ...     boolean indicating of the nameing of the files follows the defined determinism
                     domain            ...     indictaing the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
-                    delete_protocol   ...     the protocol to be used for deletion, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
-                    write_protocol    ...     the protocol to be used for write, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
-                    read_protocol     ...     the protocol to be used for read, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
-                    third_party_copy  ...     the protocol to be used for third_party_copy, if rsemanager.DEFAULT_PROTOCOL, the default of the site will be selected automatically
-
                     protocols       ...     all supported protocol in form of a list of dict objects with the followig structure
                         scheme              ...     protocol scheme e.g. http, srm, ...
                         hostname            ...     hostname of the site
