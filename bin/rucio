@@ -17,6 +17,7 @@
  - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
  - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
  - Tobias Wegner <tobias.wegner@cern.ch>, 2017
+ - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 """
 
 import argparse
@@ -1304,7 +1305,6 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
 
             while not success and len(protocols):
                 protocol = protocols.pop()
-                rse['read_protocol'] = protocol
 
                 logger.debug('%s : Trying protocol %s at %s' % (thread_prefix, protocol['scheme'], rse_name))
                 trace['protocol'] = protocol['scheme']
@@ -1328,6 +1328,7 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
                         rsemgr.download(rse,
                                         files=[dlfile],
                                         dest_dir=dest_dir,
+                                        force_scheme=protocol['scheme'],
                                         ignore_checksum=ignore_checksum)
 
                         trace['transferEnd'] = time.time()
