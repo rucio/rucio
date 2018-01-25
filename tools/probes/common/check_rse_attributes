@@ -11,7 +11,7 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
  - David Cameron, <david.cameron@cern.ch>, 2014-2015
  - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
 """
 
 import json
@@ -20,8 +20,10 @@ import traceback
 
 import requests
 
+from rucio.db.sqla.session import get_session
 from rucio.common.exception import RucioException, RSENotFound
-from rucio.api.rse import add_rse_attribute, get_rses_with_attribute, del_rse_attribute, get_rse_usage, get_rse
+from rucio.core.rse import add_rse_attribute, get_rses_with_attribute, del_rse_attribute, get_rse_usage, get_rse
+
 
 UNKNOWN = 3
 CRITICAL = 2
@@ -59,52 +61,53 @@ if __name__ == '__main__':
 
         name = rse['name']
 
+        session = get_session()
         # Check if RSE exists
         try:
-            get_rse(name)
+            get_rse(name, session=session)
         except RSENotFound:
             continue
 
         print name
 
         try:
-            add_rse_attribute(name, 'ALL', '1', 'root')
-            add_rse_attribute(name, 'tier', str(rse['tier_level']), 'root')
-            add_rse_attribute(name, 'istape', str(rse['is_tape']), 'root')
-            add_rse_attribute(name, 'cloud', str(rse['cloud']), 'root')
-            add_rse_attribute(name, 'spacetoken', str(rse['token']), 'root')
-            add_rse_attribute(name, 'site', str(rse['site']), 'root')
-            add_rse_attribute(name, 'type', str(rse['type']), 'root')
+            add_rse_attribute(name, 'ALL', '1', session=session)
+            add_rse_attribute(name, 'tier', str(rse['tier_level']), session=session)
+            add_rse_attribute(name, 'istape', str(rse['is_tape']), session=session)
+            add_rse_attribute(name, 'cloud', str(rse['cloud']), session=session)
+            add_rse_attribute(name, 'spacetoken', str(rse['token']), session=session)
+            add_rse_attribute(name, 'site', str(rse['site']), session=session)
+            add_rse_attribute(name, 'type', str(rse['type']), session=session)
             if str(rse['space_method']) == 'other':
-                add_rse_attribute(name, 'space_usage_method', 'json', 'root')
+                add_rse_attribute(name, 'space_usage_method', 'json', session=session)
             elif name in SPACE_USAGE:
-                del_rse_attribute(name, 'space_usage_method', 'root')
+                del_rse_attribute(name, 'space_usage_method', session=session)
             if rse['type'] == 'LOCALGROUPDISK' or rse['type'] == 'LOCALGROUPTAPE':
                 country = COUNTRYCODES[str(rse['country'])]
                 if name.startswith('CERN'):
                     country = 'cern'
-                add_rse_attribute(name, 'country', country, 'root')
+                add_rse_attribute(name, 'country', country, session=session)
             if rse['phys_groups']:
-                add_rse_attribute(name, 'physgroup', str(rse['phys_groups'][0]), 'root')
+                add_rse_attribute(name, 'physgroup', str(rse['phys_groups'][0]), session=session)
             if rse['type'] not in ['OS_LOGS', 'OS_ES']:
                 if isinstance(rse['servedrestfts']['MASTER'], list):
-                    add_rse_attribute(name, 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
+                    add_rse_attribute(name, 'fts', ','.join(rse['servedrestfts']['MASTER']), session=session)
                 else:
-                    add_rse_attribute(name, 'fts', str(rse['servedrestfts']['MASTER']), 'root')
+                    add_rse_attribute(name, 'fts', str(rse['servedrestfts']['MASTER']), session=session)
             if rse['type'] not in ['OS_LOGS', 'OS_ES']:
                 if isinstance(rse['servedrestfts']['TESTING'], list):
-                    add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
+                    add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), session=session)
                 else:
-                    add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
+                    add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), session=session)
             if 'datapolicies' in rse:
-                add_rse_attribute(name, 'datapolicyt0disk', 'T0Disk' in rse['datapolicies'], 'root')
-                add_rse_attribute(name, 'datapolicyt0tape', 'T0Tape' in rse['datapolicies'], 'root')
-                add_rse_attribute(name, 'datapolicyt0taskoutput', 'T0TaskOutput' in rse['datapolicies'], 'root')
-                add_rse_attribute(name, 'datapolicynucleus', 'Nucleus' in rse['datapolicies'], 'root')
+                add_rse_attribute(name, 'datapolicyt0disk', 'T0Disk' in rse['datapolicies'], session=session)
+                add_rse_attribute(name, 'datapolicyt0tape', 'T0Tape' in rse['datapolicies'], session=session)
+                add_rse_attribute(name, 'datapolicyt0taskoutput', 'T0TaskOutput' in rse['datapolicies'], session=session)
+                add_rse_attribute(name, 'datapolicynucleus', 'Nucleus' in rse['datapolicies'], session=session)
 
-            space_used = get_rse_usage(rse=name, issuer='root', source='storage')
-            unavailable_space = get_rse_usage(rse=name, issuer='root', source='unavailable')
-            expired = get_rse_usage(rse=name, issuer='root', source='expired')
+            space_used = get_rse_usage(rse=name, source='storage', session=session)
+            unavailable_space = get_rse_usage(rse=name, source='unavailable', session=session)
+            expired = get_rse_usage(rse=name, source='expired', session=session)
             expired = expired[0]['total'] if expired != [] else 0
             if unavailable_space and unavailable_space[0]['total']:
                 unavailable_space = unavailable_space[0]['total']
@@ -113,13 +116,13 @@ if __name__ == '__main__':
             if space_used:
                 if space_used[0]['used'] == -1:
                     total_space = space_used[0]['total']
-                    space_used = get_rse_usage(rse=name, issuer='root', source='rucio')
+                    space_used = get_rse_usage(rse=name, source='rucio', session=session)
                     freespace = total_space - space_used[0]['used']
                 else:
                     freespace = space_used[0]['free']
                 freespace = float(freespace - unavailable_space + expired) / 1000 / 1000 / 1000 / 1000
                 freespace = freespace if freespace > 0 else 0
-                add_rse_attribute(name, 'freespace', int(freespace), 'root')
+                add_rse_attribute(name, 'freespace', int(freespace), session=session)
 
         except RucioException as error:
             print str(error)
@@ -127,4 +130,6 @@ if __name__ == '__main__':
         except:
             print traceback.format_exc()
             RESULT = WARNING
+        finally:
+            session.commit()
     sys.exit(RESULT)
