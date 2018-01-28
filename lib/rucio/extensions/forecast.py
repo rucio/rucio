@@ -18,7 +18,8 @@ import logging
 import time
 import numpy as np
 
-from rucio.core.rse import list_rses, list_rse_attributes
+from rucio.common.exception import RSENotFound
+from rucio.core.rse import list_rses, list_rse_attributes, get_rse_name
 from rucio.db.sqla.session import read_session
 from rucio.db.sqla import models
 
@@ -68,7 +69,7 @@ class T3CModel():
                     self._rse2site[rse['rse']] = attribs['site']
                     self._rseid2site[rse['id']] = attribs['site']
                 except KeyError:
-                    logging.warning('(T3CModel rse2site mapper) No site for ' + rse['rse'])
+                    logging.warning('T3CModel rse2site mapper: No site for ' + rse['rse'])
                     continue
                 if attribs['site'] not in self._site2rses.keys():
                     self._site2rses[attribs['site']] = []
@@ -164,7 +165,7 @@ class T3CModel():
         link = '__'.join([src, dst])
         link_true, rate, overhead, diskrw = self.recover_params(src, dst)
         if link_true == 'STANDARD_LINK':
-            logging.warning('W: Link ' + link + ' not found, using standard parameters...')
+            logging.warning('Link ' + link + ' not found, using standard parameters...')
         else:
             logging.info('I: Using ' + link + ' data from model to predict.')
         rate_pred = min((size / (size / rate) + overhead), diskrw)
@@ -210,7 +211,7 @@ class T3CModel():
             submitted = [time.time()]
         debug = True
         if debug is True:
-            logging.warning('Query took ' + str(time.time() - start) + ' seconds to retrieve (' + str(len(submitted)) + ') rows.')
+            logging.info('Query took ' + str(time.time() - start) + ' seconds to retrieve (' + str(len(submitted)) + ') rows.')
             f = open('/tmp/forecast.log', 'a')
             f.write(src + ' --> ' + dst + ' (' + act + ') time:' + str(time.time() - start) + '\n')
             f.write(str(submitted))
@@ -238,3 +239,34 @@ class T3CModel():
             transfer['qtime'] = self.predict_q(src, dst, act)
             result.append(transfer)
         return result
+
+    @read_session
+    def predict_by_rule_id(self, rule_id, session=None):
+        """
+        Make a prediction based on the rule id.
+
+        :param rule_id: Some rule id.
+        :returns: Number of seconds the rules is going to take till is complete.
+        """
+        requests = session.query(models.Request).filter(models.Request.rule_id == rule_id).all()
+        transfers = []
+        for req in requests:
+            try:
+                transfers.append({'src': get_rse_name(req.source_rse_id),
+                                  'dst': get_rse_name(req.dest_rse_id),
+                                  'activity': req.activity,
+                                  'size': req.bytes})
+            except RSENotFound:
+                continue
+        results = self.predict(transfers)
+        max_q = 0
+        max_n = 0
+        if len(transfers) == 0:
+            logging.warning('Can\'t calculate TTC for the transfers. Probably no sources selected yet.')
+            return -1, -1
+        for transfer in results:
+            if transfer['qtime'] > max_q:
+                max_q = transfer['qtime']
+            if transfer['ntime'] > max_n:
+                max_n = transfer['ntime']
+        return max_q, max_n
