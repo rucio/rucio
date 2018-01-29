@@ -8,7 +8,7 @@
 
  Authors:
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
- - Martin Barisits, <martin.barisits@cern.ch>, 2017
+ - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 """
 
@@ -37,7 +37,7 @@ def get_policy():
     policy = REGION.get('policy')
     if isinstance(policy, NoValue):
         try:
-            policy = config_get('permission', 'policy')
+            policy = config_get('policy', 'permission')
         except (NoOptionError, NoSectionError):
             policy = 'atlas'
         REGION.set('policy', policy)
