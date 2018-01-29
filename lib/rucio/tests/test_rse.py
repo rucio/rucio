@@ -1198,7 +1198,6 @@ class TestRSEClient(object):
                         'availability_read': True,
                         'availability_write': True,
                         'credentials': None,
-                        'delete_protocol': 1,
                         'deterministic': True,
                         'domain': ['lan', 'wan'],
                         'protocols': [{'domains': {'lan': {'delete': 2, 'read': 0, 'write': 0},
@@ -1226,12 +1225,10 @@ class TestRSEClient(object):
                                        'port': 8443,
                                        'prefix': u'/castor/ads.rl.ac.uk/prod/atlas/stripInput/atlasdatadisk/rucio/',
                                        'scheme': u'srm'}],
-                        'read_protocol': 1,
                         'rse': u'MOCK',
                         'rse_type': 'DISK',
                         'staging_area': False,
-                        'volatile': False,
-                        'write_protocol': 1}
+                        'volatile': False}
         assert_equal(len(mgr._get_possible_protocols(rse_settings, 'read')), 3)
 
     def test_add_distance(self):

@@ -751,9 +751,6 @@ def get_rse_protocols(rse, schemes=None, session=None):
             'volatile': _rse.volatile,
             'staging_area': _rse.staging_area}
 
-    for op in utils.rse_supported_protocol_operations():
-        info['%s_protocol' % op] = 1  # 1 indicates the default protocol
-
     query = None
     terms = [models.RSEProtocols.rse_id == _rse.id]
     if schemes:
