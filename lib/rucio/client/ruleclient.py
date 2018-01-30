@@ -91,16 +91,18 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def get_replication_rule(self, rule_id):
+    def get_replication_rule(self, rule_id, estimate_ttc=False):
         """
         Get a replication rule.
 
         :param rule_id:  The id of the rule to be retrieved.
+        :param estimate_ttc: bool, if rule_info should return ttc information
         :raises:         RuleNotFound
         """
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        data = dumps({'estimate_ttc': estimate_ttc})
+        r = self._send_request(url, type='GET', data=data)
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
         else:
