@@ -23,7 +23,7 @@ General Information
 ===================
 
 This section contains the general information related to Rucio which is common to
-all the developers, users and operators.
+all developers, users and operators.
 For documentation specific to the any of these three, please see the subsequent sections.
 
 .. toctree::
