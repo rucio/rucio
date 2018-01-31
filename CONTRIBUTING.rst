@@ -1,3 +1,4 @@
+=================
 Contributor Guide
 =================
 
@@ -26,7 +27,7 @@ pull requests are needed for patches, and the helper scripts do it
 automatically for you.
 
 Setting up the repository
-=========================
+-------------------------
 
 **Step 1**: Fork the `repository <https://github.com/rucio/rucio/>`_ on Github.
 
@@ -38,7 +39,8 @@ Setting up the repository
   $ git branch --track next
 
 Contributing
-============
+------------
+
 
 **Step 1**: Create an `issue <https://github.com/rucio/rucio/issues/new>`_ with the description
 of the contribution (motivation, modification and expected results).
@@ -68,8 +70,9 @@ The helper script will propagate the commit message as the pull request title.
 
 If you use different tools to create pull requests like the `github interface <https://help.github.com/articles/creating-a-pull-request/>`_
 or the git command-line wrapper `hub <https://hub.github.com>`_, the following logic must be applied:
- * If the contribution is a **patch**, two pull requests must be created, one for the **next** branch and another for the **master** branch.
- * If the contribution is a new **feature**, one pull request must be created for the **next** branch.
+
+* If the contribution is a **patch**, two pull requests must be created, one for the **next** branch and another for the **master** branch.
+* If the contribution is a new **feature**, one pull request must be created for the **next** branch.
 
 The format of the pull request title must be:
 
@@ -93,13 +96,13 @@ and for a new **feature**::
 please try to squash/amend your commits to avoid "in-between" commits.
 
 Automatic Review
-================
+----------------
 
 Every submitted pull request will automatically be run through automated review and
 testing(nosetests) with Travis.
 
 Human Review
-============
+------------
 
 Anyone is welcome to review merge requests and make comments!
 
@@ -109,7 +112,7 @@ development lead.
 
 
 Coding Style and testing
-========================
+------------------------
 
 We use flake8 and pylint to sanitize our code. Please do the same before
 submitting a pull request.
