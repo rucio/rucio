@@ -35,11 +35,15 @@ For documentation specific to the any of these three, please see the subsequent 
 Developer Documentation
 =======================
 
+If you want to develop with Rucio or contribute to the project, this part
+of the documentation is for you.
+
 .. toctree::
     :maxdepth: 1
 
     contributing
     rest
+    api
 
 User Documentation
 ==================
