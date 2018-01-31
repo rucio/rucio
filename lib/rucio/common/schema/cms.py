@@ -12,6 +12,7 @@
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2016
+  - Eric Vaandering, <ewv@fnal.gov>, 2018
 '''
 
 from jsonschema import validate, ValidationError
@@ -80,7 +81,7 @@ IGNORE_AVAILABILITY = {"description": "Rule ignore availability status",
 
 RSE = {"description": "RSE name",
        "type": "string",
-       "pattern": "(T[0-3]_[A-Z]{2}_([_-][A-Z0-9]+)*)"}
+       "pattern": "(T[0-3]_[A-Z]{2}_([_-][A-Za-z0-9]+)*)"}
 
 RSE_ATTRIBUTE = {"description": "RSE attribute",
                  "type": "string",
@@ -88,7 +89,7 @@ RSE_ATTRIBUTE = {"description": "RSE attribute",
 
 DEFAULT_RSE_ATTRIBUTE = {"description": "Default RSE attribute",
                          "type": "string",
-                         "pattern": r'([A-Z0-9]+([_-][A-Z0-9]+)*)'}
+                         "pattern": r'([A-Z0-9]+([_-][A-Za-z0-9]+)*)'}
 
 REPLICA_STATE = {"description": "Replica state",
                  "type": "string",
