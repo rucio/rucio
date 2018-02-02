@@ -17,7 +17,7 @@ import hashlib
 from exceptions import NotImplementedError
 from urlparse import urlparse
 
-from rucio.common import exception
+from rucio.common import config, exception
 from rucio.rse import rsemanager
 
 if getattr(rsemanager, 'CLIENT_MODE', None):
@@ -25,6 +25,59 @@ if getattr(rsemanager, 'CLIENT_MODE', None):
 
 if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.core import replica
+
+# Provide the ability to register custom lfn2pfn algorithms for this server isntance
+# Algorithms take in three inputs:
+# - scope
+# - name
+# - RSE
+# And should return part of a PFN that will be appended to the rest of the URL plus
+# the prefix.
+__LFN2PFN_ALGORITHMS = {}
+def register_lfn2pfn(lfn2pfn_callable, name=None):
+    """
+    Provided a callable function, register it as one of the valid LFN2PFN algorithms.
+    """
+    global __LFN2PFN_ALGORITHMS
+    if name is None:
+        name = lfn2pfn_callable.__name__
+    __LFN2PFN_ALGORITHMS[name] = lfn2pfn_callable
+
+
+def lfn2pfn_hash(scope, name, rse):
+    """
+    Given a LFN, turn it into a sub-directory structure using a hash function.
+    """
+    hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
+    if scope.startswith('user') or scope.startswith('group'):
+        scope = scope.replace('.', '/')
+    return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
+
+
+def lfn2pfn_identity(scope, name, rse):
+    """
+    Given a LFN, use it as a subdirectory.
+    """
+    if scope.startswith('user') or scope.startswith('group'):
+        scope = scope.replace('.', '/')
+    return '%s/%s' % (scope, name)
+
+
+__LFN2PFN_ALGORITHMS['hash'] = lfn2pfn_hash
+__LFN2PFN_ALGORITHMS['identity'] = lfn2pfn_identity
+if config.config_has_section('policy'):
+    POLICY_MODULE = None
+    try:
+        POLICY_MODULE = config.config_get('policy', 'lfn2pfn_module')
+    except (NoOptionError, NoSectionError) as error:
+        pass
+    if POLICY_MODULE:
+        importlib.import_module(POLICY_MODULE)
+    DEFAULT_LFN2PFN = "hash"
+    try:
+        DEFAULT_LFN2PFN = config.config_get('policy', 'lfn2pfn_algorithm_default')
+    except (NoOptionError, NoSectionError) as error:
+        pass
 
 
 class RSEProtocol(object):
@@ -117,13 +170,12 @@ class RSEProtocol(object):
 
             :returns: RSE specific URI of the physical file
         """
-        hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
-        if scope.startswith('user') or scope.startswith('group'):
-            scope = scope.replace('.', '/')
-        if self.attributes.get('lfn2pfn_algorithm', 'default') == 'identity':
-            return '%s/%s' % (scope, name)
-        else:
-            return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
+        algorithm = self.attributes.get('lfn2pfn_algorithm', 'default')
+        if algorithm == 'default':
+            algorithm = DEFAULT_LFN2PFN
+        algorithm_callable = __LFN2PFN_ALGORITHMS[algorithm]
+        # TODO: include RSE.
+        return algorithm_callable(scope, name, None)
 
     def _get_path_nondeterministic_server(self, scope, name):
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
