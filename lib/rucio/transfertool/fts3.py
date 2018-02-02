@@ -168,7 +168,7 @@ def submit_transfers(transfers, job_metadata):
                                   'activity': str(transfer['activity']),
                                   'selection_strategy': transfer.get('selection_strategy', 'auto')}],
                        'params': {'verify_checksum': True if transfer['checksum'] else False,
-                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else 'null',
+                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else None,
                                   'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                                   'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                                   'job_metadata': job_metadata,
