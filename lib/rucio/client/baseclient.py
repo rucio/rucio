@@ -223,7 +223,10 @@ class BaseClient(object):
 
         :return: A rucio exception class and an error string.
         """
-        data = parse_response(data)
+        try:
+            data = parse_response(data)
+        except ValueError:
+            data = {}
         if 'ExceptionClass' not in data:
             if 'ExceptionMessage' not in data:
                 human_http_code = _codes.get(status_code, None)  # NOQA, pylint: disable-msg=W0612
