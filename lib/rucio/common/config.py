@@ -61,6 +61,24 @@ def config_get_items(section):
     return __CONFIG.items(section)
 
 
+def config_remove_option(section, option):
+    """Remove the specified option from a given section.
+
+       If the option existed in the configuration, return True.
+
+       If the section does not exist, throws NoSectionError.
+    """
+    return __CONFIG.remove_option(section, option)
+
+
+def config_set(section, option, value):
+    """Set a configuration option in a given section.
+
+       If the section does not exist, throws a NoSectionError.
+    """
+    return __CONFIG.set(section, option, value)
+
+
 def get_config_dir():
     """Return the rucio configuration directory"""
     configdirs = ['/opt/rucio/etc/', ]
