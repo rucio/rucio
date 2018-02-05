@@ -10,7 +10,9 @@
 
 from rucio.rse.protocols.protocol import RSEDeterministicTranslation
 
+
 def lfn2pfn_module_algorithm(scope, name, rse, rse_attributes, protcol_attributes):
     return "lfn2pfn_module_algorithm_value"
+
 
 RSEDeterministicTranslation.register(lfn2pfn_module_algorithm)

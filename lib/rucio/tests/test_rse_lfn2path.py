@@ -15,6 +15,7 @@ from nose.tools import assert_equal
 from rucio.rse.protocols.protocol import RSEDeterministicTranslation
 from rucio.common import config
 
+
 class TestDeterministicTranslation(object):
     """
     Verify the deterministic translator.
@@ -55,8 +56,10 @@ class TestDeterministicTranslation(object):
         """LFN2PFN: Verify we can register a custom function (Success)"""
         def static_register_test1(scope, name, rse, rse_attrs, proto_attrs):
             return "static_register_value1"
+
         def static_register_test2(scope, name, rse, rse_attrs, proto_attrs):
             return "static_register_value2"
+
         RSEDeterministicTranslation.register(static_register_test1)
         RSEDeterministicTranslation.register(static_register_test2, name="static_register_custom_name")
         self.rse_attributes['lfn2pfn_algorithm'] = 'static_register_test1'
@@ -66,7 +69,7 @@ class TestDeterministicTranslation(object):
         self.create_translator()
         assert_equal(self.translator.path("foo", "bar"), "static_register_value2")
 
-    def test_register_func(self):
+    def test_attr_mapping(self):
         """LFN2PFN: Verify we can map using rse and attrs (Successs)"""
         def rse_algorithm(scope, name, rse, rse_attrs, proto_attrs):
             tier = rse_attrs.get("tier", "T1")
@@ -100,8 +103,10 @@ class TestDeterministicTranslation(object):
             orig_value = config.config_get('policy', 'lfn2pfn_algorithm_default')
         except NoOptionError:
             orig_value = None
+
         def static_test(scope, name, rse, rse_attrs, proto_attrs):
             return "static_test_value"
+
         RSEDeterministicTranslation.register(static_test)
         try:
             config.config_set('policy', 'lfn2pfn_algorithm_default', 'static_test')
