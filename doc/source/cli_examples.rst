@@ -1,9 +1,9 @@
 =========
-rucio CLI
+Rucio CLI
 =========
 
 
-rucio provides several command for the end-users::
+Rucio provides several command for the end-users::
 
   $ rucio 
   usage: rucio [-h] [--version] [--verbose] [-H ADDRESS] [--auth-host ADDRESS]
@@ -215,7 +215,7 @@ You can resolve also the collections (CONTAINER or DATASET) into the list of fil
 Rules operations
 ================
 You can create a new rule like this::
-  $ rucio add-rules --account jdoe --lifetime 1209600 user.jdoe:user.jdoe.test.container.1234.1 1 "tier=1&disk=1"
+  $ rucio add-rules --lifetime 1209600 user.jdoe:user.jdoe.test.container.1234.1 1 "tier=1&disk=1"
   a12e5664555a4f12b3cc6991db5accf9
 The command returns the rule_id of the rule.
 
