@@ -41,7 +41,6 @@ if __name__ == "__main__":
     except IndexError as error:
         CHECK_BUSY = 0
 
-
     WORST_RETVALUE = OK
 
     try:
