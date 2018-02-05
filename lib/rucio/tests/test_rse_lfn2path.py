@@ -112,7 +112,7 @@ class TestDeterministicTranslation(object):
     def test_module_load(self):
         """LFN2PFN: Test ability to provide LFN2PFN functions via module (Success)"""
         config.config_set('policy', 'lfn2pfn_module', 'rucio.tests.lfn2pfn_module_test')
-        RSEDeterministicTranslation._module_init_() #pylint: disable=protected-access
+        RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
         self.rse_attributes['lfn2pfn_algorithm'] = 'lfn2pfn_module_algorithm'
         self.create_translator()
         assert_equal(self.translator.path("foo", "bar"), "lfn2pfn_module_algorithm_value")
@@ -136,11 +136,11 @@ class TestDeterministicTranslation(object):
         RSEDeterministicTranslation.register(static_test)
         try:
             config.config_set('policy', 'lfn2pfn_algorithm_default', 'static_test')
-            RSEDeterministicTranslation._module_init_() #pylint: disable=protected-access
+            RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
             assert_equal(self.translator.path("foo", "bar"), "static_test_value")
         finally:
             if orig_value is None:
                 config.config_remove_option('policy', 'lfn2pfn_algorithm_default')
             else:
                 config.config_set('policy', 'lfn2pfn_algorithm_default', orig_value)
-            RSEDeterministicTranslation._module_init_() #pylint: disable=protected-access
+            RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access

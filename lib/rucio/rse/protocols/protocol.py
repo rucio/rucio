@@ -133,7 +133,7 @@ class RSEDeterministicTranslation(object):
         return algorithm_callable(scope, name, self.rse, self.rse_attributes, self.protocol_attributes)
 
 
-RSEDeterministicTranslation._module_init_()  #pylint: disable=protected-access
+RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
 
 
 class RSEProtocol(object):
@@ -184,7 +184,7 @@ class RSEProtocol(object):
                                                          str(self.attributes['port']),
                                                          prefix,
                                                          lfn['path'] if not lfn['path'].startswith('/') else lfn['path'][1:]
-                                                        ])
+                                                         ])
             else:
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
                                                          '://',
@@ -193,7 +193,7 @@ class RSEProtocol(object):
                                                          str(self.attributes['port']),
                                                          prefix,
                                                          self._get_path(scope=scope, name=name)
-                                                        ])
+                                                         ])
         return pfns
 
     def __lfns2pfns_client(self, lfns):
@@ -230,7 +230,7 @@ class RSEProtocol(object):
         """
         return self.translator.path(scope, name)
 
-    def _get_path_nondeterministic_server(self, scope, name): #pylint: disable=invalid-name
+    def _get_path_nondeterministic_server(self, scope, name):  # pylint: disable=invalid-name
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
         rep = replica.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id'])
         if 'path' in rep and rep['path'] is not None:
