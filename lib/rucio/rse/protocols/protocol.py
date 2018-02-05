@@ -104,8 +104,7 @@ class RSEDeterministicTranslation(object):
         """
         cls.register(cls.__hash, "hash")
         cls.register(cls.__identity, "identity")
-        if config.config_has_section('policy'):
-            policy_module = None
+        policy_module = None
         try:
             policy_module = config.config_get('policy', 'lfn2pfn_module')
         except (NoOptionError, NoSectionError):
