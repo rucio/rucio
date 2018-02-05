@@ -5,7 +5,7 @@
  http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Brian Bockelman, <bbockelm@cse.unl.edu>, 2019
+ - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 '''
 
 from ConfigParser import NoOptionError
