@@ -2270,13 +2270,14 @@ def list_rules(args):
         return FAILURE
     if args.csv:
         for rule in rules:
-            print "{0}, {1}, {2}, {3}, {4}, {5}, {6}".format(rule['id'],
-                                                             rule['account'],
-                                                             '%s:%s' % (rule['scope'], rule['name']),
-                                                             '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
-                                                             rule['rse_expression'],
-                                                             rule['copies'],
-                                                             rule['expires_at'])
+            print "{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}".format(rule['id'],
+                                                                  rule['account'],
+                                                                  '%s:%s' % (rule['scope'], rule['name']),
+                                                                  '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                                                                  rule['rse_expression'],
+                                                                  rule['copies'],
+                                                                  rule['expires_at'],
+                                                                  rule['created_at'])
     else:
         table = []
         for rule in rules:
@@ -2286,8 +2287,9 @@ def list_rules(args):
                           '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
                           rule['rse_expression'],
                           rule['copies'],
-                          rule['expires_at']])
-        print tabulate.tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)'])
+                          rule['expires_at'],
+                          rule['created_at']])
+        print tabulate.tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)', 'CREATED (UTC)'])
     return SUCCESS
 
 
