@@ -8,7 +8,7 @@
  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 '''
 
-from ConfigParser import NoOptionError
+from ConfigParser import NoOptionError, NoSectionError
 
 from nose.tools import assert_equal
 
@@ -111,6 +111,8 @@ class TestDeterministicTranslation(object):
 
     def test_module_load(self):
         """LFN2PFN: Test ability to provide LFN2PFN functions via module (Success)"""
+        if not config.config_has_section('policy'):
+            config.config_add_section('policy')
         config.config_set('policy', 'lfn2pfn_module', 'rucio.tests.lfn2pfn_module_test')
         RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
         self.rse_attributes['lfn2pfn_algorithm'] = 'lfn2pfn_module_algorithm'
@@ -121,7 +123,7 @@ class TestDeterministicTranslation(object):
         """LFN2PFN: Test override of default LFN2PFN algorithm via config (Success)"""
         try:
             orig_value = config.config_get('policy', 'lfn2pfn_algorithm_default')
-        except NoOptionError:
+        except (NoOptionError, NoSectionError):
             orig_value = None
 
         def static_test(scope, name, rse, rse_attrs, proto_attrs):
