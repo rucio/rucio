@@ -176,9 +176,6 @@ class Default(protocol.RSEProtocol):
                                      aws_secret_access_key=secret_key,
                                      is_secure=is_secure,
                                      calling_format=OrdinaryCallingFormat())
-            if '_https_verify_certificates' in dir(ssl):
-                # pylint: disable=no-member
-                ssl._https_verify_certificates(enable=True)
             self._reset_http_proxy()
         except Exception as e:
             self._reset_http_proxy()
@@ -186,7 +183,9 @@ class Default(protocol.RSEProtocol):
 
     def close(self):
         """ Closes the connection to RSE."""
-        pass
+        if '_https_verify_certificates' in dir(ssl):
+            # pylint: disable=no-member
+            ssl._https_verify_certificates(enable=True)
 
     def get(self, pfn, dest):
         """
