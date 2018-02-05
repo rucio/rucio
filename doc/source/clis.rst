@@ -12,4 +12,3 @@ Rucio provides two command-line tools:
 Examples with rucio-admin command-line tools can be found here: :doc:`cli_admin_examples`.
 
 Examples with rucio command-line tools can be found here: :doc:`cli_examples`.
-
