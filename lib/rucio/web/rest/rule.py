@@ -64,7 +64,15 @@ class Rule:
         """
         header('Content-Type', 'application/json')
         try:
-            rule = get_replication_rule(rule_id)
+            estimate_ttc = False
+            json_data = data()
+            params = loads(json_data)
+            if 'estimate_ttc' in params:
+                estimate_ttc = params['estimate_ttc']
+        except ValueError:
+            estimate_ttc = False
+        try:
+            rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc)
         except RuleNotFound as error:
             raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
         except RucioException as error:

@@ -87,13 +87,13 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                          meta=meta)
 
 
-def get_replication_rule(rule_id):
+def get_replication_rule(rule_id, estimate_ttc=None):
     """
     Get replication rule by it's id.
 
     :param rule_id: The rule_id to get.
     """
-    return rule.get_rule(rule_id)
+    return rule.get_rule(rule_id, estimate_ttc)
 
 
 def list_replication_rules(filters={}):
