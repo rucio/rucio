@@ -21,6 +21,13 @@ class TestDeterministicTranslation(object):
     Verify the deterministic translator.
     """
 
+    def __init__(self):
+        """Setup dummy instance"""
+        self.rse = None
+        self.rse_attributes = None
+        self.protocol_attributes = None
+        self.translator = None
+
     def setup(self):
         """LFN2PFN: Creating RSEDeterministicTranslation instance"""
         self.rse = 'Mock'
@@ -55,9 +62,21 @@ class TestDeterministicTranslation(object):
     def test_register_func(self):
         """LFN2PFN: Verify we can register a custom function (Success)"""
         def static_register_test1(scope, name, rse, rse_attrs, proto_attrs):
+            """Test function for registering LFN2PATH functions."""
+            del scope
+            del name
+            del rse
+            del rse_attrs
+            del proto_attrs
             return "static_register_value1"
 
         def static_register_test2(scope, name, rse, rse_attrs, proto_attrs):
+            """Second test function for registering LFN2PATH functions."""
+            del scope
+            del name
+            del rse
+            del rse_attrs
+            del proto_attrs
             return "static_register_value2"
 
         RSEDeterministicTranslation.register(static_register_test1)
@@ -72,6 +91,7 @@ class TestDeterministicTranslation(object):
     def test_attr_mapping(self):
         """LFN2PFN: Verify we can map using rse and attrs (Successs)"""
         def rse_algorithm(scope, name, rse, rse_attrs, proto_attrs):
+            """Test LFN2PATH function for exercising the different RSE/proto attrs."""
             tier = rse_attrs.get("tier", "T1")
             scheme = proto_attrs.get("scheme", "http")
             return "%s://%s_%s/%s/%s" % (scheme, tier, rse, scope, name)
@@ -92,7 +112,7 @@ class TestDeterministicTranslation(object):
     def test_module_load(self):
         """LFN2PFN: Test ability to provide LFN2PFN functions via module (Success)"""
         config.config_set('policy', 'lfn2pfn_module', 'rucio.tests.lfn2pfn_module_test')
-        RSEDeterministicTranslation._module_init_()
+        RSEDeterministicTranslation._module_init_() #pylint: disable=protected-access
         self.rse_attributes['lfn2pfn_algorithm'] = 'lfn2pfn_module_algorithm'
         self.create_translator()
         assert_equal(self.translator.path("foo", "bar"), "lfn2pfn_module_algorithm_value")
@@ -105,16 +125,22 @@ class TestDeterministicTranslation(object):
             orig_value = None
 
         def static_test(scope, name, rse, rse_attrs, proto_attrs):
+            """Static test function for config override."""
+            del scope
+            del name
+            del rse
+            del rse_attrs
+            del proto_attrs
             return "static_test_value"
 
         RSEDeterministicTranslation.register(static_test)
         try:
             config.config_set('policy', 'lfn2pfn_algorithm_default', 'static_test')
-            RSEDeterministicTranslation._module_init_()
+            RSEDeterministicTranslation._module_init_() #pylint: disable=protected-access
             assert_equal(self.translator.path("foo", "bar"), "static_test_value")
         finally:
             if orig_value is None:
                 config.config_remove_option('policy', 'lfn2pfn_algorithm_default')
             else:
                 config.config_set('policy', 'lfn2pfn_algorithm_default', orig_value)
-            RSEDeterministicTranslation._module_init_()
+            RSEDeterministicTranslation._module_init_() #pylint: disable=protected-access

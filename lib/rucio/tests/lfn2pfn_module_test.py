@@ -11,7 +11,13 @@
 from rucio.rse.protocols.protocol import RSEDeterministicTranslation
 
 
-def lfn2pfn_module_algorithm(scope, name, rse, rse_attributes, protcol_attributes):
+def lfn2pfn_module_algorithm(scope, name, rse, rse_attributes, protocol_attributes):
+    """Dummy LFN2PFN algorithm for unit tests."""
+    del scope
+    del name
+    del rse
+    del rse_attributes
+    del protocol_attributes
     return "lfn2pfn_module_algorithm_value"
 
 
