@@ -1,21 +1,26 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
-# - Wen Guan, <wen.guan@cern.ch>, 2014
-# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+"""
+Copyright European Organization for Nuclear Research (CERN)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+You may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
+
+Authors:
+- Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
+- Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
+- Wen Guan, <wen.guan@cern.ch>, 2014
+- Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+- Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+- Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
+
+This module defines the base class for implementing a transfer protocol,
+along with some of the default methods for LFN2PFN translations.
+"""
 
 import hashlib
 import importlib
 
-from exceptions import NotImplementedError
 from urlparse import urlparse
 from ConfigParser import NoOptionError, NoSectionError
 
@@ -65,23 +70,29 @@ class RSEDeterministicTranslation(object):
         RSEDeterministicTranslation._LFN2PFN_ALGORITHMS[name] = lfn2pfn_callable
 
     @staticmethod
-    def __hash(scope, name, rse, _, __):
+    def __hash(scope, name, rse, rse_attrs, protocol_attrs):
         """
         Given a LFN, turn it into a sub-directory structure using a hash function.
         """
+        del rse
+        del rse_attrs
+        del protocol_attrs
         hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
         if scope.startswith('user') or scope.startswith('group'):
             scope = scope.replace('.', '/')
         return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
 
     @staticmethod
-    def __identity(scope, name, rse, _, __):
+    def __identity(scope, name, rse, rse_attrs, protocol_attrs):
         """
         Given a LFN, convert it directly to a path using the mapping:
 
             scope:path -> scope/path
 
         """
+        del rse
+        del rse_attrs
+        del protocol_attrs
         if scope.startswith('user') or scope.startswith('group'):
             scope = scope.replace('.', '/')
         return '%s/%s' % (scope, name)
@@ -122,7 +133,7 @@ class RSEDeterministicTranslation(object):
         return algorithm_callable(scope, name, self.rse, self.rse_attributes, self.protocol_attributes)
 
 
-RSEDeterministicTranslation._module_init_()
+RSEDeterministicTranslation._module_init_()  #pylint: disable=protected-access
 
 
 class RSEProtocol(object):
@@ -139,7 +150,7 @@ class RSEProtocol(object):
         self.overwrite = False
         self.rse = rse_settings
         if self.rse['deterministic']:
-            self.translator = RSEDeterministicTranslation(self.rse['rse'], self.rse_settings, self.attributes)
+            self.translator = RSEDeterministicTranslation(self.rse['rse'], rse_settings, self.attributes)
         else:
             if getattr(rsemanager, 'CLIENT_MODE', None):
                 setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
@@ -162,7 +173,7 @@ class RSEProtocol(object):
         if not prefix.endswith('/'):
             prefix = ''.join([prefix, '/'])
 
-        lfns = [lfns] if type(lfns) == dict else lfns
+        lfns = [lfns] if isinstance(lfns, dict) else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
@@ -173,7 +184,7 @@ class RSEProtocol(object):
                                                          str(self.attributes['port']),
                                                          prefix,
                                                          lfn['path'] if not lfn['path'].startswith('/') else lfn['path'][1:]
-                                                         ])
+                                                        ])
             else:
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
                                                          '://',
@@ -182,7 +193,7 @@ class RSEProtocol(object):
                                                          str(self.attributes['port']),
                                                          prefix,
                                                          self._get_path(scope=scope, name=name)
-                                                         ])
+                                                        ])
         return pfns
 
     def __lfns2pfns_client(self, lfns):
@@ -195,7 +206,7 @@ class RSEProtocol(object):
         client = ReplicaClient()
         pfns = {}
 
-        lfns = [lfns] if type(lfns) == dict else lfns
+        lfns = [lfns] if isinstance(lfns, dict) else lfns
         for lfn in lfns:
             scope = lfn['scope']
             name = lfn['name']
@@ -219,12 +230,12 @@ class RSEProtocol(object):
         """
         return self.translator.path(scope, name)
 
-    def _get_path_nondeterministic_server(self, scope, name):
+    def _get_path_nondeterministic_server(self, scope, name): #pylint: disable=invalid-name
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
-        r = replica.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id'])
-        if 'path' in r and r['path'] is not None:
-            path = r['path']
-        elif 'state' in r and (r['state'] is None or r['state'] == 'UNAVAILABLE'):
+        rep = replica.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id'])
+        if 'path' in rep and rep['path'] is not None:
+            path = rep['path']
+        elif 'state' in rep and (rep['state'] is None or rep['state'] == 'UNAVAILABLE'):
             raise exception.ReplicaUnAvailable('Missing path information and state is UNAVAILABLE for replica %s:%s on non-deterministic storage named %s' % (scope, name, self.rse['rse']))
         else:
             raise exception.ReplicaNotFound('Missing path information for replica %s:%s on non-deterministic storage named %s' % (scope, name, self.rse['rse']))
@@ -245,7 +256,7 @@ class RSEProtocol(object):
             :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
         ret = dict()
-        pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
+        pfns = [pfns] if (isinstance(pfns, str) or isinstance(pfns, unicode)) else pfns
 
         for pfn in pfns:
             parsed = urlparse(pfn)
