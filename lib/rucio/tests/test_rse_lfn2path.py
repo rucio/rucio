@@ -121,6 +121,8 @@ class TestDeterministicTranslation(object):
 
     def test_config_default_override(self):
         """LFN2PFN: Test override of default LFN2PFN algorithm via config (Success)"""
+        if not config.config_has_section('policy'):
+            config.config_add_section('policy')
         try:
             orig_value = config.config_get('policy', 'lfn2pfn_algorithm_default')
         except (NoOptionError, NoSectionError):
