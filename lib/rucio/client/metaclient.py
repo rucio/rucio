@@ -8,7 +8,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 
+from urllib import quote_plus
 from json import dumps, loads
 from requests.status_codes import codes
 
@@ -39,7 +41,7 @@ class MetaClient(BaseClient):
         :raises Duplicate: if key already exists.
         """
 
-        path = '/'.join([self.META_BASEURL, key])
+        path = '/'.join([self.META_BASEURL, quote_plus(key)])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'value_type': value_type and str(value_type),
                       'value_regexp': value_regexp,
@@ -75,7 +77,7 @@ class MetaClient(BaseClient):
 
         :return: a list containing the names of all values for a key.
         """
-        path = self.META_BASEURL + '/' + key + '/'
+        path = '/'.join([self.META_BASEURL, quote_plus(key)]) + '/'
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:
@@ -96,7 +98,7 @@ class MetaClient(BaseClient):
         :raises Duplicate: if valid already exists.
         """
 
-        path = self.META_BASEURL + '/' + key + '/'
+        path = '/'.join([self.META_BASEURL, quote_plus(key)]) + '/'
         data = dumps({'value': value})
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=data)

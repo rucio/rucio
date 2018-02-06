@@ -44,6 +44,15 @@ $var script:
     <b>Format:</b> RSE, scope, name, size, creation date, update date, last accessed date, state</br>
     <b>Notabene:</b> last accessed date can be empty; if no date provided, the latest available dump will be taken
   </div>
+  <div id="suspicious_files_dumps" class="panel">
+    <h4>Suspicious files</h4>
+    Retrieve a list of all suspicious file replicas.</br>
+    <b>URL:</b> https://rucio-hadoop.cern.ch/suspicious_files</br>
+    <b>URL params:</b> date (optional)</br>
+    <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/suspicious_files?date=2017-12-04">https://rucio-hadoop.cern.ch/suspicious_files?date=2017-12-04</a></br>
+    <b>Format:</b> RSE, scope, name, path</br>
+    <b>Notabene:</b> if no date provided, the latest available dump will be taken
+  </div>
 
 </br>
   <h3>Additional daily dumps (not exposed)</h3>

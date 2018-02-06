@@ -31,8 +31,8 @@
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
-    'sphinx.ext.todo']
+              'sphinx.ext.doctest',
+              'sphinx.ext.todo']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -48,13 +48,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Rucio'
-<<<<<<< HEAD
-copyright = u'2017, rucio-dev@cern.ch'
+copyright = u'2017 CERN for the benefit of the ATLAS collaboration'
 author = u'rucio-dev@cern.ch'
-=======
-copyright = u'2017, rucio-dev@googlegroups.com'
-author = u'rucio-dev@googlegroups.com'
->>>>>>> a1ce07f41bd8f674e0a46f4f91c3edd100ee0861
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -149,11 +144,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Rucio.tex', u'Rucio Documentation',
-<<<<<<< HEAD
      u'rucio-dev@cern.ch', 'manual'),
-=======
-     u'rucio-dev@googlegroups.com', 'manual'),
->>>>>>> a1ce07f41bd8f674e0a46f4f91c3edd100ee0861
 ]
 
 
@@ -177,6 +168,3 @@ texinfo_documents = [
      author, 'Rucio', 'One line description of project.',
      'Miscellaneous'),
 ]
-
-
-

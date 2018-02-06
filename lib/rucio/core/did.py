@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2018
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
@@ -34,7 +34,6 @@ from sqlalchemy.sql.expression import bindparam, text, Insert, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
-import rucio.common.policy
 
 from rucio.common import exception
 from rucio.common.config import config_get
@@ -550,36 +549,38 @@ def delete_dids(dids, account, session=None):
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'] != 'archive':
-            rucio.common.policy.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+            rucio.core.rule.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
 
         if did['purge_replicas'] is False:
             not_purge_replicas.append((did['scope'], did['name']))
 
             # Archive content
-            q = session.query(models.DataIdentifierAssociation.scope,
-                              models.DataIdentifierAssociation.name,
-                              models.DataIdentifierAssociation.child_scope,
-                              models.DataIdentifierAssociation.child_name,
-                              models.DataIdentifierAssociation.did_type,
-                              models.DataIdentifierAssociation.child_type,
-                              models.DataIdentifierAssociation.bytes,
-                              models.DataIdentifierAssociation.adler32,
-                              models.DataIdentifierAssociation.md5,
-                              models.DataIdentifierAssociation.guid,
-                              models.DataIdentifierAssociation.events,
-                              models.DataIdentifierAssociation.rule_evaluation,
-                              bindparam("did_created_at", did.get('created_at')),
-                              models.DataIdentifierAssociation.created_at,
-                              models.DataIdentifierAssociation.updated_at,
-                              bindparam("deleted_at", datetime.utcnow())).\
-                filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
-                            models.DataIdentifierAssociation.name == did['name']))
-            ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
-                from_select(('scope', 'name', 'child_scope', 'child_name', 'did_type',
-                             'child_type', 'bytes', 'adler32', 'md5', 'guid', 'events',
-                             'rule_evaluation', 'did_created_at', 'created_at', 'updated_at',
-                             'deleted_at'), q)
-            session.execute(ins)
+            # Disable for postgres
+            if session.bind.dialect.name != 'postgresql':
+                q = session.query(models.DataIdentifierAssociation.scope,
+                                  models.DataIdentifierAssociation.name,
+                                  models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifierAssociation.did_type,
+                                  models.DataIdentifierAssociation.child_type,
+                                  models.DataIdentifierAssociation.bytes,
+                                  models.DataIdentifierAssociation.adler32,
+                                  models.DataIdentifierAssociation.md5,
+                                  models.DataIdentifierAssociation.guid,
+                                  models.DataIdentifierAssociation.events,
+                                  models.DataIdentifierAssociation.rule_evaluation,
+                                  bindparam("did_created_at", did.get('created_at')),
+                                  models.DataIdentifierAssociation.created_at,
+                                  models.DataIdentifierAssociation.updated_at,
+                                  bindparam('deleted_at', datetime.utcnow())).\
+                    filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
+                                models.DataIdentifierAssociation.name == did['name']))
+                ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
+                    from_select(('scope', 'name', 'child_scope', 'child_name', 'did_type',
+                                 'child_type', 'bytes', 'adler32', 'md5', 'guid', 'events',
+                                 'rule_evaluation', 'did_created_at', 'created_at', 'updated_at',
+                                 'deleted_at'), q)
+                session.execute(ins)
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
@@ -787,11 +788,14 @@ def set_new_dids(dids, new_flag, session=None):
     :param new_flag: A boolean to flag new DIDs.
     :param session: The database session in use.
     """
+    if session.bind.dialect.name == 'postgresql':
+        new_flag = bool(new_flag)
     for did in dids:
         try:
-            # session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).with_for_update(nowait=True).first()
-            # session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).first()
-            rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).update({'is_new': new_flag}, synchronize_session=False)
+
+            rowcount = session.query(models.DataIdentifier).\
+                filter_by(scope=did['scope'], name=did['name']).\
+                update({'is_new': new_flag}, synchronize_session=False)
             if not rowcount:
                 raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
         except DatabaseError as error:
@@ -1156,6 +1160,16 @@ def set_metadata(scope, name, key, value, type=None, did=None,
             session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
         except TypeError as error:
             raise exception.InvalidValueForKey(error)
+    elif key in ['guid', 'events']:
+        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+        if not rowcount:
+            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
+        session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+        if key == 'events':
+            for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
+                events = session.query(func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()
+                session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name).update({'events': events}, synchronize_session=False)
+
     elif key == 'adler32':
         rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
         if not rowcount:
@@ -1345,9 +1359,10 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
         if (isinstance(v, unicode) or isinstance(v, str)) and ('*' in v or '%' in v):
             if v in ('*', '%', u'*', u'%'):
                 continue
-            if session.bind.dialect.name == 'postgresql':  # PostgreSQL escapes automatically
+            if session.bind.dialect.name == 'postgresql':
                 query = query.filter(getattr(models.DataIdentifier, k).
-                                     like(v.replace('*', '%')))
+                                     like(v.replace('*', '%').replace('_', '\_'),
+                                          escape='\\'))
             else:
                 query = query.filter(getattr(models.DataIdentifier, k).
                                      like(v.replace('*', '%').replace('_', '\_'), escape='\\'))

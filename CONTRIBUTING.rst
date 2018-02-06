@@ -46,18 +46,48 @@ Every issue will get a **unique issue number**.
 
 **Step 2**: Create a local branch that corresponds to the issue. There are utility scripts to help you with this::
 
-  $ ./tools/create-patch-branch <unique issue number> '<component> #<issue number>: <short_change_message>'
-  $ ./tools/create-feature-branch <unique issue number> '<component> #<issue number>: <short_change_message>'
+  $ ./tools/create-patch-branch <unique issue number> '<short_change_message>'
+  $ ./tools/create-feature-branch <unique issue number> '<short_change_message>'
 
 **Step 3**: Commit your change. The format of the commit message must be::
 
 <component>: <change_message> #<issue number>
 
-Valid component names are listed in the `label list <https://github.com/rucio/rucio/labels>`_
+Valid component names are listed in the `label list <https://github.com/rucio/rucio/labels>`_.
+
+If you add a `github-recognised keyword <https://help.github.com/articles/closing-issues-using-keywords/>`_ then
+the associated issue can be closed automatically once the pull request is merged, e.g.::
+
+    <component>: <change_message> Fix #<issue number>
 
 **Step 4**: Push the commit to your forked repository and create the pull request(s). There is a helper script to assist you::
 
   $ ./tools/submit-pull-request
+
+The helper script will propagate the commit message as the pull request title.
+
+If you use different tools to create pull requests like the `github interface <https://help.github.com/articles/creating-a-pull-request/>`_
+or the git command-line wrapper `hub <https://hub.github.com>`_, the following logic must be applied:
+ * If the contribution is a **patch**, two pull requests must be created, one for the **next** branch and another for the **master** branch.
+ * If the contribution is a new **feature**, one pull request must be created for the **next** branch.
+
+The format of the pull request title must be:
+
+    <component>: <short_change_message> #<issue number>
+
+If you add a `github-recognised keyword <https://help.github.com/articles/closing-issues-using-keywords/>`_ then
+the associated issue can be closed automatically once the pull request is merged, e.g.::
+
+<component>: <short_change_message> Fix #<issue number>
+
+For example, with `hub the git command-line wrapper <https://hub.github.com>`_  the commands for a **patch** are::
+
+  $  git pull-request  -m  '<component>: <short_change_message> #<issue number>' -b master
+  $  git pull-request  -m  '<component>: <short_change_message> #<issue number>' -b next
+
+and for a new **feature**::
+
+  $  git pull-request  -m  '<short_change_message> #<issue number>' -b next
 
 **Step 5**: Watch the pull request for comments and reviews. For any pull requests update,
 please try to squash/amend your commits to avoid "in-between" commits.

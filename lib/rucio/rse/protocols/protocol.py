@@ -45,7 +45,7 @@ class RSEProtocol(object):
             if getattr(rsemanager, 'SERVER_MODE', None):
                 setattr(self, '_get_path', self._get_path_nondeterministic_server)
         else:
-            self.attributes['determinism_type'] = 'default'
+            self.attributes['lfn2pfn_algorithm'] = self.rse.get('lfn2pfn_algorithm', None)
 
     def lfns2pfns(self, lfns):
         """
@@ -120,7 +120,10 @@ class RSEProtocol(object):
         hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
         if scope.startswith('user') or scope.startswith('group'):
             scope = scope.replace('.', '/')
-        return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
+        if self.attributes.get('lfn2pfn_algorithm', 'default') == 'identity':
+            return '%s/%s' % (scope, name)
+        else:
+            return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
 
     def _get_path_nondeterministic_server(self, scope, name):
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
@@ -183,6 +186,8 @@ class RSEProtocol(object):
             path = '/'.join(path.split('/')[:-1])
             if not path.startswith('/'):
                 path = '/' + path
+            if path != '/' and not path.endswith('/'):
+                path = path + '/'
             ret[pfn] = {'path': path, 'name': name, 'scheme': scheme, 'prefix': prefix, 'port': port, 'hostname': hostname, }
 
         return ret
