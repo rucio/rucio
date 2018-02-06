@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
 
 import os
+import ssl
 import urlparse
 import logging
 
@@ -166,6 +167,9 @@ class Default(protocol.RSEProtocol):
                         get(service_url, False)
 
             self._disable_http_proxy()
+            if '_https_verify_certificates' in dir(ssl):
+                # pylint: disable=no-member
+                ssl._https_verify_certificates(enable=False)
             self.__conn = connect_s3(host=self.attributes['hostname'],
                                      port=int(port),
                                      aws_access_key_id=access_key,
@@ -179,7 +183,9 @@ class Default(protocol.RSEProtocol):
 
     def close(self):
         """ Closes the connection to RSE."""
-        pass
+        if '_https_verify_certificates' in dir(ssl):
+            # pylint: disable=no-member
+            ssl._https_verify_certificates(enable=True)
 
     def get(self, pfn, dest):
         """
