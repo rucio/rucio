@@ -7,15 +7,16 @@
  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2018
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 """
 
 import os
 import sys
-import requests
-import urllib3
 from urlparse import urlparse
+import urllib3
+
+import requests
 
 from rucio.common.config import config_get
 from rucio.core import monitor
@@ -35,6 +36,11 @@ if __name__ == "__main__":
         VO = sys.argv[1]
     except IndexError as error:
         VO = 'atlas'
+    try:
+        CHECK_BUSY = sys.argv[2]
+    except IndexError as error:
+        CHECK_BUSY = 0
+
     WORST_RETVALUE = OK
 
     try:
@@ -78,14 +84,14 @@ if __name__ == "__main__":
                         se_matrix[(src, dst)]['mbps_link'] += channel['current']
                     except Exception:
                         pass
-                    if 'submitted' in channel and channel['submitted'] >= busylimit:
+                    if CHECK_BUSY and 'submitted' in channel and channel['submitted'] >= busylimit:
                         url_activities = '%s/fts3/ftsmon/config/activities/%s?source_se=%s&dest_se=%s' % (ftshost, VO, src, dst)
                         activities = {}
                         try:
                             s = requests.get(url_activities, verify=False, cert=(PROXY, PROXY))
                             for key, val in s.json().items():
                                 activities[key] = val['SUBMITTED']
-                        except Exception, error:
+                        except Exception as error:
                             pass
                         busy_channels.append({'src': src, 'dst': dst, 'submitted': channel['submitted'], 'activities': activities})
                 summary = res['summary']
@@ -102,7 +108,7 @@ if __name__ == "__main__":
                 monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=(summary['submitted'] + summary['active'] + summary['staging'] + summary['started']))
                 retvalue = OK
                 break
-            except Exception, error:
+            except Exception as error:
                 retvalue = CRITICAL
                 if result and result.status_code:
                     errmsg = 'Error when trying to get info from %s : HTTP status code %s. [%s]' % (ftshost, str(result.status_code), str(error))
