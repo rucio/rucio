@@ -102,6 +102,7 @@ Getting user information
 ========================
 
 The first thing you might try is to check who you are::
+
   $ rucio whoami
   status     : ACTIVE
   account    : jdoe
@@ -114,6 +115,7 @@ The first thing you might try is to check who you are::
 
 
 You can switch between different accounts by setting the RUCIO_ACCOUNT variable::
+
   $ export RUCIO_ACCOUNT=root
   $ rucio whoami
   status     : ACTIVE
@@ -126,6 +128,7 @@ You can switch between different accounts by setting the RUCIO_ACCOUNT variable:
   email      : root@blahblah.com
 
 If you try to authenticate with a account that is not mapped with your credentials::
+
   $ export RUCIO_ACCOUNT=janedoe
   $ rucio whoami
   cannot get auth_token
@@ -139,6 +142,7 @@ Querrying basic information about RSEs
 ======================================
 
 You can query the list of available RSEs::
+
   $ rucio list-rses
   SITE1_DISK
   SITE1_TAPE
@@ -148,6 +152,7 @@ You can query the list of available RSEs::
 
 
 If the RSEs are tagged with attributes you can built RSE expressions and query the sites matching this expression::
+
   $ rucio list-rses --expression "tier=1&disk=1"
   SITE1_DISK
   SITE2_DISK
@@ -157,6 +162,7 @@ Querying information about DIDs
 ================================
 
 To list all the possible scopes::
+
   $ rucio list-scopes
   mc
   data
@@ -164,6 +170,7 @@ To list all the possible scopes::
   user.janedoe
 
 You can query the DIDs matching a certain pattern. It always requires to specify the scope in which you want to search::
+
   $ rucio list-dids user.jdoe:*
   +-------------------------------------------+--------------+
   | SCOPE:NAME                                | [DID TYPE]   |
@@ -200,6 +207,7 @@ If you want to resolve a collection (CONTAINER or DATASET) into the list of its 
 
 
 You can resolve also the collections (CONTAINER or DATASET) into the list of files::
+
   $ rucio list-content user.jdoe:user.jdoe.test.container.1234.1
   +-----------------------+--------------------------------------+-------------+------------+----------+
   | SCOPE:NAME            | GUID                                 | ADLER32     | FILESIZE   | EVENTS   |
@@ -215,24 +223,29 @@ You can resolve also the collections (CONTAINER or DATASET) into the list of fil
 Rules operations
 ================
 You can create a new rule like this::
+
   $ rucio add-rules --lifetime 1209600 user.jdoe:user.jdoe.test.container.1234.1 1 "tier=1&disk=1"
   a12e5664555a4f12b3cc6991db5accf9
+
 The command returns the rule_id of the rule.
 
 
 You can list the rules for a particular DID:: 
+
   $ rucio list-rules user.jdoe:user.jdoe.test.container.1234.1
   ID                                ACCOUNT    SCOPE:NAME                                 STATE[OK/REPL/STUCK]    RSE_EXPRESSION        COPIES  EXPIRES (UTC)
   --------------------------------  ---------  -----------------------------------------  ----------------------  ------------------  --------  -------------------
   a12e5664555a4f12b3cc6991db5accf9  jdoe       user.jdoe:user.jdoe.test.container.1234.1  OK[3/0/0]               tier=1&disk=1       1         2018-02-09 03:57:46
   b0fcde2acbdb489b874c3c4537595adc  janedoe    user.jdoe:user.jdoe.test.container.1234.1  REPLICATING[4/1/1]      tier=1&tape=1       2
   4a6bd85c13384bd6836fbc06e8b316d7  mc         user.jdoe:user.jdoe.test.container.1234.1  OK[3/0/0]               tier=1&tape=1       2
+
 The state indicate how many locks (physical replicas of the files) are OK, Replicating or Stuck
 
 Accessing files
 ===============
 
 The command to download DIDs locally is called rucio download. It supports various sets of option. You can invoke it like this::
+
   # rucio download user.jdoe:user.jdoe.test.container.1234.1
   2018-02-02 15:13:08,450 INFO    Thread 1/3 : Starting the download of user.jdoe:test.file.2
   2018-02-02 15:13:08,451 INFO    Thread 2/3 : Starting the download of user.jdoe:test.file.3
