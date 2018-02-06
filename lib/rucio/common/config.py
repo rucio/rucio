@@ -35,9 +35,11 @@ def config_has_section(section):
     """Indicates whether the named section is present in the configuration. The DEFAULT section is not acknowledged.)"""
     return __CONFIG.has_section(section)
 
+
 def config_add_section(section):
     """Add a new section to the configuration object.  Throws DuplicateSectionError if it already exists."""
     return __CONFIG.add_section(section)
+
 
 def config_get_int(section, option):
     """Return the integer value for a given option in a section"""
