@@ -13,10 +13,11 @@
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
- - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
+ - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
  - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
  - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
  - Tobias Wegner <tobias.wegner@cern.ch>, 2017
+ - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 """
 
 import argparse
@@ -50,7 +51,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, File
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location
+from rucio.common.utils import adler32, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location, make_valid_did
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -166,54 +167,54 @@ def exception_handler(function):
     def new_funct(*args, **kwargs):
         try:
             return function(*args, **kwargs)
-        except InvalidObject, error:
+        except InvalidObject as error:
             logger.error(error)
             return error.error_code
-        except DataIdentifierNotFound, error:
+        except DataIdentifierNotFound as error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
             return error.error_code
-        except AccessDenied, error:
+        except AccessDenied as error:
             logger.error(error)
             logger.debug('This error is a permission issue. You cannot run this command with your account.')
             return error.error_code
-        except DataIdentifierAlreadyExists, error:
+        except DataIdentifierAlreadyExists as error:
             logger.error(error)
             logger.debug('This means that the Data IDentifier you try to add is already registered in Rucio.')
             return error.error_code
-        except RSENotFound, error:
+        except RSENotFound as error:
             logger.error(error)
             logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
             return error.error_code
-        except InvalidRSEExpression, error:
+        except InvalidRSEExpression as error:
             logger.error(error)
             logger.debug('This means the RSE expression you provided is not syntactically correct.')
             return error.error_code
-        except DuplicateContent, error:
+        except DuplicateContent as error:
             logger.error(error)
             logger.debug('This means that the DID you want to attach is already in the target DID.')
             return error.error_code
-        except TypeError, error:
+        except TypeError as error:
             logger.error(error)
             logger.debug('This means the parameter you passed has a wrong type.')
             return FAILURE
-        except RuleNotFound, error:
+        except RuleNotFound as error:
             logger.error(error)
             logger.debug('This means the rule you specified does not exist.')
             return error.error_code
-        except UnsupportedOperation, error:
+        except UnsupportedOperation as error:
             logger.error(error)
             logger.debug('This means you cannot change the status of the DID.')
             return error.error_code
-        except MissingDependency, error:
+        except MissingDependency as error:
             logger.error(error)
             logger.debug('This means one dependency is missing.')
             return error.error_code
-        except NoFilesDownloaded, error:
+        except NoFilesDownloaded as error:
             return error.error_code
-        except NotAllFilesDownloaded, error:
+        except NotAllFilesDownloaded as error:
             return error.error_code
-        except KeyError, error:
+        except KeyError as error:
             if 'x-rucio-auth-token' in error:
                 used_account = None
                 try:  # get the configured account from the configuration file
@@ -618,7 +619,10 @@ def list_files(args):
             scope, name = extract_scope(did)
             for f in client.list_files(scope=scope, name=name):
                 guid = f['guid']
-                guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                if guid:
+                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                else:
+                    guid = '(None)'
                 print "{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events'])
         return SUCCESS
     elif args.LOCALPATH:
@@ -639,7 +643,11 @@ def list_files(args):
         for did in args.dids:
             scope, name = extract_scope(did)
             for f in client.list_files(scope=scope, name=name):
-                guid = '%s-%s-%s-%s-%s' % (f['guid'][0:8], f['guid'][8:12], f['guid'][12:16], f['guid'][16:20], f['guid'][20:32])
+                guid = f['guid']
+                if guid:
+                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                else:
+                    guid = '(None)'
                 print file_str % (guid, args.LOCALPATH, f['name'], f['name'])
 
         print '</POOLFILECATALOG>'
@@ -657,7 +665,10 @@ def list_files(args):
                 if file['events']:
                     totevents += int(file.get('events', 0))
                 guid = file['guid']
-                guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                if guid:
+                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                else:
+                    guid = '(None)'
                 table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), file['events']])
             print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'])
             print 'Total files : %s' % totfiles
@@ -891,7 +902,6 @@ def upload(args):
         return FAILURE
     list_files = []
     files_to_list = []
-    lfns = {}
     revert_dict = {}
     if args.scope:
         fscope = args.scope
@@ -908,7 +918,7 @@ def upload(args):
             rse_settings['hostname'] = ''
             rse_settings['prefix'] = ''
             protocol = rsemgr.select_protocol(rse_settings, operation='read', scheme=selected_pfn_protocol)
-        except RSEProtocolNotSupported, error:
+        except RSEProtocolNotSupported as error:
             logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
             logger.debug(error)
             return FAILURE
@@ -918,14 +928,28 @@ def upload(args):
     trace['hostname'] = socket.getfqdn()
     trace['scope'] = fscope
     trace['uuid'] = generate_uuid()
-    for name in files:
+    if len(files) > 1 and args.guid:
+        logger.error("A single GUID was specified on the command line, but there are multiple files to upload.")
+        logger.error("If GUID auto-detection is not used, only one file may be uploaded at a time")
+        return FAILURE
+    if len(files) > 1 and args.name:
+        logger.error("A single LFN was specified on the command line, but there are multiple files to upload.")
+        logger.error("If LFN auto-detection is not used, only one file may be uploaded at a time")
+        return FAILURE
+    for filename in files:
         try:
-            size = os.stat(name).st_size
-            checksum = adler32(name)
-            logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, os.path.basename(name)))
-            files_to_list.append({'scope': fscope, 'name': os.path.basename(name)})
-            if not args.guid and 'pool.root' in name.lower() and not args.no_register:  # is a root file, getting the GUID
-                status, output, err = execute('pool_extractFileIdentifier {0}'.format(name))
+            size = os.stat(filename).st_size
+            checksum = adler32(filename)
+            base_name = os.path.basename(filename)
+            dir_name = os.path.dirname(filename)
+            name = base_name
+            if args.name:
+                name = args.name
+            logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, name))
+            files_to_list.append({'scope': fscope, 'name': name, 'filename': base_name})
+            current_file_info = {'scope': fscope, 'filename': base_name, 'name': name, 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {}}
+            if not args.guid and 'pool.root' in filename.lower() and not args.no_register:  # is a root file, getting the GUID
+                status, output, err = execute('pool_extractFileIdentifier {0}'.format(filename))
                 if status != 0:
                     logger.error('Trying to upload ROOT files but pool_extractFileIdentifier tool can not be found.')
                     logger.error('Setup your ATHENA environment and try again.')
@@ -936,19 +960,17 @@ def upload(args):
                 except Exception:
                     logger.error('Error during GUID extraction. Failing. None of the files will be uploaded.')
                     return FAILURE
-                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': guid}})
+                current_file_info['meta']['guid'] = guid
             elif args.guid:
                 logger.info('Manually set GUID: %s' % args.guid.replace('-', ''))
-                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': args.guid.replace('-', '')}})
+                current_file_info['meta']['guid'] = args.guid.replace('-', '')
             else:
                 logger.debug('Automatically setting new GUID')
-                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': generate_uuid()}})
-            if not os.path.dirname(name) in lfns:
-                lfns[os.path.dirname(name)] = []
-            lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': fscope, 'adler32': checksum, 'filesize': size})
-            revert_dict[fscope, os.path.basename(name)] = os.path.dirname(name)
+                current_file_info['meta']['guid'] = generate_uuid()
+            list_files.append(current_file_info)
+            revert_dict[fscope, name] = dir_name
 
-        except OSError, error:
+        except OSError as error:
             logger.error(error)
             logger.error("No operation will be performed. Exiting!")
             return FAILURE
@@ -960,7 +982,7 @@ def upload(args):
             protocol = rsemgr.select_protocol(rse_settings,
                                               operation='read',
                                               scheme=args.protocol)
-        except RSEProtocolNotSupported, error:
+        except RSEProtocolNotSupported as error:
             logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
             logger.debug(error)
             return FAILURE
@@ -995,11 +1017,16 @@ def upload(args):
 
     # Adding files to the catalog
     for f in list_files:
+        logger.debug("Processing file %s:%s for upload" % (f['scope'], f['name']))
         try:  # If the did already exist in the catalog, only should be upload if the checksum is the same
             meta = client.get_metadata(f['scope'], f['name'])
             replicastate = [rep for rep in client.list_replicas([{'scope': f['scope'], 'name': f['name']}], all_states=True)]
             if args.rse not in replicastate[0]['rses']:
-                client.add_replicas(files=[f], rse=args.rse)
+                try:
+                    client.add_replicas(files=[f], rse=args.rse)
+                except RucioException:
+                    logger.error("A Rucio exception occurred when registering a file replica in Rucio.")
+                    raise
             # logger.warning("The file {0}:{1} already exist in the catalog and will not be added.".format(f['scope'], f['name']))
             if rsemgr.exists(rse_settings=rse_settings, files={'name': f['name'], 'scope': f['scope']}):
                 logger.warning('File {0}:{1} already exists on RSE. Will not try to reupload'.format(f['scope'], f['name']))
@@ -1012,7 +1039,8 @@ def upload(args):
                     trace['filesize'] = f['bytes']
                     trace['transferStart'] = time.time()
                     f['upstate'] = rsemgr.upload(rse_settings=rse_settings,
-                                                 lfns=[{'name': f['name'],
+                                                 lfns=[{'filename': f['filename'],
+                                                        'name': f['name'],
                                                         'scope': f['scope'],
                                                         'adler32': f['adler32'],
                                                         'filesize': f['bytes']}],
@@ -1026,7 +1054,7 @@ def upload(args):
                     f.pop('upstate', None)
                 else:
                     raise DataIdentifierAlreadyExists
-        except NotImplementedError, error:
+        except NotImplementedError as error:
             for proto in rse_settings['protocols']:
                 if proto['domains']['wan']['read'] == 1:
                     prot = proto['scheme']
@@ -1035,21 +1063,30 @@ def upload(args):
         except DataIdentifierNotFound:
             try:
                 if args.no_register is False:
-                    # Skiping registration for pilot
+                    # Skipping registration for pilot
                     logger.info('Adding replicas in Rucio catalog')
-                    client.add_replicas(files=[f], rse=args.rse)
+                    try:
+                        client.add_replicas(files=[make_valid_did(f)], rse=args.rse)
+                    except RucioException:
+                        logger.error("A Rucio exception occurred when adding replicas for %s:%s" % (f['scope'], f['name']))
+                        raise
                     logger.info('Replicas successfully added')
                     if not dsscope:
                         # only need to add rules for files if no dataset is given
                         logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
-                        client.add_replication_rule([f], copies=1, rse_expression=args.rse, lifetime=args.lifetime)
+                        try:
+                            client.add_replication_rule([make_valid_did(f)], copies=1, rse_expression=args.rse, lifetime=args.lifetime)
+                        except RucioException:
+                            logger.error("A Rucio exception occurred when adding a replication rule for %s:%s" % (f['scope'], f['name']))
                 directory = revert_dict[f['scope'], f['name']]
                 trace['remoteSite'] = rse_settings['rse']
                 trace['protocol'] = rse_settings['protocols'][0]['scheme']
                 trace['filesize'] = f['bytes']
                 trace['transferStart'] = time.time()
+                logger.debug("Uploading source file to RSE")
                 f['upstate'] = rsemgr.upload(rse_settings=rse_settings,
-                                             lfns=[{'name': f['name'],
+                                             lfns=[{'filename': f['filename'],
+                                                    'name': f['name'],
                                                     'scope': f['scope'],
                                                     'adler32': f['adler32'],
                                                     'filesize': f['bytes']}],
@@ -1061,20 +1098,25 @@ def upload(args):
                 send_trace(trace, client.host, args.user_agent)
                 summary.append(deepcopy(f))
                 f.pop('upstate', None)
-            except (Duplicate, FileAlreadyExists), error:
+            except (Duplicate, FileAlreadyExists) as error:
                 logger.warning(error)
                 return FAILURE
-            except ResourceTemporaryUnavailable, error:
+            except ResourceTemporaryUnavailable as error:
                 logger.error(error)
                 return FAILURE
-        except DataIdentifierAlreadyExists, error:
+        except DataIdentifierAlreadyExists as error:
             logger.debug(error)
             logger.error("Some of the files already exist in the catalog. No one will be added.")
+        except RucioException:
+            logger.error("A Rucio exception occurred when processing a file for upload.")
+            raise
+    logger.debug("Finished uploading files to RSE.")
+
     if dsname:
         # A dataset is provided. Must add the files to the dataset.
         for f in list_files:
             try:
-                client.add_files_to_dataset(scope=dsscope, name=dsname, files=[f])
+                client.add_files_to_dataset(scope=dsscope, name=dsname, files=[make_valid_did(f)])
             except Exception as error:
                 logger.warning('Failed to attach file {0} to the dataset'.format(f))
                 logger.warning(error)
@@ -1083,7 +1125,7 @@ def upload(args):
     replicas = []
     replica_dictionary = {}
     for chunk_files_to_list in chunks(files_to_list, 50):
-        for rep in client.list_replicas(chunk_files_to_list):
+        for rep in client.list_replicas([make_valid_did(f) for f in chunk_files_to_list]):
             replica_dictionary[rep['scope'], rep['name']] = rep['rses'].keys()
     for file in list_files:
         if (file['scope'], file['name']) not in replica_dictionary:
@@ -1096,8 +1138,8 @@ def upload(args):
         logger.info('Will update the file replicas states')
         for chunk_replicas in chunks(replicas, 20):
             try:
-                client.update_replicas_states(rse=args.rse, files=chunk_replicas)
-            except AccessDenied, error:
+                client.update_replicas_states(rse=args.rse, files=[make_valid_did(f) for f in chunk_replicas])
+            except AccessDenied as error:
                 logger.error(error)
                 return FAILURE
         logger.info('File replicas states successfully updated')
@@ -1258,7 +1300,6 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
 
             while not success and len(protocols):
                 protocol = protocols.pop()
-                rse['read_protocol'] = protocol
 
                 logger.debug('%s : Trying protocol %s at %s' % (thread_prefix, protocol['scheme'], rse_name))
                 trace['protocol'] = protocol['scheme']
@@ -1282,6 +1323,7 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
                         rsemgr.download(rse,
                                         files=[dlfile],
                                         dest_dir=dest_dir,
+                                        force_scheme=protocol['scheme'],
                                         ignore_checksum=ignore_checksum)
 
                         trace['transferEnd'] = time.time()
@@ -1672,6 +1714,21 @@ def download(args):
                      'eventType': 'download',
                      'eventVersion': version.RUCIO_VERSION[0]}
 
+    if args.trace_appid:
+        trace_pattern['appid'] = args.trace_appid
+    if args.trace_dataset:
+        trace_pattern['dataset'] = args.trace_dataset
+    if args.trace_datasetscope:
+        trace_pattern['datasetScope'] = args.trace_datasetscope
+    if args.trace_eventtype:
+        trace_pattern['eventType'] = args.trace_eventtype
+    if args.trace_pq:
+        trace_pattern['pq'] = args.trace_pq
+    if args.trace_taskid:
+        trace_pattern['taskid'] = args.trace_taskid
+    if args.trace_usrdn:
+        trace_pattern['usrdn'] = args.trace_usrdn
+
     # is used account an admin account?
     account_attributes = [acc for acc in client.list_account_attributes(client.account)]
     is_admin = False
@@ -1699,7 +1756,7 @@ def download(args):
                     dids.append({'scope': scope, 'name': dsn})
             else:
                 dids.append({'scope': scope, 'name': name})
-        except ValueError, error:
+        except ValueError as error:
             logger.error('Cannot extract the scope and name from %s : [%s]' % (did, error))
             return FAILURE
 
@@ -1829,10 +1886,13 @@ def download(args):
                 output_queue.put(out)
 
                 trace = deepcopy(trace_pattern)
+
+                if 'datasetScope' not in trace:
+                    trace['datasetScope'] = dataset_scope
+                if 'dataset' not in trace:
+                    trace['dataset'] = dataset_name
                 trace.update({'scope': file_scope,
                               'filename': file_name,
-                              'datasetScope': dataset_scope,
-                              'dataset': dataset_name,
                               'filesize': file['bytes'],
                               'transferStart': time.time(),
                               'transferEnd': time.time(),
@@ -2402,6 +2462,15 @@ def touch(args):
         client.touch(scope, name, args.rse)
 
 
+# Auto-completers for argument parsing.
+def rse_completer(prefix, parsed_args, **kwargs):
+    """
+    Completes the argument with a list of RSEs
+    """
+    client = get_client(parsed_args)
+    return ["%(rse)s" % rse for rse in client.list_rses()]
+
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -2421,7 +2490,7 @@ Commands:
     oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The Rucio API host.")
     oparser.add_argument('--auth-host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host.")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use.")
-    oparser.add_argument('-S', '--auth-strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass, x509, ssh ...)")
+    oparser.add_argument('-S', '--auth-strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass, x509...)")
     oparser.add_argument('-T', '--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to seconds.")
     oparser.add_argument('--robot', '-R', dest="human", default=True, action='store_false', help="All output in bytes and without the units. This output format is preferred by parsers and scripts.")
     oparser.add_argument('--user-agent', '-U', dest="user_agent", default='rucio-clients', action='store', help="Rucio User Agent")
@@ -2453,7 +2522,7 @@ Commands:
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs.', required=False)
     list_file_replicas_parser.add_argument('--link', dest='link', default=None, action='store', help='Symlink PFNs with directory substitution.', required=False)
-    list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False)
+    list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False).completer = rse_completer
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE.', required=False)
     list_file_replicas_parser.add_argument('--metalink', dest='metalink', default=False, action='store_true', help='Output available replicas as metalink.', required=False)
     list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: random (default), geoip', required=False)
@@ -2472,14 +2541,14 @@ Commands:
     add_dataset_parser.set_defaults(which='add_dataset')
     add_dataset_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True.')
     add_dataset_parser.add_argument(dest='did', action='store', help='The name of the dataset to add.')
-    add_dataset_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
+    add_dataset_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Lifetime in seconds.')
 
     # The add-container command
     add_container_parser = subparsers.add_parser('add-container', help='Add a container to Rucio Catalog.')
     add_container_parser.set_defaults(which='add_container')
     add_container_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True.')
     add_container_parser.add_argument(dest='did', action='store', help='The name of the container to add.')
-    add_container_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
+    add_container_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Lifetime in seconds.')
 
     # The attach command
     attach_parser = subparsers.add_parser('attach', help='Attach a list of DIDs to a parent DID.',
@@ -2577,7 +2646,7 @@ Commands:
     # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')
     upload_parser.set_defaults(which='upload')
-    upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True)
+    upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True).completer = rse_completer
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
@@ -2586,6 +2655,7 @@ Commands:
     upload_parser.add_argument('--guid', dest='guid', action='store', help='Manually specify the GUID for the file.')
     upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     upload_parser.add_argument('--pfn', dest='pfn', action='store', help='Specify the exact PFN for the upload.')
+    upload_parser.add_argument('--name', dest='name', action='store', help='Specify the exact LFN for the upload.')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download subparser
@@ -2601,6 +2671,13 @@ Commands:
     get_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     get_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
     get_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
+    get_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_datasetscope', dest='trace_datasetscope', action='store', default=os.environ.get('RUCIO_TRACE_DATASETSCOPE', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_eventtype', dest='trace_eventtype', action='store', default=os.environ.get('RUCIO_TRACE_EVENTTYPE', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_pq', dest='trace_pq', action='store', default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_taskid', dest='trace_taskid', action='store', default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
+    get_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
 
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     download_parser.set_defaults(which='download')
@@ -2614,6 +2691,13 @@ Commands:
     download_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     download_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
     download_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
+    download_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_datasetscope', dest='trace_datasetscope', action='store', default=os.environ.get('RUCIO_TRACE_DATASETSCOPE', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_eventtype', dest='trace_eventtype', action='store', default=os.environ.get('RUCIO_TRACE_EVENTTYPE', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_pq', dest='trace_pq', action='store', default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_taskid', dest='trace_taskid', action='store', default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
+    download_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
@@ -2634,7 +2718,7 @@ Commands:
     # The list-rse-usage subparser
     list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='Shows the total/free/used space for a given RSE. This values can differ for different RSE source.')
     list_rse_usage_parser.set_defaults(which='list_rse_usage')
-    list_rse_usage_parser.add_argument(dest='rse', action='store', help='Rucio Storage Element (RSE) name.')
+    list_rse_usage_parser.add_argument(dest='rse', action='store', help='Rucio Storage Element (RSE) name.').completer = rse_completer
     list_rse_usage_parser.add_argument('--history', dest='history', default=False, action='store', help='List RSE usage history. [Unimplemented]')
 
     # The list-account-usage subparser
@@ -2647,7 +2731,7 @@ Commands:
     list_account_limits_parser = subparsers.add_parser('list-account-limits', help='List quota limits for an account in every RSEs.')
     list_account_limits_parser.set_defaults(which='list_account_limits')
     list_account_limits_parser.add_argument('limit_account', action='store', help='The account name.')
-    list_account_limits_parser.add_argument('--rse', dest='rse', action='store', help='If this option is given, the results are restricted to only this RSE.')
+    list_account_limits_parser.add_argument('--rse', dest='rse', action='store', help='If this option is given, the results are restricted to only this RSE.').completer = rse_completer
 
     # Add replication rule subparser
     add_rule_parser = subparsers.add_parser('add-rule', help='Add replication rule.')
@@ -2729,13 +2813,13 @@ Commands:
     # The list-rses-attributes command
     list_rse_attributes_parser = subparsers.add_parser('list-rse-attributes', help='List the attributes of an RSE.', description='This command is useful to create RSE filter expressions.')
     list_rse_attributes_parser.set_defaults(which='list_rse-attributes')
-    list_rse_attributes_parser.add_argument(dest='rse', action='store', help='The RSE name')
+    list_rse_attributes_parser.add_argument(dest='rse', action='store', help='The RSE name').completer = rse_completer
 
     # The list-datasets-rse command
     list_datasets_rse_parser = subparsers.add_parser('list-datasets-rse', help='List all the datasets at a RSE', description='This method allows to list all the datasets on a given Rucio Storage Element.\
         ' + Color.BOLD + 'Warning: ' + Color.END + 'This command can take a long time depending on the number of datasets in the RSE.')
     list_datasets_rse_parser.set_defaults(which='list_datasets_rse')
-    list_datasets_rse_parser.add_argument(dest='rse', action='store', default=None, help='The RSE name')
+    list_datasets_rse_parser.add_argument(dest='rse', action='store', default=None, help='The RSE name').completer = rse_completer
     list_datasets_rse_parser.add_argument('--long', dest='long', action='store_true', default=False, help='The long option')
 
     # The test-server command
@@ -2746,7 +2830,7 @@ Commands:
     touch_parser = subparsers.add_parser('touch', help='Touch one or more DIDs and set the last accessed date to the current date')
     touch_parser.set_defaults(which='touch')
     touch_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-    touch_parser.add_argument('--rse', dest='rse', action='store', help="The RSE of the DIDs that are touched.")
+    touch_parser.add_argument('--rse', dest='rse', action='store', help="The RSE of the DIDs that are touched.").completer = rse_completer
 
     argcomplete.autocomplete(oparser)
 

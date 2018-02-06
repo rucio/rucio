@@ -1,4 +1,4 @@
-$def with (token, account, rucio_ui_version, content)
+$def with (token, account, rucio_ui_version, policy, content)
 <!--
  Copyright European Organization for Nuclear Research (CERN)
 
@@ -26,7 +26,7 @@ $def with (token, account, rucio_ui_version, content)
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/3.0.1/normalize.min.css">
     <link rel="stylesheet" href="//cdn.jsdelivr.net/foundation/5.4.4/css/foundation.min.css">
-    <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.css">
+    <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.16/css/jquery.dataTables.css">
     <link rel="stylesheet" href="/static/rucio.css?version=9fbb2bab0b085dc2065ed24e8e658787">
     <link rel="stylesheet" href="/static/foundation-icons.css">
     <link rel="stylesheet" href="//code.jquery.com/ui/1.11.3/themes/smoothness/jquery-ui.css">
@@ -36,7 +36,7 @@ $def with (token, account, rucio_ui_version, content)
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/modernizr/2.8.3/modernizr.min.js"></script>
     <script src="//cdn.jsdelivr.net/foundation/5.4.4/js/foundation.min.js"></script>
-    <script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.16/js/jquery.dataTables.js"></script>
     <script src="//code.highcharts.com/highcharts.js"></script>
     <script src="//code.highcharts.com/modules/exporting.js"></script>
     <script src="/static/jquery.storageapi.min.js"></script>
@@ -76,12 +76,12 @@ $def with (token, account, rucio_ui_version, content)
                 <li><a href="/subscriptions">Subscriptions &amp; Rules</a></li>
                 <li><a href="/rse_locks">RSE Locks</a></li>
                 <li><a href="/rse_usage">Rucio Storage Elements (RSE)</a></li>
-                <li><a href="/account_usage">Group Account Usage</a></li>
+                $if policy == 'atlas': <li><a href="/account_usage">Group Account Usage</a></li>
                 <!--<li><a href="/api_usage">API Usage</a></li>-->
-                <li><a href="/rule_backlog_monitor">Rule Backlog</a></li>
+                $if policy == 'atlas': <li><a href="/rule_backlog_monitor">Rule Backlog</a></li>
                 <li><a href="/bad_replicas/summary">Bad file replicas</a></li>
-                <li><a href="/dbrelease_summary">DBRelease Overview</a></li>
-                <li><a href="/conditions_summary">ConditionsDB Overview</a></li>
+                $if policy == 'atlas': <li><a href="/dbrelease_summary">DBRelease Overview</a></li>
+                $if policy == 'atlas': <li><a href="/conditions_summary">ConditionsDB Overview</a></li>
                 <!--<li><a>TBD: Rucio Accounts</a></li>-->
               </ul>
             </li>
@@ -94,12 +94,13 @@ $def with (token, account, rucio_ui_version, content)
               </ul>
             </li>
 
-            <li class="has-dropdown">
-              <a>Reports</a>
-              <ul class="dropdown">
-                <li><a href="/dumps">Dumps</a></li>
-              </ul>
-            </li>
+            $if policy == 'atlas':
+                <li class="has-dropdown">
+                   <a>Reports</a>
+                   <ul class="dropdown">
+                     <li><a href="/dumps">Dumps</a></li>
+                   </ul>
+                </li>
 
             <li id="admin_dropdown" class="has-dropdown" style="display:none;">
               <a>Admin</a>
@@ -135,26 +136,27 @@ $def with (token, account, rucio_ui_version, content)
               </ul>
             </li>
 
-            <li class="has-dropdown">
-              <a>Other Monitoring</a>
-              <ul class="dropdown">
-                <li><a href="http://dashb-atlas-data.cern.ch/ddm2/">DDM Dashboard</a>
-                <li><a href="http://dashb-fts-transfers.cern.ch/">FTS Dashboard</a>
-                <li><a href="https://fts3-pilot.cern.ch:8449/fts3/ftsmon/#/">FTS Monitor CERN</a>
-                <li><a href="https://www-ftsmon-test.gridpp.rl.ac.uk:8449/fts3/ftsmon/#/">FTS Monitor RAL</a>
-                <li><a href="http://bigpanda.cern.ch/">PanDA Monitor</a>
-                <li><a href="http://adc-monitoring.cern.ch/">ADC Monitoring</a>
-              </ul>
-            </li>
+            $if policy == 'atlas':
+              <li class="has-dropdown">
+                <a>Other Monitoring</a>
+                <ul class="dropdown">
+                  <li><a href="http://dashb-atlas-data.cern.ch/ddm2/">DDM Dashboard</a>
+                  <li><a href="http://dashb-fts-transfers.cern.ch/">FTS Dashboard</a>
+                  <li><a href="https://fts3-pilot.cern.ch:8449/fts3/ftsmon/#/">FTS Monitor CERN</a>
+                  <li><a href="https://www-ftsmon-test.gridpp.rl.ac.uk:8449/fts3/ftsmon/#/">FTS Monitor RAL</a>
+                  <li><a href="http://bigpanda.cern.ch/">PanDA Monitor</a>
+                  <li><a href="http://adc-monitoring.cern.ch/">ADC Monitoring</a>
+                </ul>
+              </li>
 
-            <li class="has-dropdown">
-              <a><span class="help" style="color:#b2d546">Help</span></a>
-              <ul class="dropdown">
-                <li><a href="mailto:atlas-adc-ddm-support@cern.ch">ADC DDM Support Mailing List</a>
-                <li><a href="mailto:rucio-dev@cern.ch">Rucio Development Mailing List</a>
-                <li><a href="http://rucio.cern.ch/">Rucio Web Site</a>
-              </ul>
-            </li>
+              <li class="has-dropdown">
+                <a><span class="help" style="color:#b2d546">Help</span></a>
+                <ul class="dropdown">
+                  <li><a href="mailto:atlas-adc-ddm-support@cern.ch">ADC DDM Support Mailing List</a>
+                  <li><a href="mailto:rucio-dev@cern.ch">Rucio Development Mailing List</a>
+                  <li><a href="http://rucio.cern.ch/">Rucio Web Site</a>
+                </ul>
+              </li>
           </ul>
         </section>
       </nav>
@@ -175,7 +177,7 @@ $def with (token, account, rucio_ui_version, content)
 
     <footer>
       <div class="row">
-        <div class="left" style="padding-left: 1em;">&copy; 2012-2017 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
+        <div class="left" style="padding-left: 1em;">&copy; 2012-2018 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
         <div class="right" style="padding-right: 1em;"><script>document.write(new Date());</script></div>
       </div>
     </footer>

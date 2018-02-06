@@ -8,10 +8,10 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
   - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
   - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
-  - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2017
+  - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
   - David Cameron <d.g.cameron@gmail.com>, 2014
   - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2016
   - Wen Guan, <wen.guan@cern.ch>, 2014-2015
@@ -27,7 +27,7 @@ from traceback import format_exc
 from sqlalchemy import func, and_, or_, exists, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError, NoResultFound
-from sqlalchemy.sql.expression import case, bindparam, select, text, false
+from sqlalchemy.sql.expression import case, bindparam, select, text, false, true
 
 import rucio.core.lock
 
@@ -332,6 +332,11 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                 new_bad_replica.save(session=session, flush=False)
                 session.query(models.Source).filter_by(scope=scope, name=name, rse_id=rse_id).delete(synchronize_session=False)
                 declared_replicas.append(pfn)
+                path_clause.append(models.RSEFileAssociation.path == path)
+                if path.startswith('/'):
+                    path_clause.append(models.RSEFileAssociation.path == path[1:])
+                else:
+                    path_clause.append(models.RSEFileAssociation.path == '/%s' % path)
             else:
                 if already_declared:
                     unknown_replicas.append('%s %s' % (pfn, 'Already declared'))
@@ -344,13 +349,8 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                             break
                     if no_hidden_char:
                         unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
-            path_clause.append(models.RSEFileAssociation.path == path)
-            if path.startswith('/'):
-                path_clause.append(models.RSEFileAssociation.path == path[1:])
-            else:
-                path_clause.append(models.RSEFileAssociation.path == '/%s' % path)
 
-        if status == BadFilesStatus.BAD:
+        if status == BadFilesStatus.BAD and declared_replicas != []:
             # For BAD file, we modify the replica state, not for suspicious
             query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
                 with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
@@ -719,7 +719,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
         #    raise exception.DataIdentifierNotFound("Files not found %s", str(files))
 
 
-def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, rse_clause, client_location, session):
+def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, rse_clause, client_location, domain, session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
@@ -740,7 +740,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                     if not rse_schemes:
                         try:
                             rse_schemes = [rsemgr.select_protocol(rse_settings=rse_info[rse],
-                                                                  operation='read')['scheme']]
+                                                                  operation='read',
+                                                                  domain=domain)['scheme']]
                         except:
                             print format_exc()
 
@@ -749,7 +750,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                         try:
                             protocols.append(rsemgr.create_protocol(rse_settings=rse_info[rse],
                                                                     operation='read',
-                                                                    scheme=s))
+                                                                    scheme=s,
+                                                                    domain=domain))
                         except exception.RSEProtocolNotSupported:
                             pass  # no need to be verbose
                         except:
@@ -828,7 +830,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 @stream_session
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
-                  rse_expression=None, client_location=None, session=None):
+                  rse_expression=None, client_location=None, domain=None,
+                  session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -840,8 +843,16 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict list_replicas on a set of RSEs.
     :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
+    :param domain: The network domain for the call, either None, 'wan' or 'lan'. Compatibility fallback: None falls back to 'wan'.
     :param session: The database session in use.
     """
+
+    # Compatibility fallback:
+    # Old clients expect WAN replicas always, domain=None could potentially retrieve LAN replicas for WAN sources.
+    # TODO: Automated WAN/LAN selection in _list_replicas
+    if not domain:
+        domain = 'wan'
+
     file_clause, dataset_clause, state_clause, files = _resolve_dids(dids=dids, unavailable=unavailable,
                                                                      ignore_availability=ignore_availability,
                                                                      all_states=all_states, session=session)
@@ -851,7 +862,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
         for rse in parse_expression(expression=rse_expression, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 
-    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, rse_clause, client_location, session):
+    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, rse_clause, client_location, domain, session):
         yield file
 
 
@@ -1180,7 +1191,8 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                               dialect='oracle')).
                            where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
                                       models.DataIdentifierAssociation.name == models.DataIdentifier.name,
-                                      models.DataIdentifier.complete != false())))
+                                      or_(models.DataIdentifier.complete == true(),
+                                          models.DataIdentifier.complete is None))))
                 for parent_scope, parent_name, parent_did_type in modifieds:
                     message = {'scope': parent_scope,
                                'name': parent_name,
@@ -1558,7 +1570,8 @@ def get_source_replicas(scope, name, source_rses=None, session=None):
 
 
 @transactional_session
-def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_rses=None, session=None):
+def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_rses=None,
+                                           session=None):
     """
     Get file replicas for all files of a dataset.
 
@@ -1569,47 +1582,109 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
     :param session:        The db session in use.
     :returns:              (files in dataset, replicas in dataset)
     """
-
-    query = session.query(models.DataIdentifierAssociation.child_scope,
-                          models.DataIdentifierAssociation.child_name,
-                          models.DataIdentifierAssociation.bytes,
-                          models.DataIdentifierAssociation.md5,
-                          models.DataIdentifierAssociation.adler32,
-                          models.RSEFileAssociation)\
-        .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
-        .outerjoin(models.RSEFileAssociation,
-                   and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                        models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)).\
-        filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
-
-    if restrict_rses is not None:
-        if len(restrict_rses) < 10:
-            rse_clause = []
-            for rse_id in restrict_rses:
-                rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
-            if rse_clause:
-                query = session.query(models.DataIdentifierAssociation.child_scope,
+    files, replicas = {}, {}
+    if session.bind.dialect.name == 'postgresql':
+        # Get content
+        content_query = session.query(models.DataIdentifierAssociation.child_scope,
                                       models.DataIdentifierAssociation.child_name,
                                       models.DataIdentifierAssociation.bytes,
                                       models.DataIdentifierAssociation.md5,
-                                      models.DataIdentifierAssociation.adler32,
-                                      models.RSEFileAssociation)\
-                               .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
-                               .outerjoin(models.RSEFileAssociation,
-                                          and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                               models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                               models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                               or_(*rse_clause)))\
-                               .filter(models.DataIdentifierAssociation.scope == scope,
-                                       models.DataIdentifierAssociation.name == name)
+                                      models.DataIdentifierAssociation.adler32).\
+            with_hint(models.DataIdentifierAssociation,
+                      "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                      'oracle').\
+            filter(models.DataIdentifierAssociation.scope == scope,
+                   models.DataIdentifierAssociation.name == name)
+
+        for child_scope, child_name, bytes, md5, adler32 in content_query.yield_per(1000):
+            files[(child_scope, child_name)] = {'scope': child_scope,
+                                                'name': child_name,
+                                                'bytes': bytes,
+                                                'md5': md5,
+                                                'adler32': adler32}
+            replicas[(child_scope, child_name)] = []
+
+        # Get replicas and lock them
+        query = session.query(models.DataIdentifierAssociation.child_scope,
+                              models.DataIdentifierAssociation.child_name,
+                              models.DataIdentifierAssociation.bytes,
+                              models.DataIdentifierAssociation.md5,
+                              models.DataIdentifierAssociation.adler32,
+                              models.RSEFileAssociation)\
+            .with_hint(models.DataIdentifierAssociation,
+                       "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                       'oracle')\
+            .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                         models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                         models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)).\
+            filter(models.DataIdentifierAssociation.scope == scope,
+                   models.DataIdentifierAssociation.name == name)
+
+        if restrict_rses is not None:
+            if len(restrict_rses) < 10:
+                rse_clause = []
+                for rse_id in restrict_rses:
+                    rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+                if rse_clause:
+                    query = session.query(models.DataIdentifierAssociation.child_scope,
+                                          models.DataIdentifierAssociation.child_name,
+                                          models.DataIdentifierAssociation.bytes,
+                                          models.DataIdentifierAssociation.md5,
+                                          models.DataIdentifierAssociation.adler32,
+                                          models.RSEFileAssociation)\
+                                   .with_hint(models.DataIdentifierAssociation,
+                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                              'oracle')\
+                                   .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                                models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                                models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                                or_(*rse_clause)))\
+                                   .filter(models.DataIdentifierAssociation.scope == scope,
+                                           models.DataIdentifierAssociation.name == name)
+
+    else:
+        query = session.query(models.DataIdentifierAssociation.child_scope,
+                              models.DataIdentifierAssociation.child_name,
+                              models.DataIdentifierAssociation.bytes,
+                              models.DataIdentifierAssociation.md5,
+                              models.DataIdentifierAssociation.adler32,
+                              models.RSEFileAssociation)\
+            .with_hint(models.DataIdentifierAssociation,
+                       "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                       'oracle')\
+            .outerjoin(models.RSEFileAssociation,
+                       and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                            models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                            models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)).\
+            filter(models.DataIdentifierAssociation.scope == scope,
+                   models.DataIdentifierAssociation.name == name)
+
+        if restrict_rses is not None:
+            if len(restrict_rses) < 10:
+                rse_clause = []
+                for rse_id in restrict_rses:
+                    rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+                if rse_clause:
+                    query = session.query(models.DataIdentifierAssociation.child_scope,
+                                          models.DataIdentifierAssociation.child_name,
+                                          models.DataIdentifierAssociation.bytes,
+                                          models.DataIdentifierAssociation.md5,
+                                          models.DataIdentifierAssociation.adler32,
+                                          models.RSEFileAssociation)\
+                                   .with_hint(models.DataIdentifierAssociation,
+                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                              'oracle')\
+                                   .outerjoin(models.RSEFileAssociation,
+                                              and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                                   models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                                   models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                                   or_(*rse_clause)))\
+                                   .filter(models.DataIdentifierAssociation.scope == scope,
+                                           models.DataIdentifierAssociation.name == name)
 
     query = query.with_for_update(nowait=nowait, of=models.RSEFileAssociation.lock_cnt)
 
-    files = {}
-    replicas = {}
-
-    for child_scope, child_name, bytes, md5, adler32, replica in query:
+    for child_scope, child_name, bytes, md5, adler32, replica in query.yield_per(1000):
         if (child_scope, child_name) not in files:
             files[(child_scope, child_name)] = {'scope': child_scope,
                                                 'name': child_name,

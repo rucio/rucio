@@ -153,6 +153,8 @@ ignore-mixin-members=yes
 ignored-classes=SQLObject,nose.tools,nose.tools.trivial,requests.structures,
     SQLAlchemy,LookupDict,alembic.context,scoped_session, RSE, tuple,Request
 
+ignored-modules=distutils,distutils.util
+
 # When zope mode is activated, add a predefined set of Zope acquired attributes
 # to generated-members.
 zope=no

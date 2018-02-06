@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2016-2017
 
@@ -20,6 +20,7 @@ from rucio.api.replica import list_replicas
 from rucio.common.objectstore import connect, get_signed_urls
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
+from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController
 
@@ -29,8 +30,8 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('/(.*)/(.*)/metalink?$', 'MetaLinkRedirector',
-        '/(.*)/(.*)/?$', 'HeaderRedirector')
+URLS = ('%s/metalink?$' % SCOPE_NAME_REGEXP, 'MetaLinkRedirector',
+        '%s/?$' % SCOPE_NAME_REGEXP, 'HeaderRedirector')
 
 
 class MetaLinkRedirector(RucioController):
@@ -176,7 +177,7 @@ class HeaderRedirector(RucioController):
         try:
 
             # use the default HTTP protocols if no scheme is given
-            select, rse, site, schemes = 'random', None, None, ['http', 'https', 's3+rucio']
+            select, rse, site, schemes = 'random', None, None, ['davs', 'http', 'https', 's3+rucio']
 
             client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
             if client_ip is None:

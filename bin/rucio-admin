@@ -16,6 +16,7 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
  - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
+ - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017
 """
 
 import argparse
@@ -502,6 +503,54 @@ def delete_attribute_rse(args):
 
 
 @exception_handler
+def add_protocol_rse(args):
+    """
+    %(prog)s add-protocol-rse [options] <rse>
+
+    Add a new protocol handler for an RSE
+    """
+    client = get_client(args)
+    proto = {'hostname': args.hostname,
+             'scheme': args.scheme,
+             'port': args.port,
+             'impl': args.impl,
+             'prefix': args.prefix}
+    if args.domain_json:
+        proto['domains'] = args.domain_json
+    proto.setdefault('extended_attributes', {})
+    if args.ext_attr_json:
+        proto['extended_attributes'] = args.ext_attr_json
+    if proto['scheme'] == 'srm' and (not args.space_token or not args.web_service_path):
+        print 'Error: space-token and web-service-path must be provided for SRM endpoints.'
+        return FAILURE
+    if args.space_token:
+        proto['extended_attributes']['space_token'] = args.space_token
+    if args.web_service_path:
+        proto['extended_attributes']['web_service_path'] = args.web_service_path
+    # Rucio 1.14.1 chokes on an empty extended_attributes key.
+    if not proto['extended_attributes']:
+        del proto['extended_attributes']
+    client.add_protocol(args.rse, proto)
+    return SUCCESS
+
+
+@exception_handler
+def del_protocol_rse(args):
+    """
+    %(prog)s delete-protocol-rse [options] <rse>
+
+    Remove a protocol handler for a RSE
+    """
+    client = get_client(args)
+    kwargs = {}
+    if args.port:
+        kwargs['port'] = args.port
+    if args.hostname:
+        kwargs['hostname'] = args.hostname
+    client.delete_protocols(args.rse, args.scheme, **kwargs)
+
+
+@exception_handler
 def add_scope(args):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
@@ -957,6 +1006,28 @@ Commands:
     get_attribute_rse_parser.set_defaults(which='get_attribute_rse')
     get_attribute_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
 
+    # The add_protocol_rse command
+    add_protocol_rse_parser = rse_subparser.add_parser('add-protocol', help='Add a protocol to a RSE')
+    add_protocol_rse_parser.set_defaults(which='add_protocol_rse')
+    add_protocol_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
+    add_protocol_rse_parser.add_argument('--hostname', dest='hostname', action='store', help='Endpoint hostname', required=True)
+    add_protocol_rse_parser.add_argument('--scheme', dest='scheme', action='store', help='Endpoint URL scheme', required=True)
+    add_protocol_rse_parser.add_argument('--prefix', dest='prefix', action='store', help='Endpoint URL path prefix', required=True)
+    add_protocol_rse_parser.add_argument('--space-token', dest='space_token', action='store', help='Space token name (SRM-only)')
+    add_protocol_rse_parser.add_argument('--web-service-path', dest='web_service_path', action='store', help='Web service URL (SRM-only)')
+    add_protocol_rse_parser.add_argument('--port', dest='port', action='store', type=int, help='URL port')
+    add_protocol_rse_parser.add_argument('--impl', dest='impl', default='rucio.rse.protocols.gfalv2.Default', action='store', help='Transfer protocol implementation to use')
+    add_protocol_rse_parser.add_argument('--domain-json', dest='domain_json', action='store', type=json.loads, help='JSON describing the WAN / LAN setup')
+    add_protocol_rse_parser.add_argument('--extended-attributes-json', dest='ext_attr_json', action='store', type=json.loads, help='JSON describing any extended attributes')
+
+    # The del_protocol_rse command
+    del_protocol_rse_parser = rse_subparser.add_parser('delete-protocol', help='Delete a protocol from a RSE')
+    del_protocol_rse_parser.set_defaults(which='del_protocol_rse')
+    del_protocol_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
+    del_protocol_rse_parser.add_argument('--hostname', dest='hostname', action='store', help='Endpoint hostname')
+    del_protocol_rse_parser.add_argument('--scheme', dest='scheme', action='store', help='Endpoint URL scheme', required=True)
+    del_protocol_rse_parser.add_argument('--port', dest='port', action='store', type=int, help='URL port')
+
     # The disable_location command
     disable_rse_parser = rse_subparser.add_parser('delete', help='Disable RSE')
     disable_rse_parser.set_defaults(which='disable_rse')
@@ -1077,6 +1148,8 @@ Commands:
                 'set_attribute_rse': set_attribute_rse,
                 'get_attribute_rse': get_attribute_rse,
                 'delete_attribute_rse': delete_attribute_rse,
+                'add_protocol_rse': add_protocol_rse,
+                'del_protocol_rse': del_protocol_rse,
                 'list_rses': list_rses,
                 'disable_rse': disable_rse,
                 'add_scope': add_scope,

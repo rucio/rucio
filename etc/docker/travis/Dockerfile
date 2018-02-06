@@ -7,7 +7,7 @@ RUN yum install -y epel-release.noarch
 
 RUN yum install -y gcc
 
-RUN yum install -y httpd 
+RUN yum install -y httpd
 RUN yum install -y python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 gridsite which MySQL-python libaio
 
 WORKDIR /opt
@@ -17,6 +17,7 @@ RUN mkdir /opt/rucio
 COPY .pep8 /opt/rucio/
 COPY pylintrc /opt/rucio/
 COPY changed_files.txt /opt/rucio/
+COPY setup*.py /opt/rucio/
 
 RUN mkdir /opt/rucio/bin
 COPY bin /opt/rucio/bin
@@ -32,7 +33,6 @@ COPY tools /opt/rucio/tools
 
 WORKDIR /opt/rucio
 
-RUN yum install -y /opt/rucio/etc/docker/travis/oic.rpm
 RUN echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf
 RUN ldconfig
 
@@ -41,6 +41,7 @@ RUN pip install -r tools/pip-requires-client
 RUN pip install -r tools/pip-requires
 RUN pip install -r tools/pip-requires-test
 RUN pip install cx_Oracle
+RUN pip install psycopg2
 
 RUN ln -s /opt/rucio/lib/rucio /usr/lib/python2.7/site-packages/rucio
 

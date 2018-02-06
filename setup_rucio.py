@@ -113,6 +113,14 @@ def write_requirements():
         req_file.close()
 
 
+oracle_extras = ['cx_oracle>=5.1']
+postgresql_extras = ['psycopg2>=2.4.2']
+mysql_extras = ['PyMySQL']
+
+requires = parse_requirements(requirements_files=requirements_files)
+extras_require = dict(oracle=oracle_extras,
+                      postgresql=postgresql_extras,
+                      mysql=mysql_extras)
 requires = parse_requirements(requirements_files=requirements_files)
 depend_links = parse_dependency_links(requirements_files=requirements_files)
 
@@ -163,5 +171,6 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Environment :: No Input/Output (Daemon)', ],
     install_requires=requires,
+    extras_require=extras_require,
     dependency_links=depend_links,
 )

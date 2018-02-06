@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -30,6 +30,7 @@ import json
 import stomp
 
 from rucio.common.config import config_get, config_get_int
+from rucio.common.policy import get_policy
 from rucio.core import heartbeat, request
 from rucio.core.monitor import record_counter
 from rucio.core.transfer import set_transfer_update_time
@@ -60,17 +61,21 @@ class Receiver(object):
     def on_message(self, headers, message):
         record_counter('daemons.conveyor.receiver.message_all')
 
-        if 'vo' not in headers or headers['vo'] != 'atlas':
+        try:
+            msg = json.loads(message)
+        except Exception, e:
+            msg = json.loads(message[:-1])  # Note: I am not sure if this is needed anymore, this was due to an unparsable EOT character
+
+        if 'vo' not in msg or msg['vo'] != get_policy():
             return
 
-        msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
         if 'job_metadata' in msg.keys() \
            and isinstance(msg['job_metadata'], dict) \
            and 'issuer' in msg['job_metadata'].keys() \
            and str(msg['job_metadata']['issuer']) == str('rucio'):
 
             if 'job_m_replica' in msg.keys() and 'job_state' in msg.keys() \
-               and (str(msg['job_m_replica']) == str('false') or (str(msg['job_m_replica']) == str('true') and str(msg['job_state']) != str('ACTIVE'))):
+               and (str(msg['job_m_replica']).lower() == str('false') or (str(msg['job_m_replica']).lower() == str('true') and str(msg['job_state']) != str('ACTIVE'))):
 
                 if 'request_id' in msg['job_metadata']:
                     # submitted by old submitter

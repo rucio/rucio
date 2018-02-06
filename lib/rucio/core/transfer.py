@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 
 import datetime
 import json
@@ -242,18 +243,18 @@ def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None
                 bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
                 query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process))
+                query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process))
+                query = query.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
 
         if (total_threads - 1) > 0:
             if session.bind.dialect.name == 'oracle':
                 bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
                 query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread))
+                query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
+                query = query.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
         if share:
             query = query.limit(activity_shares[share])
@@ -557,12 +558,13 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 allow_tape_source = True
 
                 # Find matching scheme between destination and source
+                # TODO: In the future, move to domain "third_party_copy"
                 try:
                     matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=rses_info[dest_rse_id],
                                                                   rse_settings_src=rses_info[source_rse_id],
                                                                   operation_src='read',
                                                                   operation_dest='write',
-                                                                  domain=None,
+                                                                  domain='wan',
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
                     logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
@@ -686,7 +688,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
                 transfers[id] = {'request_id': id,
-                                 'schemes': __add_compatible_schemes(schemes=[matching_scheme[0], matching_scheme[1]], allowed_schemes=current_schemes),
+                                 'schemes': __add_compatible_schemes(schemes=[matching_scheme[0]], allowed_schemes=current_schemes),
                                  # 'src_urls': [source_url],
                                  'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
                                  'dest_urls': [dest_url],
@@ -707,7 +709,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id is None or rse is None:
                     continue
 
-                if link_ranking is None:
+                if link_ranking is None or link_ranking == 0:
                     logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
                     continue
 
@@ -784,7 +786,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     else:
                         # the sources already founded is Tape too.
                         # multiple Tape source replicas are not allowed in FTS3.
-                        if transfers[id]['sources'][0][3] > ranking or (transfers[id]['sources'][0][3] == ranking and transfers[id]['sources'][0][4] >= link_ranking):
+                        if transfers[id]['sources'][0][3] > ranking or (transfers[id]['sources'][0][3] == ranking and transfers[id]['sources'][0][4] <= link_ranking):
                             continue
                         else:
                             transfers[id]['sources'] = []
@@ -872,18 +874,18 @@ def __list_transfer_requests_and_source_replicas(process=None, total_processes=N
             bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
             sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process))
+            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
 
     if (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
             bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
             sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread))
+            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)

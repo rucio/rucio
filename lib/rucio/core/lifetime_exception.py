@@ -172,8 +172,8 @@ def define_eol(scope, name, rses, session=None):
     :param rses:     List of RSEs.
     :param session:  The database session in use.
     """
-    vo_name = rucio.common.policy.get_vo()
-    if vo_name != 'atlas':
+    policy = rucio.common.policy.get_policy()
+    if policy != 'atlas':
         return None
 
     # Check if on ATLAS managed space

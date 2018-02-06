@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2018
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
@@ -297,7 +297,7 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None)
         except:
             pass
 
-    die(executable='rucio-file', hostname=hostname, pid=pid, thread=thread)
+    die(executable='kronos-file', hostname=hostname, pid=pid, thread=thread)
     logging.info('(kronos_file) graceful stop done')
 
 
@@ -310,6 +310,7 @@ def kronos_dataset(once=False, thread=0, dataset_queue=None):
 
     dataset_wait = config_get_int('tracer-kronos', 'dataset_wait')
     start = datetime.now()
+    sanity_check(executable='kronos-dataset', hostname=hostname)
     while not graceful_stop.is_set():
         live(executable='kronos-dataset', hostname=hostname, pid=pid, thread=thread)
         if (datetime.now() - start).seconds > dataset_wait:
@@ -317,7 +318,7 @@ def kronos_dataset(once=False, thread=0, dataset_queue=None):
             start = datetime.now()
         sleep(10)
     # once again for the backlog
-    die(executable='rucio-dataset', hostname=hostname, pid=pid, thread=thread)
+    die(executable='kronos-dataset', hostname=hostname, pid=pid, thread=thread)
     logging.info('(kronos_dataset) cleaning dataset backlog before shutdown...')
     __update_datasets(dataset_queue)
 

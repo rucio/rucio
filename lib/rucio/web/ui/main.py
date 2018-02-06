@@ -12,33 +12,33 @@
  - Martin Barisits, <martin.barisits@cern.ch>, 2014
  - Ralph Vigne <ralph.vigne@cern.ch>, 2015
  - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2017
+ - Stefan Prenner <stefan.prenner@cern.ch>, 2017-2018
 """
 
 
+from io import BytesIO
+from json import dumps
 from os.path import dirname, join
 
+from gzip import GzipFile
+from requests import get, ConnectionError
+from tarfile import open, TarError
 from web import application, header, input as param_input, seeother, template
 
+from rucio.common.config import config_get
 from rucio.common.utils import generate_http_error
 from rucio.web.ui.common.utils import check_token, get_token
 
 
-URLS = (
-    '/', 'Index',
+COMMON_URLS = (
     '/account_rse_usage', 'AccountRSEUsage',
-    '/account_usage', 'AccountUsage',
     '/account', 'Account',
     '/auth', 'Auth',
-    '/accounting', 'Accounting',
     '/bad_replicas', 'BadReplicas',
     '/suspicious_replicas', 'SuspiciousReplicas',
     '/bad_replicas/summary', 'BadReplicasSummary',
-    '/conditions_summary', 'Cond',
     '/did', 'DID',
-    '/dbrelease_summary', 'DBRelease',
-    '/dumps', 'Dumps',
     '/heartbeats', 'Heartbeats',
-    '/infrastructure', 'Infrastructure',
     '/lifetime_exception', 'LifetimeException',
     '/list_accounts', 'ListAccounts',
     '/list_rules', 'ListRulesRedirect',
@@ -51,13 +51,35 @@ URLS = (
     '/rule', 'Rule',
     '/rules', 'Rules',
     '/request_rule', 'RequestRuleRedirect',
-    '/rule_backlog_monitor', 'BacklogMon',
     '/search', 'Search',
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
-    '/subscriptions_editor', 'SubscriptionsEditor'
+    '/subscriptions_editor', 'SubscriptionsEditor',
+    '/logfiles/load', 'LoadLogfile',
+    '/logfiles/extract', 'ExtractLogfile'
 )
+
+POLICY = config_get('permission', 'policy')
+
+ATLAS_URLS = ()
+OTHER_URLS = ()
+
+if POLICY == 'atlas':
+    ATLAS_URLS = (
+        '/', 'AtlasIndex',
+        '/account_usage', 'AccountUsage',
+        '/dumps', 'Dumps',
+        '/accounting', 'Accounting',
+        '/conditions_summary', 'Cond',
+        '/dbrelease_summary', 'DBRelease',
+        '/infrastructure', 'Infrastructure',
+        '/rule_backlog_monitor', 'BacklogMon'
+    )
+else:
+    OTHER_URLS = (
+        '/', 'Index'
+    )
 
 
 class Account(object):
@@ -90,6 +112,14 @@ class ApproveRules(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.approve_rules())
+
+
+class AtlasIndex(object):
+    """ Main page """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.atlas_index())
 
 
 class Auth(object):
@@ -330,9 +360,75 @@ class SubscriptionsEditor():
         return check_token(render.subscriptions_editor())
 
 
+class LoadLogfile():
+    """ Loads logfile content list """
+    def GET(self):
+        try:
+            data = param_input()
+            response = get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)
+            if not response.ok:
+                response.raise_for_status()
+            cont = response.content
+            file_like_object = BytesIO(cont)
+            tar = open(mode='r:gz', fileobj=file_like_object)
+            jsonResponse = {}
+            for member in tar.getmembers():
+                jsonResponse[member.name] = member.size
+            header('Content-Type', 'application/json')
+            return dumps(jsonResponse)
+        except ConnectionError, err:
+            raise generate_http_error(503, str(type(err)), str(err))
+        except TarError, err:
+            raise generate_http_error(415, str(type(err)), str(err))
+        except IOError, err:
+            raise generate_http_error(422, str(type(err)), str(err))
+        except Exception, err:
+            raise generate_http_error(500, str(type(err)), str(err))
+
+
+class ExtractLogfile():
+    """ Extracts selected logfile content """
+    def GET(self):
+        try:
+            pyDict = {}
+            data = param_input()
+            response = get(str(data.file_location), cert=config_get('webui', 'usercert'), verify=False)
+            if not response.ok:
+                response.raise_for_status()
+            cont = response.content
+            file_like_object = BytesIO(cont)
+            tar = open(mode='r:gz', fileobj=file_like_object)
+            for member in tar.getmembers():
+                if member.name == str(data.file_name):
+                    try:
+                        f = tar.extractfile(member)
+                        pyDict['content'] = f.read(16000000)
+                        pyDict['size'] = f.tell()
+                        jsonResponse = dumps(pyDict)
+                        tar.close()
+                        return jsonResponse
+                    except UnicodeDecodeError:
+                        f = tar.extractfile(member)
+                        out = GzipFile(fileobj=f)
+                        pyDict['content'] = out.read(16000000)
+                        pyDict['size'] = out.tell()
+                        jsonResponse = dumps(pyDict)
+                        tar.close()
+                        return jsonResponse
+                    return "ok"
+        except ConnectionError, err:
+            raise generate_http_error(503, str(type(err)), str(err))
+        except TarError, err:
+            raise generate_http_error(415, str(type(err)), str(err))
+        except IOError, err:
+            raise generate_http_error(422, str(type(err)), str(err))
+        except Exception, err:
+            raise generate_http_error(500, str(type(err)), str(err))
+
+
 """----------------------
    Web service startup
 ----------------------"""
 
-app = application(URLS, globals())
+app = application(COMMON_URLS + ATLAS_URLS + OTHER_URLS, globals())
 application = app.wsgifunc()
