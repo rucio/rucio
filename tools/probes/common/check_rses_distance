@@ -9,15 +9,16 @@
 
  Authors:
  - Wen Guan, <wen.guan@cern.ch>, 2015-2016
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2018
 """
 
 import json
-import requests
 import sys
 import traceback
 import urllib2
 import urlparse
+
+import requests
 
 from rucio.db.sqla.constants import RSEType
 from rucio.common.config import config_get
@@ -37,8 +38,8 @@ def get_agis_sitenames():
     url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
     try:
         result = {}
-        u = urllib2.urlopen(url)
-        content = u.read()
+        resp = urllib2.urlopen(url)
+        content = resp.read()
         rses = json.loads(content)
         for item in rses:
             rse = item['name']
@@ -56,8 +57,8 @@ def get_agis_distances():
     try:
         top_distance = 0
         result = {}
-        u = urllib2.urlopen(url)
-        content = u.read()
+        resp = urllib2.urlopen(url)
+        content = resp.read()
         site_list = json.loads(content)
         for item in site_list:
             if 'src' in item and 'dst' in item and 'closeness' in item:
@@ -108,7 +109,7 @@ def get_fts_transfer_summary(fts_host):
                                        "active": item["active"] if "active" in item else 0,
                                        "finished": item["finished"] if "finished" in item else 0,
                                        "failed": item["failed"] if "failed" in item else 0,
-                                       "transfer_speed": item["current"] if "current" in item else 0}
+                                       "transfer_speed": item["current"] if "current" in item and item["current"] != [0, 0] else 0}
                     else:
                         print "Duplicated key %s: %s" % (key, result[key])
             return result
@@ -131,7 +132,7 @@ def get_ftses_transfer_summary():
                 result[fts_host] = []
         return OK, result
     except:
-        return WARNING, "Failed to get ftses summary, error: %s" % (fts_host, traceback.format_exc())
+        return WARNING, "Failed to get fts %s summary, error: %s" % (fts_host, traceback.format_exc())
 
 
 def get_fts_info(fts_summary, src_protocols, dest_protocols):
