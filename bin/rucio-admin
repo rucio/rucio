@@ -503,9 +503,9 @@ def delete_attribute_rse(args):
 
 
 @exception_handler
-def set_distance_rses(args):
+def add_distance_rses(args):
     """
-    %(prog)s set-distance [options] SOURCE_RSE DEST_RSE
+    %(prog)s add-distance [options] SOURCE_RSE DEST_RSE
 
     Set the distance between two RSEs.
     """
@@ -1053,13 +1053,13 @@ Commands:
     delete_attribute_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     delete_attribute_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
-    # The set_distance_rses command
-    set_distance_rses_parser = rse_subparser.add_parser('set-distance', help='Set the distance between a pair of RSEs')
-    set_distance_rses_parser.set_defaults(which='set_distance_rses')
-    set_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
-    set_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
-    set_distance_rses_parser.add_argument('--distance', dest='distance', default=1, type=int, help='Distance between RSEs')
-    set_distance_rses_parser.add_argument('--ranking', dest='ranking', default=1, type=int, help='Ranking of link')
+    # The add_distance_rses command
+    add_distance_rses_parser = rse_subparser.add_parser('add-distance', help='Set the distance between a pair of RSEs')
+    add_distance_rses_parser.set_defaults(which='add_distance_rses')
+    add_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
+    add_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
+    add_distance_rses_parser.add_argument('--distance', dest='distance', default=1, type=int, help='Distance between RSEs')
+    add_distance_rses_parser.add_argument('--ranking', dest='ranking', default=1, type=int, help='Ranking of link')
 
     # The update_distance_rses command
     update_distance_rses_parser = rse_subparser.add_parser('update-distance', help='Update the existing distance between a pair of RSEs')
@@ -1222,7 +1222,7 @@ Commands:
                 'set_attribute_rse': set_attribute_rse,
                 'get_attribute_rse': get_attribute_rse,
                 'delete_attribute_rse': delete_attribute_rse,
-                'set_distance_rses': set_distance_rses,
+                'add_distance_rses': add_distance_rses,
                 'update_distance_rses': update_distance_rses,
                 'get_distance_rses': get_distance_rses,
                 'add_protocol_rse': add_protocol_rse,
