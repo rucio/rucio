@@ -18,6 +18,7 @@
  - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
  - Tobias Wegner <tobias.wegner@cern.ch>, 2017
  - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+ - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 """
 
 import argparse
@@ -1111,7 +1112,10 @@ def upload(args):
             logger.debug(error)
             logger.error("Some of the files already exist in the catalog. No one will be added.")
         except RucioException:
-            logger.error("A Rucio exception occurred when processing a file for upload.")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.exception("A Rucio exception occurred when processing a file for upload.")
+            else:
+                logger.error("A Rucio exception occurred when processing a file for upload.")
             raise
     logger.debug("Finished uploading files to RSE.")
 
