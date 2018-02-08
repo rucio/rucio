@@ -29,6 +29,7 @@ from rucio.rse import rsemanager
 
 if getattr(rsemanager, 'CLIENT_MODE', None):
     from rucio.client.replicaclient import ReplicaClient
+    from rucio.client.rseclient import RSEClient
 
 if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.core import replica
@@ -209,20 +210,12 @@ class RSEProtocol(object):
 
             :returns: dict with scope:name as keys and PFN as value (in case of errors the Rucio exception si assigned to the key)
         """
-        client = ReplicaClient()
+        client = RSEClient()
         pfns = {}
 
         lfns = [lfns] if isinstance(lfns, dict) else lfns
-        for lfn in lfns:
-            scope = lfn['scope']
-            name = lfn['name']
-            replicas = [r for r in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[self.attributes['scheme'], ])]  # schemes is used to narrow down the response message.
-            if len(replicas) > 1:
-                pfns['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('This operation can only be performed for files.')
-            if not len(replicas):
-                pfns['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('File not found.')
-            pfns['%s:%s' % (scope, name)] = replicas[0]['rses'][self.rse['rse']][0] if (self.rse['rse'] in replicas[0]['rses'].keys()) else exception.RSEOperationNotSupported('Replica not found on given RSE.')
-        return pfns
+        lfn_query = ["%s:%s" % (lfn['scope'], lfn['name']) for lfn in lfns]
+        return client.lfns2pfns(self.rse['rse'], lfn_query, scheme=self.attributes['scheme'])
 
     def _get_path(self, scope, name):
         """ Transforms the logical file name into a PFN.
