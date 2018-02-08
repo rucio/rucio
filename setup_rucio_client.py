@@ -49,6 +49,11 @@ if os.path.exists('lib/rucio_clients.egg-info/'):
 if os.path.exists('lib/rucio.egg-info/'):
     shutil.rmtree('lib/rucio.egg-info/')
 
+SSH_EXTRAS = ['paramiko==1.18.4']
+KERBEROS_EXTRAS = ['kerberos>=1.2.5', 'pykerberos>=1.1.14', 'requests-kerberos>=0.11.0']
+EXTRAS_REQUIRES = dict(ssh=SSH_EXTRAS,
+                       kerberos=KERBEROS_EXTRAS)
+
 if '--release' in COPY_ARGS:
     IS_RELEASE = True
     COPY_ARGS.remove('--release')
@@ -189,5 +194,6 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Environment :: No Input/Output (Daemon)', ],
     install_requires=REQUIRES,
+    extras_require=EXTRAS_REQUIRES,
     dependency_links=DEPEND_LINKS,
 )

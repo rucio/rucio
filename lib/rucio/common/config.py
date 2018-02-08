@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 
 """
 Get the configuration file from /opt/rucio/etc/rucio.cfg
@@ -36,6 +37,11 @@ def config_has_section(section):
     return __CONFIG.has_section(section)
 
 
+def config_add_section(section):
+    """Add a new section to the configuration object.  Throws DuplicateSectionError if it already exists."""
+    return __CONFIG.add_section(section)
+
+
 def config_get_int(section, option):
     """Return the integer value for a given option in a section"""
     return __CONFIG.getint(section, option)
@@ -61,6 +67,24 @@ def config_get_items(section):
     return __CONFIG.items(section)
 
 
+def config_remove_option(section, option):
+    """Remove the specified option from a given section.
+
+       If the option existed in the configuration, return True.
+
+       If the section does not exist, throws NoSectionError.
+    """
+    return __CONFIG.remove_option(section, option)
+
+
+def config_set(section, option, value):
+    """Set a configuration option in a given section.
+
+       If the section does not exist, throws a NoSectionError.
+    """
+    return __CONFIG.set(section, option, value)
+
+
 def get_config_dir():
     """Return the rucio configuration directory"""
     configdirs = ['/opt/rucio/etc/', ]
@@ -74,6 +98,16 @@ def get_config_dir():
     for configdir in configdirs:
         if os.path.exists(configdir):
             return configdir
+
+
+def get_lfn2pfn_algorithm_default():
+    """Returns the default algorithm name for LFN2PFN translation for this server."""
+    default_lfn2pfn = "hash"
+    try:
+        default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default')
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+        pass
+    return default_lfn2pfn
 
 
 def get_schema_dir():
