@@ -51,6 +51,13 @@ class RSEDeterministicTranslation(object):
         self.rse_attributes = rse_attributes if rse_attributes else {}
         self.protocol_attributes = protocol_attributes if protocol_attributes else {}
 
+    @classmethod
+    def supports(cls, name):
+        """Returns True if `name` is an algorithm supported by the translator
+           class, False otherwise.
+        """
+        return name in cls._LFN2PFN_ALGORITHMS
+
     @staticmethod
     def register(lfn2pfn_callable, name=None):
         """
@@ -111,11 +118,7 @@ class RSEDeterministicTranslation(object):
             pass
         if policy_module:
             importlib.import_module(policy_module)
-        cls._DEFAULT_LFN2PFN = "hash"
-        try:
-            cls._DEFAULT_LFN2PFN = config.config_get('policy', 'lfn2pfn_algorithm_default')
-        except (NoOptionError, NoSectionError):
-            pass
+        cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
 
     def path(self, scope, name):
         """ Transforms the logical file name into a PFN's path.
@@ -150,6 +153,10 @@ class RSEProtocol(object):
         self.rse = rse_settings
         if self.rse['deterministic']:
             self.translator = RSEDeterministicTranslation(self.rse['rse'], rse_settings, self.attributes)
+            if getattr(rsemanager, 'CLIENT_MODE', None) and \
+                    not RSEDeterministicTranslation.supports(self.rse.get('lfn2pfn_algorithm')):
+                # Remote server has an algorithm we don't understand; always make the server do the lookup.
+                setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
         else:
             if getattr(rsemanager, 'CLIENT_MODE', None):
                 setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
