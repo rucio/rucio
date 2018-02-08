@@ -1,4 +1,4 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright (c) 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
@@ -6,15 +6,20 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
-# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017
-#
-# Client class for callers of the Rucio system
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Yun-Pin Sun <winter0128@gmail.com>, 2013
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Tobias Wegner <twegner@cern.ch>, 2017
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
+
+'''
+  Client class for callers of the Rucio system
+'''
 
 import imp
 import random

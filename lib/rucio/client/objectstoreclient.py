@@ -1,4 +1,4 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright (c) 2016-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
@@ -6,8 +6,8 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2016
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Wen Guan <wguan.icedew@gmail.com>, 2016
+# - Vincent Garonne <vgaronne@gmail.com>, 2016
 
 import json
 from requests.status_codes import codes

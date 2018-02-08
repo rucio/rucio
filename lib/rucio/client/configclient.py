@@ -1,13 +1,15 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright (c) 2014-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 
 from requests.status_codes import codes
 
