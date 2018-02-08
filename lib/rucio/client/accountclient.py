@@ -1,19 +1,20 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2014, 2017
- - Martin Barisits, <martin.barisits@cern.ch>, 2014
- - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
- - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
- - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
-"""
+# Copyright (c) 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2013
+# - Yun-Pin Sun <winter0128@gmail.com>, 2013
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2014
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
+# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
 
 from json import dumps
 from requests.status_codes import codes

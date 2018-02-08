@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+# Copyright (c) 2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
+
+'''
+Utility script to generate header
+Usage: git log --reverse --date=short --format='%aN,<%aE>,%ad' <file name> | ./tools/generate_header
+'''
+
+import sys
+import collections
+
+authors = collections.OrderedDict()
+min = None
+for line in sys.stdin:
+    # remove leading and trailing whitespace
+    line = line.strip()
+    # split the line into words
+    author, mail, date = line.split(',')
+    year = date.split('-')[0]
+    if min is None:
+        min = year
+    if author not in authors:
+        authors[author] = {'name': author,
+                           'mail': mail,
+                           'max': year,
+                           'min': year}
+    else:
+        if year > authors[author]['max']:
+            authors[author]['max'] = year
+        if year < authors[author]['min']:
+            authors[author]['min'] = year
+
+    if authors[author]['min'] < min:
+        min = authors[author]['min']
+
+print '# Copyright (c) %s-2018 CERN for the benefit of the ATLAS collaboration.' % min
+print '#'
+print '# Licensed under the Apache License, Version 2.0 (the "License");'
+print '# You may not use this file except in compliance with the License.'
+print '# You may obtain a copy of the License at'
+print '# http://www.apache.org/licenses/LICENSE-2.0'
+print '#'
+print '# Authors:'
+for author in authors:
+    if authors[author]['min'] == authors[author]['max']:
+        print '# - %(name)s %(mail)s, %(min)s' % authors[author]
+    else:
+        print '# - %(name)s %(mail)s, %(min)s-%(max)s' % authors[author]
