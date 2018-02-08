@@ -148,3 +148,19 @@ class TestDeterministicTranslation(object):
             else:
                 config.config_set('policy', 'lfn2pfn_algorithm_default', orig_value)
             RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
+
+    def test_supports(self):  # pylint: disable=no-self-use
+        """LFN2PFN: See if the static `supports` method works"""
+
+        def static_test(scope, name, rse, rse_attrs, proto_attrs):
+            """Static test function for testing supports."""
+            del scope
+            del name
+            del rse
+            del rse_attrs
+            del proto_attrs
+            return "static_test_value"
+
+        assert not RSEDeterministicTranslation.supports("static_supports")
+        RSEDeterministicTranslation.register(static_test, "static_supports")
+        assert RSEDeterministicTranslation.supports("static_supports")
