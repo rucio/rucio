@@ -8,7 +8,6 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 """
 
 from re import match, compile, error
@@ -139,8 +138,12 @@ def validate_name(scope, name, did_type, session=None):
     groups = match(regexp, str(name))
     if groups:
         meta = groups.groupdict()
-        if 'task_id' in meta and meta['task_id']:
-            meta['task_id'] = int(meta['task_id'])
+        # Hack to get task_id from version
+        if 'version' in meta and meta['version']:
+            matched = match('(?P<version>\w+)_tid(?P<task_id>\d+)_\w+$', meta['version'])
+            if matched:
+                meta['version'] = matched.groupdict()['version']
+                meta['task_id'] = int(matched.groupdict()['task_id'])
         if 'run_number' in meta and meta['run_number']:
             meta['run_number'] = int(meta['run_number'])
         return meta
