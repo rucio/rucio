@@ -1,16 +1,16 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-'''
+# Copyright (c) 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 from json import dumps, loads
 from requests.status_codes import codes

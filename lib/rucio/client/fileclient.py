@@ -1,14 +1,15 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright (c) 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 
 from urllib import quote_plus
 from json import loads
