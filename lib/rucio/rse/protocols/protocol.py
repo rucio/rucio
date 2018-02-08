@@ -28,7 +28,6 @@ from rucio.common import config, exception
 from rucio.rse import rsemanager
 
 if getattr(rsemanager, 'CLIENT_MODE', None):
-    from rucio.client.replicaclient import ReplicaClient
     from rucio.client.rseclient import RSEClient
 
 if getattr(rsemanager, 'SERVER_MODE', None):
@@ -211,7 +210,6 @@ class RSEProtocol(object):
             :returns: dict with scope:name as keys and PFN as value (in case of errors the Rucio exception si assigned to the key)
         """
         client = RSEClient()
-        pfns = {}
 
         lfns = [lfns] if isinstance(lfns, dict) else lfns
         lfn_query = ["%s:%s" % (lfn['scope'], lfn['name']) for lfn in lfns]
