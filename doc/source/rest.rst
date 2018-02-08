@@ -52,3 +52,12 @@ Where ExceptionClass refers to :ref:`exceptions`.
 
 .. _OAuth: http://oauth.net/
 .. _JSON: http://www.json.org/
+
+The methods are separated per resource type.
+
+.. toctree::
+    :maxdepth: 1
+
+    restapi/account
+    restapi/did
+    restapi/scope
