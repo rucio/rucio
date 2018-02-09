@@ -1,9 +1,9 @@
-===============
-Rucio admin CLI
-===============
+========================
+Rucio administration CLI
+========================
 
 
-Rucio provides an admin CLI. The get methods can be executed by any users, but the set methods require some admin privileges::
+Rucio provides a CLI for administrative tasks.. The get methods can be executed by any users, but the set methods require some admin privileges::
 
   $ rucio-admin 
   usage: rucio-admin [-h] [--version] [--verbose] [-H ADDRESS]
@@ -53,11 +53,11 @@ To create a new account::
 
   $ rucio-admin account add --type USER --email jdoe@blahblih.com jdoe
 
-You can choose different types in the list USER, GROUP, SERVICE. Once the account is created, you need to create and attach an identity to this account::
+You can choose different types in the list USER, GROUP, SERVICE. Different policies/permissions can be set dependending on the account type.  Once the account is created, you need to create and attach an identity to this account::
 
   $ rucio-admin identity add --type X509 --id "/DC=blah/DC=blih/OU=Organic Units/OU=Users/CN=jdoe" --email jdoe@blahblih.com --account jdoe
 
-The list of possible identity is X509, GSS, USERPASS, SSH::
+The list of possible identity types is X509, GSS, USERPASS, SSH::
 
   $ rucio-admin account list-identities jdoe
   Identity: /DC=blah/DC=blih/OU=Organic Units/OU=Users/CN=jdoe,        type: X509
@@ -75,7 +75,7 @@ And list these attributes::
   | country | xyz   |
   +---------+-------+
 
-You can also list all the account matching a certain attribute using the filter option::
+You can also list all the accounts matching a certain attribute using the filter option::
 
   $ rucio-admin account list --filters "country=xyz"
   jdoe
