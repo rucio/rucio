@@ -46,6 +46,10 @@ class RSEDeterministicTranslation(object):
         """
         Initialize a translator object from the RSE, its attributes, and the protocol-specific
         attributes.
+
+        :param rse: Name of RSE for this translation.
+        :param rse_attributes: A dictionary of RSE-specific attributes for use in the translation.
+        :param protocol_attributes: A dictionary of RSE/protocol-specific attributes.
         """
         self.rse = rse
         self.rse_attributes = rse_attributes if rse_attributes else {}
@@ -53,8 +57,11 @@ class RSEDeterministicTranslation(object):
 
     @classmethod
     def supports(cls, name):
-        """Returns True if `name` is an algorithm supported by the translator
-           class, False otherwise.
+        """
+        Check to see if a specific algorithm is supported.
+
+        :param name: Name of the deterministic algorithm.
+        :returns: True if `name` is an algorithm supported by the translator class, False otherwise.
         """
         return name in cls._LFN2PFN_ALGORITHMS
 
@@ -71,6 +78,9 @@ class RSEDeterministicTranslation(object):
          - protocol_attributes: Attributes of the RSE's protocol
         The return value should be the last part of the PFN - it will be appended to the
         rest of the URL.
+
+        :param lfn2pfn_callable: Callable function to use for generating paths.
+        :param name: Algorithm name used for registration.  If None, then `lfn2pfn_callable.__name__` is used.
         """
         if name is None:
             name = lfn2pfn_callable.__name__
@@ -80,6 +90,16 @@ class RSEDeterministicTranslation(object):
     def __hash(scope, name, rse, rse_attrs, protocol_attrs):
         """
         Given a LFN, turn it into a sub-directory structure using a hash function.
+
+        This takes the MD5 of the LFN and uses the first four characters as a subdirectory
+        name.
+
+        :param scope: Scope of the LFN.
+        :param name: File name of the LFN.
+        :param rse: RSE for PFN (ignored)
+        :param rse_attrs: RSE attributes for PFN (ignored)
+        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
+        :returns: Path for use in the PFN generation.
         """
         del rse
         del rse_attrs
@@ -96,6 +116,12 @@ class RSEDeterministicTranslation(object):
 
             scope:path -> scope/path
 
+        :param scope: Scope of the LFN.
+        :param name: File name of the LFN.
+        :param rse: RSE for PFN (ignored)
+        :param rse_attrs: RSE attributes for PFN (ignored)
+        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
+        :returns: Path for use in the PFN generation.
         """
         del rse
         del rse_attrs
@@ -220,8 +246,8 @@ class RSEProtocol(object):
             Suitable for sites implementing the RUCIO naming convention.
             This implementation is only invoked if the RSE is deterministic.
 
-            :param lfn: filename
             :param scope: scope
+            :param name: filename
 
             :returns: RSE specific URI of the physical file
         """

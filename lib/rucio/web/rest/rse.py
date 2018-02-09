@@ -338,7 +338,18 @@ class LFNS2PFNS(RucioController):
     """ Translate one-or-more LFNs to corresponding PFNs. """
 
     def GET(self, rse, scheme=None):
-        """ Return PFNs for a set of LFNs.
+        """
+        Return PFNs for a set of LFNs.  Formatted as a JSON object where the key is a LFN and the
+        value is the corresponding PFN.
+
+        - One or more LFN should be passed as the LFN arguments.
+        - A URL scheme (e.g., http / gsiftp / srm) can be passed to help with protocol selection using the
+          `scheme` query argument.
+        - The `domain` query argument is used to select protocol for wan or lan use cases.
+        - The `operation` query argument is used to select the protocol for read-vs-writes.
+
+        The `scheme`, `domain`, and `operation` options help with the selection of the protocol, in case
+        if that affects the possible PFN generation.
 
         HTTP Success:
             200 OK

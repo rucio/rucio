@@ -33,12 +33,22 @@ def config_get(section, option):
 
 
 def config_has_section(section):
-    """Indicates whether the named section is present in the configuration. The DEFAULT section is not acknowledged.)"""
+    """
+    Indicates whether the named section is present in the configuration. The DEFAULT section is not acknowledged.)
+
+    :param section: Name of section in the Rucio config to verify.
+    :returns: True if the section exists in the configuration; False otherwise
+    """
     return __CONFIG.has_section(section)
 
 
 def config_add_section(section):
-    """Add a new section to the configuration object.  Throws DuplicateSectionError if it already exists."""
+    """
+    Add a new section to the configuration object.  Throws DuplicateSectionError if it already exists.
+
+    :param section: Name of section in the Rucio config to add.
+    :returns: None
+    """
     return __CONFIG.add_section(section)
 
 
@@ -68,19 +78,27 @@ def config_get_items(section):
 
 
 def config_remove_option(section, option):
-    """Remove the specified option from a given section.
+    """
+    Remove the specified option from a given section.
 
-       If the option existed in the configuration, return True.
+    :param section: Name of section in the Rucio config.
+    :param option: Name of option to remove from Rucio configuration.
+    :returns: True if the option existed in the configuration, False otherwise.
 
-       If the section does not exist, throws NoSectionError.
+    :raises NoSectionError: If the section does not exist.
     """
     return __CONFIG.remove_option(section, option)
 
 
 def config_set(section, option, value):
-    """Set a configuration option in a given section.
+    """
+    Set a configuration option in a given section.
 
-       If the section does not exist, throws a NoSectionError.
+    :param section: Name of section in the Rucio config.
+    :param option: Name of option to set in the Rucio configuration.
+    :param value: New value for the option.
+
+    :raises NoSectionError: If the section does not exist.
     """
     return __CONFIG.set(section, option, value)
 
