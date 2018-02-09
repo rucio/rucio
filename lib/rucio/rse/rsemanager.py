@@ -298,6 +298,9 @@ def exists(rse_settings, files):
             exists = protocol.exists(f)
             ret[f] = exists
         elif 'scope' in f:  # a LFN is provided
+            pfn = protocol.lfns2pfns(f).values()[0]
+            if isinstance(pfn, exception.RucioException):
+                raise pfn
             exists = protocol.exists(protocol.lfns2pfns(f).values()[0])
             ret[f['scope'] + ':' + f['name']] = exists
         else:
@@ -357,6 +360,8 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
             pfn = force_pfn
         else:
             pfn = protocol.lfns2pfns(make_valid_did(lfn)).values()[0]
+            if isinstance(pfn, exception.RucioException):
+                raise pfn
 
         # First check if renaming operation is supported
         if protocol.renaming:
