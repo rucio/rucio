@@ -15,7 +15,7 @@
 
 from json import dumps, loads
 from traceback import format_exc
-from urlparse import parse_qs
+from urlparse import parse_qs, parse_qsl
 from web import (application, ctx, data, header, Created, InternalError, OK,
                  input, loadhook)
 
@@ -33,6 +33,7 @@ from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioE
                                     RSEProtocolPriorityError, InvalidRSEExpression)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.rse import rsemanager
 
 URLS = (
     '/(.+)/attr/(.+)', 'Attributes',
@@ -43,6 +44,7 @@ URLS = (
     '/(.+)/protocols/(.+)/(.+)', 'Protocol',  # delete (DELETE) all protocols with the same identifier and the same hostname
     '/(.+)/protocols/(.+)', 'Protocol',  # List (GET), create (POST), update (PUT), or delete (DELETE) a all protocols with the same identifier
     '/(.+)/protocols', 'Protocols',  # List all supported protocols (GET)
+    '/(.+)/lfns2pfns', 'LFNS2PFNS',  # Translate a list of LFNs to PFNs (GET)
     '/(.+)/accounts/usage', 'RSEAccountUsageLimit',
     '/(.+)/usage', 'Usage',  # Update RSE usage information
     '/(.+)/usage/history', 'UsageHistory',  # Get RSE usage history information
@@ -330,6 +332,73 @@ class Protocols(RucioController):
             return dumps(p_list['protocols'])
         else:
             raise generate_http_error(404, 'RSEProtocolNotSupported', 'No prptocols found for this RSE')
+
+
+class LFNS2PFNS(RucioController):
+    """ Translate one-or-more LFNs to corresponding PFNs. """
+
+    def GET(self, rse, scheme=None):
+        """
+        Return PFNs for a set of LFNs.  Formatted as a JSON object where the key is a LFN and the
+        value is the corresponding PFN.
+
+        - One or more LFN should be passed as the LFN arguments.
+        - A URL scheme (e.g., http / gsiftp / srm) can be passed to help with protocol selection using the
+          `scheme` query argument.
+        - The `domain` query argument is used to select protocol for wan or lan use cases.
+        - The `operation` query argument is used to select the protocol for read-vs-writes.
+
+        The `scheme`, `domain`, and `operation` options help with the selection of the protocol, in case
+        if that affects the possible PFN generation.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            400 LFN parameter(s) malformed
+            404 Resource not Found
+            500 InternalError
+
+        :returns: A list with detailed PFN information.
+        """
+        header('Content-Type', 'application/json')
+
+        lfns = []
+        scheme = None
+        domain = 'wan'
+        operation = 'write'
+        if ctx.query:
+            params = parse_qsl(ctx.query[1:])
+            for key, val in params:
+                if key == 'lfn':
+                    info = val.split(":", 1)
+                    if len(info) != 2:
+                        raise generate_http_error(400, 'InvalidPath', 'LFN in invalid format')
+                    lfn_dict = {'scope': info[0], 'name': info[1]}
+                    lfns.append(lfn_dict)
+                elif key == 'scheme':
+                    scheme = val
+                elif key == 'domain':
+                    domain = val
+                elif key == 'operation':
+                    operation = val
+
+        rse_settings = None
+        try:
+            rse_settings = get_rse_protocols(rse, issuer=ctx.env.get('issuer'))
+        except RSENotFound, error:
+            raise generate_http_error(404, 'RSENotFound', error[0][0])
+        except RSEProtocolNotSupported, error:
+            raise generate_http_error(404, 'RSEProtocolNotSupported', error[0][0])
+        except RSEProtocolDomainNotSupported, error:
+            raise generate_http_error(404, 'RSEProtocolDomainNotSupported', error[0][0])
+        except Exception, error:
+            print error
+            print format_exc()
+            raise InternalError(error)
+
+        pfns = rsemanager.lfns2pfns(rse_settings, lfns, operation=operation, scheme=scheme, domain=domain)
+        return dumps(pfns)
 
 
 class Protocol(RucioController):
