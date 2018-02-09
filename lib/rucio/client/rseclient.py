@@ -277,6 +277,7 @@ class RSEClient(BaseClient):
         The PFNs are generated for the RSE *regardless* of whether a replica exists for the LFN.
 
         :param rse: the RSE name
+        :param lfns: A list of LFN strings to translate to PFNs.
         :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL' (as default).
         :param operation: The name of the requested operation (read, write, or delete).
                           If None, all operations are queried.
