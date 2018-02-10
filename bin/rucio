@@ -9,7 +9,7 @@
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2016-2017
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2018
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
@@ -2482,16 +2482,10 @@ def rse_completer(prefix, parsed_args, **kwargs):
     return ["%(rse)s" % rse for rse in client.list_rses()]
 
 
-if __name__ == '__main__':
-    usage = """
-usage: %(prog)s <command> [options] [args]
-
-Commands:
-
-    help <command>  Output help for one of the commands below
-
-
-"""
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
     oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=True)
     subparsers = oparser.add_subparsers()
 
@@ -2844,6 +2838,11 @@ Commands:
     touch_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     touch_parser.add_argument('--rse', dest='rse', action='store', help="The RSE of the DIDs that are touched.").completer = rse_completer
 
+    return oparser
+
+
+if __name__ == '__main__':
+    oparser = get_parser()
     argcomplete.autocomplete(oparser)
 
     if len(sys.argv) == 1:
