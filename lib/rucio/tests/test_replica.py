@@ -35,7 +35,7 @@ from rucio.core.replica import (add_replica, add_replicas, delete_replicas,
 from rucio.core.rse import add_rse, add_protocol
 from rucio.daemons.necromancer import run
 from rucio.rse import rsemanager as rsemgr
-from rucio.tests.common import rse_name_generator
+from rucio.tests.common import execute, rse_name_generator
 from rucio.web.rest.authentication import APP as auth_app
 from rucio.web.rest.replica import APP as rep_app
 
@@ -299,6 +299,35 @@ class TestReplicaCore:
                                      schemes=['MOCK'],
                                      domain='lan'):
             assert_in('/i/prefer/the/lan', replica['pfns'].keys()[0])
+
+        # test old client behaviour - get all WAN answers
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                     schemes=['MOCK']):
+            cmd = 'rucio list-file-replicas --pfns %s:%s' % (replica['scope'], replica['name'])
+            errno, stdout, stderr = execute(cmd)
+            assert_in('/i/prefer/the/wan', stdout)
+
+        # # force all LAN
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                     schemes=['MOCK']):
+            cmd = 'rucio list-file-replicas --pfns --domain=lan %s:%s' % (replica['scope'], replica['name'])
+            errno, stdout, stderr = execute(cmd)
+            assert_in('/i/prefer/the/lan', stdout)
+
+        # # force all WAN
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                     schemes=['MOCK']):
+            cmd = 'rucio list-file-replicas --pfns --domain=wan %s:%s' % (replica['scope'], replica['name'])
+            errno, stdout, stderr = execute(cmd)
+            assert_in('/i/prefer/the/wan', stdout)
+
+        # # force both WAN and LAN
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                     schemes=['MOCK']):
+            cmd = 'rucio list-file-replicas --pfns --domain=all %s:%s' % (replica['scope'], replica['name'])
+            errno, stdout, stderr = execute(cmd)
+            assert_in('/i/prefer/the/wan', stdout)
+            assert_in('/i/prefer/the/lan', stdout)
 
 
 class TestReplicaClients:
