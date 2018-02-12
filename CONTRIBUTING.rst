@@ -6,7 +6,7 @@ Contributor Guide
 *  Please ensure that an `issue <https://github.com/rucio/rucio/issues/new>`_ exists before submitting your contribution as a pull request.
 * The issue should contain the motivation, modification and expected results (discussions usually happen there).
 * No pull request will be merged without an associated issue (release notes are generated from issues).
-* You should make sure to add your name (and organisation) to `AUTHORS <AUTHORS>`_.
+* You should make sure to add your name (and organisation) to `AUTHORS <AUTHORS.rst>`_.
 
 A contribution can be either be a **patch**, **feature**, or **hotfix**:
  * **Patches** include bugfixes and minor changes to the code and are included in patch releases usually made on a bi-weekly schedule.
