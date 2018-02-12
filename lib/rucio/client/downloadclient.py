@@ -10,7 +10,7 @@
 
 import os
 import os.path
-import sys #only for logger, can be removed later
+# import sys # (for logging)
 
 import logging
 import random
@@ -18,31 +18,29 @@ import time
 import requests
 import json
 import socket
+import signal
 
 from rucio.client.baseclient import BaseClient
-from rucio.common.exception import SourceAccessDenied
-from rucio.common.exception import SourceNotFound
-from rucio.common.exception import RSEAccessDenied
-from rucio.common.exception import FullStorage
-from rucio.common.exception import FileConsistencyMismatch
+from rucio.common.exception import FileConsistencyMismatch, RSEProtocolNotSupported, RSENotFound, RucioException
 from rucio.common.utils import sizefmt
 from rucio.common.utils import generate_uuid
 
 from rucio.client.client import Client
 from Queue import Queue, Empty
-from threading import Thread, Event
+from threading import Thread
 from rucio.rse import rsemanager as rsemgr
 from copy import deepcopy
 
-client=Client()
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-#logging.basicConfig()
+client = Client()
+# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig()
 logger = logging.getLogger("user")
 SUCCESS = 0
 FAILURE = 1
 
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
+
 
 class DownloadClient(BaseClient):
     """ This class cover all functionality related to file uploads into Rucio."""
@@ -58,11 +56,8 @@ class DownloadClient(BaseClient):
         self.trace_taskid = os.environ.get('RUCIO_TRACE_TASKID', None),
         self.trace_usrdn = os.environ.get('RUCIO_TRACE_USRDN', None)
 
+    def download(self, dids, rse, protocol='srm', pfn=None, nrandom=None, nprocs=None, user_agent='rucio_clients', dir='.', no_subd=False):
 
-
-    def download(self, dids, rse, protocol='srm', pfn=None, nrandom=None, nprocs=None, user_agent='rucio_clients', dir='.', no_subd=False): 
-
-        #client = get_client(args)
         trace_endpoint = client.host
         trace_pattern = {'hostname': socket.getfqdn(),
                          'account': client.account,
@@ -72,7 +67,7 @@ class DownloadClient(BaseClient):
                          'appid': self.trace_appid,
                          'dataset': self.trace_dataset,
                          'datasetScope': self.trace_datasetscope,
-                         'pq':self.trace_pq,
+                         'pq': self.trace_pq,
                          'taskid': self.trace_taskid,
                          'usrdn': self.trace_usrdn}
 
@@ -91,7 +86,7 @@ class DownloadClient(BaseClient):
             rse_expression = 'istape=False'
             if rse and len(rse.strip()) > 0:
                 rse_expression = '(%s)&istape=False' % rse
-            #logger.debug('RSE-Expression: %s' % rse_expression)
+                logger.debug('RSE-Expression: %s' % rse_expression)
 
         # Extract the scope, name from the did(s)
         did_list = []
@@ -147,25 +142,22 @@ class DownloadClient(BaseClient):
                     logger.error('Failed to get list of files with their replicas for DID %s' % arg_didstr)
                     return FAILURE
 
-
                 files_with_replicas = [f for f in files_with_replicas]
                 if nrandom:
                     random.shuffle(files_with_replicas)
-                    files_with_replicas = files_with_replicas[nrandom]
+                    files_with_replicas = files_with_replicas[0:nrandom]
             else:
                 logger.debug('PFN option overrides replica listing')
                 did_type = 'FILE'
                 dataset_scope = ''
                 dataset_name = ''
                 files_with_replicas = [{'bytes': None,
-                                     'adler32': None,
-                                     'scope': arg_did['scope'],
-                                     'name': arg_did['name'],
-                                     'pfns': {pfn: {'rse': rse}},
-                                     'rses': {rse: [pfn]}}]
+                                        'adler32': None,
+                                        'scope': arg_did['scope'],
+                                        'name': arg_did['name'],
+                                        'pfns': {pfn: {'rse': rse}},
+                                        'rses': {rse: [pfn]}}]
 
-
-            print files_with_replicas
             num_files_to_dl[arg_didstr] = len(files_with_replicas)
             for f in files_with_replicas:
                 file_scope = f['scope']
@@ -173,12 +165,12 @@ class DownloadClient(BaseClient):
                 file_didstr = '%s:%s' % (file_scope, file_name)
 
                 file_exists, dest_dir = self._file_exists(did_type,
-                                                     file_scope,
-                                                     file_name,
-                                                     dir,
-                                                     dsn=dataset_name,
-                                                     no_subdir=no_subd)
-                dest_dir = os.path.abspath(dest_dir)#
+                                                          file_scope,
+                                                          file_name,
+                                                          dir,
+                                                          dsn=dataset_name,
+                                                          no_subdir=no_subd)
+                dest_dir = os.path.abspath(dest_dir)
 
                 if file_exists:
                     logger.info('File %s already exists locally' % file_didstr)
@@ -199,11 +191,10 @@ class DownloadClient(BaseClient):
                         trace['dataset'] = dataset_name
                     trace.update({'scope': file_scope,
                                   'filename': file_name,
-                                  'filesize': file['bytes'],
+                                  'filesize': f['bytes'],
                                   'transferStart': time.time(),
                                   'transferEnd': time.time(),
                                   'clientState': 'ALREADY_DONE'})
-                    print trace
                     self.send_trace(trace, trace_endpoint, user_agent)
                 else:
                     if not os.path.isdir(dest_dir):
@@ -217,10 +208,10 @@ class DownloadClient(BaseClient):
                         # Overwrite the files
                         logger.debug('Deleteing existing files: %s' % file_name)
                         os.remove("%s/%s" % (dest_dir, file_name))
-                    file['dataset_scope'] = dataset_scope
-                    file['dataset_name'] = dataset_name
-                    file['dest_dir'] = dest_dir
-                    input_queue.put(file)
+                    f['dataset_scope'] = dataset_scope
+                    f['dataset_name'] = dataset_name
+                    f['dest_dir'] = dest_dir
+                    input_queue.put(f)
 
         try:
             self.download_rucio(pfn, protocol, input_queue, output_queue, trace_pattern, trace_endpoint, nprocs, user_agent, dir, no_subd)
@@ -241,19 +232,18 @@ class DownloadClient(BaseClient):
                         summary[ds_didstr][file_didstr] = item['clientState']
                     if item['clientState'] == 'CORRUPTED':
                         try:
-                            #client.declare_suspicious_file_replicas([item['pfn']], reason='Corrupted')
-                            logger.warning('It would declare the file corrupted. Rather not now.')
+                            # client.declare_suspicious_file_replicas([item['pfn']], reason='Corrupted')
+                            logger.warning('File %s seems to be corrupted.' % item['pfn'])
                         except:
                             logger.warning('File replica %s might be corrupted. Failure to declare it bad to Rucio' % item['pfn'])
             except Empty:
                 break
 
-
     def download_rucio(self, pfn, protocol, input_queue, output_queue, trace_pattern, trace_endpoint, ndownloader, user_agent, dir='.', no_subdir=False):
 
         total_workers = 1
         if ndownloader and not pfn:
-            total_workers = ndownloader # originaly args.ndownloader
+            total_workers = ndownloader
             nlimit = 5
             if total_workers > nlimit:
                 logger.warning('Cannot use more than %s parallel downloader.' % nlimit)
@@ -264,11 +254,7 @@ class DownloadClient(BaseClient):
         logger.debug('Starting %d download threads' % total_workers)
         threads = []
         for worker in range(total_workers):
-            kwargs = {'pfn': pfn, #args
-                      #'dids': dids,
-                      #'rse': rse,
-                      #'nrandom': nrandom,
-                      #'nprocs': nprocs,
+            kwargs = {'pfn': pfn,
                       'user_agent': user_agent,
                       'protocol': protocol,
                       'human': True,
@@ -295,8 +281,8 @@ class DownloadClient(BaseClient):
                 thread.kill_received = True
         logger.debug('All threads finished')
 
-
     def _downloader(self, pfn, protocol, human, input_queue, output_queue, user_agent, threadnb, total_threads, trace_endpoint, trace_pattern):
+
         rse_dict = {}
         thread_prefix = 'Thread %s/%s' % (threadnb, total_threads)
         while True:
@@ -317,10 +303,9 @@ class DownloadClient(BaseClient):
             dlfile['adler32'] = file['adler32']
             ignore_checksum = True if pfn else False
             if pfn:
-               dlfile['pfn'] = pfn
+                dlfile['pfn'] = pfn
 
             logger.info('%s : Starting the download of %s' % (thread_prefix, file_didstr))
-            print 1
             trace = deepcopy(trace_pattern)
             trace.update({'scope': file_scope,
                           'filename': file_name,
@@ -335,7 +320,6 @@ class DownloadClient(BaseClient):
                 self.send_trace(trace, trace_endpoint, user_agent)
                 input_queue.task_done()
                 continue
-            print 2
             random.shuffle(rses)
 
             logger.debug('%s : Potential sources : %s' % (thread_prefix, str(rses)))
@@ -354,33 +338,25 @@ class DownloadClient(BaseClient):
                 if not rse['availability_read']:
                     logger.info('%s : %s is blacklisted for reading' % (thread_prefix, rse_name))
                     continue
-                print 3
-                print pfn
-                print protocol
+
                 try:
                     if pfn:
                         protocols = [rsemgr.select_protocol(rse, operation='read', scheme=pfn.split(':')[0])]
                     else:
                         protocols = rsemgr.get_protocols_ordered(rse, operation='read', scheme=protocol)
                         protocols.reverse()
-                        print protocols
-                        print 3.1
                 except RSEProtocolNotSupported as error:
-                    print 3.2
                     logger.info('%s : The protocol specfied (%s) is not supported by %s' % (thread_prefix, protocol, rse_name))
                     logger.debug(error)
                     continue
-                print pfn
                 logger.debug('%s : %d possible protocol(s) for read' % (thread_prefix, len(protocols)))
                 trace['remoteSite'] = rse_name
                 trace['clientState'] = 'DOWNLOAD_ATTEMPT'
 
                 while not success and len(protocols):
-                    print 4
-                    protocol = protocols.pop()
-                    print ('%s : Trying protocol %s at %s' % (thread_prefix, protocol['scheme'], rse_name))
-                    logger.debug('%s : Trying protocol %s at %s' % (thread_prefix, protocol['scheme'], rse_name))
-                    trace['protocol'] = protocol['scheme']
+                    protocol_retry = protocols.pop()
+                    logger.debug('%s : Trying protocol %s at %s' % (thread_prefix, protocol_retry['scheme'], rse_name))
+                    trace['protocol'] = protocol_retry['scheme']
                     out = {}
                     out['dataset_scope'] = file['dataset_scope']
                     out['dataset_name'] = file['dataset_name']
@@ -400,7 +376,7 @@ class DownloadClient(BaseClient):
                             rsemgr.download(rse,
                                             files=[dlfile],
                                             dest_dir=dest_dir,
-                                            force_scheme=protocol['scheme'],
+                                            force_scheme=protocol_retry['scheme'],
                                             ignore_checksum=ignore_checksum)
 
                             trace['transferEnd'] = time.time()
@@ -451,7 +427,6 @@ class DownloadClient(BaseClient):
 
             input_queue.task_done()
 
-
     def extract_scope(self, did):
         # Try to extract the scope from the DSN
         if did.find(':') > -1:
@@ -469,7 +444,6 @@ class DownloadClient(BaseClient):
                 did = did[:-1]
             return scope, did
 
-
     def _file_exists(self, type, scope, name, directory, dsn=None, no_subdir=False):
         file_exists = False
         dest_dir = None
@@ -485,7 +459,6 @@ class DownloadClient(BaseClient):
                 if os.path.isfile('%s/%s' % (dest_dir, name)):
                     file_exists = True
         return file_exists, dest_dir
-
 
     def send_trace(self, trace, trace_endpoint, user_agent, retries=5, threadnb=None, total_threads=None):
 
@@ -508,4 +481,3 @@ class DownloadClient(BaseClient):
                 else:
                     logger.debug(error)
         return 1
-
