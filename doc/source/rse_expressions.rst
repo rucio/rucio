@@ -2,10 +2,9 @@
 RSE Expressions
 ---------------
 
-A **RSE Expression** allows to select a set of RSEs to create replication rules.
+An **RSE Expression** allows to select a set of RSEs, for example to create replication rules.
 The RSE Expression consists of one or more **terms**. A term can be a single RSE name or a condition over the RSE attributes.
-The RSE Expression Parser resolves each term to a set of RSEs. The resulting set of a term will be all those RSEs match the attribute or name.
-Terms can be connected by **operators** to form more complex expressions.
+The RSE Expression Parser resolves each term to a set of RSEs. Terms can be connected by **operators** to form more complex expressions.
 For example, users can write RSE expressions to address all Tier 2 RSEs, all the RSEs in certain cloud, all Tier 2 RSEs not in certain clouds, etc.
 
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -49,11 +48,21 @@ Rucio allows to test RSE Expressions, using the command **list-rses**. The most 
     IFIC-LCG2_DATADISK
     LIP-COIMBRA_LOCALGROUPDISK
 
+5) Also numerical comparisons with < and > are possible::
 
-Note that if the RSE Expresion returns an empty set, rucio returns an error. This could be because the name of the attribute doesn't exist or because there's no RSE that match the expression. It does not necessarily mean that the syntax of the expression is wrong.
+     jbogadog@lxplus0058:~$ rucio list-rses --expression "freespace>3000"
+     CERN-PROD_TZDISK
+     BNL-OSG2_MCTAPE
+     BNL-OSG2_DATADISK
+     IN2P3-CC_MCTAPE
+     CERN-PROD_DERIVED
+     CERN-PROD_DATADISK
+
+Note that if the RSE Expresion returns an empty set, Rucio returns an error as an RSE Expression must resolve to at least one RSE. Thus, an error does not necessarily mean that the syntax of the expression is wrong, it might just result into an empty list.
 
 In 2) and 3), the RSE Expression refers to an attribute in the RSE that must be equal to a given value to match the expression.
-While in 1) and 4), the expression match a RSE if the attribute is True. It is possible to see the list of attributes for a particular RSE with rucio::
+While in 1) and 4), the expression matches an RSE if the attribute is True. In 5) a numerical term is used to resolve all RSEs with more than 3000 TB free space.
+It is possible to see the list of attributes for a particular RSE with Rucio::
 
   jbogadog@lxplus0100:~$ rucio list-rse-attributes EELA-UNLP_SCRATCHDISK
     ftstesting: https://fts3-pilot.cern.ch:8446
@@ -143,6 +152,3 @@ See the following example to get all the SCRATCHDISKs in IT or FR clouds::
     92
 
 While the first three operations are equivalent, the last return sites in cloud FR but not only the SCRATCHDISKs but the GROUPDISKs and DATADISKs too, among other types.
-
-
-
