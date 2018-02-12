@@ -8,7 +8,7 @@
 
  Authors:
  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017-2018
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
  - Wen Guan, <wen.guan@cern.ch>, 2014-2015
@@ -148,7 +148,7 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan'):
 
     protocol_attr = select_protocol(rse_settings, operation, scheme, domain)
 
-    # Instanciate protocol
+    # Instantiate protocol
     comp = protocol_attr['impl'].split('.')
     mod = __import__('.'.join(comp[:-1]))
     for n in comp[1:]:

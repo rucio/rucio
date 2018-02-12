@@ -9,7 +9,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
   - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 '''
 
@@ -82,7 +82,7 @@ class ReplicaClient(BaseClient):
 
     def list_replicas(self, dids, schemes=None, unavailable=False,
                       all_states=False, metalink=False, rse_expression=None,
-                      client_location=None, sort=None):
+                      client_location=None, sort=None, domain=None):
         """
         List file replicas for a list of data identifiers (DIDs).
 
@@ -97,8 +97,10 @@ class ReplicaClient(BaseClient):
         :param sort: Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
                                         ``closeness`` - based on src/dst closeness
                                         ``dynamic`` - Rucio Dynamic Smart Sort (tm)
+        :param domain: Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
         """
-        data = {'dids': dids}
+        data = {'dids': dids,
+                'domain': domain}
 
         if schemes:
             data['schemes'] = schemes
