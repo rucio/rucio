@@ -52,7 +52,7 @@ rses_over_ratio = sorted([rse for rse in rses if rse['ratio'] > global_ratio + g
 rses_under_ratio = sorted([rse for rse in rses if rse['ratio'] < global_ratio - global_ratio * tolerance], key=lambda k: k['ratio'], reverse=False)
 
 session = get_session()
-active_rses = session.query(models.ReplicationRule.rse_expression).filter(or_(models.ReplicationRule.state == RuleState.REPLICATING, models.ReplicationRule.state == RuleState.STUCK),
+active_rses = session.query(models.ReplicationRule.rse_expression).filter(or_(models.ReplicationRule.state == RuleState.REPLICATING),
                                                                           models.ReplicationRule.comments == 'T2 Background rebalancing').group_by(models.ReplicationRule.rse_expression).all()
 
 # Excluding RSEs
