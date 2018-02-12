@@ -739,27 +739,47 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                     rse_schemes = schemes or []
                     if not rse_schemes:
                         try:
-                            rse_schemes = [rsemgr.select_protocol(rse_settings=rse_info[rse],
-                                                                  operation='read',
-                                                                  domain=domain)['scheme']]
+                            if domain == 'all':
+                                rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse],
+                                                                          operation='read',
+                                                                          domain='wan')['scheme'])
+                                rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse],
+                                                                          operation='read',
+                                                                          domain='lan')['scheme'])
+                            else:
+                                rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse],
+                                                                          operation='read',
+                                                                          domain=domain)['scheme'])
                         except:
                             print format_exc()
 
                     protocols = []
                     for s in rse_schemes:
                         try:
-                            protocols.append(rsemgr.create_protocol(rse_settings=rse_info[rse],
-                                                                    operation='read',
-                                                                    scheme=s,
-                                                                    domain=domain))
+                            if domain == 'all':
+                                protocols.append(('lan', rsemgr.create_protocol(rse_settings=rse_info[rse],
+                                                                                operation='read',
+                                                                                scheme=s,
+                                                                                domain='lan')))
+                                protocols.append(('wan', rsemgr.create_protocol(rse_settings=rse_info[rse],
+                                                                                operation='read',
+                                                                                scheme=s,
+                                                                                domain='wan')))
+                            else:
+                                protocols.append((domain, rsemgr.create_protocol(rse_settings=rse_info[rse],
+                                                                                 operation='read',
+                                                                                 scheme=s,
+                                                                                 domain=domain)))
                         except exception.RSEProtocolNotSupported:
                             pass  # no need to be verbose
                         except:
                             print format_exc()
+
                     tmp_protocols[rse] = protocols
 
                 # get pfns
-                for protocol in tmp_protocols[rse]:
+                for tmp_protocol in tmp_protocols[rse]:
+                    protocol = tmp_protocol[1]
                     if 'determinism_type' in protocol.attributes:  # PFN is cachable
                         try:
                             path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)]
@@ -787,7 +807,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                                     if root_proxy_internal and 'value' in root_proxy_internal[0]:
                                         pfn = root_proxy_internal[0]['value'] + '//' + pfn
 
-                        pfns.append(pfn)
+                        # TODO: this is not nice, but since pfns don't have the concept of 'domain'
+                        #       we can work around by encapsulating it in a tuple. a proper refactor requires
+                        #       far-reaching changes in the rsemgr
+                        pfns.append((tmp_protocol[0], pfn))
                     except:
                         # temporary protection
                         print format_exc()
@@ -800,12 +823,13 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 
             if 'scope' in file and 'name' in file:
                 if file['scope'] == scope and file['name'] == name:
-                    file['rses'][rse] += pfns
+                    file['rses'][rse] += list(set([tmp_pfn[1] for tmp_pfn in pfns]))  # extract properly the pfn from the (domain, pfn)
                     file['states'][rse] = str(state)
-                    for pfn in pfns:
-                        file['pfns'][pfn] = {'rse': rse,
-                                             'type': str(rse_type),
-                                             'volatile': volatile}
+                    for tmp_pfn in pfns:
+                        file['pfns'][tmp_pfn[1]] = {'rse': rse,
+                                                    'type': str(rse_type),
+                                                    'volatile': volatile,
+                                                    'domain': tmp_pfn[0]}  # extract properly the domain from the (domain, pfn)
                 else:
                     yield file
                     file = {}
@@ -816,11 +840,12 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                         'pfns': {}, 'rses': defaultdict(list),
                         'states': {rse: str(state)}}
                 if rse:
-                    file['rses'][rse] = pfns
-                    for pfn in pfns:
-                        file['pfns'][pfn] = {'rse': rse,
-                                             'type': str(rse_type),
-                                             'volatile': volatile}
+                    file['rses'][rse] = list(set([tmp_pfn[1] for tmp_pfn in pfns]))  # extract properly the pfn from the (domain, pfn)
+                    for tmp_pfn in pfns:
+                        file['pfns'][tmp_pfn[1]] = {'rse': rse,
+                                                    'type': str(rse_type),
+                                                    'volatile': volatile,
+                                                    'domain': tmp_pfn[0]}  # extract properly the domain from the (domain, pfn)
 
     if 'scope' in file and 'name' in file:
         yield file
@@ -843,20 +868,17 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict list_replicas on a set of RSEs.
     :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
-    :param domain: The network domain for the call, either None, 'wan' or 'lan'. Compatibility fallback: None falls back to 'wan'.
+    :param domain: The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']
     :param session: The database session in use.
     """
 
-    # Compatibility fallback:
-    # Old clients expect WAN replicas always, domain=None could potentially retrieve LAN replicas for WAN sources.
-    # TODO: Automated WAN/LAN selection in _list_replicas
+    # Compatibility fallback: Old clients expect WAN replicas always
     if not domain:
         domain = 'wan'
 
     file_clause, dataset_clause, state_clause, files = _resolve_dids(dids=dids, unavailable=unavailable,
                                                                      ignore_availability=ignore_availability,
                                                                      all_states=all_states, session=session)
-
     rse_clause = []
     if rse_expression:
         for rse in parse_expression(expression=rse_expression, session=session):

@@ -382,7 +382,7 @@ def list_file_replicas(args):
                                     rse_expression=args.rse_expression,
                                     metalink=args.metalink,
                                     client_location=detect_client_location(),
-                                    sort=args.sort)
+                                    sort=args.sort, domain=args.domain)
 
     if args.metalink:
         print replicas[:-1]  # last character is newline, no need to print that
@@ -2532,6 +2532,7 @@ Commands:
         (' + Color.BOLD + 'DEPRECATED: ' + Color.END + 'please use list-dataset-replicas instead.)', required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs.', required=False)
+    list_file_replicas_parser.add_argument('--domain', default=None, action='store', help='Force the networking domain. Available options: wan, lan, all.', required=False)
     list_file_replicas_parser.add_argument('--link', dest='link', default=None, action='store', help='Symlink PFNs with directory substitution.', required=False)
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False).completer = rse_completer
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE.', required=False)
