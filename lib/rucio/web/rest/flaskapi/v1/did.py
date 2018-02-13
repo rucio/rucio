@@ -328,7 +328,7 @@ class DIDs(MethodView):
             Host: rucio.cern.ch
 
             {"type": "CONTAINER", "lifetime": 86400},
-            
+
         **Example response**:
 
         .. sourcecode:: http
@@ -499,16 +499,35 @@ class Attachment(MethodView):
         Append data identifiers to data identifiers.
 
         .. :quickref: Attachment; Append DID to DID.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
+        **Example request**:
 
-        :param scope: Create the data identifier within this scope.
-        :param name: Create the data identifier with this name.
+        .. sourcecode:: http
+
+            POST /dids/scope1/datasets1/dids HTTP/1.1
+            Host: rucio.cern.ch
+
+            [{"scope": "scope1", "name": "file1"},
+             {"scope": "scope1", "name": "file2"},
+             {"scope": "scope1", "name": "file3"}]
+
+        **Example response**:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 201 Created
+            Vary: Accept
+
+        :param scope: The scope of the DID to attach to.
+        :param name: The name of the DID to attach to.
+        :<json list attachments: List of dicts of DIDs to attach.
+        :status 201: DIDs successfully attached
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 409: DIDs already attached
+        :status 500: Database Exception
         """
+
         try:
             json_data = loads(request.data)
         except ValueError:
@@ -539,16 +558,16 @@ class Attachment(MethodView):
         Detach data identifiers from data identifiers.
 
         .. :quickref: DIDs; Detach DID from DID.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
-        :param scope: Detach the data identifier from this scope.
-        :param name: Detach the data identifier from this name.
+        :param scope: Scope of the DID to detach from.
+        :param name: Name of the DID to detach from.
+        :<json dicts data: Must contain key 'dids' with list of dids to detach.
+        :status 200: DIDs successfully detached
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 500: Database Exception
         """
+
         try:
             json_data = loads(request.data)
             if 'dids' in json_data:
@@ -579,17 +598,14 @@ class AttachmentHistory(MethodView):
 
         .. :quickref: AttachementHistory; List the content history of a DID.
 
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
+        :resheader Content-Type: application/x-json-stream
         :param scope: The scope of the data identifier.
         :param name: The name of the data identifier.
-
-        :returns: A list with the contents.
+        :status 200: DID found
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 500: Database Exception
+        :returns: Stream of dictionarys with DIDs
         """
         try:
             data = ""
@@ -612,13 +628,14 @@ class Files(MethodView):
 
         .. :quickref: Files; List replicas of DID.
         
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
+        :resheader Content-Type: application/x-json-stream
+        :param scope: The scope of the data identifier.
+        :param name: The name of the data identifier.
+        :query long: Flag to trigger long output
+        :status 200: DID found
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 500: Database Exception
         :returns: A dictionary containing all replicas information.
         """
         long = False
@@ -646,13 +663,13 @@ class Parents(MethodView):
 
         .. :quickref: Parents; List parents of DID.
         
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
+        :resheader Content-Type: application/x-json-stream
+        :param scope: The scope of the data identifier.
+        :param name: The name of the data identifier.
+        :status 200: DID found
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 500: Database Exception
         :returns: A list of dictionary containing all dataset information.
         """
         try:
@@ -677,17 +694,13 @@ class Meta(MethodView):
 
         .. :quickref: Meta; List DID metadata.
 
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 DataIdentifierNotFound
-            500 InternalError
-
-        :param scope: The scope name.
-        :param name: The data identifier name.
-
+        :resheader Content-Type: application/json
+        :param scope: The scope of the data identifier.
+        :param name: The name of the data identifier.
+        :status 200: DID found
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 500: Database Exception
         :returns: A dictionary containing all meta.
         """
         try:
@@ -756,14 +769,14 @@ class Rules(MethodView):
 
         .. :quickref: Rules; List rules of DID.
         
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-
-        :param scope: The scope name.
+        :resheader Content-Type: application/x-json-stream
+        :param scope: The scope of the data identifier.
+        :param name: The name of the data identifier.
+        :status 200: DID found
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 500: Database Exception
+        :returns: List of replication rules.
         """
 
         try:
@@ -786,14 +799,15 @@ class AssociatedRules(MethodView):
         Return all associated rules of a file.
 
         .. :quickref: AssociatedRules; List associated rules of DID.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-
-        :param scope: The scope name.
+        :resheader Content-Type: application/x-json-stream
+        :param scope: The scope of the data identifier.
+        :param name: The name of the data identifier.
+        :status 200: DID found
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 500: Database Exception
+        :returns: List of associated rules.
         """
         try:
             data = ""
@@ -813,23 +827,19 @@ class GUIDLookup(MethodView):
         Return the file associated to a GUID.
 
         .. :quickref: GUIDLookup; List file by GUID.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-
-        :param scope: The scope name.
+        :resheader Content-Type: application/x-json-stream
+        :param guid: the GUID to query by.
+        :status 200: DID found
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 500: Database Exception
+        :returns: List of files for given GUID
         """
         try:
-            print("GUID START")
-            print(guid)
             data = ""
             for dataset in get_dataset_by_guid(guid):
                 data += dumps(dataset, cls=APIEncoder) + '\n'
-            print("DATA START")
-            print(data)
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound, error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
@@ -892,13 +902,12 @@ class NewDIDs(MethodView):
 
         .. :quickref: NewDIDs; List recent DIDs.
 
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-
-        :param type: The DID type.
+        :resheader Content-Type: application/x-json-stream
+        :query type: the DID type.
+        :status 200: DIDs found
+        :status 401: Invalid Auth Token
+        :status 500: Database Exception
+        :returns: List recently created DIDs.
         """
 
         type = None
