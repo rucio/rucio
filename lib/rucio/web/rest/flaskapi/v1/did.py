@@ -28,7 +28,7 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
 from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
-from rucio.web.rest.common import before_flask_request, after_flask_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 
 
 class Scope(MethodView):
@@ -999,10 +999,10 @@ bp.add_url_rule('/new', view_func=new_dids_view, methods=['get', ])
 resurrect_view = Resurrect.as_view('resurrect')
 bp.add_url_rule('/resurrect', view_func=resurrect_view, methods=['post', ])
 
-app = Flask(__name__)
-app.register_blueprint(bp)
-app.before_request(before_flask_request)
-app.after_request(after_flask_request)
+application = Flask(__name__)
+application.register_blueprint(bp)
+application.before_request(before_request)
+application.after_request(after_request)
 
 
 def make_doc():
@@ -1013,5 +1013,5 @@ def make_doc():
 
 
 if __name__ == "__main__":
-    app.run()
+    application.run()
 
