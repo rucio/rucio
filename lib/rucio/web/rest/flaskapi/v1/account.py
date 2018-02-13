@@ -11,7 +11,7 @@
 from json import dumps
 
 from rucio.api.scope import list_scopes
-from rucio.web.rest.common import before_flask_request, after_flask_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 
 from flask import Flask, Blueprint
 from flask.views import MethodView
@@ -91,10 +91,10 @@ account_view = Attributes.as_view('account')
 bp.add_url_rule('/', view_func=account_view, methods=['GET',])
 bp.add_url_rule('/<account>/<scope>', view_func=account_view, methods=['POST',])
 
-app = Flask(__name__)
-app.register_blueprint(bp)
-app.before_request(before_flask_request)
-app.after_request(after_flask_request)
+application = Flask(__name__)
+application.register_blueprint(bp)
+application.before_request(before_request)
+application.after_request(after_request)
 
 
 def make_doc():
@@ -105,4 +105,4 @@ def make_doc():
 
 
 if __name__ == "__main__":
-    app.run()
+    application.run()

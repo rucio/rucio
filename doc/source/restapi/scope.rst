@@ -1,12 +1,12 @@
 Scope Rest Api
-=============
+==============
 
 **Overview**
 
-.. qrefflask:: rucio.web.rest.flaskapi.scope:make_doc()
+.. qrefflask:: rucio.web.rest.flaskapi.v1.scope:make_doc()
      :undoc-static:
 
 **Details**
      
-.. autoflask:: rucio.web.rest.flaskapi.scope:make_doc()
+.. autoflask:: rucio.web.rest.flaskapi.v1.scope:make_doc()
      :undoc-static:
