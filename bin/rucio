@@ -359,7 +359,6 @@ def list_file_replicas(args):
 
     table = []
     dids = []
-    rse_dict = {}
     if args.missing and not args.selected_rse:
         print 'Cannot use --missing without specifying a RSE'
         return FAILURE
@@ -2558,7 +2557,7 @@ To list the missing replica of a dataset of a given RSE :
     list_dataset_replicas_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output.',)
 
     # The add-dataset command
-    add_dataset_parser = subparsers.add_parser('add-dataset', help='Add a dataset to Rucio Catalog.', 
+    add_dataset_parser = subparsers.add_parser('add-dataset', help='Add a dataset to Rucio Catalog.',
                                                formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
     $ rucio add-dataset user.jdoe:user.jdoe.test.data.1234.1
     Added user.jdoe:user.jdoe.test.data.1234.1''')
@@ -2585,7 +2584,6 @@ To list the missing replica of a dataset of a given RSE :
                                           formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
     $ rucio attach user.jdoe:user.jdoe.test.cont.1234.1 user.jdoe:user.jdoe.test.data.1234.1
     DIDs successfully attached to user.jdoe:user.jdoe.test.cont.1234.1''')
-
 
     attach_parser.set_defaults(which='attach')
     attach_parser.add_argument(dest='todid', action='store', help='Destination Data IDentifier (either dataset or container).')
@@ -2633,7 +2631,6 @@ You can filter by key/value, e.g.:
     | user.jdoe:user.jdoe.test.container.1234.2 | CONTAINER    |
     | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
     |-------------------------------------------+--------------|''')
-
 
     ls_parser.set_defaults(which='list_dids')
     ls_parser.add_argument('-r', '--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
