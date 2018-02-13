@@ -18,7 +18,7 @@ if __name__ == '__main__':
     create_root_account()
 
     add_account('jdoe', 'USER', 'test', 'root')
-    
-    add_scope('user.jdoe','jdoe', 'root')
+
+    add_scope('user.jdoe', 'jdoe', 'root')
 
     add_did('user.jdoe', 'test1', 'DATASET', 'root', account='jdoe')
