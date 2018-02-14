@@ -572,10 +572,8 @@ def add_protocol_rse(args):
     proto.setdefault('extended_attributes', {})
     if args.ext_attr_json:
         proto['extended_attributes'] = args.ext_attr_json
-    # Originally, both web-service-path and space-token were required.  However,
-    # many CMS sites don't use space tokens, so we relax this for now.
     if proto['scheme'] == 'srm' and not args.web_service_path:
-        print 'Error: web-service-path must be provided for SRM endpoints.'
+        print 'Error: space-token and web-service-path must be provided for SRM endpoints.'
         return FAILURE
     if args.space_token:
         proto['extended_attributes']['space_token'] = args.space_token
