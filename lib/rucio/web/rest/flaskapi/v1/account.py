@@ -16,6 +16,7 @@ from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 from flask import Flask, Blueprint
 from flask.views import MethodView
 
+
 class Attributes(MethodView):
     def get(self, account):
         """Return collection of posts.
@@ -67,7 +68,7 @@ class Attributes(MethodView):
         """Add new post.
 
         .. :quickref: Posts Collection; Add new post to collection.
-    
+
         :reqheader Accept: application/json
         :<json string title: post title
         :<json string body: post body
@@ -88,8 +89,8 @@ class Attributes(MethodView):
 
 bp = Blueprint('did', __name__)
 account_view = Attributes.as_view('account')
-bp.add_url_rule('/', view_func=account_view, methods=['GET',])
-bp.add_url_rule('/<account>/<scope>', view_func=account_view, methods=['POST',])
+bp.add_url_rule('/', view_func=account_view, methods=['GET', ])
+bp.add_url_rule('/<account>/<scope>', view_func=account_view, methods=['POST', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

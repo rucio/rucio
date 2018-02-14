@@ -18,6 +18,7 @@ from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
+
 class Scope(MethodView):
     def get(self):
         """List all scopes.
@@ -51,7 +52,7 @@ class Scope(MethodView):
         """Add a new scope.
 
         .. :quickref: Scopes; Add a new scope.
-    
+
         :resheader Location: post url
         :status 201: scope created
         :status 404: account does not exist
@@ -60,7 +61,7 @@ class Scope(MethodView):
         :status 500: internal server error
         """
         try:
-            add_scope(scope, account, issuer=request.environ.get('issuer'))        
+            add_scope(scope, account, issuer=request.environ.get('issuer'))
         except Duplicate, e:
             return generate_http_error_flask(409, 'Duplicate', e.args[0][0])
         except AccountNotFound, e:
@@ -74,13 +75,11 @@ class Scope(MethodView):
         return "OK", 201
 
 
-
-
 bp = Blueprint('scope', __name__)
 
 scope_view = Scope.as_view('scope')
-bp.add_url_rule('/', view_func=scope_view, methods=['GET',])
-bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=['POST',])
+bp.add_url_rule('/', view_func=scope_view, methods=['GET', ])
+bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=['POST', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)
@@ -93,6 +92,7 @@ def make_doc():
     doc_app = Flask(__name__)
     doc_app.register_blueprint(bp, url_prefix='/scopes')
     return doc_app
+
 
 if __name__ == "__main__":
     application.run()

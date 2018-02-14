@@ -70,9 +70,7 @@ class Scope(MethodView):
         """
 
         name = request.args.get('name', None)
-        
         recursive = False
-
         if 'recursive' in request.args:
             recursive = True
 
@@ -80,7 +78,6 @@ class Scope(MethodView):
             data = ""
             for did in scope_list(scope=scope, name=name, recursive=recursive):
                 data += render_json(**did) + '\n'
-                
             return Response(data, content_type='application/x-json-stream')
         except DataIdentifierNotFound, error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
@@ -230,7 +227,7 @@ class Attachments(MethodView):
 
         .. :quickref: Attachements; Attach DIDs to DIDs.
         """
-        
+
         # To be moved in a common processor
 
         attachments, ignore_duplicate = [], False
@@ -303,7 +300,6 @@ class DIDs(MethodView):
             dynamic = False
             if 'dynamic' in request.args:
                 dynamic = True
-            
             did = get_did(scope=scope, name=name, dynamic=dynamic)
             return Response(render_json(**did), content_type='application/json')
         except ScopeNotFound, error:
@@ -405,7 +401,7 @@ class DIDs(MethodView):
             Host: rucio.cern.ch
 
             {"open": False},
-            
+
         **Example response**:
 
         .. sourcecode:: http
@@ -422,7 +418,7 @@ class DIDs(MethodView):
         :status 409: Wrong status
         :status 500: Database Exception
         """
-        
+
         json_data = request.data
         try:
             kwargs = loads(json_data)
@@ -446,6 +442,7 @@ class DIDs(MethodView):
             return error, 500
 
         return "Ok", 200
+
 
 class Attachment(MethodView):
 
@@ -627,7 +624,7 @@ class Files(MethodView):
         """ List all replicas of a data identifier.
 
         .. :quickref: Files; List replicas of DID.
-        
+
         :resheader Content-Type: application/x-json-stream
         :param scope: The scope of the data identifier.
         :param name: The name of the data identifier.
@@ -662,7 +659,7 @@ class Parents(MethodView):
         """ List all parents of a data identifier.
 
         .. :quickref: Parents; List parents of DID.
-        
+
         :resheader Content-Type: application/x-json-stream
         :param scope: The scope of the data identifier.
         :param name: The name of the data identifier.
@@ -719,7 +716,7 @@ class Meta(MethodView):
         Add metadata to a data identifier.
 
         .. :quickref: Meta; Add DID metadata.
-        
+
         HTTP Success:
             201 Created
 
@@ -768,7 +765,7 @@ class Rules(MethodView):
         Return all rules of a given DID.
 
         .. :quickref: Rules; List rules of DID.
-        
+
         :resheader Content-Type: application/x-json-stream
         :param scope: The scope of the data identifier.
         :param name: The name of the data identifier.
@@ -974,35 +971,35 @@ class Resurrect(MethodView):
 bp = Blueprint('did', __name__)
 
 scope_view = Scope.as_view('scope')
-bp.add_url_rule('/<scope>/', view_func=scope_view, methods=['get',])
+bp.add_url_rule('/<scope>/', view_func=scope_view, methods=['get', ])
 guid_lookup_view = GUIDLookup.as_view('guid_lookup')
-bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get',])
+bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get', ])
 search_view = Search.as_view('search')
-bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get',])
+bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
 bulkdids_view = BulkDIDS.as_view('bulkdids')
-bp.add_url_rule('/', view_func=bulkdids_view, methods=['post',])
+bp.add_url_rule('/', view_func=bulkdids_view, methods=['post', ])
 attachements_view = Attachments.as_view('attachments')
-bp.add_url_rule('/attachments', view_func=attachements_view, methods=['post',])
+bp.add_url_rule('/attachments', view_func=attachements_view, methods=['post', ])
 dids_view = DIDs.as_view('dids')
 bp.add_url_rule('/<scope>/<name>', view_func=dids_view, methods=['get', 'post'])
-bp.add_url_rule('/<scope>/<name>/status', view_func=dids_view, methods=['put',])
+bp.add_url_rule('/<scope>/<name>/status', view_func=dids_view, methods=['put', ])
 files_view = Files.as_view('files')
-bp.add_url_rule('/<scope>/<name>/files', view_func=files_view, methods=['get',])
+bp.add_url_rule('/<scope>/<name>/files', view_func=files_view, methods=['get', ])
 attachment_history_view = AttachmentHistory.as_view('attachment_history')
-bp.add_url_rule('/<scope>/<name>/dids/history', view_func=attachment_history_view, methods=['get',])
-attachement_view = Attachment.as_view('attachment')
-bp.add_url_rule('/<scope>/<name>/dids', view_func=attachement_view, methods=['get', 'post', 'delete'])
+bp.add_url_rule('/<scope>/<name>/dids/history', view_func=attachment_history_view, methods=['get', ])
+attachment_view = Attachment.as_view('attachment')
+bp.add_url_rule('/<scope>/<name>/dids', view_func=attachment_view, methods=['get', 'post', 'delete'])
 meta_view = Meta.as_view('meta')
-bp.add_url_rule('/<scope>/<name>/meta', view_func=meta_view, methods=['get',])
-bp.add_url_rule('/<scope>/<name>/meta/<key>', view_func=meta_view, methods=['post',])
+bp.add_url_rule('/<scope>/<name>/meta', view_func=meta_view, methods=['get', ])
+bp.add_url_rule('/<scope>/<name>/meta/<key>', view_func=meta_view, methods=['post', ])
 rules_view = Rules.as_view('rules')
-bp.add_url_rule('/<scope>/<name>/rules', view_func=rules_view, methods=['get',])
+bp.add_url_rule('/<scope>/<name>/rules', view_func=rules_view, methods=['get', ])
 parents_view = Parents.as_view('parents')
-bp.add_url_rule('/<scope>/<name>/parents', view_func=parents_view, methods=['get',])
+bp.add_url_rule('/<scope>/<name>/parents', view_func=parents_view, methods=['get', ])
 associated_rules_view = AssociatedRules.as_view('associated_rules')
-bp.add_url_rule('/<scope>/<name>/associated_rules', view_func=associated_rules_view, methods=['get',])
+bp.add_url_rule('/<scope>/<name>/associated_rules', view_func=associated_rules_view, methods=['get', ])
 sample_view = Sample.as_view('sample')
-bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view, methods=['post',])
+bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view, methods=['post', ])
 new_dids_view = NewDIDs.as_view('new_dids')
 bp.add_url_rule('/new', view_func=new_dids_view, methods=['get', ])
 resurrect_view = Resurrect.as_view('resurrect')
@@ -1023,4 +1020,3 @@ def make_doc():
 
 if __name__ == "__main__":
     application.run()
-
