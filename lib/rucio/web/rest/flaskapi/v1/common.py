@@ -45,7 +45,7 @@ def before_request():
 
 def after_request(response):
     response.headers['Access-Control-Allow-Origin'] = request.environ.get('HTTP_ORIGIN')
-    response.headers['Access-Control-Allow-Headers']= request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
+    response.headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
     response.headers['Access-Control-Allow-Methods'] = '*'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
 
