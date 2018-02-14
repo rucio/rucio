@@ -572,7 +572,7 @@ def add_protocol_rse(args):
     proto.setdefault('extended_attributes', {})
     if args.ext_attr_json:
         proto['extended_attributes'] = args.ext_attr_json
-    if proto['scheme'] == 'srm' and (not args.space_token or not args.web_service_path):
+    if proto['scheme'] == 'srm' and not args.web_service_path:
         print 'Error: space-token and web-service-path must be provided for SRM endpoints.'
         return FAILURE
     if args.space_token:
