@@ -1198,6 +1198,7 @@ def get_parser():
 
     return oparser
 
+
 if __name__ == '__main__':
     oparser = get_parser()
     argcomplete.autocomplete(oparser)
