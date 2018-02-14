@@ -8,7 +8,7 @@
  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2016-2017
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2018
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
@@ -2903,5 +2903,5 @@ if __name__ == '__main__':
             print "Completed in %-0.4f sec." % (end_time - start_time)
         sys.exit(result)
     except Exception as error:
-        logger.error("Strange error {0}".format(error))
+        logger.error("Strange error: {0}".format(error))
         sys.exit(FAILURE)

@@ -1,20 +1,18 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017-2018
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
- - Wen Guan, <wen.guan@cern.ch>, 2014-2015
- - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
- - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
-'''
+# Authors:
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017-2018
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
+# - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
 
 import copy
 import os
