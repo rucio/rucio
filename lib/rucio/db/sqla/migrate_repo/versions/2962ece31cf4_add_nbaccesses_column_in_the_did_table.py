@@ -9,7 +9,7 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 
-Add nbaccesses column in the DID table
+Add access_cnt column in the DID table
 
 Revision ID: 2962ece31cf4
 Revises: 94a5961ddbf2
@@ -33,8 +33,8 @@ def upgrade():
     upgrade method
     '''
     if context.get_context().dialect.name != 'sqlite':  # pylint: disable=no-member
-        add_column('dids', sa.Column('nbaccesses', sa.Integer, server_default='0'))
-        add_column('deleted_dids', sa.Column('nbaccesses', sa.Integer, server_default='0'))
+        add_column('dids', sa.Column('access_cnt', sa.Integer, server_default='0'))
+        add_column('deleted_dids', sa.Column('access_cnt', sa.Integer, server_default='0'))
 
 
 def downgrade():
@@ -42,5 +42,5 @@ def downgrade():
     downgrade method
     '''
     if context.get_context().dialect.name != 'sqlite':  # pylint: disable=no-member
-        drop_column('dids', 'nbaccesses')
-        drop_column('deleted_dids', 'nbacesses')
+        drop_column('dids', 'access_cnt')
+        drop_column('deleted_dids', 'access_cnt')
