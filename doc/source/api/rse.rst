@@ -15,7 +15,7 @@ Client
 +++++++++++
 Manager
 +++++++++++
-.. autoclass:: rucio.rse.rsemanager.RSEMgr
+.. automodule:: rucio.rse.rsemanager
     :members:
     :undoc-members:
     :show-inheritance:
