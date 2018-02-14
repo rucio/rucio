@@ -309,7 +309,7 @@ def __sort_link_ranking(sources):
             rank_sources[link_ranking] = []
         rank_sources[link_ranking].append(source)
     rank_keys = rank_sources.keys()
-    rank_keys.sort(reverse=True)
+    rank_keys.sort()
     for rank_key in rank_keys:
         sources_list = rank_sources[rank_key]
         random.shuffle(sources_list)
