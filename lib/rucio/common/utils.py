@@ -254,6 +254,7 @@ def generate_http_error(status_code, exc_cls, exc_msg):
         print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
         raise
 
+
 def generate_http_error_flask(status_code, exc_cls, exc_msg):
     """
     utitily function to generate a complete HTTP error response.

@@ -64,7 +64,7 @@ class Scope(MethodView):
         :query recursive: flag to do a recursive search
         :resheader Content-Type: application/x-json-stream
         :status 200: DIDs found
-        :status 410: Invalid Auth Token
+        :status 401: Invalid Auth Token
         :status 404: no DIDs found in scope
         :returns: Line separated dictionaries of DIDs
         """
