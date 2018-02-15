@@ -12,7 +12,7 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2018
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
- - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+ - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
  - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
  - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
  - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
@@ -33,6 +33,7 @@ import sys
 import time
 import traceback
 import uuid
+
 
 import argcomplete
 import requests
@@ -359,15 +360,8 @@ def list_file_replicas(args):
 
     table = []
     dids = []
-    rse_dict = {}
     if args.missing and not args.selected_rse:
         print 'Cannot use --missing without specifying a RSE'
-        return FAILURE
-    if args.selected_rse and args.list_collections:
-        print 'Cannot use --rse with --list_collections option'
-        return FAILURE
-    if args.list_collections and len(args.dids) > 1:
-        print 'Cannot use --list_collections option with multiple dids'
         return FAILURE
     if args.link and ':' not in args.link:
         print 'The substition parameter must equal --link="/pfn/dir:/dst/dir"'
@@ -421,33 +415,13 @@ def list_file_replicas(args):
             for replica in replicas:
                 if 'bytes' in replica:
                     for rse in replica['rses']:
-                        if args.list_collections:
-                            if rse not in rse_dict:
-                                rse_dict[rse] = 0
-                            if replica['rses'][rse] != []:
-                                rse_dict[rse] += 1
-                        else:
-                            for pfn in replica['rses'][rse]:
-                                if args.selected_rse:
-                                    if rse == args.selected_rse:
-                                        table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
-                                else:
+                        for pfn in replica['rses'][rse]:
+                            if args.selected_rse:
+                                if rse == args.selected_rse:
                                     table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
-                elif not args.list_collections:
-                    table.append([replica['scope'], replica['name'], '???', '???', 'Unavailable'])
-            if args.list_collections:
-                nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
-                sorted_key = rse_dict.keys()
-                sorted_key.sort()
-                table = []
-                for rse in sorted_key:
-                    table.append([rse, rse_dict[rse], nbfiles])
-
-            if args.list_collections:
-                logger.warning('This option is deprecated. Please use rucio list-dataset-replicas instead.')
-                print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'Found', 'Total'])
-            else:
-                print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA'])
+                            else:
+                                table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
+            print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA'])
 
     return SUCCESS
 
@@ -525,6 +499,7 @@ def detach(args):
         cscope, cname = extract_scope(did)
         dids.append({'scope': cscope, 'name': cname})
     client.detach_dids(scope=scope, name=name, dids=dids)
+    print 'DIDs successfully detached from %s:%s' % (scope, name)
     return SUCCESS
 
 
@@ -1462,7 +1437,7 @@ def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint
     logger.info('Starting aria2c rpc server...')
 
     # trying up to 3 random ports
-    for i in range(3):
+    for _ in range(3):
         port = random.randint(1024, 65534)
         logger.debug('Trying to start rpc server on port: %d' % port)
         try:
@@ -2518,48 +2493,95 @@ def get_parser():
     oparser.add_argument('--ca-certificate', dest='ca_certificate', default=None, help='CA certificate to verify peer against (SSL).')
 
     # Ping command
-    ping_parser = subparsers.add_parser('ping', help='Ping Rucio server.')
+    ping_parser = subparsers.add_parser('ping', formatter_class=argparse.RawDescriptionHelpFormatter, help='Ping Rucio server.',
+                                        epilog='''Example usage:
+    $ rucio ping
+    1.14.8
+The returned value is the version of Rucio installed on the server
+                                               ''')
     ping_parser.set_defaults(which='ping')
 
     # The whoami command
-    whoami_parser = subparsers.add_parser('whoami', help='Get information about account whose token is used.')
+    whoami_parser = subparsers.add_parser('whoami', help='Get information about account whose token is used.', formatter_class=argparse.RawDescriptionHelpFormatter,
+                                          epilog='''Example usage:
+    $ rucio whoami
+    jdoe
+The returned value is the account currently used
+                                                 ''')
+
     whoami_parser.set_defaults(which='whoami_account')
 
     # The list-file-replicas command
-    list_file_replicas_parser = subparsers.add_parser('list-file-replicas', help='List the replicas of a DID and it\'s PFNs.', description='This method allows to list all the replicas of a given Data IDentifier (DID).\
-                                                 The only mandatory parameter is the DID which can be a container/dataset/files. By default all the files replicas in state available are returned.')
+    list_file_replicas_parser = subparsers.add_parser('list-file-replicas', help='List the replicas of a DID and it\'s PFNs.', description='This method allows to list all the replicas of a given Data IDentifier (DID). \
+The only mandatory parameter is the DID which can be a container/dataset/files. By default all the files replicas in state available are returned.', formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                      epilog='''Example usage:
+To list the file replicas for a given dataset :
+    $ rucio list-file-replicas user.jdoe:user.jdoe.test.data.1234.1
+    +-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
+    | SCOPE      | NAME                              | FILESIZE   | ADLER32   | RSE: REPLICA                                                                   |
+    |-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
+    | user.jdoe | user.jdoe.test.data.1234.file.1 | 94.835 MB  | 5d000974  | SITE1_DISK: srm://blahblih/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.1 |
+    | user.jdoe | user.jdoe.test.data.1234.file.1 | 94.835 MB  | 5d000974  | SITE2_DISK: file://another/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.1 |
+    | user.jdoe | user.jdoe.test.data.1234.file.2 | 82.173 MB  | 01e56f23  | SITE2_DISK: file://another/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.2 |
+    +------------+-----------------------------------+------------+-----------+--------------------------------------------------------------------------------+
+To list the missing replica of a dataset of a given RSE :
+    $ rucio list-file-replicas --rse SITE1_DISK user.jdoe:user.jdoe.test.data.1234.1
+    +---------------+------------------------+
+    | SCOPE     | NAME                       |
+    |---------------+------------------------|
+    | user.jdoe | user.jdoe.test.data.1234.2 |
+    +-----------+----------------------------+
+                                                 ''')
     list_file_replicas_parser.set_defaults(which='list_file_replicas')
     list_file_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols. (i.e. https, root, srm).', required=False)
     list_file_replicas_parser.add_argument('--all-states', dest='all_states', action='store_true', default=False, help='To select all replicas (including unavailable ones).', required=False)
-    list_file_replicas_parser.add_argument('--list-collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site\
-        (' + Color.BOLD + 'DEPRECATED: ' + Color.END + 'please use list-dataset-replicas instead.)', required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs.', required=False)
     list_file_replicas_parser.add_argument('--domain', default=None, action='store', help='Force the networking domain. Available options: wan, lan, all.', required=False)
     list_file_replicas_parser.add_argument('--link', dest='link', default=None, action='store', help='Symlink PFNs with directory substitution.', required=False)
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False).completer = rse_completer
-    list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE.', required=False)
+    list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE. Must be used with --rse option', required=False)
     list_file_replicas_parser.add_argument('--metalink', dest='metalink', default=False, action='store_true', help='Output available replicas as metalink.', required=False)
     list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: random (default), geoip', required=False)
     list_file_replicas_parser.add_argument('--expression', dest='rse_expression', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
             can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
 
     # The list-dataset-replicas command
-    list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas.')
+    list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas.',
+                                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                         epilog='''Example usage:
+    $ rucio list-dataset-replicas user.jdoe:user.jdoe.test.data.1234.1
+
+    DATASET: user.jdoe:user.jdoe.test.data.1234.1
+    +------------+---------+---------+
+    | RSE        |   FOUND |   TOTAL |
+    |------------+---------+---------|
+    | SITE1_DISK |       1 |       2 |
+    | SITE2_DISK |       2 |       2 |
+    +------------+---------+---------+
+                                                                ''')
     list_dataset_replicas_parser.set_defaults(which='list_dataset_replicas')
     list_dataset_replicas_parser.add_argument(dest='did', action='store', help='The name of the DID to search.')
     list_dataset_replicas_parser.add_argument('--deep', action='store_true', help='Make a deep check.')
-    list_dataset_replicas_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output.')
+    list_dataset_replicas_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output.',)
 
     # The add-dataset command
-    add_dataset_parser = subparsers.add_parser('add-dataset', help='Add a dataset to Rucio Catalog. ')
+    add_dataset_parser = subparsers.add_parser('add-dataset', help='Add a dataset to Rucio Catalog.',
+                                               formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+    $ rucio add-dataset user.jdoe:user.jdoe.test.data.1234.1
+    Added user.jdoe:user.jdoe.test.data.1234.1''')
+
     add_dataset_parser.set_defaults(which='add_dataset')
     add_dataset_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True.')
     add_dataset_parser.add_argument(dest='did', action='store', help='The name of the dataset to add.')
     add_dataset_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Lifetime in seconds.')
 
     # The add-container command
-    add_container_parser = subparsers.add_parser('add-container', help='Add a container to Rucio Catalog.')
+    add_container_parser = subparsers.add_parser('add-container', help='Add a container to Rucio Catalog.',
+                                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+    $ rucio add-container user.jdoe:user.jdoe.test.cont.1234.1
+    Added user.jdoe:user.jdoe.test.cont.1234.1''')
+
     add_container_parser.set_defaults(which='add_container')
     add_container_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True.')
     add_container_parser.add_argument(dest='did', action='store', help='The name of the container to add.')
@@ -2567,7 +2589,11 @@ def get_parser():
 
     # The attach command
     attach_parser = subparsers.add_parser('attach', help='Attach a list of DIDs to a parent DID.',
-                                          description='Attach a list of Data IDentifiers (file, dataset or container) to an other Data IDentifier (dataset or container).')
+                                          description='Attach a list of Data IDentifiers (file, dataset or container) to an other Data IDentifier (dataset or container).',
+                                          formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+    $ rucio attach user.jdoe:user.jdoe.test.cont.1234.1 user.jdoe:user.jdoe.test.data.1234.1
+    DIDs successfully attached to user.jdoe:user.jdoe.test.cont.1234.1''')
+
     attach_parser.set_defaults(which='attach')
     attach_parser.add_argument(dest='todid', action='store', help='Destination Data IDentifier (either dataset or container).')
     attach_parser.add_argument('-f', '--from-file', dest='fromfile', action='store_true', default=False, help='Attach the DIDs contained in a file. The file should contain one did per line.')
@@ -2575,24 +2601,82 @@ def get_parser():
 
     # The detach command
     detach_parser = subparsers.add_parser('detach', help='Detach a list of DIDs from a parent DID.',
-                                          description='Detach a list of Data Identifiers (file, dataset or container) from an other Data Identifier (dataset or container).')
+                                          description='Detach a list of Data Identifiers (file, dataset or container) from an other Data Identifier (dataset or container).',
+                                          formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+    $ rucio detach user.jdoe:user.jdoe.test.cont.1234.1 user.jdoe:user.jdoe.test.data.1234.1
+    DIDs successfully detached from user.jdoe:user.jdoe.test.cont.1234.1''')
+
     detach_parser.set_defaults(which='detach')
     detach_parser.add_argument(dest='fromdid', action='store', help='Target Data IDentifier (must be a dataset or container).')
     detach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The list command
     ls_parser = subparsers.add_parser('ls', help='List the data identifiers matching some metadata (synonym for list-dids).', description='List the Data IDentifiers matching certain pattern.\
-                                         Only the collections (i.e. dataset or container) are returned by default.\
-                                         With the filter option, you can specify a list of metadata that the Data IDentifier should match.')
+Only the collections (i.e. dataset or container) are returned by default. With the filter option, you can specify a list of metadata that the Data IDentifier should match.',
+                                      formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+You can query the DIDs matching a certain pattern. It always requires to specify the scope in which you want to search:
+
+    $ rucio ls user.jdoe:*
+    +-------------------------------------------+--------------+
+    | SCOPE:NAME                                | [DID TYPE]   |
+    |-------------------------------------------+--------------|
+    | user.jdoe:user.jdoe.test.container.1234.1 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.container.1234.2 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
+    | user.jdoe:user.jdoe.test.dataset.1        | DATASET      |
+    | user.jdoe:user.jdoe.test.dataset.2        | DATASET      |
+    | user.jdoe:user.jdoe.test.data.1234.1      | DATASET      |
+    | user.jdoe:test.file.1                     | FILE         |
+    | user.jdoe:test.file.2                     | FILE         |
+    | user.jdoe:test.file.3                     | FILE         |
+    |-------------------------------------------+--------------|
+
+You can filter by key/value, e.g.:
+    $ rucio ls --filter type=CONTAINER
+    +-------------------------------------------+--------------+
+    | SCOPE:NAME                                | [DID TYPE]   |
+    |-------------------------------------------+--------------|
+    | user.jdoe:user.jdoe.test.container.1234.1 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.container.1234.2 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
+    |-------------------------------------------+--------------|''')
+
     ls_parser.set_defaults(which='list_dids')
     ls_parser.add_argument('-r', '--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
     ls_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
     ls_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     ls_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern.')
 
-    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata (synonym for ls).', description='List the Data IDentifiers matching certain pattern.\
-                                         Only the collections (i.e. dataset or container) are returned by default.\
-                                         With the filter option, you can specify a list of metadata that the Data IDentifier should match.')
+    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata (synonym for ls).', description='List the Data IDentifiers matching certain pattern. \
+Only the collections (i.e. dataset or container) are returned by default. With the filter option, you can specify a list of metadata that the Data IDentifier should match.',
+                                        formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+You can query the DIDs matching a certain pattern. It always requires to specify the scope in which you want to search:
+
+    $ rucio list-dids user.jdoe:*
+    +-------------------------------------------+--------------+
+    | SCOPE:NAME                                | [DID TYPE]   |
+    |-------------------------------------------+--------------|
+    | user.jdoe:user.jdoe.test.container.1234.1 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.container.1234.2 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
+    | user.jdoe:user.jdoe.test.dataset.1        | DATASET      |
+    | user.jdoe:user.jdoe.test.dataset.2        | DATASET      |
+    | user.jdoe:user.jdoe.test.data.1234.1      | DATASET      |
+    | user.jdoe:test.file.1                     | FILE         |
+    | user.jdoe:test.file.2                     | FILE         |
+    | user.jdoe:test.file.3                     | FILE         |
+    |-------------------------------------------+--------------|
+
+You can filter by key/value, e.g.:
+    $ rucio list-dids --filter type=CONTAINER
+    +-------------------------------------------+--------------+
+    | SCOPE:NAME                                | [DID TYPE]   |
+    |-------------------------------------------+--------------|
+    | user.jdoe:user.jdoe.test.container.1234.1 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.container.1234.2 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
+    |-------------------------------------------+--------------|''')
+
     list_parser.set_defaults(which='list_dids')
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
     list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
@@ -2600,21 +2684,47 @@ def get_parser():
     list_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 
     # The list parent-dids command
-    list_parent_parser = subparsers.add_parser('list-parent-dids', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.')
+    list_parent_parser = subparsers.add_parser('list-parent-dids', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.',
+                                               formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+    $ rucio list-parent-dids user.jdoe:user.jdoe.test.data.1234.1
+    +--------------------------------------+--------------+
+    | SCOPE:NAME                           | [DID TYPE]   |
+    |--------------------------------------+--------------|
+    | user.jdoe:user.jdoe.test.cont.1234.2 | CONTAINER    |
+    +--------------------------------------+--------------+
+
+    ''')
     list_parent_parser.set_defaults(which='list_parent_dids')
     list_parent_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
     list_parent_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
 
     # argparse 2.7 does not allow aliases for commands, thus the list-parent-datasets is a copy&paste from list-parent-dids
-    list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.')
+    list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.',
+                                                        formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+    $ rucio list-parent-datasets user.jdoe:user.jdoe.test.data.1234.1
+    +--------------------------------------+--------------+
+    | SCOPE:NAME                           | [DID TYPE]   |
+    |--------------------------------------+--------------|
+    | user.jdoe:user.jdoe.test.cont.1234.2 | CONTAINER    |
+    +--------------------------------------+--------------+
+
+    ''')
+
     list_parent_datasets_parser.set_defaults(which='list_parent_datasets')
     list_parent_datasets_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
     list_parent_datasets_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_datasets_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
 
     # The list-scopes command
-    scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes.')
+    scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes.',
+                                              formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+    $ rucio list-scopes
+    mc
+    data
+    user.jdoe
+    user.janedoe''')
+
     scope_list_parser.set_defaults(which='list_scopes')
 
     # The close command
@@ -2784,7 +2894,24 @@ def get_parser():
     info_rule_parser.add_argument('--estimate-ttc', dest='estimate_ttc', action='store_true', help='Show Estimated Time To Complete for the rule. Calculation can be time consuming.')
 
     # The list_rules command
-    list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules.')
+    list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules.', formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Example usage:
+You can list the rules for a particular DID:
+    $ rucio list-rules user.jdoe:user.jdoe.test.container.1234.1
+    ID                                ACCOUNT    SCOPE:NAME                                 STATE[OK/REPL/STUCK]    RSE_EXPRESSION        COPIES  EXPIRES (UTC)
+    --------------------------------  ---------  -----------------------------------------  ----------------------  ------------------  --------  -------------------
+    a12e5664555a4f12b3cc6991db5accf9  jdoe       user.jdoe:user.jdoe.test.container.1234.1  OK[3/0/0]               tier=1&disk=1       1         2018-02-09 03:57:46
+    b0fcde2acbdb489b874c3c4537595adc  janedoe    user.jdoe:user.jdoe.test.container.1234.1  REPLICATING[4/1/1]      tier=1&tape=1       2
+    4a6bd85c13384bd6836fbc06e8b316d7  mc         user.jdoe:user.jdoe.test.container.1234.1  OK[3/0/0]               tier=1&tape=1       2
+You can filter by account :
+    $ rucio list-rules --account jdoe
+    ID                                ACCOUNT    SCOPE:NAME                                 STATE[OK/REPL/STUCK]    RSE_EXPRESSION        COPIES  EXPIRES (UTC)
+    --------------------------------  ---------  -----------------------------------------  ----------------------  ------------------  --------  -------------------
+    a12e5664555a4f12b3cc6991db5accf9  jdoe       user.jdoe:user.jdoe.test.container.1234.1  OK[3/0/0]               tier=1&disk=1       1         2018-02-09 03:57:46
+    08537b2176843d92e05317938a89d148  jdoe       user.jdoe:user.jdoe.test.data.1234.1       OK[2/0/0]               SITE2_DISK          1
+
+
+                                              ''')
+
     list_rules_parser.set_defaults(which='list_rules')
     list_rules_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='List by did')
     list_rules_parser.add_argument('--id', dest='rule_id', action='store', help='List by rule id')
@@ -2823,8 +2950,8 @@ def get_parser():
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='Show the list of all the registered Rucio Storage Elements (RSEs).')
     list_rses_parser.set_defaults(which='list_rses')
-    list_rses_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
-            can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
+    list_rses_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
+can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
 
     # The list-rses-attributes command
     list_rse_attributes_parser = subparsers.add_parser('list-rse-attributes', help='List the attributes of an RSE.', description='This command is useful to create RSE filter expressions.')
