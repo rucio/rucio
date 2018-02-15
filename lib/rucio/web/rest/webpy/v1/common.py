@@ -21,7 +21,7 @@ from web.webapi import Created, HTTPError, OK, seeother
 
 from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error, generate_http_error_flask, generate_uuid
+from rucio.common.utils import generate_http_error, generate_uuid
 from rucio.core.monitor import record_timer
 
 
