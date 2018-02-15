@@ -22,9 +22,9 @@ import time
 
 from rucio.client.client import Client
 from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists,
-                                    DataIdentifierNotFound, Duplicate, FileAlreadyExists,
-                                    ServiceUnavailable, ResourceTemporaryUnavailable, InputValidationError)
-from rucio.common.utils import adler32, generate_uuid, md5, execute
+                                    DataIdentifierNotFound, ServiceUnavailable,
+                                    ResourceTemporaryUnavailable, InputValidationError)
+from rucio.common.utils import adler32, execute, generate_uuid, md5, send_trace
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
@@ -32,11 +32,15 @@ from rucio import version
 class UploadClient:
     """ This class cover all functionality related to file uploads into Rucio."""
 
-    def __init__(self, _client=None):
-        self.logger = logging.getLogger('uploadclient')
-        logging.basicConfig()
-        self.logger.setLevel(logging.DEBUG)
+    def __init__(self, _client=None, user_agent='rucio_clients', logger=None):
+        if not logger:
+            logger = logging.getLogger('rucio_uploadclient')
+            logger.addHandler(logging.NullHandler())
+
+        self.logger = logger
+        self.user_agent = user_agent
         self.client = _client if _client else Client()
+        print(self.client.host)
         self.account = self.client.account
         self.default_file_scope = 'user.' + self.client.account
 
@@ -87,7 +91,25 @@ class UploadClient:
         logger = self.logger
         files = []
         for settings in sources_with_settings:
-            path = settings['path']
+            path = settings.get('path')
+            pfn = settings.get('pfn')
+            if not path:
+                logger.warning('Skipping source entry because the key "path" is missing')
+                continue
+            if not settings.get('rse'):
+                logger.warning('Skipping file %s because no rse was given' % path)
+                continue
+            if pfn:
+                if settings.get('no_register'):
+                    logger.warning('Upload with given pfn implies that no_register is True')
+                    settings['no_register'] = True
+                scheme = settings.get('scheme')
+                pfn_scheme = pfn.split(':')[0]
+                if scheme and scheme != pfn_scheme:
+                    logger.warning('PFN scheme (%s) overrides given scheme (%s)' % (pfn_scheme, scheme))
+                    scheme = pfn_scheme
+                settings['scheme'] = pfn_scheme
+
             if os.path.isdir(path):
                 dname, subdirs, fnames = os.walk(path).next()
                 for fname in fnames:
@@ -121,6 +143,7 @@ class UploadClient:
 
     def upload(self, sources_with_settings, summary_file_path=None):
         """
+        List of dictionaries of file descriptions. None means optional
         [{'path': 'file1',
           'rse': 'rse_name1',
           'did_scope': None,
@@ -132,8 +155,8 @@ class UploadClient:
           'no_register': None,
           'lifetime': None },
 
-         {'path': 'file1',
-          'rse': 'rse_name1',
+         {'path': 'file2',
+          'rse': 'rse_name2',
           'did_scope': None,
           'did_name': None,
           'dataset_name': None,
@@ -142,8 +165,9 @@ class UploadClient:
           'pfn': None,
           'no_register': None,
           'lifetime': None }]
-          InputValidationError
-          RSEBlacklisted
+
+          raises InputValidationError
+          raises RSEBlacklisted
         """
         logger = self.logger
 
@@ -185,15 +209,6 @@ class UploadClient:
             no_register = file.get('no_register')
             pfn = file.get('pfn')
             scheme = file.get('scheme')
-            if pfn:
-                if not no_register:
-                    logger.warning('Upload with given pfn implies that no_register is True')
-                    no_register = True
-
-                pfn_scheme = pfn.split(':')[0]
-                if scheme and scheme != pfn_scheme:
-                    logger.warning('PFN scheme (%s) overrides given scheme (%s)' % (pfn_scheme, scheme))
-                scheme = pfn_scheme
 
             self.trace['scope'] = file['did_scope']
             self.trace['datasetScope'] = file.get('dataset_scope', '')
@@ -240,11 +255,6 @@ class UploadClient:
                 if rse not in replicastate[0]['rses'] and not no_register:
                     logger.info('Adding replica at %s in Rucio catalog' % rse)
                     self.client.add_replicas(rse=file['rse'], files=[replica_for_api])
-
-                # if file already exists on RSE we're done
-                if rsemgr.exists(rse_settings, file_did):
-                    logger.info('File already exists on RSE. Will not try to reupload')
-                    continue
             except DataIdentifierNotFound:
                 if not no_register:
                     logger.info('Adding replica at %s in Rucio catalog' % rse)
@@ -254,63 +264,64 @@ class UploadClient:
                         logger.info('Adding replication rule at %s' % rse)
                         self.client.add_replication_rule([file_did], copies=1, rse_expression=rse, lifetime=file['lifetime'])
 
-            protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme)
-            protocols.reverse()
-            success = False
-            summary = []
-            while not success and len(protocols):
-                protocol = protocols.pop()
-                logger.info('Trying upload to %s with protocol %s' % (rse, protocol['scheme']))
-                lfn = {}
-                lfn['filename'] = file['basename']
-                lfn['scope'] = file['did_scope']
-                lfn['name'] = file['did_name']
-                lfn['adler32'] = file['adler32']
-                lfn['filesize'] = file['bytes']
+            # if file already exists on RSE we're done
+            if not rsemgr.exists(rse_settings, file_did):
+                protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme)
+                protocols.reverse()
+                success = False
+                summary = []
+                while not success and len(protocols):
+                    protocol = protocols.pop()
+                    logger.info('Trying upload to %s with protocol %s' % (rse, protocol['scheme']))
+                    lfn = {}
+                    lfn['filename'] = file['basename']
+                    lfn['scope'] = file['did_scope']
+                    lfn['name'] = file['did_name']
+                    lfn['adler32'] = file['adler32']
+                    lfn['filesize'] = file['bytes']
 
-                self.trace['protocol'] = protocol['scheme']
-                self.trace['transferStart'] = time.time()
-                try:
-                    state = rsemgr.upload(rse_settings=rse_settings,
-                                          lfns=lfn,
-                                          source_dir=file['dirname'],
-                                          force_scheme=protocol['scheme'],
-                                          force_pfn=pfn)
-                    success = True
-                    file['upload_result'] = state
-                except (Duplicate, FileAlreadyExists) as error:
-                    logger.warning('Skipping upload of %s because file already exists' % basename)
-                    logger.debug('Exception: %s' % str(error))
-                    # TODO trace?
-                    break
-                except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
-                    success = False
-                    logger.warning('Upload attempt failed')
-                    logger.debug('Exception: %s' % str(error))
+                    self.trace['protocol'] = protocol['scheme']
+                    self.trace['transferStart'] = time.time()
+                    try:
+                        state = rsemgr.upload(rse_settings=rse_settings,
+                                              lfns=lfn,
+                                              source_dir=file['dirname'],
+                                              force_scheme=protocol['scheme'],
+                                              force_pfn=pfn)
+                        success = True
+                        file['upload_result'] = state
+                    except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
+                        logger.warning('Upload attempt failed')
+                        logger.debug('Exception: %s' % str(error))
 
                 if success:
                     self.trace['transferEnd'] = time.time()
                     self.trace['clientState'] = 'DONE'
                     file['state'] = 'A'
                     logger.info('File %s successfully uploaded' % basename)
-                    # send_trace(self.trace, self.client.host, args.user_agent)
+                    send_trace(self.trace, self.client.host, self.user_agent, logger=logger)
                     if summary_file_path:
                         summary.append(copy.deepcopy(file))
+                else:
+                    logger.error('Failed to upload file %s' % basename)
+                    # TODO trace?
+                    continue  # skip attach_did and update_states for this file
+            else:
+                logger.info('File already exists on RSE. Skipped upload')
 
-            # add file to dataset if needed
-            if dataset_did_str and success and not no_register:
-                try:
-                    logger.info('Attaching uploaded file to dataset')
-                    self.client.add_files_to_dataset(file['dataset_scope'], file['dataset_name'], file_did)
-                except Exception as error:
-                    logger.warning('Failed to attach file to the dataset')
-                    logger.warning(error)
-            elif not success:
-                logger.error('Failed to upload file %s' % basename)
+            if not no_register:
+                # add file to dataset if needed
+                if dataset_did_str:
+                    try:
+                        logger.info('Attaching file to dataset %s' % dataset_did_str)
+                        self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
+                    except Exception as error:
+                        logger.warning('Failed to attach file to the dataset')
+                        logger.warning(error)
 
-            logger.info('Setting replica state to available')
-            replica_for_api = self.convert_file_for_api(file)
-            self.client.update_replicas_states(rse, files=[replica_for_api])
+                logger.info('Setting replica state to available')
+                replica_for_api = self.convert_file_for_api(file)
+                self.client.update_replicas_states(rse, files=[replica_for_api])
 
         if summary_file_path:
             final_summary = {}
