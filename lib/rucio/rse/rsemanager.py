@@ -14,6 +14,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
 
+
 import copy
 import os
 
@@ -309,7 +310,7 @@ def exists(rse_settings, files):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
+def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -319,6 +320,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
                             If the 'filename' key is present, it will be used by Rucio as the actual name of the file on disk (separate from the Rucio 'name').
         :param source_dir:  path to the local directory including the source files
         :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
+        :param force_scheme: use the given protocol scheme, overriding the protocol priority in the RSE description
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -330,9 +332,9 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
     ret = {}
     gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write')
+    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete')
+    protocol_delete = create_protocol(rse_settings, 'delete', scheme=force_scheme)
     protocol_delete.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
