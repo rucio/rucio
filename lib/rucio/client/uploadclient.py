@@ -9,6 +9,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+# - Tobias Wegner, <tobias.wegner@cern.ch>, 2018
 
 
 import copy
@@ -38,12 +39,11 @@ class UploadClient:
             logger.addHandler(logging.NullHandler())
 
         self.logger = logger
-        self.user_agent = user_agent
         self.client = _client if _client else Client()
-        print(self.client.host)
         self.account = self.client.account
-        self.default_file_scope = 'user.' + self.client.account
+        self.user_agent = user_agent
 
+        self.default_file_scope = 'user.' + self.client.account
         self.rses = {}
 
         self.trace = {}
