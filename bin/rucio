@@ -8,7 +8,7 @@
  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2016-2017
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2018
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
@@ -230,20 +230,20 @@ def exception_handler(function):
             else:
                 logger.error(error)
                 logger.debug(traceback.format_exc())
-                logger.error("This means that the object doesn't have the property " + str(error) +
-                             ". This should never happen. Please rerun the last command with the '-v'" +
-                             " option and submit a ticket with all the necessary information at https://its.cern.ch/jira/browse/RUCIO")
-            return FAILURE
+                logger.error('The object is missing this property: ' + str(error))
+                logger.error('This should never happen. Please rerun the last command with the "-v" option to gather more information.')
+                logger.error('Please followup with all relevant information at: %s' % config_get('policy', 'support_email'))
+            raise
         except RucioException as error:
             logger.error(error)
             return error.error_code
-        except IOError as error:
-            logger.error(error)
-            return FAILURE
         except Exception as error:
-            logger.error(error)
-            logger.error("Rucio exited with an unexpected/unknown error. Please rerun the last command with the '-v' option and submit a ticket with all the available information to reproduce this error at https://its.cern.ch/jira/browse/RUCIO")
             logger.debug(traceback.format_exc())
+            logger.error(error)
+            logger.error('Rucio exited with an unexpected/unknown error.')
+            logger.error('Please rerun the last command with the "-v" option to gather more information.')
+            logger.error('If it is a problem concerning your experiment or if you unsure what to do, please followup at: %s' % config_get('policy', 'support_email'))
+            logger.error('If it is a problem concerning Rucio itself, please followup at: %s' % config_get('policy', 'support_url'))
             return FAILURE
     return new_funct
 
