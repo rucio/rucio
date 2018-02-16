@@ -6,7 +6,13 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013, 2015, 2018
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Martin Baristis, <martin.barisits@cern.ch>, 2014-2015
 
 from json import dumps, loads
 from traceback import format_exc

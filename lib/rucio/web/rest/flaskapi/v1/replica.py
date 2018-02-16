@@ -6,7 +6,10 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2018
 
 from datetime import datetime
 from json import dumps
@@ -38,6 +41,7 @@ class Replicas(MethodView):
         """
         List all replicas for data identifiers.
 
+        .. :quickref: Replicas; List all replicas for did
         HTTP Success:
             200 OK
 
@@ -131,6 +135,7 @@ class Replicas(MethodView):
         """
         Create file replicas at a given RSE.
 
+        .. :quickref: Replicas; create replicas at RSE
         HTTP Success:
             201 Created
 
@@ -170,6 +175,7 @@ class Replicas(MethodView):
         """
         Update a file replicas state at a given RSE.
 
+        .. :quickref: Replicas; update replicas state.
         HTTP Success:
             200 OK
 
@@ -199,6 +205,8 @@ class Replicas(MethodView):
     def delete(self):
         """
         Delete file replicas at a given RSE.
+
+        .. :quickref: Replicas; Delete replica at RSE.
 
         HTTP Success:
             200 Ok
@@ -238,6 +246,7 @@ class ListReplicas(MethodView):
         """
         List all replicas for data identifiers.
 
+        .. :quickref: ListReplicas; List all replicas for did.
         HTTP Success:
             200 OK
 
@@ -368,6 +377,7 @@ class ReplicasDIDs(MethodView):
         """
         List the DIDs associated to a list of replicas.
 
+        .. :quickref: ReplicasDIDs; List DIDs for replicas.
         HTTP Success:
             200 OK
 
@@ -407,6 +417,7 @@ class BadReplicas(MethodView):
         """
         Declare a list of bad replicas.
 
+        .. :quickref: BadReplicasStates; Declare bad replicas.
         HTTP Success:
             200 OK
 
@@ -446,6 +457,7 @@ class SuspiciousReplicas(MethodView):
         """
         Declare a list of suspicious replicas.
 
+        .. :quickref: SuspiciousReplicas; Declare suspicious replicas.
         HTTP Success:
             200 OK
 
@@ -484,6 +496,7 @@ class BadReplicasStates(MethodView):
         """
         List the bad or suspicious replicas by states.
 
+        .. :quickref: BadReplicasStates; List bad replicas.
         HTTP Success:
             200 OK
 
@@ -530,6 +543,7 @@ class BadReplicasSummary(MethodView):
         """
         Return a summary of the bad replicas by incident.
 
+        .. :quickref: BadReplicasSummary; List bad replicas by incident.
         HTTP Success:
             200 OK
 
@@ -565,8 +579,9 @@ class DatasetReplicas(MethodView):
 
     def get(self, scope, name):
         """
-        List dataset replicas replicas.
+        List dataset replicas.
 
+        .. :quickref: DatasetReplicas; List dataset replicas.
         HTTP Success:
             200 OK
 
@@ -593,8 +608,9 @@ class ReplicasRSE(MethodView):
 
     def get(self, rse):
         """
-        List dataset replicas replicas.
+        List dataset replicas per RSE.
 
+        .. :quickref: ReplicasRSE; List dataset replicas per RSE.
         HTTP Success:
             200 OK
 

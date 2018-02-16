@@ -6,6 +6,10 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
 
 import base64
