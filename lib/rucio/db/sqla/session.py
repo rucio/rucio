@@ -8,7 +8,7 @@
   Authors:
   - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
-  - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2016
+  - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2018
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
   - Wen Guan, <wen.guan@cern.ch>, 2016
 '''
@@ -16,7 +16,6 @@
 import os
 import sys
 
-from ConfigParser import NoOptionError
 from functools import wraps
 from inspect import isgeneratorfunction
 from retrying import retry
@@ -47,11 +46,10 @@ except:
     pass
 
 BASE = declarative_base()
-try:
-    DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema')
+DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema',
+                                 raise_exception=False, default=None)
+if DEFAULT_SCHEMA_NAME:
     BASE.metadata.schema = DEFAULT_SCHEMA_NAME
-except NoOptionError:
-    DEFAULT_SCHEMA_NAME = None
 
 _MAKER, _ENGINE, _LOCK = None, None, Lock()
 
@@ -152,10 +150,10 @@ def get_engine(echo=True):
                          ('pool_reset_on_return', str), ('use_threadlocal', int)]
         params = {}
         for param, param_type in config_params:
-            try:
-                params[param] = param_type(config_get(DATABASE_SECTION, param))
-            except NoOptionError:
-                pass
+            params[param] = param_type(config_get(DATABASE_SECTION,
+                                                  param,
+                                                  raise_exception=False,
+                                                  default=None))
         _ENGINE = create_engine(sql_connection, **params)
         if 'mysql' in sql_connection:
             event.listen(_ENGINE, 'checkout', mysql_ping_listener)
