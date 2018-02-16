@@ -27,9 +27,23 @@ import ConfigParser
 from rucio.common import exception
 
 
-def config_get(section, option):
-    """Return the string value for a given option in a section"""
-    return __CONFIG.get(section, option)
+def config_get(section, option, raise_exception=True, default=None):
+    """
+    Return the string value for a given option in a section
+
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not NoOptionError or NoSectionError.
+    :param default: the default value if not found.
+.
+    :returns: the configuration value.
+    """
+    try:
+        return __CONFIG.get(section, option)
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+        if raise_exception:
+            raise err
+        return default
 
 
 def config_has_section(section):
