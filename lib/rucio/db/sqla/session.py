@@ -150,10 +150,10 @@ def get_engine(echo=True):
                          ('pool_reset_on_return', str), ('use_threadlocal', int)]
         params = {}
         for param, param_type in config_params:
-            params[param] = param_type(config_get(DATABASE_SECTION,
-                                                  param,
-                                                  raise_exception=False,
-                                                  default=None))
+            try:
+                params[param] = param_type(config_get(DATABASE_SECTION, param))
+            except:
+                pass
         _ENGINE = create_engine(sql_connection, **params)
         if 'mysql' in sql_connection:
             event.listen(_ENGINE, 'checkout', mysql_ping_listener)
