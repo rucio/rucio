@@ -21,5 +21,5 @@ request_retries = 3
 permission = atlas
 schema = atlas
 lfn2pfn_algorithm_default = hash
-support_email = hn-atlas-dist-analysis-help@cern.ch
-support_url = https://github.com/rucio/rucio/issues/
+support = hn-atlas-dist-analysis-help@cern.ch
+support_rucio = https://github.com/rucio/rucio/issues/
