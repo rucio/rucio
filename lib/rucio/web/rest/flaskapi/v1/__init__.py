@@ -6,4 +6,4 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018

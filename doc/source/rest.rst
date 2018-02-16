@@ -59,6 +59,7 @@ The methods are separated per resource type.
     :maxdepth: 1
 
     restapi/account
+    restapi/account_limit
     restapi/authentication
     restapi/did
     restapi/replica
