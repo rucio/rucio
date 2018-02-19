@@ -7,7 +7,7 @@ services:
 
 install:
   - cp etc/docker/travis/Dockerfile Dockerfile
-  - git diff --name-status HEAD $(git merge-base HEAD master) | grep .py | grep -v '^A' | cut -f 2 | paste -sd " " - > changed_files.txt
+  - git diff --name-status HEAD $(git merge-base HEAD master) | grep .py | grep -v '^A' | grep -v 'conf.py' | cut -f 2 | paste -sd " " - > changed_files.txt
   - docker build -t rucio/rucio .
 
 before_script:

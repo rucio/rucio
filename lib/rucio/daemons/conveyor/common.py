@@ -162,7 +162,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
 
         job_params = {'verify_checksum': True if file['checksum'] and file['metadata'].get('verify_checksum', True) else False,
-                      'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else 'null',
+                      'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else None,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
