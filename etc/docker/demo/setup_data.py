@@ -19,7 +19,7 @@ from rucio.api.did import add_did
 from rucio.api.rse import add_rse
 from rucio.db.sqla.util import build_database, create_root_account
 from rucio.core.account_limit import set_account_limit
-from rucio.core.rse import add_protocol, get_rse_id
+from rucio.core.rse import add_protocol, get_rse_id, add_rse_attribute
 
 if __name__ == '__main__':
     # Create the Database and the root account
@@ -40,8 +40,7 @@ if __name__ == '__main__':
     os.mkdir('/tmp/SITE2_DISK')
     os.mkdir('/tmp/SITE1_DISK')
 
-    params = {'hostname': 'SITE1_DISK',
-              'scheme': 'file',
+    params = {'scheme': 'file',
               'prefix': '/tmp/SITE1_DISK/',
               'impl': 'rucio.rse.protocols.posix.Default',
               'domains': {"lan": {"read": 1,
@@ -53,9 +52,9 @@ if __name__ == '__main__':
 
     add_rse('SITE1_DISK', 'root')
     add_protocol('SITE1_DISK', params)
+    add_rse_attribute(rse='SITE1_DISK', key='istape', value='False')
 
-    params = {'hostname': 'SITE2_DISK',
-              'scheme': 'file',
+    params = {'scheme': 'file',
               'prefix': '/tmp/SITE2_DISK/',
               'impl': 'rucio.rse.protocols.posix.Default',
               'domains': {"lan": {"read": 1,
@@ -67,6 +66,7 @@ if __name__ == '__main__':
 
     add_rse('SITE2_DISK', 'root')
     add_protocol('SITE2_DISK', params)
+    add_rse_attribute(rse='SITE2_DISK', key='istape', value='False')
 
     # Now set a quota for root and jdoe on the 2 RSEs
     set_account_limit('root', get_rse_id('SITE1_DISK'), 100000000000)

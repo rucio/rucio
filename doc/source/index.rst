@@ -65,6 +65,7 @@ Operator Documentation
 .. toctree::
     :maxdepth: 1
 
+    rucio_demo
     installing_server
     installing_daemons
     Monitoring
