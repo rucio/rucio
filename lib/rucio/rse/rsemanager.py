@@ -19,6 +19,7 @@
 
 import copy
 import os
+import random
 
 from urlparse import urlparse
 
@@ -125,6 +126,8 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
         raise exception.RSEProtocolDomainNotSupported('Domain %s not supported' % domain)
 
     candidates = _get_possible_protocols(rse_settings, operation, scheme, domain)
+    # Shuffle candidates to load-balance over equal sources
+    random.shuffle(candidates)
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
@@ -640,6 +643,10 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
 
     if not len(src_candidates) or not len(dest_candidates):
         raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
+
+    # Shuffle the candidates to load-balance across equal weights.
+    random.shuffle(dest_candidates)
+    random.shuffle(src_candidates)
 
     # Select the one with the highest priority
     dest_candidates = sorted(dest_candidates, key=lambda k: k['domains'][domain][operation_dest])
