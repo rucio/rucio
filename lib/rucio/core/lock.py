@@ -8,7 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -31,7 +31,10 @@ from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType,
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 

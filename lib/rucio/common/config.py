@@ -76,9 +76,23 @@ def config_get_float(section, option):
     return __CONFIG.getfloat(section, option)
 
 
-def config_get_bool(section, option):
-    """Return the boolean value for a given option in a section"""
-    return __CONFIG.getboolean(section, option)
+def config_get_bool(section, option, raise_exception=True, default=None):
+    """
+    Return the boolean value for a given option in a section
+
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not NoOptionError or NoSectionError.
+    :param default: the default value if not found.
+.
+    :returns: the configuration value.
+    """
+    try:
+        return __CONFIG.getboolean(section, option)
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+        if raise_exception:
+            raise err
+        return default
 
 
 def config_get_options(section):
@@ -190,6 +204,7 @@ for configfile in __CONFIGFILES:
         break
 
 if not __HAS_CONFIG:
+
     if not any("sphinx-build" in argc for argc in sys.argv):
         # test to not fail when build the API doc
         raise Exception('Could not load rucio configuration file rucio.cfg.'
