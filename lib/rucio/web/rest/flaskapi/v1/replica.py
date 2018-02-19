@@ -49,6 +49,15 @@ class Replicas(MethodView):
             401 Unauthorized
             500 InternalError
 
+        :reqheader HTTP_ACCEPT: application/metalink4+xml
+        :param scope: data identifier scope.
+        :param name: data identifier name.
+        :resheader Content-Type: application/x-json-stream
+        :resheader Content-Type: application/metalink4+xml
+        :status 200: OK.
+        :status 401: Invalid auth token.
+        :status 404: DID not found.
+        :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
@@ -136,13 +145,17 @@ class Replicas(MethodView):
         Create file replicas at a given RSE.
 
         .. :quickref: Replicas; create replicas at RSE
-        HTTP Success:
-            201 Created
 
-        HTTP Error:
-            401 Unauthorized
-            409 Conflict
-            500 Internal Error
+        :<json string rse: The RSE name.
+        :<json list files: list of dicts with 'scope', 'name', 'bytes', 'meta' and 'adler32'.
+        :<json bool ignore_availability: Flag to ignore the RSE blacklisting.
+        :status 201: Replica Successfully created.
+        :status 400: Invalid Path.
+        :status 401: Invalid auth token.
+        :status 404: RSE not found.
+        :status 409: Replica already exists.
+        :status 409: DID already exists.
+        :status 503: Resource Temporary Unavailable.
         """
         json_data = request.data
         try:
@@ -176,12 +189,13 @@ class Replicas(MethodView):
         Update a file replicas state at a given RSE.
 
         .. :quickref: Replicas; update replicas state.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            500 Internal Error
+        :<json string rse: The RSE name.
+        :<json list files: list of dicts with 'scope', 'name' and 'state'.
+        :status 201: Replica successfully updated.
+        :status 400: Cannot decode json parameter list.
+        :status 401: Invalid auth token.
+        :status 500: Internal Error.
         """
         json_data = request.data
         try:
@@ -208,13 +222,15 @@ class Replicas(MethodView):
 
         .. :quickref: Replicas; Delete replica at RSE.
 
-        HTTP Success:
-            200 Ok
-
-        HTTP Error:
-            401 Unauthorized
-            409 Conflict
-            500 Internal Error
+        :<json string rse: The RSE name.
+        :<json list files: list of dicts with 'scope', 'name'.
+        :<json bool ignore_availability: Flag to ignore the RSE blacklisting.
+        :status 200: Replica successfully deleted.
+        :status 400: Cannot decode json parameter list.
+        :status 401: Invalid auth token.
+        :status 404: RSE not found.
+        :status 404: Replica not found.
+        :status 500: Internal Error.
         """
         json_data = request.data
         try:
@@ -247,13 +263,25 @@ class ListReplicas(MethodView):
         List all replicas for data identifiers.
 
         .. :quickref: ListReplicas; List all replicas for did.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
+        :reqheader HTTP_ACCEPT: application/metalink4+xml
+        :query schemes: A list of schemes to filter the replicas.
+        :query sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking'.
+        :<json list dids: list of DIDs.
+        :<json list schemes: A list of schemes to filter the replicas.
+        :<json bool unavailable: Also include unavailable replicas.
+        :<json bool all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
+        :<json string rse_expression: The RSE expression to restrict on a list of RSEs.
+        :<json dict client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}.
+        :<json bool sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking'.
+        :<json string domain: The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']
+        :resheader Content-Type: application/x-json-stream
+        :resheader Content-Type: application/metalink4+xml
+        :status 200: OK.
+        :status 400: Cannot decode json parameter list.
+        :status 401: Invalid auth token.
+        :status 404: DID not found.
+        :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
@@ -378,14 +406,14 @@ class ReplicasDIDs(MethodView):
         List the DIDs associated to a list of replicas.
 
         .. :quickref: ReplicasDIDs; List DIDs for replicas.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
-        :returns: A list of dictionaries containing the mAPPing PFNs to DIDs.
+        :<json string pfns: The list of PFNs.
+        :<json string rse: The RSE name.
+        :resheader Content-Type: application/x-json-string
+        :status 200: OK.
+        :status 400: Cannot decode json parameter list.
+        :status 500: Internal Error.
+        :returns: A list of dictionaries containing the mapping PFNs to DIDs.
         """
         json_data = request.data
         rse, pfns = None, []
@@ -418,13 +446,16 @@ class BadReplicas(MethodView):
         Declare a list of bad replicas.
 
         .. :quickref: BadReplicasStates; Declare bad replicas.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
+        :<json string pfns: The list of PFNs.
+        :<json string reason: The reason of the loss.
+        :resheader Content-Type: application/x-json-string
+        :status 201: Created.
+        :status 400: Cannot decode json parameter list.
+        :status 401: Invalid auth token.
+        :status 404: Replica not found.
+        :status 500: Internal Error.
+        :returns: A list of not successfully declared files.
         """
         json_data = request.data
         pfns = []
@@ -458,13 +489,16 @@ class SuspiciousReplicas(MethodView):
         Declare a list of suspicious replicas.
 
         .. :quickref: SuspiciousReplicas; Declare suspicious replicas.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
+        :<json string pfns: The list of PFNs.
+        :<json string reason: The reason of the loss.
+        :resheader Content-Type: application/x-json-string
+        :status 201: Created.
+        :status 400: Cannot decode json parameter list.
+        :status 401: Invalid auth token.
+        :status 404: Replica not found.
+        :status 500: Internal Error.
+        :returns: A list of not successfully declared files.
         """
         json_data = request.data
         pfns = []
@@ -497,12 +531,18 @@ class BadReplicasStates(MethodView):
         List the bad or suspicious replicas by states.
 
         .. :quickref: BadReplicasStates; List bad replicas.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            500 InternalError
-
+        :query state: The state of the file (SUSPICIOUS or BAD).
+        :query rse: The RSE name.
+        :query younger_than: date in format "%Y-%m-%dT%H:%M:%S.%f" to select bad replicas younger than this date.
+        :query older_than: date in format "%Y-%m-%dT%H:%M:%S.%f" to select bad replicas older than this date.
+        :query limit: The maximum number of replicas returned.
+        :query list_pfns: Flag to include pfns.
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 401: Invalid auth token.
+        :status 500: Internal Error.
+        :returns: List of dicts of bad file replicas.
         """
         result = []
         state = request.args.get('state', None)
@@ -544,12 +584,15 @@ class BadReplicasSummary(MethodView):
         Return a summary of the bad replicas by incident.
 
         .. :quickref: BadReplicasSummary; List bad replicas by incident.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            500 InternalError
-
+        :query rse_expression: The RSE expression.
+        :query from_date: The start date.
+        :query to_date: The end date.
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 401: Invalid auth token.
+        :status 500: Internal Error.
+        :returns: List of bad replicas by incident.
         """
         result = []
         rse_expression = request.args.get('rse_expression', None)
@@ -582,13 +625,12 @@ class DatasetReplicas(MethodView):
         List dataset replicas.
 
         .. :quickref: DatasetReplicas; List dataset replicas.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
+        :query deep: Flag to ennable lookup at the file level.
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 401: Invalid auth token.
+        :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         """
         deep = request.args.get('deep', False)
@@ -611,13 +653,11 @@ class ReplicasRSE(MethodView):
         List dataset replicas per RSE.
 
         .. :quickref: ReplicasRSE; List dataset replicas per RSE.
-        HTTP Success:
-            200 OK
 
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 401: Invalid auth token.
+        :status 500: Internal Error.
         :returns: A dictionary containing all replicas on the RSE.
         """
         print rse
@@ -638,8 +678,8 @@ bp = Blueprint('did', __name__)
 list_replicas_view = ListReplicas.as_view('list_replicas')
 bp.add_url_rule('/list', view_func=list_replicas_view, methods=['post', ])
 replicas_view = Replicas.as_view('replicas')
-bp.add_url_rule('/', view_func=list_replicas_view, methods=['post', 'put', 'delete'])
-bp.add_url_rule('/<scope>/<name>', view_func=list_replicas_view, methods=['get', ])
+bp.add_url_rule('/', view_func=replicas_view, methods=['post', 'put', 'delete'])
+bp.add_url_rule('/<scope>/<name>', view_func=replicas_view, methods=['get', ])
 bad_replicas_view = BadReplicas.as_view('bad_replicas')
 bp.add_url_rule('/bad', view_func=bad_replicas_view, methods=['post', ])
 bad_replicas_states_view = BadReplicasStates.as_view('bad_replicas_states')

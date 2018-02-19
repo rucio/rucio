@@ -61,8 +61,11 @@ The methods are separated per resource type.
 
     restapi/account
     restapi/account_limit
+    restapi/archive
+    restapi/config
     restapi/authentication
     restapi/did
     restapi/replica
+    restapi/request
     restapi/rule
     restapi/scope
