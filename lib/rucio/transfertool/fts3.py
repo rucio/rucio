@@ -22,7 +22,6 @@ import urlparse
 import uuid
 import traceback
 
-from ConfigParser import NoOptionError
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
