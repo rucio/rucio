@@ -277,7 +277,7 @@ class ListReplicas(RucioController):
             client_ip = ctx.ip
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
-        ignore_availability, rse_expression, all_states = False, None, False
+        ignore_availability, rse_expression, all_states, domain = False, None, False, None
         client_location = {}
 
         json_data = data()
