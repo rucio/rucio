@@ -24,6 +24,7 @@ Mako==1.0.7                 # Templating language
 python-editor==1.0.3        # Programmatically open an editor, capture the result
 flup==1.0.2                 # Needed to deploy web.py in lighthttpd
 web.py==0.38                # Python web framework
+Flask==0.12.2               # Python web framework
 python-memcached==1.58      # Quick and small memcached client for Python
 ntplib>=0.3.3               # NTP library
 anyjson==0.3.3              # Wraps the best available JSON implementation available in a common interface

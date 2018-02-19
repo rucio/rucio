@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2018
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
@@ -35,14 +35,14 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-__USERCERT = config_get('conveyor', 'usercert')
-try:
-    __USE_DETERMINISTIC_ID = config_get_bool('conveyor', 'use_deterministic_id')
-except NoOptionError:
-    __USE_DETERMINISTIC_ID = False
+__USERCERT = config_get('conveyor', 'usercert', False, None)
+__USE_DETERMINISTIC_ID = config_get_bool('conveyor', 'use_deterministic_id', False, False)
 
 REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=1800)

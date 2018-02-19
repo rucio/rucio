@@ -7,11 +7,11 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Vincent Garonne vgaronne@gmail.com, 2018
 
 import logging
 import traceback
 
-from ConfigParser import NoOptionError
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
@@ -19,31 +19,17 @@ from rucio.common.config import config_get
 from rucio.core import config as config_core
 from rucio.core.rse import get_rse_id, get_rse_transfer_limits
 
-try:
-    queue_mode = config_get('conveyor', 'queue_mode')
-    if queue_mode.upper() == 'STRICT':
-        queue_mode = 'strict'
-    else:
-        queue_mode = 'default'
-except NoOptionError:
-    queue_mode = 'default'
+queue_mode = config_get('conveyor', 'queue_mode', False, 'default')
+if queue_mode.upper() == 'STRICT':
+    queue_mode = 'strict'
 
-
-try:
-    config_memcache = config_get('conveyor', 'using_memcache')
-    if config_memcache.upper() == 'TRUE':
-        using_memcache = True
-    else:
-        using_memcache = False
-except NoOptionError:
+config_memcache = config_get('conveyor', 'using_memcache', False, 'False')
+if config_memcache.upper() == 'TRUE':
+    using_memcache = True
+else:
     using_memcache = False
 
-
-try:
-    cache_time = int(config_get('conveyor', 'cache_time'))
-except NoOptionError:
-    cache_time = 600
-
+cache_time = int(config_get('conveyor', 'cache_time', False, 600))
 
 REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=cache_time)
