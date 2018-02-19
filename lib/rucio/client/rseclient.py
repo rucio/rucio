@@ -7,7 +7,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2018
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
@@ -197,19 +197,12 @@ class RSEClient(BaseClient):
         :param params: Attributes of the protocol. Supported are:
             hostname:       hostname for this protocol (default = localhost)
             port:           port for this protocol (default = 0)
-            prefix:         string used as a prfeix for this protocol when generating
-                            the PFN (default = None)
-            impl:           qualified name of the implementation class for this
-                            protocol (mandatory)
-            read:           integer representing the priority of this procotol for
-                            read operations (default = -1)
-            write:          integer representing the priority of this procotol for
-                            write operations (default = -1)
-            delete:         integer representing the priority of this procotol for
-                            delet operations (default = -1)
-            extended_attributes:  miscellaneous protocol specific information e.g. spacetoken
-                            for SRM (default = None)
-
+            prefix:         string used as a prfeix for this protocol when generating the PFN (default = None)
+            impl:           qualified name of the implementation class for this protocol (mandatory)
+            read:           integer representing the priority of this procotol for read operations (default = -1)
+            write:          integer representing the priority of this procotol for write operations (default = -1)
+            delete:         integer representing the priority of this procotol for delete operations (default = -1)
+            extended_attributes:  miscellaneous protocol specific information e.g. spacetoken for SRM (default = None)
 
         :return: True if protocol was created successfully else False.
 
