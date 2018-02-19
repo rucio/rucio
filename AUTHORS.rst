@@ -1,5 +1,5 @@
-Individual contributors to the source code:
--------------------------------------------
+Individual contributors to the source code
+------------------------------------------
 - Mario Lassnig <mario.lassnig@gmail.com>, 2012-2018
 - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
@@ -26,21 +26,21 @@ Individual contributors to the source code:
 - Frank Berghaus <frank.berghaus@cern.ch>, 2017
 - Vitjan Zavrtanik <vitjan.zavrtanik@cern.ch>, 2017
 - Stefan Prenner <stefan.prenner@cern.ch>, 2017-2018
-- sprenner <stefanp91@gmail.com>, 2017
 - Nicolo Magini <Nicolo.Magini@cern.ch>, 2017-2018
 - Oliver Freyermuth <o.freyermuth@googlemail.com>, 2017
 - Eric Vaandering <ericvaandering@gmail.com>, 2018
 
-Organisations employing contributors:
--------------------------------------
+Organisations employing contributors
+------------------------------------
 - European Organisation for Nuclear Research (CERN)
 - University of Oslo (Norway)
-- University of Wisconsin Madison
-- National University of La Plata
-- Albert Ludwigs Universität Freiburg
-- University of Nebraska Lincoln
-- Bergische Universität Wuppertal
-- University of Victoria
-- INFN e Universita Genova
-- University of Bonn
+- University of Wisconsin Madison (USA)
+- National University of La Plata (Argentina)
+- Albert Ludwigs Universität Freiburg (Germany)
+- University of Nebraska Lincoln (USA)
+- Bergische Universität Wuppertal (Germany)
+- University of Victoria (Canada)
+- INFN e Universita Genova (Italy)
+- University of Bonn (Germany)
 - Fermi National Accelerator Laboratory (FNAL)
+- Leopold-Franzens Universität Innsbruck (Austria)
