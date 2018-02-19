@@ -1,6 +1,6 @@
 Individual contributors to the source code
 ------------------------------------------
-- Mario Lassnig <mario.lassnig@gmail.com>, 2012-2018
+- Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 - Martin Barisits <martin.barisits@cern.ch>, 2012-2018
@@ -32,7 +32,7 @@ Individual contributors to the source code
 
 Organisations employing contributors
 ------------------------------------
-- European Organisation for Nuclear Research (CERN)
+- European Organisation for Nuclear Research (Switzerland)
 - University of Oslo (Norway)
 - University of Wisconsin Madison (USA)
 - National University of La Plata (Argentina)
@@ -42,5 +42,6 @@ Organisations employing contributors
 - University of Victoria (Canada)
 - INFN e Universita Genova (Italy)
 - University of Bonn (Germany)
-- Fermi National Accelerator Laboratory (FNAL)
+- Fermi National Accelerator Laboratory (USA)
 - Leopold-Franzens Universität Innsbruck (Austria)
+- Academia Sinica (Taiwan)
