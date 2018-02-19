@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016-2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -277,7 +277,7 @@ class ListReplicas(RucioController):
             client_ip = ctx.ip
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
-        ignore_availability, rse_expression, all_states = False, None, False
+        ignore_availability, rse_expression, all_states, domain = False, None, False, None
         client_location = {}
 
         json_data = data()
@@ -299,6 +299,8 @@ class ListReplicas(RucioController):
                 client_location['ip'] = params['client_location'].get('ip', client_ip)
             if 'sort' in params:
                 select = params['sort']
+            if 'domain' in params:
+                domain = params['domain']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -326,7 +328,8 @@ class ListReplicas(RucioController):
                                        ignore_availability=ignore_availability,
                                        all_states=all_states,
                                        rse_expression=rse_expression,
-                                       client_location=client_location):
+                                       client_location=client_location,
+                                       domain=domain):
                 replicas = []
                 dictreplica = {}
                 for rse in rfile['rses']:

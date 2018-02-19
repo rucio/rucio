@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 """
@@ -19,6 +19,7 @@ If it is not there, except.
 
 import os
 import json
+import sys
 
 import ConfigParser
 
@@ -123,6 +124,10 @@ for configfile in __CONFIGFILES:
         break
 
 if not __HAS_CONFIG:
-    raise Exception('Could not load rucio configuration file rucio.cfg. \
-Rucio looks in the following directories for a configuration file, in order:\
-\n\t${RUCIO_HOME}/etc/rucio.cfg\n\t/opt/rucio/etc/rucio.cfg\n\t${VIRTUAL_ENV}/etc/rucio.cfg')
+    if not any("sphinx-build" in argc for argc in sys.argv):
+        # test to not fail when build the API doc
+        raise Exception('Could not load rucio configuration file rucio.cfg.'
+                        'Rucio looks in the following directories for a configuration file, in order:'
+                        '\n\t${RUCIO_HOME}/etc/rucio.cfg'
+                        '\n\t/opt/rucio/etc/rucio.cfg'
+                        '\n\t${VIRTUAL_ENV}/etc/rucio.cfg')
