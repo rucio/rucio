@@ -66,6 +66,7 @@ logging.basicConfig(stream=sys.stdout,
                                              default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
+
 @transactional_session
 def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
              source_replica_expression=None, activity='User Subscriptions', notify=None, purge_replicas=False,
