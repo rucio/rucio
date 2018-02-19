@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
@@ -26,6 +26,7 @@ import socket
 import subprocess
 import zlib
 
+from flask import Response
 from getpass import getuser
 from itertools import izip_longest
 from logging import getLogger, Formatter
@@ -249,6 +250,30 @@ def generate_http_error(status_code, exc_cls, exc_msg):
                'ExceptionMessage': clean_headers(exc_msg)}
     try:
         return HTTPError(status, headers=headers, data=render_json(**data))
+    except:
+        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+        raise
+
+
+def generate_http_error_flask(status_code, exc_cls, exc_msg):
+    """
+    utitily function to generate a complete HTTP error response.
+    :param status_code: The HTTP status code to generate a response for.
+    :param exc_cls: The name of the exception class to send with the response.
+    :param exc_msg: The error message.
+    :returns: a web.py HTTP response object.
+    """
+    data = {'ExceptionClass': exc_cls,
+            'ExceptionMessage': exc_msg}
+    # Truncate too long exc_msg
+    if len(str(exc_msg)) > 15000:
+        exc_msg = str(exc_msg)[:15000]
+    resp = Response(response=render_json(**data), status=status_code, content_type='application/octet-stream')
+    resp.headers['ExceptionClass'] = exc_cls
+    resp.headers['ExceptionMessage'] = clean_headers(exc_msg)
+
+    try:
+        return resp
     except:
         print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
         raise
