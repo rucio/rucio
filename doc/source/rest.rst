@@ -45,6 +45,7 @@ In the last case, it corresponds to JSON objects delimited by newlines(streaming
 
 Errors are returned using standard HTTP error code syntax.
 Any additional info is included in the header of the return call, JSON-formatted with the parameters::
+
     ExceptionClass
     ExceptionMessage
 
