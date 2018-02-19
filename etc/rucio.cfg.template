@@ -188,6 +188,7 @@ scope = user.vzavrtan
 [policy]
 permission=atlas
 schema=atlas
+lfn2pfn_algorithm_default=hash
 
 [webui]
 usercert = /opt/rucio/etc/usercert_with_key.pem
