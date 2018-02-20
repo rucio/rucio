@@ -1,15 +1,13 @@
-#!/usr/local/bin python
-"""
- Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
-"""
+#!/usr/bin/env python
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 
 import os
 
