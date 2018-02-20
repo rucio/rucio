@@ -19,9 +19,11 @@ import errno
 import hashlib
 import imp
 import json
+import logging
 import os
 import pwd
 import re
+import requests
 import socket
 import subprocess
 import zlib
@@ -638,3 +640,31 @@ def make_valid_did(lfn_dict):
     lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
     del lfn_copy['filename']
     return lfn_copy
+
+
+def send_trace(trace, trace_endpoint, user_agent, retries=5, logger=None, log_prefix=''):
+    """
+    Send the given trace to the trace endpoint
+
+    :param trace: the trace dictionary to send
+    :param trace_endpoint: the endpoint where the trace should be send
+    :param user_agent: the user agent sending the trace
+    :param retries: the number of retries if sending fails
+    :param logger: the logger object to put debug output, None means no logging
+    :param log_prefix: a string that will be put in front of each debug msg
+    :return: 0 on success, 1 on failure
+    """
+    if not logger:
+        logger = getLogger('rucio_utils')
+        logger.addHandler(logging.NullHandler())
+    if user_agent.startswith('pilot'):
+        logger.debug('%spilot detected - not sending trace' % log_prefix)
+        return 0
+    logger.debug('%ssending trace' % log_prefix)
+    for dummy in xrange(retries):
+        try:
+            requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
+            return 0
+        except Exception as error:
+            logger.debug('%s%s' % (log_prefix, error))
+    return 1
