@@ -26,11 +26,11 @@ from rucio.common.utils import make_valid_did
 
 
 def get_rse_info(rse, session=None):
-    """ Returns all protocol related RSE attributes.
+    """
+        Returns all protocol related RSE attributes.
 
         :param rse: Name of the requested RSE
         :param session: The eventual database session.
-
 
         :returns: a dict object with the following attributes:
                     id                ...     an internal identifier
@@ -39,14 +39,14 @@ def get_rse_info(rse, session=None):
                     volatile          ...     boolean indictaing if the RSE is volatile
                     deteministic      ...     boolean indicating of the nameing of the files follows the defined determinism
                     domain            ...     indictaing the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
-                    protocols       ...     all supported protocol in form of a list of dict objects with the followig structure
-                        scheme              ...     protocol scheme e.g. http, srm, ...
-                        hostname            ...     hostname of the site
-                        prefix              ...     path to the folder where the files are stored
-                        port                ...     port used for this protocol
-                        impl                ...     naming the python class of the protocol implementation
-                        extended_attributes ...     additional information for the protocol
-                        domains             ...     a dict naming each domain and the priority of the protocol for each operation (lower is better, zero is not upported)
+                    protocols         ...     all supported protocol in form of a list of dict objects with the followig structure
+                    - scheme              ...     protocol scheme e.g. http, srm, ...
+                    - hostname            ...     hostname of the site
+                    - prefix              ...     path to the folder where the files are stored
+                    - port                ...     port used for this protocol
+                    - impl                ...     naming the python class of the protocol implementation
+                    - extended_attributes ...     additional information for the protocol
+                    - domains             ...     a dict naming each domain and the priority of the protocol for each operation (lower is better, zero is not upported)
 
         :raises RSENotFound: if the provided RSE coud not be found in the database.
     """
@@ -204,8 +204,11 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
         :param rse_settings:    RSE to use
         :param files:           a single dict or a list with dicts containing 'scope' and 'name'
                                 if LFNs are provided and additional 'pfn' if PFNs are provided.
-                                E.g.  [{'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
-                                       {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
+                                Examples:
+                                [
+                                {'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
+                                {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
+                                ]
         :param dest_dir:        path to the directory where the downloaded files will be stored. If not given, each scope is represented by its own directory.
         :param force_scheme:    normally the scheme is dictated by the RSE object, when specifying the PFN it must be forced to the one specified in the PFN, overruling the RSE description.
         :param ignore_checksum: do not verify the checksum - caution: should only be used for rucio download --pfn
@@ -323,8 +326,12 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
 
-        :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'},
-                                                                                                    {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}]
+        :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'.
+                            Examples:
+                            [
+                            {'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'},
+                            {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}
+                            ]
                             If the 'filename' key is present, it will be used by Rucio as the actual name of the file on disk (separate from the Rucio 'name').
         :param source_dir:  path to the local directory including the source files
         :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
@@ -502,8 +509,11 @@ def rename(rse_settings, files):
         :param files: a single dict or a list with dicts containing 'scope', 'name', 'new_scope' and 'new_name'
                       if LFNs are used or only 'name' and 'new_name' if PFNs are used.
                       If 'new_scope' or 'new_name' are not provided, the current one is used.
-                      E.g. [{'name': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_name': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
-                            {'name': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_name': 'user/jdoe/c6/4a/9_rse_new.raw'}
+                      Examples:
+                      [
+                      {'name': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_name': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
+                      {'name': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_name': 'user/jdoe/c6/4a/9_rse_new.raw'}
+                      ]
 
         :returns: True/False for a single file or a dict object with LFN (key) and True/False (value) in bulk mode
 
