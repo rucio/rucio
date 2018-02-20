@@ -4,7 +4,7 @@ Rucio demo
 Prerequisites
 ~~~~~~~~~~~~~
 
-The only prerequesit is to install docker and docker-compose
+The only prerequesite is to install docker and docker-compose.
 
 
 Starting a Rucio demo instance
@@ -15,6 +15,7 @@ The instructions can be found in : https://github.com/rucio/rucio/tree/master/et
 The bootstrap script creates a Rucio instance with 2 accounts (root and jdoe) and 2 local RSEs (SITE1_DISK, SITE2_DISK) mounted on the /tmp partition. Once everything is ready you can log into the container and start playing around with rucio::
 
   $ docker exec -i -t demo_rucio_1 /bin/bash
+
   [root@3a6d4527e1f6 rucio]# rucio whoami
   status     : ACTIVE
   account    : root
@@ -74,7 +75,7 @@ Now if you list the rule for this dataset, you will see that there are no files 
    --------------------------------  ---------  -----------------------------------------------  ----------------------  ----------------  --------  ---------------  -------------------
    7744c0e0dcce4243b906a2afbc8bc87f  root       tests:test.24659.automatix_stream.recon.AOD.917  OK[0/0/0]               SITE1_DISK               1                   2018-02-19 13:47:06
 
-The information needs to be updated by an other daemon called the judge. To run it once::
+The information needs to be updated by another daemon called the judge. To run it once::
 
   [root@3a6d4527e1f6 rucio]# /usr/bin/rucio-judge-evaluator --run-once
   2018-02-19 13:47:37,943 328     DEBUG   re_evaluator[0/0] index query time 0.003242 fetch size is 1
