@@ -92,7 +92,9 @@ def config_get_bool(section, option, raise_exception=True, default=None):
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
         if raise_exception:
             raise err
-        return default
+        if default is None:
+            return default
+        return bool(default)
 
 
 def config_get_options(section):
