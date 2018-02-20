@@ -61,10 +61,14 @@ The methods are separated per resource type.
 
     restapi/account
     restapi/account_limit
+    restapi/authentication
     restapi/archive
     restapi/config
-    restapi/authentication
     restapi/did
+    restapi/heartbeat
+    restapi/identity
+    restapi/lifetime_exception
+    restapi/lock
     restapi/replica
     restapi/request
     restapi/rse

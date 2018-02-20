@@ -1,4 +1,4 @@
-Replica Rest Api
+Replica Rest API
 ================
 
 **Overview**

@@ -1,4 +1,4 @@
-RSE Rest Api
+RSE Rest API
 ============
 
 **Overview**
