@@ -67,5 +67,6 @@ The methods are separated per resource type.
     restapi/did
     restapi/replica
     restapi/request
+    restapi/rse
     restapi/rule
     restapi/scope
