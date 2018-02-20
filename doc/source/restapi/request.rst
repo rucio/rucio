@@ -1,4 +1,4 @@
-Request Rest Api
+Request Rest API
 ================
 
 **Overview**

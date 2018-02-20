@@ -34,24 +34,6 @@ from rucio.common.utils import generate_http_error_flask, render_json, APIEncode
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 from rucio.rse import rsemanager
 
-URLS = (
-    '/(.+)/attr/(.+)', 'Attributes',
-    '/(.+)/attr/', 'Attributes',
-    '/(.+)/distances/(.+)', 'Distance',  # List (get), create (post), Updates (put) distance
-    '/(.+)/protocols/(.+)/(.+)/(.+)', 'Protocol',  # Updates (put) protocol attributes
-    '/(.+)/protocols/(.+)/(.+)/(.+)', 'Protocol',  # delete (DELETE) a specific protocol
-    '/(.+)/protocols/(.+)/(.+)', 'Protocol',  # delete (DELETE) all protocols with the same identifier and the same hostname
-    '/(.+)/protocols/(.+)', 'Protocol',  # List (get), create (post), update (put), or delete (DELETE) a all protocols with the same identifier
-    '/(.+)/protocols', 'Protocols',  # List all supported protocols (get)
-    '/(.+)/lfns2pfns', 'LFNS2PFNS',  # Translate a list of LFNs to PFNs (get)
-    '/(.+)/accounts/usage', 'RSEAccountUsageLimit',
-    '/(.+)/usage', 'Usage',  # Update RSE usage information
-    '/(.+)/usage/history', 'UsageHistory',  # Get RSE usage history information
-    '/(.+)/limits', 'Limits',  # Update/List RSE limits
-    '/(.+)', 'RSE',
-    '/', 'RSEs',
-)
-
 
 class RSEs(MethodView):
     """ List all RSEs in the database. """

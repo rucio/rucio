@@ -1,4 +1,4 @@
-Config Rest Api
+Config Rest API
 ===============
 
 **Overview**

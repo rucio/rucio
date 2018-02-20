@@ -1,4 +1,4 @@
-Archive Rest Api
+Archive Rest API
 ================
 
 **Overview**

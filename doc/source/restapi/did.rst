@@ -1,4 +1,4 @@
-DID Rest Api
+DID Rest API
 ============
 
 **Overview**
