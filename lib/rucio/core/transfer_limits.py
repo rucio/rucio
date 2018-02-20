@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Vincent Garonne vgaronne@gmail.com, 2018
+# - Vincent Garonne, <vgaronne@gmail.com>, 2018
 
 import logging
 import traceback
