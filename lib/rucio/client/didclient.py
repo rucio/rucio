@@ -7,7 +7,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
   - Thomas Beermann, <thomas.beermann@cern.ch> 2013
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
@@ -490,10 +490,11 @@ class DIDClient(BaseClient):
     def get_dataset_by_guid(self, guid):
         """
         Get the parent datasets for a given GUID.
-       :param guid: The GUID.
+        :param guid: The GUID.
 
         :returns: A did
         """
+
         path = '/'.join([self.DIDS_BASEURL, guid, 'guid'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
