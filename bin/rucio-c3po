@@ -1,12 +1,21 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2017
+# - Vincent Garonne, <vgaronne@gmail.com>, 2018
 
 """
 C-3PO is a dynamic data placement daemon.
@@ -17,10 +26,11 @@ import signal
 
 from rucio.daemons.c3po.c3po import run, stop
 
-if __name__ == "__main__":
 
-    signal.signal(signal.SIGTERM, stop)
-
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
@@ -37,6 +47,13 @@ if __name__ == "__main__":
     parser.add_argument("--min_popularity", action="store", default=8, type=int, help='Min number of popularity accesses for a DID in the last 7 days to trigger')
     parser.add_argument("--min_recent_requests", action="store", default=5, type=int, help='Min number of times a DID has to be requested in the last hour to trigger')
     parser.add_argument("--max_replicas", action="store", default=5, type=int, help='Max number of replicas above which not to trigger anymore')
+    return parser
+
+
+if __name__ == "__main__":
+
+    signal.signal(signal.SIGTERM, stop)
+    parser = get_parser()
     args = parser.parse_args()
 
     try:
