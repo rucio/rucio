@@ -1,0 +1,12 @@
+{"type1": {
+                "probability": 1,
+                "nbfiles": 2,
+                "filesize": 1000000,
+                "metadata":
+                {
+                        "project": "test",
+                        "datatype": "AOD",
+                        "prod_step": "recon"
+                }
+        }
+}
