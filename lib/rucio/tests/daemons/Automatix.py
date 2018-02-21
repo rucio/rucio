@@ -1,22 +1,19 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+"""
+ Copyright European Organization for Nuclear Research (CERN)
 
-'''
-Automatix is a Data Generator daemon to generate fake data and upload it on a RSE.
-'''
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+"""
 
 import logging
-import os
 import socket
 import random
 import tempfile
@@ -24,12 +21,12 @@ import threading
 
 from json import load
 from math import exp
-from os import remove, rmdir, stat
+from os import remove, rmdir, stat, getpid
 from sys import stdout, argv
 from time import sleep, time
 
 from rucio.client import Client
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.utils import adler32
 from rucio.core import monitor, heartbeat
 from rucio.rse import rsemanager as rsemgr
@@ -48,7 +45,7 @@ FAILURE = 1
 graceful_stop = threading.Event()
 
 
-def upload(files, scope, metadata, rse, account, source_dir, worker_number, total_workers, dataset_lifetime, did=None):
+def upload(files, scope, metadata, rse, account, source_dir, worker_number, total_workers, dataset_lifetime, did=None, set_metadata=False):
     logging.debug('In upload')
     dsn = None
     if did:
@@ -65,7 +62,7 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
         checksum = adler32(fullpath)
         logging.info(prepend_str + 'File %s : Size %s , adler32 %s' % (fullpath, str(size), checksum))
         list_files.append({'scope': scope, 'name': filename, 'bytes': size, 'adler32': checksum, 'meta': {'guid': generate_uuid()}})
-        lfns.append({'name': filename, 'scope': scope, 'filesize': size, 'adler32': checksum})
+        lfns.append({'name': filename, 'scope': scope, 'filesize': size, 'adler32': checksum, 'filename': filename})
 
     # Physical upload
     logging.info(prepend_str + 'Uploading physically the files %s on %s' % (str(lfns), rse))
@@ -95,9 +92,12 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
 
     # Registering DIDs and replicas in Rucio
     logging.info(prepend_str + 'Registering DIDs and replicas in Rucio')
+    meta = metadata
+    if not set_metadata:
+        meta = None
     if dsn:
         try:
-            client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET', 'activity': 'Functional Test'}], meta=metadata, lifetime=dataset_lifetime)
+            client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET', 'activity': 'Functional Test'}], meta=meta, lifetime=dataset_lifetime)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
             logging.info(prepend_str + 'Upload operation for %s:%s done' % (dsn['scope'], dsn['name']))
         except Exception, error:
@@ -152,12 +152,12 @@ def generate_file(fname, size):
     return exitcode
 
 
-def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_workers=1, once=False, dataset_lifetime=None):
+def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_workers=1, once=False, dataset_lifetime=None, set_metadata=False):
     sleep(sleep_time * (total_workers - worker_number) / total_workers)
 
     executable = ' '.join(argv)
     hostname = socket.getfqdn()
-    pid = os.getpid()
+    pid = getpid()
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
 
@@ -204,7 +204,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                     generate_file(fname, filesize)
                     fnames.append(fname)
                 logging.info(prepend_str + 'Upload %s to %s' % (dsn, site))
-                status = upload(files=lfns, scope=scope, metadata=metadata, rse=site, account=account, source_dir=tmpdir, worker_number=worker_number, total_workers=total_workers, dataset_lifetime=dataset_lifetime, did=dsn)
+                status = upload(files=lfns, scope=scope, metadata=metadata, rse=site, account=account, source_dir=tmpdir, worker_number=worker_number, total_workers=total_workers, dataset_lifetime=dataset_lifetime, did=dsn, set_metadata=set_metadata)
                 for fname in fnames:
                     remove(fname)
                 rmdir(tmpdir)
@@ -253,6 +253,11 @@ def run(total_workers=1, once=False, inputfile=None):
         dataset_lifetime = config_get_int('automatix', 'dataset_lifetime')
     except:
         dataset_lifetime = None
+    try:
+        set_metadata = config_get_bool('automatix', 'set_metadata')
+    except:
+        set_metadata = False
+
     threads = list()
     for worker_number in xrange(0, total_workers):
         kwargs = {'worker_number': worker_number + 1,
@@ -262,6 +267,7 @@ def run(total_workers=1, once=False, inputfile=None):
                   'sleep_time': sleep_time,
                   'account': account,
                   'inputfile': inputfile,
+                  'set_metadata': set_metadata,
                   'dataset_lifetime': dataset_lifetime}
         threads.append(threading.Thread(target=automatix, kwargs=kwargs))
     [t.start() for t in threads]

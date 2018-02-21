@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 
 FROM rucio/rucio-systemd-cc7
 
@@ -18,6 +19,7 @@ WORKDIR /opt
 ADD rucio.cfg /opt/rucio/etc/
 ADD alembic.ini /opt/rucio/etc/
 ADD aliases-py27.conf /opt/rucio/etc/web/
+ADD automatix.json /opt/rucio/etc/
 
 RUN mkdir /var/log/rucio
 RUN mkdir /var/log/rucio/trace
