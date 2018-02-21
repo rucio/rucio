@@ -68,8 +68,8 @@ If needed, it is also possible to login directly to the container::
 
    $> docker exec -it dev_rucio_1 /bin/bash
 
-
 Git Hook
 --------
 
-Replace the `pre-commit` hook provided in `tools` with the one provided here. It runs `pylint` in the rucio development container rather then in the local system.
+Replace the `pre-commit` hook provided in `tools` with the one provided `here <https://github.com/rucio/rucio/blob/master/etc/docker/dev/pre-commit>`_.
+It runs `pylint` in the rucio development container rather then in the local system.
