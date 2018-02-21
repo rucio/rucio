@@ -2486,11 +2486,16 @@ def get_parser():
 
     # Ping command
     ping_parser = subparsers.add_parser('ping', formatter_class=argparse.RawDescriptionHelpFormatter, help='Ping Rucio server.',
-                                        epilog='''Example usage:
-    $ rucio ping
-    1.14.8
-The returned value is the version of Rucio installed on the server
-                                               ''')
+                                        epilog='Usage example\n'
+                                               '"""""""""""""\n'
+                                               '\n'
+                                               'To ping the server::\n'
+                                               '\n'
+                                               '    $ rucio ping\n'
+                                               '    1.14.8\n'
+                                               '\n'
+                                               'The returned value is the version of Rucio installed on the server.'
+                                               '\n')
     ping_parser.set_defaults(which='ping')
 
     # The whoami command
@@ -2506,8 +2511,11 @@ The returned value is the account currently used
     # The list-file-replicas command
     list_file_replicas_parser = subparsers.add_parser('list-file-replicas', help='List the replicas of a DID and it\'s PFNs.', description='This method allows to list all the replicas of a given Data IDentifier (DID). \
 The only mandatory parameter is the DID which can be a container/dataset/files. By default all the files replicas in state available are returned.', formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                      epilog='''Example usage:
-To list the file replicas for a given dataset :
+                                                      epilog='''Example usage
+^^^^^^^^^^^^^
+
+To list the file replicas for a given dataset ::
+
     $ rucio list-file-replicas user.jdoe:user.jdoe.test.data.1234.1
     +-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
     | SCOPE      | NAME                              | FILESIZE   | ADLER32   | RSE: REPLICA                                                                   |
@@ -2516,14 +2524,15 @@ To list the file replicas for a given dataset :
     | user.jdoe | user.jdoe.test.data.1234.file.1 | 94.835 MB  | 5d000974  | SITE2_DISK: file://another/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.1 |
     | user.jdoe | user.jdoe.test.data.1234.file.2 | 82.173 MB  | 01e56f23  | SITE2_DISK: file://another/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.2 |
     +------------+-----------------------------------+------------+-----------+--------------------------------------------------------------------------------+
-To list the missing replica of a dataset of a given RSE :
+
+To list the missing replica of a dataset of a given RSE ::
+
     $ rucio list-file-replicas --rse SITE1_DISK user.jdoe:user.jdoe.test.data.1234.1
     +---------------+------------------------+
     | SCOPE     | NAME                       |
     |---------------+------------------------|
     | user.jdoe | user.jdoe.test.data.1234.2 |
-    +-----------+----------------------------+
-                                                 ''')
+    +-----------+----------------------------+''')
     list_file_replicas_parser.set_defaults(which='list_file_replicas')
     list_file_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols. (i.e. https, root, srm).', required=False)
     list_file_replicas_parser.add_argument('--all-states', dest='all_states', action='store_true', default=False, help='To select all replicas (including unavailable ones).', required=False)
