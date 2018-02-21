@@ -47,6 +47,7 @@ updated_at : 2018-02-08T15:37:26
 deleted_at : None
 email      : None
 [root@ad03d8dc3b4a rucio]# rucio list-scopes
+tests
 user.jdoe
 [root@ad03d8dc3b4a rucio]#
 ```
