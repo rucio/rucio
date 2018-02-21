@@ -11,7 +11,7 @@
 
 from json import loads
 from traceback import format_exc
-from flask import Flask, Blueprint, Response, request
+from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
 from rucio.api.temporary_did import (add_temporary_dids)
@@ -39,22 +39,22 @@ class BulkDIDS(MethodView):
         try:
             dids = loads(json_data)
         except ValueError:
-            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_temporary_dids(dids=dids, issuer=ctx.env.get('issuer'))
+            add_temporary_dids(dids=dids, issuer=request.environ.get('issuer'))
         except RucioException, e:
-            raise generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
+            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
             print format_exc()
-            raise e, 500
-        raise "Created", 201
+            return e, 500
+        return "Created", 201
 
 
 class Compose(MethodView):
 
     def POST(self):
-        raise "Created", 201
+        return "Created", 201
 
 
 """----------------------
