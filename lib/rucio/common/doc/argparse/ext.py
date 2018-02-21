@@ -155,7 +155,7 @@ def print_subcommands(data, nested_content, markDownHelp=False):
     """
     Each subcommand is a dictionary with the following keys:
 
-    ['usage', 'action_groups', 'bare_usage', 'name', 'help']
+    ['usage', 'action_groups', 'bare_usage', 'name', 'help', 'epilog']
 
     In essence, this is all tossed in a new section with the title 'name'.
     Apparently there can also be a 'description' entry.
@@ -198,7 +198,12 @@ def print_subcommands(data, nested_content, markDownHelp=False):
             for x in print_subcommands(child, nested_content + subContent, markDownHelp):
                 sec += x
 
+            if 'epilog' in child and child['epilog']:
+                for element in renderList([child['epilog']], markDownHelp):
+                    sec += element
+
             subCommands += sec
+
         items.append(subCommands)
 
     return items
@@ -269,6 +274,7 @@ class ArgParseDirective(Directive):
             nested_parse_with_titles(
                 self.state, self.content, description_section)
             items.append(description_section)
+
         if parser_info.get('epilog') and 'noepilog' not in self.options:
             # TODO: do whatever sphinx does to understand ReST inside
             # docstrings magically imported from other places. The nested
