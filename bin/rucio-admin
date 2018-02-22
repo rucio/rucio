@@ -17,6 +17,7 @@
  - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017
+ - Tomas Javurek, <tomas.javurek@cern.ch>, 2018
 """
 
 import argparse
