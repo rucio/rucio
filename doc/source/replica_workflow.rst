@@ -36,7 +36,7 @@ For the data identifier ``user.jdoe:test.file.1`` the first part of the filename
 
 
 Non-Deterministic algorithm based on parent dataset
---------------------------------------------------
+---------------------------------------------------
 
 If the file is part of a datasets, e.g. ``data:dataset1234`` the dataset can be used in the path of the filename. This is useful for e.g. tape storage systems, to keep the files belonging to the same dataset on the same tape.
 
@@ -56,7 +56,7 @@ This is a typical workflow when a user uploads multiple files, which are part of
    if the RSE is a deterministic or non-deterministic one.
 
 3. The file replica is registered as ``COPYING`` on the RSE.
-   
+
 4. Based on the identified naming algorithm of the RSE and the list of prioritized write protocols, the file URL is calculated.
    e.g. usig the hash algorithm from above: ``https://storageserver.organization.org/VO/data/07/7c/user.jdoe/test.file.1``
 
