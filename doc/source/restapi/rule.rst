@@ -1,4 +1,4 @@
-Rule Rest Api
+Rule Rest API
 =============
 
 **Overview**

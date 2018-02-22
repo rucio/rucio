@@ -61,8 +61,24 @@ The methods are separated per resource type.
 
     restapi/account
     restapi/account_limit
+    restapi/archive
     restapi/authentication
+    restapi/config
     restapi/did
+    restapi/heartbeat
+    restapi/identity
+    restapi/lifetime_exception
+    restapi/lock
+    restapi/meta
+    restapi/nongrid_trace
+    restapi/objectstore
+    restapi/ping
+    restapi/redirect
     restapi/replica
+    restapi/request
+    restapi/rse
     restapi/rule
     restapi/scope
+    restapi/subscription
+    restapi/temporary_did
+    restapi/trace

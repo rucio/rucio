@@ -1,4 +1,4 @@
-Authentication Rest Api
+Authentication Rest API
 =======================
 
 **Overview**
