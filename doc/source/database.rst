@@ -32,3 +32,12 @@ If you just want to output the SQL statements of the upgrade operation, without 
 ``alembic upgrade head --sql``
 
 Notabene, schema upgrades are reserved for feature releases and will not happen with patch releases.
+
+Creating a new version as a developer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to create an upgrade path for the schema, you need to generate a schema upgrade+downgrade file:
+
+``alembic revision -m 'schema change message'``
+
+This will output the name of the file that has been generated with two functions ``def upgrade()`` and ``def downgrade()`` that need to be implemented. These should reflect the changes to the ``lib/rucio/db/sqla/models.py`` SQLAlchemy mapping.
