@@ -1,4 +1,4 @@
-Scope Rest Api
+Scope Rest API
 ==============
 
 **Overview**

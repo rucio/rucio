@@ -1,4 +1,4 @@
-Account Limit Rest Api
+Account Limit Rest API
 ======================
 
 **Overview**

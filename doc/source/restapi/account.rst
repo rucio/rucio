@@ -1,4 +1,4 @@
-Account Rest Api
+Account Rest API
 ================
 
 **Overview**
