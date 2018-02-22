@@ -5,7 +5,6 @@ RSE Classes
 +++++++++++
 Client
 +++++++++++
-
 .. _rse:
 .. automodule:: rucio.client.rseclient
     :members:
