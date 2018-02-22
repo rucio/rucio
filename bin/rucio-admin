@@ -1,23 +1,30 @@
 #!/usr/bin/env python
-"""
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
- - Wen Guan, <wguan@cern.ch>, 2014
- - Martin Barisits, <martin.barisits@cern.ch>, 2014
- - David Cameron, <david.cameron@cern.ch>, 2014
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
- - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
- - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
- - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017
-"""
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2017
+# - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
+# - Wen Guan, <wguan.icedew@gmail.com>, 2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
+# - David Cameron, <d.g.cameron@gmail.com>, 2014-2015
+# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2014-2015
+# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 
 import argparse
 import json
@@ -42,8 +49,6 @@ from rucio.common.utils import chunks, construct_surl, sizefmt
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
 
-# If ../lib/rucio/__init__.py exists, add ../ to Python search path, so that
-# it will override what happens to be installed in /usr/(local/)lib/python...
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]), os.pardir, os.pardir))
 if os.path.exists(os.path.join(possible_topdir, 'lib/rucio', '__init__.py')):
     sys.path.insert(0, possible_topdir)
