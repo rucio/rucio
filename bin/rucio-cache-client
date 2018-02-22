@@ -74,13 +74,13 @@ def validate_rse(rse):
 def cache_operation(args):
     """ cache operation"""
     payload = json.loads(args.message)
-    validate(payload, message_operation)
+    validate(payload, MESSAGE_OPERATION)
     validate_rse(payload["rse"])
     if payload["operation"] == "add_replicas":
-        validate(payload, cache_add_replicas)
+        validate(payload, CACHE_ADD_REPLICAS)
         validate_files(payload["files"])
     else:
-        validate(payload, cache_delete_replicas)
+        validate(payload, CACHE_DELETE_REPLICAS)
     conn = stomp.Connection([(args.broker, args.port)], use_ssl=True, ssl_key_file=args.ssl_key_file, ssl_cert_file=args.ssl_cert_file, ssl_version=ssl.PROTOCOL_TLSv1)
 
     conn.start()
