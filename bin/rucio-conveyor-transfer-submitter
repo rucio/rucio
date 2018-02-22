@@ -1,15 +1,21 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Wen Guan, <wguan.icedew@gmail.com>, 2015
+# - Vincent Garonne, <vgaronne@gmail.com>, 2015-2018
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -20,10 +26,11 @@ import signal
 
 from rucio.daemons.conveyor.submitter import run, stop
 
-if __name__ == "__main__":
 
-    signal.signal(signal.SIGTERM, stop)
-
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
@@ -57,8 +64,14 @@ if __name__ == "__main__":
                         help='Maximum source replicas per FTS job')
     parser.add_argument("--retry-other-fts", action="store_true", default=False,
                         help='retry on a different FTS')
-    args = parser.parse_args()
+    return parser
 
+
+if __name__ == "__main__":
+
+    signal.signal(signal.SIGTERM, stop)
+    parser = get_parser()
+    args = parser.parse_args()
     try:
         run(once=args.run_once,
             process=args.process,
