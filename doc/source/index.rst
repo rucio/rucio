@@ -47,6 +47,7 @@ of the documentation is for you.
     developing
     rest
     api
+    database
 
 User Documentation
 ==================
