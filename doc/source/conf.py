@@ -52,7 +52,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Rucio'
-copyright = u'2012-2018 CERN for the benefit of the ATLAS collaboration.'
+copyright = u'2012-2018 CERN for the benefit of the ATLAS collaboration'
 author = u'rucio-dev@cern.ch'
 
 # The version info for the project you're documenting, acts as replacement for
