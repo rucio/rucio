@@ -1,16 +1,23 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
- Authors:
- - Tomas Javurek, <tomas.javurek@cern.ch>, 2018
- - Tobias Wegner <tobias.wegner@cern.ch>, 2018
-"""
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Tomas Javurek <tomasjavurek09@gmail.com>, 2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
 
 import os
 import os.path
-# import sys # (for logging)
 
 import logging
 import random
@@ -32,7 +39,6 @@ from rucio.rse import rsemanager as rsemgr
 from copy import deepcopy
 
 client = Client()
-# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logging.basicConfig()
 logger = logging.getLogger("user")
 SUCCESS = 0

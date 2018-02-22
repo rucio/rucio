@@ -3,7 +3,7 @@ Replica Methods
 ---------------
 
 .. _replicas:
-.. automodule:: rucio.api.replica
+.. automodule:: rucio.client.replicaclient
     :members:
     :undoc-members:
     :show-inheritance:
