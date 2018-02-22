@@ -44,6 +44,7 @@ of the documentation is for you.
     :maxdepth: 1
 
     contributing
+    developing
     rest
     api
 
