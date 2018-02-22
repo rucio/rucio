@@ -116,3 +116,11 @@ Coding Style and testing
 
 We use flake8 and pylint to sanitize our code. Please do the same before
 submitting a pull request.
+
+
+Git Hooks
+---------
+
+Some git hooks (pre-commit, prepare-commit-msg) can be installed by executing the script::
+
+    $ ./tools/configure_git.sh
