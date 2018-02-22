@@ -31,6 +31,7 @@ For documentation specific to the any of these three, please see the subsequent 
     :maxdepth: 1
 
     concepts
+    replica_workflow
     architecture
 
 Developer Documentation
