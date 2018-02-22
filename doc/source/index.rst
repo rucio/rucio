@@ -74,8 +74,8 @@ Operator Documentation
     installing_daemons
     monitoring
 
-Miscellaneous
-=============
+Authors
+=======
 
 .. toctree::
     :maxdepth: 1
