@@ -1,12 +1,21 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
+# - Vincent Garonne, <vgaronne@gmail.com>, 2018
 
 '''
 Atropos Daemon : End the life of the rules according to the Lifetime Model
@@ -18,11 +27,10 @@ import signal
 from rucio.daemons.atropos import run, stop
 
 
-if __name__ == "__main__":
-
-    # Bind our callback to the SIGTERM signal and run the daemon:
-    signal.signal(signal.SIGTERM, stop)
-
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
     parser.add_argument("--dry-run", action="store_true", default=False, help='Dry run mode')
@@ -30,10 +38,18 @@ if __name__ == "__main__":
     parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
     parser.add_argument("--grace-period", action="store", default=86400, type=int, help='Grace period for the rules. In seconds !!!')
     parser.add_argument("--date-check", action="store", help='Date when the lifetime model will be applied. Cannot be used for a date in the future if dry-run is not enabled')
+    return parser
 
+
+if __name__ == "__main__":
+
+    # Bind our callback to the SIGTERM signal and run the daemon:
+    signal.signal(signal.SIGTERM, stop)
+
+    parser = get_parser()
     args = parser.parse_args()
-
     try:
-        run(threads=args.threads, bulk=args.bulk, date_check=args.date_check, dry_run=args.dry_run, grace_period=args.grace_period, once=args.run_once)
+        run(threads=args.threads, bulk=args.bulk, date_check=args.date_check,
+            dry_run=args.dry_run, grace_period=args.grace_period, once=args.run_once)
     except KeyboardInterrupt:
         stop()
