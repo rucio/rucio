@@ -50,7 +50,6 @@ from dogpile.cache import make_region
 from requests import session
 from requests.status_codes import codes, _codes
 from requests.exceptions import ConnectionError
-from requests_kerberos import HTTPKerberosAuth
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 disable_warnings()
 

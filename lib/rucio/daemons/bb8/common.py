@@ -1,12 +1,22 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 
 import logging
 import sys
@@ -18,15 +28,18 @@ from rucio.core.rule import get_rule, add_rule, update_rule
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse import list_rse_attributes, get_rse_name
 from rucio.core.rse_selector import RSESelector
-# from rucio.core.subscription import get_subscription_by_id
 from rucio.common.config import config_get
-from rucio.common.exception import InsufficientTargetRSEs, RuleNotFound, DuplicateRule, InsufficientAccountLimit
+from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, DuplicateRule,
+                                    InsufficientAccountLimit)
 from rucio.db.sqla.constants import RuleGrouping
 from rucio.db.sqla.session import transactional_session
 
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
