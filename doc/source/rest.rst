@@ -53,3 +53,32 @@ Where ExceptionClass refers to :ref:`exceptions`.
 
 .. _OAuth: http://oauth.net/
 .. _JSON: http://www.json.org/
+
+The methods are separated per resource type.
+
+.. toctree::
+    :maxdepth: 1
+
+    restapi/account
+    restapi/account_limit
+    restapi/archive
+    restapi/authentication
+    restapi/config
+    restapi/did
+    restapi/heartbeat
+    restapi/identity
+    restapi/lifetime_exception
+    restapi/lock
+    restapi/meta
+    restapi/nongrid_trace
+    restapi/objectstore
+    restapi/ping
+    restapi/redirect
+    restapi/replica
+    restapi/request
+    restapi/rse
+    restapi/rule
+    restapi/scope
+    restapi/subscription
+    restapi/temporary_did
+    restapi/trace

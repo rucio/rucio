@@ -33,8 +33,10 @@
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.doctest',
               'sphinx.ext.todo',
-              'rucio.common.doc.argparse.ext']
-#              'sphinxarg.ext']
+              'rucio.common.doc.argparse.ext',
+              'sphinxcontrib.httpdomain',
+              'sphinxcontrib.autohttp.flask',
+              'sphinxcontrib.autohttp.flaskqref']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
