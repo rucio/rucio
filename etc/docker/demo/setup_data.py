@@ -12,6 +12,7 @@
 import os
 
 from rucio.api.account import add_account
+from rucio.api.identity import add_account_identity
 from rucio.api.scope import add_scope
 from rucio.api.did import add_did
 from rucio.api.rse import add_rse
@@ -23,6 +24,7 @@ if __name__ == '__main__':
     # Create the Database and the root account
     build_database()
     create_root_account()
+    add_account_identity('/CN=docker client', 'x509', 'root', 'test@rucio.com', issuer="root")
 
     # Create a user called jdoe
     add_account('jdoe', 'USER', 'test', 'root')
