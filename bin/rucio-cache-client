@@ -14,9 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Wen Guan, <wguan.icedew@gmail.com>, 2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Wen Guan <wguan.icedew@gmail.com>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 """
     Rucio Cache client.
@@ -36,7 +37,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.rseclient import RSEClient
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DataIdentifierNotFound
-from rucio.common.schema import cache_add_replicas, cache_delete_replicas, message_operation
+from rucio.common.schema import CACHE_ADD_REPLICAS, CACHE_DELETE_REPLICAS, MESSAGE_OPERATION
 
 SUCCESS = 0
 FAILURE = 1
@@ -73,13 +74,13 @@ def validate_rse(rse):
 def cache_operation(args):
     """ cache operation"""
     payload = json.loads(args.message)
-    validate(payload, message_operation)
+    validate(payload, MESSAGE_OPERATION)
     validate_rse(payload["rse"])
     if payload["operation"] == "add_replicas":
-        validate(payload, cache_add_replicas)
+        validate(payload, CACHE_ADD_REPLICAS)
         validate_files(payload["files"])
     else:
-        validate(payload, cache_delete_replicas)
+        validate(payload, CACHE_DELETE_REPLICAS)
     conn = stomp.Connection([(args.broker, args.port)], use_ssl=True, ssl_key_file=args.ssl_key_file, ssl_cert_file=args.ssl_cert_file, ssl_version=ssl.PROTOCOL_TLSv1)
 
     conn.start()
