@@ -12,13 +12,14 @@ FROM rucio/rucio-systemd-cc7
 
 ADD ca.repo /etc/yum.repos.d/ca.repo
 
-RUN pip install rucio
+RUN pip install rucio rucio-webui
 
 WORKDIR /opt
 
 ADD rucio.cfg /opt/rucio/etc/
 ADD alembic.ini /opt/rucio/etc/
 ADD aliases-py27.conf /opt/rucio/etc/web/
+ADD ui-aliases-py27.conf /opt/rucio/etc/web/
 ADD automatix.json /opt/rucio/etc/
 
 RUN mkdir /var/log/rucio

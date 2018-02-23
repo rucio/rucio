@@ -36,7 +36,7 @@ AH00558: httpd: Could not reliably determine the server's fully qualified domain
 ### Using the container
 When everything is ready you can log into the container and start playing around with rucio:
 ```
-$ sudo docker exec -it dev_rucio_1 tools/run_tests.sh
+$ sudo docker exec -it demo_rucio_1 /bin/bash
 [root@ad03d8dc3b4a rucio]# rucio whoami
 status     : ACTIVE
 account    : root
@@ -51,3 +51,6 @@ tests
 user.jdoe
 [root@ad03d8dc3b4a rucio]#
 ```
+
+### Accessing the WebUI
+In the demo container is also an instance of the Rucio WebUI started. To be able to access it you will first have to install the demo client certificate in your browser. You can find the p12 file containing the certifcate under `etc/docker/demo/certs/rucio_demo_cert.p12`. The import password is `rucio-demo`. Then you can access the WebUI using this url: `https://<hostname>/ui/`
