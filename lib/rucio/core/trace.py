@@ -51,7 +51,7 @@ except:
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
-    BROKERSALIAS = [b.strip() for b in config_get('trace', 'brokers').split(',')]
+    BROKERS_ALIAS = [b.strip() for b in config_get('trace', 'brokers').split(',')]
 except:
     if 'sphinx' not in sys.modules:
         raise Exception('Could not load brokers from configuration')
@@ -67,7 +67,7 @@ except:
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
-for broker in BROKERSALIAS:
+for broker in BROKERS_ALIAS:
     try:
         BROKERS_RESOLVED.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
         BROKERS_RESOLVED = [item for sublist in BROKERS_RESOLVED for item in sublist]
