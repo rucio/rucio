@@ -1,17 +1,25 @@
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
+# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+
 '''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2017
-   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-   - Wen Guan, <wen.guan@cern.ch>, 2014
-   - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
-   - Martin Barisits, <martin.barisits@cern.ch>, 2017
-
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
 '''
 
@@ -43,7 +51,10 @@ logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
