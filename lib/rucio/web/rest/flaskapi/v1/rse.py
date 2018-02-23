@@ -50,6 +50,7 @@ class RSEs(MethodView):
         :status 401: Invalid Auth Token.
         :status 500: Internal Error.
         :returns: A list containing all RSEs.
+
         """
         expression = request.args.get('name', None)
         if expression:
@@ -96,6 +97,7 @@ class RSE(MethodView):
         :status 409: RSE already exists.
         :status 409: RSE not found.
         :status 500: Internal Error.
+
         """
         json_data = request.data
         kwargs = {'deterministic': True,
@@ -143,6 +145,7 @@ class RSE(MethodView):
         :status 409: RSE not found.
         :status 409: RSE already exists.
         :status 500: Internal Error.
+
         """
         json_data = request.data
         kwargs = {}
@@ -184,6 +187,7 @@ class RSE(MethodView):
         :status 404: RSE not found.
         :status 500: Internal Error.
         :returns: A list containing all RSEs.
+
         """
         try:
             rse_prop = get_rse(rse=rse)
@@ -203,6 +207,7 @@ class RSE(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
         :status 500: Internal Error.
+
         """
         try:
             del_rse(rse=rse, issuer=request.environ.get('issuer'))
@@ -231,6 +236,7 @@ class Attributes(MethodView):
         :status 401: Invalid Auth Token.
         :status 409: Attribute already exists.
         :status 500: Internal Error.
+
         """
         json_data = request.data
         try:
@@ -266,6 +272,7 @@ class Attributes(MethodView):
         :status 401: Invalid Auth Token.
         :status 500: Internal Error.
         :returns: A list containing all RSE attributes.
+
         """
 
         return Response(dumps(list_rse_attributes(rse)), content_type="application/json")
@@ -280,6 +287,7 @@ class Attributes(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
         :status 500: Internal Error.
+
         """
         try:
             del_rse_attribute(rse=rse, key=key, issuer=request.environ.get('issuer'))
@@ -311,6 +319,7 @@ class Protocols(MethodView):
         :status 404: RSE Protocol Not Supported.
         :status 500: Internal Error.
         :returns: A list containing all supported protocols and all their attributes.
+
         """
         p_list = None
         try:
@@ -357,6 +366,7 @@ class LFNS2PFNS(MethodView):
         :status 404: RSE Protocol Domain Not Supported.
         :status 500: Internal Error.
         :returns: A list with detailed PFN information.
+
         """
         lfns = []
         scheme = request.get('scheme', None)
@@ -407,6 +417,7 @@ class Protocol(MethodView):
         :status 404: RSE Protocol Domain Not Supported.
         :status 409: RSE Protocol Priority Error.
         :status 500: Internal Error.
+
         """
         json_data = request.data
         try:
@@ -453,6 +464,7 @@ class Protocol(MethodView):
         :status 404: RSE Protocol Not Supported.
         :status 404: RSE Protocol Domain Not Supported.
         :returns: A list with detailed protocol information.
+
         """
         p_list = None
         try:
@@ -489,6 +501,7 @@ class Protocol(MethodView):
         :status 404: RSE Protocol Domain Not Supported.
         :status 409: RSE Protocol Priority Error.
         :status 500: Internal Error.
+
         """
         json_data = request.data
         try:
@@ -532,6 +545,7 @@ class Protocol(MethodView):
         :status 404: RSE not found.
         :status 404: RSE Protocol Not Supported.
         :status 500: Internal Error.
+
         """
         try:
             del_protocols(rse, issuer=request.environ.get('issuer'), scheme=scheme, hostname=hostname, port=port)
@@ -566,6 +580,7 @@ class Usage(MethodView):
         :status 404: RSE Not Found.
         :status 500: Internal Error.
         :returns: A list of dictionaries with the usage information.
+
         """
         usage = None
         source = request.args.get('source', None)
@@ -597,6 +612,7 @@ class Usage(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
         :status 500: Internal Error.
+
         """
         json_data = request.data
         try:
@@ -635,6 +651,7 @@ class UsageHistory(MethodView):
         :status 404: RSE Not Found.
         :status 500: Internal Error.
         :returns: Line separated list of dictionary with RSE usage information.
+
         """
         source = request.args.get('source', None)
 
@@ -668,6 +685,7 @@ class Limits(MethodView):
         :status 404: RSE Not Found.
         :status 500: Internal Error.
         :returns: List of dictionaries with RSE limits.
+
         """
         try:
             limits = get_rse_limits(rse=rse, issuer=request.environ.get('issuer'))
@@ -691,6 +709,7 @@ class Limits(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
         :status 500: Internal Error.
+
         """
         json_data = request.data
         try:
@@ -728,6 +747,7 @@ class RSEAccountUsageLimit(MethodView):
         :status 404: RSE Not Found.
         :status 500: Internal Error.
         :returns: Line separated list of dict with account usage and limits.
+
         """
         try:
             usage = get_rse_account_usage(rse=rse)
@@ -760,6 +780,7 @@ class Distance(MethodView):
         :status 401: Invalid Auth Token.
         :status 500: Internal Error.
         :returns: List of dictionaries with RSE distances.
+
         """
         try:
             distance = get_distance(source=source,
@@ -786,6 +807,7 @@ class Distance(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
         :status 500: Internal Error.
+
         """
         json_data = request.data
         try:
