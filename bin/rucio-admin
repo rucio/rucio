@@ -7,7 +7,7 @@
  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
  - Wen Guan, <wguan@cern.ch>, 2014
@@ -17,7 +17,6 @@
  - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017
- - Tomas Javurek, <tomas.javurek@cern.ch>, 2018
 """
 
 import argparse
@@ -573,7 +572,7 @@ def add_protocol_rse(args):
     proto.setdefault('extended_attributes', {})
     if args.ext_attr_json:
         proto['extended_attributes'] = args.ext_attr_json
-    if proto['scheme'] == 'srm' and (not args.space_token or not args.web_service_path):
+    if proto['scheme'] == 'srm' and not args.web_service_path:
         print 'Error: space-token and web-service-path must be provided for SRM endpoints.'
         return FAILURE
     if args.space_token:
@@ -625,7 +624,6 @@ def list_scopes(args):
     List scopes.
 
     """
-    scopes = []
     client = get_client(args)
     if args.account:
         scopes = client.list_scopes_for_account(args.account)
@@ -897,17 +895,10 @@ def list_pfns(args):
     return SUCCESS
 
 
-if __name__ == '__main__':
-    usage = """
-%(prog)s
-
- <command> [options] [args]
-
-Commands:
-
-    help <command>  Output help for one of the commands below
-
-"""
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
     oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=True)
     subparsers = oparser.add_subparsers()
 
@@ -936,10 +927,11 @@ Commands:
     list_account_parser = account_subparser.add_parser('list',
                                                        help='List Rucio accounts.',
                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                       epilog='''
-Example usage:
-    $ rucio-admin account list --type 'user'
-            ''')
+                                                       epilog='Usage example\n'
+                                                              '"""""""""""""\n'
+                                                              '\n'
+                                                              '    $ rucio-admin account list --type \'user\'\n'
+                                                              '\n')
     list_account_parser.add_argument('--type', dest='account_type', action='store', help='Account Type (USER, GROUP, SERVICE)')
     list_account_parser.add_argument('--id', dest='identity', action='store', help='Identity (e.g. DN)')
     list_account_parser.add_argument('--filters', dest='filters', action='store', help='Filter arguments in form `key=value,another_key=next_value`')
@@ -949,16 +941,18 @@ Example usage:
     list_attr_parser = account_subparser.add_parser('list-attributes',
                                                     help='List attributes for an account.',
                                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                    epilog='''
-Example usage:
-    $ rucio-admin account list-attributes jdoe
-    +-------+---------+
-    | Key   | Value   |
-    |-------+---------|
-    | admin | False   |
-    +-------+---------+
-Note: in most cases is this table empty.
-                                                     ''')
+                                                    epilog='Usage example\n'
+                                                           '"""""""""""""\n'
+                                                           '\n'
+                                                           '    $ rucio-admin account list-attributes jdoe\n'
+                                                           '    +-------+---------+\n'
+                                                           '    | Key   | Value   |\n'
+                                                           '    |-------+---------|\n'
+                                                           '    | admin | False   |\n'
+                                                           '    +-------+---------+\n'
+                                                           '\n'
+                                                           'Note: this table empty in most cases.\n'
+                                                           '\n')
     list_attr_parser.add_argument('account', action='store', help='Account name')
     list_attr_parser.set_defaults(which='list_account_attributes')
 
@@ -966,11 +960,13 @@ Note: in most cases is this table empty.
     add_attr_parser = account_subparser.add_parser('add-attribute',
                                                    help='Add attribute for an account.',
                                                    formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                   epilog='''
-Example usage:
-    $ rucio-admin account add-attribute --key 'test' --value true jdoe
-Note: no printed stdout.
-                                                   ''')
+                                                   epilog='Usage example\n'
+                                                          '"""""""""""""\n'
+                                                          '\n'
+                                                          '    $ rucio-admin account add-attribute --key \'test\' --value true jdoe\n'
+                                                          '\n'
+                                                          'Note: no printed stdout.\n'
+                                                          '\n')
     add_attr_parser.add_argument('account', action='store', help='Account name')
     add_attr_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     add_attr_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
@@ -980,11 +976,13 @@ Note: no printed stdout.
     delete_attr_parser = account_subparser.add_parser('delete-attribute',
                                                       help='Delete attribute for an account.',
                                                       formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                      epilog='''
-Example usage:
-    $ rucio-admin account delete-attribute --key 'test' jdoe
-Note: no printed stdout.
-                                                      ''')
+                                                      epilog='Usage example\n'
+                                                             '"""""""""""""\n'
+                                                             '\n'
+                                                             '   $ rucio-admin account delete-attribute --key \'test\' jdoe\n'
+                                                             '\n'
+                                                             'Note: no printed stdout.\n'
+                                                             '\n')
     delete_attr_parser.add_argument('account', action='store', help='Account name')
     delete_attr_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     delete_attr_parser.set_defaults(which='delete_account_attribute')
@@ -993,11 +991,12 @@ Note: no printed stdout.
     add_account_parser = account_subparser.add_parser('add',
                                                       help='Add Rucio account.',
                                                       formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                      epilog='''
-Example usage:
-    $ rucio-admin account add jdoe-sister
-    Added new account: jdoe-sister
-                                                      ''')
+                                                      epilog='Usage example\n'
+                                                             '"""""""""""""\n'
+                                                             '\n'
+                                                             '    $ rucio-admin account add jdoe-sister\n'
+                                                             '    Added new account: jdoe-sister\n'
+                                                             '\n')
     add_account_parser.set_defaults(which='add_account')
     add_account_parser.add_argument('account', action='store', help='Account name')
     add_account_parser.add_argument('--type', dest='accounttype', default='USER', help='Account Type')
@@ -1008,11 +1007,12 @@ Example usage:
     delete_account_parser = account_subparser.add_parser('delete',
                                                          help='Delete Rucio account.',
                                                          formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                         epilog='''
-Example usage:
-    $ rucio-admin account delete jdoe-sister
-    Deleted account: jdoe-sister
-                                                          ''')
+                                                         epilog='Usage example\n'
+                                                                '"""""""""""""\n'
+                                                                '\n'
+                                                                '    $ rucio-admin account delete jdoe-sister\n'
+                                                                '    Deleted account: jdoe-sister\n'
+                                                                '\n')
     delete_account_parser.set_defaults(which='delete_account')
     delete_account_parser.add_argument('acnt', action='store', help='Account name')
 
@@ -1020,18 +1020,19 @@ Example usage:
     info_account_parser = account_subparser.add_parser('info',
                                                        help='Show detailed information about an account.',
                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                       epilog='''
-Example usage:
-    $ rucio-admin account info jdoe
-    status     : ACTIVE
-    account    : jdoe
-    account_type : SERVICE
-    created_at : 2015-02-03T15:51:16
-    suspended_at : None
-    updated_at : 2015-02-03T15:51:16
-    deleted_at : None
-    email      : None
-                                                       ''')
+                                                       epilog='Usage example\n'
+                                                              '"""""""""""""\n'
+                                                              '\n'
+                                                              '    $ rucio-admin account info jdoe\n'
+                                                              '    status     : ACTIVE\n'
+                                                              '    account    : jdoe\n'
+                                                              '    account_type : SERVICE\n'
+                                                              '    created_at : 2015-02-03T15:51:16\n'
+                                                              '    suspended_at : None\n'
+                                                              '    updated_at : 2015-02-03T15:51:16\n'
+                                                              '    deleted_at : None\n'
+                                                              '    email      : None\n'
+                                                              '\n')
     info_account_parser.set_defaults(which='info_account')
     info_account_parser.add_argument('account', action='store', help='Account name')
 
@@ -1039,13 +1040,14 @@ Example usage:
     list_account_identities_parser = account_subparser.add_parser('list-identities',
                                                                   help='List all identities (DNs) on an account.',
                                                                   formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                                  epilog='''
-Example usage:
-    $ rucio-admin account list-identities jdoe
-    Identity: /C=DE/O=GermanGrid/OU=Desy/CN=Joe Doe,	type: X509
-    Identity: jdoe@CERN.CH,	type: GSS
-    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707654/CN=Joe Doe,	type: X509
-                                                                  ''')
+                                                                  epilog='Usage example\n'
+                                                                         '"""""""""""""\n'
+                                                                         '\n'
+                                                                         '    $ rucio-admin account list-identities jdoe\n'
+                                                                         '    Identity: /C=DE/O=GermanGrid/OU=Desy/CN=Joe Doe,	type: X509\n'
+                                                                         '    Identity: jdoe@CERN.CH,	type: GSS\n'
+                                                                         '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707654/CN=Joe Doe,	type: X509\n'
+                                                                         '\n')
     list_account_identities_parser.set_defaults(which='list_identities')
     list_account_identities_parser.add_argument('account', action='store', help='Account name')
 
@@ -1053,12 +1055,14 @@ Example usage:
     set_account_limits_parser = account_subparser.add_parser('set-limits',
                                                              help='Set the limits for the provided account at given RSE.',
                                                              formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                             epilog='''
-Example usge:
-    $ rucio-admin account set-limits jdoe DESY-ZN_DATADISK 1000000000000
-    Set account limit for account jdoe on RSE DESY-ZN_DATADISK: 1.000 TB
-Note: the order of perameters is fixed: account, rse, bytes.
-                                                            ''')
+                                                             epilog='Usage example\n'
+                                                                    '"""""""""""""\n'
+                                                                    '\n'
+                                                                    '    $ rucio-admin account set-limits jdoe DESY-ZN_DATADISK 1000000000000\n'
+                                                                    '    Set account limit for account jdoe on RSE DESY-ZN_DATADISK: 1.000 TB\n'
+                                                                    '\n'
+                                                                    'Note: the order of perameters is fixed: account, rse, bytes.\n'
+                                                                    '\n')
     set_account_limits_parser.set_defaults(which='set_limits')
     set_account_limits_parser.add_argument('account', action='store', help='Account name')
     set_account_limits_parser.add_argument('rse', action='store', help='RSE boolean expression')
@@ -1068,12 +1072,13 @@ Note: the order of perameters is fixed: account, rse, bytes.
     get_account_limits_parser = account_subparser.add_parser('get-limits',
                                                              help='To get the account limits on an RSE.',
                                                              formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                             epilog='''
-Example usage:
-    $ rucio-admin account get-limits jdoe DESY-ZN_DATADISK
-    Quota on DESY-ZN_DATADISK for jdoe : 1.000 TB
-Note: the order of parameters is fixed: account, rse.
-                                                             ''')
+                                                             epilog='Usage example\n'
+                                                                    '"""""""""""""\n'
+                                                                    '\n'
+                                                                    '    $ rucio-admin account get-limits jdoe DESY-ZN_DATADISK\n'
+                                                                    '    Quota on DESY-ZN_DATADISK for jdoe : 1.000 TB\n'
+                                                                    'Note: the order of parameters is fixed: account, rse.\n'
+                                                                    '\n')
     get_account_limits_parser.set_defaults(which='get_limits')
     get_account_limits_parser.add_argument('account', action='store', help='Account name')
     get_account_limits_parser.add_argument('rse', action='store', help='The RSE name')
@@ -1082,12 +1087,14 @@ Note: the order of parameters is fixed: account, rse.
     delete_account_limits_parser = account_subparser.add_parser('delete-limits',
                                                                 help='Delete limtes for an account at given RSE.',
                                                                 formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                                epilog='''
-Example usage:
-    $ rucio-admin account delete-limits jdoe DESY-ZN_DATADISK
-    Deleted account limit for account jdoe and RSE DESY-ZN_DATADISK
-Note: the order of parameters is fixed: account, rse.
-            ''')
+                                                                epilog='Usage example\n'
+                                                                       '"""""""""""""\n'
+                                                                       '\n'
+                                                                       '    $ rucio-admain account delete-limits jdoe DESY-ZN_DATADISK\n'
+                                                                       '    Deleted account limit for account jdoe and RSE DESY-ZN_DATADISK\n'
+                                                                       '\n'
+                                                                       'Note: the order of parameters is fixed: account, rse.\n'
+                                                                       '\n')
     delete_account_limits_parser.set_defaults(which='delete_limits')
     delete_account_limits_parser.add_argument('account', action='store', help='Account name')
     delete_account_limits_parser.add_argument('rse', action='store', help='RSE name')
@@ -1096,24 +1103,27 @@ Note: the order of parameters is fixed: account, rse.
     ban_account_limits_parser = account_subparser.add_parser('ban',
                                                              help='Disable an account.',
                                                              formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                             epilog='''
-Example usage:
-    $ rucio-admin account ban --account jdoe
-    Account jdoe banned
-Note: in case of accidental ban, use unban.
-CAUTION: the account is completely disabled.
-            ''')
+                                                             epilog='Usage example\n'
+                                                                    '"""""""""""""\n'
+                                                                    '\n'
+                                                                    '    $ rucio-admin account ban --account jdoe\n'
+                                                                    '    Account jdoe banned\n'
+                                                                    '\n'
+                                                                    'Note: in case of accidental ban, use unban.\n'
+                                                                    'CAUTION: the account is completely disabled.\n'
+                                                                    '\n')
     ban_account_limits_parser.set_defaults(which='ban_account')
     ban_account_limits_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
 
     unban_account_limits_parser = account_subparser.add_parser('unban',
                                                                help='Unban a banned account. The account is mandatory parameter.',
                                                                formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                               epilog='''
-Example usage:
-    $ rucio-admin account unban --account jdoe
-    Account jdoe unbanned
-            ''')
+                                                               epilog='Usage example\n'
+                                                                      '"""""""""""""\n'
+                                                                      '\n'
+                                                                      '    $ rucio-admin account unban --account jdoe\n'
+                                                                      '    Account jdoe unbanned\n'
+                                                                      '\n')
     unban_account_limits_parser.set_defaults(which='unban_account')
     unban_account_limits_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
 
@@ -1125,21 +1135,28 @@ Example usage:
     identity_add_parser = identity_subparser.add_parser('add',
                                                         help='Grant an identity access to an account.',
                                                         formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                        epilog='''
-Example usage:
-To add an identity of X509 type:
-    $ rucio-admin identity add --account jdoe --type X509 --id '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe' --email jdoe@cern.ch
-    Added new identity to account: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe-jdoe
-    $ rucio-admin account list-identities jdoe
-    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,	type: X509
-Note: please keep the DN inside quota marks.
-To add an identity of GSS type:
-    $ rucio-admin identity add --account jdoe --type GSS --email jdoe@cern.ch --id jdoe@CERN.CH
-    Added new identity to account: jdoe@CERN.CH-jdoe
-    $ rucio-admin account list-identities jdoe
-    Identity: jdoe@CERN.CH,	type: GSS
-    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,	type: X509
-            ''')
+                                                        epilog='Usage example\n'
+                                                               '"""""""""""""\n'
+                                                               '\n'
+                                                               'To add an identity of X509 type\n'
+                                                               '\n'
+                                                               '    $ rucio-admin identity add --account jdoe --type X509 --id \'/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe\' --email jdoe@cern.ch\n'
+                                                               '    Added new identity to account: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe-jdoe\n'
+                                                               '\n'
+                                                               '    $ rucio-admin account list-identities jdoe\n'
+                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,	type: X509\n'
+                                                               '\n'
+                                                               'Note: please keep the DN inside quota marks.\n'
+                                                               '\n'
+                                                               'To add an identity of GSS type:\n'
+                                                               '\n'
+                                                               '    $ rucio-admin identity add --account jdoe --type GSS --email jdoe@cern.ch --id jdoe@CERN.CH\n'
+                                                               '    Added new identity to account: jdoe@CERN.CH-jdoe\n'
+                                                               '\n'
+                                                               '    $ rucio-admin account list-identities jdoe\n'
+                                                               '    Identity: jdoe@CERN.CH,	type: GSS\n'
+                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,	type: X509\n'
+                                                               '\n')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
     identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
@@ -1150,12 +1167,14 @@ To add an identity of GSS type:
     identity_delete_parser = identity_subparser.add_parser('delete',
                                                            help="Revoke an identity's access to an account. The mandatory parameters are account, type and identity.",
                                                            formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                           epilog='''
-Example usage:
-    $ rucio-admin identity delete --account jdoe --type X509 --id '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe'
-    Deleted identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe
-Note: if the identity was accidentaly deleted, use add option.
-            ''')
+                                                           epilog='Usage example\n'
+                                                                  '"""""""""""""\n'
+                                                                  '\n'
+                                                                  '    $ rucio-admin identity delete --account jdoe --type X509 --id \'/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe\'\n'
+                                                                  '    Deleted identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe\n'
+                                                                  '\n'
+                                                                  'Note: if the identity was accidentaly deleted, use add option.\n'
+                                                                  '\n')
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
     identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
@@ -1169,25 +1188,29 @@ Note: if the identity was accidentaly deleted, use add option.
     list_rse_parser = rse_subparser.add_parser('list',
                                                help='List all RSEs.',
                                                formatter_class=argparse.RawDescriptionHelpFormatter,
-                                               epilog='''
-Example usage:
-To list all rses:
-    $ rucio-admin rse list
-    note: same as rucio list-rses
-To list special class of rses:
-    $ rucio list-rses --expression "tier=2&type=DATADISK"
-            ''')
+                                               epilog='Usage example\n'
+                                                      '"""""""""""""\n'
+                                                      '\n'
+                                                      'To list all rses:\n'
+                                                      '    $ rucio-admin rse list'
+                                                      '\n'
+                                                      'Note: same as rucio list-rses\n'
+                                                      '\n'
+                                                      'To list special class of rses:\n'
+                                                      '    $ rucio list-rses --expression \"tier=2&type=DATADISK\"\n'
+                                                      '\n')
     list_rse_parser.set_defaults(which='list_rses')
 
     # The add_rse command
     add_rse_parser = rse_subparser.add_parser('add',
                                               help='Add new RSE.',
                                               formatter_class=argparse.RawDescriptionHelpFormatter,
-                                              epilog='''
-Example Usage:
-    $ rucio-admin rse add JDOES-TEST_DATADISK
-    Added new RSE: JDOES-TEST_DATADISK
-            ''')
+                                              epilog='Example Usage\n'
+                                                     '"""""""""""""\n'
+                                                     '\n'
+                                                     '    $ rucio-admin rse add JDOES-TEST_DATADISK\n'
+                                                     '    Added new RSE: JDOES-TEST_DATADISK\n'
+                                                     '\n')
     add_rse_parser.set_defaults(which='add_rse')
     add_rse_parser.add_argument('rse', action='store', help='RSE name')
 
@@ -1195,43 +1218,45 @@ Example Usage:
     info_rse_parser = rse_subparser.add_parser('info',
                                                help='Information about RSE.',
                                                formatter_class=argparse.RawDescriptionHelpFormatter,
-                                               epilog='''
-Example usage:
-    $ rucio-admin rse info JDOES-TEST_DATADISK
-    Settings:
-    =========
-      third_party_copy_protocol: 1
-      rse_type: DISK
-      domain: [u'lan', u'wan']
-      availability_delete: True
-      delete_protocol: 1
-      rse: JDOES-TEST_DATADISK
-      deterministic: True
-      write_protocol: 1
-      read_protocol: 1
-      staging_area: False
-      credentials: None
-      availability_write: True
-      lfn2pfn_algorithm: default
-      availability_read: True
-      volatile: False
-      id: 9c54c73cbd534450b2202a576f809f1f
-    Attributes:
-    ===========
-      JDOES-TEST_DATADISK: True
-    Protocols:
-    ==========
-    Usage:
-    ======
-      rucio
-        used: 0
-        rse: JDOES-TEST_DATADISK
-        updated_at: 2018-02-16 13:08:28
-        free: None
-        source: rucio
-        total: 0
-Note: usage can be also listed by rucio list-rse-usage JDOES-TEST_DATADISK
-            ''')
+                                               epilog='Usage example\n'
+                                                      '"""""""""""""\n'
+                                                      '\n'
+                                                      '    $ rucio-admin rse info JDOES-TEST_DATADISK\n'
+                                                      '    Settings:\n'
+                                                      '    =========\n'
+                                                      '      third_party_copy_protocol: 1\n'
+                                                      '      rse_type: DISK\n'
+                                                      '      domain: [u\'lan\', u\'wan\']\n'
+                                                      '      availability_delete: True\n'
+                                                      '      delete_protocol: 1\n'
+                                                      '      rse: JDOES-TEST_DATADISK\n'
+                                                      '      deterministic: True\n'
+                                                      '      write_protocol: 1\n'
+                                                      '      read_protocol: 1\n'
+                                                      '      staging_area: False\n'
+                                                      '      credentials: None\n'
+                                                      '      availability_write: True\n'
+                                                      '      lfn2pfn_algorithm: default\n'
+                                                      '      availability_read: True\n'
+                                                      '      volatile: False\n'
+                                                      '      id: 9c54c73cbd534450b2202a576f809f1f\n'
+                                                      '    Attributes:\n'
+                                                      '    ===========\n'
+                                                      '      JDOES-TEST_DATADISK: True\n'
+                                                      '    Protocols:\n'
+                                                      '    ==========\n'
+                                                      '    Usage:\n'
+                                                      '    ======\n'
+                                                      '      rucio\n'
+                                                      '      used: 0\n'
+                                                      '      rse: JDOES-TEST_DATADISK\n'
+                                                      '      updated_at: 2018-02-16 13:08:28\n'
+                                                      '      free: None\n'
+                                                      '      source: rucio\n'
+                                                      '      total: 0\n'
+                                                      '\n'
+                                                      'Note: alternatively:  rucio list-rse-usage JDOES-TEST_DATADISK.\n'
+                                                      '\n')
     info_rse_parser.set_defaults(which='info_rse')
     info_rse_parser.add_argument('rse', action='store', help='RSE name')
 
@@ -1239,12 +1264,14 @@ Note: usage can be also listed by rucio list-rse-usage JDOES-TEST_DATADISK
     set_attribute_rse_parser = rse_subparser.add_parser('set-attribute',
                                                         help='Add RSE attribute(key-value pair).',
                                                         formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                        epilog='''
-Example usage:
-    $ rucio-admin rse set-attribute --rse JDOES-TEST_DATADISK --key owner --value jdoe
-    Added new RSE attribute for JDOES-TEST_DATADISK: owner-jdoe
-CAUTION: the existing attribute can be overwritten. Check rucio list-rse-attributes JDOES-TEST_DATADISK before setting an attribute.
-            ''')
+                                                        epilog='Usage example\n'
+                                                               '"""""""""""""\n'
+                                                               '\n'
+                                                               '    $ rucio-admin rse set-attribute --rse JDOES-TEST_DATADISK --key owner --value jdoe\n'
+                                                               '    Added new RSE attribute for JDOES-TEST_DATADISK: owner-jdoe\n'
+                                                               '\n'
+                                                               'CAUTION: the existing attribute can be overwritten. Check rucio list-rse-attributes JDOES-TEST_DATADISK before setting an attribute.\n'
+                                                               '\n')
     set_attribute_rse_parser.set_defaults(which='set_attribute_rse')
     set_attribute_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
     set_attribute_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
@@ -1254,11 +1281,12 @@ CAUTION: the existing attribute can be overwritten. Check rucio list-rse-attribu
     delete_attribute_rse_parser = rse_subparser.add_parser('delete-attribute',
                                                            help='Delete a RSE attribute(key-value pair).',
                                                            formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                           epilog='''
-Example usage:
-    $ rucio-admin rse delete-attribute --rse JDOES-TEST_DATADISK --key owner --value jdoe
-    Deleted RSE attribute for JDOES-TEST_DATADISK: owner-jdoe
-            ''')
+                                                           epilog='Usage example\n'
+                                                                  '"""""""""""""\n'
+                                                                  '\n'
+                                                                  '    $ rucio-admin rse delete-attribute --rse JDOES-TEST_DATADISK --key owner --value jdoe\n'
+                                                                  '    Deleted RSE attribute for JDOES-TEST_DATADISK: owner-jdoe\n'
+                                                                  '\n')
     delete_attribute_rse_parser.set_defaults(which='delete_attribute_rse')
     delete_attribute_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
     delete_attribute_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
@@ -1268,14 +1296,17 @@ Example usage:
     add_distance_rses_parser = rse_subparser.add_parser('add-distance',
                                                         help='Set the distance between a pair of RSEs.',
                                                         formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                        epilog='''
-Example usage:
-    $ rucio-admin rse add-distance JDOES-TEST2_DATADISK JDOES-TEST_DATADISK
-    Set distance from JDOES-TEST2_DATADISK to JDOES-TEST_DATADISK to 1 with ranking 1
-Note: --distance can be set in range (0-11), 0 is the closest
-      --ranking can be set in range (0-13), 13 is the best
-Note: order of RSEs is fixed: source, destination
-            ''')
+                                                        epilog='Usage example\n'
+                                                               '"""""""""""""\n'
+                                                               '\n'
+                                                               '    $ rucio-admin rse add-distance JDOES-TEST2_DATADISK JDOES-TEST_DATADISK\n'
+                                                               '    Set distance from JDOES-TEST2_DATADISK to JDOES-TEST_DATADISK to 1 with ranking 1/n'
+                                                               '\n'
+                                                               'Note:/n'
+                                                               '    --distance can be set in range (0-11), 0 is the closest\n'
+                                                               '    --ranking can be set in range (0-13), 13 is the best\n'
+                                                               'Note: order of RSEs is fixed: source, destination\n'
+                                                               '\n')
     add_distance_rses_parser.set_defaults(which='add_distance_rses')
     add_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
     add_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
@@ -1286,17 +1317,19 @@ Note: order of RSEs is fixed: source, destination
     update_distance_rses_parser = rse_subparser.add_parser('update-distance',
                                                            help='Update the existing distance or ranking between a pair of RSEs. The mandatory parameters are source, destination and distance or ranking.',
                                                            formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                           epilog='''
-Example usage:
-To update distance or ranking between pair of RSEs:
-    rucio-admin rse update-distance JDOES-TEST_DATADISK JDOES-TEST2_DATADISK --ranking 10
-    Update distance information from JDOES-TEST_DATADISK to JDOES-TEST2_DATADISK:
-    - Ranking set to 10
-Note: --distance can be set in range (0-11), 0 is the closest
-      --ranking can be set in range (-inf+inf), the larger the better
-Note: order of RSEs is fixed: source, destination
-Note: ranking is updated dynamically against coditions at grid.
-            ''')
+                                                           epilog='Usage example\n'
+                                                                  '"""""""""""""\n'
+                                                                  '\n'
+                                                                  '    $ rucio-admin rse update-distance JDOES-TEST_DATADISK JDOES-TEST2_DATADISK --ranking 10\n'
+                                                                  '    Update distance information from JDOES-TEST_DATADISK to JDOES-TEST2_DATADISK:\n'
+                                                                  '    - Ranking set to 10\n'
+                                                                  '\n'
+                                                                  'Note:\n'
+                                                                  '    --distance can be set in range (0-11), 0 is the closest\n'
+                                                                  '    --ranking can be set in range (-inf+inf), the larger the better\n'
+                                                                  'Note: order of RSEs is fixed: source, destination.\n'
+                                                                  'Note: ranking is updated dynamically against coditions at grid.\n'
+                                                                  '\n')
     update_distance_rses_parser.set_defaults(which='update_distance_rses')
     update_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
     update_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
@@ -1307,13 +1340,14 @@ Note: ranking is updated dynamically against coditions at grid.
     get_distance_rses_parser = rse_subparser.add_parser('get-distance',
                                                         help='Get the distance information between a pair of RSEs.',
                                                         formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                        epilog='''
-Example usage:
-To get information about distance:
-    $ rucio-admin rse get-distance JDOES-TEST_DATADISK JDOES-TEST2_DATADISK
-    Distance information from JDOES-TEST_DATADISK to JDOES-TEST2_DATADISK: distance=3, ranking=10
-Note: order of RSEs is fixed: source, destination
-            ''')
+                                                        epilog='Usage example\n'
+                                                               '"""""""""""""\n'
+                                                               '\n'
+                                                               '    $ rucio-admin rse get-distance JDOES-TEST_DATADISK JDOES-TEST2_DATADISK\n'
+                                                               '    Distance information from JDOES-TEST_DATADISK to JDOES-TEST2_DATADISK: distance=3, ranking=10\n'
+                                                               '\n'
+                                                               'Note: order of RSEs is fixed: source, destination.\n'
+                                                               '\n')
     get_distance_rses_parser.set_defaults(which='get_distance_rses')
     get_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
     get_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
@@ -1322,13 +1356,15 @@ Note: order of RSEs is fixed: source, destination
     get_attribute_rse_parser = rse_subparser.add_parser('get-attribute',
                                                         help='List RSE attributes.',
                                                         formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                        epilog='''
-Example usage:
-    $ rucio-admin rse get-attribute JDOES-TEST_DATADISK
-    owner: jdoe
-    JDOES-TEST_DATADISK: True
-Note: alternatively: rucio list-rse-attributes JDOES-TEST_DATADISK
-''')
+                                                        epilog='Usage example\n'
+                                                               '"""""""""""""\n'
+                                                               '\n'
+                                                               '    $ rucio-admin rse get-attribute JDOES-TEST_DATADISK\n'
+                                                               '    owner: jdoe\n'
+                                                               '    JDOES-TEST_DATADISK: True\n'
+                                                               '\n'
+                                                               'Note: alternatively: rucio list-rse-attributes JDOES-TEST_DATADISK.\n'
+                                                               '\n')
     get_attribute_rse_parser.set_defaults(which='get_attribute_rse')
     get_attribute_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
 
@@ -1336,20 +1372,22 @@ Note: alternatively: rucio list-rse-attributes JDOES-TEST_DATADISK
     add_protocol_rse_parser = rse_subparser.add_parser('add-protocol',
                                                        help='Add a protocol and its settings to a RSE.',
                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                       epilog='''
-Example usage:
-    $ rucio-admin rse add-protocol --hostname jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443 JDOES-TEST_DATADISK
-Note: no printed stdout
-Note: examples of optional parametres:
-        --space-token DATADISK
-        --web_service_path https://jdoes.web-ui.org
-        --port 8443
-        --impl 'rucio.rse.protocols.gfalv2.Default'
-            (for other protocol implementation, replace gfal2 with impl. name, e.g. srm)
-        --domain-json
-        --extended-attributes-json example.json
-            where example.json contains dict {'attr_name':'value', ...}
-            ''')
+                                                       epilog='Usage example\n'
+                                                              '"""""""""""""\n'
+                                                              '\n'
+                                                              '    $ rucio-admin rse add-protocol --hostname jdoes.test.org --scheme gsiftp --prefix \'/atlasdatadisk/rucio/\' --port 8443 JDOES-TEST_DATADISK\n'
+                                                              '\n'
+                                                              'Note: no printed stdout.\n'
+                                                              'Note: examples of optional parametres:\n'
+                                                              '    --space-token DATADISK\n'
+                                                              '    --web_service_path https://jdoes.web-ui.org\n'
+                                                              '    --port 8443\n'
+                                                              '    --impl \'rucio.rse.protocols.gfalv2.Default\'\n'
+                                                              '      (for other protocol implementation, replace gfal2 with impl. name, e.g. srm)\n'
+                                                              '    --domain-json\n'
+                                                              '    --extended-attributes-json example.json\n'
+                                                              '      where example.json contains dict {\'attr_name\':\'value\', ...}\n'
+                                                              '\n')
     add_protocol_rse_parser.set_defaults(which='add_protocol_rse')
     add_protocol_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
     add_protocol_rse_parser.add_argument('--hostname', dest='hostname', action='store', help='Endpoint hostname', required=True)
@@ -1366,11 +1404,13 @@ Note: examples of optional parametres:
     del_protocol_rse_parser = rse_subparser.add_parser('delete-protocol',
                                                        help='Delete a protocol from a RSE.',
                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                       epilog='''
-Example usage:
-    $ rucio-admin rse delete-protocol  --scheme gsiftp JDOES-TEST_DATADISK
-Note: no printed stdout
-             ''')
+                                                       epilog='Usage example\n'
+                                                              '"""""""""""""\n'
+                                                              '\n'
+                                                              '   $ rucio-admin rse delete-protocol  --scheme gsiftp JDOES-TEST_DATADISK\n'
+                                                              '\n'
+                                                              'Note: no printed stdout.\n'
+                                                              '\n')
     del_protocol_rse_parser.set_defaults(which='del_protocol_rse')
     del_protocol_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
     del_protocol_rse_parser.add_argument('--hostname', dest='hostname', action='store', help='Endpoint hostname')
@@ -1381,12 +1421,14 @@ Note: no printed stdout
     disable_rse_parser = rse_subparser.add_parser('delete',
                                                   help='Disable RSE.',
                                                   formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                  epilog='''
-Example usage:
-    $ rucio-admin rse delete JDOES-TEST2_DATADISK
-Note: no printed stdout
-CAUTION: all information about the RSE might be lost!
-            ''')
+                                                  epilog='Usage example\n'
+                                                         '"""""""""""""\n'
+                                                         '\n'
+                                                         '   $ rucio-admin rse delete JDOES-TEST2_DATADISK\n'
+                                                         '\n'
+                                                         'Note: no printed stdout.\n'
+                                                         'CAUTION: all information about the RSE might be lost!\n'
+                                                         '\n')
     disable_rse_parser.set_defaults(which='disable_rse')
     disable_rse_parser.add_argument('rse', action='store', help='RSE name')
 
@@ -1398,11 +1440,12 @@ CAUTION: all information about the RSE might be lost!
     add_scope_parser = scope_subparser.add_parser('add',
                                                   help='Add scope.',
                                                   formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                  epilog='''
-Example usage:
-    $ rucio-admin scope add --scope user.jdoe --account jdoe
-    Added new scope to account: user.jdoe-jdoe
-            ''')
+                                                  epilog='Usage example\n'
+                                                         '"""""""""""""\n'
+                                                         '\n'
+                                                         '    $ rucio-admin scope add --scope user.jdoe --account jdoe\n'
+                                                         '    Added new scope to account: user.jdoe-jdoe\n'
+                                                         '\n')
     add_scope_parser.set_defaults(which='add_scope')
     add_scope_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
     add_scope_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)
@@ -1411,12 +1454,14 @@ Example usage:
     list_scope_parser = scope_subparser.add_parser('list',
                                                    help='List scopes.',
                                                    formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                   epilog='''
-Example usage:
-    $ rucio-admin scope list --account jdoe
-    user.jdoe
-Note: alternatively rucio list-socpes
-            ''')
+                                                   epilog='Usage example\n'
+                                                          '"""""""""""""\n'
+                                                          '\n'
+                                                          '    $ rucio-admin scope list --account jdoe\n'
+                                                          '    user.jdoe\n'
+                                                          '\n'
+                                                          'Note: alternatively: rucio list-scopes.\n'
+                                                          '\n')
     list_scope_parser.set_defaults(which='list_scopes')
     list_scope_parser.add_argument('--account', dest='account', action='store', help='Account name')
 
@@ -1431,15 +1476,17 @@ Note: alternatively rucio list-socpes
     get_config_parser = config_subparser.add_parser('get',
                                                     help='Get matching configuration.',
                                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                    epilog='''
-Example usage:
-    $ rucio-admin config get --section quota
-    [quota]
-    LOCALGROUPDISK=95
-    SCRATCHDISK=30
-    USERDISK=30
-Note: to list other sections: rucio-admin config get
-            ''')
+                                                    epilog='Usage example\n'
+                                                           '"""""""""""""\n'
+                                                           '\n'
+                                                           '    $ rucio-admin config get --section quota\n'
+                                                           '    [quota]\n'
+                                                           '    LOCALGROUPDISK=95\n'
+                                                           '    SCRATCHDISK=30\n'
+                                                           '    USERDISK=30\n'
+                                                           '\n'
+                                                           'Note: to list other sections: rucio-admin config get.\n'
+                                                           '\n')
     get_config_parser.set_defaults(which='get_config')
     get_config_parser.add_argument('--section', dest='section', action='store', help='Section name', required=False)
     get_config_parser.add_argument('--option', dest='option', action='store', help='Option name', required=False)
@@ -1448,12 +1495,14 @@ Note: to list other sections: rucio-admin config get
     set_config_parser = config_subparser.add_parser('set',
                                                     help='Set matching configuration.',
                                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                    epilog='''
-Example usage:
-    $ rucio-admin config set --section limitsscratchdisk --option testlimit --value 30
-    Set configuration: limitsscratchdisk.testlimit=30
-CAUTION: you might not intend to change global configuration!
-            ''')
+                                                    epilog='Usage example\n'
+                                                           '"""""""""""""\n'
+                                                           '\n'
+                                                           '    $ rucio-admin config set --section limitsscratchdisk --option testlimit --value 30\n'
+                                                           '    Set configuration: limitsscratchdisk.testlimit=30\n'
+                                                           '\n'
+                                                           'CAUTION: you might not intend to change global configuration!\n'
+                                                           '\n')
     set_config_parser.set_defaults(which='set_config_option')
     set_config_parser.add_argument('--section', dest='section', action='store', help='Section name', required=True)
     set_config_parser.add_argument('--option', dest='option', action='store', help='Option name', required=True)
@@ -1463,12 +1512,14 @@ CAUTION: you might not intend to change global configuration!
     delete_config_parser = config_subparser.add_parser('delete',
                                                        help='Delete matching configuration.',
                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                       epilog='''
-Example usage:
-    $ rucio-admin config delete --section limitsscratchdisk --option testlimit
-    Deleted section 'limitsscratchdisk' option 'testlimit'
-CAUTION: you might not intend to change global configuration!
-            ''')
+                                                       epilog='Usage example\n'
+                                                              '"""""""""""""\n'
+                                                              '\n'
+                                                              '    $ rucio-admin config delete --section limitsscratchdisk --option testlimit\n'
+                                                              '    Deleted section \'limitsscratchdisk\' option \'testlimit\'\n'
+                                                              '\n'
+                                                              'CAUTION: you might not intend to change global configuration!\n'
+                                                              '\n')
     delete_config_parser.set_defaults(which='delete_config_option')
     delete_config_parser.add_argument('--section', dest='section', action='store', help='Section name', required=True)
     delete_config_parser.add_argument('--option', dest='option', action='store', help='Option name', required=True)
@@ -1481,14 +1532,16 @@ CAUTION: you might not intend to change global configuration!
     add_sub_parser = subs_subparser.add_parser('add',
                                                help='Add subscription',
                                                formatter_class=argparse.RawDescriptionHelpFormatter,
-                                               epilog='''
-Example usage:
-    $ rucio-admin subscription add --lifetime 2 --account jdoe --priority 1 jdoes_txt_files_on_datadisk
-    '{"scope": ["user.jdoe"], "datatype": ["txt"]}' '[{"copies": 1, "rse_expression": "JDOES-TEST_DATADISK", "lifetime": 3600, "activity": "User Subscriptions"}]'
-    'keeping replica on jdoes disk for 60 mins'
-    Suibscription added 9a89cc8e692f4cabb8836fdafd884c5a
-Note: priority can range from 1 to infinity. Internal share for given account.
-            ''')
+                                               epilog='Usage example\n'
+                                                      '"""""""""""""\n'
+                                                      '\n'
+                                                      '    $ rucio-admin subscription add --lifetime 2 --account jdoe --priority 1 jdoes_txt_files_on_datadisk\n'
+                                                      '    \'{\"scope\": [\"user.jdoe\"], \"datatype\": [\"txt\"]}\' \'[{\"copies\": 1, \"rse_expression\": \"JDOES-TEST_DATADISK\", \"lifetime\": 3600, \"activity\": \"User Subscriptions\"}]\'\n'
+                                                      '    \'keeping replica on jdoes disk for 60 mins\'\n'
+                                                      '    Suibscription added 9a89cc8e692f4cabb8836fdafd884c5a\n'
+                                                      '\n'
+                                                      'Note: priority can range from 1 to infinity. Internal share for given account.\n'
+                                                      '\n')
     add_sub_parser.set_defaults(which='add_subscription')
     add_sub_parser.add_argument(dest='name', action='store', help='Subscription name')
     add_sub_parser.add_argument(dest='filter', action='store', help='DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')')
@@ -1503,15 +1556,16 @@ Note: priority can range from 1 to infinity. Internal share for given account.
     list_sub_parser = subs_subparser.add_parser('list',
                                                 help='List subscriptions',
                                                 formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                epilog='''
-Example usage:
-    $ rucio-admin subscription list --account jdoe
-    jdoe: jdoes_txt_files_on_datadisk UPDATED
-    priority: 1
-    filter: {"datatype": ["txt"], "scope": ["user.jdoe"]}
-    rules: [{"lifetime": 3600, "rse_expression": "JDOES-TEST_DATADISK", "copies": 1, "activity": "User Subscriptions"}]
-    comments: keeping replica on jdoes disk for 60 mins
-            ''')
+                                                epilog='Usage example\n'
+                                                       '"""""""""""""\n'
+                                                       '\n'
+                                                       '    $ rucio-admin subscription list --account jdoe\n'
+                                                       '    jdoe: jdoes_txt_files_on_datadisk UPDATED\n'
+                                                       '    priority: 1\n'
+                                                       '    filter: {\'datatype\': [\'txt\'], \'scope\': [\'user.jdoe\']}\n'
+                                                       '    rules: [{\'lifetime\': 3600, \'rse_expression\': \'JDOES-TEST_DATADISK\', \'copies\': 1, \'activity\': \'User Subscriptions\'}]\n'
+                                                       '    comments: keeping replica on jdoes disk for 60 mins\n'
+                                                       '\n')
     list_sub_parser.set_defaults(which='list_subscriptions')
     list_sub_parser.add_argument('--account', dest='subs_account', action='store', help='Account name')
     list_sub_parser.add_argument('--long', dest='long', action='store_true', help='Long listing')
@@ -1521,20 +1575,23 @@ Example usage:
     update_sub_parser = subs_subparser.add_parser('update',
                                                   help='Update subscription',
                                                   formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                  epilog='''
-Example usage:
-    $ rucio-admin subscription update --lifetime 3 --account jdoe --priority 1 jdoes_txt_files_on_datadisk
-    '{"scope": ["user.jdoe"], "datatype": ["txt"]}' '[{"copies": 1, "rse_expression": "JDOES-TEST_DATADISK", "lifetime": 3600, "activity": "User Subscriptions"}]'
-    'keeping replica on jdoes disk for 60 mins, valid until 23.2.2018'
-Note: no printed stdout.
-Note: all the input parameters are mandatory.
-    $ rucio-admin subscription list --account jdoe
-    jdoe: jdoes_txt_files_on_datadisk UPDATED
-    priority: 1
-    filter: {"datatype": ["txt"], "scope": ["user.jdoe"]}
-    rules: [{"lifetime": 3600, "rse_expression": "JDOES-TEST_DATADISK", "copies": 1, "activity": "User Subscriptions"}]
-    comments: keeping replica on jdoes disk for 60 mins, valid until 23.2.2018
-            ''')
+                                                  epilog='Usage example\n'
+                                                         '"""""""""""""\n'
+                                                         '\n'
+                                                         '    $ rucio-admin subscription update --lifetime 3 --account jdoe --priority 1 jdoes_txt_files_on_datadisk\n'
+                                                         '    \'{\"scope\": [\"user.jdoe\"], \"datatype\": [\"txt\"]}\' \'[{\"copies\": 1, \"rse_expression\": \"JDOES-TEST_DATADISK\", \"lifetime\": 3600, \"activity\": \"User Subscriptions\"}]\n'
+                                                         '    keeping replica on jdoes disk for 60 mins, valid until 23.2.2018\n'
+                                                         '\n'
+                                                         'Note: no printed stdout.\n'
+                                                         'Note: all the input parameters are mandatory.\n'
+                                                         '\n'
+                                                         '    $ rucio-admin subscription list --account jdoe\n'
+                                                         '    jdoe: jdoes_txt_files_on_datadisk UPDATED\n'
+                                                         '    priority: 1\n'
+                                                         '    filter: {\"datatype\": [\"txt\"], \"scope\": [\"user.jdoe\"]}\n'
+                                                         '    rules: [{\"lifetime\": 3600, \"rse_expression\": \"JDOES-TEST_DATADISK\", \"copies\": 1, \"activity\": \"User Subscriptions\"}]\n'
+                                                         '    comments: keeping replica on jdoes disk for 60 mins, valid until 23.2.2018\n'
+                                                         '\n')
     update_sub_parser.set_defaults(which='update_subscription')
     update_sub_parser.add_argument(dest='name', action='store', help='Subscription name')
     update_sub_parser.add_argument(dest='filter', action='store', help='DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')')
@@ -1549,11 +1606,13 @@ Note: all the input parameters are mandatory.
     reevaluate_did_for_subscription_parser = subs_subparser.add_parser('reevaluate',
                                                                        help='Reevaluate a list of DIDs against all active subscriptions',
                                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                                       epilog='''
-Example usage:
-    rucio-admin subscription reevaluate user.jdoe:jdoes.test.dataset
-Note: no printed stdout.
-            ''')
+                                                                       epilog='Usage example\n'
+                                                                              '"""""""""""""\n'
+                                                                              '\n'
+                                                                              '    $ rucio-admin subscription reevaluate user.jdoe:jdoes.test.dataset\n'
+                                                                              '\n'
+                                                                              'Note: no printed stdout.\n'
+                                                                              '\n')
     reevaluate_did_for_subscription_parser.set_defaults(which='reevaluate_did_for_subscription')
     reevaluate_did_for_subscription_parser.add_argument(dest='dids', action='store', help='List of DIDs (coma separated)')
 
@@ -1565,12 +1624,15 @@ Note: no printed stdout.
     declare_bad_file_replicas_parser = rep_subparser.add_parser('declare-bad',
                                                                 help='Declare bad file replicas',
                                                                 formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                                epilog='''
-Example usage:
-    $ rucio-admin replicas declare-bad srm://se.bfg.uni-freiburg.de:8443/srm/managerv2?SFN=/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --reason 'test only'
-Note: no printed stdout.
-Note: pfn has to be provided, see rucio-admin replicas list-pfns or rucio list-file-replicas
-            ''')
+                                                                epilog='Usage example\n'
+                                                                       '"""""""""""""\n'
+                                                                       '\n'
+                                                                       '    $ rucio-admin replicas declare-bad\n'
+                                                                       '    srm://se.bfg.uni-freiburg.de:8443/srm/managerv2?SFN=/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --reason \'test only\'\n'
+                                                                       '\n'
+                                                                       'Note: no printed stdout.\n'
+                                                                       'Note: pfn has to be provided, see rucio-admin replicas list-pfns or rucio list-file-replicas\n'
+                                                                       '\n')
     declare_bad_file_replicas_parser.set_defaults(which='declare_bad_file_replicas')
     declare_bad_file_replicas_parser.add_argument(dest='listbadfiles', action='store', nargs='*', help='The list of bad files')
     declare_bad_file_replicas_parser.add_argument('--reason', dest='reason', required=True, action='store', help='Reason')
@@ -1580,16 +1642,30 @@ Note: pfn has to be provided, see rucio-admin replicas list-pfns or rucio list-f
     list_pfns_parser = rep_subparser.add_parser('list-pfns',
                                                 help='List the possible PFN for a file at a site.',
                                                 formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                epilog='''
-Example usage:
-    $ rucio-admin replicas list-pfns user.jdoe:jdoe.TXT.txt CERN-PROD_SCRATCHDISK srm
-    {'all_states': False, 'schemes': ['srm'], 'dids': [{'scope': 'user.jdoe', 'name': 'jdoe.TXT.txt'}]}
-    srm://srm-eosatlas.cern.ch:8443/srm/v2/server?SFN=/eos/atlas/atlasscratchdisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt
-            ''')
+                                                epilog='Usage example\n'
+                                                       '"""""""""""""\n'
+                                                       '\n'
+                                                       '    $ rucio-admin replicas list-pfns \n'
+                                                       '    user.jdoe:jdoe.TXT.txt CERN-PROD_SCRATCHDISK srm \'{\"all_states\": False, \"schemes\": [\"srm\"], \"dids\": [{\"scope\": \"user.jdoe\", \"name\": \"jdoe.TXT.txt\"}]}\'\n'
+                                                       '    srm://srm-eosatlas.cern.ch:8443/srm/v2/server?SFN=/eos/atlas/atlasscratchdisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt'
+                                                       '\n')
     list_pfns_parser.set_defaults(which='list_pfns')
     list_pfns_parser.add_argument(dest='dids', action='store', help='List of DIDs (coma separated)')
     list_pfns_parser.add_argument(dest='rse', action='store', help='RSE')
     list_pfns_parser.add_argument(dest='protocol', action='store', default='srm', help='The protocol, by default srm, can be one of [root|srm|http(s)].')
+
+    return oparser
+
+
+if __name__ == '__main__':
+    oparser = get_parser()
+    argcomplete.autocomplete(oparser)
+
+    if len(sys.argv) == 1:
+        oparser.print_help()
+        sys.exit(FAILURE)
+
+    args = oparser.parse_args(sys.argv[1:])
 
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
@@ -1630,15 +1706,9 @@ Example usage:
                 'declare_bad_file_replicas': declare_bad_file_replicas,
                 'list_pfns': list_pfns}
 
-    argcomplete.autocomplete(oparser)
-
-    if len(sys.argv) == 1:
-        oparser.print_help()
-        sys.exit(FAILURE)
-
-    args = oparser.parse_args(sys.argv[1:])
-
     try:
+        if args.verbose:
+            logger.setLevel(logging.DEBUG)
         start_time = time.time()
         command = commands.get(args.which)
         result = command(args)
@@ -1646,6 +1716,6 @@ Example usage:
         if args.verbose:
             print "Completed in %-0.4f sec." % (end_time - start_time)
         sys.exit(result)
-    except (RuntimeError, NotImplementedError) as error:
-        print >> sys.stderr, "ERROR: ", error
+    except Exception as error:
+        logger.error("Strange error: {0}".format(error))
         sys.exit(FAILURE)
