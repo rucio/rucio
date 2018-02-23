@@ -207,7 +207,7 @@ for configfile in __CONFIGFILES:
 
 if not __HAS_CONFIG:
 
-    if not any("sphinx-build" in argc for argc in sys.argv):
+    if 'sphinx' not in sys.modules:
         # test to not fail when build the API doc
         raise Exception('Could not load rucio configuration file rucio.cfg.'
                         'Rucio looks in the following directories for a configuration file, in order:'

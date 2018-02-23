@@ -1,20 +1,26 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
-'''
+# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2015
+# - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 
 import json
 import logging
 import logging.handlers
 import random
+import sys
 
 import dns.resolver
 import stomp
@@ -28,22 +34,31 @@ ERRLOG.setLevel(logging.ERROR)
 LOGGER = logging.getLogger('trace')
 LOGGER.setLevel(logging.DEBUG)
 
-HANDLER = logging.handlers.RotatingFileHandler(filename='%s/trace' % config_get('nongrid-trace', 'tracedir'), maxBytes=1000000000, backupCount=10)
-
-LOGFORMATTER = logging.Formatter('%(message)s')
-HANDLER.setFormatter(LOGFORMATTER)
-HANDLER.suffix = "%Y-%m-%d"
-LOGGER.addHandler(HANDLER)
+try:
+    HANDLER = logging.handlers.RotatingFileHandler(filename='%s/trace' % config_get('nongrid-trace', 'tracedir'), maxBytes=1000000000, backupCount=10)
+    LOGFORMATTER = logging.Formatter('%(message)s')
+    HANDLER.setFormatter(LOGFORMATTER)
+    HANDLER.suffix = "%Y-%m-%d"
+    LOGGER.addHandler(HANDLER)
+except:
+    if 'sphinx' not in sys.modules:
+        raise
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
     BROKERS_ALIAS = [b.strip() for b in config_get('nongrid-trace', 'brokers').split(',')]
 except:
-    raise Exception('Could not load brokers from configuration')
-PORT = config_get_int('nongrid-trace', 'port')
-TOPIC = config_get('nongrid-trace', 'topic')
-USERNAME = config_get('nongrid-trace', 'username')
-PASSWORD = config_get('nongrid-trace', 'password')
+    if 'sphinx' not in sys.modules:
+        raise Exception('Could not load brokers from configuration')
+
+try:
+    PORT = config_get_int('nongrid-trace', 'port')
+    TOPIC = config_get('nongrid-trace', 'topic')
+    USERNAME = config_get('nongrid-trace', 'username')
+    PASSWORD = config_get('nongrid-trace', 'password')
+except:
+    if 'sphinx' not in sys.modules:
+        raise
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 

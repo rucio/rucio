@@ -1,12 +1,22 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013
+# - Wen Guan <wguan.icedew@gmail.com>, 2015
+# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 
 """
 ConveyorInjector is a daemon to queue file transfers for testing purposes.
@@ -34,7 +44,10 @@ logging.getLogger("dogpile").setLevel(logging.CRITICAL)
 requests.packages.urllib3.disable_warnings()  # pylint: disable=no-member
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()

@@ -1,11 +1,20 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 
 """
 Abacus-Account is a daemon to update Account counters.
@@ -23,7 +32,10 @@ from rucio.core.account_counter import get_updated_account_counters, update_acco
 graceful_stop = threading.Event()
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
