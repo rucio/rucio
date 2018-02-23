@@ -1,20 +1,32 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
-# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017
-#
-# Client class for callers of the Rucio system
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Yun-Pin Sun <winter0128@gmail.com>, 2013
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Tobias Wegner <twegner@cern.ch>, 2017
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
+
+'''
+ Client class for callers of the Rucio system
+'''
 
 import random
 import sys
@@ -37,7 +49,6 @@ from requests import session
 from requests.status_codes import codes, _codes
 from requests.exceptions import ConnectionError
 from requests_kerberos import HTTPKerberosAuth
-# See https://github.com/kennethreitz/requests/issues/2214
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 disable_warnings()
 
