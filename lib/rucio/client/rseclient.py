@@ -273,6 +273,45 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
+    def lfns2pfns(self, rse, lfns, protocol_domain='ALL', operation=None, scheme=None):
+        """
+        Returns PFNs that should be used at a RSE, corresponding to requested LFNs.
+        The PFNs are generated for the RSE *regardless* of whether a replica exists for the LFN.
+
+        :param rse: the RSE name
+        :param lfns: A list of LFN strings to translate to PFNs.
+        :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL' (as default).
+        :param operation: The name of the requested operation (read, write, or delete).
+                          If None, all operations are queried.
+        :param scheme: The identifier of the requested protocol (gsiftp, https, davs, etc).
+
+        :returns: A dictionary of LFN / PFN pairs.
+        :raises RSENotFound: if the RSE doesn't exist.
+        :raises RSEProtocolNotSupported: if no matching protocol entry could be found.
+        :raises RSEOperationNotSupported: if no matching protocol entry for the requested
+                                          operation could be found.
+        """
+        path = '/'.join([self.RSE_BASEURL, rse, 'lfns2pfns'])
+        params = []
+        if scheme:
+            params.append(('scheme', scheme))
+        if protocol_domain != 'ALL':
+            params.append(('domain', protocol_domain))
+        if operation:
+            params.append(('operation', operation))
+        for lfn in lfns:
+            params.append(('lfn', lfn))
+
+        url = build_url(choice(self.list_hosts), path=path, params=params, doseq=True)
+
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            pfns = loads(r.text)
+            return pfns
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
     def delete_protocols(self, rse, scheme, hostname=None, port=None):
         """
         Deletes matching protocols from RSE. Protocols using the same identifier can be

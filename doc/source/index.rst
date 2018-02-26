@@ -71,36 +71,7 @@ Operator Documentation
 
     installing_server
     installing_daemons
-    man/rucio-abacus-account
-    man/rucio-abacus-rse
-    man/rucio-atropos
-    man/rucio-auditor
-    man/rucio-automatix
-    man/rucio-bb8
-    man/rucio-c3po
-    man/rucio-cache-client
-    man/rucio-cache-consumer
-    man/rucio-conveyor-finisher
-    man/rucio-conveyor-poller
-    man/rucio-conveyor-poller-latest
-    man/rucio-conveyor-receiver
-    man/rucio-conveyor-stager
-    man/rucio-conveyor-submitter
-    man/rucio-conveyor-throttler
-    man/rucio-conveyor-transfer-submitter
-    man/rucio-dark-reaper
-    man/rucio-dumper
-    man/rucio-hermes
-    man/rucio-judge-cleaner
-    man/rucio-judge-evaluator
-    man/rucio-judge-injector
-    man/rucio-judge-repairer
-    man/rucio-kronos
-    man/rucio-light-reaper
-    man/rucio-necromancer
-    man/rucio-reaper
-    man/rucio-transmogrifier
-    man/rucio-undertaker
+    man/daemons
     monitoring
 
 

@@ -6,9 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 
 import logging
 import sys
@@ -26,7 +27,10 @@ from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, Reque
 from rucio.db.sqla.session import transactional_session
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 

@@ -6,8 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Luis Rodrigues, <luis.rodrigues@cern.ch>, 2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+# - Luis Rodrigues <lfrodrigues@gmail.com>, 2013
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Vincent Garonne vgaronne@gmail.com, 2018
 
 """
 Graphite counters
@@ -19,9 +21,9 @@ from pystatsd import Client
 
 from rucio.common.config import config_get
 
-SERVER = config_get('monitor', 'carbon_server')
-PORT = config_get('monitor', 'carbon_port')
-SCOPE = config_get('monitor', 'user_scope')
+SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default='localhost')
+PORT = config_get('monitor', 'carbon_port', raise_exception=False, default=8125)
+SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
 CLIENT = Client(host=SERVER, port=PORT, prefix=SCOPE)
 
 

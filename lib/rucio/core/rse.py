@@ -13,6 +13,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2017
 # - Wen Guan, <wen.guan@cern.ch>, 2015-2016
+# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 
 from re import match
 from StringIO import StringIO
@@ -34,6 +35,7 @@ import rucio.core.account_counter
 from rucio.core.rse_counter import add_counter
 
 from rucio.common import exception, utils
+from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -729,7 +731,9 @@ def get_rse_protocols(rse, schemes=None, session=None):
         raise exception.RSENotFound('RSE \'%s\' not found')
 
     lfn2pfn_algorithms = get_rse_attribute('lfn2pfn_algorithm', rse_id=_rse.id, session=session)
-    lfn2pfn_algorithm = 'default'
+    # Resolve LFN2PFN default algorithm as soon as possible.  This way, we can send back the actual
+    # algorithm name in response to REST queries.
+    lfn2pfn_algorithm = get_lfn2pfn_algorithm_default()
     if lfn2pfn_algorithms:
         lfn2pfn_algorithm = lfn2pfn_algorithms[0]
 

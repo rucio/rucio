@@ -7,9 +7,10 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2018
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Eric Vaandering, <ewv@fnal.gov>, 2018
 
 import datetime
 import json
@@ -21,7 +22,6 @@ import urlparse
 import uuid
 import traceback
 
-from ConfigParser import NoOptionError
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
@@ -34,14 +34,14 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-__USERCERT = config_get('conveyor', 'usercert')
-try:
-    __USE_DETERMINISTIC_ID = config_get_bool('conveyor', 'use_deterministic_id')
-except NoOptionError:
-    __USE_DETERMINISTIC_ID = False
+__USERCERT = config_get('conveyor', 'usercert', False, None)
+__USE_DETERMINISTIC_ID = config_get_bool('conveyor', 'use_deterministic_id', False, False)
 
 REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=1800)
@@ -168,13 +168,17 @@ def submit_transfers(transfers, job_metadata):
                                   'activity': str(transfer['activity']),
                                   'selection_strategy': transfer.get('selection_strategy', 'auto')}],
                        'params': {'verify_checksum': True if transfer['checksum'] else False,
-                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else None,
                                   'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                                   'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                                   'job_metadata': job_metadata,
-                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else None,
                                   'overwrite': transfer['overwrite'],
                                   'priority': 3}}
+
+        # Don't put optional & missing keys in the parameters
+        if transfer['dest_spacetoken']:
+            params_dict['params'].update({'spacetoken': transfer['dest_spacetoken']})
+        if transfer['src_spacetoken']:
+            params_dict['params'].update({'source_spacetoken': transfer['src_spacetoken']})
 
         r = None
         params_str = json.dumps(params_dict)
