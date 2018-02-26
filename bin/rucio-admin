@@ -25,6 +25,7 @@
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
+# - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 
 import argparse
 import json
@@ -37,6 +38,7 @@ import traceback
 
 from ConfigParser import NoOptionError, NoSectionError
 from functools import wraps
+from itertools import groupby
 
 import argcomplete
 import tabulate
@@ -839,11 +841,36 @@ def declare_bad_file_replicas(args):
                     bad_files.append(bad_file)
     else:
         bad_files = args.listbadfiles
-    for chunk in chunks(bad_files, 500):
-        non_declared = client.declare_bad_file_replicas(pfns=chunk, reason=args.reason)
-        for rse in non_declared:
-            for pfn in non_declared[rse]:
-                print '%s : PFN %s cannot be declared.' % (rse, pfn)
+
+    # Interpret filenames not in scheme://* format as LFNs and convert them to PFNs
+    bad_files_pfns = []
+    for bad_file in bad_files:
+        if bad_file.find('://') == -1:
+            scope, name = extract_scope(bad_file)
+            did_info = client.get_did(scope, name)
+            if did_info['type'].upper() != 'FILE' and not args.allow_collection:
+                print 'DID %s:%s is a collection and --allow-collection was not specified.' % (scope, name)
+                return FAILURE
+            replicas = [replica for rep in client.list_replicas([{'scope': scope, 'name': name}])
+                        for replica in rep['pfns'].keys()]
+            bad_files_pfns.extend(replicas)
+        else:
+            bad_files_pfns.append(bad_file)
+    if args.verbose:
+        print "PFNs that will be declared bad:"
+        for pfn in bad_files_pfns:
+            print pfn
+
+    # Group file list in separate sublists for different schemes
+    bad_files_pfns.sort()
+    bad_files_pfns_grouped = groupby(bad_files_pfns, lambda f: f[:f.find('://')])
+
+    for sublist in bad_files_pfns_grouped:
+        for chunk in chunks(list(sublist[1]), 500):
+            non_declared = client.declare_bad_file_replicas(pfns=chunk, reason=args.reason)
+            for rse in non_declared:
+                for pfn in non_declared[rse]:
+                    print '%s : PFN %s cannot be declared.' % (rse, pfn)
     return SUCCESS
 
 
@@ -1677,12 +1704,13 @@ def get_parser():
                                                                        '\n'
                                                                        'Note: no printed stdout.\n'
                                                                        '\n'
-                                                                       'Note: pfn has to be provided, see rucio-admin replicas list-pfns or rucio list-file-replicas\n'
+                                                                       'Note: pfn can be provided, see rucio-admin replicas list-pfns or rucio list-file-replicas\n'
                                                                        '\n')
     declare_bad_file_replicas_parser.set_defaults(which='declare_bad_file_replicas')
-    declare_bad_file_replicas_parser.add_argument(dest='listbadfiles', action='store', nargs='*', help='The list of bad files')
+    declare_bad_file_replicas_parser.add_argument(dest='listbadfiles', action='store', nargs='*', help='List of bad items. Each can be a PFN (for one replica) or an LFN (for all replicas of the LFN) or a collection DID (for all file replicas in the DID)')
     declare_bad_file_replicas_parser.add_argument('--reason', dest='reason', required=True, action='store', help='Reason')
-    declare_bad_file_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='Reason')
+    declare_bad_file_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='File containing list of bad items')
+    declare_bad_file_replicas_parser.add_argument('--allow-collection', dest='allow_collection', action='store_true', help='Allow passing a collection DID as bad item')
 
     # The list-pfns command
     list_pfns_parser = rep_subparser.add_parser('list-pfns',
