@@ -12,7 +12,7 @@
      limitations under the License.
 
      Authors:
-   - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+   - Thomas Beermann <thomas.beermann@cern.ch>, 2018
    - Cedric Serfon <cedric.serfon@cern.ch>, 2018
    - Vincent Garonne <vgaronne@gmail.com>, 2018
 
@@ -39,12 +39,9 @@ to have access to this `docker-compose.yml file <https://github.com/rucio/rucio/
 you can either:
 
 - `clone <https://help.github.com/articles/cloning-a-repository/>`_ the `Rucio repository <https://github.com/rucio/rucio/>`_,
-- `fork and clone <https://help.github.com/articles/fork-a-repo/>`_ the `Rucio repository <https://github.com/rucio/rucio/>`_ for the ones you want to `contribute <https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst>`_ to Rucio,
-- or download directly the file from the `Rucio repository <https://github.com/rucio/rucio/>`_, e.g,::
+- or `fork and clone <https://help.github.com/articles/fork-a-repo/>`_ the `Rucio repository <https://github.com/rucio/rucio/>`_ for the ones you want to `contribute <https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst>`_ to Rucio,
 
-    > $ wget https://raw.githubusercontent.com/rucio/rucio/master/etc/docker/demo/docker-compose.yml
-
-To run the multi-container Rucio Docker applications::
+To run the multi-container Rucio Docker applications, do::
 
     > $ sudo docker-compose --file etc/docker/demo/docker-compose.yml up -d
 
