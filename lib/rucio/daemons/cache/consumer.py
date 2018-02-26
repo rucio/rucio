@@ -1,14 +1,23 @@
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Wen Guan <wguan.icedew@gmail.com>, 2014
+# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017
+
 """
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Wen Guan, <wguan@cern.ch>, 2014
-
 Fax consumer is a daemon to retrieve rucio cache operation information to synchronize rucio catalog.
 """
 
@@ -32,7 +41,10 @@ from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_r
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
@@ -63,9 +75,6 @@ class Consumer(object):
         on_message
         '''
         record_counter('daemons.cache.consumer2.message')
-#        id = msg['id']
-#        if id % self.__num_thread == self.__id:
-#            self.message_handle(msg['payload'])
         try:
             msg = json.loads(message)
             if isinstance(msg, dict) and 'operation' in msg.keys():

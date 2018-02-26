@@ -16,17 +16,20 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 '''
 
-from os import remove, unlink, listdir, rmdir
+from os import remove, unlink, listdir, rmdir, stat
 
 import nose.tools
 import re
 
 from rucio import version
+from rucio.client.didclient import DIDClient
+from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get
-from rucio.common.utils import generate_uuid
+from rucio.common.utils import generate_uuid, md5
 from rucio.core.account_limit import set_account_limit
 from rucio.core.rse import get_rse_id
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
+from rucio.rse import rsemanager as rsemgr
 
 
 class TestBinRucio():
@@ -42,6 +45,8 @@ class TestBinRucio():
         self.auth_host = config_get('client', 'auth_host')
         self.user = 'data13_hip'
         self.def_rse = 'MOCK4'
+        self.did_client = DIDClient()
+        self.replica_client = ReplicaClient()
 
         set_account_limit('root', get_rse_id(self.def_rse), -1)
 
@@ -305,6 +310,23 @@ class TestBinRucio():
         print err
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out), None)
 
+    def test_upload_adds_md5digest(self):
+        """CLIENT(USER): Upload Checksums"""
+        # user has a file to upload
+        filename = file_generator()
+        file_md5 = md5(filename)
+        # user uploads file
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, filename)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        # When inspecting the metadata of the new file the user finds the md5 checksum
+        meta = self.did_client.get_metadata(scope=self.user, name=filename[5:])
+        nose.tools.assert_in('md5', meta)
+        nose.tools.assert_equal(meta['md5'], file_md5)
+        remove(filename)
+
     def test_create_dataset(self):
         """CLIENT(USER): Rucio add dataset"""
         tmp_name = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
@@ -364,7 +386,83 @@ class TestBinRucio():
             for i in listdir('data13_hip'):
                 unlink('data13_hip/%s' % i)
             rmdir('data13_hip')
-        except:
+        except Exception:
+            pass
+
+    def test_download_succeeds_md5only(self):
+        """CLIENT(USER): Rucio download succeeds MD5 only"""
+        # user has a file to upload
+        filename = file_generator()
+        file_md5 = md5(filename)
+        filesize = stat(filename).st_size
+        lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': file_md5}
+        # user uploads file
+        self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
+        rse_settings = rsemgr.get_rse_info(self.def_rse)
+        protocol = rsemgr.create_protocol(rse_settings, 'write')
+        protocol.connect()
+        pfn = protocol.lfns2pfns(lfn).values()[0]
+        protocol.put(filename[5:], pfn, filename[:5])
+        protocol.close()
+        remove(filename)
+        # download files
+        cmd = 'rucio download --dir /tmp {0}:{1}'.format(self.user, filename[5:])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # search for the files with ls
+        cmd = 'ls /tmp/{0}'.format(self.user)    # search in /tmp/
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_not_equal(re.search(filename[5:], out), None)
+        try:
+            for i in listdir('data13_hip'):
+                unlink('data13_hip/%s' % i)
+            rmdir('data13_hip')
+        except Exception:
+            pass
+
+    def test_download_fails_badmd5(self):
+        """CLIENT(USER): Rucio download fails on MD5 mismatch"""
+        # user has a file to upload
+        filename = file_generator()
+        file_md5 = md5(filename)
+        filesize = stat(filename).st_size
+        lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': '0123456789abcdef0123456789abcdef'}
+        # user uploads file
+        self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
+        rse_settings = rsemgr.get_rse_info(self.def_rse)
+        protocol = rsemgr.create_protocol(rse_settings, 'write')
+        protocol.connect()
+        pfn = protocol.lfns2pfns(lfn).values()[0]
+        protocol.put(filename[5:], pfn, filename[:5])
+        protocol.close()
+        remove(filename)
+
+        # download file
+        cmd = 'rucio download --dir /tmp {0}:{1}'.format(self.user, filename[5:])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+
+        # a failure message 'Checksum mismatch : local _____ vs storage _____' appears
+        report = 'Checksum\ mismatch\ \:\ local\ {0}\ vs\ recorded\ 0123456789abcdef0123456789abcdef'.format(file_md5)
+        print 'searching', report, 'in', err
+        nose.tools.assert_not_equal(re.search(report, err), None)
+
+        # The file should not exist
+        cmd = 'ls /tmp/'    # search in /tmp/
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_equal(re.search(filename[5:], out), None)
+
+        try:
+            for i in listdir('data13_hip'):
+                unlink('data13_hip/%s' % i)
+            rmdir('data13_hip')
+        except Exception:
             pass
 
     def test_download_dataset(self):

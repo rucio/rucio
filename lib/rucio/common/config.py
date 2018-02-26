@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 
 """
 Get the configuration file from /opt/rucio/etc/rucio.cfg
@@ -46,8 +47,23 @@ def config_get(section, option, raise_exception=True, default=None):
 
 
 def config_has_section(section):
-    """Indicates whether the named section is present in the configuration. The DEFAULT section is not acknowledged.)"""
+    """
+    Indicates whether the named section is present in the configuration. The DEFAULT section is not acknowledged.)
+
+    :param section: Name of section in the Rucio config to verify.
+    :returns: True if the section exists in the configuration; False otherwise
+    """
     return __CONFIG.has_section(section)
+
+
+def config_add_section(section):
+    """
+    Add a new section to the configuration object.  Throws DuplicateSectionError if it already exists.
+
+    :param section: Name of section in the Rucio config to add.
+    :returns: None
+    """
+    return __CONFIG.add_section(section)
 
 
 def config_get_int(section, option):
@@ -60,9 +76,25 @@ def config_get_float(section, option):
     return __CONFIG.getfloat(section, option)
 
 
-def config_get_bool(section, option):
-    """Return the boolean value for a given option in a section"""
-    return __CONFIG.getboolean(section, option)
+def config_get_bool(section, option, raise_exception=True, default=None):
+    """
+    Return the boolean value for a given option in a section
+
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not NoOptionError or NoSectionError.
+    :param default: the default value if not found.
+.
+    :returns: the configuration value.
+    """
+    try:
+        return __CONFIG.getboolean(section, option)
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+        if raise_exception:
+            raise err
+        if default is None:
+            return default
+        return bool(default)
 
 
 def config_get_options(section):
@@ -73,6 +105,32 @@ def config_get_options(section):
 def config_get_items(section):
     """Return all (name, value) pairs from a given section"""
     return __CONFIG.items(section)
+
+
+def config_remove_option(section, option):
+    """
+    Remove the specified option from a given section.
+
+    :param section: Name of section in the Rucio config.
+    :param option: Name of option to remove from Rucio configuration.
+    :returns: True if the option existed in the configuration, False otherwise.
+
+    :raises NoSectionError: If the section does not exist.
+    """
+    return __CONFIG.remove_option(section, option)
+
+
+def config_set(section, option, value):
+    """
+    Set a configuration option in a given section.
+
+    :param section: Name of section in the Rucio config.
+    :param option: Name of option to set in the Rucio configuration.
+    :param value: New value for the option.
+
+    :raises NoSectionError: If the section does not exist.
+    """
+    return __CONFIG.set(section, option, value)
 
 
 def get_config_dir():
@@ -88,6 +146,16 @@ def get_config_dir():
     for configdir in configdirs:
         if os.path.exists(configdir):
             return configdir
+
+
+def get_lfn2pfn_algorithm_default():
+    """Returns the default algorithm name for LFN2PFN translation for this server."""
+    default_lfn2pfn = "hash"
+    try:
+        default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default')
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+        pass
+    return default_lfn2pfn
 
 
 def get_schema_dir():
@@ -138,7 +206,8 @@ for configfile in __CONFIGFILES:
         break
 
 if not __HAS_CONFIG:
-    if not any("sphinx-build" in argc for argc in sys.argv):
+
+    if 'sphinx' not in sys.modules:
         # test to not fail when build the API doc
         raise Exception('Could not load rucio configuration file rucio.cfg.'
                         'Rucio looks in the following directories for a configuration file, in order:'
