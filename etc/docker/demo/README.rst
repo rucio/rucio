@@ -27,6 +27,7 @@ Setting up a Rucio demo environment requires to have `docker` and `docker-compos
 installed. Docker is an application that makes it simple and easy to run
 application processes. To install Docker for your platform, please refer to
 the `Docker installation guide <https://docs.docker.com/install/>`_.
+`Git` should be also `installed <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_.
 
 The containers provided here can be used to easily setup a small demo instance of
 Rucio with some mock data to play around with some Rucio commands.
