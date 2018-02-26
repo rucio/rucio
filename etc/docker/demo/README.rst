@@ -40,7 +40,7 @@ to have access to this `docker-compose.yml file <https://github.com/rucio/rucio/
 you can either:
 
 - `clone <https://help.github.com/articles/cloning-a-repository/>`_ the `Rucio repository <https://github.com/rucio/rucio/>`_,
-- or `fork and clone <https://help.github.com/articles/fork-a-repo/>`_ the `Rucio repository <https://github.com/rucio/rucio/>`_ for the ones you want to `contribute <https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst>`_ to Rucio,
+- or `fork and clone <https://help.github.com/articles/fork-a-repo/>`_ the `Rucio repository <https://github.com/rucio/rucio/>`_ for the ones who want to `contribute <https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst>`_ to Rucio,
 
 To run the multi-container Rucio Docker applications, do::
 
