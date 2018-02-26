@@ -17,7 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.
@@ -89,24 +89,20 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     # Make an initial heartbeat so that all finishers have the correct worker number on the next try
     hb = heartbeat.live(executable, hostname, pid, hb_thread)
-    graceful_stop.wait(1)
-    sleeping = False
+    prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
+    graceful_stop.wait(10)
     while not graceful_stop.is_set():
 
         start_time = time.time()
         try:
             hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
             prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
-
+            logging.debug(prepend_str + 'Starting new cycle')
             if activities is None:
                 activities = [None]
 
-            if sleeping:
-                logging.info(prepend_str + 'Nothing to do. will sleep %s seconds' % (sleep_time))
-                graceful_stop.wait(sleep_time)
-
-            sleeping = True
             for activity in activities:
+                logging.debug(prepend_str + 'Working on activity %s' % activity)
                 ts = time.time()
                 reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                              state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING,
@@ -117,9 +113,9 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                                              process=process, total_processes=total_processes,
                                              thread=hb['assign_thread'], total_threads=hb['nr_threads'])
                 record_timer('daemons.conveyor.finisher.000-get_next', (time.time() - ts) * 1000)
+                stime1 = time.time()
                 if reqs:
                     logging.debug(prepend_str + 'Updating %i requests for activity %s' % (len(reqs), activity))
-                    sleeping = False
 
                 for chunk in chunks(reqs, bulk):
                     try:
@@ -130,16 +126,14 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                     except:
                         logging.warn(str(traceback.format_exc()))
                 if reqs:
-                    logging.debug(prepend_str + 'Finish to update %s finished requests for activity %s' % (len(reqs), activity))
+                    logging.debug(prepend_str + 'Finish to update %s finished requests for activity %s in %s seconds' % (len(reqs), activity, time.time() - stime1))
 
         except (DatabaseException, DatabaseError) as error:
             if isinstance(error.args[0], tuple) and (re.match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
                 logging.warn(prepend_str + 'Lock detected when handling request - skipping: %s' % (str(error)))
             else:
                 logging.error(prepend_str + '%s' % (traceback.format_exc()))
-            sleeping = False
         except:
-            sleeping = False
             logging.critical(prepend_str + '%s' % (traceback.format_exc()))
         end_time = time.time()
         time_diff = end_time - start_time
