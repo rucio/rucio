@@ -56,13 +56,12 @@ User Documentation
     :maxdepth: 1
 
     installing_clients
-    cli_examples
-    cli_admin_examples
     man/rucio
     man/rucio-admin
     rse_expressions
     clients
     advanced_usage
+
 
 Operator Documentation
 ======================
@@ -70,11 +69,22 @@ Operator Documentation
 .. toctree::
     :maxdepth: 1
 
-    rucio_demo
     installing_server
     installing_daemons
     man/daemons
     monitoring
+
+
+Rucio Tutorial
+==============
+
+.. toctree::
+    :maxdepth: 1
+
+    installing_demo
+    rucio_demo
+    cli_examples
+    cli_admin_examples
 
 Authors
 =======
