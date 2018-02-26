@@ -5,7 +5,6 @@ Setting up a Rucio development environment
 Prerequisites
 --------------
 
-
 Setting up a Rucio development environment requires to have Docker installed. Docker is an
 application that makes it simple and easy to run application processes. To install Docker for
 your platform, please refer to the `Docker installation guide <https://docs.docker.com/install/>`_.
