@@ -26,6 +26,12 @@ ADD ui-aliases-py27.conf /opt/rucio/etc/web/
 RUN chmod 644 /opt/rucio/etc/web/ui-aliases-py27.conf
 ADD automatix.json /opt/rucio/etc/
 
+RUN mkdir /opt/rucio/tools
+ADD dump_schema.py /opt/rucio/tools
+RUN chmod 755 /opt/rucio/tools/dump_schema.py
+ADD activate_rucio_global_completion.sh /opt/rucio/tools
+RUN cat /opt/rucio/tools/activate_rucio_global_completion.sh >> /root/.bashrc
+
 RUN mkdir /var/log/rucio
 RUN mkdir /var/log/rucio/trace
 RUN chmod 777 /var/log/rucio
