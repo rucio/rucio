@@ -17,9 +17,13 @@ RUN pip install rucio rucio-webui
 WORKDIR /opt
 
 ADD rucio.cfg /opt/rucio/etc/
+RUN chmod 644 /opt/rucio/etc/rucio.cfg
 ADD alembic.ini /opt/rucio/etc/
+RUN chmod 644 /opt/rucio/etc/alembic.ini
 ADD aliases-py27.conf /opt/rucio/etc/web/
+RUN chmod 644 /opt/rucio/etc/web/aliases-py27.conf
 ADD ui-aliases-py27.conf /opt/rucio/etc/web/
+RUN chmod 644 /opt/rucio/etc/web/ui-aliases-py27.conf
 ADD automatix.json /opt/rucio/etc/
 
 RUN mkdir /var/log/rucio
