@@ -57,27 +57,45 @@ After you run the docker-compose command you can check the status of the contain
 
     > $ sudo docker ps
     CONTAINER ID        IMAGE                    COMMAND                  CREATED             STATUS                     PORTS                  NAMES
-    ad03d8dc3b4a        demo_rucio               "/wait-for-it.sh --ti"   13 minutes ago      Up 13 minutes              0.0.0.0:443->443/tcp   demo_rucio_1
+    ad03d8dc3b4a        demo_rucio               "httpd -D FOREGROUND"    13 minutes ago      Up 13 minutes              0.0.0.0:443->443/tcp   demo_rucio_1
     8d5f8253f3d8        mysql/mysql-server:5.7   "/entrypoint.sh mysql"   13 minutes ago      Up 13 minutes (healthy)    3306/tcp, 33060/tcp    demo_mysql_1
 
-Waiting for the containers to finish setup
-------------------------------------------
+Initial setup of demo data
+--------------------------
 
-It will take some time until the MySQL DB has started and is populated with the demo
-data. You can check this process with docker logs. When everything is ready
-you should see something like this::
+After the first start of the demo containers you will have to setup the demo account
+and the demo data to be able to use the Rucio commands and the WebUI. To do this you
+have to simply run the following command::
 
-    $ sudo docker logs -f demo_rucio_1
-    wait-for-it.sh: waiting 60 seconds for mysql:5432
-    wait-for-it.sh: timeout occurred after waiting 60 seconds for mysql:5432
+    $ sudo docker exec -it demo_rucio_1 /setup_demo.sh
+
+You might see the following error message::
+    ...
+    sqlalchemy.exc.OperationalError: (_mysql_exceptions.OperationalError) (2003, "Can't connect to MySQL server on 'mysql' (111)") (Background on this error at: http://sqlalche.me/e/e3q8)
+
+This only means that the MySQL container is not ready, yet, and you just have to wait a
+moment before you try again. If everything worked fine you should see something like
+this::
+
     INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
     INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
-    INFO  [alembic.runtime.migration] Running stamp_revision  -> 94a5961ddbf2
-    [Thu Feb 08 15:37:26.260272 2018] [so:warn] [pid 207] AH01574: module ssl_module is already loaded, skipping
-    [Thu Feb 08 15:37:26.260357 2018] [so:warn] [pid 207] AH01574: module auth_kerb_module is already loaded, skipping
-    [Thu Feb 08 15:37:26.260366 2018] [so:warn] [pid 207] AH01574: module wsgi_module is already loaded, skipping
-    [Thu Feb 08 15:37:26.263810 2018] [so:warn] [pid 207] AH01574: module gridsite_module is already loaded, skipping
-    AH00558: httpd: Could not reliably determine the server's fully qualified domain name, using 172.18.0.3. Set the 'ServerName' directive globally to suppress this message
+    INFO  [alembic.runtime.migration] Running stamp_revision  -> 2962ece31cf4
+    Start Automatix
+    2018-02-27 12:26:33,216 68      DEBUG   Still 1 active threads
+    2018-02-27 12:26:33,718 68      INFO    Thread [1/1] : Getting data distribution
+    2018-02-27 12:26:33,719 68      DEBUG   Thread [1/1] : Probabilities {u'type1': 1.0}
+    2018-02-27 12:26:33,719 68      INFO    Thread [1/1] : Running on site SITE1_DISK
+    2018-02-27 12:26:33,720 68      INFO    Thread [1/1] : Generating file /tmp/tmpOX4uPw/AOD.735cd55130fb4852b8b41656428820fc in dataset tests:test.1925.automatix_stream.recon.AOD.496
+    2018-02-27 12:26:33,735 68      DEBUG
+    2018-02-27 12:26:33,735 68      DEBUG   1+0 records in
+    1+0 records out
+    1000000 bytes (1.0 MB) copied, 0.00734248 s, 136 MB/s
+    ...
+
+To test that Rucio is set up correctly you can do a ping and you should
+get the rucio version::
+    $ sudo docker exec -it demo_rucio_1 rucio ping
+    1.15.0
 
 Using the container
 -------------------
