@@ -17,7 +17,7 @@ services:
       - mysql:mysql
     depends_on:
       - "mysql"
-    command: ["/wait-for-it.sh", "--timeout=60", "mysql:5432", "--", "/setup_demo.sh"]
+    command: ["httpd", "-D", "FOREGROUND"]
   mysql:
     image: mysql/mysql-server:5.7
     environment:
