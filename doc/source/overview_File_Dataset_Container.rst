@@ -2,7 +2,7 @@
 Files, Datasets and Containers
 ------------------------------
 
-As data is physically stored in files, files are also the smalles operational unit of data in Rucio. Sub-file operations are currently not possible. Rucio enables users to identify and access on any arbitrary set of files.
+As data is physically stored in files, files are also the smallest operational unit of data in Rucio. Sub-file operations are currently not possible. Rucio enables users to identify and access on any arbitrary set of files.
 
 Files can be grouped into datasets (a named set of files) and datasets can be grouped into containers (a named set of datasets or, recursively, containers). All three types of names refer to data so the term ‘data identifier’ (DID) is used to mean any set of file, dataset or container identifiers. A data identifier is just the name of a single file, dataset or container.
 
