@@ -118,6 +118,13 @@ and start playing around with rucio::
     user.jdoe
     [root@ad03d8dc3b4a rucio]#
 
+Stopping the demo
+-----------------
+
+To stop the demo, you can do::
+
+    $ docker-compose --file etc/docker/demo/docker-compose.yml down
+
 Accessing the WebUI
 -------------------
 
@@ -131,4 +138,6 @@ certificate under::
 
 The import password is `rucio-demo`.
 
-Then you can access the WebUI using this url: `https://<hostname>/ui/`
+Then you can access the WebUI using this url: ´https://<hostname>/ui/´
+
+Normally, it's https://localhost/ui/
