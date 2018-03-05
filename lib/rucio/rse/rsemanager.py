@@ -13,6 +13,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
+# - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 
 
 import copy
