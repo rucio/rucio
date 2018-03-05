@@ -16,4 +16,4 @@ Rucio Cache RSE
 A cache is storage service which keeps additional copies of files to reduce response time and bandwidth usage. In Rucio, a cache is an RSE, tagged as volatile. The control of the cache content is usually handled by an external process or applications (e.g. the Workflow management systems) and not by Rucio. Thus, as Rucio doesn’t control all file movements on these RSEs, the application populating the cache must register and unregister these file replicas in Rucio. The information about replica location on volatile RSEs can have a lifetime. Replicas registered on volatile RSEs are excluded from the Rucio replica management system (replication rules, quota, replication locks) described in the section Replica management. Explicit transfer requests can be made to Rucio in order to populate the cache.
 
 
-.. _RSE Expressions: RSE_Expressions.html
+.. _RSE Expressions: rse_expressions.html
