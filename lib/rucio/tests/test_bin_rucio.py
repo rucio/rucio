@@ -14,6 +14,7 @@
   - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
   - Martin Barisits, <martin.barisits@cern.ch>, 2015
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+  - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 '''
 
 from os import remove, unlink, listdir, rmdir, stat
