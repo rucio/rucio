@@ -29,6 +29,7 @@
 # - Tobias Wegner, <twegner@cern.ch>, 2017
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
+# - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 
 import argparse
 import json
@@ -925,16 +926,16 @@ def upload(args):
     for filename in files:
         try:
             size = os.stat(filename).st_size
-            checksum = adler32(filename)
-            md5_digest = md5(filename)
+            a32_checksum = adler32(filename)
+            md5_checksum = md5(filename)
             base_name = os.path.basename(filename)
             dir_name = os.path.dirname(filename)
             name = base_name
             if args.name:
                 name = args.name
-            logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, name))
+            logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), a32_checksum, fscope, name))
             files_to_list.append({'scope': fscope, 'name': name, 'filename': base_name})
-            current_file_info = {'scope': fscope, 'filename': base_name, 'name': name, 'bytes': size, 'adler32': checksum, 'md5': md5_digest, 'state': 'C', 'meta': {}}
+            current_file_info = {'scope': fscope, 'filename': base_name, 'name': name, 'bytes': size, 'adler32': a32_checksum, 'md5': md5_checksum, 'state': 'C', 'meta': {}}
             if not args.guid and 'pool.root' in filename.lower() and not args.no_register:  # is a root file, getting the GUID
                 status, output, err = execute('pool_extractFileIdentifier {0}'.format(filename))
                 if status != 0:
