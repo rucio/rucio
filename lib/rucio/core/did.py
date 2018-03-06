@@ -13,7 +13,7 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2016-2017
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2016-2018
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
   - Wen Guan, <wen.guan@cern.ch>, 2015
 '''
@@ -1407,7 +1407,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
 @read_session
 def get_did_atime(scope, name, session=None):
     """
-    Get the accessed_at timestamp for a replica. Just for testing.
+    Get the accessed_at timestamp for a did. Just for testing.
     :param scope: the scope name.
     :param name: The data identifier name.
     :param session: Database session to use.
@@ -1415,6 +1415,19 @@ def get_did_atime(scope, name, session=None):
     :returns: A datetime timestamp with the last access time.
     """
     return session.query(models.DataIdentifier.accessed_at).filter_by(scope=scope, name=name).one()[0]
+
+
+@read_session
+def get_did_access_cnt(scope, name, session=None):
+    """
+    Get the access_cnt for a did. Just for testing.
+    :param scope: the scope name.
+    :param name: The data identifier name.
+    :param session: Database session to use.
+
+    :returns: A datetime timestamp with the last access time.
+    """
+    return session.query(models.DataIdentifier.access_cnt).filter_by(scope=scope, name=name).one()[0]
 
 
 @stream_session
@@ -1441,7 +1454,7 @@ def get_dataset_by_guid(guid, session=None):
 @transactional_session
 def touch_dids(dids, session=None):
     """
-    Update the accessed_at timestamp of the given dids.
+    Update the accessed_at timestamp and the access_cnt of the given dids.
 
     :param replicas: the list of dids.
     :param session: The database session in use.
@@ -1452,8 +1465,12 @@ def touch_dids(dids, session=None):
     now = datetime.utcnow()
     try:
         for did in dids:
-            session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name'], did_type=did['type']).\
-                update({'accessed_at': did.get('accessed_at') or now}, synchronize_session=False)
+            row = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name'], did_type=did['type']).one()
+            access_cnt = row.access_cnt
+            if not access_cnt:
+                access_cnt = 0
+            access_cnt += 1
+            row.update({'accessed_at': did.get('accessed_at') or now, 'access_cnt': access_cnt})
     except DatabaseError:
         return False
 
