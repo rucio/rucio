@@ -29,6 +29,8 @@ Individual contributors to the source code
 - Nicolo Magini <Nicolo.Magini@cern.ch>, 2017-2018
 - Oliver Freyermuth <o.freyermuth@googlemail.com>, 2017
 - Eric Vaandering <ericvaandering@gmail.com>, 2018
+- Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+- Igor Mandrichenko <ivm@fnal.gov>, 2018
 
 Organisations employing contributors
 ------------------------------------
