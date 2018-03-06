@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2013-2018
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
@@ -32,7 +32,7 @@ from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlread
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids,
-                            get_metadata, set_metadata, get_did)
+                            get_metadata, set_metadata, get_did, get_did_access_cnt)
 from rucio.core.rse import get_rse_id
 from rucio.core.replica import add_replica
 from rucio.db.sqla.constants import DIDType
@@ -58,7 +58,7 @@ class TestDIDCore:
             add_did(scope=tmp_scope, name=dsn['name'], type='DATASET', account='root')
         delete_dids(dids=dsns, account='root')
 
-    def test_touch_dids(self):
+    def test_touch_dids_atime(self):
         """ DATA IDENTIFIERS (CORE): Touch dids accessed_at timestamp"""
         tmp_scope = 'mock'
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
@@ -75,6 +75,23 @@ class TestDIDCore:
         touch_dids(dids=[{'scope': tmp_scope, 'name': tmp_dsn1, 'type': DIDType.DATASET, 'accessed_at': now}])
         assert_equal(now, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
         assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
+
+    def test_touch_dids_access_cnt(self):
+        """ DATA IDENTIFIERS (CORE): Increase dids access_cnt"""
+        tmp_scope = 'mock'
+        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+
+        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account='root')
+        add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account='root')
+
+        assert_equal(None, get_did_access_cnt(scope=tmp_scope, name=tmp_dsn1))
+        assert_equal(None, get_did_access_cnt(scope=tmp_scope, name=tmp_dsn2))
+
+        for i in xrange(100):
+            touch_dids(dids=[{'scope': tmp_scope, 'name': tmp_dsn1, 'type': DIDType.DATASET}])
+        assert_equal(100, get_did_access_cnt(scope=tmp_scope, name=tmp_dsn1))
+        assert_equal(None, get_did_access_cnt(scope=tmp_scope, name=tmp_dsn2))
 
     def test_update_dids(self):
         """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
