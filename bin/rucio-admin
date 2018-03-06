@@ -51,7 +51,8 @@ from rucio.common.utils import chunks, construct_surl, sizefmt
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
 
-possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]), os.pardir, os.pardir))
+possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
+                                                os.pardir, os.pardir))
 if os.path.exists(os.path.join(possible_topdir, 'lib/rucio', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
@@ -1439,7 +1440,7 @@ def get_parser():
                                                               'Note: examples of optional parametres::\n'
                                                               '\n'
                                                               '    --space-token DATADISK\n'
-                                                              '    --web_service_path https://jdoes.web-ui.org\n'
+                                                              '    --web-service-path \'/srm/managerv2?SFN=\'\n'
                                                               '    --port 8443\n'
                                                               '    --impl \'rucio.rse.protocols.gfalv2.Default\'\n'
                                                               '      (for other protocol implementation, replace gfal2 with impl. name, e.g. srm)\n'
