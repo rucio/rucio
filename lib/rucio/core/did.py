@@ -30,7 +30,7 @@ from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, text, Insert, select, true
+from sqlalchemy.sql.expression import bindparam, case, text, Insert, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -1463,14 +1463,15 @@ def touch_dids(dids, session=None):
     """
 
     now = datetime.utcnow()
+    none_value = None
     try:
         for did in dids:
-            row = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name'], did_type=did['type']).one()
-            access_cnt = row.access_cnt
-            if not access_cnt:
-                access_cnt = 0
-            access_cnt += 1
-            row.update({'accessed_at': did.get('accessed_at') or now, 'access_cnt': access_cnt})
+            session.query(models.DataIdentifier).\
+                filter_by(scope=did['scope'], name=did['name'], did_type=did['type']).\
+                update({'accessed_at': did.get('accessed_at') or now,
+                        'access_cnt': case([(models.DataIdentifier.access_cnt == none_value, 1)],
+                                           else_=(models.DataIdentifier.access_cnt + 1))},
+                       synchronize_session=False)
     except DatabaseError:
         return False
 
