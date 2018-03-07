@@ -1751,6 +1751,8 @@ CREATE TABLE QUARANTINED_REPLICAS (
 
 
 COMMENT ON TABLE QUARANTINED_REPLICAS IS 'Table to store the list of inconsistent files at site not known to Rucio and delete ten from the sites.' ;
+CREATE UNIQUE INDEX QUARANTINED_REPLICAS_PATH_IDX on QUARANTINED_REPLICAS(PATH,RSE_ID) tablespace ATLAS_RUCIO_FACT_DATA01;
+
 
 -- ============================= QUARANTINED_REPLICAS_HISTORY =========================================
 -- Description: Table to store quarantined replicas
