@@ -1,20 +1,32 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#  http://www.apache.org/licenses/LICENSE-2.0
-
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017-2018
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
-# - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
-# - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2017
+# - Yun-Pin Sun <winter0128@gmail.com>, 2013
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2018
+# - Tobias Wegner <twegner@cern.ch>, 2017-2018
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
+
+from __future__ import print_function
 
 import copy
 import os
@@ -158,7 +170,7 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan'):
         try:
             mod = getattr(mod, n)
         except AttributeError:
-            print 'Protocol implementation not found'
+            print('Protocol implementation not found')
             raise  # TODO: provide proper rucio exception
     protocol = mod(protocol_attr, rse_settings)
     return protocol
@@ -243,18 +255,18 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
                     tempfile = '%s/%s.part' % (target_dir, f['name'])
                     if os.path.isfile(tempfile):
                         if printstatements:
-                            print '%s already exists, probably from a failed attempt. Will remove it' % (tempfile)
+                            print('%s already exists, probably from a failed attempt. Will remove it' % (tempfile))
                         os.unlink(tempfile)
                     protocol.get(pfn, tempfile)
                     if printstatements:
-                        print 'File downloaded. Will be validated'
+                        print('File downloaded. Will be validated')
 
                     if not ignore_checksum:
                         ruciochecksum = f['adler32'] if f['adler32'] else f['md5']
                         localchecksum = utils.adler32(tempfile) if f['adler32'] else utils.md5(tempfile)
                         if localchecksum == ruciochecksum:
                             if printstatements:
-                                print 'File validated'
+                                print('File validated')
                             os.rename(tempfile, finalfile)
                         else:
                             os.unlink(tempfile)
