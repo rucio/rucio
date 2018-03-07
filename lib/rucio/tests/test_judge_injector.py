@@ -129,7 +129,7 @@ class TestJudgeEvaluator():
         container = 'asdf.r2d2_request.2016-04-01-15-00-00.ads.' + str(uuid())
         add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         datasets = []
-        for i in xrange(3):
+        for i in range(3):
             files = create_files(3, scope, self.rse1)
             dataset = 'dataset_' + str(uuid())
             datasets.append(dataset)
@@ -152,7 +152,7 @@ class TestJudgeEvaluator():
         container = 'asdf.r2d2_request.2016-04-01-15-00-00.ads.' + str(uuid())
         add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         datasets = []
-        for i in xrange(3):
+        for i in range(3):
             files = create_files(3, scope, self.rse1)
             dataset = 'dataset_' + str(uuid())
             datasets.append(dataset)

@@ -20,15 +20,15 @@ from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
 
 
 def rse_name_generator(size=10):
-    return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in xrange(size))
+    return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in range(size))
 
 
 def tag_generator(size_s=10, size_d=2):
-    return ''.join(choice(ascii_uppercase) for x in xrange(size_s)).join(choice(digits) for x in xrange(size_d))
+    return ''.join(choice(ascii_uppercase) for x in range(size_s)).join(choice(digits) for x in range(size_d))
 
 
 def attribute_name_generator(size=10):
-    return ''.join(choice(ascii_uppercase)).join(choice(ascii_lowercase) for x in xrange(size - 1))
+    return ''.join(choice(ascii_uppercase)).join(choice(ascii_lowercase) for x in range(size - 1))
 
 
 class TestRSEExpressionParserCore(object):

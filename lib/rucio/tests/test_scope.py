@@ -218,7 +218,7 @@ class TestScopeClient():
     def test_list_scopes(self):
         """ SCOPE (CLIENTS): try to list scopes for an account."""
         account = 'jdoe'
-        scope_list = [scope_name_generator() for _ in xrange(5)]
+        scope_list = [scope_name_generator() for _ in range(5)]
         for scope in scope_list:
             self.scope_client.add_scope(account, scope)
 

@@ -36,7 +36,7 @@ class TestUndertaker:
         dsns1 = [{'name': 'dsn_%s' % generate_uuid(),
                   'scope': tmp_scope,
                   'type': 'DATASET',
-                  'lifetime': -1} for i in xrange(nbdatasets)]
+                  'lifetime': -1} for i in range(nbdatasets)]
 
         dsns2 = [{'name': 'dsn_%s' % generate_uuid(),
                   'scope': tmp_scope,
@@ -44,13 +44,13 @@ class TestUndertaker:
                   'lifetime': -1,
                   'rules': [{'account': 'jdoe', 'copies': 1,
                              'rse_expression': 'MOCK',
-                             'grouping': 'DATASET'}]} for i in xrange(nbdatasets)]
+                             'grouping': 'DATASET'}]} for i in range(nbdatasets)]
 
         add_dids(dids=dsns1 + dsns2, account='root')
 
         replicas = list()
         for dsn in dsns1 + dsns2:
-            files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in xrange(nbfiles)]
+            files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in range(nbfiles)]
             attach_dids(scope=tmp_scope, name=dsn['name'], rse='MOCK', dids=files, account='root')
             replicas += files
 
@@ -99,13 +99,13 @@ class TestUndertaker:
                   'lifetime': -1,
                   'rules': [{'account': 'jdoe', 'copies': 1,
                              'rse_expression': rse,
-                             'grouping': 'DATASET'}]} for i in xrange(nbdatasets)]
+                             'grouping': 'DATASET'}]} for i in range(nbdatasets)]
 
         add_dids(dids=dsns2, account='root')
 
         replicas = list()
         for dsn in dsns2:
-            files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in xrange(nbfiles)]
+            files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in range(nbfiles)]
             attach_dids(scope=tmp_scope, name=dsn['name'], rse=rse, dids=files, account='root')
             replicas += files
 
