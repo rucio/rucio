@@ -7,6 +7,9 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016
+# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+
+from __future__ import print_function
 
 import json
 import os
@@ -54,13 +57,13 @@ class TestRseS3ES():
             try:
                 storage.put('%s/%s' % (cls.tmpdir, f), destfile)
             except FileReplicaAlreadyExists, e:
-                print e
+                print(e)
         f = 'data.raw'
         destfile = rsemanager.lfns2pfns(rse_settings, [{'name': f, 'scope': 'user.%s' % (cls.user)}, ], operation='write', scheme='s3+https').values()[0]
         try:
             storage.put('%s/%s' % (cls.tmpdir, f), destfile)
         except FileReplicaAlreadyExists, e:
-            print e
+            print(e)
 
     @classmethod
     def tearDownClass(cls):
@@ -81,11 +84,11 @@ class TestRseS3ES():
         try:
             storage.delete('%s://%s:%s/%s/%s' % (scheme, hostname, port, prefix, 'user'))
         except Exception, e:
-            print e
+            print(e)
         try:
             storage.delete('%s://%s:%s/%s/%s' % (scheme, hostname, port, prefix, 'group'))
         except Exception, e:
-            print e
+            print(e)
 
     def setup(self):
         """S3ES (RSE/PROTOCOLS): Creating Mgr-instance """

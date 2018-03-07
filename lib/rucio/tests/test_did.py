@@ -12,6 +12,9 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+
+from __future__ import print_function
 
 from datetime import datetime, timedelta
 
@@ -45,7 +48,7 @@ class TestDIDCore:
     def test_list_dids(self):
         """ DATA IDENTIFIERS (CORE): List dids """
         for d in list_dids(scope='data13_hip', filters={'name': '*'}, type='collection'):
-            print d
+            print(d)
 
     def test_delete_dids(self):
         """ DATA IDENTIFIERS (CORE): Delete dids """
