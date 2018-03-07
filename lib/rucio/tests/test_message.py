@@ -38,7 +38,7 @@ class TestMessagesCore():
         """ MESSAGE (CORE): Test retrieve and delete messages """
 
         truncate_messages()
-        for i in xrange(10):
+        for i in range(10):
             add_message(event_type='TEST', payload={'foo': True,
                                                     'monty': 'python',
                                                     'number': i})
@@ -49,7 +49,7 @@ class TestMessagesCore():
             assert_is_instance(i['payload'], dict)
             assert_equal(i['payload']['foo'], True)
             assert_equal(i['payload']['monty'], 'python')
-            assert_in(i['payload']['number'], xrange(100))
+            assert_in(i['payload']['number'], range(100))
             to_delete.append({'id': i['id'],
                               'created_at': i['created_at'],
                               'updated_at': i['created_at'],

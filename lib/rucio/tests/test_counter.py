@@ -30,7 +30,7 @@ class TestCoreRSECounter():
         assert_equal(cnt, {'files': 0, 'bytes': 0})
 
         count, sum = 0, 0
-        for i in xrange(10):
+        for i in range(10):
             rse_counter.increase(rse_id=rse_id, files=1, bytes=2.147e+9)
             rse_update(once=True)
             count += 1
@@ -39,7 +39,7 @@ class TestCoreRSECounter():
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
-        for i in xrange(4):
+        for i in range(4):
             rse_counter.decrease(rse_id=rse_id, files=1, bytes=2.147e+9)
             rse_update(once=True)
             count -= 1
@@ -48,7 +48,7 @@ class TestCoreRSECounter():
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
-        for i in xrange(5):
+        for i in range(5):
             rse_counter.increase(rse_id=rse_id, files=1, bytes=2.147e+9)
             rse_update(once=True)
             count += 1
@@ -57,7 +57,7 @@ class TestCoreRSECounter():
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
-        for i in xrange(8):
+        for i in range(8):
             rse_counter.decrease(rse_id=rse_id, files=1, bytes=2.147e+9)
             rse_update(once=True)
             count -= 1
@@ -81,7 +81,7 @@ class TestCoreAccountCounter():
         assert_equal(cnt, {'files': 0, 'bytes': 0})
 
         count, sum = 0, 0
-        for i in xrange(10):
+        for i in range(10):
             account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
             account_update(once=True)
             count += 1
@@ -90,7 +90,7 @@ class TestCoreAccountCounter():
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
-        for i in xrange(4):
+        for i in range(4):
             account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
             account_update(once=True)
             count -= 1
@@ -99,7 +99,7 @@ class TestCoreAccountCounter():
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
-        for i in xrange(5):
+        for i in range(5):
             account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
             account_update(once=True)
             count += 1
@@ -108,7 +108,7 @@ class TestCoreAccountCounter():
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
-        for i in xrange(8):
+        for i in range(8):
             account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
             account_update(once=True)
             count -= 1

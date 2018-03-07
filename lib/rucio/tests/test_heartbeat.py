@@ -41,8 +41,8 @@ class TestHeartbeat:
     def test_heartbeat_1(self):
         """ HEARTBEAT (CORE): Multiple instance """
 
-        pids = [self.__pid() for _ in xrange(4)]
-        threads = [self.__thread() for _ in xrange(4)]
+        pids = [self.__pid() for _ in range(4)]
+        threads = [self.__thread() for _ in range(4)]
         assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 1})
         assert_equal(live('test0', 'host1', pids[1], threads[1]), {'assign_thread': 1, 'nr_threads': 2})
         assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 2})
@@ -56,8 +56,8 @@ class TestHeartbeat:
     def test_heartbeat_2(self):
         """ HEARTBEAT (CORE): Multiple instance with removal"""
 
-        pids = [self.__pid() for _ in xrange(4)]
-        threads = [self.__thread() for _ in xrange(4)]
+        pids = [self.__pid() for _ in range(4)]
+        threads = [self.__thread() for _ in range(4)]
         assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 1})
         assert_equal(live('test0', 'host1', pids[1], threads[1]), {'assign_thread': 1, 'nr_threads': 2})
         assert_equal(live('test0', 'host0', pids[0], threads[0]), {'assign_thread': 0, 'nr_threads': 2})

@@ -26,7 +26,7 @@ def test_quarantined_replicas():
 
     nbreplicas = 5
 
-    replicas = [{'path': '/path/' + generate_uuid()} for _ in xrange(nbreplicas)]
+    replicas = [{'path': '/path/' + generate_uuid()} for _ in range(nbreplicas)]
 
     add_quarantined_replicas(rse='MOCK', replicas=replicas)
 

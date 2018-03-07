@@ -29,7 +29,7 @@ class TestDIDClients(object):
         scope, rse = 'mock', 'MOCK'
         archive_file = 'file_' + generate_uuid() + '.zip'
         files = []
-        for i in xrange(10):
+        for i in range(10):
             files.append({'scope': scope, 'name': 'lfn.%s' % str(generate_uuid()),
                           'bytes': 724963570L,
                           'adler32': '0cc737eb',
