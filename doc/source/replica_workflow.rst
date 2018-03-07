@@ -6,12 +6,12 @@ When a replica is uploaded to Rucio via a client and when a replica is created b
 site to site transfer due to the creation of a `replication rule`_.
 
 
-Replica pathes on storage
+Replica paths on storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Rucio has two basic paradigms in deciding the path for a replica on a specific storage system. **Deterministic** and **Non-deterministic** pathes. If we assume
+Rucio has two basic paradigms in deciding the path for a replica on a specific storage system. **Deterministic** and **Non-deterministic** paths. If we assume
 a file whose data identifier is ``user.jdoe:test.file.1``, thus the scope is ``user.jdoe`` and the name is ``test.file.1``. In Rucio a deterministically created path is a path
-which can be generated soley knowing the scope and name of a data identifier (Ignoring the static prefix of the storage endpoint). For a non-deterministic path
+which can be generated solely knowing the scope and name of a data identifier (Ignoring the static prefix of the storage endpoint). For a non-deterministic path
 additional information describing the file is necessary, such as meta-data, the dataset the file belongs to, etc.
 
 Rucio supports pluggable algorithms for both deterministic and non-deterministic algorithms. This section explains a few of them.
@@ -32,7 +32,7 @@ Deterministic algorithm based on naming convention
 
 If a specific naming convention is enforced on the filenames, a possible deterministic algorithm can be based on it.
 
-For the data identifier ``user.jdoe:test.file.1`` the first part of the filename (``test``) is exctracted and used to generate the path: ``/test/user.jdoe/file.1``
+For the data identifier ``user.jdoe:test.file.1`` the first part of the filename (``test``) is extracted and used to generate the path: ``/test/user.jdoe/file.1``
 
 
 Non-Deterministic algorithm based on parent dataset
@@ -58,9 +58,9 @@ This is a typical workflow when a user uploads multiple files, which are part of
 3. The file replica is registered as ``COPYING`` on the RSE.
 
 4. Based on the identified naming algorithm of the RSE and the list of prioritized write protocols, the file URL is calculated.
-   e.g. usig the hash algorithm from above: ``https://storageserver.organization.org/VO/data/07/7c/user.jdoe/test.file.1``
+   e.g. using the hash algorithm from above: ``https://storageserver.organization.org/VO/data/07/7c/user.jdoe/test.file.1``
 
-5. The file upload is done with the first priritized protocol. If the upload fails, step 4 is repeated with the second prioritized protocol, etc.
+5. The file upload is done with the first prioritized protocol. If the upload fails, step 4 is repeated with the second prioritized protocol, etc.
 
 6. Once the upload is successfully finished, the replica state is changed to ``AVAILABLE``.
 
@@ -89,3 +89,4 @@ This is a typical workflow if a file already exists in Rucio but the user wants 
 
 .. _replication rule: overview_Replica_management.html
 .. _scope: overview_File_Dataset_Container.html
+
