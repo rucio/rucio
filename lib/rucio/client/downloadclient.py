@@ -477,7 +477,7 @@ class DownloadClient(BaseClient):
             else:
                 logger.debug('sending trace')
 
-        for dummy in xrange(retries):
+        for dummy in range(retries):
             try:
                 requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
                 return 0
