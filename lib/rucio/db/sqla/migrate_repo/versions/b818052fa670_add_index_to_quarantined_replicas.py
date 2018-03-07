@@ -13,37 +13,31 @@
 # limitations under the License.
 #
 # Authors:
-# - John Doe <john.doe@asdf.com>, 2017-2018
-# ${message}
+# - Martin Barisits, <martin.barisits@cern.ch>, 2018
 #
-# Revision ID: ${up_revision}
-# Revises: ${down_revision}
-# Create Date: ${create_date}
+# Add index to quarantined replicas
+#
+# Revision ID: b818052fa670
+# Revises: 2962ece31cf4
+# Create Date: 2018-03-07 14:45:46.484383
 
-from alembic.op import (create_primary_key, create_check_constraint,
-                        drop_constraint, rename_table)
+from alembic.op import (create_index, drop_index)
 
-from alembic import context
-
-import sqlalchemy as sa
-${imports if imports else ""}
 
 # revision identifiers, used by Alembic.
-revision = ${repr(up_revision)}  # pylint: disable=invalid-name
-down_revision = ${repr(down_revision)}  # pylint: disable=invalid-name
+revision = 'b818052fa670'  # pylint: disable=invalid-name
+down_revision = '2962ece31cf4'  # pylint: disable=invalid-name
 
 
 def upgrade():
     '''
     upgrade method
     '''
-    if context.get_context().dialect.name != 'sqlite':
-        ${upgrades if upgrades else "pass"}
+    create_index('QUARANTINED_REPLICAS_PATH_IDX', 'quarantined_replicas', ['path', 'rse_id'], unique=True)
 
 
 def downgrade():
     '''
     downgrade method
     '''
-    if context.get_context().dialect.name != 'sqlite':
-        ${downgrades if downgrades else "pass"}
+    drop_index('QUARANTINED_REPLICAS_PATH_IDX', 'quarantined_replicas')
