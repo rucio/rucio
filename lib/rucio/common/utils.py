@@ -18,11 +18,13 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
+
+from __future__ import print_function
 
 import base64
 import datetime
@@ -267,7 +269,7 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     try:
         return HTTPError(status, headers=headers, data=render_json(**data))
     except:
-        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+        print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
         raise
 
 
@@ -291,7 +293,7 @@ def generate_http_error_flask(status_code, exc_cls, exc_msg):
     try:
         return resp
     except:
-        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+        print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
         raise
 
 
