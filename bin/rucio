@@ -31,6 +31,8 @@
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 
+from __future__ import print_function
+
 import argparse
 import json
 import logging
@@ -126,7 +128,7 @@ def signal_handler(sig, frame):
         try:
             os.kill(int(pid), signal.SIGTERM)
         except Exception:
-            print 'Cannot kill child process'
+            print('Cannot kill child process')
     STOP_REQUEST.set()
     sys.exit(1)
 
@@ -300,7 +302,7 @@ def ping(args):
     client = get_client(args)
     server_info = client.ping()
     if server_info:
-        print server_info['version']
+        print(server_info['version'])
         return SUCCESS
     logger.error('Ping failed')
     return FAILURE
@@ -316,7 +318,7 @@ def whoami_account(args):
     client = get_client(args)
     info = client.whoami()
     for k in info:
-        print k.ljust(10) + ' : ' + str(info[k])
+        print(k.ljust(10) + ' : ' + str(info[k]))
     return SUCCESS
 
 
@@ -349,11 +351,11 @@ def list_dataset_replicas(args):
     if args.csv:
         for dsn in result:
             for rse in result[dsn].values():
-                print "{0}, {1}, {2}".format(rse[0], rse[1], rse[2])
+                print("{0}, {1}, {2}".format(rse[0], rse[1], rse[2]))
     else:
         for dsn in result:
-            print '\nDATASET: %s' % (dsn)
-            print tabulate.tabulate(result[dsn].values(), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL'])
+            print('\nDATASET: %s' % (dsn))
+            print(tabulate.tabulate(result[dsn].values(), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
     return SUCCESS
 
 
@@ -372,10 +374,10 @@ def list_file_replicas(args):
     table = []
     dids = []
     if args.missing and not args.selected_rse:
-        print 'Cannot use --missing without specifying a RSE'
+        print('Cannot use --missing without specifying a RSE')
         return FAILURE
     if args.link and ':' not in args.link:
-        print 'The substition parameter must equal --link="/pfn/dir:/dst/dir"'
+        print('The substition parameter must equal --link="/pfn/dir:/dst/dir"')
         return FAILURE
 
     for did in args.dids:
@@ -391,14 +393,14 @@ def list_file_replicas(args):
                                     sort=args.sort, domain=args.domain)
 
     if args.metalink:
-        print replicas[:-1]  # last character is newline, no need to print that
+        print(replicas[:-1])  # last character is newline, no need to print that
     else:
         if args.missing:
             for replica in replicas:
                 rses = replica['rses'].keys()
                 if args.selected_rse not in rses:
                     table.append([replica['scope'], replica['name']])
-            print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME'])
+            print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME']))
         elif args.link:
             pfn_dir, dst_dir = args.link.split(':')
             for replica in replicas:
@@ -416,12 +418,12 @@ def list_file_replicas(args):
                 if args.selected_rse:
                     if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
                         for pfn in replica['rses'][args.selected_rse]:
-                            print pfn
+                            print(pfn)
                 else:
                     for rse in replica['rses']:
                         if replica['rses'][rse]:
                             for pfn in replica['rses'][rse]:
-                                print pfn
+                                print(pfn)
         else:
             for replica in replicas:
                 if 'bytes' in replica:
@@ -432,7 +434,7 @@ def list_file_replicas(args):
                                     table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
                             else:
                                 table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
-            print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA'])
+            print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']))
 
     return SUCCESS
 
@@ -447,7 +449,7 @@ def add_dataset(args):
     client = get_client(args)
     scope, name = extract_scope(args.did)
     client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic}, lifetime=args.lifetime)
-    print 'Added %s:%s' % (scope, name)
+    print('Added %s:%s' % (scope, name))
     return SUCCESS
 
 
@@ -461,7 +463,7 @@ def add_container(args):
     client = get_client(args)
     scope, name = extract_scope(args.did)
     client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic}, lifetime=args.lifetime)
-    print 'Added %s:%s' % (scope, name)
+    print('Added %s:%s' % (scope, name))
     return SUCCESS
 
 
@@ -492,7 +494,7 @@ def attach(args):
             cscope, cname = extract_scope(did)
             dids.append({'scope': cscope, 'name': cname})
     client.attach_dids(scope=scope, name=name, dids=dids)
-    print 'DIDs successfully attached to %s:%s' % (scope, name)
+    print('DIDs successfully attached to %s:%s' % (scope, name))
     return SUCCESS
 
 
@@ -510,7 +512,7 @@ def detach(args):
         cscope, cname = extract_scope(did)
         dids.append({'scope': cscope, 'name': cname})
     client.detach_dids(scope=scope, name=name, dids=dids)
-    print 'DIDs successfully detached from %s:%s' % (scope, name)
+    print('DIDs successfully detached from %s:%s' % (scope, name))
     return SUCCESS
 
 
@@ -572,9 +574,9 @@ def list_dids(args):
 
     if args.short:
         for did, dummy in table:
-            print did
+            print(did)
     else:
-        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -589,7 +591,7 @@ def list_scopes(args):
     client = get_client(args)
     scopes = client.list_scopes()
     for scope in scopes:
-        print scope
+        print(scope)
     return SUCCESS
 
 
@@ -610,13 +612,13 @@ def list_files(args):
                     guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
                 else:
                     guid = '(None)'
-                print "{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events'])
+                print("{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events']))
         return SUCCESS
     elif args.LOCALPATH:
 
-        print '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+        print('''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <!DOCTYPE POOLFILECATALOG SYSTEM "InMemory">
-<POOLFILECATALOG>'''
+<POOLFILECATALOG>''')
 
         file_str = ''' <File ID="%s">
   <physical>
@@ -635,9 +637,9 @@ def list_files(args):
                     guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
                 else:
                     guid = '(None)'
-                print file_str % (guid, args.LOCALPATH, f['name'], f['name'])
+                print(file_str % (guid, args.LOCALPATH, f['name'], f['name']))
 
-        print '</POOLFILECATALOG>'
+        print('</POOLFILECATALOG>')
         return SUCCESS
     else:
         table = []
@@ -657,11 +659,11 @@ def list_files(args):
                 else:
                     guid = '(None)'
                 table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), file['events']])
-            print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'])
-            print 'Total files : %s' % totfiles
-            print 'Total size : %s' % sizefmt(totsize, args.human)
+            print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS']))
+            print('Total files : %s' % totfiles)
+            print('Total size : %s' % sizefmt(totsize, args.human))
             if totevents:
-                print 'Total events : %s' % totevents
+                print('Total events : %s' % totevents)
         return SUCCESS
 
 
@@ -680,9 +682,9 @@ def list_content(args):
             table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
     if args.short:
         for did, dummy in table:
-            print did
+            print(did)
     else:
-        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -699,7 +701,7 @@ def list_content_history(args):
         scope, name = extract_scope(did)
         for content in client.list_content_history(scope=scope, name=name):
             table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -721,8 +723,8 @@ def list_parent_dids(args):
                     if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[key]:
                         dict_datasets[key].append('%s:%s' % (rule['scope'], rule['name']))
         for pfn in dict_datasets:
-            print 'PFN: ', pfn
-            print 'Parents: ', ','.join(dict_datasets[pfn])
+            print('PFN: ', pfn)
+            print('Parents: ', ','.join(dict_datasets[pfn]))
     elif args.guids:
         guids = []
         for input in args.guids:
@@ -739,16 +741,16 @@ def list_parent_dids(args):
                     if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
                         dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
         for guid in dict_datasets:
-            print 'GUID: ', guid
-            print 'Parents : ', ','.join(dict_datasets[guid])
+            print('GUID: ', guid)
+            print('Parents : ', ','.join(dict_datasets[guid]))
     elif args.did:
         table = []
         scope, name = extract_scope(args.did)
         for dataset in client.list_parent_dids(scope=scope, name=name):
             table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
-        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]'])
+        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     else:
-        print 'At least one option has to be given. Use -h to list the options.'
+        print('At least one option has to be given. Use -h to list the options.')
         return FAILURE
     return SUCCESS
 
@@ -764,7 +766,7 @@ def close(args):
     for did in args.dids:
         scope, name = extract_scope(did)
         client.set_status(scope=scope, name=name, open=False)
-        print '%(scope)s:%(name)s has been closed.' % locals()
+        print('%(scope)s:%(name)s has been closed.' % locals())
     return SUCCESS
 
 
@@ -779,7 +781,7 @@ def reopen(args):
     for did in args.dids:
         scope, name = extract_scope(did)
         client.set_status(scope=scope, name=name, open=True)
-        print '%(scope)s:%(name)s has been reopened.' % locals()
+        print('%(scope)s:%(name)s has been reopened.' % locals())
     return SUCCESS
 
 
@@ -795,7 +797,7 @@ def stat(args):
         scope, name = extract_scope(did)
         info = client.get_did(scope=scope, name=name)
         for key, val in info.iteritems():
-            print '%(key)s: %(val)s' % locals()
+            print('%(key)s: %(val)s' % locals())
     return SUCCESS
 
 
@@ -819,7 +821,7 @@ def erase(args):
             # set lifetime to expire in 24 hours (value is in seconds).
             client.set_metadata(scope=scope, name=name, key='lifetime', value=86400)
             logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
-            print "rucio erase --undo {0}:{1}".format(scope, name)
+            print("rucio erase --undo {0}:{1}".format(scope, name))
     return SUCCESS
 
 
@@ -1940,12 +1942,12 @@ def download(args):
     not_downloaded_files = 0
     total_successes = 0
     total_failures = 0
-    print '----------------------------------'
-    print 'Download summary'
+    print('----------------------------------')
+    print('Download summary')
     if len(summary) > 0:
         for did in summary:
-            print '-' * 40
-            print 'DID %s' % (did)
+            print('-' * 40)
+            print('DID %s' % (did))
             downloaded_files = 0
             not_downloaded_files = 0
             local_files = 0
@@ -1957,13 +1959,13 @@ def download(args):
             not_downloaded_files = num_files_to_dl[did] - downloaded_files - local_files
             total_successes += downloaded_files + local_files
             total_failures += not_downloaded_files
-            print '{0:40} {1:6d}'.format('Total files : ', num_files_to_dl[did])
-            print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
-            print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
-            print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
+            print('{0:40} {1:6d}'.format('Total files : ', num_files_to_dl[did]))
+            print('{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files))
+            print('{0:40} {1:6d}'.format('Files already found locally : ', local_files))
+            print('{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files))
     else:
-        print '-' * 40
-        print 'No DID matching the pattern'
+        print('-' * 40)
+        print('No DID matching the pattern')
 
     if total_successes == 0 and total_failures > 0:
         raise NoFilesDownloaded
@@ -1984,7 +1986,7 @@ def get_metadata(args):
         scope, name = extract_scope(did)
         meta = client.get_metadata(scope=scope, name=name)
         for k in meta:
-            print '%s: %s' % (k, meta[k])
+            print('%s: %s' % (k, meta[k]))
     return SUCCESS
 
 
@@ -2062,12 +2064,12 @@ def add_rule(args):
                                                           asynchronous=args.asynchronous)
                     rule_ids.extend(rule_id)
                 except DuplicateRule as error:
-                    print 'Duplicate rule for %s:%s found; Skipping.' % (did['scope'], did['name'])
+                    print('Duplicate rule for %s:%s found; Skipping.' % (did['scope'], did['name']))
         else:
             raise error
 
     for rule in rule_ids:
-        print rule
+        print(rule)
     return SUCCESS
 
 
@@ -2142,7 +2144,7 @@ def update_rule(args):
     if args.child_rule_id:
         options['child_rule_id'] = args.child_rule_id
     client.update_replication_rule(rule_id=args.rule_id, options=options)
-    print 'Updated Rule'
+    print('Updated Rule')
     return SUCCESS
 
 
@@ -2154,7 +2156,7 @@ def move_rule(args):
     Update a rule.
     """
     client = get_client(args)
-    print client.move_replication_rule(rule_id=args.rule_id, rse_expression=args.rse_expression)
+    print(client.move_replication_rule(rule_id=args.rule_id, rse_expression=args.rse_expression))
     return SUCCESS
 
 
@@ -2168,54 +2170,54 @@ def info_rule(args):
     client = get_client(args)
     if args.examine:
         analysis = client.examine_replication_rule(rule_id=args.rule_id)
-        print 'Status of the replication rule: %s' % analysis['rule_error']
+        print('Status of the replication rule: %s' % analysis['rule_error'])
         if analysis['transfers']:
-            print 'STUCK Requests:'
+            print('STUCK Requests:')
             for transfer in analysis['transfers']:
-                print '  %s:%s' % (transfer['scope'], transfer['name'])
-                print '    RSE:                  %s' % str(transfer['rse'])
-                print '    Attempts:             %s' % str(transfer['attempts'])
-                print '    Last Retry:           %s' % str(transfer['last_time'])
-                print '    Last error:           %s' % str(transfer['last_error'])
-                print '    Last source:          %s' % str(transfer['last_source'])
-                print '    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]])
-                print '    Blacklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]])
+                print('  %s:%s' % (transfer['scope'], transfer['name']))
+                print('    RSE:                  %s' % str(transfer['rse']))
+                print('    Attempts:             %s' % str(transfer['attempts']))
+                print('    Last Retry:           %s' % str(transfer['last_time']))
+                print('    Last error:           %s' % str(transfer['last_error']))
+                print('    Last source:          %s' % str(transfer['last_source']))
+                print('    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]]))
+                print('    Blacklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
     else:
         if args.estimate_ttc:
             rule = client.get_replication_rule(rule_id=args.rule_id, estimate_ttc=True)
         else:
             rule = client.get_replication_rule(rule_id=args.rule_id)
-        print "Id:                         %s" % rule['id']
-        print "Account:                    %s" % rule['account']
-        print "Scope:                      %s" % rule['scope']
-        print "Name:                       %s" % rule['name']
-        print "RSE Expression:             %s" % rule['rse_expression']
-        print "Copies:                     %s" % rule['copies']
-        print "State:                      %s" % rule['state']
-        print "Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'])
-        print "Grouping:                   %s" % rule['grouping']
-        print "Expires at:                 %s" % rule['expires_at']
-        print "Locked:                     %s" % rule['locked']
-        print "Weight:                     %s" % rule['weight']
-        print "Created at:                 %s" % rule['created_at']
-        print "Updated at:                 %s" % rule['updated_at']
-        print "Error:                      %s" % rule['error']
-        print "Subscription Id:            %s" % rule['subscription_id']
-        print "Source replica expression:  %s" % rule['source_replica_expression']
-        print "Activity:                   %s" % rule['activity']
-        print "Comment:                    %s" % rule['comments']
-        print "Ignore Quota:               %s" % rule['ignore_account_limit']
-        print "Ignore Availability:        %s" % rule['ignore_availability']
-        print "Purge replicas:             %s" % rule['purge_replicas']
-        print "Notification:               %s" % rule['notification']
-        print "End of life:                %s" % rule['eol_at']
-        print "Child Rule Id:              %s" % rule['child_rule_id']
+        print("Id:                         %s" % rule['id'])
+        print("Account:                    %s" % rule['account'])
+        print("Scope:                      %s" % rule['scope'])
+        print("Name:                       %s" % rule['name'])
+        print("RSE Expression:             %s" % rule['rse_expression'])
+        print("Copies:                     %s" % rule['copies'])
+        print("State:                      %s" % rule['state'])
+        print("Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']))
+        print("Grouping:                   %s" % rule['grouping'])
+        print("Expires at:                 %s" % rule['expires_at'])
+        print("Locked:                     %s" % rule['locked'])
+        print("Weight:                     %s" % rule['weight'])
+        print("Created at:                 %s" % rule['created_at'])
+        print("Updated at:                 %s" % rule['updated_at'])
+        print("Error:                      %s" % rule['error'])
+        print("Subscription Id:            %s" % rule['subscription_id'])
+        print("Source replica expression:  %s" % rule['source_replica_expression'])
+        print("Activity:                   %s" % rule['activity'])
+        print("Comment:                    %s" % rule['comments'])
+        print("Ignore Quota:               %s" % rule['ignore_account_limit'])
+        print("Ignore Availability:        %s" % rule['ignore_availability'])
+        print("Purge replicas:             %s" % rule['purge_replicas'])
+        print("Notification:               %s" % rule['notification'])
+        print("End of life:                %s" % rule['eol_at'])
+        print("Child Rule Id:              %s" % rule['child_rule_id'])
         if args.estimate_ttc:
             if result[0] > 0:
-                print "Expected transfer start in  %0.2f minutes." % (rule['estimated_start_in'] / 60.)
-                print "Expected transfer end in    %0.2f minutes." % (rule['estimated_end_in'] / 60.)
+                print("Expected transfer start in  %0.2f minutes." % (rule['estimated_start_in'] / 60.))
+                print("Expected transfer end in    %0.2f minutes." % (rule['estimated_end_in'] / 60.))
             else:
-                print 'Couldn\'t calculate the TTC for any of the transfers. No sources selected yet?'
+                print('Couldn\'t calculate the TTC for any of the transfers. No sources selected yet?')
     return SUCCESS
 
 
@@ -2261,18 +2263,18 @@ def list_rules(args):
         name = args.subscription[1]
         rules = client.list_subscription_rules(account=account, name=name)
     else:
-        print 'At least one option has to be given. Use -h to list the options.'
+        print('At least one option has to be given. Use -h to list the options.')
         return FAILURE
     if args.csv:
         for rule in rules:
-            print "{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}".format(rule['id'],
+            print("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}".format(rule['id'],
                                                                   rule['account'],
                                                                   '%s:%s' % (rule['scope'], rule['name']),
                                                                   '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
                                                                   rule['rse_expression'],
                                                                   rule['copies'],
                                                                   rule['expires_at'],
-                                                                  rule['created_at'])
+                                                                  rule['created_at']))
     else:
         table = []
         for rule in rules:
@@ -2284,7 +2286,7 @@ def list_rules(args):
                           rule['copies'],
                           rule['expires_at'],
                           rule['created_at']])
-        print tabulate.tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)', 'CREATED (UTC)'])
+        print(tabulate.tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)', 'CREATED (UTC)']))
     return SUCCESS
 
 
@@ -2301,18 +2303,18 @@ def list_rules_history(args):
     for rule in client.list_replication_rule_full_history(scope, name):
         if rule['rule_id'] not in rule_dict:
             rule_dict.append(rule['rule_id'])
-            print '-' * 40
-            print 'Rule insertion'
-            print 'Account : %s' % rule['account']
-            print 'RSE expression : %s' % (rule['rse_expression'])
-            print 'Time : %s' % (rule['created_at'])
+            print('-' * 40)
+            print('Rule insertion')
+            print('Account : %s' % rule['account'])
+            print('RSE expression : %s' % (rule['rse_expression']))
+            print('Time : %s' % (rule['created_at']))
         else:
             rule_dict.remove(rule['rule_id'])
-            print '-' * 40
-            print 'Rule deletion'
-            print 'Account : %s' % rule['account']
-            print 'RSE expression : %s' % (rule['rse_expression'])
-            print 'Time : %s' % (rule['updated_at'])
+            print('-' * 40)
+            print('Rule deletion')
+            print('Account : %s' % rule['account'])
+            print('RSE expression : %s' % (rule['rse_expression']))
+            print('Time : %s' % (rule['updated_at']))
     return SUCCESS
 
 
@@ -2330,7 +2332,7 @@ def list_rses(args):
         rse_expression = args.rse_expression
     rses = client.list_rses(rse_expression)
     for rse in rses:
-        print '%(rse)s' % rse
+        print('%(rse)s' % rse)
     return SUCCESS
 
 
@@ -2345,7 +2347,7 @@ def list_rse_attributes(args):
     client = get_client(args)
     attributes = client.list_rse_attributes(rse=args.rse)
     for k in attributes:
-        print '  ' + k + ': ' + str(attributes[k])
+        print('  ' + k + ': ' + str(attributes[k]))
     return SUCCESS
 
 
@@ -2359,20 +2361,20 @@ def list_rse_usage(args):
     """
     client = get_client(args)
     usages = client.get_rse_usage(rse=args.rse)
-    print 'USAGE:'
+    print('USAGE:')
     for usage in usages:
         if usage['source'] not in ['srm', 'gsiftp', 'webdav']:
-            print '------'
+            print('------')
             print_free = False
             if usage['source'] in ['storage']:
                 print_free = True
             for elem in usage:
                 if not (elem == 'free' or elem == 'total') or print_free:
                     if elem == 'free' or elem == 'total' or elem == 'used':
-                        print '  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human))
+                        print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
                     else:
-                        print '  {0}: {1}'.format(elem, usage[elem])
-    print '------'
+                        print('  {0}: {1}'.format(elem, usage[elem]))
+    print('------')
     return SUCCESS
 
 
@@ -2393,7 +2395,7 @@ def list_account_limits(args):
     for limit in limits.items():
         table.append([limit[0], sizefmt(limit[1], args.human)])
     table.sort()
-    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT'])
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
     return SUCCESS
 
 
@@ -2415,7 +2417,7 @@ def list_account_usage(args):
         remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
         table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
-    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'])
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
     return SUCCESS
 
 
@@ -2433,14 +2435,14 @@ def list_datasets_rse(args):
         for dsn in client.list_datasets_per_rse(args.rse):
             table.append(['%s:%s' % (dsn['scope'], dsn['name']), '%s/%s' % (str(dsn['available_length']), str(dsn['length'])), '%s/%s' % (str(dsn['available_bytes']), str(dsn['bytes']))])
         table.sort()
-        print tabulate.tabulate(table, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'])
+        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
     else:
         dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.list_datasets_per_rse(args.rse)]))
         dsns.sort()
-        print "SCOPE:NAME"
-        print '----------'
+        print("SCOPE:NAME")
+        print('----------')
         for dsn in dsns:
-            print dsn
+            print(dsn)
     return SUCCESS
 
 
@@ -3102,7 +3104,7 @@ if __name__ == '__main__':
         result = command(args)
         end_time = time.time()
         if args.verbose:
-            print "Completed in %-0.4f sec." % (end_time - start_time)
+            print("Completed in %-0.4f sec." % (end_time - start_time))
         sys.exit(result)
     except Exception as error:
         logger.error("Strange error: {0}".format(error))
