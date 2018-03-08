@@ -10,6 +10,9 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2016-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+
+from __future__ import print_function
 
 import xmltodict
 
@@ -151,7 +154,7 @@ class TestReplicaCore:
 
         for file in files1:
             with assert_raises(DataIdentifierNotFound):
-                print get_did(scope=file['scope'], name=file['name'])
+                print(get_did(scope=file['scope'], name=file['name']))
 
         for file in files2:
             get_did(scope=file['scope'], name=file['name'])
@@ -383,9 +386,9 @@ class TestReplicaClients:
         for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK2'])
             list_rep.append(replica)
-        print replicas, list_rep
+        print(replicas, list_rep)
         r = self.replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
-        print r
+        print(r)
         assert_equal(r, {})
         bad_replicas = list_bad_replicas()
         nbbadrep = 0

@@ -10,7 +10,10 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
  - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
+ - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
 """
+
+from __future__ import print_function
 
 from json import dumps, loads
 
@@ -260,7 +263,7 @@ class TestSubscriptionRestApi():
         res2 = TestApp(subs_app.wsgifunc(*mw)).get('/%s/%s/Rules/States' % ('root', subscription_name), headers=headers2, expect_errors=True)
 
         for line in res2.body.split('\n'):
-            print line
+            print(line)
             rs = loads(line)
             if rs[1] == subscription_name:
                 break
