@@ -15,7 +15,10 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
  - Wen Guan, <wen.guan@cern.ch>, 2015
+ - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
 '''
+
+from __future__ import print_function
 
 from json import dumps
 from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
@@ -302,7 +305,7 @@ class TestRSEClient(object):
                ((p['port'] == 20) and (p['domains']['lan']['read'] != 2)) or \
                ((p['port'] == 18) and (p['domains']['lan']['read'] != 1)) or \
                ((p['port'] == 17) and (p['domains']['lan']['read'] != 4)):
-                print resp
+                print(resp)
                 assert False
 
         self.client.delete_protocols(protocol_rse, scheme='MOCK')
@@ -746,8 +749,8 @@ class TestRSEClient(object):
         for op in ['delete', 'read', 'write']:
             # resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='lan')
             p = mgr.select_protocol(rse_attr, op, domain='lan')
-            print p['scheme']
-            print op
+            print(p['scheme'])
+            print(op)
             if op not in p['scheme'].lower():
                 for p in protocols:
                     self.client.delete_protocols(protocol_rse, p['scheme'])
@@ -1054,13 +1057,13 @@ class TestRSEClient(object):
         for p in prots:
             if p['scheme'] == 'MOCKA':
                 if p['domains']['lan']['read'] != 3:
-                    print 'MOCKA with unexpected priority'
-                    print prots
+                    print('MOCKA with unexpected priority')
+                    print(prots)
                     assert(False)
             if p['scheme'] == 'MOCKC':
                 if p['domains']['lan']['read'] != 1:
-                    print 'MOCKC with unexpected priority'
-                    print prots
+                    print('MOCKC with unexpected priority')
+                    print(prots)
                     assert(False)
         assert(True)
 
@@ -1248,5 +1251,5 @@ class TestRSEClient(object):
                                     parameters={'distance': 0})
 
         for distance in self.client.get_distance(source=source, destination=destination):
-            print distance
+            print(distance)
             assert_equal(distance['distance'], 0)

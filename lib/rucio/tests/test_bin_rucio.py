@@ -10,12 +10,14 @@
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2016
   - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
+  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2018
   - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
   - Martin Barisits, <martin.barisits@cern.ch>, 2015
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
   - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 '''
+
+from __future__ import print_function
 
 from os import remove, unlink, listdir, rmdir, stat
 
@@ -60,24 +62,24 @@ class TestBinRucio():
     def test_rucio_ping(self):
         """CLIENT(USER): Rucio ping"""
         cmd = 'rucio --host %s ping' % self.host
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
 
     def test_add_account(self):
         """CLIENT(ADMIN): Add account"""
         tmp_val = account_name_generator()
         cmd = 'rucio-admin account add %s' % tmp_val
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out,
+        print(out, )
         nose.tools.assert_equal('Added new account: %s\n' % tmp_val, out)
 
     def test_whoami(self):
         """CLIENT(USER): Rucio whoami"""
         cmd = 'rucio whoami'
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out,
+        print(out, )
         nose.tools.assert_regexp_matches(out, re.compile('.*account.*'))
 
     def test_add_identity(self):
@@ -87,9 +89,9 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         nose.tools.assert_equal('Added new account: %s\n' % tmp_val, out)
         cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH' % tmp_val
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out,
+        print(out, )
         nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-%s\n' % tmp_val, out)
 
     def test_del_identity(self):
@@ -104,16 +106,16 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         # delete identity from account
         cmd = 'rucio-admin identity delete --account %s --type GSS --id jdoe@CERN.CH' % tmp_acc
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_equal('Deleted identity: jdoe@CERN.CH\n', out)
         # list identities for account
         cmd = 'rucio-admin account list-identities %s' % (tmp_acc)
-        print self.marker + cmd
-        print cmd
+        print(self.marker + cmd)
+        print(cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_equal('', out)
 
     def test_attributes(self):
@@ -126,20 +128,20 @@ class TestBinRucio():
         # add attribute to the account
         cmd = 'rucio-admin account add-attribute {0} --key test_attribute_key --value true'.format(tmp_acc)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         nose.tools.assert_equal(0, exitcode)
         # list attributes
         cmd = 'rucio-admin account list-attributes {0}'.format(tmp_acc)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         nose.tools.assert_equal(0, exitcode)
         # delete attribute to the account
         cmd = 'rucio-admin account delete-attribute {0} --key test_attribute_key'.format(tmp_acc)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         nose.tools.assert_equal(0, exitcode)
 
     def test_add_scope(self):
@@ -149,18 +151,18 @@ class TestBinRucio():
         cmd = 'rucio-admin account add %s' % tmp_acc
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin scope add --account %s --scope %s' % (tmp_acc, tmp_scp)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_equal('Added new scope to account: %s-%s\n' % (tmp_scp, tmp_acc), out)
 
     def test_add_rse(self):
         """CLIENT(ADMIN): Add RSE"""
         tmp_val = rse_name_generator()
         cmd = 'rucio-admin rse add %s' % tmp_val
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out,
+        print(out, )
         nose.tools.assert_equal('Added new RSE: %s\n' % tmp_val, out)
 
     def test_list_rses(self):
@@ -169,9 +171,9 @@ class TestBinRucio():
         cmd = 'rucio-admin rse add %s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin rse list'
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out,
+        print(out, )
         nose.tools.assert_regexp_matches(out, re.compile('.*%s.*' % tmp_val))
 
     def test_upload(self):
@@ -180,16 +182,16 @@ class TestBinRucio():
         cmd = 'rucio-admin rse add %s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio upload'
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out,
+        print(out, )
 
     def test_download(self):
         """CLIENT(USER): Download"""
         cmd = 'rucio download'
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out,
+        print(out, )
 
     def test_upload_file(self):
         """CLIENT(USER): Rucio upload files"""
@@ -197,10 +199,10 @@ class TestBinRucio():
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
@@ -211,10 +213,10 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         tmp_guid = generate_uuid()
         cmd = 'rucio upload --rse {0} --guid {1} --scope {2} {3}'.format(self.def_rse, tmp_guid, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         remove(tmp_file1)
         nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
 
@@ -225,31 +227,31 @@ class TestBinRucio():
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         # get the rule for the file
         cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         rule = out
         # delete the file from the catalog
         cmd = "rucio delete-rule {0}".format(rule)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # delete the fisical file
         cmd = "find /tmp/rucio_rse/ -name {0} |xargs rm".format(tmp_file1[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
@@ -264,25 +266,25 @@ class TestBinRucio():
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         # upload the files to the dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
         # searching for the file in the new dataset
         cmd = 'rucio list-files {0}'.format(tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         # tmp_file1 must be in the dataset
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out), None)
         # tmp_file3 must be in the dataset
@@ -296,19 +298,19 @@ class TestBinRucio():
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
         # searching for the file in the new dataset
         cmd = 'rucio list-files {0}'.format(tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out), None)
 
     def test_upload_adds_md5digest(self):
@@ -318,10 +320,10 @@ class TestBinRucio():
         file_md5 = md5(filename)
         # user uploads file
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, filename)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         # When inspecting the metadata of the new file the user finds the md5 checksum
         meta = self.did_client.get_metadata(scope=self.user, name=filename[5:])
         nose.tools.assert_in('md5', meta)
@@ -332,9 +334,9 @@ class TestBinRucio():
         """CLIENT(USER): Rucio add dataset"""
         tmp_name = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         cmd = 'rucio add-dataset ' + tmp_name
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_not_equal(re.search('Added ' + tmp_name, out), None)
 
     def test_add_files_to_dataset(self):
@@ -344,24 +346,24 @@ class TestBinRucio():
         tmp_dataset = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # add files
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_file2)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # create dataset
         cmd = 'rucio add-dataset ' + tmp_dataset
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add files to dataset
         cmd = 'rucio attach {0} {3}:{1} {3}:{2}'.format(tmp_dataset, tmp_file1[5:], tmp_file2[5:], self.user)  # triming '/tmp/' from filename
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # find the added files
         cmd = 'rucio list-files ' + tmp_dataset
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
 
     def test_download_file(self):
@@ -369,19 +371,19 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         # add files
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # download files
         cmd = 'rucio download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # search for the files with ls
         cmd = 'ls /tmp/'    # search in /tmp/
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
         try:
             for i in listdir('data13_hip'):
@@ -408,14 +410,14 @@ class TestBinRucio():
         remove(filename)
         # download files
         cmd = 'rucio download --dir /tmp {0}:{1}'.format(self.user, filename[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # search for the files with ls
         cmd = 'ls /tmp/{0}'.format(self.user)    # search in /tmp/
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_not_equal(re.search(filename[5:], out), None)
         try:
             for i in listdir('data13_hip'):
@@ -443,20 +445,20 @@ class TestBinRucio():
 
         # download file
         cmd = 'rucio download --dir /tmp {0}:{1}'.format(self.user, filename[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
 
         # a failure message 'Checksum mismatch : local _____ vs storage _____' appears
         report = 'Checksum\ mismatch\ \:\ local\ {0}\ vs\ recorded\ 0123456789abcdef0123456789abcdef'.format(file_md5)
-        print 'searching', report, 'in', err
+        print('searching', report, 'in', err)
         nose.tools.assert_not_equal(re.search(report, err), None)
 
         # The file should not exist
         cmd = 'ls /tmp/'    # search in /tmp/
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_equal(re.search(filename[5:], out), None)
 
         try:
@@ -472,24 +474,24 @@ class TestBinRucio():
         tmp_dataset = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # add files
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # create dataset
         cmd = 'rucio add-dataset ' + tmp_dataset
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add files to dataset
         cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dataset, self.user, tmp_file1[5:])  # triming '/tmp/' from filename
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # download dataset
         cmd = 'rucio download --dir /tmp {0}'.format(tmp_dataset)  # triming '/tmp/' from filename
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         search = '{0} successfully downloaded'.format(tmp_file1[5:])  # triming '/tmp/' from filename
         nose.tools.assert_not_equal(re.search(search, err), None)
 
@@ -498,59 +500,59 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         # add files
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add rse
         tmp_rse = rse_name_generator()
         cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
+        print(out)
         # add quota
         set_account_limit('root', get_rse_id(tmp_rse), -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add rse
         tmp_rse = rse_name_generator()
         cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add quota
         set_account_limit('root', get_rse_id(tmp_rse), -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add rse
         tmp_rse = rse_name_generator()
         cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add quota
         set_account_limit('root', get_rse_id(tmp_rse), -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add rules
         cmd = "rucio add-rule {0}:{1} 3 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
+        print(out)
         rule = out[:-1]  # triming new line character
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_not_equal(re.search(rule, out), None)
 
     def test_delete_rule(self):
@@ -559,49 +561,49 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         # add files
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add rse
         tmp_rse = rse_name_generator()
         cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
+        print(out)
 
         set_account_limit('root', get_rse_id(tmp_rse), -1)
 
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add rules
         cmd = "rucio add-rule {0}:{1} 1 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print err
-        print out
+        print(err)
+        print(out)
         # get the rules for the file
         cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         (rule1, rule2) = out.split()
         # delete the rules for the file
         cmd = "rucio delete-rule {0}".format(rule1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         cmd = "rucio delete-rule {0}".format(rule2)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # search for the file
         cmd = "rucio list-dids {0}:{1}".format(self.user, tmp_file1[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_equal(5, len(out.splitlines()))
 
     def test_add_file_twice(self):
@@ -609,10 +611,10 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         # add file twice
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
 
@@ -621,35 +623,35 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         # add file
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # get the rule for the file
         cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         rule = out
         # delete the file from the catalog
         cmd = "rucio delete-rule {0}".format(rule)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # delete the fisical file
         cmd = "find /tmp/rucio_rse/ -name {0} |xargs rm".format(tmp_file1[5:])
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # modify the file to avoid same checksum
         cmd = "echo 'delta' >> {0}".format(tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         # add the same file
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out, err
+        print(out, err)
         nose.tools.assert_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
 
     def test_attach_files_dataset(self):
@@ -661,31 +663,31 @@ class TestBinRucio():
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         # upload the files
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file2, tmp_file3)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
         # attach the files to the dataset
         cmd = 'rucio attach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         # searching for the file in the new dataset
         cmd = 'rucio list-files {0}'.format(tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         # tmp_file2 must be in the dataset
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file2[5:]), out), None)
         # tmp_file3 must be in the dataset
@@ -700,25 +702,25 @@ class TestBinRucio():
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
         # detach the files to the dataset
         cmd = 'rucio detach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         # searching for the file in the new dataset
         cmd = 'rucio list-files {0}'.format(tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         # tmp_file1 must be in the dataset
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out), None)
         # tmp_file3 must be in the dataset
@@ -731,17 +733,17 @@ class TestBinRucio():
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         remove(tmp_file1)
         # attach the files to the dataset
         cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dsn, self.user, tmp_file1[5:])  # triming '/tmp/' from filenames
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         nose.tools.assert_not_equal(re.search("The file already exists", err), None)
 
     def test_detach_non_existing_file(self):
@@ -750,15 +752,15 @@ class TestBinRucio():
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         remove(tmp_file1)
         # attach the files to the dataset
         cmd = 'rucio detach {0} {1}:{2}'.format(tmp_dsn, self.user, 'file_ghost')  # triming '/tmp/' from filenames
-        print self.marker + cmd
+        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print out
-        print err
+        print(out)
+        print(err)
         nose.tools.assert_not_equal(re.search("Data identifier not found.", err), None)
