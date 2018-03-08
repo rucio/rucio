@@ -18,6 +18,8 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 
+from __future__ import print_function
+
 from urllib import quote_plus
 from json import loads
 from requests.status_codes import codes
@@ -54,6 +56,6 @@ class FileClient(BaseClient):
             rses = loads(r.text)
             return rses
         else:
-            print r.status_code
+            print(r.status_code)
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
