@@ -14,6 +14,9 @@
  This product includes GeoLite data created by MaxMind,
  available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
 '''
+
+from __future__ import print_function
+
 import gzip
 import os
 import random
@@ -56,10 +59,10 @@ def __get_geoip_db(directory, filename):
     if directory.endswith('/'):
         directory = directory[:-1]
     if not os.path.isfile('%s/%s' % (directory, filename)):
-        print '%s does not exist. Downloading it.' % (filename)
+        print('%s does not exist. Downloading it.' % (filename))
         __download_geoip_db(directory, filename)
     elif (time.time() - os.stat('%s/%s' % (directory, filename)).st_atime > 30 * 86400):
-        print '%s is too old. Re-downloading it.' % (filename)
+        print('%s is too old. Re-downloading it.' % (filename))
         __download_geoip_db(directory, filename)
     else:
         return
@@ -87,13 +90,13 @@ def __get_lat_long(se, gi, gi2):
     except socket.gaierror, e:
         try:
             # Host unknown. It might be IPv6. Trying with geoip2
-            print e
+            print(e)
             ip = socket.getaddrinfo(se, None)[0][4][0]
             response = gi2.city(ip)
             return response.location.latitude, response.location.longitude
         except socket.gaierror, e:
             # Host definitively unknown
-            print e
+            print(e)
             return None, None
 
 
