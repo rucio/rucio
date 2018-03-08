@@ -27,6 +27,8 @@
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 
+from __future__ import print_function
+
 import argparse
 import json
 import logging
@@ -221,7 +223,7 @@ def add_account(args):
     """
     client = get_client(args)
     client.add_account(account=args.account, type=args.accounttype, email=args.accountemail)
-    print 'Added new account: %s' % args.account
+    print('Added new account: %s' % args.account)
     return SUCCESS
 
 
@@ -235,7 +237,7 @@ def delete_account(args):
     """
     client = get_client(args)
     client.delete_account(args.acnt)
-    print 'Deleted account: %s' % args.acnt
+    print('Deleted account: %s' % args.acnt)
     return SUCCESS
 
 
@@ -249,7 +251,7 @@ def ban_account(args):
     """
     client = get_client(args)
     client.set_account_status(account=args.account, status='SUSPENDED')
-    print 'Account %s banned' % args.account
+    print('Account %s banned' % args.account)
     return SUCCESS
 
 
@@ -263,7 +265,7 @@ def unban_account(args):
     """
     client = get_client(args)
     client.set_account_status(account=args.account, status='ACTIVE')
-    print 'Account %s unbanned' % args.account
+    print('Account %s unbanned' % args.account)
     return SUCCESS
 
 
@@ -282,7 +284,7 @@ def list_accounts(args):
             filters[key] = value
     accounts = client.list_accounts(identity=args.identity, account_type=args.account_type, filters=filters)
     for account in accounts:
-        print account['account']
+        print(account['account'])
     return SUCCESS
 
 
@@ -297,7 +299,7 @@ def info_account(args):
     client = get_client(args)
     info = client.get_account(account=args.account)
     for k in info:
-        print k.ljust(10) + ' : ' + str(info[k])
+        print(k.ljust(10) + ' : ' + str(info[k]))
     return SUCCESS
 
 
@@ -311,7 +313,7 @@ def list_identities(args):
     client = get_client(args)
     identities = client.list_identities(account=args.account)
     for identity in identities:
-        print 'Identity: %(identity)s,\ttype: %(type)s' % identity
+        print('Identity: %(identity)s,\ttype: %(type)s' % identity)
     return SUCCESS
 
 
@@ -324,7 +326,7 @@ def set_limits(args):
     """
     client = get_client(args)
     client.set_account_limit(account=args.account, rse=args.rse, bytes=args.bytes)
-    print 'Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(args.bytes, True))
+    print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(args.bytes, True)))
     return SUCCESS
 
 
@@ -339,7 +341,7 @@ def get_limits(args):
     client = get_client(args)
     limits = client.get_account_limit(account=args.account, rse=args.rse)
     for rse in limits:
-        print 'Quota on %s for %s : %s' % (rse, args.account, sizefmt(limits[rse], True))
+        print('Quota on %s for %s : %s' % (rse, args.account, sizefmt(limits[rse], True)))
     return SUCCESS
 
 
@@ -352,7 +354,7 @@ def delete_limits(args):
     """
     client = get_client(args)
     client.delete_account_limit(account=args.account, rse=args.rse)
-    print 'Deleted account limit for account %s and RSE %s' % (args.account, args.rse)
+    print('Deleted account limit for account %s and RSE %s' % (args.account, args.rse))
     return SUCCESS
 
 
@@ -366,10 +368,10 @@ def identity_add(args):
     """
     client = get_client(args)
     if args.email == "":
-        print 'Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account'
+        print('Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account')
         return FAILURE
     client.add_identity(account=args.account, identity=args.identity, authtype=args.authtype, email=args.email)
-    print 'Added new identity to account: %s-%s' % (args.identity, args.account)
+    print('Added new identity to account: %s-%s' % (args.identity, args.account))
     return SUCCESS
 
 
@@ -383,7 +385,7 @@ def identity_delete(args):
     """
     client = get_client(args)
     client.del_identity(args.account, args.identity, authtype=args.authtype)
-    print 'Deleted identity: %s' % args.identity
+    print('Deleted identity: %s' % args.identity)
     return SUCCESS
 
 
@@ -397,7 +399,7 @@ def add_rse(args):
     """
     client = get_client(args)
     client.add_rse(args.rse)
-    print 'Added new RSE: %s' % args.rse
+    print('Added new RSE: %s' % args.rse)
     return SUCCESS
 
 
@@ -425,7 +427,7 @@ def list_rses(args):
     client = get_client(args)
     rses = client.list_rses()
     for rse in rses:
-        print '%(rse)s' % rse
+        print('%(rse)s' % rse)
     return SUCCESS
 
 
@@ -441,27 +443,27 @@ def info_rse(args):
     rseinfo = client.get_rse(rse=args.rse)
     attributes = client.list_rse_attributes(rse=args.rse)
     usage = client.get_rse_usage(rse=args.rse)
-    print 'Settings:'
-    print '========='
+    print('Settings:')
+    print('=========')
     for key in rseinfo:
         if key != 'protocols':
-            print '  ' + key + ': ' + str(rseinfo[key])
-    print 'Attributes:'
-    print '==========='
+            print('  ' + key + ': ' + str(rseinfo[key]))
+    print('Attributes:')
+    print('===========')
     for attribute in attributes:
-        print '  ' + attribute + ': ' + str(attributes[attribute])
-    print 'Protocols:'
-    print '=========='
+        print('  ' + attribute + ': ' + str(attributes[attribute]))
+    print('Protocols:')
+    print('==========')
     for protocol in rseinfo['protocols']:
-        print '  ' + protocol['scheme']
+        print('  ' + protocol['scheme'])
         for item in protocol:
-            print '    ' + item + ': ' + str(protocol[item])
-    print 'Usage:'
-    print '======'
+            print('    ' + item + ': ' + str(protocol[item]))
+    print('Usage:')
+    print('======')
     for elem in usage:
-        print '  ' + elem['source']
+        print('  ' + elem['source'])
         for item in elem:
-            print '    ' + item + ': ' + str(elem[item])
+            print('    ' + item + ': ' + str(elem[item]))
 
     return SUCCESS
 
@@ -476,7 +478,7 @@ def set_attribute_rse(args):
     """
     client = get_client(args)
     client.add_rse_attribute(rse=args.rse, key=args.key, value=args.value)
-    print 'Added new RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value)
+    print('Added new RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value))
     return SUCCESS
 
 
@@ -491,7 +493,7 @@ def get_attribute_rse(args):
     client = get_client(args)
     attributes = client.list_rse_attributes(rse=args.rse)
     for k in attributes:
-        print k + ': ' + str(attributes[k])
+        print(k + ': ' + str(attributes[k]))
 
     return SUCCESS
 
@@ -506,7 +508,7 @@ def delete_attribute_rse(args):
     """
     client = get_client(args)
     client.delete_rse_attribute(rse=args.rse, key=args.key)
-    print 'Deleted RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value)
+    print('Deleted RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value))
     return SUCCESS
 
 
@@ -520,7 +522,7 @@ def add_distance_rses(args):
     client = get_client(args)
     params = {'ranking': args.ranking, 'distance': args.distance}
     client.add_distance(args.source, args.destination, params)
-    print 'Set distance from %s to %s to %d with ranking %d' % (args.source, args.destination, args.distance, args.ranking)
+    print('Set distance from %s to %s to %d with ranking %d' % (args.source, args.destination, args.distance, args.ranking))
     return SUCCESS
 
 
@@ -534,9 +536,9 @@ def get_distance_rses(args):
     client = get_client(args)
     distance_info = client.get_distance(args.source, args.destination)
     if distance_info:
-        print 'Distance information from %s to %s: distance=%d, ranking=%d' % (args.source, args.destination, distance_info[0]['distance'], distance_info[0]['ranking'])
+        print('Distance information from %s to %s: distance=%d, ranking=%d' % (args.source, args.destination, distance_info[0]['distance'], distance_info[0]['ranking']))
     else:
-        print "No distance set from %s to %s" % (args.source, args.destination)
+        print("No distance set from %s to %s" % (args.source, args.destination))
     return SUCCESS
 
 
@@ -554,11 +556,11 @@ def update_distance_rses(args):
     if args.distance is not None:
         params['distance'] = args.distance
     client.update_distance(args.source, args.destination, params)
-    print 'Update distance information from %s to %s:' % (args.source, args.destination)
+    print('Update distance information from %s to %s:' % (args.source, args.destination))
     if args.distance is not None:
-        print "- Distance set to %d" % args.distance
+        print("- Distance set to %d" % args.distance)
     if args.ranking is not None:
-        print "- Ranking set to %d" % args.ranking
+        print("- Ranking set to %d" % args.ranking)
     return SUCCESS
 
 
@@ -581,7 +583,7 @@ def add_protocol_rse(args):
     if args.ext_attr_json:
         proto['extended_attributes'] = args.ext_attr_json
     if proto['scheme'] == 'srm' and not args.web_service_path:
-        print 'Error: space-token and web-service-path must be provided for SRM endpoints.'
+        print('Error: space-token and web-service-path must be provided for SRM endpoints.')
         return FAILURE
     if args.space_token:
         proto['extended_attributes']['space_token'] = args.space_token
@@ -620,7 +622,7 @@ def add_scope(args):
     """
     client = get_client(args)
     client.add_scope(account=args.account, scope=args.scope)
-    print 'Added new scope to account: %s-%s' % (args.scope, args.account)
+    print('Added new scope to account: %s-%s' % (args.scope, args.account))
     return SUCCESS
 
 
@@ -639,7 +641,7 @@ def list_scopes(args):
         scopes = client.list_scopes()
     for scope in scopes:
         if 'mock' not in scope:
-            print scope
+            print(scope)
     return SUCCESS
 
 
@@ -653,21 +655,21 @@ def get_config(args):
     client = get_client(args)
     res = client.get_config(section=args.section, option=args.option)
     if not isinstance(res, dict):
-        print '[%s]\n%s=%s' % (args.section, args.option, str(res))
+        print('[%s]\n%s=%s' % (args.section, args.option, str(res)))
     else:
         print_header = True
         for i in res.keys():
             if print_header:
                 if args.section is not None:
-                    print '[%s]' % args.section
+                    print('[%s]' % args.section)
                 else:
-                    print '[%s]' % i
+                    print('[%s]' % i)
             if not isinstance(res[i], dict):
-                print '%s=%s' % (i, str(res[i]))
+                print('%s=%s' % (i, str(res[i])))
                 print_header = False
             else:
                 for j in res[i].keys():
-                    print '%s=%s' % (j, str(res[i][j]))
+                    print('%s=%s' % (j, str(res[i][j])))
     return SUCCESS
 
 
@@ -680,7 +682,7 @@ def set_config_option(args):
     """
     client = get_client(args)
     client.set_config_option(section=args.section, option=args.option, value=args.value)
-    print 'Set configuration: %s.%s=%s' % (args.section, args.option, args.value)
+    print('Set configuration: %s.%s=%s' % (args.section, args.option, args.value))
     return SUCCESS
 
 
@@ -693,9 +695,9 @@ def delete_config_option(args):
     """
     client = get_client(args)
     if client.delete_config_option(section=args.section, option=args.option):
-        print 'Deleted section \'%s\' option \'%s\'' % (args.section, args.option)
+        print('Deleted section \'%s\' option \'%s\'' % (args.section, args.option))
     else:
-        print 'Section \'%s\' option \'%s\' not found' % (args.section, args.option)
+        print('Section \'%s\' option \'%s\' not found' % (args.section, args.option))
     return SUCCESS
 
 
@@ -716,7 +718,7 @@ def add_subscription(args):
         account = client.account
     subscription_id = client.add_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
                                               comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False, priority=args.priority)
-    print 'Subscription added %s' % (subscription_id)
+    print('Subscription added %s' % (subscription_id))
     return SUCCESS
 
 
@@ -738,10 +740,10 @@ def list_subscriptions(args):
     subs = client.list_subscriptions(name=args.name, account=account)
     for sub in subs:
         if args.long:
-            print '\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in sub.items())
-            print
+            print('\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in sub.items()))
+            print()
         else:
-            print "%s: %s %s\n  priority: %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['policyid'], sub['filter'], sub['replication_rules'], sub.get('comments', ''))
+            print("%s: %s %s\n  priority: %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['policyid'], sub['filter'], sub['replication_rules'], sub.get('comments', '')))
     return SUCCESS
 
 
@@ -794,7 +796,7 @@ def list_account_attributes(args):
     table = []
     for attr in attributes:
         table.append([attr['key'], attr['value']])
-    print tabulate.tabulate(table, tablefmt=tablefmt, headers=['Key', 'Value'])
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['Key', 'Value']))
     return SUCCESS
 
 
@@ -850,7 +852,7 @@ def declare_bad_file_replicas(args):
             scope, name = extract_scope(bad_file)
             did_info = client.get_did(scope, name)
             if did_info['type'].upper() != 'FILE' and not args.allow_collection:
-                print 'DID %s:%s is a collection and --allow-collection was not specified.' % (scope, name)
+                print('DID %s:%s is a collection and --allow-collection was not specified.' % (scope, name))
                 return FAILURE
             replicas = [replica for rep in client.list_replicas([{'scope': scope, 'name': name}])
                         for replica in rep['pfns'].keys()]
@@ -858,9 +860,9 @@ def declare_bad_file_replicas(args):
         else:
             bad_files_pfns.append(bad_file)
     if args.verbose:
-        print "PFNs that will be declared bad:"
+        print("PFNs that will be declared bad:")
         for pfn in bad_files_pfns:
-            print pfn
+            print(pfn)
 
     # Group file list in separate sublists for different schemes
     bad_files_pfns.sort()
@@ -871,7 +873,7 @@ def declare_bad_file_replicas(args):
             non_declared = client.declare_bad_file_replicas(pfns=chunk, reason=args.reason)
             for rse in non_declared:
                 for pfn in non_declared[rse]:
-                    print '%s : PFN %s cannot be declared.' % (rse, pfn)
+                    print('%s : PFN %s cannot be declared.' % (rse, pfn))
     return SUCCESS
 
 
@@ -891,7 +893,7 @@ def list_pfns(args):
         scope, name = extract_scope(input_did)
         replicas = [rep for rep in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[protocol, ])]
         if rse in replicas[0]['rses'] and replicas[0]['rses'][rse]:
-            print replicas[0]['rses'][rse][0]
+            print(replicas[0]['rses'][rse][0])
         else:
             logger.warning('The file has no replica on the specified RSE')
             rse_info = rsemgr.get_rse_info(rse)
@@ -919,12 +921,12 @@ def list_pfns(args):
                                            str(proto.attributes['port']),
                                            proto.attributes['prefix'],
                                            path if not path.startswith('/') else path[1:]])
-                            print pfn
+                            print(pfn)
                 else:
                     logger.error('Unexpected error')
                     return FAILURE
             else:
-                print result
+                print(result)
     return SUCCESS
 
 
@@ -1790,7 +1792,7 @@ if __name__ == '__main__':
         result = command(args)
         end_time = time.time()
         if args.verbose:
-            print "Completed in %-0.4f sec." % (end_time - start_time)
+            print("Completed in %-0.4f sec." % (end_time - start_time))
         sys.exit(result)
     except Exception as error:
         logger.error("Strange error: {0}".format(error))
