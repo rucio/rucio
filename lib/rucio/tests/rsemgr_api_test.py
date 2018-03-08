@@ -8,6 +8,9 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
 # - Wen Guan, <wguan@cern.ch>, 2014
+# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+
+from __future__ import print_function
 
 import json
 import os
@@ -36,7 +39,7 @@ class MgrTestCases():
                 data = json.load(f)
             self.rse_settings['credentials'] = data[rse_tag]
         except KeyError:
-            print 'No credentials found for this RSE.'
+            print('No credentials found for this RSE.')
             pass
         self.tmpdir = tmpdir
         self.gettmpdir = tempfile.mkdtemp()
