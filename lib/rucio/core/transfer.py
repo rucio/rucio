@@ -664,13 +664,6 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if retry_other_fts:
                     external_host = fts_list[retry_count % len(fts_list)]
 
-                if id in reqs_no_source:
-                    reqs_no_source.remove(id)
-                if id in reqs_only_tape_source:
-                    reqs_only_tape_source.remove(id)
-                if id in reqs_scheme_mismatch:
-                    reqs_scheme_mismatch.remove(id)
-
                 file_metadata = {'request_id': id,
                                  'scope': scope,
                                  'name': name,
