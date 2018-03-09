@@ -308,7 +308,7 @@ class Default(protocol.RSEProtocol):
                 raise exception.FileReplicaAlreadyExists()
             else:
                 # Create the directories before issuing the PUT
-                for directory_level in reversed(range(1, 4)):
+                for directory_level in reversed(list(range(1, 4))):
                     upper_directory = "/".join(directories[:-directory_level])
                     self.mkdir(upper_directory)
                 try:
@@ -358,7 +358,7 @@ class Default(protocol.RSEProtocol):
                 raise exception.SourceNotFound()
             else:
                 # Create the directories before issuing the MOVE
-                for directory_level in reversed(range(1, 4)):
+                for directory_level in reversed(list(range(1, 4))):
                     upper_directory = "/".join(directories[:-directory_level])
                     self.mkdir(upper_directory)
                 try:
