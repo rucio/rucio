@@ -19,7 +19,7 @@ def test_reaper():
     """ REAPER (DAEMON): Test the reaper daemon."""
     nb_files = 30
     file_size = 2147483648L  # 2G
-    for i in xrange(nb_files):
+    for i in range(nb_files):
         replica_core.add_replica(rse='MOCK', scope='data13_hip', name='lfn' + generate_uuid(), bytes=file_size, account='root', adler32=None, md5=None)
 
     rse_core.set_rse_usage(rse='MOCK', source='srm', used=nb_files * file_size, free=800L)

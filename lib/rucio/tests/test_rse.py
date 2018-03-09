@@ -219,7 +219,7 @@ class TestRSEClient(object):
 
         tmp_scope = 'mock'
         nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
         replica_client = ReplicaClient()
         replica_client.add_replicas(rse=renamed_rse, files=files1)
 
@@ -229,13 +229,13 @@ class TestRSEClient(object):
         assert_equal(dict2['availability_write'], False)
         assert_equal(dict2['availability_delete'], False)
 
-        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
         with assert_raises(ResourceTemporaryUnavailable):
             replica_client.add_replicas(rse=renamed_rse, files=files2, ignore_availability=False)
 
     def test_list_rses(self):
         """ RSE (CLIENTS): try to list rses."""
-        rse_list = [rse_name_generator() for i in xrange(5)]
+        rse_list = [rse_name_generator() for i in range(5)]
         for rse in rse_list:
             self.client.add_rse(rse)
 
