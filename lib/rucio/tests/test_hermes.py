@@ -23,7 +23,7 @@ class TestHermes(object):
 
     def test_hermes(self):
         ''' HERMES (DAEMON): Test the messaging daemon. '''
-        for i in xrange(1, 4):
+        for i in range(1, 4):
             add_message('test-type_%i' % i, {'test': i})
             add_message('email', {'to': config_get('messaging-hermes', 'email_test').split(','),
                                   'subject': 'Half-Life %i' % i,
