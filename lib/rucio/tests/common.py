@@ -102,7 +102,7 @@ def rse_name_generator(size=10):
 
     :returns: A random RSE name
     """
-    return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in xrange(size))
+    return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in range(size))
 
 
 def file_generator(size=2, namelen=10):
@@ -110,7 +110,7 @@ def file_generator(size=2, namelen=10):
     :param size: size in bytes
     :returns: The name of the generated file.
     """
-    fn = '/tmp/file_' + ''.join(choice(ascii_uppercase) for x in xrange(namelen))
+    fn = '/tmp/file_' + ''.join(choice(ascii_uppercase) for x in range(namelen))
     execute('dd if=/dev/urandom of={0} count={1} bs=1'.format(fn, size))
     return fn
 
