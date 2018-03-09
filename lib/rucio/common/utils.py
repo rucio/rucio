@@ -344,7 +344,7 @@ def chunks(l, n):
     """
     Yield successive n-sized chunks from l.
     """
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):
         yield l[i:i + n]
 
 
@@ -677,7 +677,7 @@ def send_trace(trace, trace_endpoint, user_agent, retries=5, logger=None, log_pr
         logger.debug('%spilot detected - not sending trace' % log_prefix)
         return 0
     logger.debug('%ssending trace' % log_prefix)
-    for dummy in xrange(retries):
+    for dummy in range(retries):
         try:
             requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
             return 0
