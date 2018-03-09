@@ -1,30 +1,30 @@
 sudo: required
-
 language: bash
-
 services:
-  - docker
-
+- docker
 install:
-  - cp etc/docker/travis/Dockerfile Dockerfile
-  - git diff --name-status HEAD $(git merge-base HEAD master) | grep \.py$ | grep -v '^A' | grep -v 'conf.py' | cut -f 2 | paste -sd " " - > changed_files.txt
-  - docker build -t rucio/rucio .
-
+- cp etc/docker/travis/Dockerfile Dockerfile
+- git diff --name-status HEAD $(git merge-base HEAD master) | grep \.py$ | grep -v
+  '^A' | grep -v 'conf.py' | cut -f 2 | paste -sd " " - > changed_files.txt
+- docker build -t rucio/rucio .
 before_script:
-  - docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true sath89/oracle-xe-11g
-  - docker run --name=mysql -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
-  - docker run --name=postgres -e POSTGRES_PASSWORD=secret -d postgres
-  - docker run --name=activemq -d webcenter/activemq:latest
-  - sleep 150
-  - docker run -d --link oracle:oracle --link mysql:mysql --link postgres:postgres --link activemq:activemq --name=rucio rucio/rucio
-  - docker ps -a
-
+- docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105
+  -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true sath89/oracle-xe-11g
+- docker run --name=mysql -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
+- docker run --name=postgres -e POSTGRES_PASSWORD=secret -d postgres
+- docker run --name=activemq -d webcenter/activemq:latest
+- sleep 150
+- docker run -d --link oracle:oracle --link mysql:mysql --link postgres:postgres --link
+  activemq:activemq --name=rucio rucio/rucio
+- docker ps -a
 script:
-  - docker exec -it rucio /bin/sh -c "tools/travis_scripts.sh"
-
+- docker exec -it rucio /bin/sh -c "tools/travis_scripts.sh"
 after_script:
-  - docker stop rucio
-  - docker stop oracle
-  - docker stop mysql
-  - docker stop postgres
-  - docker stop activemq
+- docker stop rucio
+- docker stop oracle
+- docker stop mysql
+- docker stop postgres
+- docker stop activemq
+notifications:
+  slack:
+    secure: n8nmTHao0omraqNbqXsbv+0IqYyXDFYLZFYDuD9fXBz8nyD/U6mOqcYzlozsfA3vmVQI0qXfCohK9+CKRfWLFg7LhFZk0CeApU+YurXNdBFXdZDrY6kKQah/W56Fmw8hvfo0iMRar0pzRa7LPLDR+ZMrQUfQFUebM4pIa3wbzyUkzH1iPqtOB5FsHkJijHjBRShvWWRvlpiobQxgLBUWPGPpiOdBlnOTzzmEjIsjTXBPCgDjMEe/kqiJ4NHtWgOi5WTYxPlm5pv511TMXx23S+Uy5GrO1FAwqR/41yV5i/wxMdb8UGro+aT8SWkU8jBaQ7eQAnwhL88J3KTBeMeA2or5quu9bve0bpGSqu69n90CZyPhuudBJtusW6Bk76uO0bw1EdB9bJyCS9oA8mmn1qyQAwrOmR6203RczTyfIGMa90fIe4VMQNfmLMYlp1rx3U3DdajBfq6M/anmu2veJI1DyLzbgJz5AsgwuJhKTgQTSjOceSlqTe/dypLsKRpdj48gbvhUbPfx1q7R0yl+dNWpbUaR3fqtkp5f/R6KJTLlCzF7gRpGgfILhcqtHMxUtdWovQCnmbmgcX0JW2x416eGPSriADZKj9hDBW8Lo4BK5CONQ5VRitzNY3pVplHfI5uLjoKHuV+T/BZ7V6hzobmhBMBQUE2/xYe9bJtRfrQ=
