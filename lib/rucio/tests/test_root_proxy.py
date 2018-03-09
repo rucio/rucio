@@ -53,7 +53,7 @@ class TestROOTProxy(object):
                        'name': 'half-life_%s' % i,
                        'bytes': 1234L,
                        'adler32': 'deadbeef',
-                       'meta': {'events': 666}} for i in xrange(1, 4)]
+                       'meta': {'events': 666}} for i in range(1, 4)]
         for rse in [self.rse_with_proxy, self.rse_without_proxy]:
             add_replicas(rse=rse,
                          files=self.files,
