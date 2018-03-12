@@ -16,7 +16,7 @@ additional information describing the file is necessary, such as meta-data, the 
 
 Rucio supports pluggable algorithms for both deterministic and non-deterministic algorithms. This section explains a few of them.
 
-Deterministc algorithm based on hashes
+Deterministic algorithm based on hashes
 --------------------------------------
 
 The hash deterministic algorithm is an algorithm commonly used in Rucio. The advantage of this algorithm is that, due to the characteristics of cryptographic hash functions,
