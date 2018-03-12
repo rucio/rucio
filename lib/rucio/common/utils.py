@@ -42,12 +42,27 @@ import subprocess
 import zlib
 
 from getpass import getuser
-from itertools import izip_longest
+try:
+    # Python 2
+    from itertools import izip_longest
+except ImportError:
+    # Python 3
+    from itertools import zip_longest as izip_longest
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
-from urllib import urlencode, quote
+try:
+    # Python 2
+    from urllib import urlencode, quote
+except ImportError:
+    # Python 3
+    from urllib.parse import urlencode, quote
 from uuid import uuid4 as uuid
-from StringIO import StringIO
+try:
+    # Python 2
+    from StringIO import StringIO
+except ImportError:
+    # Python 3
+    from io import StringIO
 
 from rucio.common.config import config_get
 from rucio.common.exception import MissingModuleException
