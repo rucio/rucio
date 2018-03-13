@@ -258,18 +258,18 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
                     tempfile = '%s/%s.part' % (target_dir, f['name'])
                     if os.path.isfile(tempfile):
                         if printstatements:
-                            print ('%s already exists, probably from a failed attempt. Will remove it' % (tempfile))
+                            print('%s already exists, probably from a failed attempt. Will remove it' % (tempfile))
                         os.unlink(tempfile)
                     protocol.get(pfn, tempfile)
                     if printstatements:
-                        print ('File downloaded. Will be validated')
+                        print('File downloaded. Will be validated')
 
                     if not ignore_checksum:
                         ruciochecksum = f['adler32'] if f['adler32'] else f['md5']
                         localchecksum = utils.adler32(tempfile) if f['adler32'] else utils.md5(tempfile)
                         if localchecksum == ruciochecksum:
                             if printstatements:
-                                print ('File validated')
+                                print('File validated')
                             os.rename(tempfile, finalfile)
                         else:
                             os.unlink(tempfile)
