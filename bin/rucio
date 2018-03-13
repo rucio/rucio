@@ -350,12 +350,12 @@ def list_dataset_replicas(args):
             result[dsn][rep['rse']] = [rep['rse'], rep['available_length'], rep['length']]
     if args.csv:
         for dsn in result:
-            for rse in result[dsn].values():
+            for rse in list(result[dsn].values()):
                 print("{0}, {1}, {2}".format(rse[0], rse[1], rse[2]))
     else:
         for dsn in result:
             print('\nDATASET: %s' % (dsn))
-            print(tabulate.tabulate(result[dsn].values(), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
+            print(tabulate.tabulate(list(result[dsn].values()), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
     return SUCCESS
 
 
@@ -397,7 +397,7 @@ def list_file_replicas(args):
     else:
         if args.missing:
             for replica in replicas:
-                rses = replica['rses'].keys()
+                rses = list(replica['rses'].keys())
                 if args.selected_rse not in rses:
                     table.append([replica['scope'], replica['name']])
             print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME']))
@@ -405,7 +405,7 @@ def list_file_replicas(args):
             pfn_dir, dst_dir = args.link.split(':')
             for replica in replicas:
                 if args.selected_rse:
-                    if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
+                    if args.selected_rse in list(replica['rses'].keys()) and replica['rses'][args.selected_rse]:
                         for pfn in replica['rses'][args.selected_rse]:
                             os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
                 else:
@@ -416,7 +416,7 @@ def list_file_replicas(args):
         elif args.pfns:
             for replica in replicas:
                 if args.selected_rse:
-                    if args.selected_rse in replica['rses'].keys() and replica['rses'][args.selected_rse]:
+                    if args.selected_rse in list(replica['rses'].keys()) and replica['rses'][args.selected_rse]:
                         for pfn in replica['rses'][args.selected_rse]:
                             print(pfn)
                 else:
@@ -796,7 +796,7 @@ def stat(args):
     for did in args.dids:
         scope, name = extract_scope(did)
         info = client.get_did(scope=scope, name=name)
-        for key, val in info.iteritems():
+        for key, val in info.items():
             print('%(key)s: %(val)s' % locals())
     return SUCCESS
 
@@ -1121,7 +1121,7 @@ def upload(args):
     replica_dictionary = {}
     for chunk_files_to_list in chunks(files_to_list, 50):
         for rep in client.list_replicas([make_valid_did(f) for f in chunk_files_to_list]):
-            replica_dictionary[rep['scope'], rep['name']] = rep['rses'].keys()
+            replica_dictionary[rep['scope'], rep['name']] = list(rep['rses'].keys())
     for file in list_files:
         if (file['scope'], file['name']) not in replica_dictionary:
             file['state'] = 'A'
@@ -1253,7 +1253,7 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
                       'dataset': file['dataset_name'],
                       'filesize': file['bytes']})
 
-        rses = file['rses'].keys()
+        rses = list(file['rses'].keys())
         if rses == []:
             logger.warning('%s : File %s has no available replicas. Cannot be downloaded.' % (thread_prefix, file_didstr))
             trace['clientState'] = 'FILE_NOT_FOUND'
@@ -2392,7 +2392,7 @@ def list_account_limits(args):
         limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
     else:
         limits = client.get_account_limits(account=args.limit_account)
-    for limit in limits.items():
+    for limit in list(limits.items()):
         table.append([limit[0], sizefmt(limit[1], args.human)])
     table.sort()
     print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
