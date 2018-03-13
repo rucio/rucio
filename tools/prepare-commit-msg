@@ -1,30 +1,16 @@
 #!/bin/sh
-#
-# An example hook script to prepare the commit log message.
-# Called by "git commit" with the name of the file that has the
-# commit message, followed by the description of the commit
-# message's source.  The hook's purpose is to edit the commit
-# message file.  If the hook fails with a non-zero status,
-# the commit is aborted.
-#
-# To enable this hook, rename this file to "prepare-commit-msg".
 
-# This hook includes three examples.  The first comments out the
-# "Conflicts:" part of a merge commit.
-#
-# The second includes the output of "git diff --name-status -r"
-# into the message, just before the "git status" output.  It is
-# commented because it doesn't cope with --amend or with squashed
-# commits.
-#
-# The third example adds a Signed-off-by line to the message, that can
-# still be edited.  This is rarely a good idea.
-
-
-NUMBER=$(git branch | grep '*'|grep 'patch\|feature\|hotfix'|cut -d- -f2)
+NUMBER=$(git branch | grep '*' | grep 'patch\|feature\|hotfix' | cut -d- -f2)
 if [ -z $NUMBER ]
 then
     echo "Not a patch or feature or hotfix branch"
 else
-    sed -i "1s/^/\<component\>: \<message\> \#$NUMBER/" $1
+    EDITMSG=$(cat $1)
+    if echo $EDITMSG | grep "# Please enter the commit message for your changes.*"
+    then
+	echo "No commit message given, preparing template for editing."
+	sed -i "1s/^/\<component\>: \<message\>; Fix \#$NUMBER/" $1
+    else
+	echo "Using CLI commit message."
+    fi
 fi
