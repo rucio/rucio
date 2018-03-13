@@ -38,6 +38,7 @@ def get_rse_info(rse, session=None):
                     rse               ...     the name of the RSE as string
                     type              ...     the storage type odf the RSE e.g. DISK
                     volatile          ...     boolean indictaing if the RSE is volatile
+                    verify_checksum   ...     boolean indicating whether RSE supports requests for checksums
                     deteministic      ...     boolean indicating of the nameing of the files follows the defined determinism
                     domain            ...     indictaing the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
                     protocols         ...     all supported protocol in form of a list of dict objects with the followig structure
@@ -402,7 +403,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                     if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
                         valid = stats['filesize'] == lfn['filesize']
                 except NotImplementedError:
-                    valid = False
+                    valid = True if rse_settings['verify_checksum'] is False else False
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
