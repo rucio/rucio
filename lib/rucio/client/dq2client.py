@@ -19,6 +19,7 @@
 # - WeiJen Chang <e4523744@gmail.com>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 '''
 Compatibility Wrapper for DQ2 and Rucio.
@@ -45,11 +46,11 @@ def validate_time_formats(time_string):
                      r'((?P<hours>\d+):(?P<minutes>\d+):(?P<seconds>\d+))?',
                      str(time_string))
 
-        if not filter(lambda r: r[1], d.groupdict().items()):
+        if not filter(lambda r: r[1], list(d.groupdict().items())):
             err_msg = 'Parameter value [%s] is not a valid time delta !' % (time_string)
             raise InputValidationError(err_msg)
 
-        delta = timedelta(**dict([(key, (value and int(value) or 0)) for key, value in d.groupdict(0).items()]))
+        delta = timedelta(**dict([(key, (value and int(value) or 0)) for key, value in list(d.groupdict(0).items())]))
         return delta
     except:
         err_msg = 'Parameter value [%s] is not a valid time delta !' % (time_string)
@@ -579,7 +580,7 @@ class DQ2Client:
         elif False:
             # The old way
             for f in self.client.list_replicas(dids=[{'scope': scope, 'name': dsn}], schemes=['srm']):
-                rses = f['rses'].keys()
+                rses = list(f['rses'].keys())
                 if not f['name'] in files:
                     files.append(f['name'])
                     for rse in rses:
@@ -642,7 +643,7 @@ class DQ2Client:
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
                 result['%s:%s' % (i['scope'], i['name'])] = {vuid: replicas}
 
-        for dsn in result.keys():
+        for dsn in list(result.keys()):
             dscope, name = dsn.split(':')
             replicas = self.listDatasetReplicas(scope=dscope, dsn=name, old=True)
             result[dsn] = replicas
@@ -1032,7 +1033,7 @@ class DQ2Client:
             rse_dict = {}
         for f in self.client.list_replicas(dids=[{'scope': scope, 'name': dsn}]):
             # rses the file is in
-            in_rse = f['rses'].keys()
+            in_rse = list(f['rses'].keys())
             for rse in in_rse:
                 rse = str(rse)
                 if rse not in rse_dict and not locations:
@@ -1457,7 +1458,7 @@ class DQ2Client:
         elif acl_alias == 'custodial':
             locked = True
 
-        list_sources = sources.keys()
+        list_sources = list(sources.keys())
         if len(list_sources) == 1 and list_sources[0] == location:
             # This is a staging request
             attr = self.client.list_rse_attributes(location)
