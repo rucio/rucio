@@ -31,7 +31,8 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     ResourceTemporaryUnavailable)
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes,
-                            set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits)
+                            set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits,
+                            get_rse_protocols)
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import rse_name_generator
 from rucio.web.rest.rse import APP as rse_app
@@ -346,7 +347,7 @@ class TestRSEClient(object):
 
             self.client.delete_protocols(protocol_rse, 'Mock_Insuff_Params')
             self.client.delete_rse(protocol_rse)
-        except:  # explicity raise the correct Exception for MySQL
+        except Exception:  # explicity raise the correct Exception for MySQL
             raise InvalidObject
 
     @raises(Duplicate)
@@ -1140,12 +1141,12 @@ class TestRSEClient(object):
             for p in protocols:
                 self.client.add_protocol(protocol_rse, p)
                 self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'impl': None})
-        except:
+        except Exception:
             raise InvalidObject  # explicity raise the correct Exception for MySQL
         finally:
             try:
                 self.client.delete_protocols(protocol_rse, 'MOCK')
-            except:
+            except Exception:
                 pass  # for MySQL
             finally:
                 self.client.delete_rse(protocol_rse)
@@ -1253,3 +1254,25 @@ class TestRSEClient(object):
         for distance in self.client.get_distance(source=source, destination=destination):
             print(distance)
             assert_equal(distance['distance'], 0)
+
+    def test_get_rse_protocols_includes_verify_checksum(self):
+        """ RSE (CORE): Test validate_checksum in RSEs info"""
+        rse = rse_name_generator()
+        add_rse(rse)
+        add_rse_attribute(rse=rse, key='verify_checksum', value=False)
+        info = get_rse_protocols(rse)
+
+        assert_in('verify_checksum', info)
+        assert_equal(info['verify_checksum'], False)
+
+        del_rse(rse)
+
+        rse = rse_name_generator()
+        add_rse(rse)
+        add_rse_attribute(rse=rse, key='verify_checksum', value=True)
+        info = get_rse_protocols(rse)
+
+        assert_in('verify_checksum', info)
+        assert_equal(info['verify_checksum'], True)
+
+        del_rse(rse)
