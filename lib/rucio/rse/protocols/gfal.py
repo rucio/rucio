@@ -13,6 +13,7 @@
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
  - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
  - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+ - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
 '''
 
 import errno
@@ -45,7 +46,7 @@ class Default(protocol.RSEProtocol):
 
         pfns = {}
         prefix = self.attributes['prefix']
-        if self.attributes['extended_attributes'] is not None and 'web_service_path' in self.attributes['extended_attributes'].keys():
+        if self.attributes['extended_attributes'] is not None and 'web_service_path' in list(self.attributes['extended_attributes'].keys()):
             web_service_path = self.attributes['extended_attributes']['web_service_path']
         else:
             web_service_path = ''
@@ -142,7 +143,7 @@ class Default(protocol.RSEProtocol):
         if '://' in hostname:
             hostname = hostname.split("://")[1]
 
-        if 'extended_attributes' in self.attributes.keys() and self.attributes['extended_attributes'] is not None and 'web_service_path' in self.attributes['extended_attributes'].keys():
+        if 'extended_attributes' in list(self.attributes.keys()) and self.attributes['extended_attributes'] is not None and 'web_service_path' in list(self.attributes['extended_attributes'].keys()):
             web_service_path = self.attributes['extended_attributes']['web_service_path']
         else:
             web_service_path = ''
@@ -218,7 +219,7 @@ class Default(protocol.RSEProtocol):
             source_url = "file://" + source_url
 
         space_token = None
-        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+        if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = self.attributes['extended_attributes']['space_token']
 
         try:
@@ -462,7 +463,7 @@ class Default(protocol.RSEProtocol):
         """
         endpoint_basepath = self.path2pfn(self.attributes['prefix'])
         space_token = None
-        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+        if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = self.attributes['extended_attributes']['space_token']
 
         if space_token is None or space_token == "":
