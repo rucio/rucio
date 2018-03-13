@@ -15,7 +15,7 @@ daemons, e.g., submission rate of the conveyor, state of conveyor queues, reaper
 deletion rate, server response times, server active session, etc. We use Graphite[1]
 for this. It’s easy to setup and then you have to point your Rucio instance to the
 Graphite server using the “carbon_server” options in the “monitor” section in etc/rucio.cfg.
-The different Rucio components then will send metrics using those “record_*” functions you
+The different Rucio components will then send metrics using those “record_*” functions you
 will find all over the code. Graphite has a built-in web interface to show graphs but
 more comfortable to use is Grafana. You can find an example dashboard from us here [2].
 
@@ -25,7 +25,7 @@ Transfer monitoring
 
 If a transfer is submitted, queued, waiting, done or failed  messages are sent to
 ActiveMQ via Hermes and are also archived in the messages_history table. Same is true for deletions.
-In the ATLAS case we have a dedicated monitoring infrastructure that reads
+In the case of ATLAS we have a dedicated monitoring infrastructure that reads
 the messages from ActiveMQ, aggregates them and then writes the aggregated data
 into Elasticsearch/InfluxDB from where it then can be visualised using Kibana/Grafana.
 
