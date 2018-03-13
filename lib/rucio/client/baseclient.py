@@ -46,8 +46,14 @@ from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
-from urlparse import urlparse
-from ConfigParser import NoOptionError, NoSectionError
+try:
+    # Python 2
+    from urlparse import urlparse
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    # Python 3
+    from urllib.parse import urlparse
+    from configparser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
 from requests import session
 from requests.status_codes import codes, _codes
