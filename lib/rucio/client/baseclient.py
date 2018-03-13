@@ -590,7 +590,7 @@ class BaseClient(object):
         if not path.isdir(token_path):
             try:
                 LOG.debug('rucio token folder \'%s\' not found. Create it.' % token_path)
-                makedirs(token_path, 700)
+                makedirs(token_path, 0o700)
             except Exception:
                 raise
 
