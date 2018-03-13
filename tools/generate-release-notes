@@ -1,13 +1,20 @@
 #!/usr/bin/env python
-#
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 
 
 import commands
@@ -34,6 +41,13 @@ def format_issue(issue):
         return '- %s #%s' % (issue['title'], issue['number'])
 
 
+def load_milestones(github_token, page=1):
+    r = requests.get(url='https://api.github.com/repos/rucio/rucio/milestones',
+                     headers={'Authorization': 'token %s' % github_token},
+                     params={'state': 'all', 'page': page, 'per_page': '100'})
+    return json.loads(r.text)
+
+
 root_git_dir = commands.getstatusoutput('git rev-parse --show-toplevel')[1]
 # Load OAUTH token
 try:
@@ -44,10 +58,12 @@ except:
     sys.exit(-1)
 
 # Get all Milestones
-r = requests.get(url='https://api.github.com/repos/rucio/rucio/milestones',
-                 headers={'Authorization': 'token %s' % github_token},
-                 params={'state': 'all'})
-for milestone in json.loads(r.text):
+page = 1
+milestones = load_milestones(github_token, page)
+while len(milestones) == page * 100:
+    page += 1
+    milestones.extend(load_milestones(github_token, page))
+for milestone in milestones:
     if milestone['title'] == milestone_title:
         milestone_number = milestone['number']
         break
@@ -56,7 +72,7 @@ for milestone in json.loads(r.text):
 issues = []
 r = requests.get(url='https://api.github.com/repos/rucio/rucio/issues',
                  headers={'Authorization': 'token %s' % github_token},
-                 params={'milestone': milestone_number, 'state': 'closed'})
+                 params={'milestone': milestone_number, 'state': 'closed', 'per_page': 100})
 for issue in json.loads(r.text):
     component = None
     type = 'enhancement'
