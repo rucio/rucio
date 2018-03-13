@@ -576,8 +576,8 @@ class BaseClient(object):
             token_file_handler = open(self.token_file, 'r')
             self.auth_token = token_file_handler.readline()
             self.headers['X-Rucio-Auth-Token'] = self.auth_token
-        except IOError as (errno, strerror):  # NOQA
-            print("I/O error({0}): {1}".format(errno, strerror))
+        except IOError as error:
+            print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise
 
@@ -606,8 +606,8 @@ class BaseClient(object):
             with fdopen(file_d, "w") as f_token:
                 f_token.write(self.auth_token)
             move(file_n, self.token_file)
-        except IOError as (errno, strerror):  # NOQA
-            print("I/O error({0}): {1}".format(errno, strerror))
+        except IOError as error:
+            print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise
 
