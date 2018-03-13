@@ -166,7 +166,7 @@ def adler32(file):
     """
 
     # adler starting value is _not_ 0
-    adler = 1L
+    adler = 1
 
     try:
         openFile = open(file, 'rb')
