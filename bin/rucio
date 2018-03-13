@@ -277,7 +277,7 @@ def get_client(args):
                         auth_type=args.auth_strategy, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout,
                         user_agent=args.user_agent)
-    except CannotAuthenticate, error:
+    except CannotAuthenticate as error:
         logger.error(error)
         if not args.auth_strategy:
             if 'RUCIO_AUTH_TYPE' in os.environ:
