@@ -1,13 +1,24 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+
+
+from __future__ import print_function
 
 import os
 import requests
@@ -164,7 +175,7 @@ class Default(protocol.RSEProtocol):
                         if length:
                             pbar = ProgressBar(maxval=totnchunk).start()
                         else:
-                            print 'Malformed HTTP response (missing content-length header). Cannot show progress bar.'
+                            print('Malformed HTTP response (missing content-length header). Cannot show progress bar.')
                         for chunk in result.iter_content(chunksize):
                             f.write(chunk)
                             if length:
