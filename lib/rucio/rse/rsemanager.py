@@ -103,7 +103,7 @@ def _get_possible_protocols(rse_settings, operation, scheme=None, domain=None):
         filtered = True
 
         if not domain:
-            for d in protocol['domains'].keys():
+            for d in list(protocol['domains'].keys()):
                 if protocol['domains'][d][operation] != 0:
                     filtered = False
         else:
@@ -245,7 +245,7 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
 
     files = [files] if not type(files) is list else files
     for f in files:
-        pfn = f['pfn'] if 'pfn' in f else protocol.lfns2pfns(f).values()[0]
+        pfn = f['pfn'] if 'pfn' in f else list(protocol.lfns2pfns(f).values())[0]
         target_dir = "./%s" % f['scope'] if dest_dir is None else dest_dir
         try:
             if not os.path.exists(target_dir):
@@ -319,10 +319,10 @@ def exists(rse_settings, files):
             exists = protocol.exists(f)
             ret[f] = exists
         elif 'scope' in f:  # a LFN is provided
-            pfn = protocol.lfns2pfns(f).values()[0]
+            pfn = list(protocol.lfns2pfns(f).values())[0]
             if isinstance(pfn, exception.RucioException):
                 raise pfn
-            exists = protocol.exists(protocol.lfns2pfns(f).values()[0])
+            exists = protocol.exists(list(protocol.lfns2pfns(f).values())[0])
             ret[f['scope'] + ':' + f['name']] = exists
         else:
             exists = protocol.exists(f['name'])
@@ -385,7 +385,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         if force_pfn:
             pfn = force_pfn
         else:
-            pfn = protocol.lfns2pfns(make_valid_did(lfn)).values()[0]
+            pfn = list(protocol.lfns2pfns(make_valid_did(lfn)).values())[0]
             if isinstance(pfn, exception.RucioException):
                 raise pfn
 
@@ -399,7 +399,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
             else:
                 if protocol.exists('%s.rucio.upload' % pfn):  # Check for left over of previous unsuccessful attempts
                     try:
-                        protocol_delete.delete('%s.rucio.upload', protocol_delete.lfns2pfns(make_valid_did(lfn)).values()[0])
+                        protocol_delete.delete('%s.rucio.upload', list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                     except Exception as e:
                         ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
                 try:  # Try uploading file
@@ -499,7 +499,7 @@ def delete(rse_settings, lfns):
 
     lfns = [lfns] if not type(lfns) is list else lfns
     for lfn in lfns:
-        pfn = protocol.lfns2pfns(lfn).values()[0]
+        pfn = list(protocol.lfns2pfns(lfn).values())[0]
         try:
             protocol.delete(pfn)
             ret['%s:%s' % (lfn['scope'], lfn['name'])] = True
@@ -557,8 +557,8 @@ def rename(rse_settings, files):
             # Check if new scope is provided
             if 'new_scope' not in f:
                 f['new_scope'] = f['scope']
-            pfn = protocol.lfns2pfns({'name': f['name'], 'scope': f['scope']}).values()[0]
-            new_pfn = protocol.lfns2pfns({'name': f['new_name'], 'scope': f['new_scope']}).values()[0]
+            pfn = list(protocol.lfns2pfns({'name': f['name'], 'scope': f['scope']}).values())[0]
+            new_pfn = list(protocol.lfns2pfns({'name': f['new_name'], 'scope': f['new_scope']}).values())[0]
         else:
             pfn = f['name']
             new_pfn = f['new_name']

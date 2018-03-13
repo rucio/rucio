@@ -1,21 +1,28 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - David Cameron <david.cameron@cern.ch>, 2014
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - David Cameron <david.cameron@cern.ch>, 2014
- - Cedric Serfon <cedric.serfon@cern.ch>, 2017
-"""
 
 import errno
 import os
 
 try:
-    import arc
+    import arc  # pylint: disable=import-error
 except:
     pass
 
@@ -161,7 +168,7 @@ class Default(protocol.RSEProtocol):
             sf = source
 
         space_token = None
-        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+        if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = self.attributes['extended_attributes']['space_token']
 
         self.__arc_copy(sf, target, space_token)
