@@ -15,6 +15,7 @@
 # Authors:
 # - Tomas Javurek <tomasjavurek09@gmail.com>, 2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 import os
 import os.path
@@ -319,7 +320,7 @@ class DownloadClient(BaseClient):
                           'dataset': file['dataset_name'],
                           'filesize': file['bytes']})
 
-            rses = file['rses'].keys()
+            rses = list(file['rses'].keys())
             if rses == []:
                 logger.warning('%s : File %s has no available replicas. Cannot be downloaded.' % (thread_prefix, file_didstr))
                 trace['clientState'] = 'FILE_NOT_FOUND'
