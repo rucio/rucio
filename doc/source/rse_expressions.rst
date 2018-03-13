@@ -58,7 +58,7 @@ Rucio allows to test RSE Expressions, using the command **list-rses**. The most 
      CERN-PROD_DERIVED
      CERN-PROD_DATADISK
 
-Note that if the RSE Expresion returns an empty set, Rucio returns an error as an RSE Expression must resolve to at least one RSE. Thus, an error does not necessarily mean that the syntax of the expression is wrong, it might just result into an empty list.
+Note that if the RSE Expression returns an empty set, Rucio returns an error as an RSE Expression must resolve to at least one RSE. Thus, an error does not necessarily mean that the syntax of the expression is wrong, it might just result into an empty list.
 
 In 2) and 3), the RSE Expression refers to an attribute in the RSE that must be equal to a given value to match the expression.
 While in 1) and 4), the expression matches an RSE if the attribute is True. In 5) a numerical term is used to resolve all RSEs with more than 3000 TB free space.
