@@ -19,7 +19,8 @@ Rucio supports pluggable algorithms for both deterministic and non-deterministic
 Deterministic algorithm based on hashes
 --------------------------------------
 
-The hash deterministic algorithm is an algorithm commonly used in Rucio. The advantage of this algorithm is that, due to the characteristics of cryptographic hash functions,the files are evenly distributed to directories. This can be an important characteristic for storage systems whose access performance degrades based on the number
+The hash deterministic algorithm is an algorithm commonly used in Rucio. The advantage of this algorithm is that, due to the characteristics of cryptographic hash functions, 
+the files are evenly distributed to directories. This can be an important characteristic for storage systems whose access performance degrades based on the number
 of files in a directory.
 
 For a data identifier, e.g. ``user.jdoe:test.file.1`` a md5-hashsum is calculated ``077c8119053bebb168d125034bff64ac``. The generated path is then based on the first four
