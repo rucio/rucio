@@ -6,11 +6,12 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Eric Vaandering, <ewv@fnal.gov>, 2018
 
 """
 Methods common to different conveyor submitter daemons.
@@ -162,13 +163,18 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
 
         job_params = {'verify_checksum': True if file['checksum'] and file['metadata'].get('verify_checksum', True) else False,
-                      'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else None,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
-                      'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else None,
                       'overwrite': transfer['overwrite'],
-                      'priority': 3}
+                      'priority': 3,
+                      's3alternate': True}
+
+        # Don't put optional & missing keys in the parameters
+        if transfer['dest_spacetoken']:
+            job_params.update({'spacetoken': transfer['dest_spacetoken']})
+        if transfer['src_spacetoken']:
+            job_params.update({'source_spacetoken': transfer['src_spacetoken']})
 
         if max_time_in_queue:
             if transfer['file_metadata']['activity'] in max_time_in_queue:
@@ -182,8 +188,10 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
             grouped_jobs[external_host].append({'files': [file], 'job_params': job_params})
         else:
             job_params['job_metadata']['multi_sources'] = False
-            job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params['spacetoken'], job_params['copy_pin_lifetime'],
-                                                   job_params['bring_online'], job_params['job_metadata'], job_params['source_spacetoken'],
+            job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
+                                                   job_params['copy_pin_lifetime'],
+                                                   job_params['bring_online'], job_params['job_metadata'],
+                                                   job_params.get('source_spacetoken', None),
                                                    job_params['overwrite'], job_params['priority'])
             if 'max_time_in_queue' in job_params:
                 job_key = job_key + ',%s' % job_params['max_time_in_queue']

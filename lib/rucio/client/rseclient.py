@@ -1,16 +1,25 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
+# - Wen Guan <wguan.icedew@gmail.com>, 2014
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -197,19 +206,12 @@ class RSEClient(BaseClient):
         :param params: Attributes of the protocol. Supported are:
             hostname:       hostname for this protocol (default = localhost)
             port:           port for this protocol (default = 0)
-            prefix:         string used as a prfeix for this protocol when generating
-                            the PFN (default = None)
-            impl:           qualified name of the implementation class for this
-                            protocol (mandatory)
-            read:           integer representing the priority of this procotol for
-                            read operations (default = -1)
-            write:          integer representing the priority of this procotol for
-                            write operations (default = -1)
-            delete:         integer representing the priority of this procotol for
-                            delet operations (default = -1)
-            extended_attributes:  miscellaneous protocol specific information e.g. spacetoken
-                            for SRM (default = None)
-
+            prefix:         string used as a prfeix for this protocol when generating the PFN (default = None)
+            impl:           qualified name of the implementation class for this protocol (mandatory)
+            read:           integer representing the priority of this procotol for read operations (default = -1)
+            write:          integer representing the priority of this procotol for write operations (default = -1)
+            delete:         integer representing the priority of this procotol for delete operations (default = -1)
+            extended_attributes:  miscellaneous protocol specific information e.g. spacetoken for SRM (default = None)
 
         :return: True if protocol was created successfully else False.
 
@@ -267,6 +269,45 @@ class RSEClient(BaseClient):
         if r.status_code == codes.ok:
             protocols = loads(r.text)
             return protocols
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def lfns2pfns(self, rse, lfns, protocol_domain='ALL', operation=None, scheme=None):
+        """
+        Returns PFNs that should be used at a RSE, corresponding to requested LFNs.
+        The PFNs are generated for the RSE *regardless* of whether a replica exists for the LFN.
+
+        :param rse: the RSE name
+        :param lfns: A list of LFN strings to translate to PFNs.
+        :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL' (as default).
+        :param operation: The name of the requested operation (read, write, or delete).
+                          If None, all operations are queried.
+        :param scheme: The identifier of the requested protocol (gsiftp, https, davs, etc).
+
+        :returns: A dictionary of LFN / PFN pairs.
+        :raises RSENotFound: if the RSE doesn't exist.
+        :raises RSEProtocolNotSupported: if no matching protocol entry could be found.
+        :raises RSEOperationNotSupported: if no matching protocol entry for the requested
+                                          operation could be found.
+        """
+        path = '/'.join([self.RSE_BASEURL, rse, 'lfns2pfns'])
+        params = []
+        if scheme:
+            params.append(('scheme', scheme))
+        if protocol_domain != 'ALL':
+            params.append(('domain', protocol_domain))
+        if operation:
+            params.append(('operation', operation))
+        for lfn in lfns:
+            params.append(('lfn', lfn))
+
+        url = build_url(choice(self.list_hosts), path=path, params=params, doseq=True)
+
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            pfns = loads(r.text)
+            return pfns
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)

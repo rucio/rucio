@@ -1,12 +1,21 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Vincent Garonne, <vgaronne@gmail.com>, 2018
 
 """
 Judge-Evaluator is a daemon to re-evaluate replication rules.
@@ -17,15 +26,22 @@ import signal
 
 from rucio.daemons.judge.evaluator import run, stop
 
-if __name__ == "__main__":
 
-    signal.signal(signal.SIGTERM, stop)
-
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads for this process')
-    args = parser.parse_args()
+    return parser
 
+
+if __name__ == "__main__":
+
+    signal.signal(signal.SIGTERM, stop)
+    parser = get_parser()
+    args = parser.parse_args()
     try:
         run(once=args.run_once, threads=args.threads)
     except KeyboardInterrupt:

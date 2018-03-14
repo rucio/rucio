@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
@@ -17,14 +17,18 @@ import base64
 import datetime
 import errno
 import hashlib
+import imp
 import json
+import logging
 import os
 import pwd
 import re
+import requests
 import socket
 import subprocess
 import zlib
 
+from flask import Response
 from getpass import getuser
 from itertools import izip_longest
 from logging import getLogger, Formatter
@@ -34,14 +38,30 @@ from uuid import uuid4 as uuid
 from StringIO import StringIO
 
 from rucio.common.config import config_get
+from rucio.common.exception import MissingModuleException
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'web': False,
+                 'paramiko': False}
 
 try:
-    # Hack for the client distribution
-    from web import HTTPError
     from rucio.db.sqla.enum import EnumSymbol
-except:
-    pass
+    EXTRA_MODULES['rucio.db.sqla.enum'] = True
+except ImportError:
+    EXTRA_MODULES['rucio.db.sqla.enum'] = False
 
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['web']:
+    from web import HTTPError
+
+if EXTRA_MODULES['paramiko']:
+    from paramiko import RSAKey
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
 codes = {
@@ -221,7 +241,6 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     :param exc_msg: The error message.
     :returns: a web.py HTTP response object.
     """
-
     status = codes[status_code]
     data = {'ExceptionClass': exc_cls,
             'ExceptionMessage': exc_msg}
@@ -233,6 +252,30 @@ def generate_http_error(status_code, exc_cls, exc_msg):
                'ExceptionMessage': clean_headers(exc_msg)}
     try:
         return HTTPError(status, headers=headers, data=render_json(**data))
+    except:
+        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+        raise
+
+
+def generate_http_error_flask(status_code, exc_cls, exc_msg):
+    """
+    utitily function to generate a complete HTTP error response.
+    :param status_code: The HTTP status code to generate a response for.
+    :param exc_cls: The name of the exception class to send with the response.
+    :param exc_msg: The error message.
+    :returns: a web.py HTTP response object.
+    """
+    data = {'ExceptionClass': exc_cls,
+            'ExceptionMessage': exc_msg}
+    # Truncate too long exc_msg
+    if len(str(exc_msg)) > 15000:
+        exc_msg = str(exc_msg)[:15000]
+    resp = Response(response=render_json(**data), status=status_code, content_type='application/octet-stream')
+    resp.headers['ExceptionClass'] = exc_cls
+    resp.headers['ExceptionMessage'] = clean_headers(exc_msg)
+
+    try:
+        return resp
     except:
         print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
         raise
@@ -572,9 +615,8 @@ def ssh_sign(private_key, message):
     :param message: The message to sign as a string.
     :return: Base64 encoded signature as a string.
     """
-
-    from paramiko import RSAKey
-
+    if not EXTRA_MODULES['paramiko']:
+        raise MissingModuleException('The paramiko module is not installed.')
     sio_private_key = StringIO(private_key)
     priv_k = RSAKey.from_private_key(sio_private_key)
     sio_private_key.close()
@@ -598,3 +640,31 @@ def make_valid_did(lfn_dict):
     lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
     del lfn_copy['filename']
     return lfn_copy
+
+
+def send_trace(trace, trace_endpoint, user_agent, retries=5, logger=None, log_prefix=''):
+    """
+    Send the given trace to the trace endpoint
+
+    :param trace: the trace dictionary to send
+    :param trace_endpoint: the endpoint where the trace should be send
+    :param user_agent: the user agent sending the trace
+    :param retries: the number of retries if sending fails
+    :param logger: the logger object to put debug output, None means no logging
+    :param log_prefix: a string that will be put in front of each debug msg
+    :return: 0 on success, 1 on failure
+    """
+    if not logger:
+        logger = getLogger('rucio_utils')
+        logger.addHandler(logging.NullHandler())
+    if user_agent.startswith('pilot'):
+        logger.debug('%spilot detected - not sending trace' % log_prefix)
+        return 0
+    logger.debug('%ssending trace' % log_prefix)
+    for dummy in xrange(retries):
+        try:
+            requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
+            return 0
+        except Exception as error:
+            logger.debug('%s%s' % (log_prefix, error))
+    return 1

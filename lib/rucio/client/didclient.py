@@ -1,21 +1,28 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-  - Thomas Beermann, <thomas.beermann@cern.ch> 2013
-  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-  - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
-  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
-  - Eric Vaandering, <ewv@fnal.gov>, 2018
-'''
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
+# - Yun-Pin Sun <winter0128@gmail.com>, 2013
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Eric Vaandering <ericvaandering@gmail.com>, 2018
 
 from urllib import quote_plus
 from json import dumps
@@ -490,10 +497,11 @@ class DIDClient(BaseClient):
     def get_dataset_by_guid(self, guid):
         """
         Get the parent datasets for a given GUID.
-       :param guid: The GUID.
+        :param guid: The GUID.
 
         :returns: A did
         """
+
         path = '/'.join([self.DIDS_BASEURL, guid, 'guid'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
