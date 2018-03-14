@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2017
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -25,14 +25,16 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
-
 from __future__ import print_function
 
 import copy
 import os
 import random
 
-from urlparse import urlparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 from rucio.common import exception, utils, constants
 from rucio.common.utils import make_valid_did
