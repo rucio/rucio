@@ -23,7 +23,10 @@
 
 from json import dumps, loads
 from requests.status_codes import codes
-from urllib import quote
+try:
+    from urllib import quote
+except ImportError:
+    from urllib.parse import quote
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

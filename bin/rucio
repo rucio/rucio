@@ -51,10 +51,17 @@ import argcomplete
 import requests
 import tabulate
 
-from ConfigParser import NoOptionError, NoSectionError
+try:
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    from configparser import NoOptionError, NoSectionError
+
 from copy import deepcopy
 from functools import wraps
-from Queue import Queue, Empty
+try:
+    from Queue import Queue, Empty
+except ImportError:
+    from queue import Queue, Empty
 from threading import Thread, Event
 from xml.etree import ElementTree
 
@@ -1426,9 +1433,11 @@ def _stop_aria_rpc(auth, prox, proc, hard=False):
 def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint):
     logger.info('Using aria2c downloader...')
 
-    # from xmlrpc.client import ServerProxy as RPCServerProxy  # py3
     # from xmlrpc.client import MultiCall as RPCMultiCall  # py3
-    from xmlrpclib import ServerProxy as RPCServerProxy  # py2
+    try:
+        from xmlrpclib import ServerProxy as RPCServerProxy  # py2
+    except ImportError:
+        from xmlrpc.client import ServerProxy as RPCServerProxy
     # from xmlrpclib import MultiCall as RPCMultiCall  # py2
 
     rpc_secret = '%x' % (random.getrandbits(64))
