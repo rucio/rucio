@@ -15,8 +15,8 @@ possible destination RSEs for the number of replicas the user wants to create.
 
 Is possible to find detailed information and examples about how to write RSE Expressions `here`_.
 
-.. _RSE Expression: RSE_Expressions.html
-.. _here: RSE_Expressions.html
+.. _RSE Expression: rse_expressions.html
+.. _here: rse_expressions.html
 
 ^^^^^^^^^
 Example 1
