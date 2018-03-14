@@ -19,7 +19,7 @@
 Rucio CLI: Examples
 ===================
 
-Rucio provides several command for the end-users. See `man pages <man/rucio.html>`_.
+Rucio provides several commands for the end-user. See `man pages <man/rucio.html>`_.
 
 Getting user information
 ========================
@@ -50,7 +50,7 @@ You can switch between different accounts by setting the RUCIO_ACCOUNT variable:
   deleted_at : None
   email      : root@blahblah.com
 
-If you try to authenticate with a account that is not mapped with your credentials::
+If you try to authenticate with an account that is not mapped with your credentials::
 
   $ export RUCIO_ACCOUNT=janedoe
   $ rucio whoami
@@ -74,7 +74,7 @@ You can query the list of available RSEs::
   SITE3_TAPE
 
 
-If the RSEs are tagged with attributes you can built RSE expressions and query the sites matching this expression::
+If the RSEs are tagged with attributes you can build RSE expressions and query the sites matching these expression::
 
   $ rucio list-rses --expression "tier=1&disk=1"
   SITE1_DISK

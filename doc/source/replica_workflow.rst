@@ -20,7 +20,7 @@ Deterministic algorithm based on hashes
 --------------------------------------
 
 The hash deterministic algorithm is an algorithm commonly used in Rucio. The advantage of this algorithm is that, due to the characteristics of cryptographic hash functions,
-that the files are evenly distributed to directories. This can be an important characteristic for storage systems whose access performance degrades based on the number
+the files are evenly distributed to directories. This can be an important characteristic for storage systems whose access performance degrades based on the number
 of files in a directory.
 
 For a data identifier, e.g. ``user.jdoe:test.file.1`` a md5-hashsum is calculated ``077c8119053bebb168d125034bff64ac``. The generated path is then based on the first four
@@ -38,7 +38,7 @@ For the data identifier ``user.jdoe:test.file.1`` the first part of the filename
 Non-Deterministic algorithm based on parent dataset
 ---------------------------------------------------
 
-If the file is part of a datasets, e.g. ``data:dataset1234`` the dataset can be used in the path of the filename. This is useful for e.g. tape storage systems, to keep the files belonging to the same dataset on the same tape.
+If the file is part of a dataset, e.g. ``data:dataset1234`` the dataset can be used in the path of the filename. This is useful for e.g. tape storage systems, to keep the files belonging to the same dataset on the same tape.
 
 For the data identifier ``user.jdoe:test.file.1`` which is part of the datset ``data:dataset1234`` the generated path is: ``/data/dataset1234/user.jdoe/test.file.1``
 
