@@ -24,6 +24,7 @@ Mako==1.0.7                 # Templating language
 python-editor==1.0.3        # Programmatically open an editor, capture the result
 flup==1.0.2                 # Needed to deploy web.py in lighthttpd
 web.py==0.38                # Python web framework
+Flask==0.12.2               # Python web framework
 python-memcached==1.58      # Quick and small memcached client for Python
 ntplib>=0.3.3               # NTP library
 anyjson==0.3.3              # Wraps the best available JSON implementation available in a common interface
@@ -72,7 +73,7 @@ unittest2==1.1.0            # backport of unittest lib in python 2.7
 coverage==4.4.2             # Nose module for test coverage
 Sphinx==1.6.5               # required to build documentation
 Jinja2==2.10                # template engine
-sphinxcontrib-httpdomain==1.5.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
+sphinxcontrib-httpdomain==1.6.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
 stub==0.2.1                 # Temporarily modify callable behaviour and object attributes
 #PIL==1.1.7                      # !!! This library does not exist anymore
 Pygments==2.2.0             # Python Syntax highlighter

@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2015-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
@@ -186,8 +186,11 @@ dataset_dir = ~/public/sonar_medium_dataset/
 scope = user.vzavrtan
 
 [policy]
-permission=atlas
-schema=atlas
+permission = atlas
+schema = atlas
+lfn2pfn_algorithm_default = hash
+support = hn-atlas-dist-analysis-help@cern.ch
+support_rucio = https://github.com/rucio/rucio/issues/
 
 [webui]
 usercert = /opt/rucio/etc/usercert_with_key.pem

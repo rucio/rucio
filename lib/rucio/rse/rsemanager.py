@@ -1,23 +1,23 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
+# Authors:
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017-2018
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
+# - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
 
- Authors:
- - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017-2018
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
- - Wen Guan, <wen.guan@cern.ch>, 2014-2015
- - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
- - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
-'''
 
 import copy
 import os
+import random
 
 from urlparse import urlparse
 
@@ -26,11 +26,11 @@ from rucio.common.utils import make_valid_did
 
 
 def get_rse_info(rse, session=None):
-    """ Returns all protocol related RSE attributes.
+    """
+        Returns all protocol related RSE attributes.
 
         :param rse: Name of the requested RSE
         :param session: The eventual database session.
-
 
         :returns: a dict object with the following attributes:
                     id                ...     an internal identifier
@@ -39,14 +39,14 @@ def get_rse_info(rse, session=None):
                     volatile          ...     boolean indictaing if the RSE is volatile
                     deteministic      ...     boolean indicating of the nameing of the files follows the defined determinism
                     domain            ...     indictaing the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
-                    protocols       ...     all supported protocol in form of a list of dict objects with the followig structure
-                        scheme              ...     protocol scheme e.g. http, srm, ...
-                        hostname            ...     hostname of the site
-                        prefix              ...     path to the folder where the files are stored
-                        port                ...     port used for this protocol
-                        impl                ...     naming the python class of the protocol implementation
-                        extended_attributes ...     additional information for the protocol
-                        domains             ...     a dict naming each domain and the priority of the protocol for each operation (lower is better, zero is not upported)
+                    protocols         ...     all supported protocol in form of a list of dict objects with the followig structure
+                    - scheme              ...     protocol scheme e.g. http, srm, ...
+                    - hostname            ...     hostname of the site
+                    - prefix              ...     path to the folder where the files are stored
+                    - port                ...     port used for this protocol
+                    - impl                ...     naming the python class of the protocol implementation
+                    - extended_attributes ...     additional information for the protocol
+                    - domains             ...     a dict naming each domain and the priority of the protocol for each operation (lower is better, zero is not upported)
 
         :raises RSENotFound: if the provided RSE coud not be found in the database.
     """
@@ -124,6 +124,8 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
         raise exception.RSEProtocolDomainNotSupported('Domain %s not supported' % domain)
 
     candidates = _get_possible_protocols(rse_settings, operation, scheme, domain)
+    # Shuffle candidates to load-balance over equal sources
+    random.shuffle(candidates)
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
@@ -202,8 +204,11 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
         :param rse_settings:    RSE to use
         :param files:           a single dict or a list with dicts containing 'scope' and 'name'
                                 if LFNs are provided and additional 'pfn' if PFNs are provided.
-                                E.g.  [{'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
-                                       {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
+                                Examples:
+                                [
+                                {'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
+                                {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
+                                ]
         :param dest_dir:        path to the directory where the downloaded files will be stored. If not given, each scope is represented by its own directory.
         :param force_scheme:    normally the scheme is dictated by the RSE object, when specifying the PFN it must be forced to the one specified in the PFN, overruling the RSE description.
         :param ignore_checksum: do not verify the checksum - caution: should only be used for rucio download --pfn
@@ -243,14 +248,16 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
                     if printstatements:
                         print 'File downloaded. Will be validated'
 
-                    localchecksum = f['adler32'] if ignore_checksum else utils.adler32(tempfile)
-                    if localchecksum == f['adler32']:
-                        if printstatements:
-                            print 'File validated'
-                        os.rename(tempfile, finalfile)
-                    else:
-                        os.unlink(tempfile)
-                        raise exception.FileConsistencyMismatch('Checksum mismatch : local %s vs recorded %s' % (str(localchecksum), str(f['adler32'])))
+                    if not ignore_checksum:
+                        ruciochecksum = f['adler32'] if f['adler32'] else f['md5']
+                        localchecksum = utils.adler32(tempfile) if f['adler32'] else utils.md5(tempfile)
+                        if localchecksum == ruciochecksum:
+                            if printstatements:
+                                print 'File validated'
+                            os.rename(tempfile, finalfile)
+                        else:
+                            os.unlink(tempfile)
+                            raise exception.FileConsistencyMismatch('Checksum mismatch : local %s vs recorded %s' % (str(localchecksum), str(ruciochecksum)))
                 else:
                     protocol.get(pfn, '%s/%s' % (target_dir, f['name']))
                 ret['%s:%s' % (f['scope'], f['name'])] = True
@@ -296,6 +303,9 @@ def exists(rse_settings, files):
             exists = protocol.exists(f)
             ret[f] = exists
         elif 'scope' in f:  # a LFN is provided
+            pfn = protocol.lfns2pfns(f).values()[0]
+            if isinstance(pfn, exception.RucioException):
+                raise pfn
             exists = protocol.exists(protocol.lfns2pfns(f).values()[0])
             ret[f['scope'] + ':' + f['name']] = exists
         else:
@@ -311,16 +321,21 @@ def exists(rse_settings, files):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
+def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
 
-        :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'},
-                                                                                                    {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}]
+        :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'.
+                            Examples:
+                            [
+                            {'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'},
+                            {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}
+                            ]
                             If the 'filename' key is present, it will be used by Rucio as the actual name of the file on disk (separate from the Rucio 'name').
         :param source_dir:  path to the local directory including the source files
         :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
+        :param force_scheme: use the given protocol scheme, overriding the protocol priority in the RSE description
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -332,9 +347,9 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
     ret = {}
     gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write')
+    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete')
+    protocol_delete = create_protocol(rse_settings, 'delete', scheme=force_scheme)
     protocol_delete.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -355,6 +370,8 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None):
             pfn = force_pfn
         else:
             pfn = protocol.lfns2pfns(make_valid_did(lfn)).values()[0]
+            if isinstance(pfn, exception.RucioException):
+                raise pfn
 
         # First check if renaming operation is supported
         if protocol.renaming:
@@ -492,8 +509,11 @@ def rename(rse_settings, files):
         :param files: a single dict or a list with dicts containing 'scope', 'name', 'new_scope' and 'new_name'
                       if LFNs are used or only 'name' and 'new_name' if PFNs are used.
                       If 'new_scope' or 'new_name' are not provided, the current one is used.
-                      E.g. [{'name': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_name': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
-                            {'name': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_name': 'user/jdoe/c6/4a/9_rse_new.raw'}
+                      Examples:
+                      [
+                      {'name': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_name': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
+                      {'name': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_name': 'user/jdoe/c6/4a/9_rse_new.raw'}
+                      ]
 
         :returns: True/False for a single file or a dict object with LFN (key) and True/False (value) in bulk mode
 
@@ -631,6 +651,10 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
 
     if not len(src_candidates) or not len(dest_candidates):
         raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
+
+    # Shuffle the candidates to load-balance across equal weights.
+    random.shuffle(dest_candidates)
+    random.shuffle(src_candidates)
 
     # Select the one with the highest priority
     dest_candidates = sorted(dest_candidates, key=lambda k: k['domains'][domain][operation_dest])
