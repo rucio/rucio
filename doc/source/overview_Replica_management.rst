@@ -19,7 +19,7 @@ The rule engine is triggered when a new rule is defined on an existing data iden
 
 Notifications can be provided for rules and their underlying transfer requests. All transfer requests are transient.
 
-The deletion serivce supports two different modes: greedy and non-greedy. Greedy means that the service trys to immediately delete all replicas which are not protected by a replication rule.
+The deletion service supports two different modes: greedy and non-greedy. Greedy means that the service tries to immediately delete all replicas which are not protected by a replication rule.
 Non-greedy deletion is triggered when storage policy dictates that space must be freed. The deletion service will look for replicas on that RSE which can be deleted without violating any replication rule. The deletion service will use a Least Recently Used (LRU) algorithm to select replicas for deletion. The deletion service will also immediately delete all replicas of any file which is declared obsolete.
 
 Some examples for replication rules are listed `here`_.
@@ -28,4 +28,4 @@ Some examples for replication rules are listed `here`_.
 
 .. _RSE Expression: rse_expressions.html
 .. _here: replication_rules_examples.html
-.. [#f1] The system may reject rules if these violate other policies, e.g., only specific accounts are allowed to request replication rules for tape systems. 
+.. [#f1] The system may reject rules if these violate other policies, e.g., only specific accounts are allowed to request replication rules for tape systems.
