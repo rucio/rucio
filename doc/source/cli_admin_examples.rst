@@ -21,7 +21,7 @@ Rucio administration CLI: Examples
 ==================================
 
 Rucio provides a CLI for administrative tasks. The get methods can be executed by
-any users, but the set methods require some admin privileges. See `man pages <man/rucio-admin.html>`_.
+any user, but the set methods require some admin privileges. See `man pages <man/rucio-admin.html>`_.
 
 Account and identity methods
 ============================
@@ -30,7 +30,7 @@ To create a new account::
 
   $ rucio-admin account add --type USER --email jdoe@blahblih.com jdoe
 
-You can choose different types in the list USER, GROUP, SERVICE. Different policies/permissions can be set dependending on the account type.  Once the account is created, you need to create and attach an identity to this account::
+You can choose different types in the list USER, GROUP, SERVICE. Different policies/permissions can be set depending on the account type.  Once the account is created, you need to create and attach an identity to this account::
 
   $ rucio-admin identity add --type X509 --id "/DC=blah/DC=blih/OU=Organic Units/OU=Users/CN=jdoe" --email jdoe@blahblih.com --account jdoe
 
