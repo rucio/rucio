@@ -559,16 +559,15 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 allow_tape_source = True
 
                 # Find matching scheme between destination and source
-                # TODO: In the future, move to domain "third_party_copy"
                 try:
                     matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=rses_info[dest_rse_id],
                                                                   rse_settings_src=rses_info[source_rse_id],
                                                                   operation_src='read',
-                                                                  operation_dest='write',
+                                                                  operation_dest='third_party_copy',
                                                                   domain='wan',
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
-                    logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                    logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                     if id in reqs_no_source:
                         reqs_no_source.remove(id)
                     if id not in reqs_scheme_mismatch:
@@ -580,7 +579,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     try:
                         protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', matching_scheme[0])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                        logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
