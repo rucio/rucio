@@ -155,7 +155,7 @@ class Default(protocol.RSEProtocol):
                 raise exception.ServiceUnavailable(e)
 
     def pfn2path(self, pfn):
-        tmp = self.parse_pfns(pfn).values()[0]
+        tmp = list(self.parse_pfns(pfn).values())[0]
         return '/'.join([tmp['prefix'], tmp['path'], tmp['name']])
 
     def stat(self, pfn):

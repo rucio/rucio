@@ -35,7 +35,7 @@ class Default(protocol.RSEProtocol):
         pfns = {}
         prefix = self.attributes['prefix']
         if self.attributes['extended_attributes'] is not None and\
-           'web_service_path' in self.attributes['extended_attributes'].keys():
+           'web_service_path' in list(self.attributes['extended_attributes'].keys()):
             web_service_path = self.attributes['extended_attributes']['web_service_path']
         else:
             web_service_path = ''
@@ -148,9 +148,9 @@ class Default(protocol.RSEProtocol):
         if '://' in hostname:
             hostname = hostname.split("://")[1]
 
-        if 'extended_attributes' in self.attributes.keys() and\
+        if 'extended_attributes' in list(self.attributes.keys()) and\
            self.attributes['extended_attributes'] is not None and\
-           'web_service_path' in self.attributes['extended_attributes'].keys():
+           'web_service_path' in list(self.attributes['extended_attributes'].keys()):
             web_service_path = self.attributes['extended_attributes']['web_service_path']
         else:
             web_service_path = ''
@@ -224,7 +224,7 @@ class Default(protocol.RSEProtocol):
             raise exception.SourceNotFound()
 
         space_token = ''
-        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+        if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = '--dst %s' % self.attributes['extended_attributes']['space_token']
 
         try:
@@ -274,7 +274,7 @@ class Default(protocol.RSEProtocol):
         """
 
         space_token = ''
-        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+        if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = '--dst %s' % self.attributes['extended_attributes']['space_token']
 
         try:
