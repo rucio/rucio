@@ -17,7 +17,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
@@ -707,18 +707,18 @@ def add_protocol(rse, parameter, session=None):
         new_protocol = models.RSEProtocols()
         new_protocol.update(parameter)
         new_protocol.save(session=session)
-    except (IntegrityError, FlushError, OperationalError) as e:
-        if ('UNIQUE constraint failed' in e.args[0]) or ('conflicts with persistent instance' in e.args[0]) \
-           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]) \
-           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0])\
-           or match('.*IntegrityError.*columns.*are not unique.*', e.args[0]):
+    except (IntegrityError, FlushError, OperationalError) as error:
+        if ('UNIQUE constraint failed' in error.args[0]) or ('conflicts with persistent instance' in error.args[0]) \
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', error.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
+           or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
-        elif 'may not be NULL' in e.args[0] \
-             or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', e.args[0]) \
-             or match('.*OperationalError.*cannot be null.*', e.args[0]):
+        elif 'may not be NULL' in error.args[0] \
+             or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
+             or match('.*OperationalError.*cannot be null.*', error.args[0]):
             raise exception.InvalidObject('Missing values!')
-        raise e
+        raise error
     return new_protocol
 
 
@@ -747,9 +747,6 @@ def get_rse_protocols(rse, schemes=None, session=None):
     if lfn2pfn_algorithms:
         lfn2pfn_algorithm = lfn2pfn_algorithms[0]
 
-    # Copy verify_checksum from the attributes, later: assume True if not specified
-    verify_checksum = get_rse_attribute('verify_checksum', rse_id=_rse.id, session=session)
-
     read = True if _rse.availability & 4 else False
     write = True if _rse.availability & 2 else False
     delete = True if _rse.availability & 1 else False
@@ -766,7 +763,6 @@ def get_rse_protocols(rse, schemes=None, session=None):
             'rse_type': str(_rse.rse_type),
             'credentials': None,
             'volatile': _rse.volatile,
-            'verify_checksum': verify_checksum[0] if verify_checksum else True,
             'staging_area': _rse.staging_area}
 
     for op in utils.rse_supported_protocol_operations():
@@ -853,10 +849,12 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
             for op in data['domains'][s]:
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = ''.join([op, '_', s])
+                op_name = op
+                if op != 'third_party_copy':
+                    op_name = ''.join([op, '_', s])
                 no = session.query(models.RSEProtocols).\
                     filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                           getattr(models.RSEProtocols, op_name) > 0)).\
+                                           getattr(models.RSEProtocols, op_name) >= 0)).\
                     count()
                 if not 0 <= data['domains'][s][op] <= no:
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (data['domains'][s][op], op, s))
@@ -886,7 +884,9 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
         # Preparing gaps if priority is updated
         for domain in utils.rse_supported_protocol_domains():
             for op in utils.rse_supported_protocol_operations():
-                op_name = ''.join([op, '_', domain])
+                op_name = op
+                if op != 'third_party_copy':
+                    op_name = ''.join([op, '_', domain])
                 if op_name in data:
                     prots = []
                     if (not getattr(up, op_name)) and data[op_name]:  # reactivate protocol e.g. from 0 to 1
@@ -921,12 +921,12 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
                         val += 1
 
         up.update(data, flush=True, session=session)
-    except (IntegrityError, OperationalError) as e:
-        if 'UNIQUE'.lower() in e.args[0].lower() or 'Duplicate' in e.args[0]:  # Covers SQLite, Oracle and MySQL error
+    except (IntegrityError, OperationalError) as error:
+        if 'UNIQUE'.lower() in error.args[0].lower() or 'Duplicate' in error.args[0]:  # Covers SQLite, Oracle and MySQL error
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse, hostname))
-        elif 'may not be NULL' in e.args[0] or "cannot be null" in e.args[0]:
-            raise exception.InvalidObject('Missing values: %s' % e.args[0])
-        raise e
+        elif 'may not be NULL' in error.args[0] or "cannot be null" in error.args[0]:
+            raise exception.InvalidObject('Missing values: %s' % error.args[0])
+        raise error
     except DatabaseError as error:
         if match('.*DatabaseError.*ORA-01407: cannot update .*RSE_PROTOCOLS.*IMPL.*to NULL.*', error.args[0]):
             raise exception.InvalidObject('Invalid values !')
