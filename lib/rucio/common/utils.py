@@ -249,7 +249,7 @@ def render_json_list(l):
 def datetime_parser(dct):
     """ datetime parser
     """
-    for k, v in dct.items():
+    for k, v in list(dct.items()):
         if isinstance(v, basestring) and re.search(" UTC", v):
             try:
                 dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)

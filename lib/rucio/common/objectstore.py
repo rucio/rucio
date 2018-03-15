@@ -1,13 +1,21 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2016 - 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 """
 methods of objectstore
@@ -308,12 +316,12 @@ def delete(urls, rse):
         try:
             endpoint, bucket_name = bucket_key.split('+')
             bucket = _get_bucket(rse, endpoint, bucket_name)
-            ret = _delete_keys(bucket, bucket_keys[bucket_key].keys())
+            ret = _delete_keys(bucket, list(bucket_keys[bucket_key].keys()))
             for key in ret:
                 result[bucket_keys[bucket_key][key]] = ret[key]
         except:
             ret = {'status': -1, 'output': "Failed to delete url: %s, error: %s" % (url, traceback.format_exc())}
-            for key in bucket_keys[bucket_key].keys():
+            for key in list(bucket_keys[bucket_key].keys()):
                 url = bucket_keys[bucket_key][key]
                 if url not in result:
                     result[url] = ret
