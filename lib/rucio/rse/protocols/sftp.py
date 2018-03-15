@@ -8,7 +8,7 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-214
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
-
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 import pysftp
 from subprocess import call
@@ -162,7 +162,7 @@ class Default(protocol.RSEProtocol):
                 raise exception.ServiceUnavailable(e)
 
     def pfn2path(self, pfn):
-        tmp = self.parse_pfns(pfn).values()[0]
+        tmp = list(self.parse_pfns(pfn).values())[0]
         return '/'.join([tmp['prefix'], tmp['path'], tmp['name']])
 
     def stat(self, pfn):
