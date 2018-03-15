@@ -1,12 +1,20 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2015 - 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0OA
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 """
 methods to get closeness between sites
@@ -192,7 +200,7 @@ def sort_sources_by_closeness(sources, dest_rse):
         sources_dict[src_rse].append(source)
 
     # sort rses
-    rses = sources_dict.keys()
+    rses = list(sources_dict.keys())
     closest_sorted_rses = sort_rses(rses, dest_rse)
     if not closest_sorted_rses:
         return sources
@@ -228,7 +236,7 @@ def sort_sources(sources, dest_rse):
         rank_dict[rank].append(source)
 
     # sort ranks
-    ranks = rank_dict.keys()
+    ranks = list(rank_dict.keys())
     ranks.sort(reverse=True)
 
     ret_sources = []
