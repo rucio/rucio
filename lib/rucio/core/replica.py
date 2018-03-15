@@ -729,6 +729,15 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
 
+    # find all RSEs local to the client's location in autoselect mode (i.e., when domain is None)
+    local_rses = []
+    if domain is None:
+        if client_location and 'site' in client_location and client_location['site']:
+            try:
+                local_rses = [rse['rse'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
+            except:
+                pass  # do not hard fail if site cannot be resolved or is empty
+
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
     for replicas in filter(None, files):
         for scope, name, bytes, md5, adler32, path, state, rse, rse_type, volatile in replicas:
@@ -739,12 +748,11 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                 if rse not in rse_info:
                     rse_info[rse] = rsemgr.get_rse_info(rse, session=session)
 
+                # select the lan door in autoselect mode, otherwise use the wan door
                 if domain is None:
                     domain = 'wan'
-                    if client_location and 'site' in client_location and client_location['site']:
-                        site = get_rse_attribute('site', rse_info[rse]['id'], session=session)
-                        if site and site[0].lower() == client_location['site'].lower():
-                            domain = 'lan'
+                    if local_rses and rse in local_rses:
+                        domain = 'lan'
 
                 if rse not in tmp_protocols:
 
