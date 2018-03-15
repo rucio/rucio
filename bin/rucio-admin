@@ -38,7 +38,11 @@ import sys
 import time
 import traceback
 
-from ConfigParser import NoOptionError, NoSectionError
+try:
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    from configparser import NoOptionError, NoSectionError
+
 from functools import wraps
 from itertools import groupby
 
