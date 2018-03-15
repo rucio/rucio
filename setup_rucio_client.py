@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.abspath('lib/'))
 from rucio import version  # noqa
 
 if sys.version_info < (2, 5):
-    print 'ERROR: Rucio requires at least Python 2.6 to run.'
+    print('ERROR: Rucio requires at least Python 2.6 to run.')
     sys.exit(1)
 sys.path.insert(0, os.path.abspath('lib/'))
 
@@ -87,7 +87,7 @@ try:
                 self.finalize_options()
                 BuildDoc.run(self)
     cmdclass['build_sphinx'] = local_BuildDoc
-except:
+except Exception:
     pass
 
 
@@ -166,7 +166,7 @@ class CustomSdist(_sdist):
         '''
         get_file_list
         '''
-        print "Chosen packaging option: " + NAME
+        print("Chosen packaging option: " + NAME)
         self.distribution.data_files = DATA_FILES
         _sdist.get_file_list(self)
 
