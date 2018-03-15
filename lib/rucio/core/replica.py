@@ -1,21 +1,26 @@
-"""
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-  - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
-  - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-  - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
-  - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-  - David Cameron <d.g.cameron@gmail.com>, 2014
-  - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2016
-  - Wen Guan, <wen.guan@cern.ch>, 2014-2015
-"""
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - David Cameron <d.g.cameron@gmail.com>, 2014
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2016
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 
 from collections import defaultdict
 from curses.ascii import isprint
@@ -734,6 +739,13 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                 if rse not in rse_info:
                     rse_info[rse] = rsemgr.get_rse_info(rse, session=session)
 
+                if domain is None:
+                    domain = 'wan'
+                    if client_location and 'site' in client_location and client_location['site']:
+                        site = get_rse_attribute('site', rse_info[rse]['id'], session=session)
+                        if site and site[0].lower() == client_location['site'].lower():
+                            domain = 'lan'
+
                 if rse not in tmp_protocols:
 
                     rse_schemes = schemes or []
@@ -796,7 +808,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                         # server side root proxy handling if location is set.
                         # cannot be pushed into protocols because we need to lookup rse attributes.
                         # ultra-conservative implementation.
-                        if protocol.attributes['scheme'] == 'root' and client_location:
+                        if domain == 'wan' and protocol.attributes['scheme'] == 'root' and client_location:
                             if 'site' in client_location and client_location['site']:
                                 replica_site = get_rse_attribute('site', rse_info[rse]['id'], session=session)[0]
                                 if client_location['site'] != replica_site:
@@ -868,13 +880,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict list_replicas on a set of RSEs.
     :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
-    :param domain: The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']
+    :param domain: The network domain for the call, either None, 'wan' or 'lan'. None is automatic mode, 'all' is both ['lan','wan']
     :param session: The database session in use.
     """
-
-    # Compatibility fallback: Old clients expect WAN replicas always
-    if not domain:
-        domain = 'wan'
 
     file_clause, dataset_clause, state_clause, files = _resolve_dids(dids=dids, unavailable=unavailable,
                                                                      ignore_availability=ignore_availability,
