@@ -747,6 +747,9 @@ def get_rse_protocols(rse, schemes=None, session=None):
     if lfn2pfn_algorithms:
         lfn2pfn_algorithm = lfn2pfn_algorithms[0]
 
+    # Copy verify_checksum from the attributes, later: assume True if not specified
+    verify_checksum = get_rse_attribute('verify_checksum', rse_id=_rse.id, session=session)
+
     read = True if _rse.availability & 4 else False
     write = True if _rse.availability & 2 else False
     delete = True if _rse.availability & 1 else False
@@ -763,6 +766,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
             'rse_type': str(_rse.rse_type),
             'credentials': None,
             'volatile': _rse.volatile,
+            'verify_checksum': verify_checksum[0] if verify_checksum else True,
             'staging_area': _rse.staging_area}
 
     for op in utils.rse_supported_protocol_operations():
