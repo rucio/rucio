@@ -26,6 +26,6 @@ Some examples for replication rules are listed `here`_.
 
 .. rubric:: Footnotes
 
-.. _RSE Expression: RSE_Expressions.html
+.. _RSE Expression: rse_expressions.html
 .. _here: replication_rules_examples.html
 .. [#f1] The system may reject rules if these violate other policies, e.g., only specific accounts are allowed to request replication rules for tape systems.
