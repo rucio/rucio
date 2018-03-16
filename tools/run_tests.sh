@@ -109,8 +109,8 @@ fi
 for i in $range
 do
     echo 'Running tests with nose - Iteration' $i
-    echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
-    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
+    echo nosetests -v --processes=2 --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
+    nosetests -v --processes=2 --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
 done
 
 if test ${alembic}; then
