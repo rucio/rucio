@@ -16,6 +16,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 
+from __future__ import print_function
 
 import commands
 import sys
@@ -28,17 +29,27 @@ if __name__ == "__main__":
 COMPONENT_COLOR = 'd4c5f9'
 
 if len(sys.argv) == 1:
-    print 'You need to specify a milestone title'
+    print('You need to specify a milestone title')
     sys.exit(-1)
-else:
+elif len(sys.argv) == 2:
     milestone_title = sys.argv[1]
+    output_type = 'github'
+elif len(sys.argv) == 3:
+    milestone_title = sys.argv[1]
+    output_type = 'rst'
 
 
-def format_issue(issue):
-    if issue['component']:
-        return '- %s: %s #%s' % (issue['component'], issue['title'], issue['number'])
+def format_issue(issue, rst=False):
+    if not rst:
+        if issue['component']:
+            return '- %s: %s #%s' % (issue['component'], issue['title'], issue['number'])
+        else:
+            return '- %s #%s' % (issue['title'], issue['number'])
     else:
-        return '- %s #%s' % (issue['title'], issue['number'])
+        if issue['component']:
+            return '- %s: %s `#%s <https://github.com/rucio/rucio/issues/%s>`_' % (issue['component'], issue['title'], issue['number'], issue['number'])
+        else:
+            return '- %s `#%s <https://github.com/rucio/rucio/issues/%s>`_' % (issue['title'], issue['number'], issue['number'])
 
 
 def load_milestones(github_token, page=1):
@@ -54,7 +65,7 @@ try:
     with open(root_git_dir + '/.githubtoken', 'r') as f:
         github_token = f.readline().strip()
 except:
-    print 'No github token file found at %s' % root_git_dir + '/.githubtoken'
+    print('No github token file found at %s' % root_git_dir + '/.githubtoken')
     sys.exit(-1)
 
 # Get all Milestones
@@ -99,17 +110,39 @@ enhancements = sorted(enhancements, key=lambda k: "%s %d" % (k['component'], k['
 features = [issue for issue in issues if issue['type'] == 'feature']
 features = sorted(features, key=lambda k: "%s %d" % (k['component'], k['number']))
 
-if features:
-    print '## Features\n'
-    for issue in features:
-        print format_issue(issue)
-    print ''
-if enhancements:
-    print '## Enhancements\n'
-    for issue in enhancements:
-        print format_issue(issue)
-    print ''
-if bugs:
-    print '## Bugs\n'
-    for issue in bugs:
-        print format_issue(issue)
+if output_type == 'github':
+    if features:
+        print('## Features\n')
+        for issue in features:
+            print(format_issue(issue))
+        print('')
+    if enhancements:
+        print('## Enhancements\n')
+        for issue in enhancements:
+            print(format_issue(issue))
+        print('')
+    if bugs:
+        print('## Bugs\n')
+        for issue in bugs:
+            print(format_issue(issue))
+elif output_type == 'rst':
+    if features:
+        print('********')
+        print('Features')
+        print('********\n')
+        for issue in features:
+            print(format_issue(issue, rst=True))
+        print('')
+    if enhancements:
+        print('************')
+        print('Enhancements')
+        print('************\n')
+        for issue in enhancements:
+            print(format_issue(issue, rst=True))
+        print('')
+    if bugs:
+        print('****')
+        print('Bugs')
+        print('****\n')
+        for issue in bugs:
+            print(format_issue(issue, rst=True))
