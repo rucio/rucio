@@ -189,7 +189,8 @@ setup(
     description=DESCRIPTION,
     license="Apache License, Version 2.0",
     url="http://rucio.cern.ch/",
-    classifiers=[
+    python_requires=">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
+    classifiers=(
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
         'Intended Audience :: Information Technology',
@@ -199,7 +200,14 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
-        'Environment :: No Input/Output (Daemon)', ],
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: Implementation :: PyPy',
+        'Environment :: No Input/Output (Daemon)'
+    ),
     install_requires=REQUIRES,
     extras_require=EXTRAS_REQUIRES,
     dependency_links=DEPEND_LINKS,
