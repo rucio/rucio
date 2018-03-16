@@ -1,0 +1,76 @@
+===================
+1.15.0 "Daredonkey"
+===================
+
+-------
+General
+-------
+
+*******************
+Update Instructions
+*******************
+
+This feature release requires a database schema update. Please consult the documentation about updating your database schema.
+
+********
+Features
+********
+
+- Clients: extend download/upload for cloud checksums `#140 <https://github.com/rucio/rucio/issues/140>`_
+- Core & Internals: Pluggable LFN2PFN algorithms `#570 <https://github.com/rucio/rucio/issues/570>`_
+
+************
+Enhancements
+************
+
+- Clients: Misleading warning in srm scheme  `#575 <https://github.com/rucio/rucio/issues/575>`_
+- Core & Internals: better handling NoSectionError in db/sqla/session `#641 <https://github.com/rucio/rucio/issues/641>`_
+- Core & Internals: documentation: database versioning `#749 <https://github.com/rucio/rucio/issues/749>`_
+- Documentation: Update concepts & terminology section of the documentation `#566 <https://github.com/rucio/rucio/issues/566>`_
+- Documentation: Add auto-generated CLIs documentation for the daemons `#718 <https://github.com/rucio/rucio/issues/718>`_
+- Documentation: documentation for Installing dev environment  `#725 <https://github.com/rucio/rucio/issues/725>`_
+- Documentation: Broken readthedocs compilation with No such file or directory  `#731 <https://github.com/rucio/rucio/issues/731>`_
+- Documentation: Format architecture section and add figure to the documentation `#763 <https://github.com/rucio/rucio/issues/763>`_
+- Documentation: Fix broken rucio-admin CLI doc generation `#769 <https://github.com/rucio/rucio/issues/769>`_
+- RSE Manager: Shuffle equal-weight protocols `#697 <https://github.com/rucio/rucio/issues/697>`_
+- Release management: Possibility to make a pip install directly from git url `#532 <https://github.com/rucio/rucio/issues/532>`_
+- Release management: core dependencies update `#757 <https://github.com/rucio/rucio/issues/757>`_
+- Testing: provide docker compose file for demo containers `#549 <https://github.com/rucio/rucio/issues/549>`_
+- Testing: pylint in travis wrongly test all files containing 'py' in the name `#688 <https://github.com/rucio/rucio/issues/688>`_
+- Transfers: transfers: force S3 alternative authentication method `#646 <https://github.com/rucio/rucio/issues/646>`_
+- Transfers: Improvements in finisher `#678 <https://github.com/rucio/rucio/issues/678>`_
+- Transfers: Omit any mention of space tokens to FTS if not set `#684 <https://github.com/rucio/rucio/issues/684>`_
+
+****
+Bugs
+****
+
+- Core & Internals: custom rucio exceptions passing args and kwargs wrong to super `#679 <https://github.com/rucio/rucio/issues/679>`_
+- Core & Internals: DuplicateRule error creates index out of bound stacktrace `#906 <https://github.com/rucio/rucio/issues/906>`_
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: Import extra modules only if they are available `#336 <https://github.com/rucio/rucio/issues/336>`_
+- Clients: Create download and upload capability in python clients `#523 <https://github.com/rucio/rucio/issues/523>`_
+
+****
+Bugs
+****
+
+- Clients: Declare all replicas of a file lost `#42 <https://github.com/rucio/rucio/issues/42>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- Authentication: webui cannot handle DNs with missing leading / `#742 <https://github.com/rucio/rucio/issues/742>`_
