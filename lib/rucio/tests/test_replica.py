@@ -1,16 +1,25 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2016-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2017
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 from __future__ import print_function
 
@@ -312,21 +321,21 @@ class TestReplicaCore:
 
         # # force all LAN
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK']):
+                                     schemes=['MOCK'], domain='lan'):
             cmd = 'rucio list-file-replicas --pfns --domain=lan %s:%s' % (replica['scope'], replica['name'])
             errno, stdout, stderr = execute(cmd)
             assert_in('/i/prefer/the/lan', stdout)
 
         # # force all WAN
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK']):
+                                     schemes=['MOCK'], domain='wan'):
             cmd = 'rucio list-file-replicas --pfns --domain=wan %s:%s' % (replica['scope'], replica['name'])
             errno, stdout, stderr = execute(cmd)
             assert_in('/i/prefer/the/wan', stdout)
 
         # # force both WAN and LAN
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK']):
+                                     schemes=['MOCK'], domain='all'):
             cmd = 'rucio list-file-replicas --pfns --domain=all %s:%s' % (replica['scope'], replica['name'])
             errno, stdout, stderr = execute(cmd)
             assert_in('/i/prefer/the/wan', stdout)
