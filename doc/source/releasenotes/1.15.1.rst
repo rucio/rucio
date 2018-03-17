@@ -1,0 +1,14 @@
+===================
+1.15.1 (webui only)
+===================
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: links in the WebUI do not work when run with a modified path `#761 <https://github.com/rucio/rucio/issues/761>`_
+- WebUI: remove "ATLAS" from webui title when policy is not atlas `#793 <https://github.com/rucio/rucio/issues/793>`_

@@ -33,6 +33,7 @@ For documentation specific to the any of these three, please see the subsequent 
     concepts
     replica_workflow
     architecture
+    releasenotes
 
 Developer Documentation
 =======================
