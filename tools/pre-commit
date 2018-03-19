@@ -45,9 +45,11 @@ def main():
     f = open(tempdir + '/.flake8', 'w+')
     f.write('''[pycodestyle]
 max-line-length=256
+ignore=E722
 
 [flake8]
 max-line-length=256
+ignore=E722
 ''')
     f.close()
     f = open(tempdir + '/.pylintrc', 'w')

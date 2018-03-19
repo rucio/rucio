@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 
@@ -34,7 +34,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
-from rucio.transfertool import fts3
+from rucio.transfertool.fts3 import FTS3Transfertool
 
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -76,7 +76,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
-        transfer_id = fts3.submit_bulk_transfers(external_host, job_files, job_params, timeout)
+        transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000 / len(files))
     return transfer_id
 
@@ -285,7 +285,7 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
     if transfertool == 'fts3':
         try:
             ts = time.time()
-            fts_resps = fts3.bulk_query(transfer_ids, request_host, timeout)
+            fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
             record_timer('core.request.bulk_query_transfers', (time.time() - ts) * 1000 / len(transfer_ids))
         except Exception:
             raise
@@ -343,7 +343,7 @@ def query_latest(external_host, state, last_nhours=1):
     record_counter('core.request.query_latest')
 
     ts = time.time()
-    resps = fts3.query_latest(external_host, state, last_nhours)
+    resps = FTS3Transfertool(external_host=external_host).query_latest(state=state, last_nhours=last_nhours)
     record_timer('core.request.query_latest_fts3.%s.%s_hours' % (external_host, last_nhours), (time.time() - ts) * 1000)
 
     if not resps:
