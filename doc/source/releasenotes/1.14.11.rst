@@ -1,0 +1,14 @@
+=======
+1.14.11
+=======
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Removing reference to  https://its.cern.ch/jira/browse/RUCIO in rucio clis `#243 <https://github.com/rucio/rucio/issues/243>`_
+- Clients: Implement uploadclient `#671 <https://github.com/rucio/rucio/issues/671>`_
