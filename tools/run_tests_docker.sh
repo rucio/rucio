@@ -89,8 +89,9 @@ if test ${init_only}; then
 fi
 
 echo 'Running tests with nose - Iteration' $i
-echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
-nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
+#echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
+#nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
+
+nosetests -v lib/rucio/tests/test_root_proxy.py:TestROOTProxy.test_redirect_metalink_list_replicas
 
 exit $?
-
