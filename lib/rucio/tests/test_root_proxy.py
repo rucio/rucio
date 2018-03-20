@@ -150,27 +150,19 @@ class TestROOTProxy(object):
         """ ROOT (REDIRECT REST): Test internal proxy prepend with metalink"""
         mw = []
 
-        # default behaviour
+        # default behaviour - no location -> no proxy
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_1/metalink', expect_errors=True)
         assert_in('root://root.blackmesa.com:1409//training/facility/mock/c9/df/half-life_1', res.body)
+        assert_in('root://root.aperture.com:1409//test/chamber/mock/c9/df/half-life_1', res.body)
         assert_not_in('proxy', res.body)
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_2/metalink', expect_errors=True)
         assert_in('root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2', res.body)
+        assert_in('root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2', res.body)
         assert_not_in('proxy', res.body)
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_3/metalink', expect_errors=True)
         assert_in('root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3', res.body)
+        assert_in('root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3', res.body)
         assert_not_in('proxy', res.body)
-
-        # outgoing proxy
-        res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_1/metalink?%s' % urllib.urlencode(self.client_location_with_proxy),
-                                                      expect_errors=True)
-        assert_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/c9/df/half-life_1', res.body)
-        res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_2/metalink?%s' % urllib.urlencode(self.client_location_with_proxy),
-                                                      expect_errors=True)
-        assert_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2', res.body)
-        res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_3/metalink?%s' % urllib.urlencode(self.client_location_with_proxy),
-                                                      expect_errors=True)
-        assert_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3', res.body)
 
         # site without proxy
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_1/metalink?%s' % urllib.urlencode(self.client_location_without_proxy),
@@ -188,3 +180,22 @@ class TestROOTProxy(object):
         assert_in('root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3', res.body)
         assert_in('root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3', res.body)
         assert_not_in('proxy', res.body)
+
+        # at location with outgoing proxy, prepend for wan replica
+        res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_1/metalink?%s' % urllib.urlencode(self.client_location_with_proxy),
+                                                      expect_errors=True)
+        print res.body
+        assert_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/c9/df/half-life_1', res.body)
+        assert_in('root://root.aperture.com:1409//test/chamber/mock/c9/df/half-life_1', res.body)
+
+        res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_2/metalink?%s' % urllib.urlencode(self.client_location_with_proxy),
+                                                      expect_errors=True)
+        print res.body
+        assert_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2', res.body)
+        assert_in('root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2', res.body)
+
+        res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_3/metalink?%s' % urllib.urlencode(self.client_location_with_proxy),
+                                                      expect_errors=True)
+        print res.body
+        assert_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3', res.body)
+        assert_in('root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3', res.body)
