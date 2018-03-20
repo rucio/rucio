@@ -742,6 +742,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
     for replicas in filter(None, files):
         for scope, name, bytes, md5, adler32, path, state, rse, rse_type, volatile in replicas:
 
+            domain = None
             pfns = []
             if show_pfns and rse:
 
@@ -749,9 +750,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                     rse_info[rse] = rsemgr.get_rse_info(rse, session=session)
 
                 # select the lan door in autoselect mode, otherwise use the wan door
+                print 'CHECK', domain, local_rses, rse, rse in local_rses
                 if domain is None:
                     domain = 'wan'
-                    print 'CHECK', local_rses, rse, rse in local_rses
                     if local_rses and rse in local_rses:
                         print 'found!'
                         domain = 'lan'
