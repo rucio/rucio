@@ -85,10 +85,7 @@ class MetaLinkRedirector(RucioController):
                 client_location['site'] = params['site'][0]
 
         try:
-            print
-            print 'zzzzzzzzzzzzzzzzzzzzz', client_location
             tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes, client_location=client_location)]
-            print tmp_replicas
 
             if not tmp_replicas:
                 raise ReplicaNotFound('no redirection possible - cannot find the DID')

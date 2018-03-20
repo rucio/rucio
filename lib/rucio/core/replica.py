@@ -23,6 +23,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 
 from collections import defaultdict
+from copy import deepcopy
 from curses.ascii import isprint
 from datetime import datetime, timedelta
 from json import dumps
@@ -730,19 +731,25 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
 
     # find all RSEs local to the client's location in autoselect mode (i.e., when domain is None)
+    # we need to retain knowledge of the original domain selection by the user
+    # in case we have to loop over replicas with a potential proxy
+    original_domain = deepcopy(domain)
     local_rses = []
     if domain is None:
-        print 'domain is none, getting local rses'
         if client_location and 'site' in client_location and client_location['site']:
-            print 'client location site', client_location['site']
-            local_rses = [rse['rse'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
-            print 'local_rses', local_rses
+            try:
+                local_rses = [rse['rse'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
+            except:
+                pass
 
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
     for replicas in filter(None, files):
         for scope, name, bytes, md5, adler32, path, state, rse, rse_type, volatile in replicas:
 
-            domain = None
+            # reset the domain to original user's choice
+            # (this could get overwritten by autoselect mode)
+            domain = deepcopy(original_domain)
+
             pfns = []
             if show_pfns and rse:
 
@@ -750,13 +757,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                     rse_info[rse] = rsemgr.get_rse_info(rse, session=session)
 
                 # select the lan door in autoselect mode, otherwise use the wan door
-                print 'CHECK', domain, local_rses, rse, rse in local_rses
                 if domain is None:
                     domain = 'wan'
                     if local_rses and rse in local_rses:
-                        print 'found!'
                         domain = 'lan'
-                print 'domain', domain
 
                 if rse not in tmp_protocols:
 
