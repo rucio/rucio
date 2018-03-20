@@ -23,6 +23,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 
 from collections import defaultdict
+from copy import deepcopy
 from curses.ascii import isprint
 from datetime import datetime, timedelta
 from json import dumps
@@ -730,17 +731,24 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
 
     # find all RSEs local to the client's location in autoselect mode (i.e., when domain is None)
+    # we need to retain knowledge of the original domain selection by the user
+    # in case we have to loop over replicas with a potential proxy
+    original_domain = deepcopy(domain)
     local_rses = []
     if domain is None:
         if client_location and 'site' in client_location and client_location['site']:
             try:
                 local_rses = [rse['rse'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
             except:
-                pass  # do not hard fail if site cannot be resolved or is empty
+                pass
 
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
     for replicas in filter(None, files):
         for scope, name, bytes, md5, adler32, path, state, rse, rse_type, volatile in replicas:
+
+            # reset the domain to original user's choice
+            # (this could get overwritten by autoselect mode)
+            domain = deepcopy(original_domain)
 
             pfns = []
             if show_pfns and rse:
