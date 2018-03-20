@@ -178,5 +178,3 @@ class TestROOTProxy(object):
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_3/metalink?%s' % urllib.urlencode(self.client_location_without_proxy),
                                                       expect_errors=True)
         assert_not_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3', res.body)
-
-        assert(False)
