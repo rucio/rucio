@@ -732,11 +732,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
     # find all RSEs local to the client's location in autoselect mode (i.e., when domain is None)
     local_rses = []
     if domain is None:
+        print 'domain is none, getting local rses'
         if client_location and 'site' in client_location and client_location['site']:
-            try:
-                local_rses = [rse['rse'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
-            except:
-                pass  # do not hard fail if site cannot be resolved or is empty
+            local_rses = [rse['rse'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
+            print 'local_rses', local_rses
 
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
     for replicas in filter(None, files):
@@ -752,7 +751,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                 if domain is None:
                     domain = 'wan'
                     if local_rses and rse in local_rses:
+                        print 'found!'
                         domain = 'lan'
+                print 'autoselect domain', domain
 
                 if rse not in tmp_protocols:
 

@@ -57,7 +57,7 @@ class MetaLinkRedirector(RucioController):
         header('Access-Control-Allow-Methods', '*')
         header('Access-Control-Allow-Credentials', 'true')
 
-        dids, schemes, select = [{'scope': scope, 'name': name}], ['http', 'https', 's3+rucio', 's3+https', 'root', 'gsiftp', 'srm', 'davs'], None
+        dids, schemes, select, domain = [{'scope': scope, 'name': name}], ['http', 'https', 's3+rucio', 's3+https', 'root', 'gsiftp', 'srm', 'davs'], None, None
 
         # set the correct client IP
         client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
@@ -85,17 +85,9 @@ class MetaLinkRedirector(RucioController):
                 client_location['site'] = params['site'][0]
 
         try:
-            print 'zzzzzzzzzzzzzzzzzzzzz', ctx.query
             print 'zzzzzzzzzzzzzzzzzzzzz', client_location
-            print 'zzzzzzzzzzzzzzzzzzzzz', schemes
-            print 'zzzzzzzzzzzzzzzzzzzzz', dids
-            tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes, client_location=client_location)]
+            tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes, client_location=client_location, domain=domain)]
             print tmp_replicas
-
-            from rucio.rse import rsemanager
-            for rse in rep['rses']:
-                print 'aaaaaaaa', rse
-                print 'aaaaaaaa', rsemanager.get_rse_info(rse)
 
             if not tmp_replicas:
                 raise ReplicaNotFound('no redirection possible - cannot find the DID')
