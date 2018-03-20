@@ -751,6 +751,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                 # select the lan door in autoselect mode, otherwise use the wan door
                 if domain is None:
                     domain = 'wan'
+                    print 'CHECK', local_rses, rse, rse in local_rses
                     if local_rses and rse in local_rses:
                         print 'found!'
                         domain = 'lan'
