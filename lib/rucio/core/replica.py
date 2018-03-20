@@ -734,6 +734,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
     if domain is None:
         print 'domain is none, getting local rses'
         if client_location and 'site' in client_location and client_location['site']:
+            print 'client location site', client_location['site']
             local_rses = [rse['rse'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
             print 'local_rses', local_rses
 
