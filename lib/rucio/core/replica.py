@@ -755,7 +755,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                     if local_rses and rse in local_rses:
                         print 'found!'
                         domain = 'lan'
-                print 'autoselect domain', domain
+                print 'domain', domain
 
                 if rse not in tmp_protocols:
 
