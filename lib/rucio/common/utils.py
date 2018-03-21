@@ -249,8 +249,12 @@ def render_json_list(l):
 def datetime_parser(dct):
     """ datetime parser
     """
+    try:
+        varType = basestring
+    except NameError:
+        varType = str
     for k, v in list(dct.items()):
-        if isinstance(v, basestring) and re.search(" UTC", v):
+        if isinstance(v, varType) and re.search(" UTC", v):
             try:
                 dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
             except:
@@ -261,7 +265,7 @@ def datetime_parser(dct):
 def parse_response(data):
     """ JSON render function
     """
-    return json.loads(data, object_hook=datetime_parser)
+    return json.loads(data.decode('utf-8'), object_hook=datetime_parser)
 
 
 def generate_http_error(status_code, exc_cls, exc_msg):
