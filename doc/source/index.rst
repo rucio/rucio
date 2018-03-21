@@ -33,6 +33,7 @@ For documentation specific to the any of these three, please see the subsequent 
     concepts
     replica_workflow
     architecture
+    releasenotes
 
 Developer Documentation
 =======================
@@ -56,6 +57,7 @@ User Documentation
     :maxdepth: 1
 
     installing_clients
+    cli_examples
     man/rucio
     man/rucio-admin
     rse_expressions

@@ -1,0 +1,52 @@
+======
+1.15.3
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Documentation: Fixing some typos in documentation `#867 <https://github.com/rucio/rucio/issues/867>`_
+- Release management: generate release notes script limited to github api page limit `#862 <https://github.com/rucio/rucio/issues/862>`_
+- Release management: Commit message hook does not work with CLI message `#870 <https://github.com/rucio/rucio/issues/870>`_
+
+****
+Bugs
+****
+
+- Core & Internals: importlib not python 2.6 compatible `#875 <https://github.com/rucio/rucio/issues/875>`_
+- Core & Internals: dids: setting events with set_metadata fails `#943 <https://github.com/rucio/rucio/issues/943>`_
+- Documentation: Fixing grammatical errors in the documentation `#886 <https://github.com/rucio/rucio/issues/886>`_
+- Documentation: RSE expressions link not working  `#910 <https://github.com/rucio/rucio/issues/910>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Sorting of replicas in list_replicas `#668 <https://github.com/rucio/rucio/issues/668>`_
+- Clients: Fix client dependencies for python3 `#930 <https://github.com/rucio/rucio/issues/930>`_
+- Clients:  Add more python version support in setup_rucio_client.py `#938 <https://github.com/rucio/rucio/issues/938>`_
+
+****
+Bugs
+****
+
+- Clients: Rucio Upload Should Respect verify_checksum Flag `#847 <https://github.com/rucio/rucio/issues/847>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Pretty print json in subscriptions table `#913 <https://github.com/rucio/rucio/issues/913>`_

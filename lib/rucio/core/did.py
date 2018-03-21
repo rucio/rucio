@@ -1,22 +1,27 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2018
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
-  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2016-2017
-  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
-  - Wen Guan, <wen.guan@cern.ch>, 2015
-'''
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Yun-Pin Sun <winter0128@gmail.com>, 2013
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
+# - Wen Guan <wguan.icedew@gmail.com>, 2015
 
 import logging
 import random
@@ -30,7 +35,7 @@ from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, text, Insert, select, true
+from sqlalchemy.sql.expression import bindparam, case, text, Insert, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -1170,7 +1175,7 @@ def set_metadata(scope, name, key, value, type=None, did=None,
         session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
         if key == 'events':
             for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
-                events = session.query(func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()
+                events = session.query(func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()[0]
                 session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name).update({'events': events}, synchronize_session=False)
 
     elif key == 'adler32':
@@ -1407,7 +1412,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
 @read_session
 def get_did_atime(scope, name, session=None):
     """
-    Get the accessed_at timestamp for a replica. Just for testing.
+    Get the accessed_at timestamp for a did. Just for testing.
     :param scope: the scope name.
     :param name: The data identifier name.
     :param session: Database session to use.
@@ -1415,6 +1420,19 @@ def get_did_atime(scope, name, session=None):
     :returns: A datetime timestamp with the last access time.
     """
     return session.query(models.DataIdentifier.accessed_at).filter_by(scope=scope, name=name).one()[0]
+
+
+@read_session
+def get_did_access_cnt(scope, name, session=None):
+    """
+    Get the access_cnt for a did. Just for testing.
+    :param scope: the scope name.
+    :param name: The data identifier name.
+    :param session: Database session to use.
+
+    :returns: A datetime timestamp with the last access time.
+    """
+    return session.query(models.DataIdentifier.access_cnt).filter_by(scope=scope, name=name).one()[0]
 
 
 @stream_session
@@ -1441,7 +1459,7 @@ def get_dataset_by_guid(guid, session=None):
 @transactional_session
 def touch_dids(dids, session=None):
     """
-    Update the accessed_at timestamp of the given dids.
+    Update the accessed_at timestamp and the access_cnt of the given dids.
 
     :param replicas: the list of dids.
     :param session: The database session in use.
@@ -1450,10 +1468,15 @@ def touch_dids(dids, session=None):
     """
 
     now = datetime.utcnow()
+    none_value = None
     try:
         for did in dids:
-            session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name'], did_type=did['type']).\
-                update({'accessed_at': did.get('accessed_at') or now}, synchronize_session=False)
+            session.query(models.DataIdentifier).\
+                filter_by(scope=did['scope'], name=did['name'], did_type=did['type']).\
+                update({'accessed_at': did.get('accessed_at') or now,
+                        'access_cnt': case([(models.DataIdentifier.access_cnt == none_value, 1)],
+                                           else_=(models.DataIdentifier.access_cnt + 1))},
+                       synchronize_session=False)
     except DatabaseError:
         return False
 

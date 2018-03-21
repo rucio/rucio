@@ -1,17 +1,30 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Tobias Wegner <twegner@cern.ch>, 2018
+
+from __future__ import print_function
 
 import base64
 import datetime
@@ -28,21 +41,36 @@ import socket
 import subprocess
 import zlib
 
-from flask import Response
 from getpass import getuser
-from itertools import izip_longest
+try:
+    # Python 2
+    from itertools import izip_longest
+except ImportError:
+    # Python 3
+    from itertools import zip_longest as izip_longest
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
-from urllib import urlencode, quote
+try:
+    # Python 2
+    from urllib import urlencode, quote
+except ImportError:
+    # Python 3
+    from urllib.parse import urlencode, quote
 from uuid import uuid4 as uuid
-from StringIO import StringIO
+try:
+    # Python 2
+    from StringIO import StringIO
+except ImportError:
+    # Python 3
+    from io import StringIO
 
 from rucio.common.config import config_get
 from rucio.common.exception import MissingModuleException
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'web': False,
-                 'paramiko': False}
+                 'paramiko': False,
+                 'flask': False}
 
 try:
     from rucio.db.sqla.enum import EnumSymbol
@@ -62,6 +90,9 @@ if EXTRA_MODULES['web']:
 
 if EXTRA_MODULES['paramiko']:
     from paramiko import RSAKey
+
+if EXTRA_MODULES['flask']:
+    from flask import Response
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
 codes = {
@@ -135,7 +166,7 @@ def adler32(file):
     """
 
     # adler starting value is _not_ 0
-    adler = 1L
+    adler = 1
 
     try:
         openFile = open(file, 'rb')
@@ -218,7 +249,7 @@ def render_json_list(l):
 def datetime_parser(dct):
     """ datetime parser
     """
-    for k, v in dct.items():
+    for k, v in list(dct.items()):
         if isinstance(v, basestring) and re.search(" UTC", v):
             try:
                 dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
@@ -253,7 +284,7 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     try:
         return HTTPError(status, headers=headers, data=render_json(**data))
     except:
-        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+        print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
         raise
 
 
@@ -277,7 +308,7 @@ def generate_http_error_flask(status_code, exc_cls, exc_msg):
     try:
         return resp
     except:
-        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+        print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
         raise
 
 
@@ -328,7 +359,7 @@ def chunks(l, n):
     """
     Yield successive n-sized chunks from l.
     """
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):
         yield l[i:i + n]
 
 
@@ -661,7 +692,7 @@ def send_trace(trace, trace_endpoint, user_agent, retries=5, logger=None, log_pr
         logger.debug('%spilot detected - not sending trace' % log_prefix)
         return 0
     logger.debug('%ssending trace' % log_prefix)
-    for dummy in xrange(retries):
+    for dummy in range(retries):
         try:
             requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
             return 0

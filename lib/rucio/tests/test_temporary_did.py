@@ -22,7 +22,7 @@ def test_core_temporary_dids():
     """ TMP DATA IDENTIFIERS (CORE): """
 
     temporary_dids = []
-    for _ in xrange(10):
+    for _ in range(10):
         temporary_dids.append({'scope': 'mock',
                                'name': 'object_%s' % generate_uuid(),
                                'rse': 'MOCK',
@@ -47,7 +47,7 @@ def test_client_temporary_dids():
     """ TMP DATA IDENTIFIERS (CLIENT): """
     client = DIDClient()
     temporary_dids = []
-    for _ in xrange(10):
+    for _ in range(10):
         temporary_dids.append({'scope': 'mock',
                                'name': 'object_%s' % generate_uuid(),
                                'rse': 'MOCK',

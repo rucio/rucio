@@ -20,11 +20,15 @@
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
 
-from urllib import quote_plus
+try:
+    from urllib import quote_plus
+except ImportError:
+    from urllib.parse import quote_plus
+
 from json import dumps
 from requests.status_codes import codes
 
@@ -59,7 +63,7 @@ class DIDClient(BaseClient):
         if long:
             payload['long'] = 1
 
-        for k, v in filters.items():
+        for k, v in list(filters.items()):
             if k in ('created_before', 'created_after'):
                 payload[k] = date_to_str(v)
             else:
@@ -149,7 +153,7 @@ class DIDClient(BaseClient):
 
         :param dsns: A list of datasets.
         """
-        return self.add_dids(dids=[dict(dsn.items() + [('type', 'DATASET')]) for dsn in dsns])
+        return self.add_dids(dids=[dict(list(dsn.items()) + [('type', 'DATASET')]) for dsn in dsns])
 
     def add_container(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None):
         """
@@ -170,7 +174,7 @@ class DIDClient(BaseClient):
 
         :param cnts: A list of containers.
         """
-        return self.add_dids(dids=[dict(cnts.items() + [('type', 'CONTAINER')]) for cnt in cnts])
+        return self.add_dids(dids=[dict(list(cnts.items()) + [('type', 'CONTAINER')]) for cnt in cnts])
 
     def attach_dids(self, scope, name, dids, rse=None):
         """

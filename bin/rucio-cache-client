@@ -116,7 +116,7 @@ def get_parser():
     oparser.add_argument('-b', '--broker', dest='broker', default=config_get('messaging-cache', 'brokers').split(',')[0], help='Message broker name')
     oparser.add_argument('-p', '--port', dest='port', default=config_get_int('messaging-cache', 'port'), help='Message broker port')
     oparser.add_argument('-c', '--certificate', dest='ssl_cert_file', default=config_get('messaging-cache', 'ssl_cert_file'), help='Certificate file')
-    oparser.add_argument('-k', '--certificate_key', dest='ssl_key_file', default=config_get('messaging-cache', 'ssl_key_file'), help='Certificate key file')
+    oparser.add_argument('-k', '--certificate-key', dest='ssl_key_file', default=config_get('messaging-cache', 'ssl_key_file'), help='Certificate key file')
     oparser.add_argument('-d', '--destination', dest='destination', default=config_get('messaging-cache', 'destination'), help="Message broker topic")
     oparser.add_argument('-m', '--message', dest='message', default=None, help=message_help)
 

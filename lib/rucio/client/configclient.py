@@ -20,7 +20,10 @@
 
 from requests.status_codes import codes
 
-from exceptions import ValueError
+try:
+    from exceptions import ValueError
+except ImportError:
+    pass
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

@@ -12,7 +12,10 @@
  - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+ - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
 '''
+
+from __future__ import print_function
 
 import json
 import os
@@ -66,7 +69,7 @@ class Default(protocol.RSEProtocol):
                 agis_token = res['token']
                 space_usage_url = res['space_usage_url']
 
-        import gfal2
+        import gfal2  # pylint: disable=import-error
         gfal2.set_verbose(gfal2.verbose_level.normal)  # pylint: disable=no-member
         try:
             if os.path.exists(dest):
@@ -81,13 +84,13 @@ class Default(protocol.RSEProtocol):
                 data_file = open(dest)
                 data = json.load(data_file)
                 data_file.close()
-                if agis_token not in data.keys():
-                    print 'ERROR: space usage json has different token as key'
+                if agis_token not in list(data.keys()):
+                    print('ERROR: space usage json has different token as key')
                 else:
                     totalsize = int(data[agis_token]['total_space'])
                     used = int(data[agis_token]['used_space'])
                     unusedsize = totalsize - used
                     return totalsize, unusedsize
         except Exception as error:
-            print error
+            print(error)
             raise exception.ServiceUnavailable(error)

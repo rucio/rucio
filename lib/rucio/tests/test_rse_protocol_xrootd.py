@@ -8,6 +8,9 @@
 # Authors:
 # - WeiJen Chang, <wchang@cern.ch>, 2013
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+
+from __future__ import print_function
 
 import json
 import os
@@ -53,7 +56,7 @@ class TestRseXROOTD():
         try:
             os.mkdir(prefix)
         except Exception, e:
-            print e
+            print(e)
 
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = 'xroot://%s:%d/%s/data.raw' % (hostname, port, prefix)

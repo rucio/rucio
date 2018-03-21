@@ -1,25 +1,40 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#  http://www.apache.org/licenses/LICENSE-2.0
-
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017-2018
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
-# - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2017
+# - Yun-Pin Sun <winter0128@gmail.com>, 2013
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2018
+# - Tobias Wegner <twegner@cern.ch>, 2017-2018
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
+from __future__ import print_function
 
 import copy
 import os
 import random
 
-from urlparse import urlparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 from rucio.common import exception, utils, constants
 from rucio.common.utils import make_valid_did
@@ -37,6 +52,7 @@ def get_rse_info(rse, session=None):
                     rse               ...     the name of the RSE as string
                     type              ...     the storage type odf the RSE e.g. DISK
                     volatile          ...     boolean indictaing if the RSE is volatile
+                    verify_checksum   ...     boolean indicating whether RSE supports requests for checksums
                     deteministic      ...     boolean indicating of the nameing of the files follows the defined determinism
                     domain            ...     indictaing the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
                     protocols         ...     all supported protocol in form of a list of dict objects with the followig structure
@@ -87,7 +103,7 @@ def _get_possible_protocols(rse_settings, operation, scheme=None, domain=None):
         filtered = True
 
         if not domain:
-            for d in protocol['domains'].keys():
+            for d in list(protocol['domains'].keys()):
                 if protocol['domains'][d][operation] != 0:
                     filtered = False
         else:
@@ -157,7 +173,7 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan'):
         try:
             mod = getattr(mod, n)
         except AttributeError:
-            print 'Protocol implementation not found'
+            print('Protocol implementation not found')
             raise  # TODO: provide proper rucio exception
     protocol = mod(protocol_attr, rse_settings)
     return protocol
@@ -229,7 +245,7 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
 
     files = [files] if not type(files) is list else files
     for f in files:
-        pfn = f['pfn'] if 'pfn' in f else protocol.lfns2pfns(f).values()[0]
+        pfn = f['pfn'] if 'pfn' in f else list(protocol.lfns2pfns(f).values())[0]
         target_dir = "./%s" % f['scope'] if dest_dir is None else dest_dir
         try:
             if not os.path.exists(target_dir):
@@ -242,18 +258,18 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
                     tempfile = '%s/%s.part' % (target_dir, f['name'])
                     if os.path.isfile(tempfile):
                         if printstatements:
-                            print '%s already exists, probably from a failed attempt. Will remove it' % (tempfile)
+                            print('%s already exists, probably from a failed attempt. Will remove it' % (tempfile))
                         os.unlink(tempfile)
                     protocol.get(pfn, tempfile)
                     if printstatements:
-                        print 'File downloaded. Will be validated'
+                        print('File downloaded. Will be validated')
 
                     if not ignore_checksum:
                         ruciochecksum = f['adler32'] if f['adler32'] else f['md5']
                         localchecksum = utils.adler32(tempfile) if f['adler32'] else utils.md5(tempfile)
                         if localchecksum == ruciochecksum:
                             if printstatements:
-                                print 'File validated'
+                                print('File validated')
                             os.rename(tempfile, finalfile)
                         else:
                             os.unlink(tempfile)
@@ -303,10 +319,10 @@ def exists(rse_settings, files):
             exists = protocol.exists(f)
             ret[f] = exists
         elif 'scope' in f:  # a LFN is provided
-            pfn = protocol.lfns2pfns(f).values()[0]
+            pfn = list(protocol.lfns2pfns(f).values())[0]
             if isinstance(pfn, exception.RucioException):
                 raise pfn
-            exists = protocol.exists(protocol.lfns2pfns(f).values()[0])
+            exists = protocol.exists(list(protocol.lfns2pfns(f).values())[0])
             ret[f['scope'] + ':' + f['name']] = exists
         else:
             exists = protocol.exists(f['name'])
@@ -369,7 +385,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         if force_pfn:
             pfn = force_pfn
         else:
-            pfn = protocol.lfns2pfns(make_valid_did(lfn)).values()[0]
+            pfn = list(protocol.lfns2pfns(make_valid_did(lfn)).values())[0]
             if isinstance(pfn, exception.RucioException):
                 raise pfn
 
@@ -383,7 +399,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
             else:
                 if protocol.exists('%s.rucio.upload' % pfn):  # Check for left over of previous unsuccessful attempts
                     try:
-                        protocol_delete.delete('%s.rucio.upload', protocol_delete.lfns2pfns(make_valid_did(lfn)).values()[0])
+                        protocol_delete.delete('%s.rucio.upload', list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                     except Exception as e:
                         ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
                 try:  # Try uploading file
@@ -401,7 +417,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                     if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
                         valid = stats['filesize'] == lfn['filesize']
                 except NotImplementedError:
-                    valid = False
+                    valid = True if rse_settings['verify_checksum'] is False else False
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
@@ -483,7 +499,7 @@ def delete(rse_settings, lfns):
 
     lfns = [lfns] if not type(lfns) is list else lfns
     for lfn in lfns:
-        pfn = protocol.lfns2pfns(lfn).values()[0]
+        pfn = list(protocol.lfns2pfns(lfn).values())[0]
         try:
             protocol.delete(pfn)
             ret['%s:%s' % (lfn['scope'], lfn['name'])] = True
@@ -541,8 +557,8 @@ def rename(rse_settings, files):
             # Check if new scope is provided
             if 'new_scope' not in f:
                 f['new_scope'] = f['scope']
-            pfn = protocol.lfns2pfns({'name': f['name'], 'scope': f['scope']}).values()[0]
-            new_pfn = protocol.lfns2pfns({'name': f['new_name'], 'scope': f['new_scope']}).values()[0]
+            pfn = list(protocol.lfns2pfns({'name': f['name'], 'scope': f['scope']}).values())[0]
+            new_pfn = list(protocol.lfns2pfns({'name': f['new_name'], 'scope': f['new_scope']}).values())[0]
         else:
             pfn = f['name']
             new_pfn = f['new_name']

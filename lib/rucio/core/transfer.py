@@ -8,6 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 
 import datetime
 import json
@@ -122,8 +123,8 @@ def prepare_sources_for_transfers(transfers, session=None):
                                       is_using=True).\
                             save(session=session, flush=False)
 
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
 
 @transactional_session
@@ -175,8 +176,8 @@ def set_transfers_state(transfers, submitted_at, session=None):
             transfer_status = transfer_status.lower()
             message_core.add_message(transfer_status, msg, session=session)
 
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
 
 @read_session
@@ -245,7 +246,7 @@ def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None
             elif session.bind.dialect.name == 'mysql':
                 query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
+                query = query.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
 
         if (total_threads - 1) > 0:
             if session.bind.dialect.name == 'oracle':
@@ -254,7 +255,7 @@ def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None
             elif session.bind.dialect.name == 'mysql':
                 query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+                query = query.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
         if share:
             query = query.limit(activity_shares[share])
@@ -322,8 +323,8 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
 
     try:
         rowcount = session.query(models.Request).filter_by(external_id=transfer_id, state=RequestState.SUBMITTED).update({'updated_at': update_time}, synchronize_session=False)
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
     if not rowcount:
         raise UnsupportedOperation("Transfer %s doesn't exist or its status is not submitted." % (transfer_id))
@@ -358,8 +359,8 @@ def query_latest(external_host, state, last_nhours=1):
             try:
                 logging.debug("Transfer %s on %s is %s, decrease its updated_at." % (resp['job_id'], external_host, resp['job_state']))
                 set_transfer_update_time(external_host, resp['job_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
-            except Exception, e:
-                logging.debug("Exception happened when updating transfer updatetime: %s" % str(e).replace('\n', ''))
+            except Exception as error:
+                logging.debug("Exception happened when updating transfer updatetime: %s" % str(error).replace('\n', ''))
 
     return ret_resps
 
@@ -383,8 +384,8 @@ def touch_transfer(external_host, transfer_id, session=None):
                                      .filter(models.Request.state == RequestState.SUBMITTED)\
                                      .filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30))\
                                      .update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
 
 @transactional_session
@@ -545,8 +546,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_replica_expression:
                     try:
                         parsed_rses = parse_expression(source_replica_expression, session=session)
-                    except InvalidRSEExpression, e:
-                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, e))
+                    except InvalidRSEExpression as error:
+                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, error))
                         continue
                     else:
                         allowed_rses = [x['rse'] for x in parsed_rses]
@@ -663,11 +664,6 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if retry_other_fts:
                     external_host = fts_list[retry_count % len(fts_list)]
 
-                if id in reqs_no_source:
-                    reqs_no_source.remove(id)
-                if id in reqs_only_tape_source:
-                    reqs_only_tape_source.remove(id)
-
                 file_metadata = {'request_id': id,
                                  'scope': scope,
                                  'name': name,
@@ -728,8 +724,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_replica_expression:
                     try:
                         parsed_rses = parse_expression(source_replica_expression, session=session)
-                    except InvalidRSEExpression, e:
-                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, e))
+                    except InvalidRSEExpression as error:
+                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, error))
                         continue
                     else:
                         allowed_rses = [x['rse'] for x in parsed_rses]
@@ -824,6 +820,14 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
             logging.critical("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
             break
 
+    for id in transfers:
+        if id in reqs_no_source:
+            reqs_no_source.remove(id)
+        if id in reqs_only_tape_source:
+            reqs_only_tape_source.remove(id)
+        if id in reqs_scheme_mismatch:
+            reqs_scheme_mismatch.remove(id)
+
     return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
 
@@ -876,7 +880,7 @@ def __list_transfer_requests_and_source_replicas(process=None, total_processes=N
         elif session.bind.dialect.name == 'mysql':
             sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
 
     if (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
@@ -885,7 +889,7 @@ def __list_transfer_requests_and_source_replicas(process=None, total_processes=N
         elif session.bind.dialect.name == 'mysql':
             sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)
@@ -953,8 +957,8 @@ def __set_transfer_state(external_host, transfer_id, new_state, session=None):
 
     try:
         rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
     if not rowcount:
         raise UnsupportedOperation("Transfer %s on %s state %s cannot be updated." % (transfer_id, external_host, new_state))

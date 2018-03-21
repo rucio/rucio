@@ -284,7 +284,7 @@ class TestAccountClient():
     def test_list_accounts(self):
         """ ACCOUNT (CLIENTS): get list of all accounts."""
         dn = config_get('bootstrap', 'x509_identity')
-        acc_list = [account_name_generator() for _ in xrange(5)]
+        acc_list = [account_name_generator() for _ in range(5)]
         for account in acc_list:
             self.client.add_account(account, 'USER', 'rucio@email.com')
 
