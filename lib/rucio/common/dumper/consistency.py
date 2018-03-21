@@ -155,7 +155,7 @@ class Consistency(data_models.DataModel):
 
 def _try_to_advance(it, default=None):
     try:
-        el = it.next()
+        el = next(it)
     except StopIteration:
         return default
     return el.strip()
