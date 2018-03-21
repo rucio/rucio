@@ -1,0 +1,15 @@
+======
+1.14.4
+======
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Automatically find user's X509 proxy `#323 <https://github.com/rucio/rucio/issues/323>`_
+- Clients: client: dynamic bash completion `#325 <https://github.com/rucio/rucio/issues/325>`_
+- Clients: Dependencies of paramiko (Crypto) need to be pinned explicitly for python 2.6 compatibility `#345 <https://github.com/rucio/rucio/issues/345>`_

@@ -1,0 +1,23 @@
+======
+1.13.3
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Documentation: General README `#84 <https://github.com/rucio/rucio/issues/84>`_
+- Documentation: Minor fixes in the readme files `#98 <https://github.com/rucio/rucio/issues/98>`_
+- Release management: Create-patch/next-branch script should make full reset of origin against next `#113 <https://github.com/rucio/rucio/issues/113>`_
+- Testing: New submission script for github `#8 <https://github.com/rucio/rucio/issues/8>`_
+- Testing: Add mysql testing to travis `#91 <https://github.com/rucio/rucio/issues/91>`_
+
+****
+Bugs
+****
+
+- Documentation: documention: add link on AUTHORS from CONTRIBUTING.rst `#106 <https://github.com/rucio/rucio/issues/106>`_
