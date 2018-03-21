@@ -6,13 +6,13 @@
  http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
+ - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 '''
 
 import unittest
 import tempfile
 
-from nose.tools import assert_is_instance, assert_is_not_none
+from nose.tools import assert_equal, assert_is_instance, assert_is_not_none
 from re import match
 from rucio.common.utils import md5
 
@@ -33,5 +33,7 @@ class TestUtils(unittest.TestCase):
     def test_utils_md5(self):
         """(COMMON/UTILS): test calculating MD5 of a file"""
         ret = md5(self.temp_file_1.name)
-        assert_is_instance(ret, str, msg="Object returned by tools.md5 is not a string")
-        assert_is_not_none(match('[a-fA-F0-9]{32}', ret), msg="String returned by tools.md5 is not a md5 hex digest")
+        assert_is_instance(ret, str, msg="Object returned by utils.md5 is not a string")
+        assert_is_not_none(match('[a-fA-F0-9]{32}', ret), msg="String returned by utils.md5 is not a md5 hex digest")
+        assert_equal(ret, '31d50dd6285b9ff9f8611d0762265d04',
+                     msg="Hex digest returned by utils.md5 is the MD5 checksum")

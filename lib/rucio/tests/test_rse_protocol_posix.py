@@ -7,6 +7,9 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
+# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+
+from __future__ import print_function
 
 """
 Test the posix protocol
@@ -53,7 +56,7 @@ class TestRsePOSIX(object):
         try:
             os.mkdir(prefix)
         except Exception, e:
-            print e
+            print(e)
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = '%s/data.raw' % prefix
         for f in MgrTestCases.files_remote:

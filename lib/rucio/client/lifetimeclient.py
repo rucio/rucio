@@ -16,6 +16,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 
+from __future__ import print_function
+
 from json import loads
 from requests.status_codes import codes
 
@@ -72,9 +74,9 @@ class LifetimeClient(BaseClient):
         path = self.LIFETIME_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids, 'account': account, 'pattern': pattern, 'comments': comments, 'expires_at': expires_at}
-        print render_json(**data)
+        print(render_json(**data))
         result = self._send_request(url, type='POST', data=render_json(**data))
-        print result.text
+        print(result.text)
         if result.status_code == codes.created:
             return loads(result.text)
         exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)

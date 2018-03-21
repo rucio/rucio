@@ -13,13 +13,13 @@ Authors:
 - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
+- Martin Barisits, <martin.barisits@cern.ch>, 2018
 
 This module defines the base class for implementing a transfer protocol,
 along with some of the default methods for LFN2PFN translations.
 """
 
 import hashlib
-import importlib
 
 from urlparse import urlparse
 from ConfigParser import NoOptionError, NoSectionError
@@ -143,7 +143,11 @@ class RSEDeterministicTranslation(object):
         except (NoOptionError, NoSectionError):
             pass
         if policy_module:
+            # TODO: The import of importlib is done like this due to a dependency issue with python 2.6 and incompatibility of the module with py3.x
+            # More information https://github.com/rucio/rucio/issues/875
+            import importlib
             importlib.import_module(policy_module)
+
         cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
 
     def path(self, scope, name):

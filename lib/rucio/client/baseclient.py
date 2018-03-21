@@ -28,6 +28,8 @@
  Client class for callers of the Rucio system
 '''
 
+from __future__ import print_function
+
 import imp
 import random
 import sys
@@ -44,8 +46,14 @@ from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
-from urlparse import urlparse
-from ConfigParser import NoOptionError, NoSectionError
+try:
+    # Python 2
+    from urlparse import urlparse
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    # Python 3
+    from urllib.parse import urlparse
+    from configparser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
 from requests import session
 from requests.status_codes import codes, _codes
@@ -568,8 +576,8 @@ class BaseClient(object):
             token_file_handler = open(self.token_file, 'r')
             self.auth_token = token_file_handler.readline()
             self.headers['X-Rucio-Auth-Token'] = self.auth_token
-        except IOError as (errno, strerror):  # NOQA
-            print("I/O error({0}): {1}".format(errno, strerror))
+        except IOError as error:
+            print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise
 
@@ -588,7 +596,7 @@ class BaseClient(object):
         if not path.isdir(token_path):
             try:
                 LOG.debug('rucio token folder \'%s\' not found. Create it.' % token_path)
-                makedirs(token_path, 0700)
+                makedirs(token_path, 0o700)
             except Exception:
                 raise
 
@@ -598,8 +606,8 @@ class BaseClient(object):
             with fdopen(file_d, "w") as f_token:
                 f_token.write(self.auth_token)
             move(file_n, self.token_file)
-        except IOError as (errno, strerror):  # NOQA
-            print("I/O error({0}): {1}".format(errno, strerror))
+        except IOError as error:
+            print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise
 

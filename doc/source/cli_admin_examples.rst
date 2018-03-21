@@ -1,50 +1,27 @@
-========================
-Rucio administration CLI
-========================
+..  Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+
+     Authors:
+   - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+   - Vincent Garonne <vgaronne@gmail.com>, 2018
 
 
-Rucio provides a CLI for administrative tasks.. The get methods can be executed by any users, but the set methods require some admin privileges::
+==================================
+Rucio administration CLI: Examples
+==================================
 
-  $ rucio-admin 
-  usage: rucio-admin [-h] [--version] [--verbose] [-H ADDRESS]
-                     [--auth_host ADDRESS] [-a ACCOUNT] [-S AUTH_STRATEGY]
-                     [-T TIMEOUT] [-u USERNAME] [-pwd PASSWORD]
-                     [--certificate CERTIFICATE]
-                     [--ca-certificate CA_CERTIFICATE]
-                     {account,identity,rse,scope,config,subscription,replicas}
-                     ...
-  
-  positional arguments:
-    {account,identity,rse,scope,config,subscription,replicas}
-      account             Account methods
-      identity            Identity methods
-      rse                 RSE (Rucio Storage Element) methods
-      scope               Scope methods
-      config              Configuration methods
-      subscription        Subscription methods
-      replicas            Replica methods
-  
-  optional arguments:
-    -h, --help            show this help message and exit
-    --version             show program's version number and exit
-    --verbose, -v         Print more verbose output
-    -H ADDRESS, --host ADDRESS
-                          The Rucio API host
-    --auth_host ADDRESS   The Rucio Authentication host
-    -a ACCOUNT, --account ACCOUNT
-                          Rucio account to use
-    -S AUTH_STRATEGY, --auth-strategy AUTH_STRATEGY
-                          Authentication strategy (userpass, x509, ssh ...)
-    -T TIMEOUT, --timeout TIMEOUT
-                          Set all timeout values to SECONDS
-    -u USERNAME, --user USERNAME
-                          username
-    -pwd PASSWORD, --password PASSWORD
-                          password
-    --certificate CERTIFICATE
-                          Client certificate file
-    --ca-certificate CA_CERTIFICATE
-                          CA certificate to verify peer against (SSL)
+Rucio provides a CLI for administrative tasks. The get methods can be executed by
+any user, but the set methods require some admin privileges. See `man pages <man/rucio-admin.html>`_.
 
 Account and identity methods
 ============================
@@ -53,7 +30,7 @@ To create a new account::
 
   $ rucio-admin account add --type USER --email jdoe@blahblih.com jdoe
 
-You can choose different types in the list USER, GROUP, SERVICE. Different policies/permissions can be set dependending on the account type.  Once the account is created, you need to create and attach an identity to this account::
+You can choose different types in the list USER, GROUP, SERVICE. Different policies/permissions can be set depending on the account type.  Once the account is created, you need to create and attach an identity to this account::
 
   $ rucio-admin identity add --type X509 --id "/DC=blah/DC=blih/OU=Organic Units/OU=Users/CN=jdoe" --email jdoe@blahblih.com --account jdoe
 
@@ -117,7 +94,7 @@ To add a RSE attribute::
   $ rse get-attribute SITE2_SCRATCH
   country: xyz
 
- 
+
 Replica methods
 ===============
 

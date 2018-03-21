@@ -10,4 +10,4 @@
 
 python /setup_data.py
 
-httpd -D FOREGROUND
+/usr/bin/rucio-automatix --run-once --input-file /opt/rucio/etc/automatix.json
