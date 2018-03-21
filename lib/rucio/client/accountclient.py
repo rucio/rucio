@@ -59,9 +59,8 @@ class AccountClient(BaseClient):
         res = self._send_request(url, type='POST', data=data)
         if res.status_code == codes.created:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
+        raise exc_cls(exc_msg)
 
     def delete_account(self, account):
         """
@@ -79,9 +78,8 @@ class AccountClient(BaseClient):
 
         if res.status_code == codes.ok:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
+        raise exc_cls(exc_msg)
 
     def get_account(self, account):
         """
@@ -98,10 +96,9 @@ class AccountClient(BaseClient):
         res = self._send_request(url)
         if res.status_code == codes.ok:
             acc = self._load_json_data(res)
-            return acc.next()
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
-            raise exc_cls(exc_msg)
+            return next(acc)
+        exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
+        raise exc_cls(exc_msg)
 
     def set_account_status(self, account, status):
         """ Set the status of an account.
@@ -251,10 +248,9 @@ class AccountClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         res = self._send_request(url, type='GET')
         if res.status_code == codes.ok:
-            return self._load_json_data(res).next()
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
-            raise exc_cls(exc_msg)
+            return next(self._load_json_data(res))
+        exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
+        raise exc_cls(exc_msg)
 
     def get_account_limit(self, account, rse):
         """
@@ -268,10 +264,9 @@ class AccountClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         res = self._send_request(url, type='GET')
         if res.status_code == codes.ok:
-            return self._load_json_data(res).next()
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
-            raise exc_cls(exc_msg)
+            return next(self._load_json_data(res))
+        exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
+        raise exc_cls(exc_msg)
 
     def get_account_usage(self, account, rse=None):
         """
