@@ -1,0 +1,62 @@
+======
+1.14.8
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Probes & Alarms: Move the methods calls in check_rse_attributes from the API to the core `#519 <https://github.com/rucio/rucio/issues/519>`_
+- RSE Manager: Remove <operation>_protocol entries in rse_settings `#508 <https://github.com/rucio/rucio/issues/508>`_
+- RSE Manager: rsemanager add domain to all method signatures `#62 <https://github.com/rucio/rucio/issues/62>`_
+- Rules: Possibility to give reason when denying a rule `#487 <https://github.com/rucio/rucio/issues/487>`_
+- Transfers: Conveyor should only use schemes compatible to the destination scheme `#73 <https://github.com/rucio/rucio/issues/73>`_
+
+****
+Bugs
+****
+
+- Core & Internals: set_metadata should update guid both in did and content table `#413 <https://github.com/rucio/rucio/issues/413>`_
+- Core & Internals: Creating incomplete message for datasets does not work `#464 <https://github.com/rucio/rucio/issues/464>`_
+- Core & Internals: Postgres error in conveyor-finisher `#480 <https://github.com/rucio/rucio/issues/480>`_
+- Probes & Alarms: Probe setting the naming convention is broken `#522 <https://github.com/rucio/rucio/issues/522>`_
+- Recovery: Crash when declaring bad file replicas already declared bad on a non-deterministic RSE `#457 <https://github.com/rucio/rucio/issues/457>`_
+- Traces: heartbeats do not work correctly for kronos dataset thread `#510 <https://github.com/rucio/rucio/issues/510>`_
+- Transfers: Conveyor receiver does not consume messages `#513 <https://github.com/rucio/rucio/issues/513>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: update-rule --lifetime command does not work `#496 <https://github.com/rucio/rucio/issues/496>`_
+
+****
+Bugs
+****
+
+- Clients: Force GSI authentication for root fix did not work `#467 <https://github.com/rucio/rucio/issues/467>`_
+- Clients: Automatic protocol failover broken in rucio download `#502 <https://github.com/rucio/rucio/issues/502>`_
+-----
+WebUI
+-----
+
+********
+Features
+********
+
+- WebUI: WebUI: Preview logfiles in browser #344 `#344 <https://github.com/rucio/rucio/issues/344>`_
+- WebUI: Rucio UI Account admin view `#81 <https://github.com/rucio/rucio/issues/81>`_
+
+************
+Enhancements
+************
+
+- WebUI: Admin interface in Rucio UI `#78 <https://github.com/rucio/rucio/issues/78>`_
