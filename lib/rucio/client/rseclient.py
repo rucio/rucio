@@ -508,7 +508,7 @@ class RSEClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            return self._load_json_data(r).next()
+            return next(self._load_json_data(r))
         exc_cls, exc_msg = self._get_exception(headers=r.headers,
                                                status_code=r.status_code,
                                                data=r.content)
@@ -566,6 +566,6 @@ class RSEClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            return self._load_json_data(r).next()
+            return next(self._load_json_data(r))
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
