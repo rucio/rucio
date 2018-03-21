@@ -23,6 +23,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 
 from collections import defaultdict
+from copy import deepcopy
 from curses.ascii import isprint
 from datetime import datetime, timedelta
 from json import dumps
@@ -729,6 +730,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
 
+    # we need to retain knowledge of the original domain selection by the user
+    # in case we have to loop over replicas with a potential outgoing proxy
+    original_domain = deepcopy(domain)
+
     # find all RSEs local to the client's location in autoselect mode (i.e., when domain is None)
     local_rses = []
     if domain is None:
@@ -741,6 +746,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
     for replicas in filter(None, files):
         for scope, name, bytes, md5, adler32, path, state, rse, rse_type, volatile in replicas:
+
+            # reset the domain selection to original user's choice (as this could get overwritten each iteration)
+            domain = deepcopy(original_domain)
 
             pfns = []
             if show_pfns and rse:
