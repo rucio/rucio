@@ -854,7 +854,7 @@ def __get_files(args):
             logger.warning("{0} cannot be distinguished from scope:datasetname. Skipping it.".format(item))
             continue
         if os.path.isdir(item):
-            dname, subdirs, fnames = os.walk(item).next()
+            dname, subdirs, fnames = next(os.walk(item))
             # Check if there are files in the directory
             if fnames:
                 for fname in fnames:
@@ -2254,7 +2254,7 @@ def list_rules(args):
         meta = client.get_metadata(scope=scope, name=name)
         rules = client.list_did_rules(scope=scope, name=name)
         try:
-            rules.next()
+            next(rules)
             rules = client.list_did_rules(scope=scope, name=name)
         except StopIteration:
             rules = []
