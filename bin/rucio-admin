@@ -796,7 +796,7 @@ def list_account_attributes(args):
     """
     client = get_client(args)
     account = args.account or client.account
-    attributes = client.list_account_attributes(account).next()
+    attributes = next(client.list_account_attributes(account))
     table = []
     for attr in attributes:
         table.append([attr['key'], attr['value']])
