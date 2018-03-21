@@ -1,0 +1,15 @@
+======
+1.14.5
+======
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: guid can be optional in the CLIs (list-files command) `#375 <https://github.com/rucio/rucio/issues/375>`_
+
+
