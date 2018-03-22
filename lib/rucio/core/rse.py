@@ -1,24 +1,33 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2017
-# - Wen Guan, <wen.guan@cern.ch>, 2015-2016
-# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
-# - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
+# - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 
 from re import match
-from StringIO import StringIO
-
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import json
 import sqlalchemy
 import sqlalchemy.orm
@@ -72,8 +81,8 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
         new_rse.save(session=session)
     except IntegrityError:
         raise exception.Duplicate('RSE \'%(rse)s\' already exists!' % locals())
-    except DatabaseError, e:
-        raise exception.RucioException(e.args)
+    except DatabaseError as error:
+        raise exception.RucioException(error.args)
 
     # Add rse name as a RSE-Tag
     add_rse_attribute(rse=rse, key=rse, value=True, session=session)
@@ -563,8 +572,8 @@ def set_rse_transfer_limits(rse, activity, rse_id=None, rse_expression=None, max
         rse_tr_limit = session.merge(rse_tr_limit)
         rowcount = rse_tr_limit.save(session=session)
         return rowcount
-    except IntegrityError, e:
-        raise exception.RucioException(e.args)
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
 
 
 @read_session
@@ -596,8 +605,8 @@ def get_rse_transfer_limits(rse=None, activity=None, rse_id=None, session=None):
                                                     'transfers': limit.transfers,
                                                     'waitings': limit.waitings}
         return limits
-    except IntegrityError, e:
-        raise exception.RucioException(e.args)
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
 
 
 @transactional_session
@@ -618,8 +627,8 @@ def delete_rse_transfer_limits(rse, activity=None, rse_id=None, session=None):
             query = query.filter_by(activity=activity)
         rowcount = query.delete()
         return rowcount
-    except IntegrityError, e:
-        raise exception.RucioException(e.args)
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
 
 
 @stream_session
@@ -918,10 +927,10 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
         elif 'may not be NULL' in e.args[0] or "cannot be null" in e.args[0]:
             raise exception.InvalidObject('Missing values: %s' % e.args[0])
         raise e
-    except DatabaseError, e:
-        if match('.*DatabaseError.*ORA-01407: cannot update .*RSE_PROTOCOLS.*IMPL.*to NULL.*', e.args[0]):
+    except DatabaseError as error:
+        if match('.*DatabaseError.*ORA-01407: cannot update .*RSE_PROTOCOLS.*IMPL.*to NULL.*', error.args[0]):
             raise exception.InvalidObject('Invalid values !')
-        raise e
+        raise error
 
 
 @transactional_session
