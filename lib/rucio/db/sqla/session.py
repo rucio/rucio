@@ -1,17 +1,21 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
-  - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2018
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-  - Wen Guan, <wen.guan@cern.ch>, 2016
-'''
+# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Wen Guan <wguan.icedew@gmail.com>, 2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017
 
 import os
 import sys
@@ -77,7 +81,7 @@ def mysql_ping_listener(dbapi_conn, connection_rec, connection_proxy):
 
     try:
         dbapi_conn.cursor().execute('select 1')
-    except dbapi_conn.OperationalError, ex:
+    except dbapi_conn.OperationalError as ex:
         if ex.args[0] in (2006, 2013, 2014, 2045, 2055):
             msg = 'Got mysql server has gone away: %s' % ex
             raise DisconnectionError(msg)
@@ -181,13 +185,13 @@ def get_dump_engine(echo=False):
         statements.append(statement)
         if statement.endswith(')\n\n'):
             if engine.dialect.name == 'oracle':
-                print statement.replace(')\n\n', ') PCTFREE 0;\n')
+                print(statement.replace(')\n\n', ') PCTFREE 0;\n'))
             else:
-                print statement.replace(')\n\n', ');\n')
+                print(statement.replace(')\n\n', ');\n'))
         elif statement.endswith(')'):
-            print statement.replace(')', ');\n')
+            print(statement.replace(')', ');\n'))
         else:
-            print statement
+            print(statement)
     sql_connection = config_get(DATABASE_SECTION, 'default')
 
     engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
@@ -225,7 +229,7 @@ def get_session():
 
 def retry_if_db_connection_error(exception):
     """Return True if error in connecting to db."""
-    print exception
+    print(exception)
     if isinstance(exception, OperationalError):
         conn_err_codes = ('2002', '2003', '2006',  # MySQL
                           'ORA-00028',  # Oracle session has been killed
@@ -264,10 +268,10 @@ def read_session(function):
             try:
                 kwargs['session'] = session
                 return function(*args, **kwargs)
-            except TimeoutError, error:
+            except TimeoutError as error:
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
-            except DatabaseError, error:
+            except DatabaseError as error:
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
@@ -308,12 +312,12 @@ def stream_session(function):
                 kwargs['session'] = session
                 for row in function(*args, **kwargs):
                     yield row
-            except TimeoutError, error:
-                print error
+            except TimeoutError as error:
+                print(error)
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
-            except DatabaseError, error:
-                print error
+            except DatabaseError as error:
+                print(error)
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
@@ -346,12 +350,12 @@ def transactional_session(function):
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
                 session.commit()  # pylint: disable=maybe-no-member
-            except TimeoutError, error:
-                print error
+            except TimeoutError as error:
+                print(error)
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
-            except DatabaseError, error:
-                print error
+            except DatabaseError as error:
+                print(error)
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
