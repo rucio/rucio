@@ -49,7 +49,7 @@ The dataset/container status is reflected by a set of attributes:
 
 * ``open``: True/False
 
-If a dataset/container is open, content can be added to it. Datasets/containers are created open and once closed, they cannot be opened again. [1]
+If a dataset/container is open, content can be added to it. Datasets/containers are created open and once closed, they cannot be opened again [#f1]_.
 
 
 * ``monotonic``: True/False
@@ -63,4 +63,4 @@ A dataset/container where all files have replicas available is complete. Any dat
 
 .. rubric:: Footnotes
 
-[1]: Datasets from which files have been lost can be repaired when replacement files are available, even if Open=False. The replacements need not be binary identical to the lost files.
+.. [#f1] Datasets from which files have been lost can be repaired when replacement files are available, even if Open=False. The replacements need not be binary identical to the lost files.
