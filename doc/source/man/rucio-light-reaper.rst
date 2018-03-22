@@ -1,6 +1,6 @@
 Daemon rucio-light-reaper
 *************************
 .. argparse::
-   :filename: bin/rucio-light-reaper
+   :module: rucio.daemons.reaper.clis.light
    :func: get_parser
    :prog: rucio-light-reaper

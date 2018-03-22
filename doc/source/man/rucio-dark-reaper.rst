@@ -1,6 +1,6 @@
 Daemon rucio-dark-reaper
 ************************
 .. argparse::
-   :filename: bin/rucio-dark-reaper
+   :module: rucio.daemons.reaper.clis.dark
    :func: get_parser
    :prog: rucio-dark-reaper
