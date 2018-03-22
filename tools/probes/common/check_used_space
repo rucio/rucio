@@ -15,7 +15,7 @@ from rucio.client import Client
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 host = sys.argv[1]
 c = Client()
-dict = c.get_rse_usage(host)
+
 for dict in c.get_rse_usage(host):
     if dict['source'] == 'rucio':
         if datetime.datetime.utcnow() - dict['updated_at'] < datetime.timedelta(hours=1):
