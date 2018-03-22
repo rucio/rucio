@@ -57,7 +57,7 @@ class TestROOTProxy(object):
 
         self.files = [{'scope': 'mock',
                        'name': 'half-life_%s' % i,
-                       'bytes': 1234L,
+                       'bytes': 1234,
                        'adler32': 'deadbeef',
                        'meta': {'events': 666}} for i in range(1, 4)]
         for rse in [self.rse_with_proxy, self.rse_without_proxy]:
