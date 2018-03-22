@@ -92,14 +92,14 @@ def __get_lat_long(se, gi, gi2):
         ip = socket.gethostbyname(se)
         d = gi.record_by_addr(ip)
         return d['latitude'], d['longitude']
-    except socket.gaierror, e:
+    except socket.gaierror as e:
         try:
             # Host unknown. It might be IPv6. Trying with geoip2
             print(e)
             ip = socket.getaddrinfo(se, None)[0][4][0]
             response = gi2.city(ip)
             return response.location.latitude, response.location.longitude
-        except socket.gaierror, e:
+        except socket.gaierror as e:
             # Host definitively unknown
             print(e)
             return None, None
