@@ -489,7 +489,7 @@ class TestReplicaClients:
 
         assert_equal(nb_tot_files, nb_tot_bad_files1 + nb_tot_suspicious_files)
 
-        tomorrow = datetime.utcnow() + timedelta(2)
+        tomorrow = datetime.utcnow() + timedelta(days=1)
         data = dumps({'state': 'B', 'younger_than': tomorrow.isoformat()})
         r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 200)
