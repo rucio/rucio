@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
 
 import os
@@ -53,11 +54,12 @@ class Default(protocol.RSEProtocol):
         """ Closes the connection to RSE."""
         pass
 
-    def get(self, pfn, dest):
+    def get(self, pfn, dest, transfer_timeout=None):
         """ Provides access to files stored inside connected the RSE.
 
             :param pfn: Physical file name of requested file
             :param dest: Name and path of the files when stored at the client
+            :param transfer_timeout Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.
@@ -80,13 +82,14 @@ class Default(protocol.RSEProtocol):
             else:
                 raise exception.ServiceUnavailable(e)
 
-    def put(self, source, target, source_dir=None):
+    def put(self, source, target, source_dir=None, transfer_timeout=None):
         """
             Allows to store files inside the referred RSE.
 
             :param source: path to the source file on the client file system
             :param target: path to the destination file on the storage
             :param source_dir: Path where the to be transferred files are stored in the local file system
+            :param transfer_timeout Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.
