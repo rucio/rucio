@@ -28,7 +28,6 @@ try:
     import commands
 except ImportError:
     import subprocess as commands
-
 import datetime
 import sys
 
