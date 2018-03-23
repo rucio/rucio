@@ -1,20 +1,25 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Wen Guan, <wguan@cern.ch>, 2014-2016
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
- - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
- - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
- - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
-'''
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2017
+# - Tobias Wegner <twegner@cern.ch>, 2017
+# - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 import errno
 import json
@@ -366,7 +371,7 @@ class Default(protocol.RSEProtocol):
         dir_name = os.path.dirname(dest)
         # This function will be removed soon. gfal2 will create parent dir automatically.
         try:
-            ctx.mkdir_rec(str(dir_name), 0775)
+            ctx.mkdir_rec(str(dir_name), 0o775)
         except:
             pass
 
@@ -443,7 +448,7 @@ class Default(protocol.RSEProtocol):
             dir_name = os.path.dirname(new_path)
             # This function will be removed soon. gfal2 will create parent dir automatically.
             try:
-                ctx.mkdir_rec(str(dir_name), 0775)
+                ctx.mkdir_rec(str(dir_name), 0o775)
             except Exception:
                 pass
             ret = ctx.rename(str(path), str(new_path))
