@@ -42,6 +42,10 @@ class PingClient(BaseClient):
         path = 'ping'
         url = build_url(self.host, path=path)
         r = self._send_request(url, headers=headers, type='GET')
+
         if r.status_code == codes.ok:
             server_info = loads(r.text)
             return server_info
+
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
