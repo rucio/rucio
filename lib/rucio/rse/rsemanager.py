@@ -24,6 +24,7 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -152,7 +153,7 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan'):
     :param rse_attr:  RSE attributes
     :param operation: Intended operation for this protocol
     :param scheme:    Optional filter if no specific protocol is defined in rse_setting for the provided operation
-    :parma domain:    Optional specification of the domain
+    :param domain:    Optional specification of the domain
     :returns:         An instance of the requested protocol
     """
 
@@ -211,7 +212,7 @@ def parse_pfns(rse_settings, pfns, operation='read', domain='wan'):
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain).parse_pfns(pfns)
 
 
-def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_checksum=False, printstatements=False, domain='wan'):
+def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_checksum=False, printstatements=False, domain='wan', transfer_timeout=None):
     """
         Copy a file from the connected storage to the local file system.
         Providing a list indicates the bulk mode.
@@ -228,6 +229,7 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
         :param dest_dir:        path to the directory where the downloaded files will be stored. If not given, each scope is represented by its own directory.
         :param force_scheme:    normally the scheme is dictated by the RSE object, when specifying the PFN it must be forced to the one specified in the PFN, overruling the RSE description.
         :param ignore_checksum: do not verify the checksum - caution: should only be used for rucio download --pfn
+        :param transfer_timeout: set this timeout (in seconds) for the transfers, for protocols that support it
 
         :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
@@ -260,7 +262,7 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
                         if printstatements:
                             print('%s already exists, probably from a failed attempt. Will remove it' % (tempfile))
                         os.unlink(tempfile)
-                    protocol.get(pfn, tempfile)
+                    protocol.get(pfn, tempfile, transfer_timeout=transfer_timeout)
                     if printstatements:
                         print('File downloaded. Will be validated')
 
@@ -275,7 +277,7 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
                             os.unlink(tempfile)
                             raise exception.FileConsistencyMismatch('Checksum mismatch : local %s vs recorded %s' % (str(localchecksum), str(ruciochecksum)))
                 else:
-                    protocol.get(pfn, '%s/%s' % (target_dir, f['name']))
+                    protocol.get(pfn, '%s/%s' % (target_dir, f['name']), transfer_timeout=transfer_timeout)
                 ret['%s:%s' % (f['scope'], f['name'])] = True
             else:
                 ret['%s:%s' % (f['scope'], f['name'])] = True
@@ -337,7 +339,7 @@ def exists(rse_settings, files):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None):
+def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -352,6 +354,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         :param source_dir:  path to the local directory including the source files
         :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
         :param force_scheme: use the given protocol scheme, overriding the protocol priority in the RSE description
+        :param transfer_timeout: set this timeout (in seconds) for the transfers, for protocols that support it
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -403,7 +406,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                     except Exception as e:
                         ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
                 try:  # Try uploading file
-                    protocol.put(base_name, '%s.rucio.upload' % pfn, source_dir)
+                    protocol.put(base_name, '%s.rucio.upload' % pfn, source_dir, transfer_timeout=transfer_timeout)
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
@@ -441,7 +444,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 gs = False
             else:
                 try:  # Try uploading file
-                    protocol.put(base_name, pfn, source_dir)
+                    protocol.put(base_name, pfn, source_dir, transfer_timeout=transfer_timeout)
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
