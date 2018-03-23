@@ -1591,7 +1591,7 @@ class DQ2Client:
                         result[lfn] = {'status': False, 'error': FileConsistencyMismatch('filesize mismatch DDM %s vs user %s' % (meta['bytes'], did['bytes']))}
                     else:
                         result[lfn] = {'status': False, 'error': FileAlreadyExists('File %s:%s already exists' % (did['scope'], did['name']))}
-                except UnsupportedOperation, e:
+                except UnsupportedOperation as e:
                     result[lfn] = {'status': False, 'error': e}
         return result
 
