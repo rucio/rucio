@@ -38,7 +38,7 @@ from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
                                     NoAuthInformation, MissingClientParameter,
-                                    MissingModuleException)
+                                    MissingModuleException, ServerConnectionException)
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
 from rucio import version
 
@@ -318,6 +318,9 @@ class BaseClient(object):
                 hds['X-Rucio-Auth-Token'] = self.auth_token
             else:
                 break
+
+        if result is None:
+            raise ServerConnectionException
         return result
 
     def __get_token_userpass(self):
