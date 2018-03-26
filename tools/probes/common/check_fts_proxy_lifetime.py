@@ -33,10 +33,10 @@ for FTS_SERVER in FTS_SERVERS:
     whoami = requests.get('%s/whoami' % FTS_SERVER, verify=False, cert=PROXY).json()
     delegation = requests.get('%s/delegation/%s' % (FTS_SERVER, whoami['delegation_id']), verify=False, cert=PROXY).json()
     expiration = parser.parse(delegation['termination_time'])
-    if expiration < datetime.datetime.now() + datetime.timedelta(30):
+    if expiration < datetime.datetime.now() + datetime.timedelta(days=30):
         print FTS_SERVER, expiration.strftime("%Y-%m-%d"), 'CRITICAL'
         status = CRITICAL
-    elif expiration < datetime.datetime.now() + datetime.timedelta(100):
+    elif expiration < datetime.datetime.now() + datetime.timedelta(days=100):
         print FTS_SERVER, expiration.strftime("%Y-%m-%d"), 'WARNING'
         status = WARNING
     else:

@@ -1,24 +1,33 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch> , 2012, 2017
-# - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014-2015, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2017
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2018
+# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
+# - Tobias Wegner <twegner@cern.ch>, 2018
 
+"""
+    Exceptions used with Rucio.
 
-"""Exceptions used with Rucio.
-
-The base exception class is :class:`. RucioException`.
-Exceptions which are raised are all subclasses of it.
+    The base exception class is :class:`. RucioException`.
+    Exceptions which are raised are all subclasses of it.
 
 """
 
@@ -810,4 +819,14 @@ class MissingModuleException(RucioException):
     def __init__(self, *args, **kwargs):
         super(MissingModuleException, self).__init__(args, kwargs)
         self._message = "The module is not installed."
-        self.error_code = 75
+        self.error_code = 77
+
+
+class ServerConnectionException(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(ServerConnectionException, self).__init__(args, kwargs)
+        self._message = "Cannot connect to the Rucio server."
+        self.error_code = 78
