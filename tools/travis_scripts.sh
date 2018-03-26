@@ -2,7 +2,7 @@
 
 TEST_ENV=$1
 
-if [[ $TEST_ENV == "flake8" ]]
+if [[ $TEST_ENV == "flake8-pylint" ]]
   then
     echo '==============================='
     echo 'Running flake8                 '
@@ -13,11 +13,6 @@ if [[ $TEST_ENV == "flake8" ]]
     if [ $? -ne 0 ]; then
         exit 1
     fi
-fi
-
-
-if [[ $TEST_ENV == "pylint" ]]
-  then
 
     echo '==============================='
     echo 'Running pylint                 '
@@ -33,7 +28,6 @@ if [[ $TEST_ENV == "pylint" ]]
         echo "PYLINT PASSED"
         tail -n 3 pylint.out
     fi
-
 fi
 
 

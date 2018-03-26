@@ -1,17 +1,10 @@
 #!/bin/bash
 
 
-if [[ $TEST_ENV == "flake8" ]]
+if [[ $TEST_ENV == "flake8-pylint" ]]
   then
     docker stop rucio
 fi
-
-
-if [[ $TEST_ENV == "pylint" ]]
-  then
-    docker stop rucio
-fi
-
 
 if [[ $TEST_ENV == "oracle" ]]
   then

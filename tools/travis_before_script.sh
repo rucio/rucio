@@ -1,13 +1,7 @@
 #!/bin/bash
 
 
-if [[ $TEST_ENV == "flake8" ]]
-  then
-    docker run -d --name=rucio rucio/rucio
-fi
-
-
-if [[ $TEST_ENV == "pylint" ]]
+if [[ $TEST_ENV == "flake8-pylint" ]]
   then
     docker run -d --name=rucio rucio/rucio
 fi

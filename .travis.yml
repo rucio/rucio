@@ -1,6 +1,6 @@
 sudo: required
 
-language: bash
+language: python
 
 services:
   - docker
@@ -16,13 +16,12 @@ before_script:
 script:
   - docker exec -it rucio /bin/sh -c "tools/travis_scripts.sh $TEST_ENV"
 
-after_script:
-  - ./tools/travis_after_script.sh
+# after_script:
+#  - ./tools/travis_after_script.sh
 
 env:
   matrix:
-    - TEST_ENV=flake8
-    - TEST_ENV=pylint
+    - TEST_ENV=flake8-pylint
     - TEST_ENV=oracle
     - TEST_ENV=mysql
     - TEST_ENV=postgres
