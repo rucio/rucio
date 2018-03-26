@@ -1,68 +1,84 @@
 #!/bin/bash
 
-echo '==============================='
-echo 'Running flake8                 '
-echo '==============================='
+TEST_ENV=$1
 
-flake8 --ignore=E501 --exclude="*.cfg" bin/* lib/ tools/*.py tools/probes/common/*
+if [[ $TEST_ENV == "flake8-pylint" ]]
+  then
+    echo '==============================='
+    echo 'Running flake8                 '
+    echo '==============================='
 
-if [ $? -ne 0 ]; then
-    exit 1
+    flake8 --ignore=E501 --exclude="*.cfg" bin/* lib/ tools/*.py tools/probes/common/*
+
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
+
+    echo '==============================='
+    echo 'Running pylint                 '
+    echo '==============================='
+
+    pylint --rcfile=/opt/rucio/pylintrc `cat changed_files.txt` > pylint.out
+
+    if [ $(($? & 3)) -ne 0 ]; then
+        echo "PYLINT FAILED"
+        cat pylint.out
+        exit 1
+    else
+        echo "PYLINT PASSED"
+        tail -n 3 pylint.out
+    fi
 fi
 
-echo '==============================='
-echo 'Running pylint                 '
-echo '==============================='
 
-pylint --rcfile=/opt/rucio/pylintrc `cat changed_files.txt` > pylint.out
+if [[ $TEST_ENV == "oracle" ]]
+  then
+    echo '==============================='
+    echo "Run Oracle tests"
+    echo '==============================='
 
-if [ $(($? & 3)) -ne 0 ]; then
-    echo "PYLINT FAILED"
-    cat pylint.out
-    exit 1
-else
-    echo "PYLINT PASSED"
-    tail -n 3 pylint.out
+    cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
+    httpd -k start
+
+    /opt/rucio/tools/run_tests_docker.sh -1q
+
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
 fi
 
-cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
+if [[ $TEST_ENV == "mysql" ]]
+  then
+    cp /opt/rucio/etc/docker/travis/rucio_mysql.cfg /opt/rucio/etc/rucio.cfg
 
-httpd -k start
+    httpd -k restart
 
-echo '==============================='
-echo "Run Oracle tests"
-echo '==============================='
+    echo '==============================='
+    echo "Run MySQL tests"
+    echo '==============================='
 
-/opt/rucio/tools/run_tests_docker.sh -1q
+    /opt/rucio/tools/run_tests_docker.sh -1q
 
-if [ $? -ne 0 ]; then
-    exit 1
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
 fi
 
-cp /opt/rucio/etc/docker/travis/rucio_mysql.cfg /opt/rucio/etc/rucio.cfg
 
-httpd -k restart
+if [[ $TEST_ENV == "postgres" ]]
+  then
 
-echo '==============================='
-echo "Run MySQL tests"
-echo '==============================='
+    cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
 
-/opt/rucio/tools/run_tests_docker.sh -1q
+    httpd -k restart
 
-if [ $? -ne 0 ]; then
-    exit 1
-fi
+    echo '==============================='
+    echo "Run Postgresql tests"
+    echo '==============================='
 
-cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
+    /opt/rucio/tools/run_tests_docker.sh -1q
 
-httpd -k restart
-
-echo '==============================='
-echo "Run Postgresql tests"
-echo '==============================='
-
-/opt/rucio/tools/run_tests_docker.sh -1q
-
-if [ $? -ne 0 ]; then
-    exit 1
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
 fi
