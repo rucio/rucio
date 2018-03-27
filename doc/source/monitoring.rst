@@ -27,8 +27,10 @@ Transfer monitoring
 If a transfer is submitted, queued, waiting, done or failed  messages are sent to
 ActiveMQ via Hermes and are also archived in the messages_history table. Same is true for deletions.
 In the case of ATLAS we have a dedicated monitoring infrastructure that reads
-the messages from ActiveMQ, aggregates them and then writes the aggregated data
+the messages from `ActiveMQ`_, aggregates them and then writes the aggregated data
 into ElasticSearch/InfluxDB from where it then can be visualised using Kibana/Grafana.
+
+.. _ActiveMQ: https://activemq.apache.org
 
 Access monitoring
 -----------------
