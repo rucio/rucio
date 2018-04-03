@@ -382,9 +382,9 @@ class TestDIDClients:
 
         self.did_client.add_datasets(dsns=dsns)
         self.did_client.attach_dids_to_dids(attachments=attachments)
-        l = [i for i in self.did_client.get_dataset_by_guid(guid_to_query)]
+        dsns_l = [i for i in self.did_client.get_dataset_by_guid(guid_to_query)]
 
-        assert_equal([dsn], l)
+        assert_equal([dsn], dsns_l)
 
         cnt_name = 'cnt_%s' % generate_uuid()
         self.did_client.add_container(scope='mock', name=cnt_name)
