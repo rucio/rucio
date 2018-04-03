@@ -59,8 +59,8 @@ class Trace(MethodView):
 
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-        except Exception, e:
-            print traceback.format_exc()
+        except Exception as e:
+            print(traceback.format_exc())
             return e, 500
 
         return "Created", 201

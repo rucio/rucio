@@ -13,7 +13,7 @@ Pygments==2.2.0             # Python Syntax highlighter
 docutils==0.14              # Needed for sphinx
 pep8==1.7.1                 # checks for PEP8 code style compliance
 pyflakes==1.6.0             # Passive checker of Python programs
-flake8==3.4.1               # Wrapper around PyFlakes&pep8
+flake8==3.5.0               # Wrapper around PyFlakes&pep8
 pylint==1.7.4               # static code analysis. Last release compatible with python 2.6
 virtualenv==15.1.0          # Virtual Python Environment builder
 tox==2.9.1                  # Automate and standardize testing in Python
