@@ -1442,9 +1442,9 @@ class DQ2Client:
         if not owner:
             owner = self.client.account
         else:
-            l = [i for i in self.client.list_accounts('user', owner)]
-            if l != []:
-                owner = l[0]['account']
+            accounts_l = [i for i in self.client.list_accounts('user', owner)]
+            if accounts_l != []:
+                owner = accounts_l[0]['account']
         dids = [{'scope': scope, 'name': dsn}]
 
         notify = 'N'
