@@ -8,7 +8,7 @@ Sphinx==1.6.5               # required to build documentation
 sphinx-rtd-theme==0.2.4     # Read the Docs theme for Sphinx
 Jinja2==2.10                # template engine
 sphinxcontrib-httpdomain==1.6.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
-stub==0.2.1                 # Temporarily modify callable behaviour and object attributes
+stub==0.2.1; python_version == '2.7' # Temporarily modify callable behaviour and object attributes
 #PIL==1.1.7                      # !!! This library does not exist anymore
 Pygments==2.2.0             # Python Syntax highlighter
 docutils==0.14              # Needed for sphinx
@@ -24,4 +24,4 @@ xmltodict==0.11.0           # Makes working with XML feel like you are working w
 pytz==2017.3                # World timezone definitions, modern and historical
 Babel==2.5.1                # Internationalization utilities
 git-review==1.26.0          # Command-line tool for Git / Gerrit
-subprocess32==3.2.7         # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
+subprocess32==3.2.7; python_version <= '3.0' # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.

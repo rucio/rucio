@@ -6,7 +6,7 @@ alembic==0.9.8              # Lightweight database migration tool for SQLAlchemy
 Mako==1.0.7                 # Templating language
 python-editor==1.0.3        # Programmatically open an editor, capture the result
 flup==1.0.3                 # Needed to deploy web.py in lighthttpd
-web.py==0.38                # Python web framework
+web.py==0.38; python_version == '2.7' # Python web framework
 python-memcached==1.59      # Quick and small memcached client for Python
 ntplib>=0.3.3               # NTP library
 anyjson==0.3.3              # Wraps the best available JSON implementation available in a common interface
@@ -18,10 +18,10 @@ meld3==1.0.2                # an HTML/XML templating system for Python 2.3+
 pysftp==0.2.9               # forces installation of paramikoi and pycrypto
 pycrypto==2.6.1             # Cryptographic modules
 s3cmd==2.0.1                # Package built from http://s3tools.org/download
-gearman==2.0.2              # Used only gor emulation framework
+gearman==2.0.2; python_version == '2.7' # Used only gor emulation framework
 stomp.py==4.1.20            # ActiveMQ Messaging Protocol
 dnspython==1.15.0           # To resolve ActiveMQ broker alias
-pystatsd==0.1.10            # Needed to log into graphite with more than 1 Hz
+pystatsd==0.1.10; python_version == '2.7' # Needed to log into graphite with more than 1 Hz
 pygeoip==0.3.2              # GeoIP API
 geoip2==2.7.0               # GeoIP2 API (for IPv6 support)
 maxminddb==1.3.0            # extension for reading the MaxMind DB format
@@ -44,7 +44,7 @@ pycparser==2.18             # C parser in Python
 rsa==3.4.2                  # Pure-Python RSA implementation
 setuptools==38.5.1          # Easily download, build, install, upgrade, and uninstall Python packages
 retrying==1.3.3             # general-purpose retrying library to simplify the task of adding retry behavior to just about anything
-functools32==3.2.3.post2    # explicitly needed on CC7
+functools32==3.2.3.post2; python_version == '2.7'    # explicitly needed on CC7
 redis==2.10.6               # Python client for Redis key-value store
 numpy==1.14.1               # Numpy for forecasting T3C
 kerberos>=1.2.5             # Kerberos high-level interface
@@ -52,4 +52,3 @@ pykerberos>=1.2.1           # Kerberos high-level interface
 requests-kerberos==0.12.0   # A Kerberos authentication handler for python-requests
 paramiko==2.4.0             # SSH2 protocol library
 Flask==0.12.2               # Python web framework
-
