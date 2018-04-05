@@ -2,28 +2,24 @@ sudo: required
 
 language: python
 
-python:
-  - "2.6"
-  - "2.7"
-  - "3"
-  - "3.4"
-  - "3.5"
-  - "3.6"
-
 services:
   - docker
 
 install:
-  - git diff --name-status HEAD $(git merge-base HEAD master) | grep \.py$ | grep -v '^A' | grep -v 'conf.py' | cut -f 2 | paste -sd " " - > changed_files.txt
   - python --version
   - pip --version
   - pip install -r tools/pip-requires-client
   - pip install -r tools/pip-requires
   - pip install -r tools/pip-requires-test
 
+before_script:
+  - echo 'before_script'
 
 script:
   - echo 'test'
+
+after_script:
+  - echo 'after script'
 
 notifications:
   slack:
