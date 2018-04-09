@@ -280,10 +280,10 @@ def list_rses(filters={}, session=None):
 
         query = session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse)
         for row in query:
-            d = {}
+            dic = {}
             for column in row.__table__.columns:
-                d[column.name] = getattr(row, column.name)
-            rse_list.append(d)
+                dic[column.name] = getattr(row, column.name)
+            rse_list.append(dic)
 
     return rse_list
 
