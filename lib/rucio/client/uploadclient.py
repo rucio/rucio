@@ -312,7 +312,7 @@ class UploadClient:
                 else:
                     logger.error('Failed to upload file %s' % basename)
                     # TODO trace?
-                    continue  # skip attach_did and update_states for this file
+                    raise RucioException('Failed to upload file %s' % basename)
             else:
                 logger.info('File already exists on RSE. Skipped upload')
 
