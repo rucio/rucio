@@ -1,0 +1,35 @@
+======
+1.15.4
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: rucio-judge-cleaner traceback against postgres `#722 <https://github.com/rucio/rucio/issues/722>`_
+- Core & Internals: Keyword parameters should always be used for instansiating datetime.timedelta `#807 <https://github.com/rucio/rucio/issues/807>`_
+- Documentation: Add external link for ActiveMQ for people joining the project `#1001 <https://github.com/rucio/rucio/issues/1001>`_
+- Documentation: Typographical Review of Documentation Files `#985 <https://github.com/rucio/rucio/issues/985>`_
+- Release management: Add python3 in the rucio dev docker image `#973 <https://github.com/rucio/rucio/issues/973>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: section policy/support/rucio_support missing in rucio.cfg template and tests `#976 <https://github.com/rucio/rucio/issues/976>`_
+
+****
+Bugs
+****
+
+- Clients: Error with python3: the JSON object must be str, not 'bytes' `#964 <https://github.com/rucio/rucio/issues/964>`_
+- Clients: Client AttributeError when the server returns nothing `#965 <https://github.com/rucio/rucio/issues/965>`_
+- Release management: setup_clients.py classifiers needs to be a list, not tuples `#949 <https://github.com/rucio/rucio/issues/949>`_
