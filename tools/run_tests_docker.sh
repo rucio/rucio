@@ -1,3 +1,22 @@
+#!/bin/bash
+# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
+
 noseopts="--exclude=test_dq2* --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor*"
 
 function usage {
@@ -40,14 +59,6 @@ do
     x) stop_on_failure="--stop";;
   esac
 done
-
-echo 'Update pip dependencies'
-pip install -r tools/pip-requires
-pip install -r tools/pip-requires-client
-pip install -r tools/pip-requires-test
-
-echo 'Cleaning *.pyc files'
-find lib -iname "*.pyc" | xargs rm
 
 echo 'Cleaning old authentication tokens'
 rm -rf /tmp/.rucio_*/
@@ -93,4 +104,3 @@ echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclien
 nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
 
 exit $?
-
