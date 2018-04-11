@@ -210,7 +210,7 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
+        nose.tools.assert_true("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out)
 
     def test_upload_file_guid(self):
         """CLIENT(USER): Rucio upload file with guid"""
@@ -222,7 +222,7 @@ class TestBinRucio():
         print(out)
         print(err)
         remove(tmp_file1)
-        nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
+        nose.tools.assert_true("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out)
 
     def test_upload_repeated_file(self):
         """CLIENT(USER): Rucio upload repeated files"""
@@ -259,7 +259,7 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file2[5:]), out), None)
+        nose.tools.assert_not_equal("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out, None)
 
     def test_upload_repeated_file_dataset(self):
         """CLIENT(USER): Rucio upload repeated files to dataset"""
