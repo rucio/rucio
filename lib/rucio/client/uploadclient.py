@@ -31,8 +31,8 @@ import time
 
 from rucio.client.client import Client
 from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists,
-                                    DataIdentifierNotFound, ServiceUnavailable,
-                                    ResourceTemporaryUnavailable, InputValidationError)
+                                    DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded,
+                                    ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError)
 from rucio.common.utils import adler32, execute, generate_uuid, md5, send_trace
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
@@ -210,6 +210,7 @@ class UploadClient:
 
         # clear this set again to ensure that we only try to register datasets once
         registered_dataset_dids = set()
+        num_succeeded = 0
         for file in files:
             basename = file['basename']
             logger.info('Preparing upload for file %s' % basename)
@@ -304,6 +305,7 @@ class UploadClient:
                         logger.debug('Exception: %s' % str(error))
 
                 if success:
+                    num_succeeded += 1
                     self.trace['transferEnd'] = time.time()
                     self.trace['clientState'] = 'DONE'
                     file['state'] = 'A'
@@ -314,7 +316,7 @@ class UploadClient:
                 else:
                     logger.error('Failed to upload file %s' % basename)
                     # TODO trace?
-                    continue  # skip attach_did and update_states for this file
+                    continue
             else:
                 logger.info('File already exists on RSE. Skipped upload')
 
@@ -348,3 +350,9 @@ class UploadClient:
                                                'md5': file['md5']}
             with open(summary_file_path, 'wb') as summary_file:
                 json.dump(final_summary, summary_file, sort_keys=True, indent=1)
+
+        if num_succeeded == 0:
+            raise NoFilesUploaded()
+        elif num_succeeded != len(files):
+            raise NotAllFilesUploaded()
+        return 0
