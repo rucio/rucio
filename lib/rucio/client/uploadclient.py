@@ -18,6 +18,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Tobias Wegner <twegner@cern.ch>, 2018
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 
 import copy
 import json
@@ -294,7 +295,8 @@ class UploadClient:
                                               lfns=lfn,
                                               source_dir=file['dirname'],
                                               force_scheme=protocol['scheme'],
-                                              force_pfn=pfn)
+                                              force_pfn=pfn,
+                                              transfer_timeout=file.get('transfer_timeout'))
                         success = True
                         file['upload_result'] = state
                     except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
