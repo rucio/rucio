@@ -8,7 +8,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2018
 
 from __future__ import with_statement
 import os
@@ -48,7 +48,7 @@ def main():
             system('git', 'show', ':' + name, stdout=f)
 
     f = open(tempdir + '/.flake8', 'w+')
-    f.write('''[pep8]
+    f.write('''[pycodestyle]
 max-line-length=256
 
 [flake8]
