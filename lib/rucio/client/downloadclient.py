@@ -16,6 +16,7 @@
 # - Tomas Javurek <tomasjavurek09@gmail.com>, 2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 
 import os
 import os.path
@@ -63,7 +64,7 @@ class DownloadClient(BaseClient):
         self.trace_taskid = os.environ.get('RUCIO_TRACE_TASKID', None),
         self.trace_usrdn = os.environ.get('RUCIO_TRACE_USRDN', None)
 
-    def download(self, dids, rse, protocol='srm', pfn=None, nrandom=None, nprocs=None, user_agent='rucio_clients', dir='.', no_subd=False):
+    def download(self, dids, rse, protocol='srm', pfn=None, nrandom=None, nprocs=None, user_agent='rucio_clients', dir='.', no_subd=False, transfer_timeout=None):
 
         trace_endpoint = client.host
         trace_pattern = {'hostname': socket.getfqdn(),
@@ -221,7 +222,7 @@ class DownloadClient(BaseClient):
                     input_queue.put(f)
 
         try:
-            self.download_rucio(pfn, protocol, input_queue, output_queue, trace_pattern, trace_endpoint, nprocs, user_agent, dir, no_subd)
+            self.download_rucio(pfn, protocol, input_queue, output_queue, trace_pattern, trace_endpoint, nprocs, user_agent, dir, no_subd, transfer_timeout)
         except Exception as error:
             logger.error('Exception during download: %s' % str(error))
 
@@ -246,7 +247,7 @@ class DownloadClient(BaseClient):
             except Empty:
                 break
 
-    def download_rucio(self, pfn, protocol, input_queue, output_queue, trace_pattern, trace_endpoint, ndownloader, user_agent, dir='.', no_subdir=False):
+    def download_rucio(self, pfn, protocol, input_queue, output_queue, trace_pattern, trace_endpoint, ndownloader, user_agent, dir='.', no_subdir=False, transfer_timeout=None):
 
         total_workers = 1
         if ndownloader and not pfn:
@@ -270,7 +271,8 @@ class DownloadClient(BaseClient):
                       'threadnb': worker + 1,
                       'total_threads': total_workers,
                       'trace_endpoint': trace_endpoint,
-                      'trace_pattern': trace_pattern}
+                      'trace_pattern': trace_pattern,
+                      'transfer_timeout': transfer_timeout}
             try:
                 thread = Thread(target=self._downloader, kwargs=kwargs)
                 thread.start()
@@ -288,7 +290,7 @@ class DownloadClient(BaseClient):
                 thread.kill_received = True
         logger.debug('All threads finished')
 
-    def _downloader(self, pfn, protocol, human, input_queue, output_queue, user_agent, threadnb, total_threads, trace_endpoint, trace_pattern):
+    def _downloader(self, pfn, protocol, human, input_queue, output_queue, user_agent, threadnb, total_threads, trace_endpoint, trace_pattern, transfer_timeout=None):
 
         rse_dict = {}
         thread_prefix = 'Thread %s/%s' % (threadnb, total_threads)
@@ -384,7 +386,8 @@ class DownloadClient(BaseClient):
                                             files=[dlfile],
                                             dest_dir=dest_dir,
                                             force_scheme=protocol_retry['scheme'],
-                                            ignore_checksum=ignore_checksum)
+                                            ignore_checksum=ignore_checksum,
+                                            transfer_timeout=transfer_timeout)
 
                             trace['transferEnd'] = time.time()
                             trace['clientState'] = 'DONE'
