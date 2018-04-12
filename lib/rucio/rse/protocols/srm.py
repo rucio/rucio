@@ -10,6 +10,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wguan@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2017
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
 import commands
 import os
@@ -183,19 +184,25 @@ class Default(protocol.RSEProtocol):
             else:
                 raise exception.RSEAccessDenied('Endpoint not reachable : %s' % str(result))
 
-    def get(self, path, dest):
+    def get(self, path, dest, transfer_timeout=None):
         """
         Provides access to files stored inside connected the RSE.
 
         :param path: Physical file name of requested file
         :param dest: Name and path of the files when stored at the client
+        :param transfer_timeout: Transfer timeout (in seconds)
+
         :raises DestinationNotAccessible: if the destination storage was not accessible.
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
+        timeout_option = ''
+        if transfer_timeout:
+            timeout_option = '--sendreceive-timeout %s' % transfer_timeout
+
         try:
-            cmd = 'lcg-cp $LCGVO -v -b --srm-timeout 3600 -D srmv2 %s file:%s' % (path, dest)
+            cmd = 'lcg-cp $LCGVO -v -b --srm-timeout 3600 %s -D srmv2 %s file:%s' % (timeout_option, path, dest)
             status, out, err = execute(cmd)
             if status:
                 if self.__parse_srm_error__("SRM_INVALID_PATH", out, err):
@@ -206,13 +213,15 @@ class Default(protocol.RSEProtocol):
         except Exception as error:
             raise exception.ServiceUnavailable(error)
 
-    def put(self, source, target, source_dir):
+    def put(self, source, target, source_dir, transfer_timeout=None):
         """
         Allows to store files inside the referred RSE.
 
         :param source: path to the source file on the client file system
         :param target: path to the destination file on the storage
         :param source_dir: Path where the to be transferred files are stored in the local file system
+        :param transfer_timeout: Transfer timeout (in seconds)
+
         :raises DestinationNotAccessible: if the destination storage was not accessible.
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
@@ -227,8 +236,12 @@ class Default(protocol.RSEProtocol):
         if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = '--dst %s' % self.attributes['extended_attributes']['space_token']
 
+        timeout_option = ''
+        if transfer_timeout:
+            timeout_option = '--sendreceive-timeout %s' % transfer_timeout
+
         try:
-            cmd = 'lcg-cp $LCGVO -v -b --srm-timeout 3600 -D srmv2 %s file:%s %s' % (space_token, source_url, target)
+            cmd = 'lcg-cp $LCGVO -v -b --srm-timeout 3600 %s -D srmv2 %s file:%s %s' % (timeout_option, space_token, source_url, target)
             status, out, err = execute(cmd)
             if status:
                 raise exception.RucioException(err)

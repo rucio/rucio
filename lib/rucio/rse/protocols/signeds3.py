@@ -16,6 +16,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2016-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
 
 from __future__ import print_function
@@ -146,12 +147,13 @@ class Default(protocol.RSEProtocol):
         """ Closes the connection to RSE."""
         pass
 
-    def get(self, path, dest):
+    def get(self, path, dest, transfer_timeout=None):
         """
             Provides access to files stored inside connected the RSE.
 
             :param path: Physical file name of requested file
             :param dest: Name and path of the files when stored at the client
+            :param transfer_timeout: Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.
@@ -195,13 +197,14 @@ class Default(protocol.RSEProtocol):
         except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable(error)
 
-    def put(self, source, target, source_dir=None):
+    def put(self, source, target, source_dir=None, transfer_timeout=None):
         """
             Allows to store files inside the referred RSE.
 
             :param source: path to the source file on the client file system
             :param target: path to the destination file on the storage
             :param source_dir: Path where the to be transferred files are stored in the local file system
+            :param transfer_timeout: Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.
