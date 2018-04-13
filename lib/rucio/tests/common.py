@@ -1,30 +1,37 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012
+# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 
 from paste.fixture import TestApp
 from random import choice
 from string import ascii_uppercase
-from stub import stub
 
 import contextlib
 import os
 import subprocess
 import tempfile
 
+from rucio.client.accountclient import AccountClient
 from rucio.common import exception
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account import add_account
-from rucio.web.rest.authentication import APP as auth_app
 
 
 def execute(cmd):
@@ -59,9 +66,10 @@ def create_accounts(account_list, user_type):
     :param account_list: the list of accounts to be added
     :param user_type: the type of accounts
     """
+    account_client = AccountClient()
     for account in account_list:
         try:
-            add_account(account, user_type, email=None)
+            account_client.add_account(account, user_type, email=None)
         except exception.Duplicate:
             pass  # Account already exists, no need to create it
 
@@ -74,6 +82,7 @@ def get_auth_token(account, username, password):
     :param password: the password linked to the account
     :returns: the authentication token
     """
+    from rucio.web.rest.authentication import APP as auth_app
     mw = []
     header = {'Rucio-Account': account, 'Rucio-Username': username, 'Rucio-Password': password}
     r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=header, expect_errors=True)
@@ -141,6 +150,7 @@ def stubbed(target, replacement):
     with stubbed(module_under_test.fun_x, lambda _, __: StringIO('hello world')):
         value = module_under_test.function_using_fun_x()
     """
+    from stub import stub
     stubbed_obj = stub(target, replacement)
     try:
         yield
