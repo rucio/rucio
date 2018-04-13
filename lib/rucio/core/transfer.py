@@ -596,7 +596,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
                 # Compute the destination url
                 if rses_info[dest_rse_id]['deterministic']:
-                    dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values()[0]
+                    dest_url = list(protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
                 else:
                     # compute dest url in case of non deterministic
                     # naming convention, etc.
@@ -617,7 +617,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                    dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values()[0]
+                    dest_url = list(protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
 
                 # Get source protocol
                 source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join([matching_scheme[0], matching_scheme[1]]))
@@ -632,7 +632,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             reqs_scheme_mismatch.append(id)
                         continue
 
-                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
 
                 # Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
@@ -677,7 +677,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'filesize': bytes,
                                  'md5': md5,
                                  'adler32': adler32,
-                                 'verify_checksum': rse_attrs[dest_rse_id].get('verify_checksum', True)}
+                                 'verify_checksum': json.loads(rse_attrs[dest_rse_id].get('verify_checksum', 'True').lower())}
 
                 if previous_attempt_id:
                     file_metadata['previous_attempt_id'] = previous_attempt_id
@@ -747,7 +747,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     except RSEProtocolNotSupported:
                         logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], current_schemes))
                         continue
-                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
 
                 if ranking is None:
                     ranking = 0
