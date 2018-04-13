@@ -533,6 +533,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id not in rses_info:
                     source_rse = get_rse_name(rse_id=source_rse_id, session=session)
                     rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+                if source_rse_id not in rse_attrs:
+                    rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
                 attr = None
                 if attributes:
@@ -659,6 +661,18 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     retry_count = 0
                 fts_list = fts_hosts.split(",")
 
+                verify_checksum = 'both'
+                if rse_attrs[dest_rse_id].get('verify_checksum', 'True') == 'False':
+                    if rse_attrs[source_rse_id].get('verify_checksum', 'True') == 'False':
+                        verify_checksum = 'none'
+                    else:
+                        verify_checksum = 'source'
+                else:
+                    if rse_attrs[source_rse_id].get('verify_checksum', 'True') == 'False':
+                        verify_checksum = 'destination'
+                    else:
+                        verify_checksum = 'both'
+
                 external_host = fts_list[0]
                 if retry_other_fts:
                     external_host = fts_list[retry_count % len(fts_list)]
@@ -677,7 +691,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'filesize': bytes,
                                  'md5': md5,
                                  'adler32': adler32,
-                                 'verify_checksum': json.loads(rse_attrs[dest_rse_id].get('verify_checksum', 'True').lower())}
+                                 'verify_checksum': verify_checksum}
 
                 if previous_attempt_id:
                     file_metadata['previous_attempt_id'] = previous_attempt_id
