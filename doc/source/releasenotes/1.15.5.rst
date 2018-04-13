@@ -1,0 +1,13 @@
+=====================
+1.15.5 (clients only)
+=====================
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: rucio upload api doesn't raise an error in some error cases `#1029 <https://github.com/rucio/rucio/issues/1029>`_
