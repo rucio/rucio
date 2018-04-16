@@ -662,13 +662,13 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 fts_list = fts_hosts.split(",")
 
                 verify_checksum = 'both'
-                if rse_attrs[dest_rse_id].get('verify_checksum', 'True') == 'False':
-                    if rse_attrs[source_rse_id].get('verify_checksum', 'True') == 'False':
+                if rse_attrs[dest_rse_id].get('verify_checksum', 'True').lower() == 'false':
+                    if rse_attrs[source_rse_id].get('verify_checksum', 'True').lower() == 'false':
                         verify_checksum = 'none'
                     else:
                         verify_checksum = 'source'
                 else:
-                    if rse_attrs[source_rse_id].get('verify_checksum', 'True') == 'False':
+                    if rse_attrs[source_rse_id].get('verify_checksum', 'True').lower() == 'false':
                         verify_checksum = 'destination'
                     else:
                         verify_checksum = 'both'
