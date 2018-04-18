@@ -112,7 +112,7 @@ def file_generator(size=2, namelen=10):
     """
     fn = '/tmp/file_' + ''.join(choice(ascii_uppercase) for x in range(namelen))
     execute('dd if=/dev/urandom of={0} count={1} bs=1'.format(fn, size))
-    return fn
+    return fn.decode('utf-8')
 
 
 def make_temp_file(dir, data):
