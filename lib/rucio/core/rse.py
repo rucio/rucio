@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
@@ -687,7 +687,7 @@ def add_protocol(rse, parameter, session=None):
             for op in parameter['domains'][s]:
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = ''.join([op, '_', s]).lower()
+                op_name = op if op == 'third_party_copy' else ''.join([op, '_', s]).lower()
                 if parameter['domains'][s][op] < 0:
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
                 parameter[op_name] = parameter['domains'][s][op]
