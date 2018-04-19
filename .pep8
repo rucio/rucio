@@ -1,3 +1,4 @@
 [pep8]
 max-line-length=256
+ignore=E731,E722
 

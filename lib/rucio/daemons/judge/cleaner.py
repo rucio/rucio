@@ -151,9 +151,10 @@ def run(once=False, threads=1):
     """
     client_time, db_time = datetime.utcnow(), get_db_time()
     max_offset = timedelta(hours=1, seconds=10)
-    if db_time - client_time > max_offset or client_time - db_time > max_offset:
-        logging.critical('Offset between client and db time too big. Stopping Cleaner')
-        return
+    if type(db_time) is datetime:
+        if db_time - client_time > max_offset or client_time - db_time > max_offset:
+            logging.critical('Offset between client and db time too big. Stopping Cleaner')
+            return
 
     hostname = socket.gethostname()
     sanity_check(executable='rucio-judge-cleaner', hostname=hostname)
