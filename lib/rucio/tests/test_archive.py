@@ -34,7 +34,7 @@ class TestDIDClients(object):
     def test_add_and_list_archive(self):
         """  ARCHIVE (CLIENT): Add files to archive and list the content."""
         scope, rse = 'mock', 'MOCK'
-        archive_file = 'file_' + generate_uuid() + '.zip'
+        archive_files = ['file_' + generate_uuid() + '.zip' for _ in range(2)]
         files = []
         for i in range(10):
             files.append({'scope': scope, 'name': 'lfn.%s' % str(generate_uuid()),
@@ -42,17 +42,16 @@ class TestDIDClients(object):
                           'adler32': '0cc737eb',
                           'type': 'FILE',
                           'meta': {'guid': str(generate_uuid())}})
+        for archive_file in archive_files:
 
-        self.replica_client.add_replicas(rse=rse, files=[{'scope': scope,
-                                                          'name': archive_file,
-                                                          'bytes': 1,
-                                                          'adler32': '0cc737eb'}])
+            self.replica_client.add_replicas(rse=rse, files=[{'scope': scope,
+                                                              'name': archive_file,
+                                                              'bytes': 1,
+                                                              'adler32': '0cc737eb'}])
 
-        self.did_client.add_files_to_archive(scope=scope,
-                                             name=archive_file,
-                                             files=files)
+            self.did_client.add_files_to_archive(scope=scope, name=archive_file, files=files)
 
-        content = [fil for fil in self.did_client.list_archive_content(scope=scope,
-                                                                       name=archive_file)]
+            content = [fil for fil in self.did_client.list_archive_content(scope=scope,
+                                                                           name=archive_file)]
 
-        assert_equal(len(content), 10)
+            assert_equal(len(content), 10)
