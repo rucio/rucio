@@ -72,20 +72,22 @@ class UploadClient:
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
             path            - path of the file that will be uploaded
             rse             - rse name (e.g. 'CERN-PROD_DATADISK') where to upload the file
-            did_scope       - Optional:
-            did_name        - Optional:
-            dataset_scope   - Optional:
-            dataset_name    - Optional:
-            force_scheme    - Optional:
-            pfn             - Optional:
-            no_register     - Optional:
-            lifetime        - Optional:
-        :param summary_file_path:
+            did_scope       - Optional: custom did scope (Default: user.<account>)
+            did_name        - Optional: custom did name (Default: name of the file)
+            dataset_scope   - Optional: custom dataset scope
+            dataset_name    - Optional: custom dataset name
+            force_scheme    - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
+            pfn             - Optional: use a given PFN (this sets no_register to True)
+            no_register     - Optional: if True, the file will not be registered in the rucio catalogue
+            lifetime        - Optional: the lifetime of the file after it was uploaded
+        :param summary_file_path: Optional: a path where a summary in form of a json file will be stored
 
-        :returns:
+        :returns: 0 on success
 
         :raises InputValidationError: if any input arguments are in a wrong format
         :raises RSEBlacklisted: if a given RSE is not available for writing
+        :raise NoFilesUploaded: if no files were successfully uploaded
+        :raise NotAllFilesUploaded: if not all files were successfully uploaded
         """
         logger = self.logger
 
