@@ -1,22 +1,23 @@
 #!/usr/bin/env python
-"""
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#                       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - David Cameron, <david.cameron@cern.ch>, 2014-2015
+# - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-                       http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
- - David Cameron, <david.cameron@cern.ch>, 2014-2015
- - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
-"""
+from __future__ import print_function
 
 import json
 import sys
 import traceback
+
 
 import requests
 
@@ -52,11 +53,28 @@ if __name__ == '__main__':
         RESP = requests.get(url=URL)
         DATA = json.loads(RESP.content)
     except Exception as error:
-        print "Failed to load info from AGIS: %s" % str(error)
+        print("Failed to load info from AGIS: %s" % str(error))
+        sys.exit(WARNING)
+
+    internal_proxy_mapping = {}
+    URL = 'http://atlas-agis-api.cern.ch/request/serviceobject/query/list/?json&state=ACTIVE'
+    try:
+        RESP = requests.get(url=URL)
+        DIC = json.loads(RESP.content)
+        for rse in DIC:
+            for service in DIC[rse]:
+                if 'protocols' in DIC[rse][service]:
+                    for protocol in DIC[rse][service]['protocols']:
+                        if DIC[rse][service]['protocols'][protocol]['doortype'] == 'proxyinternal':
+                            internal_proxy_mapping[rse] = DIC[rse][service]['protocols'][protocol]['endpoint']
+    except Exception as error:
+        print("Failed to load info from AGIS: %s" % str(error))
         sys.exit(WARNING)
 
     SPACE_USAGE = get_rses_with_attribute('space_usage_method')
+    HAS_PROXY = get_rses_with_attribute('root-proxy-internal')
     SPACE_USAGE = [rse['rse'] for rse in SPACE_USAGE]
+    HAS_PROXY = [rse['rse'] for rse in HAS_PROXY]
     for rse in DATA:
 
         name = rse['name']
@@ -68,9 +86,15 @@ if __name__ == '__main__':
         except RSENotFound:
             continue
 
-        print name
+        print('Working on %s' % name)
 
         try:
+            if rse['site'] in internal_proxy_mapping:
+                add_rse_attribute(name, 'root-proxy-internal', str(internal_proxy_mapping[rse['site']]), session=session)
+            elif rse['name'] in HAS_PROXY:
+                print('Will remove root-proxy-internal for site %s' % rse['name'])
+                del_rse_attribute(name, 'root-proxy-internal', session=session)
+
             add_rse_attribute(name, 'ALL', '1', session=session)
             add_rse_attribute(name, 'tier', str(rse['tier_level']), session=session)
             add_rse_attribute(name, 'istape', str(rse['is_tape']), session=session)
@@ -125,10 +149,10 @@ if __name__ == '__main__':
                 add_rse_attribute(name, 'freespace', int(freespace), session=session)
 
         except RucioException as error:
-            print str(error)
+            print(error)
             sys.exit(CRITICAL)
         except:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             RESULT = WARNING
         finally:
             session.commit()
