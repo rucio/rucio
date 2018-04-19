@@ -1,0 +1,35 @@
+======
+1.14.2
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: db: fix sqlalchemy text conversion `#288 <https://github.com/rucio/rucio/issues/288>`_
+- Documentation: Adapt setup.py for buildthedocs `#285 <https://github.com/rucio/rucio/issues/285>`_
+- Infrastructure: Include postgres client into the CC7 docker image `#282 <https://github.com/rucio/rucio/issues/282>`_
+- Probes & Alarms: Upload/download probe for rucio-clients `#272 <https://github.com/rucio/rucio/issues/272>`_
+- Release management: Add Extras dependency on the possible rucio backend (oracle, mysql, postgresql) `#281 <https://github.com/rucio/rucio/issues/281>`_
+- Testing: Enable travis postgresql tests `#280 <https://github.com/rucio/rucio/issues/280>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Make all queries fully postgresql compatible `#265 <https://github.com/rucio/rucio/issues/265>`_
+- Documentation: Fixed badly merged conf.py file  `#307 <https://github.com/rucio/rucio/issues/307>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Policy-based generation of RucioUI pages `#245 <https://github.com/rucio/rucio/issues/245>`_

@@ -67,7 +67,7 @@ def _get_credentials(rse, endpoint):
             else:
                 raise Exception("Failed to load account credentials")
             logging.debug("Loaded account credentials")
-        except KeyError, e:
+        except KeyError as e:
             raise exception.CannotAuthenticate('RSE %s endpoint %s not in rse account cfg: %s' % (rse, endpoint, e))
         except:
             raise exception.RucioException("Failed to load credentials for RSE(%s) endpoint(%s), error: %s" % (rse, endpoint, traceback.format_exc()))
@@ -109,7 +109,7 @@ def _get_connection(rse, endpoint):
                 logging.debug("Created connection object")
             else:
                 raise exception.CannotAuthenticate("Either access_key, secret_key or is_secure is not defined for RSE %s endpoint %s" % (rse, endpoint))
-        except exception.RucioException, e:
+        except exception.RucioException as e:
             raise e
         except:
             raise exception.RucioException("Failed to get connection for RSE(%s) endpoint(%s), error: %s" % (rse, endpoint, traceback.format_exc()))
@@ -143,7 +143,7 @@ def _get_bucket(rse, endpoint, bucket_name, operation='read'):
             else:
                 result = conn.create_bucket(bucket_name)
                 REGION.set(key, result)
-        except exception.RucioException, e:
+        except exception.RucioException as e:
             raise e
         except:
             raise exception.RucioException("Failed to get bucket on RSE(%s), error: %s" % (rse, traceback.format_exc()))
@@ -226,7 +226,7 @@ def get_signed_urls(urls, rse, operation='read'):
                 result[url] = exception.DestinationNotAccessible(e)
             else:
                 result[url] = exception.ServiceUnavailable(e)
-        except exception.RucioException, e:
+        except exception.RucioException as e:
             result[url] = e
         except:
             result[url] = exception.RucioException("Failed to get signed url for %s, error: %s" % (url, traceback.format_exc()))
@@ -258,7 +258,7 @@ def get_metadata(urls, rse):
                 raise exception.DestinationNotAccessible(e)
             else:
                 raise exception.ServiceUnavailable(e)
-        except exception.RucioException, e:
+        except exception.RucioException as e:
             result[url] = e
         except:
             result[url] = exception.RucioException("Failed to get metadata for %s, error: %s" % (endpoint, traceback.format_exc()))
@@ -388,7 +388,7 @@ def rename(url, new_url, rse):
             raise exception.DestinationNotAccessible(e)
         else:
             raise exception.ServiceUnavailable(e)
-    except exception.RucioException, e:
+    except exception.RucioException as e:
         raise e
     except:
         raise exception.RucioException("Failed to get metadata for %s, error: %s" % (endpoint, traceback.format_exc()))
