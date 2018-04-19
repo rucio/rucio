@@ -1,3 +1,22 @@
+# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
+
 from ConfigParser import ConfigParser
 from datetime import datetime
 from nose.tools import eq_
@@ -15,7 +34,7 @@ def test_patterns_on_file_names():
     pattern = 'filename-with-%Y-weird-%m-date-%d'
     newest, date = srmdumps.get_newest(base_url, pattern, links)
     eq_(newest, links[0])
-    eq_(date, datetime(2015, 01, 30))
+    eq_(date, datetime(2015, 1, 30))
 
 
 def test_the_newest_path():
@@ -29,7 +48,7 @@ def test_the_newest_path():
     pattern = 'filename-with-%Y-weird-%m-date-%d'
     newest, date = srmdumps.get_newest(base_url, pattern, links)
     eq_(newest, '/test/filename-with-2015-weird-01-date-30')
-    eq_(date, datetime(2015, 01, 30))
+    eq_(date, datetime(2015, 1, 30))
 
 
 def test_be_on_directory():
@@ -41,7 +60,7 @@ def test_be_on_directory():
     pattern = 'dir-with-%Y-weird-%m-date-%d/dump'
     newest, date = srmdumps.get_newest(base_url, pattern, links)
     eq_(newest, links[0] + '/dump')
-    eq_(date, datetime(2015, 01, 30))
+    eq_(date, datetime(2015, 1, 30))
 
 
 @raises(Exception)

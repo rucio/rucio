@@ -1,13 +1,23 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-214
-# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2014
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
+# - Yun-Pin Sun <winter0128@gmail.com>, 2012
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 import pysftp
@@ -110,7 +120,7 @@ class Default(protocol.RSEProtocol):
             try:
                 self.__connection.execute('mkdir -p %s' % '/'.join(self.pfn2path(target).split('/')[0:-1]))
                 self.__connection.put(sf, self.pfn2path(target))
-            except Exception, e:
+            except Exception as e:
                 raise exception.DestinationNotAccessible(e)
         except OSError as e:
             if e.errno == 2:

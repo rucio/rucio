@@ -230,20 +230,23 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
-    # lookup for files
+    # lookup for existing files
     files_query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
                                 models.DataIdentifier.bytes, models.DataIdentifier.guid,
-                                models.DataIdentifier.events, models.DataIdentifier.availability,
+                                models.DataIdentifier.events,
+                                models.DataIdentifier.availability,
                                 models.DataIdentifier.adler32, models.DataIdentifier.md5).\
         filter(models.DataIdentifier.did_type == DIDType.FILE).\
         with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')
 
     file_condition = []
     for file in files:
-        file_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name']))
+        file_condition.append(and_(models.DataIdentifier.scope == file['scope'],
+                                   models.DataIdentifier.name == file['name']))
 
-    existing_content = []
+    existing_content, existing_files = [], {}
     if ignore_duplicate:
+        # lookup for existing content
         content_query = session.query(models.ConstituentAssociation.scope,
                                       models.ConstituentAssociation.name,
                                       models.ConstituentAssociation.child_scope,
@@ -258,55 +261,63 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
         for row in content_query.filter(or_(*content_condition)):
             existing_content.append(row)
 
-    contents = []
     for row in files_query.filter(or_(*file_condition)):
-        contents.append({'child_scope': row.scope,
-                         'child_name': row.name,
-                         'scope': scope,
-                         'name': name,
-                         'bytes': row.bytes,
-                         'adler32': row.adler32,
-                         'md5': row.md5,
-                         'guid': row.guid,
-                         'length': row.events})
+        existing_files[row.scope + ':' + row.name] = {'child_scope': row.scope,
+                                                      'child_name': row.name,
+                                                      'scope': scope,
+                                                      'name': name,
+                                                      'bytes': row.bytes,
+                                                      'adler32': row.adler32,
+                                                      'md5': row.md5,
+                                                      'guid': row.guid,
+                                                      'length': row.events}
 
-    new_files, existing_files = [], []
+    contents = []
+    new_files, existing_files_condition = [], []
     for file in files:
-        if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
-            content = {'child_scope': file['scope'],
-                       'child_name': file['name'],
-                       'scope': scope,
-                       'name': name,
-                       'bytes': file['bytes'],
-                       'adler32': file.get('adler32'),
-                       'md5': file.get('md5'),
-                       'guid': file.get('guid'),
-                       'length': file.get('events')}
-            if content not in contents:
-                file['constituent'] = True
-                file['did_type'] = DIDType.FILE
-                file['account'] = account
-                for key in file.get('meta', {}):
-                    file[key] = file['meta'][key]
-                new_files.append(file)
-                contents.append(content)
-            else:
-                existing_files.append(and_(models.DataIdentifier.scope == file['scope'],
-                                           models.DataIdentifier.name == file['name']))
+
+        if file['scope'] + ':' + file['name'] not in existing_files:
+            # For non existing files
+            # Add them to the content
+            contents.append({'child_scope': file['scope'],
+                             'child_name': file['name'],
+                             'scope': scope,
+                             'name': name,
+                             'bytes': file['bytes'],
+                             'adler32': file.get('adler32'),
+                             'md5': file.get('md5'),
+                             'guid': file.get('guid'),
+                             'length': file.get('events')})
+
+            file['constituent'] = True
+            file['did_type'] = DIDType.FILE
+            file['account'] = account
+            for key in file.get('meta', {}):
+                file[key] = file['meta'][key]
+            # Prepare new file registrations
+            new_files.append(file)
+        else:
+            # For existing files
+            # Prepare the dids updates
+            existing_files_condition.append(and_(models.DataIdentifier.scope == file['scope'],
+                                                 models.DataIdentifier.name == file['name']))
+            # Check if they are not already in the content
+            if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
+                contents.append(existing_files[file['scope'] + ':' + file['name']])
 
     # insert into archive_contents
     try:
         new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
-        if existing_files:
+        if existing_files_condition:
             session.query(models.DataIdentifier).\
                 filter(models.DataIdentifier.did_type == DIDType.FILE).\
-                filter(or_(*existing_files)).update({'constituent': True})
+                filter(or_(*existing_files_condition)).update({'constituent': True})
 
+        print contents
         contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
         session.flush()
     except IntegrityError, error:
         raise exception.RucioException(error.args)
-    pass
 
 
 @transactional_session

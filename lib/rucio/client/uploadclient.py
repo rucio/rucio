@@ -118,7 +118,7 @@ class UploadClient:
                 settings['scheme'] = pfn_scheme
 
             if os.path.isdir(path):
-                dname, subdirs, fnames = os.walk(path).next()
+                dname, subdirs, fnames = next(os.walk(path))
                 for fname in fnames:
                     file = self.collect_file_info(os.path.join(dname, fname), settings)
                     files.append(file)
