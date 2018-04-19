@@ -24,7 +24,10 @@ Usage: add_header {file name}
 
 import argparse
 import collections
-import commands
+try:
+    import commands
+except ImportError:
+    import subprocess as commands
 import datetime
 import sys
 
@@ -121,13 +124,13 @@ if __name__ == '__main__':
                     header += '   - %(name)s %(mail)s, %(min)s-%(max)s\n' % authors[author]
 
             if not arguments.dry_run:
-                    with file(MyFile, 'r') as original:
+                    with open(MyFile, 'r') as original:
                         data = original.read()
 
-                    with file(MyFile, 'w') as modified:
+                    with open(MyFile, 'w') as modified:
                         modified.write(header + data)
             else:
-                print header
+                print(header)
 
             sys.exit(0)
 
@@ -171,20 +174,20 @@ if __name__ == '__main__':
         if not arguments.dry_run:
 
             if not arguments.in_place:
-                with file(MyFile, 'r') as original:
+                with open(MyFile, 'r') as original:
                     data = original.read()
 
-                with file(MyFile, 'w') as modified:
+                with open(MyFile, 'w') as modified:
                     modified.write(header + data)
             else:
 
-                with file(MyFile, 'r') as original:
+                with open(MyFile, 'r') as original:
                     lines = original.readlines()
 
-                with file(MyFile, 'w') as modified:
+                with open(MyFile, 'w') as modified:
                     modified.write(header)
                     for line in lines:
                         if not line.startswith('#'):
                             modified.write(line)
         else:
-            print header
+            print(header)
