@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,12 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2014
-# - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2012
+# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
 
 import base64
 
@@ -26,7 +29,12 @@ from traceback import format_exc
 
 from web import application, ctx, OK, BadRequest, header, InternalError
 
-from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token
+from rucio.api.authentication import (get_auth_token_user_pass,
+                                      get_auth_token_gss,
+                                      get_auth_token_x509,
+                                      get_auth_token_ssh,
+                                      get_ssh_challenge_token,
+                                      validate_auth_token)
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController
