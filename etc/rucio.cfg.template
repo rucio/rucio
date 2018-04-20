@@ -8,6 +8,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2015-2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
 [common]
 logdir = /var/log/rucio
@@ -30,6 +31,12 @@ client_x509_proxy = $X509_USER_PROXY
 ssh_private_key = $HOME/.ssh/id_rsa
 account = root
 request_retries = 3
+
+[upload]
+#transfer_timeout = 3600
+
+[download]
+#transfer_timeout = 3600
 
 [database]
 default = sqlite:////tmp/rucio.db
