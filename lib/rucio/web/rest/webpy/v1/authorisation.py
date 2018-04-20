@@ -87,7 +87,7 @@ class SignURL(RucioController):
         svc, operation, url = None, None, None
         try:
             params = parse_qs(ctx.query[1:])
-            lifetime = params.get('lifetime', ['lifetime'])[0]
+            lifetime = params.get('lifetime', [600])[0]
             service = params.get('svc', ['gcs'])[0]
             operation = params.get('op', ['read'])[0]
             url = params.get('url', [None])[0]
@@ -104,7 +104,7 @@ class SignURL(RucioController):
             raise generate_http_error(400, 'ValueError', 'Parameter "op" must be either empty(=read), read, write, or delete.')
 
         try:
-            result = get_signed_url(account, appid, ip, service=service, operation='read', url=url)
+            result = get_signed_url(account, appid, ip, service=service, operation='read', url=url, lifetime=lifetime)
         except RucioException as e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception as e:
