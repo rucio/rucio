@@ -55,7 +55,7 @@ def check_token(rendered_tpl):
     accounts = None
     cookie_accounts = None
     rucio_ui_version = version.version_string()
-    policy = config_get('permission', 'policy')
+    policy = config_get('policy', 'permission')
 
     ui_account = None
     if 'ui_account' in input():

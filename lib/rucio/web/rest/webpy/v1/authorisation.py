@@ -58,7 +58,9 @@ class SignURL(RucioController):
             200 OK
 
         HTTP Error:
+            400 Bad Request
             401 Unauthorized
+            500 Internal Server Error
 
         :param Rucio-Account: Account identifier as a string.
         :param Rucio-AppID: Application identifier as a string.
@@ -76,15 +78,16 @@ class SignURL(RucioController):
 
         try:
             validate_auth_token(ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN'))
-        except RucioException, e:
+        except RucioException as e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except Exception as e:
             print format_exc()
             raise InternalError(e)
 
         svc, operation, url = None, None, None
         try:
             params = parse_qs(ctx.query[1:])
+            lifetime = params.get('lifetime', ['lifetime'])[0]
             service = params.get('svc', ['gcs'])[0]
             operation = params.get('op', ['read'])[0]
             url = params.get('url', [None])[0]
@@ -102,9 +105,9 @@ class SignURL(RucioController):
 
         try:
             result = get_signed_url(account, appid, ip, service=service, operation='read', url=url)
-        except RucioException, e:
+        except RucioException as e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
+        except Exception as e:
             print format_exc()
             raise InternalError(e)
 

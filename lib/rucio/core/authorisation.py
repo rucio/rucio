@@ -30,7 +30,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 CREDS_GCS = ServiceAccountCredentials.from_json_keyfile_name(config_get('authorisation', 'creds_gcs'))
 
 
-def get_signed_url(service, operation, url, expires_at=None):
+def get_signed_url(service, operation, url, lifetime=600):
     """
     Get a signed URL for a particular service and operation.
 
@@ -39,7 +39,7 @@ def get_signed_url(service, operation, url, expires_at=None):
     :param service: The service to authorise, currently only 'gsc'.
     :param operation: The operation to sign, either 'read', 'write', or 'delete'.
     :param url: The URL to sign.
-    :param expires_at: Set expiration timestamp as Unixtime.
+    :param lifetime: Lifetime of the signed URL in seconds.
     :returns: Signed URL as a variable-length string.
     """
 
@@ -59,17 +59,20 @@ def get_signed_url(service, operation, url, expires_at=None):
         operations = {'read': 'GET', 'write': 'PUT', 'delete': 'DELETE'}
         operation = operations[operation]
 
-        # default expiration of one hour
-        # GCS is timezone-sensitive, don't use UTC
-        if expires_at is None:
-            expires_at = datetime.datetime.now() + datetime.timedelta(seconds=600)
-            expires_at = int(time.mktime(expires_at.timetuple()))
+        # special case to test signature, force epoch time
+        if lifetime is None:
+            lifetime = 0
+        else:
+            # GCS is timezone-sensitive, don't use UTC
+            # has to be converted to Unixtime
+            lifetime = datetime.datetime.now() + datetime.timedelta(seconds=lifetime)
+            lifetime = int(time.mktime(lifetime.timetuple()))
 
         # sign the path only
         path = urlparse.urlparse(url).path
 
         # assemble message to sign
-        to_sign = "%s\n\n\n%s\n%s" % (operation, expires_at, path)
+        to_sign = "%s\n\n\n%s\n%s" % (operation, lifetime, path)
 
         # create URL-capable signature
         # first character is always a '=', remove it
@@ -78,7 +81,7 @@ def get_signed_url(service, operation, url, expires_at=None):
         # assemble final signed URL
         signed_url = 'https://storage.googleapis.com%s?GoogleAccessId=%s&Expires=%s&Signature=%s' % (path,
                                                                                                      CREDS_GCS.service_account_email,
-                                                                                                     expires_at,
+                                                                                                     lifetime,
                                                                                                      signature)
 
     return signed_url
