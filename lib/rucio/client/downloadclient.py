@@ -97,10 +97,10 @@ class DownloadClient:
         :raises RucioException: if something unexpected went wrong during the download
         """
         logger = self.logger
-        download_trace = self._get_new_trace_with_defaults(trace_custom_fields)
-        input_items = []
+        trace_custom_fields['uuid'] = generate_uuid()
 
         logger.info('Processing %d item(s) for input' % len(items))
+        input_items = []
         for item in items:
             did_str = item.get('did')
             pfn = item.get('pfn')
@@ -131,7 +131,7 @@ class DownloadClient:
             input_items.append(item)
 
         num_files_in = len(input_items)
-        output_items = self._download_multithreaded(input_items, num_threads, download_trace)
+        output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
         num_files_out = len(output_items)
 
         if num_files_in != num_files_out:
@@ -163,7 +163,7 @@ class DownloadClient:
         :raises RucioException: if something unexpected went wrong during the download
         """
         logger = self.logger
-        download_trace = self._get_new_trace_with_defaults(trace_custom_fields)
+        trace_custom_fields['uuid'] = generate_uuid()
 
         logger.info('Processing %d item(s) for input' % len(items))
         resolved_items = []
@@ -174,19 +174,21 @@ class DownloadClient:
 
             logger.debug('Processing item %s' % did_str)
 
+            new_item = copy.deepcopy(item)
+
             # extend RSE expression to exclude tape RSEs for non-admin accounts
             if not self.is_admin:
-                rse = item.get('rse')
-                item['rse'] = 'istape=False' if not rse else '(%s)&istape=False' % rse
-                logger.debug('RSE-Expression: %s' % item['rse'])
+                rse = new_item.get('rse')
+                new_item['rse'] = 'istape=False' if not rse else '(%s)&istape=False' % rse
+                logger.debug('RSE-Expression: %s' % new_item['rse'])
 
             # resolve any wildcards in the input dids
             did_scope, did_name = self._split_did_str(did_str)
-            new_item = copy.deepcopy(item)
+            logger.debug('Splitted DID: %s:%s' % (did_scope, did_name))
             new_item['scope'] = did_scope
             if '*' in did_name:
-                logger.debug('Resolving wildcarded DID %s:' % did_str)
-                for dsn in self.client.list_dids(did_scope, filters={'name': did_name}):
+                logger.debug('Resolving wildcarded DID %s' % did_str)
+                for dsn in self.client.list_dids(did_scope, filters={'name': did_name}, type='all'):
                     logger.debug('%s:%s' % (did_scope, dsn))
                     new_item['name'] = dsn
                     new_item['did'] = '%s:%s' % (did_scope, dsn)
@@ -208,11 +210,13 @@ class DownloadClient:
 
             # get type of given did
             did_type = self.client.get_did(did_scope, did_name)['type'].upper()
+            logger.debug('Type: %s' % did_type)
+
+            # get replicas (RSEs) with PFNs for each file (especially if its a dataset)
             files_with_replicas = self.client.list_replicas([{'scope': did_scope, 'name': did_name}],
                                                             schemes=item.get('force_scheme'),
                                                             rse_expression=item.get('rse'),
                                                             client_location=detect_client_location())
-            logger.debug('Type: %s' % did_type)
 
             nrandom = item.get('nrandom')
             if nrandom:
@@ -242,14 +246,14 @@ class DownloadClient:
                     dest_dir_name = did_name
 
                 dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'),
-                                                       dest_dir_name, did_name,
+                                                       dest_dir_name, file_did_name,
                                                        item.get('no_subdir'))
                 file_item['dest_dir_path'] = dest_dir_path
 
                 input_items.append(file_item)
 
         num_files_in = len(input_items)
-        output_items = self._download_multithreaded(input_items, num_threads, download_trace)
+        output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
         num_files_out = len(output_items)
 
         if num_files_in != num_files_out:
@@ -257,14 +261,14 @@ class DownloadClient:
 
         return self._check_output(output_items)
 
-    def _download_multithreaded(self, input_items, num_threads, download_trace):
+    def _download_multithreaded(self, input_items, num_threads, trace_custom_fields={}):
         """
         Starts an appropriate number of threads to download items from the input list.
         (This function is meant to be used as class internal only)
 
         :param input_items: list containing the input items to download
         :param num_threads: suggestion of how many threads should be started
-        :param download_trace: pattern of trace that will be send
+        :param trace_custom_fields: Custom key value pairs to send with the traces
 
         :returns: list with output items as dictionaries
         """
@@ -281,7 +285,7 @@ class DownloadClient:
 
         if num_threads < 2:
             logger.info('Using main thread to download %d file(s)' % num_files)
-            self._download_worker(input_queue, output_queue, download_trace, '')
+            self._download_worker(input_queue, output_queue, trace_custom_fields, '')
             return list(output_queue.queue)
 
         logger.info('Using %d threads to download %d files' % (num_threads, num_files))
@@ -290,7 +294,7 @@ class DownloadClient:
             log_prefix = 'Thread %s/%s : ' % (thread_num, num_threads)
             kwargs = {'input_queue': input_queue,
                       'output_queue': output_queue,
-                      'download_trace': download_trace,
+                      'trace_custom_fields': trace_custom_fields,
                       'log_prefix': log_prefix}
             try:
                 thread = Thread(target=self._download_worker, kwargs=kwargs)
@@ -310,7 +314,7 @@ class DownloadClient:
                 thread.kill_received = True
         return list(output_queue.queue)
 
-    def _download_worker(self, input_queue, output_queue, download_trace, log_prefix):
+    def _download_worker(self, input_queue, output_queue, trace_custom_fields, log_prefix):
         """
         This function runs as long as there are items in the input queue,
         downloads them and stores the output in the output queue.
@@ -318,7 +322,7 @@ class DownloadClient:
 
         :param input_queue: queue containing the input items to download
         :param output_queue: queue where the output items will be stored
-        :param download_trace: dictionary representing a pattern of trace that will be send
+        :param trace_custom_fields: Custom key value pairs to send with the traces
         :param log_prefix: string that will be put at the beginning of every log message
         """
         logger = self.logger
@@ -330,7 +334,9 @@ class DownloadClient:
             except Empty:
                 break
             try:
-                download_result = self._download_item(item, copy.deepcopy(download_trace), log_prefix)
+                trace = copy.deepcopy(self.trace_tpl)
+                trace.update(trace_custom_fields)
+                download_result = self._download_item(item, trace, log_prefix)
                 output_queue.put(download_result)
             except KeyboardInterrupt:
                 logger.warning('You pressed Ctrl+C! Exiting gracefully')
@@ -361,9 +367,9 @@ class DownloadClient:
 
         trace['scope'] = did_scope
         trace['filename'] = did_name
-        trace['datasetScope'] = item.get('dataset_scope', '')
-        trace['dataset'] = item.get('dataset_name', '')
-        trace['filesize'] = item.get('bytes')
+        trace.setdefault('dataset_scope', item.get('dataset_scope', ''))
+        trace.setdefault('dataset', item.get('dataset_name', ''))
+        trace.setdefault('filesize', item.get('bytes'))
 
         # if file already exists, set state, send trace, and return
         dest_dir_path = item['dest_dir_path']
@@ -504,6 +510,8 @@ class DownloadClient:
                     'base_dir': dir,
                     'no_subdir': no_subd,
                     'transfer_timeout': transfer_timeout}
+        if pfn:
+            item_tpl['pfn'] = pfn
         input_items = []
         for did in dids:
             item = {}
@@ -511,26 +519,17 @@ class DownloadClient:
             item['did'] = did
             input_items.append(item)
 
+        trace_pattern = {'appid': os.environ.get('RUCIO_TRACE_APPID', None),
+                         'dataset': os.environ.get('RUCIO_TRACE_DATASET', None),
+                         'datasetScope': os.environ.get('RUCIO_TRACE_DATASETSCOPE', None),
+                         'pq': os.environ.get('RUCIO_TRACE_PQ', None),
+                         'taskid': os.environ.get('RUCIO_TRACE_TASKID', None),
+                         'usrdn': os.environ.get('RUCIO_TRACE_USRDN', None)}
+
         if pfn:
-            return self.download_pfns(input_items, nprocs)
+            return self.download_pfns(input_items, nprocs, trace_pattern)
         else:
-            return self.download_dids(input_items, nprocs)
-
-    def _get_new_trace_with_defaults(self, trace_custom_fields={}):
-        """
-        Creates a new copy of the trace template (self.trace_tpl) and
-        optionally applies the given custom attributes
-        (This function is meant to be used as class internal only)
-
-        :param trace_custom_fields: Optional: dictionary containing custom trace attributes
-
-        :returns: the new copy of the trace template
-        """
-        new_trace = copy.deepcopy(self.trace_tpl)
-        new_trace['uuid'] = generate_uuid()
-        for k in trace_custom_fields:
-            new_trace[k] = trace_custom_fields[k]
-        return new_trace
+            return self.download_dids(input_items, nprocs, trace_pattern)
 
     def _split_did_str(self, did_str):
         """
