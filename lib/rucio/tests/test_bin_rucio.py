@@ -30,13 +30,11 @@ from os import remove, unlink, listdir, rmdir, stat
 import nose.tools
 import re
 
-from rucio import version
+from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get
 from rucio.common.utils import generate_uuid, md5
-from rucio.core.account_limit import set_account_limit
-from rucio.core.rse import get_rse_id
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 from rucio.rse import rsemanager as rsemgr
 
@@ -56,14 +54,14 @@ class TestBinRucio():
         self.def_rse = 'MOCK4'
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
-
-        set_account_limit('root', get_rse_id(self.def_rse), -1)
+        self.account_client = AccountLimitClient()
+        self.account_client.set_account_limit('root', self.def_rse, -1)
 
     def test_rucio_version(self):
         """CLIENT(USER): Rucio version"""
         cmd = 'bin/rucio --version'
         exitcode, out, err = execute(cmd)
-        nose.tools.assert_equal(err, 'rucio %s\n' % version.version_string())
+        nose.tools.assert_true('rucio' in err)
 
     def test_rucio_ping(self):
         """CLIENT(USER): Rucio ping"""
@@ -212,7 +210,7 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
+        nose.tools.assert_true("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out)
 
     def test_upload_file_guid(self):
         """CLIENT(USER): Rucio upload file with guid"""
@@ -224,7 +222,7 @@ class TestBinRucio():
         print(out)
         print(err)
         remove(tmp_file1)
-        nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
+        nose.tools.assert_true("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out)
 
     def test_upload_repeated_file(self):
         """CLIENT(USER): Rucio upload repeated files"""
@@ -261,7 +259,7 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file2[5:]), out), None)
+        nose.tools.assert_not_equal("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out, None)
 
     def test_upload_repeated_file_dataset(self):
         """CLIENT(USER): Rucio upload repeated files to dataset"""
@@ -516,7 +514,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out)
         # add quota
-        set_account_limit('root', get_rse_id(tmp_rse), -1)
+        self.account_client.set_account_limit('root', tmp_rse, -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
@@ -529,7 +527,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         # add quota
-        set_account_limit('root', get_rse_id(tmp_rse), -1)
+        self.account_client.set_account_limit('root', tmp_rse, -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
@@ -542,7 +540,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         # add quota
-        set_account_limit('root', get_rse_id(tmp_rse), -1)
+        self.account_client.set_account_limit('root', tmp_rse, -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
@@ -563,7 +561,7 @@ class TestBinRucio():
 
     def test_delete_rule(self):
         """CLIENT(USER): rule deletion"""
-        set_account_limit('root', get_rse_id(self.def_rse), -1)
+        self.account_client.set_account_limit('root', self.def_rse, -1)
         tmp_file1 = file_generator()
         # add files
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
@@ -576,8 +574,7 @@ class TestBinRucio():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-
-        set_account_limit('root', get_rse_id(tmp_rse), -1)
+        self.account_client.set_account_limit('root', tmp_rse, -1)
 
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
