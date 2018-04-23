@@ -8,6 +8,15 @@ Prerequisites
 Setting up a Rucio development environment requires to have Docker installed. Docker is an
 application that makes it simple and easy to run application processes. To install Docker for
 your platform, please refer to the `Docker installation guide <https://docs.docker.com/install/>`_.
+After installation of docker, you can set up a virtual environment for developing Rucio : ::
+
+    virtualenv dev
+    source dev/bin/activate
+    (dev) pip install -r requirements.readthedocs.txt
+
+This will ensure that you have a tested, supported development environment. *Please note that the package from 
+the docker repository for your operating system may have an older version of docker-compose which can result in conflicts*. 
+If you run into such problems, please `open an issue on GitHub <https://github.com/rucio/rucio/issues/new>`_.
 
 Container for Development
 -------------------------

@@ -91,3 +91,4 @@ pytz==2017.3                # World timezone definitions, modern and historical
 Babel==2.5.1                # Internationalization utilities
 git-review==1.26.0          # Command-line tool for Git / Gerrit
 subprocess32==3.2.7         # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
+docker-compose>=1.20.1      # Docker-compose module is necessary for running the dev environment
