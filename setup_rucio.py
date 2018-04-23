@@ -167,12 +167,14 @@ def write_requirements():
 oracle_extras = ['cx_oracle>=5.1']
 postgresql_extras = ['psycopg2>=2.4.2']
 mysql_extras = ['PyMySQL']
-kerberos_extras = ['kerberos>=1.2.5', 'pykerberos>=1.1.14', 'requests-kerberos>=0.11.0']
+kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']
+dev_extras = parse_requirements(requirements_files=['tools/pip-requires-test', ])
 requires = parse_requirements(requirements_files=requirements_files)
 extras_require = dict(oracle=oracle_extras,
                       postgresql=postgresql_extras,
                       mysql=mysql_extras,
-                      kerberos=kerberos_extras)
+                      kerberos=kerberos_extras,
+                      dev=dev_extras)
 depend_links = parse_dependency_links(requirements_files=requirements_files)
 
 
@@ -187,7 +189,7 @@ class CustomSdist(_sdist):
         self.packaging = "default value for this option"
 
     def get_file_list(self):
-        print "Chosen packaging option: " + name
+        print ("Chosen packaging option: " + name)
         self.distribution.data_files = data_files
         _sdist.get_file_list(self)
 
@@ -224,4 +226,7 @@ setup(
     install_requires=requires,
     extras_require=extras_require,
     dependency_links=depend_links,
+    entry_points={'console_scripts': ['rucio-reaper=rucio.clis.daemons.reaper.reaper:main',
+                                      'rucio-dark-reaper=rucio.clis.daemons.reaper.dark:main',
+                                      'rucio-light-reaper=rucio.clis.daemons.reaper.light:main']}
 )
