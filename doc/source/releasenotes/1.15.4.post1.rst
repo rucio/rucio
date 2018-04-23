@@ -1,0 +1,13 @@
+============
+1.15.4.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals:  Adding existing files to archive fails `#1051 <https://github.com/rucio/rucio/issues/1051>`_
