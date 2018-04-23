@@ -11,7 +11,7 @@
   - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
   - Wen Guan, <wen.guan@cern.ch>, 2015
 
 SQLAlchemy models for rucio data
@@ -456,7 +456,8 @@ class QuarantinedReplica(BASE, ModelBase, Versioned):
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     _table_args = (PrimaryKeyConstraint('rse_id', 'path', name='QURD_REPLICAS_STATE_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'))
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'),
+                   Index('QUARANTINED_REPLICAS_PATH_IDX', 'path', 'rse_id', unique=True))
 
 
 class DIDKey(BASE, ModelBase):

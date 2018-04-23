@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,13 +16,13 @@
 # - Vincent Garonne, <vgaronne@gmail.com>, 2016-2018
 
 """
-Reaper is a daemon to manage sub-file deletion
+Reaper is a daemon to manage file on disk but not in Rucio(dark data) deletion
 """
 
 import argparse
 import signal
 
-from rucio.daemons.reaper.light_reaper import run, stop
+from rucio.daemons.reaper.dark_reaper import run, stop
 
 
 def get_parser():
@@ -40,8 +39,7 @@ def get_parser():
     return parser
 
 
-if __name__ == "__main__":
-
+def main():
     signal.signal(signal.SIGTERM, stop)
     parser = get_parser()
     args = parser.parse_args()
