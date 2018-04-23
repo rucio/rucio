@@ -226,8 +226,8 @@ setup(
     dependency_links=depend_links,
     entry_points = {
     'console_scripts':
-        ['rucio-reaper=rucio.daemons.reaper.clis.reaper:main',
-         'rucio-dark-reaper=rucio.daemons.reaper.clis.dark:main',
-         'rucio-light-reaper=rucio.daemons.reaper.clis.light:main'],
+        ['rucio-reaper=rucio.clis.daemons.reaper.reaper:main',
+         'rucio-dark-reaper=rucio.clis.daemons.reaper.dark:main',
+         'rucio-light-reaper=rucio.clis.daemons.reaper.light:main'],
     },
 )
