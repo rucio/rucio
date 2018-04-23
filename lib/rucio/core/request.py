@@ -35,7 +35,7 @@ from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session
-from rucio.transfertool import fts3
+from rucio.transfertool.fts3 import FTS3Transfertool
 
 """
 The core request.py is specifically for handling requests.
@@ -360,7 +360,7 @@ def query_request(request_id, transfertool='fts3', session=None):
     if transfertool == 'fts3':
         try:
             ts = time.time()
-            response = fts3.query(req['external_id'], req['external_host'])
+            response = FTS3Transfertool(external_host=req['external_host']).query(transfer_ids=[req['external_id']], details=False)
             record_timer('core.request.query_request_fts3', (time.time() - ts) * 1000)
             req_status['details'] = response
         except Exception:
@@ -404,7 +404,7 @@ def query_request_details(request_id, transfertool='fts3', session=None):
 
     if transfertool == 'fts3':
         ts = time.time()
-        tmp = fts3.query_details(req['external_id'], req['external_host'])
+        tmp = FTS3Transfertool(external_host=req['external_host']).query(transfer_ids=[req['external_id']], details=True)
         record_timer('core.request.query_details_fts3', (time.time() - ts) * 1000)
         return tmp
 
@@ -659,11 +659,14 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
     except IntegrityError as error:
         raise RucioException(error.args)
 
+    transfertool_map = {}
     for req in reqs:
         # is there a transfer already in FTS3? if so, try to cancel it
         if req[1] is not None:
             try:
-                fts3.cancel(req[1], req[2])
+                if req[2] not in transfertool_map:
+                    transfertool_map[req[2]] = FTS3Transfertool(external_host=req[2])
+                transfertool_map[req[2]].cancel(transfer_ids=[req[1]])
             except Exception as error:
                 logging.warn('Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(error)))
         archive_request(request_id=req[0], session=session)
@@ -679,7 +682,7 @@ def cancel_request_external_id(transfer_id, transfer_host):
 
     record_counter('core.request.cancel_request_external_id')
     try:
-        fts3.cancel(transfer_id, transfer_host)
+        FTS3Transfertool(external_host=transfer_host).cancel(transfer_ids=[transfer_id])
     except:
         raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfer_host, traceback.format_exc()))
 
@@ -957,9 +960,12 @@ def update_requests_priority(priority, filter, session=None):
                 filter['activities'] = filter['activities'].split(',')
             query = query.filter(models.Request.activity.in_(filter['activities']))
 
+        transfertool_map = {}
         for item in query.all():
             try:
-                res = fts3.update_priority(item[1], item[2], priority)
+                if item[2] not in transfertool_map:
+                    transfertool_map[item[2]] = FTS3Transfertool(external_host=item[2])
+                res = transfertool_map[item[2]].update_priority(transfer_id=item[1], priority=priority)
             except:
                 logging.debug("Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
             else:
