@@ -15,13 +15,13 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 
-from nose.tools import assert_equal, assert_raises
+from nose.tools import assert_equal, assert_raises, assert_in, assert_greater
 
 from rucio.client import client
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.authorisation import get_signed_url
 from rucio.core.replica import add_replicas, delete_replicas
-from rucio.core.rse import add_rse, del_rse, add_protocol
+from rucio.core.rse import add_rse, del_rse, add_protocol, add_rse_attribute
 from rucio.tests.common import rse_name_generator
 
 
@@ -96,3 +96,26 @@ class TestAuthorisation(object):
                      'o3NZsey12b9TG2xPVCZ5mJdIvJY0E5KiqEGXVCVChEhecZEyP0cUxjs8xM%2BxhOJ%2BioPQzRsFwVKtVv'
                      'LXestniEGBMY8SY4UuthQVO1Kmq2hg30KcsgXpLzAFheK1tz0GunqPU7%2BYACZMuHj1Hp%2BTnvKNxVuJ'
                      '5MT5g%3D%3D')
+
+    def test_list_replicas_sign_url(self):
+        """ AUTHORISATION: List replicas for an RSE where signature is enabled """
+
+        replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
+                                                            'name': f['name'],
+                                                            'type': 'FILE'} for f in self.files],
+                                                     rse_expression=self.rse)]
+        found_pfns = [replica['pfns'].keys()[0] for replica in replicas]
+        expected_pfns = ['https://storage.googleapis.com:443/atlas-europe-west1/mock/04/92/file-on-gcs_0',
+                         'https://storage.googleapis.com:443/atlas-europe-west1/mock/c6/5f/file-on-gcs_1',
+                         'https://storage.googleapis.com:443/atlas-europe-west1/mock/03/eb/file-on-gcs_2']
+        assert_equal(sorted(found_pfns), sorted(expected_pfns))
+
+        add_rse_attribute(rse=self.rse, key='sign_url_gcs', value=True)
+        replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
+                                                            'name': f['name'],
+                                                            'type': 'FILE'} for f in self.files],
+                                                     rse_expression=self.rse)]
+        found_pfns = [replica['pfns'].keys()[0] for replica in replicas]
+        for pfn in found_pfns:
+            assert_in('&Signature=', pfn)
+            assert_greater(len(pfn), 120)
