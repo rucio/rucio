@@ -14,10 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 
 from datetime import datetime
 from json import dumps, loads
@@ -337,7 +338,7 @@ class ListReplicas(RucioController):
                                        all_states=all_states,
                                        rse_expression=rse_expression,
                                        client_location=client_location,
-                                       domain=domain):
+                                       domain=domain, issuer=ctx.env.get('issuer')):
                 replicas = []
                 dictreplica = {}
                 for rse in rfile['rses']:
