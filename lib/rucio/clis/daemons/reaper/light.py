@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +13,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
-# - Wen Guan, <wguan.icedew@gmail.com>, 2014
+# - Vincent Garonne, <vgaronne@gmail.com>, 2016-2018
 
 """
-Reaper is a daemon to manage file deletion
+Reaper is a daemon to manage sub-file deletion
 """
 
 import argparse
 import signal
 
-from rucio.daemons.reaper.reaper import run, stop
+from rucio.daemons.reaper.light_reaper import run, stop
 
 
 def get_parser():
@@ -33,26 +31,22 @@ def get_parser():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--all-rses", action="store_true", default=False, help='Select RSEs from the quarantined queues')
     parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers per process')
-    parser.add_argument("--threads-per-worker", action="store", default=None, type=int, help='Total number of threads created by each worker')
     parser.add_argument("--chunk-size", action="store", default=10, type=int, help='Chunk size')
     parser.add_argument("--scheme", action="store", default=None, type=str, help='Force the reaper to use a particular protocol, e.g., mock.')
-    parser.add_argument('--greedy', action='store_true', default=False, help='Greedy mode')
-    parser.add_argument('--exclude-rses', action="store", default=None, type=str, help='RSEs expression to exclude RSEs')
-    parser.add_argument('--include-rses', action="store", default=None, type=str, help='RSEs expression to include RSEs')
     parser.add_argument('--rses', nargs='+', type=str, help='List of RSEs')
-    parser.add_argument('--delay-seconds', action="store", default=3600, type=int, help='Delay to retry failed deletion')
     return parser
 
 
-if __name__ == "__main__":
+def main():
 
     signal.signal(signal.SIGTERM, stop)
     parser = get_parser()
     args = parser.parse_args()
     try:
-        run(total_workers=args.total_workers, chunk_size=args.chunk_size, greedy=args.greedy,
-            once=args.run_once, scheme=args.scheme, rses=args.rses, threads_per_worker=args.threads_per_worker,
-            exclude_rses=args.exclude_rses, include_rses=args.include_rses, delay_seconds=args.delay_seconds)
+        run(total_workers=args.total_workers, chunk_size=args.chunk_size,
+            once=args.run_once, scheme=args.scheme, rses=args.rses,
+            all_rses=args.all_rses)
     except KeyboardInterrupt:
         stop()
