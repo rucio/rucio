@@ -42,8 +42,8 @@ logging.basicConfig(stream=sys.stdout,
                                              default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-__USERCERT = config_get('conveyor', 'usercert', False, None)
-__USE_DETERMINISTIC_ID = config_get_bool('conveyor', 'use_deterministic_id', False, False)
+USERCERT = config_get('conveyor', 'usercert', False, None)
+USE_DETERMINISTIC_ID = config_get_bool('conveyor', 'use_deterministic_id', False, False)
 
 REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=1800)
@@ -63,7 +63,7 @@ class FTS3Transfertool(Transfertool):
 
         super(FTS3Transfertool, self).__init__(external_host)
         if self.external_host.startswith('https://'):
-            self.cert = (__USERCERT, __USERCERT)
+            self.cert = (USERCERT, USERCERT)
             self.verify = False
         else:
             self.cert = None
@@ -104,7 +104,7 @@ class FTS3Transfertool(Transfertool):
 
         transfer_id = None
         expected_transfer_id = None
-        if __USE_DETERMINISTIC_ID:
+        if USE_DETERMINISTIC_ID:
             job_params = job_params.copy()
             job_params["id_generator"] = "deterministic"
             job_params["sid"] = files[0]['metadata']['request_id']
