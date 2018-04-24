@@ -66,7 +66,7 @@ class RucioException(Exception):
 
 
 # Please insert new exceptions in alphabetic order
-# and add a new unique error code (current highest = 76)
+# and add a new unique error code (current highest = 80)
 
 class AccessDenied(RucioException):
     """
@@ -830,3 +830,23 @@ class ServerConnectionException(RucioException):
         super(ServerConnectionException, self).__init__(args, kwargs)
         self._message = "Cannot connect to the Rucio server."
         self.error_code = 78
+
+
+class NoFilesUploaded(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(NoFilesUploaded, self).__init__(args, kwargs)
+        self._message = "None of the given files have been uploaded."
+        self.error_code = 79
+
+
+class NotAllFilesUploaded(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(NotAllFilesUploaded, self).__init__(args, kwargs)
+        self._message = "Not all of the given files have been uploaded."
+        self.error_code = 80

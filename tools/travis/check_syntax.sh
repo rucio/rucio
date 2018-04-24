@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
 
 echo '==============================='
 echo 'Running flake8                 '
@@ -32,7 +30,7 @@ echo '==============================='
 echo 'Running pylint                 '
 echo '==============================='
 
-pylint --rcfile=/opt/rucio/pylintrc `cat changed_files.txt` > pylint.out
+pylint --rcfile=pylintrc `cat changed_files.txt` > pylint.out
 
 if [ $(($? & 3)) -ne 0 ]; then
     echo "PYLINT FAILED"
@@ -43,43 +41,13 @@ else
     tail -n 3 pylint.out
 fi
 
-cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
-
-httpd -k start
+# 2to3 --no-diffs lib/rucio  2>&1 |grep 'RefactoringTool: Refactored'|wc
 
 echo '==============================='
-echo "Run Oracle tests"
+echo 'Running Sphinx                 '
 echo '==============================='
 
-/opt/rucio/tools/run_tests_docker.sh -1q
-
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-cp /opt/rucio/etc/docker/travis/rucio_mysql.cfg /opt/rucio/etc/rucio.cfg
-
-httpd -k restart
-
-echo '==============================='
-echo "Run MySQL tests"
-echo '==============================='
-
-/opt/rucio/tools/run_tests_docker.sh -1q
-
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
-
-httpd -k restart
-
-echo '==============================='
-echo "Run Postgresql tests"
-echo '==============================='
-
-/opt/rucio/tools/run_tests_docker.sh -1q
+sphinx-build -T doc/source/  doc/build/html
 
 if [ $? -ne 0 ]; then
     exit 1

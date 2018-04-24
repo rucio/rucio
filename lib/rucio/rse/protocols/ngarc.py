@@ -16,6 +16,7 @@
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
 
 import errno
@@ -110,7 +111,7 @@ class Default(protocol.RSEProtocol):
         """ Closes the connection to RSE."""
         pass
 
-    def __arc_copy(self, src, dest, space_token=None):
+    def __arc_copy(self, src, dest, space_token=None, transfer_timeout=None):
 
         # TODO set proxy path
 
@@ -142,22 +143,24 @@ class Default(protocol.RSEProtocol):
                 raise FileAlreadyExists()
             raise ServiceUnavailable(str(status))
 
-    def get(self, pfn, dest):
+    def get(self, pfn, dest, transfer_timeout=None):
         """ Provides access to files stored inside connected the RSE.
 
             :param pfn Physical file name of requested file
             :param dest Name and path of the files when stored at the client
+            :param transfer_timeout Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        self.__arc_copy(pfn, dest)
+        self.__arc_copy(pfn, dest, transfer_timeout=transfer_timeout)
 
-    def put(self, source, target, source_dir=None):
+    def put(self, source, target, source_dir=None, transfer_timeout=None):
         """ Allows to store files inside the referred RSE.
 
             :param source Physical file name
             :param target Name of the file on the storage system e.g. with prefixed scope
             :param source_dir Path where the to be transferred files are stored in the local file system
+            :param transfer_timeout Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
@@ -171,7 +174,7 @@ class Default(protocol.RSEProtocol):
         if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = self.attributes['extended_attributes']['space_token']
 
-        self.__arc_copy(sf, target, space_token)
+        self.__arc_copy(sf, target, space_token, transfer_timeout=transfer_timeout)
 
     def delete(self, pfn):
         """ Deletes a file from the connected RSE.

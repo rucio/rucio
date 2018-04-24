@@ -175,12 +175,13 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
 
-    def get(self, path, dest):
+    def get(self, path, dest, transfer_timeout=None):
         """
         Provides access to files stored inside connected the RSE.
 
         :param path: Physical file name of requested file
         :param dest: Name and path of the files when stored at the client
+        :param transfer_timeout: Transfer timeout (in seconds)
 
         :raises DestinationNotAccessible: if the destination storage was not accessible.
         :raises ServiceUnavailable: if some generic error occured in the library.
@@ -192,7 +193,7 @@ class Default(protocol.RSEProtocol):
             dest = "file://" + dest
 
         try:
-            status = self.__gfal2_copy(path, dest)
+            status = self.__gfal2_copy(path, dest, transfer_timeout=transfer_timeout)
             if status:
                 raise exception.RucioException()
         except exception.DestinationNotAccessible as error:
@@ -202,13 +203,14 @@ class Default(protocol.RSEProtocol):
         except Exception as error:
             raise exception.ServiceUnavailable(error)
 
-    def put(self, source, target, source_dir):
+    def put(self, source, target, source_dir, transfer_timeout=None):
         """
         Allows to store files inside the referred RSE.
 
         :param source: path to the source file on the client file system
         :param target: path to the destination file on the storage
         :param source_dir: Path where the to be transferred files are stored in the local file system
+        :param transfer_timeout: Transfer timeout (in seconds)
 
         :raises DestinationNotAccessible: if the destination storage was not accessible.
         :raises ServiceUnavailable: if some generic error occured in the library.
@@ -228,7 +230,7 @@ class Default(protocol.RSEProtocol):
             space_token = self.attributes['extended_attributes']['space_token']
 
         try:
-            status = self.__gfal2_copy(str(source_url), str(target), None, space_token)
+            status = self.__gfal2_copy(str(source_url), str(target), None, space_token, transfer_timeout=transfer_timeout)
             if status:
                 raise exception.RucioException()
         except exception.DestinationNotAccessible as error:
@@ -345,7 +347,7 @@ class Default(protocol.RSEProtocol):
 
         return ret
 
-    def __gfal2_copy(self, src, dest, src_spacetoken=None, dest_spacetoken=None):
+    def __gfal2_copy(self, src, dest, src_spacetoken=None, dest_spacetoken=None, transfer_timeout=None):
         """
         Uses gfal2 to copy file from src to dest.
 
@@ -353,6 +355,7 @@ class Default(protocol.RSEProtocol):
         :param src_spacetoken: The source file's space token
         :param dest: Physical destination file name
         :param dest_spacetoken: The destination file's space token
+        :param transfer_timeout: Transfer timeout (in seconds)
 
         :returns: 0 if copied successfully, other than 0 if failed
 
@@ -366,7 +369,8 @@ class Default(protocol.RSEProtocol):
             params.src_spacetoken = str(src_spacetoken)
         if dest_spacetoken:
             params.dst_spacetoken = str(dest_spacetoken)
-        params.timeout = 3600
+        if transfer_timeout:
+            params.timeout = int(transfer_timeout)
 
         dir_name = os.path.dirname(dest)
         # This function will be removed soon. gfal2 will create parent dir automatically.
