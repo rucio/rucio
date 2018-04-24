@@ -148,12 +148,13 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
             grouped_transfers[external_host] = {}
             grouped_jobs[external_host] = []
 
+        verify_checksum = transfer.get('verify_checksum', 'both')
         file = {'sources': transfer['sources'],
                 'destinations': transfer['dest_urls'],
                 'metadata': transfer['file_metadata'],
                 'filesize': int(transfer['file_metadata']['filesize']),
                 'checksum': None,
-                'verify_checksum': transfer['verify_checksum'],
+                'verify_checksum': verify_checksum,
                 'selection_strategy': fts_source_strategy,
                 'request_type': transfer['file_metadata'].get('request_type', None),
                 'activity': str(transfer['file_metadata']['activity'])}
@@ -163,7 +164,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
             if 'adler32' in list(file['metadata'].keys()) and file['metadata']['adler32']:
                 file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
 
-        job_params = {'verify_checksum': transfer['verify_checksum'],
+        job_params = {'verify_checksum': verify_checksum,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
