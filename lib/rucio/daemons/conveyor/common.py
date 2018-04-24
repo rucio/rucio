@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
@@ -64,7 +64,7 @@ def submit_transfer(external_host, job, submitter='submitter', process=0, thread
         transfer_core.prepare_sources_for_transfers(xfers_ret)
         logging.debug("%s:%s finished to prepare transfer" % (process, thread))
     except:
-        logging.error("%s:%s Failed to prepare requests %s state to SUBMITTING(Will not submit jobs but return directly) with error: %s" % (process, thread, xfers_ret.keys(), traceback.format_exc()))
+        logging.error("%s:%s Failed to prepare requests %s state to SUBMITTING(Will not submit jobs but return directly) with error: %s" % (process, thread, list(xfers_ret.keys()), traceback.format_exc()))
         return
 
     # submit the job
@@ -78,8 +78,8 @@ def submit_transfer(external_host, job, submitter='submitter', process=0, thread
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - ts) * 1000 / len(job['files']))
         record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
-    except Exception, ex:
-        logging.error("Failed to submit a job with error %s: %s" % (str(ex), traceback.format_exc()))
+    except Exception as error:
+        logging.error("Failed to submit a job with error %s: %s" % (str(error), traceback.format_exc()))
 
     # register transfer
     xfers_ret = {}
@@ -148,21 +148,23 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
             grouped_transfers[external_host] = {}
             grouped_jobs[external_host] = []
 
+        verify_checksum = transfer.get('verify_checksum', 'both')
         file = {'sources': transfer['sources'],
                 'destinations': transfer['dest_urls'],
                 'metadata': transfer['file_metadata'],
                 'filesize': int(transfer['file_metadata']['filesize']),
                 'checksum': None,
+                'verify_checksum': verify_checksum,
                 'selection_strategy': fts_source_strategy,
                 'request_type': transfer['file_metadata'].get('request_type', None),
                 'activity': str(transfer['file_metadata']['activity'])}
         if file['metadata'].get('verify_checksum', True):
-            if 'md5' in file['metadata'].keys() and file['metadata']['md5']:
+            if 'md5' in list(file['metadata'].keys()) and file['metadata']['md5']:
                 file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
-            if 'adler32' in file['metadata'].keys() and file['metadata']['adler32']:
+            if 'adler32' in list(file['metadata'].keys()) and file['metadata']['adler32']:
                 file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
 
-        job_params = {'verify_checksum': True if file['checksum'] and file['metadata'].get('verify_checksum', True) else False,
+        job_params = {'verify_checksum': verify_checksum,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
@@ -244,7 +246,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
     if include_rses:
         try:
             parsed_rses = parse_expression(include_rses, session=None)
-        except InvalidRSEExpression, e:
+        except InvalidRSEExpression as error:
             logging.error("Invalid RSE exception %s to include RSEs" % (include_rses))
         else:
             for rse in parsed_rses:
@@ -257,8 +259,8 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
     if exclude_rses:
         try:
             parsed_rses = parse_expression(exclude_rses, session=None)
-        except InvalidRSEExpression, e:
-            logging.error("Invalid RSE exception %s to exclude RSEs: %s" % (exclude_rses, e))
+        except InvalidRSEExpression as error:
+            logging.error("Invalid RSE exception %s to exclude RSEs: %s" % (exclude_rses, error))
         else:
             working_rses = [rse for rse in working_rses if rse not in parsed_rses]
 

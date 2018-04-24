@@ -1043,7 +1043,8 @@ def upload(args):
                                                         'md5': f['md5'],
                                                         'filesize': f['bytes']}],
                                                  source_dir=directory,
-                                                 force_pfn=args.pfn)
+                                                 force_pfn=args.pfn,
+                                                 transfer_timeout=args.transfer_timeout)
                     trace['transferEnd'] = time.time()
                     trace['clientState'] = 'DONE'
                     logger.info('File %s:%s successfully uploaded on the storage' % (f['scope'], f['name']))
@@ -1090,7 +1091,8 @@ def upload(args):
                                                     'md5': f['md5'],
                                                     'filesize': f['bytes']}],
                                              source_dir=directory,
-                                             force_pfn=args.pfn)
+                                             force_pfn=args.pfn,
+                                             transfer_timeout=args.transfer_timeout)
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'DONE'
                 logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
@@ -1328,7 +1330,8 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
                                         files=[dlfile],
                                         dest_dir=dest_dir,
                                         force_scheme=protocol['scheme'],
-                                        ignore_checksum=ignore_checksum)
+                                        ignore_checksum=ignore_checksum,
+                                        transfer_timeout=args.transfer_timeout)
 
                         trace['transferEnd'] = time.time()
                         trace['clientState'] = 'DONE'
@@ -2854,6 +2857,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     upload_parser.add_argument('--pfn', dest='pfn', action='store', help='Specify the exact PFN for the upload.')
     upload_parser.add_argument('--name', dest='name', action='store', help='Specify the exact LFN for the upload.')
+    upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('upload', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download subparser
@@ -2868,6 +2872,7 @@ You can filter by key/value, e.g.::
     get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
     get_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     get_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
+    get_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
     get_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
     get_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
     get_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
@@ -2888,6 +2893,7 @@ You can filter by key/value, e.g.::
     download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
     download_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     download_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
+    download_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
     download_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
     download_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
     download_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)

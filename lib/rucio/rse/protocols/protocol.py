@@ -14,6 +14,7 @@ Authors:
 - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 - Martin Barisits, <martin.barisits@cern.ch>, 2018
+- Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
 This module defines the base class for implementing a transfer protocol,
 along with some of the default methods for LFN2PFN translations.
@@ -174,7 +175,7 @@ class RSEProtocol(object):
     def __init__(self, protocol_attr, rse_settings):
         """ Initializes the object with information about the referred RSE.
 
-            :param props: Properties of the reuested protocol
+            :param props: Properties of the requested protocol
         """
         self.attributes = protocol_attr
         self.translator = None
@@ -348,12 +349,13 @@ class RSEProtocol(object):
         """ Closes the connection to RSE."""
         raise NotImplementedError
 
-    def get(self, path, dest):
+    def get(self, path, dest, transfer_timeout=None):
         """
             Provides access to files stored inside connected the RSE.
 
             :param path: Physical file name of requested file
             :param dest: Name and path of the files when stored at the client
+            :param transfer_timeout: Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.
@@ -361,13 +363,14 @@ class RSEProtocol(object):
          """
         raise NotImplementedError
 
-    def put(self, source, target, source_dir):
+    def put(self, source, target, source_dir, transfer_timeout=None):
         """
             Allows to store files inside the referred RSE.
 
             :param source: path to the source file on the client file system
             :param target: path to the destination file on the storage
             :param source_dir: Path where the to be transferred files are stored in the local file system
+            :param transfer_timeout: Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.

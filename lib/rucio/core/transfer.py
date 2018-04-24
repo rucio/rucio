@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 
@@ -34,7 +34,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
-from rucio.transfertool import fts3
+from rucio.transfertool.fts3 import FTS3Transfertool
 
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -76,7 +76,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
-        transfer_id = fts3.submit_bulk_transfers(external_host, job_files, job_params, timeout)
+        transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000 / len(files))
     return transfer_id
 
@@ -285,7 +285,7 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
     if transfertool == 'fts3':
         try:
             ts = time.time()
-            fts_resps = fts3.bulk_query(transfer_ids, request_host, timeout)
+            fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
             record_timer('core.request.bulk_query_transfers', (time.time() - ts) * 1000 / len(transfer_ids))
         except Exception:
             raise
@@ -343,7 +343,7 @@ def query_latest(external_host, state, last_nhours=1):
     record_counter('core.request.query_latest')
 
     ts = time.time()
-    resps = fts3.query_latest(external_host, state, last_nhours)
+    resps = FTS3Transfertool(external_host=external_host).query_latest(state=state, last_nhours=last_nhours)
     record_timer('core.request.query_latest_fts3.%s.%s_hours' % (external_host, last_nhours), (time.time() - ts) * 1000)
 
     if not resps:
@@ -533,6 +533,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id not in rses_info:
                     source_rse = get_rse_name(rse_id=source_rse_id, session=session)
                     rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+                if source_rse_id not in rse_attrs:
+                    rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
                 attr = None
                 if attributes:
@@ -596,7 +598,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
                 # Compute the destination url
                 if rses_info[dest_rse_id]['deterministic']:
-                    dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values()[0]
+                    dest_url = list(protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
                 else:
                     # compute dest url in case of non deterministic
                     # naming convention, etc.
@@ -617,7 +619,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                    dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values()[0]
+                    dest_url = list(protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
 
                 # Get source protocol
                 source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join([matching_scheme[0], matching_scheme[1]]))
@@ -632,7 +634,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             reqs_scheme_mismatch.append(id)
                         continue
 
-                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
 
                 # Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
@@ -659,6 +661,18 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     retry_count = 0
                 fts_list = fts_hosts.split(",")
 
+                verify_checksum = 'both'
+                if rse_attrs[dest_rse_id].get('verify_checksum', 'True').lower() == 'false':
+                    if rse_attrs[source_rse_id].get('verify_checksum', 'True').lower() == 'false':
+                        verify_checksum = 'none'
+                    else:
+                        verify_checksum = 'source'
+                else:
+                    if rse_attrs[source_rse_id].get('verify_checksum', 'True').lower() == 'false':
+                        verify_checksum = 'destination'
+                    else:
+                        verify_checksum = 'both'
+
                 external_host = fts_list[0]
                 if retry_other_fts:
                     external_host = fts_list[retry_count % len(fts_list)]
@@ -677,7 +691,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'filesize': bytes,
                                  'md5': md5,
                                  'adler32': adler32,
-                                 'verify_checksum': rse_attrs[dest_rse_id].get('verify_checksum', True)}
+                                 'verify_checksum': verify_checksum}
 
                 if previous_attempt_id:
                     file_metadata['previous_attempt_id'] = previous_attempt_id
@@ -747,7 +761,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     except RSEProtocolNotSupported:
                         logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], current_schemes))
                         continue
-                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
 
                 if ranking is None:
                     ranking = 0
