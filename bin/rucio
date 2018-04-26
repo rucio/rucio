@@ -1865,6 +1865,7 @@ def download(args):
             dataset_name = ''
             files_with_replicas = [{'bytes': None,
                                     'adler32': None,
+                                    'md5':None,
                                     'scope': arg_did['scope'],
                                     'name': arg_did['name'],
                                     'pfns': {args.pfn: {'rse': args.rse}},
