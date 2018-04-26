@@ -1,16 +1,21 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-'''
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+#  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
+#  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+#  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
@@ -32,7 +37,7 @@ def get_rse_account_usage(rse, session=None):
     result = []
     rse_id = get_rse_id(rse=rse, session=session)
     query = session.query(models.AccountUsage.account, models.AccountUsage.files, models.AccountUsage.bytes, models.AccountLimit.bytes)
-    query = query.join(models.AccountLimit, and_(models.AccountUsage.account == models.AccountLimit.account, models.AccountUsage.rse_id == models.AccountLimit.rse_id)).filter(models.AccountUsage.rse_id == rse_id)
+    query = query.outerjoin(models.AccountLimit, and_(models.AccountUsage.account == models.AccountLimit.account, models.AccountUsage.rse_id == models.AccountLimit.rse_id)).filter(models.AccountUsage.rse_id == rse_id)
     account_limits_tmp = query.all()
     for row in account_limits_tmp:
         result.append({'rse': rse, 'account': row[0], 'used_files': row[1], 'used_bytes': row[2], 'quota_bytes': row[3]})
