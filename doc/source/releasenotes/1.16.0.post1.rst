@@ -1,0 +1,14 @@
+============
+1.16.0.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfer:  Regression in fts3 transfertool due to private variables `#1093 <https://github.com/rucio/rucio/issues/1093>`_
+- Transfer:  Regression in bulk_group_transfer due to missing key `#1092 <https://github.com/rucio/rucio/issues/1092>`_
