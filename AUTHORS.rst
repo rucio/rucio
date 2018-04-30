@@ -31,6 +31,7 @@ Individual contributors to the source code
 - Eric Vaandering <ericvaandering@gmail.com>, 2018
 - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 - Igor Mandrichenko <ivm@fnal.gov>, 2018
+- Shreyansh Khajanchi <shreyansh_k@live.com>, 2018
 
 Organisations employing contributors
 ------------------------------------
