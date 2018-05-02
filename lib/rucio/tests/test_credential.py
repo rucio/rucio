@@ -19,13 +19,13 @@ from nose.tools import assert_equal, assert_raises, assert_in, assert_greater
 
 from rucio.client import client
 from rucio.common.exception import UnsupportedOperation
-from rucio.core.authorisation import get_signed_url
+from rucio.core.credential import get_signed_url
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, del_rse, add_protocol, add_rse_attribute
 from rucio.tests.common import rse_name_generator
 
 
-class TestAuthorisation(object):
+class TestCredential(object):
 
     def setup(self):
 
@@ -62,7 +62,7 @@ class TestAuthorisation(object):
             del_rse(self.rse)
 
     def test_sign_url_gcs(self):
-        """ AUTHORISATION: Sign a URL for Google Cloud Storage """
+        """ CREDENTIAL: Sign a URL for Google Cloud Storage """
 
         assert_raises(UnsupportedOperation, get_signed_url, 'fake-service', 'read', 'http://dummy')
 
@@ -98,7 +98,7 @@ class TestAuthorisation(object):
                      '5MT5g%3D%3D')
 
     def test_list_replicas_sign_url(self):
-        """ AUTHORISATION: List replicas for an RSE where signature is enabled """
+        """ CREDENTIAL: List replicas for an RSE where signature is enabled """
 
         replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
                                                             'name': f['name'],

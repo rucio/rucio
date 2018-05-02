@@ -991,4 +991,4 @@ def perm_get_signed_url(issuer, kwargs):
     :param issuer: Account identifier which issues the command.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or has_account_attribute(account=issuer, key='sign-gcs')

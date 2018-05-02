@@ -17,7 +17,7 @@
 
 from rucio.api import permission
 from rucio.common import exception
-from rucio.core import authorisation
+from rucio.core import credential
 
 
 def get_signed_url(account, appid, ip, service, operation, url, lifetime):
@@ -44,4 +44,4 @@ def get_signed_url(account, appid, ip, service, operation, url, lifetime):
                                                                                                                               url,
                                                                                                                               lifetime))
 
-    return authorisation.get_signed_url(service, operation, url, lifetime)
+    return credential.get_signed_url(service, operation, url, lifetime)
