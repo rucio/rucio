@@ -27,7 +27,7 @@ from rucio.common.exception import UnsupportedOperation
 from oauth2client.service_account import ServiceAccountCredentials
 
 
-CREDS_GCS = ServiceAccountCredentials.from_json_keyfile_name(config_get('authorisation', 'creds_gcs'))
+CREDS_GCS = ServiceAccountCredentials.from_json_keyfile_name(config_get('credentials', 'gcs'))
 
 
 def get_signed_url(service, operation, url, lifetime=600):

@@ -202,5 +202,5 @@ support_rucio = https://github.com/rucio/rucio/issues/
 [webui]
 usercert = /opt/rucio/etc/usercert_with_key.pem
 
-[authorisation]
-creds_gcs = /opt/rucio/etc/google-cloud-storage-test.json
+[credentials]
+gcs = /opt/rucio/etc/google-cloud-storage-test.json

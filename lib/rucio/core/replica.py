@@ -39,7 +39,7 @@ import rucio.core.lock
 
 from rucio.common import exception
 from rucio.common.utils import chunks, clean_surls, str_to_date
-from rucio.core.authorisation import get_signed_url
+from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse, get_rse_id, get_rse_name, get_rse_attribute, get_rses_with_attribute_value
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression

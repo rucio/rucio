@@ -22,7 +22,7 @@ from urlparse import parse_qs
 from web import application, ctx, OK, header, InternalError
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.authorisation import get_signed_url
+from rucio.api.credential import get_signed_url
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController
@@ -42,7 +42,7 @@ class SignURL(RucioController):
         HTTP Success:
             200 OK
 
-        Allow cross-site scripting. Explicit for Authentication.
+        Allow cross-site scripting. Explicit for Authorisation.
         """
 
         header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
