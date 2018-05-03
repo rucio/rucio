@@ -1,14 +1,21 @@
 #!/usr/bin/env python
-"""
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
-"""
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 from json import loads, dumps
 
@@ -44,7 +51,7 @@ class LifetimeException:
             for exception in list_exceptions():
                 yield dumps(exception, cls=APIEncoder) + '\n'
         except LifetimeExceptionNotFound as error:
-            raise generate_http_error(404, 'LifetimeExceptionNotFound', error.args[0][0])
+            raise generate_http_error(404, 'LifetimeExceptionNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -81,13 +88,13 @@ class LifetimeException:
         try:
             exception_id = add_exception(dids=dids, account=ctx.env.get('issuer'), pattern=pattern, comments=comments, expires_at=expires_at)
         except InvalidObject as error:
-            raise generate_http_error(400, 'InvalidObject', error[0][0])
+            raise generate_http_error(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
-            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
         except LifetimeExceptionDuplicate as error:
-            raise generate_http_error(409, 'LifetimeExceptionDuplicate', error.args[0][0])
+            raise generate_http_error(409, 'LifetimeExceptionDuplicate', error.args[0])
         except RucioException as error:
-            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             raise InternalError(error)
         raise Created(dumps(exception_id))
@@ -114,7 +121,7 @@ class LifetimeExceptionId:
                 yield dumps(exception, cls=APIEncoder) + '\n'
 
         except LifetimeExceptionNotFound as error:
-            raise generate_http_error(404, 'LifetimeExceptionNotFound', error.args[0][0])
+            raise generate_http_error(404, 'LifetimeExceptionNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -145,11 +152,11 @@ class LifetimeExceptionId:
         try:
             update_exception(exception_id=exception_id, state=state, issuer=ctx.env.get('issuer'))
         except UnsupportedOperation as error:
-            raise generate_http_error(400, 'UnsupportedOperation', error[0][0])
+            raise generate_http_error(400, 'UnsupportedOperation', error.args[0])
         except AccessDenied as error:
-            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
         except LifetimeExceptionNotFound as error:
-            raise generate_http_error(404, 'LifetimeExceptionNotFound', error[0][0])
+            raise generate_http_error(404, 'LifetimeExceptionNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:

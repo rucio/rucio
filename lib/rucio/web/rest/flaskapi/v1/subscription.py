@@ -1,13 +1,22 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 from json import dumps, loads
 
@@ -45,7 +54,7 @@ class Subscription(MethodView):
                 data += dumps(subscription, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error[0][0])
+            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
         except Exception as error:
             return error, 500
 
@@ -80,11 +89,11 @@ class Subscription(MethodView):
         try:
             update_subscription(name=name, account=account, metadata=metadata, issuer=request.environ.get('issuer'))
         except (InvalidObject, TypeError) as error:
-            return generate_http_error_flask(400, 'InvalidObject', error[0][0])
+            return generate_http_error_flask(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error[0][0])
+            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -126,13 +135,13 @@ class Subscription(MethodView):
                                                comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run,
                                                priority=priority, issuer=request.environ.get('issuer'))
         except (InvalidObject, TypeError) as error:
-            return generate_http_error_flask(400, 'InvalidObject', error[0][0])
+            return generate_http_error_flask(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except SubscriptionDuplicate as error:
-            return generate_http_error_flask(409, 'SubscriptionDuplicate', error.args[0][0])
+            return generate_http_error_flask(409, 'SubscriptionDuplicate', error.args[0])
         except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             return error, 500
 
@@ -170,9 +179,9 @@ class Rules(MethodView):
                         data += dumps(rule, cls=APIEncoder) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error[0][0])
+            return generate_http_error_flask(404, 'SubscriptionNotFound', error[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -225,7 +234,7 @@ class SubscriptionId(MethodView):
         try:
             subscription = get_subscription_by_id(subscription_id)
         except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
