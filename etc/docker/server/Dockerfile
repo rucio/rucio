@@ -20,11 +20,7 @@ RUN rpm -i /tmp/oic.rpm; \
     echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
     ldconfig
 RUN pip install --upgrade pip setuptools
-RUN pip install cx_Oracle rucio j2cli
-# MySQL
-RUN yum install -y MySQL-python
-# Postgres
-RUN yum install -y python-psycopg2.x86_64
+RUN pip install rucio[oracle,mysql,postgres] j2cli
 
 ADD rucio.conf.j2 /tmp/
 ADD httpd.conf /etc/httpd/conf/
