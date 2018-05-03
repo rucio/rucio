@@ -1,16 +1,25 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
-
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
@@ -61,7 +70,7 @@ class Rule(MethodView):
         try:
             rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc)
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -85,11 +94,11 @@ class Rule(MethodView):
             options = params['options']
             update_replication_rule(rule_id=rule_id, options=options, issuer=request.environ.get('issuer'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except ScratchDiskLifetimeConflict as error:
             return generate_http_error_flask(409, 'ScratchDiskLifetimeConflict', error.args[0])
         except ValueError:
@@ -122,11 +131,11 @@ class Rule(MethodView):
         try:
             delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=request.environ.get('issuer'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation as error:
-            return generate_http_error_flask(401, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(401, 'UnsupportedOperation', error.args[0])
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except Exception, error:
             return error, 500
         return "OK", 200
@@ -158,7 +167,7 @@ class AllRule(MethodView):
                 data += dumps(rule, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except Exception as error:
             print format_exc()
             return error, 500
@@ -279,21 +288,21 @@ class AllRule(MethodView):
                                             issuer=request.environ.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule as error:
-            return generate_http_error_flask(409, 'InvalidReplicationRule', error.args[0][0])
+            return generate_http_error_flask(409, 'InvalidReplicationRule', error.args[0])
         except DuplicateRule as error:
             return generate_http_error_flask(409, 'DuplicateRule', error.args[0])
         except InsufficientTargetRSEs as error:
-            return generate_http_error_flask(409, 'InsufficientTargetRSEs', error.args[0][0])
+            return generate_http_error_flask(409, 'InsufficientTargetRSEs', error.args[0])
         except InsufficientAccountLimit as error:
-            return generate_http_error_flask(409, 'InsufficientAccountLimit', error.args[0][0])
+            return generate_http_error_flask(409, 'InsufficientAccountLimit', error.args[0])
         except InvalidRSEExpression as error:
-            return generate_http_error_flask(409, 'InvalidRSEExpression', error.args[0][0])
+            return generate_http_error_flask(409, 'InvalidRSEExpression', error.args[0])
         except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except ReplicationRuleCreationTemporaryFailed as error:
-            return generate_http_error_flask(409, 'ReplicationRuleCreationTemporaryFailed', error.args[0][0])
+            return generate_http_error_flask(409, 'ReplicationRuleCreationTemporaryFailed', error.args[0])
         except InvalidRuleWeight as error:
-            return generate_http_error_flask(409, 'InvalidRuleWeight', error.args[0][0])
+            return generate_http_error_flask(409, 'InvalidRuleWeight', error.args[0])
         except StagingAreaRuleRequiresLifetime as error:
             return generate_http_error_flask(409, 'StagingAreaRuleRequiresLifetime', error.args[0])
         except ScratchDiskLifetimeConflict as error:
@@ -371,9 +380,9 @@ class ReduceRule(MethodView):
                                                issuer=request.environ.get('issuer'))
         # TODO: Add all other error cases here
         except RuleReplaceFailed as error:
-            return generate_http_error_flask(409, 'RuleReplaceFailed', error.args[0][0])
+            return generate_http_error_flask(409, 'RuleReplaceFailed', error.args[0])
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -412,9 +421,9 @@ class MoveRule(MethodView):
                                              rse_expression=rse_expression,
                                              issuer=request.environ.get('issuer'))
         except RuleReplaceFailed as error:
-            return generate_http_error_flask(409, 'RuleReplaceFailed', error.args[0][0])
+            return generate_http_error_flask(409, 'RuleReplaceFailed', error.args[0])
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:

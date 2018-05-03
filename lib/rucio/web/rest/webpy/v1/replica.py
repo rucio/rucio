@@ -1,15 +1,23 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 
 from datetime import datetime
 from json import dumps, loads
@@ -136,13 +144,13 @@ class Replicas(RucioController):
             if metalink:
                 yield '</metalink>\n'
 
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
     def POST(self):
         """
@@ -164,23 +172,23 @@ class Replicas(RucioController):
 
         try:
             add_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
-        except InvalidPath, e:
-            raise generate_http_error(400, 'InvalidPath', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Duplicate, e:
-            raise generate_http_error(409, 'Duplicate', e[0][0])
-        except DataIdentifierAlreadyExists, e:
-            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e[0][0])
-        except RSENotFound, e:
-            raise generate_http_error(404, 'RSENotFound', e[0][0])
-        except ResourceTemporaryUnavailable, e:
-            raise generate_http_error(503, 'ResourceTemporaryUnavailable', e[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except InvalidPath as error:
+            raise generate_http_error(400, 'InvalidPath', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except DataIdentifierAlreadyExists as error:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0])
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except ResourceTemporaryUnavailable as error:
+            raise generate_http_error(503, 'ResourceTemporaryUnavailable', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         raise Created()
 
     def PUT(self):
@@ -202,15 +210,15 @@ class Replicas(RucioController):
 
         try:
             update_replicas_states(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation, e:
-            raise generate_http_error(500, 'UnsupportedOperation', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except UnsupportedOperation as error:
+            raise generate_http_error(500, 'UnsupportedOperation', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         raise OK()
 
     def DELETE(self):
@@ -233,19 +241,19 @@ class Replicas(RucioController):
 
         try:
             delete_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except RSENotFound, e:
-            raise generate_http_error(404, 'RSENotFound', e[0][0])
-        except ResourceTemporaryUnavailable, e:
-            raise generate_http_error(503, 'ResourceTemporaryUnavailable', e[0][0])
-        except ReplicaNotFound, e:
-            raise generate_http_error(404, 'ReplicaNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except ResourceTemporaryUnavailable as error:
+            raise generate_http_error(503, 'ResourceTemporaryUnavailable', error.args[0])
+        except ReplicaNotFound as error:
+            raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         raise OK()
 
 
@@ -374,13 +382,13 @@ class ListReplicas(RucioController):
             if metalink:
                 yield '</metalink>\n'
 
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 class ReplicasDIDs(RucioController):
@@ -414,11 +422,11 @@ class ReplicasDIDs(RucioController):
         try:
             for pfn in get_did_from_pfns(pfns, rse):
                 yield dumps(pfn) + '\n'
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 class BadReplicas(RucioController):
@@ -450,13 +458,13 @@ class BadReplicas(RucioController):
         not_declared_files = {}
         try:
             not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=ctx.env.get('issuer'))
-        except ReplicaNotFound, e:
-            raise generate_http_error(404, 'ReplicaNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except ReplicaNotFound as error:
+            raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         raise Created(dumps(not_declared_files))
 
 
@@ -489,13 +497,13 @@ class SuspiciousReplicas(RucioController):
         not_declared_files = {}
         try:
             not_declared_files = declare_suspicious_file_replicas(pfns=pfns, reason=reason, issuer=ctx.env.get('issuer'))
-        except ReplicaNotFound, e:
-            raise generate_http_error(404, 'ReplicaNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except ReplicaNotFound as error:
+            raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         raise Created(dumps(not_declared_files))
 
 
@@ -537,11 +545,11 @@ class BadReplicasStates(RucioController):
 
         try:
             result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         for row in result:
             yield dumps(row, cls=APIEncoder) + '\n'
 
@@ -576,11 +584,11 @@ class BadReplicasSummary(RucioController):
 
         try:
             result = get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         for row in result:
             yield dumps(row, cls=APIEncoder) + '\n'
 
@@ -612,11 +620,11 @@ class DatasetReplicas(RucioController):
         try:
             for row in list_dataset_replicas(scope=scope, name=name, deep=deep):
                 yield dumps(row, cls=APIEncoder) + '\n'
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 class ReplicasRSE(RucioController):
@@ -638,11 +646,11 @@ class ReplicasRSE(RucioController):
         try:
             for row in list_datasets_per_rse(rse=rse):
                 yield dumps(row, cls=APIEncoder) + '\n'
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
 
 """----------------------

@@ -1,13 +1,22 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 
 from json import loads
 from traceback import format_exc
@@ -43,11 +52,11 @@ class BulkDIDS(MethodView):
 
         try:
             add_temporary_dids(dids=dids, issuer=request.environ.get('issuer'))
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
         return "Created", 201
 
 

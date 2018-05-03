@@ -1,15 +1,23 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2016-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 
 from traceback import format_exc
 from flask import Flask, Blueprint, Response, request, redirect
@@ -132,15 +140,15 @@ class MetaLinkRedirector(MethodView):
             # don't forget to send the metalink footer
             data += '</metalink>\n'
             return Response(data, content_type='application/metalink4+xml')
-        except DataIdentifierNotFound, e:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', e.args[0][0])
-        except ReplicaNotFound, e:
-            return generate_http_error_flask(404, 'ReplicaNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
 
 class HeaderRedirector(MethodView):
@@ -259,13 +267,13 @@ class HeaderRedirector(MethodView):
 
             return 'no redirection possible - file does not exist', 404
 
-        except ReplicaNotFound, e:
-            return generate_http_error_flask(404, 'ReplicaNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
 
 """----------------------

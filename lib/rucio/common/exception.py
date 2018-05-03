@@ -65,8 +65,7 @@ class RucioException(Exception):
         return self._error_string.strip()
 
 
-# Please insert new exceptions in alphabetic order
-# and add a new unique error code (current highest = 80)
+# Please insert new exceptions sorted by error_code, not alphabetically.
 
 class AccessDenied(RucioException):
     """

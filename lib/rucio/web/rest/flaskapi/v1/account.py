@@ -1,17 +1,26 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013, 2018
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
+# - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 from datetime import datetime
 from json import dumps, loads
@@ -53,13 +62,13 @@ class Attributes(MethodView):
         """
         try:
             attribs = list_account_attributes(account)
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
         return Response(dumps(attribs), content_type="application/json")
 
     def post(self, account, key):
@@ -86,23 +95,23 @@ class Attributes(MethodView):
         try:
             key = parameter['key']
             value = parameter['value']
-        except KeyError, e:
-            if e.args[0] == 'key' or e.args[0] == 'value':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'key' or error.args[0] == 'value':
+                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_account_attribute(key=key, value=value, account=account, issuer=request.environ.get('issuer'))
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except Duplicate as e:
-            return generate_http_error_flask(409, 'Duplicate', e.args[0][0])
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except Duplicate as error:
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
             print str(format_exc())
-            return e, 500
+            return error, 500
 
         return "Created", 201
 
@@ -120,12 +129,12 @@ class Attributes(MethodView):
         """
         try:
             del_account_attribute(account=account, key=key, issuer=request.environ.get('issuer'))
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            return e, 500
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
+            return error, 500
 
         return "OK", 200
 
@@ -147,13 +156,13 @@ class Scopes(MethodView):
         """
         try:
             scopes = get_scopes(account)
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
         if not len(scopes):
             return generate_http_error_flask(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account)
@@ -175,17 +184,17 @@ class Scopes(MethodView):
         """
         try:
             add_scope(scope, account, issuer=request.environ.get('issuer'))
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except Duplicate, e:
-            return generate_http_error_flask(409, 'Duplicate', e.args[0][0])
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except Duplicate as error:
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
         return "Created", 201
 
@@ -215,15 +224,15 @@ class AccountParameter(MethodView):
         acc = None
         try:
             acc = get_account_info(account)
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
         dict = acc.to_dict()
 
@@ -257,12 +266,12 @@ class AccountParameter(MethodView):
             set_account_status(account, status=status, issuer=request.environ.get('issuer'))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Unknown status %s' % status)
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            return e, 500
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
+            return error, 500
 
         return "OK", 200
 
@@ -288,30 +297,30 @@ class AccountParameter(MethodView):
         type, email = None, None
         try:
             type = parameter['type']
-        except KeyError, e:
-            if e.args[0] == 'type':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'type':
+                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
         try:
             email = parameter['email']
-        except KeyError, e:
-            if e.args[0] == 'email':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'email':
+                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_account(account, type, email, issuer=request.environ.get('issuer'))
-        except Duplicate as e:
-            return generate_http_error_flask(409, 'Duplicate', e.args[0][0])
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except Duplicate as error:
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
         return "Created", 201
 
@@ -328,12 +337,12 @@ class AccountParameter(MethodView):
         """
         try:
             del_account(account, issuer=request.environ.get('issuer'))
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            return e, 500
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
+            return error, 500
 
         return "OK", 200
 
@@ -383,8 +392,8 @@ class AccountLimits(MethodView):
                 limits = get_account_limit(account=account, rse=rse)
             else:
                 limits = get_account_limits(account=account)
-        except RSENotFound, e:
-            return generate_http_error_flask(404, 'RSENotFound', e.args[0][0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
 
         return Response(render_json(**limits), content_type="application/json")
 
@@ -416,23 +425,23 @@ class Identities(MethodView):
             identity = parameter['identity']
             authtype = parameter['authtype']
             email = parameter['email']
-        except KeyError, e:
-            if e.args[0] == 'authtype' or e.args[0] == 'identity' or e.args[0] == 'email':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
+                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
                 return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, issuer=request.environ.get('issuer'))
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except Duplicate as e:
-            return generate_http_error_flask(409, 'Duplicate', e.args[0][0])
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except Duplicate as error:
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
             print str(format_exc())
-            return e, 500
+            return error, 500
 
         return "Created", 201
 
@@ -456,12 +465,11 @@ class Identities(MethodView):
             for identity in list_identities(account):
                 data += render_json(**identity) + "\n"
             return Response(data, content_type="application/x-json-stream")
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            print e
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
             print str(format_exc())
-            return e, 500
+            return error, 500
 
     def delete(self, account):
 
@@ -486,22 +494,22 @@ class Identities(MethodView):
         try:
             identity = parameter['identity']
             authtype = parameter['authtype']
-        except KeyError, e:
-            if e.args[0] == 'authtype' or e.args[0] == 'identity':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'authtype' or error.args[0] == 'identity':
+                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
         try:
             del_account_identity(identity, authtype, account)
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except IdentityError, e:
-            return generate_http_error_flask(404, 'IdentityError', e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except IdentityError as error:
+            return generate_http_error_flask(404, 'IdentityError', error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
         return "OK", 200
 
@@ -532,11 +540,11 @@ class Rules(MethodView):
             for rule in list_replication_rules(filters=filters):
                 data += dumps(rule, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
-        except RuleNotFound, e:
-            return generate_http_error_flask(404, 'RuleNotFound', e.args[0][0])
-        except Exception, e:
+        except RuleNotFound as error:
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
 
 class Usage1(MethodView):
@@ -561,13 +569,13 @@ class Usage1(MethodView):
             for usage in get_account_usage(account=account, rse=None, issuer=request.environ.get('issuer')):
                 data += dumps(usage, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
 
 class Usage2(MethodView):
@@ -593,15 +601,15 @@ class Usage2(MethodView):
             for usage in get_account_usage(account=account, rse=rse, issuer=request.environ.get('issuer')):
                 data += dumps(usage, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
-        except AccountNotFound, e:
-            return generate_http_error_flask(404, 'AccountNotFound', e.args[0][0])
-        except RSENotFound, e:
-            return generate_http_error_flask(404, 'RSENotFound', e.args[0][0])
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
 
 """----------------------

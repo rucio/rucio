@@ -1,15 +1,23 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
-# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2014
+# - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2012
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 
 import base64
 
@@ -95,11 +103,11 @@ class UserPass(RucioController):
             result = get_auth_token_user_pass(account, username, password, appid, ip)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         if not result:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
@@ -331,11 +339,11 @@ class SSH(RucioController):
             result = get_auth_token_ssh(account, signature, appid, ip)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         if not result:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
@@ -398,11 +406,11 @@ class SSHChallengeToken(RucioController):
 
         try:
             result = get_ssh_challenge_token(account, appid, ip)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
-        except Exception, e:
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         if not result:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot generate challenge for account %(account)s' % locals())
