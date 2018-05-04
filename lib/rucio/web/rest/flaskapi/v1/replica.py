@@ -1,15 +1,23 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013, 2016-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 
 from datetime import datetime
 from json import dumps
@@ -132,13 +140,13 @@ class Replicas(MethodView):
                 data += '</metalink>\n'
 
             return Response(data, content_type=content_type)
-        except DataIdentifierNotFound, e:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
     def post(self):
         """
@@ -165,23 +173,23 @@ class Replicas(MethodView):
 
         try:
             add_replicas(rse=parameters['rse'], files=parameters['files'], issuer=request.environ.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
-        except InvalidPath, e:
-            return generate_http_error_flask(400, 'InvalidPath', e.args[0][0])
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except Duplicate, e:
-            return generate_http_error_flask(409, 'Duplicate', e[0][0])
-        except DataIdentifierAlreadyExists, e:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', e[0][0])
-        except RSENotFound, e:
-            return generate_http_error_flask(404, 'RSENotFound', e[0][0])
-        except ResourceTemporaryUnavailable, e:
-            return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', e[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except InvalidPath as error:
+            return generate_http_error_flask(400, 'InvalidPath', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except Duplicate as error:
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except DataIdentifierAlreadyExists as error:
+            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except ResourceTemporaryUnavailable as error:
+            return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
         return 'Created', 201
 
     def put(self):
@@ -205,15 +213,15 @@ class Replicas(MethodView):
 
         try:
             update_replicas_states(rse=parameters['rse'], files=parameters['files'], issuer=request.environ.get('issuer'))
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation, e:
-            return generate_http_error_flask(500, 'UnsupportedOperation', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except UnsupportedOperation as error:
+            return generate_http_error_flask(500, 'UnsupportedOperation', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
         return 'OK', 200
 
     def delete(self):
@@ -240,19 +248,19 @@ class Replicas(MethodView):
 
         try:
             delete_replicas(rse=parameters['rse'], files=parameters['files'], issuer=request.environ.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
-        except AccessDenied, e:
-            return generate_http_error_flask(401, 'AccessDenied', e.args[0][0])
-        except RSENotFound, e:
-            return generate_http_error_flask(404, 'RSENotFound', e[0][0])
-        except ResourceTemporaryUnavailable, e:
-            return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', e[0][0])
-        except ReplicaNotFound, e:
-            return generate_http_error_flask(404, 'ReplicaNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except ResourceTemporaryUnavailable as error:
+            return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', error.args[0])
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
         return 'OK', 200
 
 
@@ -390,13 +398,13 @@ class ListReplicas(MethodView):
                 data += '</metalink>\n'
 
             return Response(data, content_type=content_type)
-        except DataIdentifierNotFound, e:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
 
 class ReplicasDIDs(MethodView):
@@ -432,11 +440,11 @@ class ReplicasDIDs(MethodView):
             for pfn in get_did_from_pfns(pfns, rse):
                 data += dumps(pfn) + '\n'
             return Response(data, content_type='application/x-json-string')
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
 
 class BadReplicas(MethodView):
@@ -472,13 +480,13 @@ class BadReplicas(MethodView):
         not_declared_files = {}
         try:
             not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'))
-        except ReplicaNotFound, e:
-            return generate_http_error_flask(404, 'ReplicaNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
         return Response(dumps(not_declared_files), status=201, content_type='application/x-json-stream')
 
 
@@ -514,13 +522,13 @@ class SuspiciousReplicas(MethodView):
         not_declared_files = {}
         try:
             not_declared_files = declare_suspicious_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'))
-        except ReplicaNotFound, e:
-            return generate_http_error_flask(404, 'ReplicaNotFound', e.args[0][0])
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
         return Response(dumps(not_declared_files), status=201, content_type='application/x-json-stream')
 
 
@@ -565,11 +573,11 @@ class BadReplicasStates(MethodView):
 
         try:
             result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns)
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
         data = ""
         for row in result:
             data += dumps(row, cls=APIEncoder) + '\n'
@@ -606,11 +614,11 @@ class BadReplicasSummary(MethodView):
 
         try:
             result = get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
         data = ""
         for row in result:
             data += dumps(row, cls=APIEncoder) + '\n'
@@ -639,11 +647,11 @@ class DatasetReplicas(MethodView):
             for row in list_dataset_replicas(scope=scope, name=name, deep=deep):
                 data += dumps(row, cls=APIEncoder) + '\n'
             return Response(data, content_type='application/x-json-stream')
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
 
 class ReplicasRSE(MethodView):
@@ -666,11 +674,11 @@ class ReplicasRSE(MethodView):
             for row in list_datasets_per_rse(rse=rse):
                 data += dumps(row, cls=APIEncoder) + '\n'
             return Response(data, content_type='application/x-json-stream')
-        except RucioException, e:
-            return generate_http_error_flask(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            return e, 500
+            return error, 500
 
 
 bp = Blueprint('did', __name__)

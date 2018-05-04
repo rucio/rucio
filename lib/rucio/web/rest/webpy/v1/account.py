@@ -1,17 +1,26 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
+# - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 from datetime import datetime
 from json import dumps, loads
@@ -71,13 +80,13 @@ class Attributes(RucioController):
         header('Content-Type', 'application/json')
         try:
             attribs = list_account_attributes(account)
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
         return dumps(attribs)
 
     def POST(self, account, key):
@@ -103,23 +112,23 @@ class Attributes(RucioController):
         try:
             key = parameter['key']
             value = parameter['value']
-        except KeyError, e:
-            if e.args[0] == 'key' or e.args[0] == 'value':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'key' or error.args[0] == 'value':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_account_attribute(key=key, value=value, account=account, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Duplicate as e:
-            raise generate_http_error(409, 'Duplicate', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
             print str(format_exc())
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise Created()
 
@@ -139,12 +148,12 @@ class Attributes(RucioController):
         """
         try:
             del_account_attribute(account=account, key=key, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            raise InternalError(e)
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
+            raise InternalError(error)
 
         raise OK()
 
@@ -168,13 +177,13 @@ class Scopes(RucioController):
         header('Content-Type', 'application/json')
         try:
             scopes = get_scopes(account)
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         if not len(scopes):
             raise generate_http_error(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account)
@@ -200,17 +209,17 @@ class Scopes(RucioController):
         """
         try:
             add_scope(scope, account, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Duplicate, e:
-            raise generate_http_error(409, 'Duplicate', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise Created()
 
@@ -245,15 +254,15 @@ class AccountParameter(RucioController):
         acc = None
         try:
             acc = get_account_info(account)
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         dict = acc.to_dict()
 
@@ -286,12 +295,12 @@ class AccountParameter(RucioController):
             set_account_status(account, status=status, issuer=ctx.env.get('issuer'))
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Unknown status %s' % status)
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            raise InternalError(e)
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
+            raise InternalError(error)
 
         raise OK()
 
@@ -320,30 +329,30 @@ class AccountParameter(RucioController):
         type, email = None, None
         try:
             type = parameter['type']
-        except KeyError, e:
-            if e.args[0] == 'type':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'type':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
         try:
             email = parameter['email']
-        except KeyError, e:
-            if e.args[0] == 'email':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'email':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_account(account, type, email, issuer=ctx.env.get('issuer'))
-        except Duplicate as e:
-            raise generate_http_error(409, 'Duplicate', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise Created()
 
@@ -364,12 +373,12 @@ class AccountParameter(RucioController):
 
         try:
             del_account(account, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            raise InternalError(e)
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
+            raise InternalError(error)
 
         raise OK()
 
@@ -423,8 +432,8 @@ class AccountLimits(RucioController):
                 limits = get_account_limit(account=account, rse=rse)
             else:
                 limits = get_account_limits(account=account)
-        except RSENotFound, e:
-            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
 
         return render_json(**limits)
 
@@ -465,23 +474,23 @@ class Identities(RucioController):
             identity = parameter['identity']
             authtype = parameter['authtype']
             email = parameter['email']
-        except KeyError, e:
-            if e.args[0] == 'authtype' or e.args[0] == 'identity' or e.args[0] == 'email':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Duplicate as e:
-            raise generate_http_error(409, 'Duplicate', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
             print str(format_exc())
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise Created()
 
@@ -490,12 +499,11 @@ class Identities(RucioController):
         try:
             for identity in list_identities(account):
                 yield render_json(**identity) + "\n"
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            print e
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
             print str(format_exc())
-            raise InternalError(e)
+            raise InternalError(error)
 
     def PUT(self):
         """ update the limits for an account """
@@ -523,22 +531,22 @@ class Identities(RucioController):
         try:
             identity = parameter['identity']
             authtype = parameter['authtype']
-        except KeyError, e:
-            if e.args[0] == 'authtype' or e.args[0] == 'identity':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except KeyError as error:
+            if error.args[0] == 'authtype' or error.args[0] == 'identity':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
         try:
             del_account_identity(identity, authtype, account)
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except IdentityError, e:
-            raise generate_http_error(404, 'IdentityError', e.args[0][0])
-        except Exception, e:
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except IdentityError as error:
+            raise generate_http_error(404, 'IdentityError', error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
         raise OK()
 
@@ -567,11 +575,11 @@ class Rules(RucioController):
         try:
             for rule in list_replication_rules(filters=filters):
                 yield dumps(rule, cls=APIEncoder) + '\n'
-        except RuleNotFound, e:
-            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
-        except Exception, e:
+        except RuleNotFound as error:
+            raise generate_http_error(404, 'RuleNotFound', error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
     def PUT(self):
         raise BadRequest()
@@ -602,13 +610,13 @@ class Usage1(RucioController):
         try:
             for usage in get_account_usage(account=account, rse=None, issuer=ctx.env.get('issuer')):
                 yield dumps(usage, cls=APIEncoder) + '\n'
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
     def PUT(self):
         raise BadRequest()
@@ -640,15 +648,15 @@ class Usage2(RucioController):
         try:
             for usage in get_account_usage(account=account, rse=rse, issuer=ctx.env.get('issuer')):
                 yield dumps(usage, cls=APIEncoder) + '\n'
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except RSENotFound, e:
-            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Exception, e:
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except Exception as error:
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
 
     def PUT(self):
         raise BadRequest()
