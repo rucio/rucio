@@ -1,17 +1,21 @@
-"""
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-  - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
-
-REST utilities
-"""
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 
 from json import loads
 from time import time
@@ -47,11 +51,11 @@ def rucio_loadhook():
     auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
     try:
         auth = validate_auth_token(auth_token)
-    except RucioException, e:
-        raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-    except Exception, e:
+    except RucioException as error:
+        raise generate_http_error(500, error.__class__.__name__, error.args[0])
+    except Exception as error:
         print format_exc()
-        raise InternalError(e)
+        raise InternalError(error)
 
     if auth is None:
         raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
@@ -95,12 +99,12 @@ def exception_wrapper(f):
             return f(*args, **kwargs)
         except (Created, HTTPError, OK, seeother):
             raise
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
-            print type(e)
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print type(error)
             print format_exc()
-            raise InternalError(e)
+            raise InternalError(error)
     return decorated
 
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +20,6 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-
 
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
@@ -84,7 +84,7 @@ class Rule:
         try:
             rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc)
         except RuleNotFound as error:
-            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+            raise generate_http_error(404, 'RuleNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -110,11 +110,11 @@ class Rule:
             options = params['options']
             update_replication_rule(rule_id=rule_id, options=options, issuer=ctx.env.get('issuer'))
         except AccessDenied as error:
-            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RuleNotFound as error:
-            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+            raise generate_http_error(404, 'RuleNotFound', error.args[0])
         except AccountNotFound as error:
-            raise generate_http_error(404, 'AccountNotFound', error.args[0][0])
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
         except ScratchDiskLifetimeConflict as error:
             raise generate_http_error(409, 'ScratchDiskLifetimeConflict', error.args[0])
         except ValueError:
@@ -149,12 +149,12 @@ class Rule:
         try:
             delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=ctx.env.get('issuer'))
         except AccessDenied as error:
-            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation as error:
-            raise generate_http_error(401, 'UnsupportedOperation', error.args[0][0])
+            raise generate_http_error(401, 'UnsupportedOperation', error.args[0])
         except RuleNotFound as error:
-            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
-        except Exception, error:
+            raise generate_http_error(404, 'RuleNotFound', error.args[0])
+        except Exception as error:
             raise InternalError(error)
         raise OK()
 
@@ -185,7 +185,7 @@ class AllRule:
             for rule in list_replication_rules(filters=filters):
                 yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound as error:
-            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+            raise generate_http_error(404, 'RuleNotFound', error.args[0])
         except Exception as error:
             print format_exc()
             raise InternalError(error)
@@ -276,21 +276,21 @@ class AllRule:
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule as error:
-            raise generate_http_error(409, 'InvalidReplicationRule', error.args[0][0])
+            raise generate_http_error(409, 'InvalidReplicationRule', error.args[0])
         except DuplicateRule as error:
-            raise generate_http_error(409, 'DuplicateRule', error.args)
+            raise generate_http_error(409, 'DuplicateRule', error.args[0])
         except InsufficientTargetRSEs as error:
-            raise generate_http_error(409, 'InsufficientTargetRSEs', error.args[0][0])
+            raise generate_http_error(409, 'InsufficientTargetRSEs', error.args[0])
         except InsufficientAccountLimit as error:
-            raise generate_http_error(409, 'InsufficientAccountLimit', error.args[0][0])
+            raise generate_http_error(409, 'InsufficientAccountLimit', error.args[0])
         except InvalidRSEExpression as error:
-            raise generate_http_error(409, 'InvalidRSEExpression', error.args[0][0])
+            raise generate_http_error(409, 'InvalidRSEExpression', error.args[0])
         except DataIdentifierNotFound as error:
-            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0][0])
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except ReplicationRuleCreationTemporaryFailed as error:
-            raise generate_http_error(409, 'ReplicationRuleCreationTemporaryFailed', error.args[0][0])
+            raise generate_http_error(409, 'ReplicationRuleCreationTemporaryFailed', error.args[0])
         except InvalidRuleWeight as error:
-            raise generate_http_error(409, 'InvalidRuleWeight', error.args[0][0])
+            raise generate_http_error(409, 'InvalidRuleWeight', error.args[0])
         except StagingAreaRuleRequiresLifetime as error:
             raise generate_http_error(409, 'StagingAreaRuleRequiresLifetime', error.args[0])
         except ScratchDiskLifetimeConflict as error:
@@ -301,8 +301,7 @@ class AllRule:
             raise generate_http_error(409, 'InvalidObject', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print error
+        except Exception as error:
             print format_exc()
             raise InternalError(error)
 
@@ -371,9 +370,9 @@ class ReduceRule:
                                                issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except RuleReplaceFailed as error:
-            raise generate_http_error(409, 'RuleReplaceFailed', error.args[0][0])
+            raise generate_http_error(409, 'RuleReplaceFailed', error.args[0])
         except RuleNotFound as error:
-            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+            raise generate_http_error(404, 'RuleNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -414,9 +413,9 @@ class MoveRule:
                                              rse_expression=rse_expression,
                                              issuer=ctx.env.get('issuer'))
         except RuleReplaceFailed as error:
-            raise generate_http_error(409, 'RuleReplaceFailed', error.args[0][0])
+            raise generate_http_error(409, 'RuleReplaceFailed', error.args[0])
         except RuleNotFound as error:
-            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+            raise generate_http_error(404, 'RuleNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
