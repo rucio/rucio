@@ -1,15 +1,22 @@
 #!/usr/bin/env python
-''' Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014-2015
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
-'''
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 
 import json
 
@@ -58,13 +65,13 @@ class UserPass(RucioController):
 
         try:
             add_identity(username, 'userpass', password)
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
         try:
             add_account_identity(username, 'userpass', account,
                                  email=None, issuer=ctx.env.get('issuer'))
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
         raise Created()
@@ -92,13 +99,13 @@ class X509(RucioController):
         dn = ctx.env.get('SSL_CLIENT_S_DN')
         try:
             add_identity(dn, 'x509', email=None)
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
         try:
             add_account_identity(dn, 'x509', account,
                                  email=None, issuer=ctx.env.get('issuer'))
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
         raise Created()
@@ -126,13 +133,13 @@ class GSS(RucioController):
         gsscred = ctx.env.get('REMOTE_USER')
         try:
             add_identity(gsscred, 'gss', email=None)
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
         try:
             add_account_identity(gsscred, 'gss', account,
                                  email=None, issuer=ctx.env.get('issuer'))
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
         raise Created()
@@ -157,8 +164,7 @@ class Accounts(RucioController):
         """
         try:
             return json.dumps(list_accounts_for_identity(identity_key, type))
-        except Exception, error:
-            print error
+        except Exception as error:
             print str(format_exc())
             raise InternalError(error)
 

@@ -1,18 +1,26 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013, 2015, 2018
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
-# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Martin Baristis, <martin.barisits@cern.ch>, 2014-2015
+# - Angelos Molfetas <angelos.molfetas@cern.ch>, 2012
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
 
 from json import dumps, loads
 from traceback import format_exc
@@ -86,7 +94,7 @@ class Scope(MethodView):
                 data += render_json(**did) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -148,9 +156,9 @@ class Search(MethodView):
                 data += dumps(did) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except UnsupportedOperation, error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except KeyNotFound, error:
-            return generate_http_error_flask(404, 'KeyNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -206,17 +214,17 @@ class BulkDIDS(MethodView):
             print json_data
             add_dids(json_data, issuer=request.environ.get('issuer'))
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent, error:
-            return generate_http_error_flask(409, 'DuplicateContent', error.args[0][0])
+            return generate_http_error_flask(409, 'DuplicateContent', error.args[0])
         except DataIdentifierAlreadyExists, error:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
         except AccessDenied, error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation, error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except DatabaseException, error:
-            return generate_http_error_flask(500, 'DatabaseException', error.args)
+            return generate_http_error_flask(500, 'DatabaseException', error.args[0])
         except RucioException, error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
@@ -250,15 +258,15 @@ class Attachments(MethodView):
         try:
             attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=request.environ.get('issuer'))
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent, error:
-            return generate_http_error_flask(409, 'DuplicateContent', error.args[0][0])
+            return generate_http_error_flask(409, 'DuplicateContent', error.args[0])
         except DataIdentifierAlreadyExists, error:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
         except AccessDenied, error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation, error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except RucioException, error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
@@ -309,11 +317,11 @@ class DIDs(MethodView):
             did = get_did(scope=scope, name=name, dynamic=dynamic)
             return Response(render_json(**did), content_type='application/json')
         except ScopeNotFound, error:
-            return generate_http_error_flask(404, 'ScopeNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'ScopeNotFound', error.args[0])
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException, error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -377,19 +385,19 @@ class DIDs(MethodView):
         try:
             add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, dids=dids, rse=rse, issuer=request.environ.get('issuer'))
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent, error:
-            return generate_http_error_flask(409, 'DuplicateContent', error.args[0][0])
+            return generate_http_error_flask(409, 'DuplicateContent', error.args[0])
         except DataIdentifierAlreadyExists, error:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
         except AccessDenied, error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation, error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except DatabaseException, error:
-            return generate_http_error_flask(500, 'DatabaseException', error.args)
+            return generate_http_error_flask(500, 'DatabaseException', error.args[0])
         except RucioException, error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -434,15 +442,15 @@ class DIDs(MethodView):
         try:
             set_status(scope=scope, name=name, issuer=request.environ.get('issuer'), **kwargs)
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except UnsupportedStatus, error:
-            return generate_http_error_flask(409, 'UnsupportedStatus', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedStatus', error.args[0])
         except UnsupportedOperation, error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except AccessDenied, error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except RucioException, error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -490,9 +498,9 @@ class Attachment(MethodView):
                 data += render_json(**did) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException, error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -539,15 +547,15 @@ class Attachment(MethodView):
         try:
             attach_dids(scope=scope, name=name, attachment=json_data, issuer=request.environ.get('issuer'))
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent, error:
-            return generate_http_error_flask(409, 'DuplicateContent', error.args[0][0])
+            return generate_http_error_flask(409, 'DuplicateContent', error.args[0])
         except AccessDenied, error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation, error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except RSENotFound, error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except RucioException, error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
@@ -581,11 +589,11 @@ class Attachment(MethodView):
         try:
             detach_dids(scope=scope, name=name, dids=dids, issuer=request.environ.get('issuer'))
         except UnsupportedOperation, error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except AccessDenied, error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -616,9 +624,9 @@ class AttachmentHistory(MethodView):
                 data += render_json(**did) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException, error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -651,9 +659,9 @@ class Files(MethodView):
                 data += dumps(file) + "\n"
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException, error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -681,9 +689,9 @@ class Parents(MethodView):
                 data += render_json(**dataset) + "\n"
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException, error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -710,9 +718,9 @@ class Meta(MethodView):
             meta = get_metadata(scope=scope, name=name)
             return Response(render_json(**meta), content_type='application/json')
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException, error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -748,15 +756,15 @@ class Meta(MethodView):
             set_metadata(scope=scope, name=name, key=key, value=value,
                          issuer=request.environ.get('issuer'), recursive=recursive)
         except Duplicate, error:
-            return generate_http_error_flask(409, 'Duplicate', error[0][0])
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
         except KeyNotFound, error:
-            return generate_http_error_flask(400, 'KeyNotFound', error[0][0])
+            return generate_http_error_flask(400, 'KeyNotFound', error.args[0])
         except InvalidMetadata, error:
-            return generate_http_error_flask(400, 'InvalidMetadata', error[0][0])
+            return generate_http_error_flask(400, 'InvalidMetadata', error.args[0])
         except InvalidValueForKey, error:
-            return generate_http_error_flask(400, 'InvalidValueForKey', error[0][0])
+            return generate_http_error_flask(400, 'InvalidValueForKey', error.args[0])
         except RucioException, error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0][0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
             print format_exc()
             return error, 500
@@ -788,7 +796,7 @@ class Rules(MethodView):
                 data += dumps(rule, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except RuleNotFound, error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except RucioException, error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
@@ -845,7 +853,7 @@ class GUIDLookup(MethodView):
                 data += dumps(dataset, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException, error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
@@ -879,15 +887,15 @@ class Sample(MethodView):
         try:
             create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, issuer=request.environ.get('issuer'), nbfiles=nbfiles)
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent, error:
-            return generate_http_error_flask(409, 'DuplicateContent', error.args[0][0])
+            return generate_http_error_flask(409, 'DuplicateContent', error.args[0])
         except DataIdentifierAlreadyExists, error:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
         except AccessDenied, error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation, error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except DatabaseException, error:
             return generate_http_error_flask(500, 'DatabaseException', error.args)
         except RucioException, error:
@@ -955,17 +963,17 @@ class Resurrect(MethodView):
         try:
             resurrect(dids=dids, issuer=request.environ.get('issuer'))
         except DataIdentifierNotFound, error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0][0])
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent, error:
-            return generate_http_error_flask(409, 'DuplicateContent', error.args[0][0])
+            return generate_http_error_flask(409, 'DuplicateContent', error.args[0])
         except DataIdentifierAlreadyExists, error:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0][0])
+            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
         except AccessDenied, error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0][0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation, error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0][0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except DatabaseException, error:
-            return generate_http_error_flask(500, 'DatabaseException', error.args)
+            return generate_http_error_flask(500, 'DatabaseException', error.args[0])
         except RucioException, error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
