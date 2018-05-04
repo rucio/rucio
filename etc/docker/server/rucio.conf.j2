@@ -40,7 +40,14 @@ CacheRoot /tmp
  SSLCipherSuite           HIGH:!CAMELLIA:!ADH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!3DES
 {% endif %}
  LogLevel info
+
+{% if RUCIO_ENABLE_LOGFILE|default('False') == 'True' %}
  CustomLog logs/access_log combinedrucio
+ ErrorLog logs/error_log
+{% else %}
+ CustomLog /dev/stdout combinedrucio
+ ErrorLog /dev/stderr
+{% endif %}
 
  WSGIScriptAlias /ping                   /usr/lib/python2.7/site-packages/rucio/web/rest/ping.py
  WSGIScriptAlias /accounts               /usr/lib/python2.7/site-packages/rucio/web/rest/account.py
