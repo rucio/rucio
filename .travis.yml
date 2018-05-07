@@ -15,6 +15,7 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 sudo: required
 
@@ -50,12 +51,12 @@ script:
   - if [[ $SUITE == "all" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_tests_docker.sh -1q" ; fi
 
 env:
+    - SUITE=syntax
+    - SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
     - SUITE=all RDBMS=oracle
     - SUITE=all RDBMS=mysql
     - SUITE=all RDBMS=postgres
     - SUITE=all RDBMS=sqlite
-    - SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
-    - SUITE=syntax
 
 matrix:
   fast_finish: true
