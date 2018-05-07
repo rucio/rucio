@@ -27,7 +27,6 @@ language: python
 python:
   - 2.6
   - 2.7
-#  - 3.4
   - 3.5
   - 3.6
 
@@ -51,12 +50,12 @@ script:
   - if [[ $SUITE == "all" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_tests_docker.sh -1q" ; fi
 
 env:
-    - SUITE=syntax
-    - SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
     - SUITE=all RDBMS=oracle
     - SUITE=all RDBMS=mysql
     - SUITE=all RDBMS=postgres
     - SUITE=all RDBMS=sqlite
+    - SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
+    - SUITE=syntax
 
 matrix:
   fast_finish: true
