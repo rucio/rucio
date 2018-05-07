@@ -32,8 +32,6 @@ elif [[ $SUITE == "syntax" ]]; then
     pip install google_compute_engine
     pip install .[dev]
     cp etc/docker/travis/rucio_sqlite.cfg etc/rucio.cfg
-    ls -l etc/
-    grep credentials etc/rucio.cfg
 
 elif [[ $SUITE == "all" ]]; then
 
