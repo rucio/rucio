@@ -32,6 +32,7 @@ elif [[ $SUITE == "syntax" ]]; then
     pip install google_compute_engine
     pip install .[dev]
     cp etc/docker/travis/rucio_sqlite.cfg etc/rucio.cfg
+    cp etc/docker/travis/google-cloud-storage-test.json /opt/rucio/etc/google-cloud-storage-test.json
 
 elif [[ $SUITE == "all" ]]; then
 
