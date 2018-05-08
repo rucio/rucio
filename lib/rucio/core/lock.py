@@ -334,7 +334,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                 for ds_lock in ds_locks:
                     ds_lock.state = LockState.OK
                 session.flush()
-                rucio.core.rule.generate_message_for_dataset_ok_callback(rule=rule, session=session)
+            rucio.core.rule.generate_rule_notifications(rule=rule, session=session)
             if rule.notification == RuleNotification.YES:
                 rucio.core.rule.generate_email_for_rule_ok_notification(rule=rule, session=session)
             # Try to release potential parent rules
