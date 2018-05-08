@@ -1323,7 +1323,7 @@ def set_status(scope, name, session=None, **kwargs):
         if not values['is_open']:
             rules_on_ds = session.query(models.ReplicationRule).filter_by(scope=scope, name=name).all()
             for rule in rules_on_ds:
-                rucio.core.rule.generate_message_for_dataset_ok_callback(rule=rule, session=session)
+                rucio.core.rule.generate_rule_notifications(rule=rule, session=session)
 
 
 @stream_session
