@@ -1,14 +1,22 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
 
 from rucio.api import permission
 from rucio.db.sqla.constants import BadFilesStatus
@@ -81,7 +89,7 @@ def get_did_from_pfns(pfns, rse):
 
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, rse_expression=None,
-                  client_location=None, domain=None):
+                  client_location=None, domain=None, lifetime=None, issuer=None):
     """
     List file replicas for a list of data identifiers.
 
@@ -93,13 +101,23 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
     :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
     :param domain: The network domain for the call, either None, 'wan' or 'lan'. Compatibility fallback: None falls back to 'wan'.
+    :param lifetime: If supported, in seconds, restrict the lifetime of the replica PFN.
+    :param issuer: The issuer account.
     """
     validate_schema(name='r_dids', obj=dids)
+
+    # Allow selected authenticated users to retrieve signed URLs.
+    # Unauthenticated users, or permission-less users will get the raw URL without the signature.
+    sign_urls = False
+    if permission.has_permission(issuer=issuer, action='get_signed_urls', kwargs={}):
+        sign_urls = True
+
     return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable,
                                  request_id=request_id,
                                  ignore_availability=ignore_availability,
                                  all_states=all_states, rse_expression=rse_expression,
-                                 client_location=client_location, domain=domain)
+                                 client_location=client_location, domain=domain,
+                                 sign_urls=sign_urls, lifetime=lifetime)
 
 
 def add_replicas(rse, files, issuer, ignore_availability=False):

@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 # do not accidentally commit config files
@@ -15,6 +15,7 @@ etc/web/httpd*.conf
 etc/web/lighttpd*.conf
 etc/alembic.ini
 etc/ldap.cfg
+etc/rucio-server-gcs.json
 alembic.ini
 .gitlabkey
 .githubtoken
@@ -53,6 +54,7 @@ cache/
 .tox
 lib/rucio/vcsversion.py
 rucio.egg-info
+pylint.out
 
 # Mac OS X Finder
 .DS_Store
