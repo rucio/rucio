@@ -89,7 +89,7 @@ def get_did_from_pfns(pfns, rse):
 
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, rse_expression=None,
-                  client_location=None, domain=None, issuer=None):
+                  client_location=None, domain=None, lifetime=None, issuer=None):
     """
     List file replicas for a list of data identifiers.
 
@@ -101,6 +101,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
     :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
     :param domain: The network domain for the call, either None, 'wan' or 'lan'. Compatibility fallback: None falls back to 'wan'.
+    :param lifetime: If supported, in seconds, restrict the lifetime of the replica PFN.
     :param issuer: The issuer account.
     """
     validate_schema(name='r_dids', obj=dids)
@@ -115,7 +116,8 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                                  request_id=request_id,
                                  ignore_availability=ignore_availability,
                                  all_states=all_states, rse_expression=rse_expression,
-                                 client_location=client_location, domain=domain, sign_urls=sign_urls)
+                                 client_location=client_location, domain=domain,
+                                 sign_urls=sign_urls, lifetime=lifetime)
 
 
 def add_replicas(rse, files, issuer, ignore_availability=False):

@@ -434,12 +434,13 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
 
 
 @read_session
-def get_rse_attribute(key, rse_id=None, session=None):
+def get_rse_attribute(key, rse_id=None, value=None, session=None):
     """
     Retrieve RSE attribute value.
 
     :param rse_id: The RSE id.
     :param key: The key for the attribute.
+    :param value: Optionally, the desired value for the attribute.
     :param session: The database session in use.
 
     :returns: A list with RSE attribute values for a Key.
@@ -447,8 +448,12 @@ def get_rse_attribute(key, rse_id=None, session=None):
     rse_attrs = []
     if rse_id:
         query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).distinct()
+        if value:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key, value=value).distinct()
     else:
         query = session.query(models.RSEAttrAssociation.value).filter_by(key=key).distinct()
+        if value:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(key=key, value=value).distinct()
     for attr_value in query:
         rse_attrs.append(attr_value[0])
     return rse_attrs
