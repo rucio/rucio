@@ -6,26 +6,32 @@
 #
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
 
+FROM centos:7
 
-FROM rucio/rucio-systemd-cc7
-ENV container docker
-
-# Set the working directory to /app
 WORKDIR /tmp
+ADD oic.rpm /tmp
 
-# Copy the current directory contents into the container at /app
-ADD . /tmp
+RUN yum install -y epel-release.noarch
+RUN yum upgrade -y
+RUN yum install -y httpd mod_wsgi python-pip libaio gcc python-devel.x86_64 mod_ssl
 
-RUN pip install rucio_webui
+RUN rpm -i /tmp/oic.rpm; \
+    echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
+    ldconfig
+RUN pip install --upgrade pip setuptools
+RUN pip install rucio_webui PyMySQL cx_Oracle psycopg2 j2cli
 
-RUN cp rucio.conf /etc/httpd/conf.d/rucio.conf; \
-    cp httpd.conf /etc/httpd/conf/httpd.conf; \
-    rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/zgridsite.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/userdir.conf
+ADD rucio.conf.j2 /tmp/
+ADD httpd.conf /etc/httpd/conf/
+ADD docker-entrypoint.sh /
+RUN rm /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/ssl.conf
 
 VOLUME /var/log/httpd
+VOLUME /opt/rucio/etc
+VOLUME /etc/grid-security
 
-RUN systemctl enable httpd.service
 EXPOSE 443
-CMD ["/usr/sbin/init"]
 
+ENTRYPOINT ["/docker-entrypoint.sh"]
