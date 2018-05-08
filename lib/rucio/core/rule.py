@@ -282,9 +282,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 if new_rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.OK})
                     session.flush()
-                    generate_message_for_dataset_ok_callback(rule=new_rule, session=session)
                 if new_rule.notification == RuleNotification.YES:
                     generate_email_for_rule_ok_notification(rule=new_rule, session=session)
+                generate_rule_notifications(rule=new_rule, session=session)
             else:
                 new_rule.state = RuleState.REPLICATING
                 if new_rule.grouping != RuleGrouping.NONE:
@@ -499,9 +499,9 @@ def add_rules(dids, rules, session=None):
                         if new_rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.OK})
                             session.flush()
-                            generate_message_for_dataset_ok_callback(rule=new_rule, session=session)
                         if new_rule.notification == RuleNotification.YES:
                             generate_email_for_rule_ok_notification(rule=new_rule, session=session)
+                        generate_rule_notifications(rule=new_rule, session=session)
                     else:
                         new_rule.state = RuleState.REPLICATING
                         if new_rule.grouping != RuleGrouping.NONE:
@@ -624,9 +624,9 @@ def inject_rule(rule_id, session=None):
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                 session.flush()
-                generate_message_for_dataset_ok_callback(rule=rule, session=session)
             if rule.notification == RuleNotification.YES:
                 generate_email_for_rule_ok_notification(rule=rule, session=session)
+            generate_rule_notifications(rule=rule, session=session)
             # Try to release potential parent rules
             release_parent_rule(child_rule_id=rule.id, session=session)
         else:
@@ -1053,9 +1053,9 @@ def repair_rule(rule_id, session=None):
         if rule.grouping != RuleGrouping.NONE:
             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
             session.flush()
-            generate_message_for_dataset_ok_callback(rule=rule, session=session)
         if rule.notification == RuleNotification.YES:
             generate_email_for_rule_ok_notification(rule=rule, session=session)
+        generate_rule_notifications(rule=rule, session=session)
         # Try to release potential parent rules
         rucio.core.rule.release_parent_rule(child_rule_id=rule.id, session=session)
 
@@ -1661,9 +1661,9 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                 session.flush()
-                if rule_state_before != RuleState.OK:
-                    generate_message_for_dataset_ok_callback(rule=rule, session=session)
-                    generate_email_for_rule_ok_notification(rule=rule, session=session)
+            if rule_state_before != RuleState.OK:
+                generate_rule_notifications(rule=rule, session=session)
+                generate_email_for_rule_ok_notification(rule=rule, session=session)
             # Try to release potential parent rules
             release_parent_rule(child_rule_id=rule.id, session=session)
         # Insert rule history
@@ -1763,9 +1763,9 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
 
 
 @transactional_session
-def generate_message_for_dataset_ok_callback(rule, session=None):
+def generate_rule_notifications(rule, session=None):
     """
-    Generate (If necessary) a callback for a rule (DATASETLOCK_OK)
+    Generate (If necessary) a callback for a rule (DATASETLOCK_OK, RULE_OK)
 
     :param rule:     The rule object.
     :param session:  The Database session
@@ -1773,33 +1773,57 @@ def generate_message_for_dataset_ok_callback(rule, session=None):
 
     session.flush()
 
-    if rule.state == RuleState.OK and rule.grouping != RuleGrouping.NONE:
+    if rule.state == RuleState.OK:
+        # Only notify when rule is in state OK
+
+        # RULE_OK NOTIFICATIONS:
         if rule.notification == RuleNotification.YES:
-            dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
-            for dataset_lock in dataset_locks:
-                add_message(event_type='DATASETLOCK_OK',
-                            payload={'scope': dataset_lock.scope,
-                                     'name': dataset_lock.name,
-                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
-                                     'rule_id': rule.id},
-                            session=session)
+            add_message(event_type='RULE_OK',
+                        payload={'scope': rule.scope,
+                                 'name': rule.name,
+                                 'rule_id': rule.id},
+                        session=session)
         elif rule.notification == RuleNotification.CLOSE:
-            dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
-            for dataset_lock in dataset_locks:
-                try:
-                    did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
-                    if not did['open']:
-                        if did['length'] is None:
-                            return
-                        if did['length'] * rule.copies == rule.locks_ok_cnt:
-                            add_message(event_type='DATASETLOCK_OK',
-                                        payload={'scope': dataset_lock.scope,
-                                                 'name': dataset_lock.name,
-                                                 'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
-                                                 'rule_id': rule.id},
-                                        session=session)
-                except DataIdentifierNotFound:
-                    pass
+            try:
+                did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
+                if not did['open']:
+                    add_message(event_type='RULE_OK',
+                                payload={'scope': rule.scope,
+                                         'name': rule.name,
+                                         'rule_id': rule.id},
+                                session=session)
+            except DataIdentifierNotFound:
+                pass
+
+        # DATASETLOCK_OK NOTIFICATIONS:
+        if rule.grouping != RuleGrouping.NONE:
+            # Only send DATASETLOCK_OK callbacks for ALL/DATASET grouped rules
+            if rule.notification == RuleNotification.YES:
+                dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
+                for dataset_lock in dataset_locks:
+                    add_message(event_type='DATASETLOCK_OK',
+                                payload={'scope': dataset_lock.scope,
+                                         'name': dataset_lock.name,
+                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                                         'rule_id': rule.id},
+                                session=session)
+            elif rule.notification == RuleNotification.CLOSE:
+                dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
+                for dataset_lock in dataset_locks:
+                    try:
+                        did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
+                        if not did['open']:
+                            if did['length'] is None:
+                                return
+                            if did['length'] * rule.copies == rule.locks_ok_cnt:
+                                add_message(event_type='DATASETLOCK_OK',
+                                            payload={'scope': dataset_lock.scope,
+                                                     'name': dataset_lock.name,
+                                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                                                     'rule_id': rule.id},
+                                            session=session)
+                    except DataIdentifierNotFound:
+                        pass
 
 
 @transactional_session
@@ -2276,9 +2300,9 @@ def __evaluate_did_detach(eval_did, session=None):
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                     session.flush()
-                    if rule_locks_ok_cnt_before != rule.locks_ok_cnt:
-                        generate_message_for_dataset_ok_callback(rule=rule, session=session)
-                        generate_email_for_rule_ok_notification(rule=rule, session=session)
+                if rule_locks_ok_cnt_before != rule.locks_ok_cnt:
+                    generate_rule_notifications(rule=rule, session=session)
+                    generate_email_for_rule_ok_notification(rule=rule, session=session)
                 # Try to release potential parent rules
                 release_parent_rule(child_rule_id=rule.id, session=session)
 
@@ -2459,9 +2483,9 @@ def __evaluate_did_attach(eval_did, session=None):
                             if rule.grouping != RuleGrouping.NONE:
                                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                                 session.flush()
-                                if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
-                                    generate_message_for_dataset_ok_callback(rule=rule, session=session)
-                                    generate_email_for_rule_ok_notification(rule=rule, session=session)
+                            if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
+                                generate_rule_notifications(rule=rule, session=session)
+                                generate_email_for_rule_ok_notification(rule=rule, session=session)
 
                         # Insert rule history
                         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
