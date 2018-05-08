@@ -33,9 +33,6 @@ elif [[ $SUITE == "syntax" ]]; then
     pip install .[dev]
     cp etc/docker/travis/rucio_syntax.cfg etc/rucio.cfg
     cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
-    echo $PWD
-    ls -la
-    ls -la etc/
 
 elif [[ $SUITE == "all" ]]; then
 

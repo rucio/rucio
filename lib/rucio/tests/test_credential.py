@@ -110,7 +110,7 @@ class TestCredential(object):
                          'https://storage.googleapis.com:443/atlas-europe-west1/mock/03/eb/file-on-gcs_2']
         assert_equal(sorted(found_pfns), sorted(expected_pfns))
 
-        add_rse_attribute(rse=self.rse, key='sign_url_gcs', value=True)
+        add_rse_attribute(rse=self.rse, key='sign_url', value='gcs')
         replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
                                                             'name': f['name'],
                                                             'type': 'FILE'} for f in self.files],
