@@ -47,7 +47,7 @@ echo '==============================='
 echo 'Running Sphinx                 '
 echo '==============================='
 
-sphinx-build -T doc/source/  doc/build/html
+RUCIO_HOME=/home/travis/build/rucio/rucio sphinx-build -avT doc/source/ doc/build/html
 
 if [ $? -ne 0 ]; then
     exit 1
