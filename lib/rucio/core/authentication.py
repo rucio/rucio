@@ -1,19 +1,25 @@
-"""
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
-  - Thomas Beermann, <thomas.beermann@cern.ch>. 2017
-
-Core authentication
-"""
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Mario Lassnig <mario@lassnig.net>, 2012-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 
 import base64
 import datetime
