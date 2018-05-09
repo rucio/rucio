@@ -14,13 +14,14 @@ WORKDIR /tmp
 ADD oic.rpm /tmp
 
 RUN yum install -y epel-release.noarch
+RUN yum upgrade -y
 RUN yum install -y python-pip libaio gcc python-devel.x86_64
 
 RUN rpm -i /tmp/oic.rpm; \
     echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
     ldconfig
 RUN pip install --upgrade pip setuptools
-RUN pip install rucio[oracle,mysql,postgres] j2cli
+RUN pip install rucio[oracle,mysql,postgresql]==1.16.0.post1 j2cli
 
 # Install dependecies
 RUN yum install -y \
