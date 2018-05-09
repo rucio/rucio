@@ -109,7 +109,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     # Allow selected authenticated users to retrieve signed URLs.
     # Unauthenticated users, or permission-less users will get the raw URL without the signature.
     sign_urls = False
-    if permission.has_permission(issuer=issuer, action='get_signed_urls', kwargs={}):
+    if permission.has_permission(issuer=issuer, action='get_signed_url', kwargs={}):
         sign_urls = True
 
     return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable,
