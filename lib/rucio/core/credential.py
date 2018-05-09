@@ -33,7 +33,7 @@ def get_signed_url(service, operation, url, lifetime=600):
     """
     Get a signed URL for a particular service and operation.
 
-    The signed URL will be valid for 1 hour.
+    The signed URL will be valid for 1 hour but can be overriden.
 
     :param service: The service to authorise, currently only 'gsc'.
     :param operation: The operation to sign, either 'read', 'write', or 'delete'.
