@@ -287,6 +287,7 @@ class ListReplicas(RucioController):
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
+        lifetime = 600
         client_location = {}
 
         json_data = data()
@@ -310,6 +311,8 @@ class ListReplicas(RucioController):
                 select = params['sort']
             if 'domain' in params:
                 domain = params['domain']
+            if 'lifetime' in params:
+                lifetime = params['lifetime']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -338,7 +341,8 @@ class ListReplicas(RucioController):
                                        all_states=all_states,
                                        rse_expression=rse_expression,
                                        client_location=client_location,
-                                       domain=domain, issuer=ctx.env.get('issuer')):
+                                       domain=domain, lifetime=lifetime,
+                                       issuer=ctx.env.get('issuer')):
                 replicas = []
                 dictreplica = {}
                 for rse in rfile['rses']:
