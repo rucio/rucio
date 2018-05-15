@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 import rucio.core.authentication
@@ -767,18 +767,15 @@ def perm_update_replicas_states(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('group-') and kv['value'] in ['admin', 'user']:
             phys_group.append(kv['key'].partition('-')[2])
+    rse_attr = list_rse_attributes(rse=rse)
     if phys_group:
-        rse_attr = list_rse_attributes(rse=rse)
         if rse_attr.get('type', '') == 'GROUPDISK':
             if rse_attr.get('physgroup', '') in phys_group:
                 return True
-
-    return rse.endswith('SCRATCHDISK')\
-        or rse.endswith('USERDISK')\
-        or rse.endswith('MOCK')\
-        or rse.endswith('LOCALGROUPDISK')\
-        or issuer == 'root'\
-        or has_account_attribute(account=issuer, key='admin')
+    else:
+        return rse_attr.get('type', '') in ['SCRATCHDISK', 'MOCK', 'LOCALGROUPDISK', 'TEST']\
+            or issuer == 'root'\
+            or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_queue_requests(issuer, kwargs):
