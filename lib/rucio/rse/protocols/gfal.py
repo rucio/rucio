@@ -343,7 +343,7 @@ class Default(protocol.RSEProtocol):
             ret['adler32'] = ctx.checksum(str(path), str('ADLER32'))
         except Exception as error:
             msg = 'Error while processing gfal checksum call. Error: %s'
-            raise exception.ServiceUnavailable(msg % str(error))
+            raise exception.RSEChecksumUnavailabale(msg % str(error))
 
         return ret
 

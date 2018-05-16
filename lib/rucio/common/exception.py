@@ -849,3 +849,13 @@ class NotAllFilesUploaded(RucioException):
         super(NotAllFilesUploaded, self).__init__(args, kwargs)
         self._message = "Not all of the given files have been uploaded."
         self.error_code = 80
+
+
+class RSEChecksumUnavailabale(RucioException):
+    """
+    Cannot retrieve checksum from RSE
+    """
+    def __init__(self, *args, **kwargs):
+        super(RSEChecksumUnavailabale, self).__init__(*args, **kwargs)
+        self._message = "RSE Checksum unavailabale."
+        self.error_code = 81
