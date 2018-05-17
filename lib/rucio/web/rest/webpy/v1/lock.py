@@ -23,7 +23,7 @@ from urlparse import parse_qs
 from web import application, ctx, header, InternalError, loadhook
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
-from rucio.common.exception import RucioException
+from rucio.common.exception import RucioException, RSENotFound
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook
@@ -64,6 +64,8 @@ class LockByRSE(object):
                     yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')
+        except RSENotFound as error:
+            raise generate_http_error(404, error.__class__.__name__, error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:

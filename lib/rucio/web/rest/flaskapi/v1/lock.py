@@ -24,7 +24,7 @@ from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
-from rucio.common.exception import RucioException
+from rucio.common.exception import RucioException, RSENotFound
 from rucio.common.utils import generate_http_error_flask, render_json
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 
@@ -58,6 +58,8 @@ class LockByRSE(MethodView):
                 return Response(data, content_type="application/x-json-stream")
             else:
                 return 'Wrong did_type specified', 500
+        except RSENotFound as error:
+            return generate_http_error_flask(404, error.__class__.__name__, error.args[0])
         except RucioException, error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
