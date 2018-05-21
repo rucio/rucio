@@ -11,7 +11,9 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
+# - Diego Ciangottini <diego.ciangottini@pg.infn.it>, 2018
 
+from __future__ import absolute_import
 import datetime
 import json
 import logging
@@ -27,6 +29,8 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
+from fts3.rest.client.easy import Context, delegate
+from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError
 from rucio.common.config import config_get, config_get_bool
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.sqla.constants import FTSState
@@ -41,9 +45,6 @@ logging.basicConfig(stream=sys.stdout,
                                              raise_exception=False,
                                              default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
-
-USERCERT = config_get('conveyor', 'usercert', False, None)
-USE_DETERMINISTIC_ID = config_get_bool('conveyor', 'use_deterministic_id', False, False)
 
 REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=1800)
@@ -60,16 +61,60 @@ class FTS3Transfertool(Transfertool):
 
         :param external_host:   The external host where the transfertool API is running
         """
+        usercert = config_get('conveyor', 'usercert', False, None)
 
+        self.deterministic_id = config_get_bool('conveyor', 'use_deterministic_id', False, False)
         super(FTS3Transfertool, self).__init__(external_host)
         if self.external_host.startswith('https://'):
-            self.cert = (USERCERT, USERCERT)
+            self.cert = (usercert, usercert)
             self.verify = False
         else:
             self.cert = None
             self.verify = True  # True is the default setting of a requests.* method
 
     # Public methods part of the common interface
+
+    def delegate_proxy(self, proxy, ca_path='/etc/grid-security/certificates/', duration_hours=48, timeleft_hours=12):
+        """Delegate user proxy to fts server if the lifetime is less than timeleft_hours
+
+        :param proxy: proxy to be delegated
+        :type proxy: str
+
+        :param ca_path: ca path for verification, defaults to '/etc/grid-security/certificates/'
+        :param ca_path: str, optional
+        :param duration_hours: delegation validity duration in hours, defaults to 48
+        :param duration_hours: int, optional
+        :param timeleft_hours: minimal delegation time left, defaults to 12
+        :param timeleft_hours: int, optional
+
+        :return: delegation ID
+        :rtype: str
+        """
+
+        logging.info("Delegating proxy %s to %s", proxy, self.external_host)
+
+        try:
+            context = Context(self.external_host,
+                              ucert=proxy,
+                              ukey=proxy,
+                              verify=True,
+                              capath=ca_path)
+            delegation_id = delegate(context,
+                                     lifetime=datetime.timedelta(hours=duration_hours),
+                                     delegate_when_lifetime_lt=datetime.timedelta(hours=timeleft_hours))
+        except ServerError:
+            logging.error("Server side exception during FTS proxy delegation.")
+            raise
+        except ClientError:
+            logging.error("Config side exception during FTS proxy delegation.")
+            raise
+        except BadEndpoint:
+            logging.error("Wrong FTS endpoint: %s", self.external_host)
+            raise
+
+        logging.info("Delegated proxy %s", delegation_id)
+
+        return delegation_id, context
 
     def submit(self, files, job_params, timeout=None):
         """
@@ -104,7 +149,7 @@ class FTS3Transfertool(Transfertool):
 
         transfer_id = None
         expected_transfer_id = None
-        if USE_DETERMINISTIC_ID:
+        if self.deterministic_id:
             job_params = job_params.copy()
             job_params["id_generator"] = "deterministic"
             job_params["sid"] = files[0]['metadata']['request_id']
