@@ -56,6 +56,9 @@ bz2file>=0.98                                     # Read and write bzip2-compres
 python-magic>=0.4.15                              # File type identification using libmagic
 futures>=3.2.0                                    # Clean single-source support for Python 3 and 2
 six>=1.11.0                                       # Python 2 and 3 compatibility utilities
+fts3-rest-API==3.7.1                              # FTS rest API
+MyProxyClient==2.0.1                              # myproxy client bindings
+
 # All dependencies needed to develop/test rucio should be defined here
 
 pinocchio==0.4.2            # Extensions for the 'nose' unit testing framework
