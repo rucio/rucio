@@ -1,17 +1,25 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2018
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
-'''
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
+# - David Cameron <d.g.cameron@gmail.com>, 2014
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
 
 import json
 import logging
@@ -198,7 +206,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                        or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
                        or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
                        or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
-                        raise DuplicateRule()
+                        raise DuplicateRule(error.args[0])
                     raise InvalidReplicationRule(error.args[0])
                 rule_ids.append(new_rule.id)
 
@@ -432,9 +440,9 @@ def add_rules(dids, rules, session=None):
                             new_rule.save(session=session)
                         except IntegrityError as error:
                             if match('.*ORA-00001.*', str(error.args[0])):
-                                raise DuplicateRule()
+                                raise DuplicateRule(error.args[0])
                             elif str(error.args[0]) == '(IntegrityError) UNIQUE constraint failed: rules.scope, rules.name, rules.account, rules.rse_expression, rules.copies':
-                                raise DuplicateRule()
+                                raise DuplicateRule(error.args[0])
                             raise InvalidReplicationRule(error.args[0])
 
                         rule_ids[(did.scope, did.name)].append(new_rule.id)
@@ -1221,7 +1229,7 @@ def update_rule(rule_id, options, session=None):
            or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
            or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
            or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
-            raise DuplicateRule()
+            raise DuplicateRule(error.args[0])
         else:
             raise error
     except NoResultFound:
