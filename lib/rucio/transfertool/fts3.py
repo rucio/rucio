@@ -74,7 +74,7 @@ class FTS3Transfertool(Transfertool):
 
     # Public methods part of the common interface
 
-    def delegate_proxy(self, proxy, ca_path='/etc/grid-security/certificates/', duration_hours=48, timeleft_hours=12):
+    def delegate_proxy(self, proxy, ca_path='/etc/grid-security/certificates/', duration_hours=96, timeleft_hours=72):
         """Delegate user proxy to fts server if the lifetime is less than timeleft_hours
 
         :param proxy: proxy to be delegated
@@ -90,8 +90,8 @@ class FTS3Transfertool(Transfertool):
         :return: delegation ID
         :rtype: str
         """
-
         logging.info("Delegating proxy %s to %s", proxy, self.external_host)
+        start_time = time.time()
 
         try:
             context = Context(self.external_host,
@@ -102,6 +102,7 @@ class FTS3Transfertool(Transfertool):
             delegation_id = delegate(context,
                                      lifetime=datetime.timedelta(hours=duration_hours),
                                      delegate_when_lifetime_lt=datetime.timedelta(hours=timeleft_hours))
+            record_timer('transfertool.fts3.delegate_proxy.%s' % proxy, (time.time() - start_time))
         except ServerError:
             logging.error("Server side exception during FTS proxy delegation.")
             raise
