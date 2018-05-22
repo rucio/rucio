@@ -35,7 +35,8 @@ from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, Re
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
-
+from rucio.transfertool.cms_fts3 import CMSUserTransfer
+from rucio.common.config import config_get
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
 where the external_id is already known.
@@ -45,9 +46,10 @@ Requests accessed by request_id  are covered in the core request.py
 REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
                                        arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 
-def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None):
+def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
     """
     Submit transfer request to a transfertool.
 
@@ -76,7 +78,13 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
-        transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+        if not user_transfer_job:
+            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+        elif USER_TRANSFERS == "cms":
+            transfer_id = CMSUserTransfer(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+        else:
+            # if no valid USER TRANSFER cases --> go with std submission
+            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000 / len(files))
     return transfer_id
 
