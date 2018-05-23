@@ -16,7 +16,7 @@ Developers
 For information on how to contribute to Rucio, please refer and follow our [CONTRIBUTING](<https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst>) guidelines.
 
 Getting Started
-----------
+---------------
 
 This image provides the Rucio server both with and without SSL. It supports MySQL, PostgreSQL, Oracle and SQLite as database backends.
 

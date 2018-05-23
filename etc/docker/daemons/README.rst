@@ -32,7 +32,7 @@ By default the daemon logs are written to stdout and stderr if you want to write
 ```docker run --name=rucio-judge-cleaner -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -v /tmp/logs:/var/log/rucio -e RUCIO_DAEMON=judge-cleaner  -e RUCIO_ENABLE_LOGS=True rucio/rucio-daemons```
 
 Environment Variables
---------------------------
+---------------------
 
 As shown in the examples above the rucio-daemon image can be configured using environment variables that are passed with `docker run`. Below is a list of all available variables and their behaviour:
 
