@@ -158,6 +158,10 @@ protocol_funcs = {
         'links': http_links,
         'download': http_download_to_file,
     },
+    'https': {
+        'links': http_links,
+        'download': http_download_to_file,
+    },
 }
 
 
