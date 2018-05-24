@@ -19,7 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - David Cameron <d.g.cameron@gmail.com>, 2014
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 
 from collections import defaultdict
@@ -1861,10 +1861,13 @@ def touch_collection_replicas(collection_replicas, session=None):
 
     rse_ids, now = {}, datetime.utcnow()
     for collection_replica in collection_replicas:
-        if 'rse_id' not in collection_replica:
-            if collection_replica['rse'] not in rse_ids:
-                rse_ids[collection_replica['rse']] = get_rse_id(rse=collection_replica['rse'], session=session)
-            collection_replica['rse_id'] = rse_ids[collection_replica['rse']]
+        try:
+            if 'rse_id' not in collection_replica:
+                if collection_replica['rse'] not in rse_ids:
+                    rse_ids[collection_replica['rse']] = get_rse_id(rse=collection_replica['rse'], session=session)
+                collection_replica['rse_id'] = rse_ids[collection_replica['rse']]
+        except exception.RSENotFound:
+            continue
 
         try:
             session.query(models.CollectionReplica).filter_by(scope=collection_replica['scope'], name=collection_replica['name'], rse_id=collection_replica['rse_id']).\
