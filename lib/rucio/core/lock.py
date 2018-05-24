@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2018
 
 import logging
 import sys
@@ -24,6 +24,7 @@ import rucio.core.rule
 import rucio.core.did
 
 from rucio.common.config import config_get
+from rucio.common.exception import RSENotFound
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db.sqla import models
@@ -416,10 +417,13 @@ def touch_dataset_locks(dataset_locks, session=None):
 
     rse_ids, now = {}, datetime.utcnow()
     for dataset_lock in dataset_locks:
-        if 'rse_id' not in dataset_lock:
-            if dataset_lock['rse'] not in rse_ids:
-                rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
-            dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
+        try:
+            if 'rse_id' not in dataset_lock:
+                if dataset_lock['rse'] not in rse_ids:
+                    rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
+                dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
+        except RSENotFound:
+            continue
 
         eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'id': dataset_lock['rse_id']}], session=session)
         try:
