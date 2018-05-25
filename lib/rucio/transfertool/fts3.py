@@ -102,15 +102,18 @@ class FTS3Transfertool(Transfertool):
             delegation_id = delegate(context,
                                      lifetime=datetime.timedelta(hours=duration_hours),
                                      delegate_when_lifetime_lt=datetime.timedelta(hours=timeleft_hours))
-            record_timer('transfertool.fts3.delegate_proxy.%s' % proxy, (time.time() - start_time))
+            record_timer('transfertool.fts3.delegate_proxy.success.%s' % proxy, (time.time() - start_time))
         except ServerError:
             logging.error("Server side exception during FTS proxy delegation.")
+            record_timer('transfertool.fts3.delegate_proxy.fail.%s' % proxy, (time.time() - start_time))
             raise
         except ClientError:
             logging.error("Config side exception during FTS proxy delegation.")
+            record_timer('transfertool.fts3.delegate_proxy.fail.%s' % proxy, (time.time() - start_time))
             raise
         except BadEndpoint:
             logging.error("Wrong FTS endpoint: %s", self.external_host)
+            record_timer('transfertool.fts3.delegate_proxy.fail.%s' % proxy, (time.time() - start_time))
             raise
 
         logging.info("Delegated proxy %s", delegation_id)
