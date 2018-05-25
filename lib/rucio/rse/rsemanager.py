@@ -38,6 +38,7 @@ except ImportError:
     from urllib.parse import urlparse
 
 from rucio.common import exception, utils, constants
+from rucio.common.constraints import STRING_TYPES
 from rucio.common.utils import make_valid_did
 
 
@@ -317,7 +318,7 @@ def exists(rse_settings, files):
     files = [files] if not type(files) is list else files
     for f in files:
         exists = None
-        if (type(f) is str) or (type(f) is unicode):
+        if isinstance(f, STRING_TYPES):
             exists = protocol.exists(f)
             ret[f] = exists
         elif 'scope' in f:  # a LFN is provided
@@ -414,13 +415,17 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
 
                 valid = None
                 try:  # Get metadata of file to verify if upload was successful
-                    stats = protocol.stat('%s.rucio.upload' % pfn)
-                    if ('adler32' in stats) and ('adler32' in lfn):
-                        valid = stats['adler32'] == lfn['adler32']
-                    if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
-                        valid = stats['filesize'] == lfn['filesize']
-                except NotImplementedError:
-                    valid = True if rse_settings['verify_checksum'] is False else False
+                    try:
+                        stats = protocol.stat('%s.rucio.upload' % pfn)
+                        if ('adler32' in stats) and ('adler32' in lfn):
+                            valid = stats['adler32'] == lfn['adler32']
+                        if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
+                            valid = stats['filesize'] == lfn['filesize']
+                    except exception.RSEChecksumUnavailable as e:
+                        if rse_settings['verify_checksum'] is False:
+                            valid = True
+                        else:
+                            raise
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
