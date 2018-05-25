@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 
 
 # List of authorized value types for key
@@ -21,3 +22,9 @@ try:
     AUTHORIZED_VALUE_TYPES = (float, int, unicode)
 except NameError:
     AUTHORIZED_VALUE_TYPES = (float, int, str)
+
+# unicode no longer exists in python3, hence this workaround
+try:
+    STRING_TYPES = (str, unicode,)
+except NameError:
+    STRING_TYPES = (str,)
