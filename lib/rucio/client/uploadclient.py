@@ -85,8 +85,8 @@ class UploadClient:
 
         :raises InputValidationError: if any input arguments are in a wrong format
         :raises RSEBlacklisted: if a given RSE is not available for writing
-        :raise NoFilesUploaded: if no files were successfully uploaded
-        :raise NotAllFilesUploaded: if not all files were successfully uploaded
+        :raises NoFilesUploaded: if no files were successfully uploaded
+        :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
         logger = self.logger
 
