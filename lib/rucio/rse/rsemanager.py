@@ -38,6 +38,7 @@ except ImportError:
     from urllib.parse import urlparse
 
 from rucio.common import exception, utils, constants
+from rucio.common.constraints import STRING_TYPES
 from rucio.common.utils import make_valid_did
 
 
@@ -317,7 +318,7 @@ def exists(rse_settings, files):
     files = [files] if not type(files) is list else files
     for f in files:
         exists = None
-        if isinstance(f, str) or isinstance(f, type(u'')):
+        if isinstance(f, STRING_TYPES):
             exists = protocol.exists(f)
             ret[f] = exists
         elif 'scope' in f:  # a LFN is provided
@@ -420,7 +421,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                             valid = stats['adler32'] == lfn['adler32']
                         if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
                             valid = stats['filesize'] == lfn['filesize']
-                    except exception.RSEChecksumUnavailabale as e:
+                    except exception.RSEChecksumUnavailable as e:
                         if rse_settings['verify_checksum'] is False:
                             valid = True
                         else:
