@@ -20,6 +20,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 
 import errno
 import json
@@ -28,6 +29,7 @@ import re
 import urlparse
 
 from rucio.common import exception, config
+from rucio.common.constraints import STRING_TYPES
 from rucio.rse.protocols import protocol
 
 try:
@@ -96,7 +98,7 @@ class Default(protocol.RSEProtocol):
         """
 
         ret = dict()
-        pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
+        pfns = [pfns] if isinstance(pfns, STRING_TYPES) else pfns
         for pfn in pfns:
             parsed = urlparse.urlparse(pfn)
             if parsed.path.startswith('/srm/managerv2') or parsed.path.startswith('/srm/managerv1') or parsed.path.startswith('/srm/v2/server'):
@@ -250,7 +252,7 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
-        pfns = [path] if ((type(path) == str) or (type(path) == unicode)) else path
+        pfns = [path] if isinstance(path, STRING_TYPES) else path
 
         try:
             status = self.__gfal2_rm(pfns)
@@ -343,7 +345,7 @@ class Default(protocol.RSEProtocol):
             ret['adler32'] = ctx.checksum(str(path), str('ADLER32'))
         except Exception as error:
             msg = 'Error while processing gfal checksum call. Error: %s'
-            raise exception.RSEChecksumUnavailabale(msg % str(error))
+            raise exception.RSEChecksumUnavailable(msg % str(error))
 
         return ret
 
