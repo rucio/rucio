@@ -318,8 +318,6 @@ class ListReplicas(RucioController):
                 # hardcoded default of 1h if config is not parseable
                 signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
 
-            print signature_lifetime
-
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
