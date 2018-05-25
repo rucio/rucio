@@ -172,7 +172,7 @@ def adler32(file):
         openFile = open(file, 'rb')
         for line in openFile:
             adler = zlib.adler32(line, adler)
-    except:
+    except Exception:
         raise Exception('FATAL - could not get checksum of file %s' % file)
 
     # backflip on 32bit
@@ -193,7 +193,7 @@ def md5(file):
     try:
         with open(file, "rb") as f:
             map(hash_md5.update, iter(lambda: f.read(4096), b""))
-    except:
+    except Exception:
         raise Exception('FATAL - could not get MD5 checksum of file %s' % file)
 
     return hash_md5.hexdigest()
@@ -257,7 +257,7 @@ def datetime_parser(dct):
         if isinstance(v, varType) and re.search(" UTC", v):
             try:
                 dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
-            except:
+            except Exception:
                 pass
     return dct
 
@@ -287,7 +287,7 @@ def generate_http_error(status_code, exc_cls, exc_msg):
                'ExceptionMessage': clean_headers(exc_msg)}
     try:
         return HTTPError(status, headers=headers, data=render_json(**data))
-    except:
+    except Exception:
         print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
         raise
 
@@ -311,7 +311,7 @@ def generate_http_error_flask(status_code, exc_cls, exc_msg):
 
     try:
         return resp
-    except:
+    except Exception:
         print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
         raise
 
@@ -572,7 +572,7 @@ def get_tmp_dir():
     user, tmp_dir = None, None
     try:
         user = pwd.getpwuid(os.getuid()).pw_name
-    except:
+    except Exception:
         pass
 
     for env_var in ('TMP', 'TMPDIR', 'TEMP'):
@@ -629,7 +629,7 @@ def detect_client_location():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
-    except:
+    except Exception:
         pass
 
     site = os.environ.get('SITE_NAME',
@@ -690,8 +690,8 @@ def send_trace(trace, trace_endpoint, user_agent, retries=5, logger=None, log_pr
     :return: 0 on success, 1 on failure
     """
     if not logger:
-        logger = getLogger('rucio_utils')
-        logger.addHandler(logging.NullHandler())
+        logger = logging.getLogger(__name__).getChild('null')
+        logger.disabled = True
     if user_agent.startswith('pilot'):
         logger.debug('%spilot detected - not sending trace' % log_prefix)
         return 0

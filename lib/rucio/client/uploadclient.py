@@ -40,46 +40,45 @@ from rucio import version
 
 class UploadClient:
 
-    def __init__(self, _client=None, user_agent='rucio_clients', logger=None):
+    def __init__(self, _client=None, logger=None):
         """
         Initialises the basic settings for an UploadClient object
 
         :param _client:     - Optional: rucio.client.client.Client object. If None, a new object will be created.
-        :param user_agent:  - user_agent that is using the upload client
         :param logger:      - logging.Logger object to use for uploads. If None nothing will be logged.
         """
         if not logger:
             logger = logging.getLogger(__name__).getChild('null')
-            logger.addHandler(logging.NullHandler())
+            logger.disabled = True
 
         self.logger = logger
         self.client = _client if _client else Client()
-        self.account = self.client.account
-        self.user_agent = user_agent
 
         self.default_file_scope = 'user.' + self.client.account
         self.rses = {}
 
         self.trace = {}
         self.trace['hostname'] = socket.getfqdn()
-        self.trace['account'] = self.account
+        self.trace['account'] = self.client.account
         self.trace['eventType'] = 'upload'
         self.trace['eventVersion'] = version.RUCIO_VERSION[0]
 
-    def upload(self, sources_with_settings, summary_file_path=None):
+    def upload(self, items, summary_file_path=None):
         """
 
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
-            path            - path of the file that will be uploaded
-            rse             - rse name (e.g. 'CERN-PROD_DATADISK') where to upload the file
-            did_scope       - Optional: custom did scope (Default: user.<account>)
-            did_name        - Optional: custom did name (Default: name of the file)
-            dataset_scope   - Optional: custom dataset scope
-            dataset_name    - Optional: custom dataset name
-            force_scheme    - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
-            pfn             - Optional: use a given PFN (this sets no_register to True)
-            no_register     - Optional: if True, the file will not be registered in the rucio catalogue
-            lifetime        - Optional: the lifetime of the file after it was uploaded
+            path             - path of the file that will be uploaded
+            rse              - rse name (e.g. 'CERN-PROD_DATADISK') where to upload the file
+            did_scope        - Optional: custom did scope (Default: user.<account>)
+            did_name         - Optional: custom did name (Default: name of the file)
+            dataset_scope    - Optional: custom dataset scope
+            dataset_name     - Optional: custom dataset name
+            force_scheme     - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
+            pfn              - Optional: use a given PFN (this sets no_register to True)
+            no_register      - Optional: if True, the file will not be registered in the rucio catalogue
+            lifetime         - Optional: the lifetime of the file after it was uploaded
+            transfer_timeout - Optional: time after the upload will be aborted
+            guid             - Optional: guid of the file
         :param summary_file_path: Optional: a path where a summary in form of a json file will be stored
 
         :returns: 0 on success
@@ -94,7 +93,7 @@ class UploadClient:
         self.trace['uuid'] = generate_uuid()
 
         # check given sources, resolve dirs into files, and collect meta infos
-        files = self._collect_and_validate_file_info(sources_with_settings)
+        files = self._collect_and_validate_file_info(items)
 
         # check if RSE of every file is available for writing
         # and cache rse settings
@@ -137,66 +136,26 @@ class UploadClient:
             self.trace['remoteSite'] = rse
             self.trace['filesize'] = file['bytes']
 
-            file_scope = file['did_scope']
-            file_name = file['did_name']
-            file_did = {'scope': file_scope, 'name': file_name}
-            file_did_str = '%s:%s' % (file_scope, file_name)
+            file_did = {'scope': file['did_scope'], 'name': file['did_name']}
             dataset_did_str = file.get('dataset_did_str')
+
+            if not no_register:
+                self._register_file(file, registered_dataset_dids)
 
             rse = file['rse']
             rse_settings = self.rses[rse]
-
-            # register a dataset if we need to
-            if dataset_did_str and dataset_did_str not in registered_dataset_dids and not no_register:
-                registered_dataset_dids.add(dataset_did_str)
-                try:
-                    self.client.add_dataset(scope=file['dataset_scope'],
-                                            name=file['dataset_name'],
-                                            rules=[{'account': self.account,
-                                                    'copies': 1,
-                                                    'rse_expression': rse,
-                                                    'grouping': 'DATASET',
-                                                    'lifetime': file['lifetime']}])
-                    logger.info('Dataset %s successfully created' % dataset_did_str)
-                except DataIdentifierAlreadyExists:
-                    # TODO: Need to check the rules thing!!
-                    logger.info("Dataset %s already exists" % dataset_did_str)
-
-            replica_for_api = self._convert_file_for_api(file)
-            try:
-                # if the remote checksum is different this did must not be used
-                meta = self.client.get_metadata(file_scope, file_name)
-                logger.info('Comparing checksums of %s and %s' % (basename, file_did_str))
-                if meta['adler32'] != file['adler32']:
-                    logger.error('Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
-                    raise DataIdentifierAlreadyExists
-
-                # add file to rse if it is not registered yet
-                replicastate = list(self.client.list_replicas([file_did], all_states=True))
-                if rse not in replicastate[0]['rses'] and not no_register:
-                    logger.info('Adding replica at %s in Rucio catalog' % rse)
-                    self.client.add_replicas(rse=file['rse'], files=[replica_for_api])
-            except DataIdentifierNotFound:
-                if not no_register:
-                    logger.info('Adding replica at %s in Rucio catalog' % rse)
-                    self.client.add_replicas(rse=file['rse'], files=[replica_for_api])
-                    if not dataset_did_str:
-                        # only need to add rules for files if no dataset is given
-                        logger.info('Adding replication rule at %s' % rse)
-                        self.client.add_replication_rule([file_did], copies=1, rse_expression=rse, lifetime=file['lifetime'])
-
+            success = False
             # if file already exists on RSE we're done
             if not rsemgr.exists(rse_settings, file_did):
                 protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
                 protocols.reverse()
-                success = False
                 summary = []
                 while not success and len(protocols):
                     protocol = protocols.pop()
                     cur_scheme = protocol['scheme']
                     logger.info('Trying upload with %s to %s' % (cur_scheme, rse))
                     lfn = {}
-                    lfn['filename'] = file['basename']
+                    lfn['filename'] = basename
                     lfn['scope'] = file['did_scope']
                     lfn['name'] = file['did_name']
                     lfn['adler32'] = file['adler32']
@@ -222,8 +181,8 @@ class UploadClient:
                     self.trace['transferEnd'] = time.time()
                     self.trace['clientState'] = 'DONE'
                     file['state'] = 'A'
-                    logger.info('File %s successfully uploaded' % basename)
-                    send_trace(self.trace, self.client.host, self.user_agent, logger=logger)
+                    logger.info('Successfully uploaded file %s' % basename)
+                    send_trace(self.trace, self.client.host, self.client.user_agent, logger=logger)
                     if summary_file_path:
                         summary.append(copy.deepcopy(file))
                 else:
@@ -233,19 +192,18 @@ class UploadClient:
             else:
                 logger.info('File already exists on RSE. Skipped upload')
 
-            if not no_register:
+            if success and not no_register:
                 # add file to dataset if needed
                 if dataset_did_str:
                     try:
-                        logger.info('Attaching file to dataset %s' % dataset_did_str)
                         self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
                     except Exception as error:
                         logger.warning('Failed to attach file to the dataset')
-                        logger.warning(error)
+                        logger.debug(error)
 
-                logger.info('Setting replica state to available')
                 replica_for_api = self._convert_file_for_api(file)
-                self.client.update_replicas_states(rse, files=[replica_for_api])
+                if not self.client.update_replicas_states(rse, files=[replica_for_api]):
+                    logger.warning('Failed to update replica state')
 
         if summary_file_path:
             final_summary = {}
@@ -269,6 +227,67 @@ class UploadClient:
         elif num_succeeded != len(files):
             raise NotAllFilesUploaded()
         return 0
+
+    def _register_file(self, file, registered_dataset_dids):
+        """
+        Registers the given file in Rucio. Creates a dataset if
+        needed. Registers the file DID and creates the replication
+        rule if needed. Adds a replica to the file did.
+        (This function is meant to be used as class internal only)
+
+        :param file: dictionary describing the file
+        :param registered_dataset_dids: set of dataset dids that were already registered
+
+        :raises DataIdentifierAlreadyExists: if file DID is already registered and the checksums do not match
+        """
+        logger = self.logger
+        logger.debug('Registering file')
+        rse = file['rse']
+        dataset_did_str = file.get('dataset_did_str')
+        # register a dataset if we need to
+        if dataset_did_str and dataset_did_str not in registered_dataset_dids:
+            registered_dataset_dids.add(dataset_did_str)
+            try:
+                logger.debug('Trying to create dataset: %s' % dataset_did_str)
+                self.client.add_dataset(scope=file['dataset_scope'],
+                                        name=file['dataset_name'],
+                                        rules=[{'account': self.client.account,
+                                                'copies': 1,
+                                                'rse_expression': rse,
+                                                'grouping': 'DATASET',
+                                                'lifetime': file.get('lifetime')}])
+                logger.info('Successfully created dataset %s' % dataset_did_str)
+            except DataIdentifierAlreadyExists:
+                logger.debug('Dataset %s already exists' % dataset_did_str)
+        else:
+            logger.debug('Skipping dataset registration')
+
+        file_scope = file['did_scope']
+        file_name = file['did_name']
+        file_did = {'scope': file_scope, 'name': file_name}
+        replica_for_api = self._convert_file_for_api(file)
+        try:
+            # if the remote checksum is different this did must not be used
+            meta = self.client.get_metadata(file_scope, file_name)
+            logger.info('File DID already exists')
+            logger.debug('local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
+            if meta['adler32'] != file['adler32']:
+                logger.error('Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
+                raise DataIdentifierAlreadyExists
+
+            # add file to rse if it is not registered yet
+            replicastate = list(self.client.list_replicas([file_did], all_states=True))
+            if rse not in replicastate[0]['rses']:
+                self.client.add_replicas(rse=rse, files=[replica_for_api])
+                logger.info('Successfully added replica in Rucio catalogue at %s' % rse)
+        except DataIdentifierNotFound:
+            logger.debug('File DID does not exist')
+            self.client.add_replicas(rse=rse, files=[replica_for_api])
+            logger.info('Successfully added replica in Rucio catalogue at %s' % rse)
+            if not dataset_did_str:
+                # only need to add rules for files if no dataset is given
+                self.client.add_replication_rule([file_did], copies=1, rse_expression=rse, lifetime=file.get('lifetime'))
+                logger.info('Successfully added replication rule at %s' % rse)
 
     def _get_file_guid(self, file):
         """
@@ -296,34 +315,35 @@ class UploadClient:
             guid = generate_uuid()
         return guid
 
-    def _collect_file_info(self, filepath, settings):
+    def _collect_file_info(self, filepath, item):
         """
         Collects infos (e.g. size, checksums, etc.) about the file and
         returns them as a dictionary
         (This function is meant to be used as class internal only)
 
         :param filepath: path where the file is stored
-        :param settings: input options for the given file
+        :param item: input options for the given file
 
         :returns: a dictionary containing all collected info and the input options
         """
-        file = copy.deepcopy(settings)
-        file['path'] = filepath
-        file['dirname'] = os.path.dirname(filepath)
-        file['basename'] = os.path.basename(filepath)
+        new_item = copy.deepcopy(item)
+        new_item['path'] = filepath
+        new_item['dirname'] = os.path.dirname(filepath)
+        new_item['basename'] = os.path.basename(filepath)
 
-        file['bytes'] = os.stat(filepath).st_size
-        file['adler32'] = adler32(filepath)
-        file['md5'] = md5(filepath)
-        file['meta'] = {'guid': self._get_file_guid(file)}
-        file['state'] = 'C'
-        file.setdefault('did_scope', self.default_file_scope)
-        file.setdefault('did_name', file['basename'])
-        file.setdefault('lifetime', None)
+        new_item['bytes'] = os.stat(filepath).st_size
+        new_item['adler32'] = adler32(filepath)
+        new_item['md5'] = md5(filepath)
+        new_item['meta'] = {'guid': self._get_file_guid(new_item)}
+        new_item['state'] = 'C'
+        if not new_item.get('did_scope'):
+            new_item['did_scope'] = self.default_file_scope
+        if not new_item.get('did_name'):
+            new_item['did_name'] = new_item['basename']
 
-        return file
+        return new_item
 
-    def _collect_and_validate_file_info(self, sources_with_settings):
+    def _collect_and_validate_file_info(self, items):
         """
         Checks if there are any inconsistencies within the given input
         options and stores the output of _collect_file_info for every file
@@ -337,32 +357,32 @@ class UploadClient:
         """
         logger = self.logger
         files = []
-        for settings in sources_with_settings:
-            path = settings.get('path')
-            pfn = settings.get('pfn')
+        for item in items:
+            path = item.get('path')
+            pfn = item.get('pfn')
             if not path:
                 logger.warning('Skipping source entry because the key "path" is missing')
                 continue
-            if not settings.get('rse'):
+            if not item.get('rse'):
                 logger.warning('Skipping file %s because no rse was given' % path)
                 continue
             if pfn:
-                if settings.get('no_register'):
+                if item.get('no_register'):
                     logger.warning('Upload with given pfn implies that no_register is True')
-                    settings['no_register'] = True
-                settings['force_scheme'] = pfn.split(':')[0]
+                    item['no_register'] = True
+                item['force_scheme'] = pfn.split(':')[0]
 
             if os.path.isdir(path):
                 dname, subdirs, fnames = next(os.walk(path))
                 for fname in fnames:
-                    file = self._collect_file_info(os.path.join(dname, fname), settings)
+                    file = self._collect_file_info(os.path.join(dname, fname), item)
                     files.append(file)
                 if not len(fnames) and not len(subdirs):
                     logger.warning('Skipping %s because it is empty.' % dname)
                 elif not len(fnames):
                     logger.warning('Skipping %s because it has no files in it. Subdirectories are not supported.' % dname)
             elif os.path.isfile(path):
-                file = self._collect_file_info(path, settings)
+                file = self._collect_file_info(path, item)
                 files.append(file)
             else:
                 logger.warning('No such file or directory: %s' % path)
