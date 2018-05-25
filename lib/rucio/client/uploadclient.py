@@ -144,66 +144,65 @@ class UploadClient:
 
             rse = file['rse']
             rse_settings = self.rses[rse]
-            success = False
             # if file already exists on RSE we're done
-            if not rsemgr.exists(rse_settings, file_did):
-                protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
-                protocols.reverse()
-                summary = []
-                while not success and len(protocols):
-                    protocol = protocols.pop()
-                    cur_scheme = protocol['scheme']
-                    logger.info('Trying upload with %s to %s' % (cur_scheme, rse))
-                    lfn = {}
-                    lfn['filename'] = basename
-                    lfn['scope'] = file['did_scope']
-                    lfn['name'] = file['did_name']
-                    lfn['adler32'] = file['adler32']
-                    lfn['filesize'] = file['bytes']
+            if rsemgr.exists(rse_settings, file_did):
+                logger.info('File already exists on RSE. Skipping upload')
+                continue
 
-                    self.trace['protocol'] = cur_scheme
-                    self.trace['transferStart'] = time.time()
-                    try:
-                        state = rsemgr.upload(rse_settings=rse_settings,
-                                              lfns=lfn,
-                                              source_dir=file['dirname'],
-                                              force_scheme=cur_scheme,
-                                              force_pfn=pfn,
-                                              transfer_timeout=file.get('transfer_timeout'))
-                        success = True
-                        file['upload_result'] = state
-                    except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
-                        logger.warning('Upload attempt failed')
-                        logger.debug('Exception: %s' % str(error))
+            protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
+            protocols.reverse()
+            success = False
+            summary = []
+            while not success and len(protocols):
+                protocol = protocols.pop()
+                cur_scheme = protocol['scheme']
+                logger.info('Trying upload with %s to %s' % (cur_scheme, rse))
+                lfn = {}
+                lfn['filename'] = basename
+                lfn['scope'] = file['did_scope']
+                lfn['name'] = file['did_name']
+                lfn['adler32'] = file['adler32']
+                lfn['filesize'] = file['bytes']
 
-                if success:
-                    num_succeeded += 1
-                    self.trace['transferEnd'] = time.time()
-                    self.trace['clientState'] = 'DONE'
-                    file['state'] = 'A'
-                    logger.info('Successfully uploaded file %s' % basename)
-                    send_trace(self.trace, self.client.host, self.client.user_agent, logger=logger)
-                    if summary_file_path:
-                        summary.append(copy.deepcopy(file))
-                else:
-                    logger.error('Failed to upload file %s' % basename)
-                    # TODO trace?
-                    continue
-            else:
-                logger.info('File already exists on RSE. Skipped upload')
+                self.trace['protocol'] = cur_scheme
+                self.trace['transferStart'] = time.time()
+                try:
+                    state = rsemgr.upload(rse_settings=rse_settings,
+                                          lfns=lfn,
+                                          source_dir=file['dirname'],
+                                          force_scheme=cur_scheme,
+                                          force_pfn=pfn,
+                                          transfer_timeout=file.get('transfer_timeout'))
+                    success = True
+                    file['upload_result'] = state
+                except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
+                    logger.warning('Upload attempt failed')
+                    logger.debug('Exception: %s' % str(error))
 
-            if success and not no_register:
+            if success:
+                num_succeeded += 1
+                self.trace['transferEnd'] = time.time()
+                self.trace['clientState'] = 'DONE'
+                file['state'] = 'A'
+                logger.info('Successfully uploaded file %s' % basename)
+                send_trace(self.trace, self.client.host, self.client.user_agent, logger=logger)
+
+                if summary_file_path:
+                    summary.append(copy.deepcopy(file))
+
                 # add file to dataset if needed
-                if dataset_did_str:
+                if dataset_did_str and not no_register:
                     try:
                         self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
                     except Exception as error:
                         logger.warning('Failed to attach file to the dataset')
                         logger.debug(error)
-
-                replica_for_api = self._convert_file_for_api(file)
-                if not self.client.update_replicas_states(rse, files=[replica_for_api]):
-                    logger.warning('Failed to update replica state')
+                if not no_register:
+                    replica_for_api = self._convert_file_for_api(file)
+                    if not self.client.update_replicas_states(rse, files=[replica_for_api]):
+                        logger.warning('Failed to update replica state')
+            else:
+                logger.error('Failed to upload file %s' % basename)
 
         if summary_file_path:
             final_summary = {}
