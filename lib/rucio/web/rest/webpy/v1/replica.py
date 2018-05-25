@@ -36,6 +36,7 @@ from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replica
                                declare_suspicious_file_replicas, list_bad_replicas_status,
                                get_bad_replicas_summary, list_datasets_per_rse)
 from rucio.db.sqla.constants import BadFilesStatus
+from rucio.common.config import config_get
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
@@ -271,8 +272,7 @@ class ListReplicas(RucioController):
             401 Unauthorized
             500 InternalError
 
-        :returns: A dictionary containing all replicas information.
-        :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
+        :returns: A dictionary containing all replicas information, either as JSON stream or metalink4.
         """
 
         metalink = False
@@ -287,7 +287,7 @@ class ListReplicas(RucioController):
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
-        lifetime = 600
+        signature_lifetime = None
         client_location = {}
 
         json_data = data()
@@ -311,8 +311,15 @@ class ListReplicas(RucioController):
                 select = params['sort']
             if 'domain' in params:
                 domain = params['domain']
-            if 'lifetime' in params:
-                lifetime = params['lifetime']
+
+            if 'signature_lifetime' in params:
+                signature_lifetime = params['signature_lifetime']
+            else:
+                # hardcoded default of 1h if config is not parseable
+                signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
+
+            print signature_lifetime
+
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -341,7 +348,7 @@ class ListReplicas(RucioController):
                                        all_states=all_states,
                                        rse_expression=rse_expression,
                                        client_location=client_location,
-                                       domain=domain, lifetime=lifetime,
+                                       domain=domain, signature_lifetime=signature_lifetime,
                                        issuer=ctx.env.get('issuer')):
                 replicas = []
                 dictreplica = {}
