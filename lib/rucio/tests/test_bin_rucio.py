@@ -57,6 +57,8 @@ class TestBinRucio():
         self.account_client = AccountLimitClient()
         self.account_client.set_account_limit('root', self.def_rse, -1)
 
+        self.upload_success_str = 'Successfully uploaded file %s'
+
     def test_rucio_version(self):
         """CLIENT(USER): Rucio version"""
         cmd = 'bin/rucio --version'
@@ -210,7 +212,9 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_true("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out)
+        nose.tools.assert_true((self.upload_success_str % tmp_file1) in out)
+        nose.tools.assert_true((self.upload_success_str % tmp_file2) in out)
+        nose.tools.assert_true((self.upload_success_str % tmp_file3) in out)
 
     def test_upload_file_guid(self):
         """CLIENT(USER): Rucio upload file with guid"""
@@ -222,7 +226,7 @@ class TestBinRucio():
         print(out)
         print(err)
         remove(tmp_file1)
-        nose.tools.assert_true("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out)
+        nose.tools.assert_true((self.upload_success_str % tmp_file1) in out)
 
     def test_upload_repeated_file(self):
         """CLIENT(USER): Rucio upload repeated files"""
@@ -246,7 +250,7 @@ class TestBinRucio():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        # delete the fisical file
+        # delete the physical file
         cmd = "find /tmp/rucio_rse/ -name {0} |xargs rm".format(tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -259,7 +263,7 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_not_equal("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out, None)
+        nose.tools.assert_true((self.upload_success_str % tmp_file1) in out)
 
     def test_upload_repeated_file_dataset(self):
         """CLIENT(USER): Rucio upload repeated files to dataset"""
