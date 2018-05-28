@@ -726,7 +726,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
         #    raise exception.DataIdentifierNotFound("Files not found %s", str(files))
 
 
-def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, rse_clause, client_location, domain, sign_urls, lifetime, session):
+def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, rse_clause, client_location, domain, sign_urls, signature_lifetime, session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
@@ -843,7 +843,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                                                      value='gcs',
                                                      session=session)
                             if sign and isinstance(sign, list) and sign[0]:
-                                pfn = get_signed_url(service='gcs', operation='read', url=pfn, lifetime=lifetime)
+                                pfn = get_signed_url(service='gcs', operation='read', url=pfn, lifetime=signature_lifetime)
 
                         # TODO: this is not nice, but since pfns don't have the concept of 'domain'
                         #       we can work around by encapsulating it in a tuple. a proper refactor requires
@@ -894,7 +894,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
                   rse_expression=None, client_location=None, domain=None,
-                  sign_urls=False, lifetime=None, session=None):
+                  sign_urls=False, signature_lifetime=None, session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -908,7 +908,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
     :param domain: The network domain for the call, either None, 'wan' or 'lan'. None is automatic mode, 'all' is both ['lan','wan']
     :param sign_urls: If set, will sign the PFNs if necessary.
-    :param lifetime: If supported, in seconds, restrict the lifetime of the replica PFN.
+    :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
     :param session: The database session in use.
     """
 
@@ -920,7 +920,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
         for rse in parse_expression(expression=rse_expression, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 
-    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, rse_clause, client_location, domain, sign_urls, lifetime, session):
+    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, rse_clause, client_location, domain, sign_urls, signature_lifetime, session):
         yield file
 
 
