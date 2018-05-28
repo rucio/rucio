@@ -150,6 +150,18 @@ def http_links(base_url):
 
 
 protocol_funcs = {
+    'davs': {
+        'links': gfal_links,
+        'download': gfal_download_to_file,
+    },
+    'gsiftp': {
+        'links': gfal_links,
+        'download': gfal_download_to_file,
+    },
+    'root': {
+        'links': gfal_links,
+        'download': gfal_download_to_file,
+    },
     'srm': {
         'links': gfal_links,
         'download': gfal_download_to_file,
