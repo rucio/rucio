@@ -16,6 +16,7 @@
 # - Fernando Lopez <felopez@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from rucio.common import config
 

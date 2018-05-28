@@ -16,6 +16,7 @@
 # - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from ConfigParser import ConfigParser
 from datetime import datetime
