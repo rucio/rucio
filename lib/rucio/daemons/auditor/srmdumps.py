@@ -18,7 +18,7 @@
 
 from rucio.common.config import __CONFIGFILES as __RUCIOCONFIGFILES
 from rucio.common.dumper import DUMPS_CACHE_DIR
-from rucio.common.dumper import http_download_to_file, srm_download_to_file, ddmendpoint_url, temp_file
+from rucio.common.dumper import http_download_to_file, gfal_download_to_file, ddmendpoint_url, temp_file
 
 import ConfigParser
 import HTMLParser
@@ -152,7 +152,7 @@ def http_links(base_url):
 protocol_funcs = {
     'srm': {
         'links': gfal_links,
-        'download': srm_download_to_file,
+        'download': gfal_download_to_file,
     },
     'http': {
         'links': http_links,

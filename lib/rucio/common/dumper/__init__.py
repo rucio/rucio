@@ -315,7 +315,7 @@ def http_download(url, filename):
         http_download_to_file(url, f)
 
 
-def srm_download_to_file(url, file_):
+def gfal_download_to_file(url, file_):
     '''
     Download the file in `url` storing it in the `file_` file-like
     object.
@@ -340,9 +340,9 @@ def srm_download_to_file(url, file_):
         chunk = infile.read(CHUNK_SIZE)
 
 
-def srm_download(url, filename):
+def gfal_download(url, filename):
     '''
     Download the file in `url` storing it in the path given by `filename`.
     '''
     with open(filename, 'w') as f:
-        srm_download_to_file(url, f)
+        gfal_download_to_file(url, f)
