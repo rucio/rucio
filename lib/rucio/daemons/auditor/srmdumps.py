@@ -112,7 +112,7 @@ def get_newest(base_url, url_pattern, links):
     return max(times, key=operator.itemgetter(1))
 
 
-def srm_links(base_url):
+def gfal_links(base_url):
     '''
     Returns a list of the urls contained in `base_url`.
     '''
@@ -151,7 +151,7 @@ def http_links(base_url):
 
 protocol_funcs = {
     'srm': {
-        'links': srm_links,
+        'links': gfal_links,
         'download': srm_download_to_file,
     },
     'http': {
