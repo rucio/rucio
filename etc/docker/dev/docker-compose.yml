@@ -1,11 +1,12 @@
 version: "2"
 services:
   rucio:
-    image: rucio/rucio-dev
+    image: rucio-dev
     ports:
       - "443:443"
     links:
       - mysql:mysql
+      - graphite:graphite
     volumes:
       - ../../../tools:/opt/rucio/tools
       - ../../../bin:/opt/rucio/bin
@@ -16,3 +17,7 @@ services:
       - MYSQL_DATABASE=mysql
       - MYSQL_USER=root
       - MYSQL_PASSWORD=secret
+  graphite:
+    image: graphiteapp/graphite-statsd
+    ports:
+      - "80:80"
