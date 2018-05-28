@@ -267,16 +267,19 @@ def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_check
                     if printstatements:
                         print('File downloaded. Will be validated')
 
-                    if not ignore_checksum:
+                    if ignore_checksum:
+                        if printstatements:
+                            print('Skipping checksum validation')
+                    else:
                         ruciochecksum = f['adler32'] if f['adler32'] else f['md5']
                         localchecksum = utils.adler32(tempfile) if f['adler32'] else utils.md5(tempfile)
                         if localchecksum == ruciochecksum:
                             if printstatements:
                                 print('File validated')
-                            os.rename(tempfile, finalfile)
                         else:
                             os.unlink(tempfile)
                             raise exception.FileConsistencyMismatch('Checksum mismatch : local %s vs recorded %s' % (str(localchecksum), str(ruciochecksum)))
+                    os.rename(tempfile, finalfile)
                 else:
                     protocol.get(pfn, '%s/%s' % (target_dir, f['name']), transfer_timeout=transfer_timeout)
                 ret['%s:%s' % (f['scope'], f['name'])] = True
