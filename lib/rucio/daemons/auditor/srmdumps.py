@@ -15,6 +15,7 @@
 # Authors:
 # - Fernando Lopez <felopez@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from rucio.common.config import __CONFIGFILES as __RUCIOCONFIGFILES
 from rucio.common.dumper import DUMPS_CACHE_DIR

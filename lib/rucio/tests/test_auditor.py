@@ -7,6 +7,7 @@
 
  Authors:
  - Vincent Garonne,  <vincent.garonne@cern.ch> , 2017
+ - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 '''
 
 from datetime import datetime

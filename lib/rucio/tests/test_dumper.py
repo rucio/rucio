@@ -8,6 +8,7 @@
 # Authors:
 # - Fernando Lopez, <felopez@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 
 import __builtin__
