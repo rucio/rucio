@@ -26,15 +26,14 @@ from rucio.common.exception import UnsupportedOperation
 
 from oauth2client.service_account import ServiceAccountCredentials
 
-
-CREDS_GCS = ServiceAccountCredentials.from_json_keyfile_name(config_get('credentials', 'gcs'))
+CREDS_GCS = None
 
 
 def get_signed_url(service, operation, url, lifetime=600):
     """
     Get a signed URL for a particular service and operation.
 
-    The signed URL will be valid for 1 hour.
+    The signed URL will be valid for 1 hour but can be overriden.
 
     :param service: The service to authorise, currently only 'gsc'.
     :param operation: The operation to sign, either 'read', 'write', or 'delete'.
@@ -42,6 +41,13 @@ def get_signed_url(service, operation, url, lifetime=600):
     :param lifetime: Lifetime of the signed URL in seconds.
     :returns: Signed URL as a variable-length string.
     """
+
+    global CREDS_GCS
+
+    if not CREDS_GCS:
+        CREDS_GCS = ServiceAccountCredentials.from_json_keyfile_name(config_get('credentials', 'gcs',
+                                                                                raise_exception=False,
+                                                                                default='/opt/rucio/etc/google-cloud-storage-test.json'))
 
     if service not in ['gcs']:
         raise UnsupportedOperation('Service must be "gcs"')
