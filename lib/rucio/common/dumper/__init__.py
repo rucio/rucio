@@ -16,6 +16,7 @@
 # - Fernando Lopez <felopez@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from rucio.common import config
 
@@ -315,7 +316,7 @@ def http_download(url, filename):
         http_download_to_file(url, f)
 
 
-def srm_download_to_file(url, file_):
+def gfal_download_to_file(url, file_):
     '''
     Download the file in `url` storing it in the `file_` file-like
     object.
@@ -340,9 +341,9 @@ def srm_download_to_file(url, file_):
         chunk = infile.read(CHUNK_SIZE)
 
 
-def srm_download(url, filename):
+def gfal_download(url, filename):
     '''
     Download the file in `url` storing it in the path given by `filename`.
     '''
     with open(filename, 'w') as f:
-        srm_download_to_file(url, f)
+        gfal_download_to_file(url, f)
