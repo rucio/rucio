@@ -41,3 +41,4 @@ numpy==1.14.2                                     # Numpy for forecasting T3C
 paramiko==2.4.1                                   # SSH2 protocol library
 Flask==0.12.2                                     # Python web framework
 idna==2.6                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
+fts3-rest-API==3.7.1                              # FTS rest API
