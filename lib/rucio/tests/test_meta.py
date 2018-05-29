@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Asket Agarwal, <asket.agarwal96@gmail.com>
 
 from nose.tools import assert_equal, assert_in, assert_is_instance, assert_true, raises
 
@@ -24,7 +25,7 @@ class TestMetaClient():
         self.did_client = DIDClient()
         self.tmp_scope = 'mock'
         self.tmp_name = 'name_%s' % uuid()
-        self.did_client.add_did(scope=self.tmp_scope, name=self.tmp_name, type="DATASET", statuses={'monotonic': True})
+        self.did_client.add_did(scope=self.tmp_scope, name=self.tmp_name, type="DATASET")
 
     def xtest_add_and_list_keys(self):
         """ META (CLIENTS): Add a key and List all keys."""
@@ -89,45 +90,31 @@ class TestMetaClient():
         """ META (CORE): Add a new key to test conversions on MySQL"""
         self.meta_client.add_key('datatype', DIDType.FILE)
 
-    def xtest_insert_metadata(self):
-        """ META (CLIENTS) : Adds a fully set json column to a did (rewrites if already present) """
+    def xtest_add_metadata(self):
+        """ META (CLIENTS) : Adds a fully set json column to a did, updates if some keys present """
         data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-        self.meta_client.insert_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
-
-    def xtest_update_metadata_key(self):
-        """ META (CLIENTS) : Updates metadata key, if not present creates a new one """
-        data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-        self.meta_client.insert_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
-
-        key = "key1"
-        value = 'value_' + str(uuid())
-        self.meta_client.update_key(scope=self.tmp_scope, name=self.tmp_name, key=key, value=value)
-
-    def xtest_update_metadata_keys(self):
-        """ META (CLIENTS) : Updates multiple metadata keys, if not present creates new ones """
-        data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-        self.meta_client.insert_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
+        self.meta_client.add_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
         data = {"key4": "value_" + str(uuid()), "key5": "value_" + str(uuid())}
-        self.meta_client.update_keys(scope=self.tmp_scope, name=self.tmp_name, data=data)
+        self.meta_client.add_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
-    def xtest_delete_metadata_key(self):
+    def xtest_delete_metadata(self):
         """ META (CLIENTS) : Deletes metadata key """
         data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-        self.meta_client.insert_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
+        self.meta_client.add_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
         key = "key2"
-        self.meta_client.delete_key(scope=self.tmp_scope, name=self.tmp_name, key=key)
+        self.meta_client.delete_metadata(scope=self.tmp_scope, name=self.tmp_name, key=key)
 
     def xtest_get_metadata(self):
         """ META (CLIENTS) : Gets all metadata for the given did """
         data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-        self.meta_client.insert_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
+        self.meta_client.add_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
         metadata = self.meta_client.get_metadata(scope=self.tmp_scope, name=self.tmp_name)
         assert_equal(metadata, data)
 
-    def xtest_get_dids_from_metadata(self):
+    def xtest_list_dids_by_metadata(self):
         """ META (CLIENTS) : Get all dids matching the values of the provided metadata keys """
         tmp_scope = 'temp'
 
@@ -135,16 +122,16 @@ class TestMetaClient():
             tmp_name = 'name_%s' % str(i)
             self.did_client.add_did(scope=self.tmp_scope, name=self.tmp_name, type="DATASET", statuses={'monotonic': True})
             data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-            self.meta_client.insert_metadata(scope=tmp_scope, name=tmp_name, meta=data)
+            self.meta_client.add_metadata(scope=tmp_scope, name=tmp_name, meta=data)
 
         temp_val = self.meta_client.get_metadata(scope=tmp_scope, name="name_1")
 
         select_query = {"key1": temp_val["key1"], "key2": temp_val["key2"]}
-        dids = self.meta_client.select_did_from_meta(scope=tmp_scope, select=select_query)
+        dids = self.meta_client.list_dids_by_metadata(scope=tmp_scope, select=select_query)
         assert_is_instance(dids, list)
         assert_in("name_1", dids)
 
         select_query = {}
-        dids = self.meta_client.select_did_from_meta(scope=tmp_scope, select=select_query)
+        dids = self.meta_client.list_dids_by_metadata(scope=tmp_scope, select=select_query)
         assert_is_instance(dids, list)
         assert_equal(len(dids), 5)
