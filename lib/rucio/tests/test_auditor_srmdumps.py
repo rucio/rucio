@@ -16,6 +16,7 @@
 # - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from ConfigParser import ConfigParser
 from datetime import datetime
@@ -89,9 +90,13 @@ def test_returns_a_list_of_links():
     eq_(collector.links, ['x', 'y'])
 
 
-def test_identifies_http_and_srm():
-    """ test_protocol_identifies_http_and_srm """
+def test_identifies_known_protocols():
+    """ test_protocol_identifies_known_protocols """
+    eq_(srmdumps.protocol('davs://some/example'), 'davs')
+    eq_(srmdumps.protocol('gsiftp://some/example'), 'gsiftp')
     eq_(srmdumps.protocol('http://some/example'), 'http')
+    eq_(srmdumps.protocol('https://some/example'), 'https')
+    eq_(srmdumps.protocol('root://some/example'), 'root')
     eq_(srmdumps.protocol('srm://some/example'), 'srm')
 
 

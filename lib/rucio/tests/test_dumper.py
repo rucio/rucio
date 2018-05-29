@@ -8,6 +8,7 @@
 # Authors:
 # - Fernando Lopez, <felopez@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 
 import __builtin__
@@ -200,28 +201,28 @@ def test_http_download_creates_file_with_content():
     eq_(stringio.read(), 'abc')
 
 
-def test_srm_download_to_file():
-    srm_file = StringIO()
+def test_gfal_download_to_file():
+    gfal_file = StringIO()
     local_file = StringIO()
-    srm_file.write('content')
-    srm_file.seek(0)
+    gfal_file.write('content')
+    gfal_file.seek(0)
 
-    with gfal2.mocked_gfal2(dumper, files={'srm://example.com/file': srm_file}):
-        dumper.srm_download_to_file('srm://example.com/file', local_file)
+    with gfal2.mocked_gfal2(dumper, files={'srm://example.com/file': gfal_file}):
+        dumper.gfal_download_to_file('srm://example.com/file', local_file)
 
     local_file.seek(0)
     eq_(local_file.read(), 'content')
 
 
-def test_srm_download_creates_file_with_content():
-    srm_file = StringIO()
+def test_gfal_download_creates_file_with_content():
+    gfal_file = StringIO()
     local_file = StringIO()
-    srm_file.write('content')
-    srm_file.seek(0)
+    gfal_file.write('content')
+    gfal_file.seek(0)
 
-    with gfal2.mocked_gfal2(dumper, files={'srm://example.com/file': srm_file}):
+    with gfal2.mocked_gfal2(dumper, files={'srm://example.com/file': gfal_file}):
         with mock_open(dumper, local_file):
-            dumper.srm_download('srm://example.com/file', 'filename')
+            dumper.gfal_download('srm://example.com/file', 'filename')
 
     local_file.seek(0)
     eq_(local_file.read(), 'content')

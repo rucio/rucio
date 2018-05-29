@@ -7,6 +7,7 @@
 
  Authors:
  - Vincent Garonne,  <vincent.garonne@cern.ch> , 2017
+ - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 '''
 
 from datetime import datetime
@@ -44,12 +45,12 @@ def test_auditor_download_dumps_with_expected_dates():
 
     date = datetime.strptime('01-01-2015', '%d-%m-%Y')
 
-    fake_srm_download, fake_srm_download_calls = mock_fn_wrapper(('', date))
+    fake_gfal_download, fake_gfal_download_calls = mock_fn_wrapper(('', date))
     fake_rrd_download, fake_rrd_download_calls = mock_fn_wrapper('')
     fake_consistency_dump, fake_consistency_dump_calls = mock_fn_wrapper('')
     tmp_dir = tempfile.mkdtemp()
 
-    with stubbed(srmdumps.download_rse_dump, fake_srm_download):
+    with stubbed(srmdumps.download_rse_dump, fake_gfal_download):
         with stubbed(hdfs.ReplicaFromHDFS.download, fake_rrd_download):
             with stubbed(consistency.Consistency.dump, fake_consistency_dump):
                 auditor.consistency('RSENAME', timedelta(days=3), None, cache_dir=tmp_dir, results_dir=tmp_dir)
