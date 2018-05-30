@@ -1326,6 +1326,18 @@ def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_
                     try:
                         trace['transferStart'] = time.time()
 
+                        # If we use https, we need to check if we need to sign URLs for this RSE.
+                        # Since we don't have the PFN yet, we can just use list_replicas to do it for us.
+                        # TODO: Obsoleted with download API.
+                        if protocol['scheme'] == 'https':
+                            c = Client()
+                            rse_attrs = c.list_rse_attributes(rse_name)
+                            if 'sign_url' in rse_attrs:
+                                logger.debug('%s : Signature type %s is required for RSE' % (thread_prefix, rse_attrs['sign_url']))
+                                dlfile['pfn'] = list(c.list_replicas(dids=[{'scope': dlfile['scope'],
+                                                                            'name': dlfile['name']}],
+                                                                     rse_expression=rse_name))[0]['rses'][rse_name][0]
+
                         rsemgr.download(rse,
                                         files=[dlfile],
                                         dest_dir=dest_dir,
