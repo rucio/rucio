@@ -17,6 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Asket Agarwal <asket.agarwal96@gmail.com>
 
 try:
     from urllib import quote_plus
@@ -148,9 +149,9 @@ class MetaClient(BaseClient):
         """
         pass
 
-    def add_metadata(self, scope, name, meta):
+    def _add_metadata(self, scope, name, meta):
         """
-        Inserts metadata to the json column of a did, updates key if not already present
+        Insert metadata to the json column of a did, updates key if not already present
 
         :param scope: the scope of did
         :param name: the name of the did
@@ -158,9 +159,9 @@ class MetaClient(BaseClient):
         """
         pass
 
-    def delete_metadata(self, scope, name, key):
+    def _delete_metadata(self, scope, name, key):
         """
-        Deletes a key from the metadata column
+        Delete a key from the metadata column
 
         :param scope: the scope of did
         :param name: the name of the did
@@ -168,15 +169,15 @@ class MetaClient(BaseClient):
         """
         pass
 
-    def get_metadata(self, scope, name):
+    def _get_metadata(self, scope, name):
         """
-        Gets all metadata for a given did
+        Get all metadata for a given did
         :param scope: the scope of did
         :param name: the name of the did
         """
         pass
 
-    def list_dids_by_metadata(self, scope=None, select={}):
+    def _list_dids_by_metadata(self, scope=None, select={}):
         """
         Gets all dids matching the values of the provided metadata keys
         :param scope: the scope of the search
