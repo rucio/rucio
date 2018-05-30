@@ -816,7 +816,16 @@ def erase(args):
     """
     client = get_client(args)
     for did in args.dids:
-        scope, name = extract_scope(did)
+        if '*' in did:
+            logger.warning("This command doesn't support wildcards! Skipping DID: %s" % did)
+            continue
+        try:
+            scope, name = extract_scope(did)
+        except RucioException as error:
+            logger.warning('DID is in wrong format: %s' % did)
+            logger.debug('Error: %s' % error)
+            continue
+
         if args.undo:
             try:
                 client.set_metadata(scope=scope, name=name, key='lifetime', value=None)
@@ -825,10 +834,14 @@ def erase(args):
                 logger.warning('Cannot undo erase operation on DID. DID not existent or grace period of 24 hours already expired.')
                 logger.warning('    DID: {0}:{1}'.format(scope, name))
         else:
-            # set lifetime to expire in 24 hours (value is in seconds).
-            client.set_metadata(scope=scope, name=name, key='lifetime', value=86400)
-            logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
-            print("rucio erase --undo {0}:{1}".format(scope, name))
+            try:
+                # set lifetime to expire in 24 hours (value is in seconds).
+                client.set_metadata(scope=scope, name=name, key='lifetime', value=86400)
+                logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
+                print("rucio erase --undo {0}:{1}".format(scope, name))
+            except RucioException as error:
+                logger.warning('Failed to erase DID: %s' % did)
+                logger.debug('Error: %s' % error)
     return SUCCESS
 
 
