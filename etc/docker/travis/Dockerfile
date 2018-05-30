@@ -43,9 +43,7 @@ WORKDIR /opt/rucio
 RUN echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf
 RUN ldconfig
 
-# RUN pip install --upgrade pip
-# Against: Detected a distutils installed project which we cannot uninstall. The metadata provided by distutils does not contain a list of files which have been installed, so pip does not know which files to uninstall.
-RUN pip install -I pip==7.1.2
+RUN pip install --upgrade pip
 
 # Get the latest setuptools version
 # to fix the setup.py error:
