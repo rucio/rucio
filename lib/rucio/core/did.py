@@ -1178,13 +1178,12 @@ def set_metadata(scope, name, key, value, type=None, did=None,
             expired_at = None
             if value is not None:
                 expired_at = datetime.utcnow() + timedelta(seconds=float(value))
-            session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
+            rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
         except TypeError as error:
             raise exception.InvalidValueForKey(error)
     elif key in ['guid', 'events']:
         rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        if not rowcount:
-            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
+
         session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
         if key == 'events':
             for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
@@ -1193,16 +1192,12 @@ def set_metadata(scope, name, key, value, type=None, did=None,
 
     elif key == 'adler32':
         rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        if not rowcount:
-            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
         session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
         session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
         session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
 
     elif key == 'bytes':
         rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        if not rowcount:
-            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
         session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
         session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
 
@@ -1226,7 +1221,7 @@ def set_metadata(scope, name, key, value, type=None, did=None,
             session.query(models.DatasetLock).filter_by(scope=parent_scope, name=parent_name).update({'length': values['length'], 'bytes': values['bytes']}, synchronize_session=False)
     else:
         try:
-            session.query(models.DataIdentifier).\
+            rowcount = session.query(models.DataIdentifier).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                 filter_by(scope=scope, name=name).\
                 update({key: value}, synchronize_session='fetch')
@@ -1249,6 +1244,10 @@ def set_metadata(scope, name, key, value, type=None, did=None,
                         update({key: value}, synchronize_session='fetch')
                 except CompileError as error:
                     raise exception.InvalidMetadata(error)
+
+    if not rowcount:
+        # check for did presence
+        raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
 
 
 @read_session
