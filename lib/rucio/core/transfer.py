@@ -718,7 +718,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id is None or rse is None:
                     continue
 
-                if link_ranking is None or link_ranking == 0:
+                if link_ranking is None:
                     logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
                     continue
 
