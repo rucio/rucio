@@ -23,6 +23,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
+# - Asket Agarwal <asket.agarwal96@gmail.com>, 2018
 
 try:
     from urllib import quote_plus
@@ -620,3 +621,39 @@ class DIDClient(BaseClient):
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
+
+    def add_generic_metadata(self, scope, name, meta):
+        """
+        Insert metadata to the json column of a did, updates key if not already present
+
+        :param scope: the scope of did
+        :param name: the name of the did
+        :param meta: the metadata to be inserted or updated
+        """
+        pass
+
+    def delete_generic_metadata(self, scope, name, key):
+        """
+        Delete a key from the metadata column
+
+        :param scope: the scope of did
+        :param name: the name of the did
+        :param key: the key to be deleted
+        """
+        pass
+
+    def get_generic_metadata(self, scope, name):
+        """
+        Get all metadata for a given did
+        :param scope: the scope of did
+        :param name: the name of the did
+        """
+        pass
+
+    def list_dids_by_generic_metadata(self, scope=None, select={}):
+        """
+        Gets all dids matching the values of the provided metadata keys
+        :param scope: the scope of the search
+        :param select: the key value pairs to search with
+        """
+        pass
