@@ -1,17 +1,27 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
-# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Eric Vaandering, <ewv@fnal.gov>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Eric Vaandering <ericvaandering@gmail.com>, 2018
 
 """
 Methods common to different conveyor submitter daemons.
@@ -148,7 +158,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
             grouped_transfers[external_host] = {}
             grouped_jobs[external_host] = []
 
-        verify_checksum = transfer.get('verify_checksum', 'both')
+        verify_checksum = transfer['file_metadata'].get('verify_checksum', 'both')
         file = {'sources': transfer['sources'],
                 'destinations': transfer['dest_urls'],
                 'metadata': transfer['file_metadata'],
