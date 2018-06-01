@@ -630,7 +630,15 @@ class DIDClient(BaseClient):
         :param name: the name of the did
         :param meta: the metadata to be inserted or updated
         """
-        pass
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'generic_meta'])
+        url = build_url(choice(self.list_hosts), path=path)
+        data = dumps(meta)
+        r = self._send_request(url, type='POST', data=data)
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
 
     def delete_generic_metadata(self, scope, name, key):
         """
@@ -640,7 +648,15 @@ class DIDClient(BaseClient):
         :param name: the name of the did
         :param key: the key to be deleted
         """
-        pass
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'generic_meta', key])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='DEL')
+
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
 
     def get_generic_metadata(self, scope, name):
         """
@@ -648,7 +664,15 @@ class DIDClient(BaseClient):
         :param scope: the scope of did
         :param name: the name of the did
         """
-        pass
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'generic_meta'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            meta = self._load_json_data(r)
+            return next(meta)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
 
     def list_dids_by_generic_metadata(self, scope=None, select={}):
         """
@@ -656,4 +680,15 @@ class DIDClient(BaseClient):
         :param scope: the scope of the search
         :param select: the key value pairs to search with
         """
-        pass
+        path = 'list_did_generic_meta'
+        payload = {}
+        if scope is not None:
+            payload['scope'] = scope
+        payload['select'] = select
+        url = build_url(choice(self.list_hosts), path=path, params=payload)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
