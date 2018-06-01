@@ -636,9 +636,9 @@ class DIDClient(BaseClient):
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        # else:
+        #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        #     raise exc_cls(exc_msg)
 
     def delete_generic_metadata(self, scope, name, key):
         """
@@ -654,9 +654,9 @@ class DIDClient(BaseClient):
 
         if r.status_code == codes.ok:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        # else:
+        #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        #     raise exc_cls(exc_msg)
 
     def get_generic_metadata(self, scope, name):
         """
@@ -670,9 +670,9 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             meta = self._load_json_data(r)
             return next(meta)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        # else:
+        #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        #     raise exc_cls(exc_msg)
 
     def list_dids_by_generic_metadata(self, scope=None, select={}):
         """
@@ -680,7 +680,7 @@ class DIDClient(BaseClient):
         :param scope: the scope of the search
         :param select: the key value pairs to search with
         """
-        path = 'list_did_generic_meta'
+        path = 'list_did_by_metadata'
         payload = {}
         if scope is not None:
             payload['scope'] = scope
@@ -689,6 +689,6 @@ class DIDClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        # else:
+        #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        #     raise exc_cls(exc_msg)

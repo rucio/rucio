@@ -10,10 +10,10 @@
 
 import uuid
 
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.dialects.oracle import RAW
 from sqlalchemy.dialects.mysql import BINARY
-from sqlalchemy.types import TypeDecorator, CHAR, String
+from sqlalchemy.types import TypeDecorator, CHAR, String, JSON
 
 
 class GUID(TypeDecorator):
@@ -96,3 +96,18 @@ class BooleanString(TypeDecorator):
             return False
         else:
             return value
+
+class JSON(TypeDecorator):
+    """
+    Platform independent json type
+
+    JSONB for postgres , JSON for the rest
+    """
+
+    impl = JSON
+
+    def load_dialect_imp(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(JSONB())
+        else:
+            return dialect.type_descriptor(JSON())

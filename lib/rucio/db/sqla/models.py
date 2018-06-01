@@ -37,7 +37,7 @@ from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability
                                      ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState)
 from rucio.db.sqla.history import Versioned
 from rucio.db.sqla.session import BASE
-from rucio.db.sqla.types import GUID, BooleanString
+from rucio.db.sqla.types import GUID, BooleanString, JSON
 
 
 # Recipe to for str instead if unicode
@@ -366,6 +366,13 @@ class DataIdentifier(BASE, ModelBase):
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
 
+class DidMetadata(BASE, ModelBase):
+    __tablename__ = 'did_metadata'
+    scope = Column(String(SCOPE_LENGTH))
+    name = Column(String(NAME_LENGTH))
+    meta = Column(JSON())
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_META_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_META_FK'),)
 
 class DeletedDataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
@@ -1211,6 +1218,7 @@ def register_models(engine):
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
+              DidMetadata,
               DeletedDataIdentifier,
               Heartbeats,
               Identity,
@@ -1266,6 +1274,7 @@ def unregister_models(engine):
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
+              DidMetadata,
               DeletedDataIdentifier,
               Heartbeats,
               Identity,
