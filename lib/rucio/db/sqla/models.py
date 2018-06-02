@@ -366,13 +366,15 @@ class DataIdentifier(BASE, ModelBase):
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
 
-class DidMetadata(BASE, ModelBase):
-    __tablename__ = 'did_metadata'
+
+class DidMeta(BASE, ModelBase):
+    __tablename__ = 'did_meta'
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     meta = Column(JSON())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_META_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_META_FK'),)
+
 
 class DeletedDataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
@@ -1218,7 +1220,7 @@ def register_models(engine):
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
-              DidMetadata,
+              DidMeta,
               DeletedDataIdentifier,
               Heartbeats,
               Identity,
@@ -1274,7 +1276,7 @@ def unregister_models(engine):
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
-              DidMetadata,
+              DidMeta,
               DeletedDataIdentifier,
               Heartbeats,
               Identity,

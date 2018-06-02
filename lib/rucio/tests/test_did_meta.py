@@ -22,28 +22,28 @@ class TestDidMetaClient():
         self.tmp_name = 'name_%s' % uuid()
         self.did_client.add_did(scope=self.tmp_scope, name=self.tmp_name, type="DATASET")
 
-    def test_add_generic_metadata(self):
+    def test_add_did_meta(self):
         """ META (CLIENTS) : Adds a fully set json column to a did, updates if some keys present """
         data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-        self.did_client.add_generic_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
+        self.did_client.add_did_meta(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
         data = {"key4": "value_" + str(uuid()), "key5": "value_" + str(uuid())}
-        self.did_client.add_generic_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
+        self.did_client.add_did_meta(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
     def test_delete_generic_metadata(self):
         """ META (CLIENTS) : Deletes metadata key """
         data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-        self.did_client.add_generic_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
+        self.did_client.add_did_meta(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
         key = "key2"
-        self.did_client.delete_generic_metadata(scope=self.tmp_scope, name=self.tmp_name, key=key)
+        self.did_client.delete_did_meta(scope=self.tmp_scope, name=self.tmp_name, key=key)
 
     def test_get_generic_metadata(self):
         """ META (CLIENTS) : Gets all metadata for the given did """
         data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-        self.did_client.add_generic_metadata(scope=self.tmp_scope, name=self.tmp_name, meta=data)
+        self.did_client.add_did_meta(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
-        metadata = self.did_client.get_generic_metadata(scope=self.tmp_scope, name=self.tmp_name)
+        self.did_client.get_did_meta(scope=self.tmp_scope, name=self.tmp_name)
         # assert_equal(metadata, data)
 
     def xtest_list_dids_by_generic_metadata(self):
@@ -54,16 +54,16 @@ class TestDidMetaClient():
             tmp_name = 'name_%s' % str(i)
             self.did_client.add_did(scope=tmp_scope, name=tmp_name, type="DATASET")
             data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
-            self.did_client.add_generic_metadata(scope=tmp_scope, name=tmp_name, meta=data)
+            self.did_client.add_did_meta(scope=tmp_scope, name=tmp_name, meta=data)
 
-        temp_val = self.did_client.get_generic_metadata(scope=tmp_scope, name="name_1")
+        temp_val = self.did_client.get_did_meta(scope=tmp_scope, name="name_1")
 
         select_query = {"key1": temp_val["key1"], "key2": temp_val["key2"]}
-        dids = self.did_client.list_dids_by_generic_metadata(scope=tmp_scope, select=select_query)
+        dids = self.did_client.list_dids_by_meta(scope=tmp_scope, select=select_query)
         assert_is_instance(dids, list)
         assert_in("name_1", dids)
 
         select_query = {}
-        dids = self.did_client.list_dids_by_generic_metadata(scope=tmp_scope, select=select_query)
+        dids = self.did_client.list_dids_by_meta(scope=tmp_scope, select=select_query)
         assert_is_instance(dids, list)
         assert_equal(len(dids), 5)

@@ -622,7 +622,7 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def add_generic_metadata(self, scope, name, meta):
+    def add_did_meta(self, scope, name, meta):
         """
         Insert metadata to the json column of a did, updates key if not already present
 
@@ -630,7 +630,7 @@ class DIDClient(BaseClient):
         :param name: the name of the did
         :param meta: the metadata to be inserted or updated
         """
-        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'generic_meta'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'did_meta'])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps(meta)
         r = self._send_request(url, type='POST', data=data)
@@ -640,7 +640,7 @@ class DIDClient(BaseClient):
         #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         #     raise exc_cls(exc_msg)
 
-    def delete_generic_metadata(self, scope, name, key):
+    def delete_did_meta(self, scope, name, key):
         """
         Delete a key from the metadata column
 
@@ -648,7 +648,7 @@ class DIDClient(BaseClient):
         :param name: the name of the did
         :param key: the key to be deleted
         """
-        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'generic_meta', key])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'did_meta', key])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='DEL')
 
@@ -658,7 +658,7 @@ class DIDClient(BaseClient):
         #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         #     raise exc_cls(exc_msg)
 
-    def get_generic_metadata(self, scope, name):
+    def get_did_meta(self, scope, name):
         """
         Get all metadata for a given did
         :param scope: the scope of did
@@ -674,7 +674,7 @@ class DIDClient(BaseClient):
         #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         #     raise exc_cls(exc_msg)
 
-    def list_dids_by_generic_metadata(self, scope=None, select={}):
+    def list_dids_by_meta(self, scope=None, select={}):
         """
         Gets all dids matching the values of the provided metadata keys
         :param scope: the scope of the search
