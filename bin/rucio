@@ -2030,7 +2030,7 @@ def delete_metadata(args):
 
 
 @exception_handler
-def get_generic_metadata(args):
+def get_did_meta(args):
     """
     %(prog)s get-generic-metadata [options] <field1=value1 field2=value2 ...>
 
@@ -2039,48 +2039,48 @@ def get_generic_metadata(args):
     client = get_client(args)
     for did in args.dids:
         scope, name = extract_scope(did)
-        meta = client.get_generic_metadata(scope=scope, name=name)
+        meta = client.get_did_meta(scope=scope, name=name)
         for k in meta:
             print('%s: %s' % (k, meta[k]))
     return SUCCESS
 
 
 @exception_handler
-def add_generic_metadata(args):
+def add_did_meta(args):
     """
-    %(prog)s add-genenric-metadata [options] <field1=value1 field2=value2 ...>
+    %(prog)s add-did-meta [options] <field1=value1 field2=value2 ...>
 
     Add or update data identifier metadata
     """
     client = get_client(args)
     scope, name = extract_scope(args.did)
-    client.add_generic_metadata(scope=scope, name=name, key=args.key, value=args.value)
+    client.add_did_meta(scope=scope, name=name, key=args.key, value=args.value)
     return SUCCESS
 
 
 @exception_handler
-def delete_generic_metadata(args):
+def delete_did_meta(args):
     """
-    %(prog)s add-genenric-metadata [options] <field1=value1 field2=value2 ...>
+    %(prog)s delete-did-meta [options] <field1=value1 field2=value2 ...>
 
     Add or update data identifier metadata
     """
     client = get_client(args)
     scope, name = extract_scope(args.did)
-    client.delete_generic_metadata(scope=scope, name=name, key=args.key)
+    client.delete_did_meta(scope=scope, name=name, key=args.key)
     return SUCCESS
 
 
 @exception_handler
-def list_dids_by_metadata(args):
+def list_dids_by_meta(args):
     """
-    %(prog)s list-did-by-metadata [options] <field1=value1 field2=value2 ...>
+    %(prog)s list-dids-by-meta [options] <field1=value1 field2=value2 ...>
 
     List dids by metadata key value
     """
     client = get_client(args)
     select = {args.key: args.value}
-    client.list_dids_by_generic_metadata(select=select)
+    client.list_dids_by_meta(select=select)
     return SUCCESS
 
 
@@ -2980,26 +2980,26 @@ You can filter by key/value, e.g.::
     # delete_metadata_parser.set_defaults(which='delete_metadata')
 
     # The get-genric-metadata subparser
-    get_generic_meta_parser = subparsers.add_parser('get-generic-metadata', help='Get generic metadata for DIDs.')
-    get_generic_meta_parser.set_defaults(which='get_generic_metadata')
-    get_generic_meta_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    get_did_meta_parser = subparsers.add_parser('get-did-meta', help='Get generic metadata for DIDs.')
+    get_did_meta_parser.set_defaults(which='get_did_meta')
+    get_did_meta_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # Add generic metadata subparser
-    add_generic_meta_parser = subparsers.add_parser('add-generic-metadata', help='Add or update metadata')
-    add_generic_meta_parser.set_defaults(which='add_generic_metadata')
-    add_generic_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add', required=True)
-    add_generic_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
-    add_generic_meta_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
+    add_did_meta_parser = subparsers.add_parser('add-did-meta', help='Add or update metadata')
+    add_did_meta_parser.set_defaults(which='add_did_meta')
+    add_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add', required=True)
+    add_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    add_did_meta_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
     # Delete generic metadata subparser
-    delete_generic_meta_parser = subparsers.add_parser('delete-generic-metadata', help='delete metadata')
-    delete_generic_meta_parser.set_defaults(which='delete_generic_metadata')
-    delete_generic_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to delete', required=True)
-    delete_generic_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    delete_did_meta_parser = subparsers.add_parser('delete-did-meta', help='delete metadata')
+    delete_did_meta_parser.set_defaults(which='delete_did_meta')
+    delete_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to delete', required=True)
+    delete_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
 
     # Get dids by metadata key value
-    list_dids_by_meta_parser = subparsers.add_parser('list-did-by-metadata', help='list dids by a key value pair')
-    list_dids_by_meta_parser.set_defaults(which='list_dids_by_metadata')
+    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-meta', help='list dids by a key value pair')
+    list_dids_by_meta_parser.set_defaults(which='list_dids_by_meta')
     list_dids_by_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     list_dids_by_meta_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
