@@ -13,7 +13,8 @@ import uuid
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.dialects.oracle import RAW
 from sqlalchemy.dialects.mysql import BINARY
-from sqlalchemy.types import TypeDecorator, CHAR, String, JSON, LargeBinary
+from sqlalchemy.types import TypeDecorator, CHAR, String, LargeBinary
+import sqlalchemy.types as types
 
 
 class GUID(TypeDecorator):
@@ -105,12 +106,12 @@ class JSON(TypeDecorator):
     JSONB for postgres , JSON for the rest
     """
 
-    impl = JSON
+    impl = types.JSON
 
     def load_dialect_imp(self, dialect):
         if dialect.name == 'postgresql':
             return dialect.type_descriptor(JSONB())
         elif dialect.name == 'mysql':
-            return dialect.type_descriptor(JSON())
+            return dialect.type_descriptor(types.JSON())
         else:
             return dialect.type_descriptor(LargeBinary())
