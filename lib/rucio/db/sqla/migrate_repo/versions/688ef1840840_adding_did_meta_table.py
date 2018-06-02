@@ -44,7 +44,7 @@ def upgrade():
 
     if context.get_context().dialect.name != 'sqlite':
         create_primary_key('DID_META_PK', 'did_meta', ['scope', 'name'])
-        create_foreign_key('DID_META_FK', 'did_meta', 'dids'
+        create_foreign_key('DID_META_FK', 'did_meta', 'dids',
                            ['scope', 'name'], ['scope', 'name'])
 
 
