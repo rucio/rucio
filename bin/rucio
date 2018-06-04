@@ -26,7 +26,7 @@
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014
 # - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Evangelia Liotiri, <evangelia.liotiri@cern.ch>, 2015
-# - Tobias Wegner, <twegner@cern.ch>, 2017
+# - Tobias Wegner, <twegner@cern.ch>, 2017-2018
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
@@ -66,13 +66,14 @@ from threading import Thread, Event
 from xml.etree import ElementTree
 
 from rucio.client.client import Client
+from rucio.client.uploadclient import UploadClient
 from rucio import version
 from rucio.common.config import config_get
-from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
-                                    DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
+from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
+                                    RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent, RSEProtocolNotSupported,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
                                     RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import adler32, md5, generate_uuid, execute, chunks, sizefmt, Color, detect_client_location, make_valid_did
+from rucio.common.utils import adler32, generate_uuid, execute, sizefmt, Color, detect_client_location
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -845,46 +846,6 @@ def erase(args):
     return SUCCESS
 
 
-def __get_dataset(args):
-    '''Parse helper for upload'''
-    dsscope = None
-    dsname = None
-    for item in args:
-        if item.count(':') == 1:
-            if dsscope:
-                raise Exception("Only one dataset should be given")
-            else:
-                dsscope, dsname = item.split(':')
-    return dsscope, dsname
-
-
-def __get_files(args):
-    '''Parse helper for upload'''
-    files = []
-    for item in args:
-        # Skip things that look like a scope:datasetname
-        if item.count(':') == 1:
-            logger.warning("{0} cannot be distinguished from scope:datasetname. Skipping it.".format(item))
-            continue
-        if os.path.isdir(item):
-            dname, subdirs, fnames = next(os.walk(item))
-            # Check if there are files in the directory
-            if fnames:
-                for fname in fnames:
-                    files.append(os.path.join(dname, fname))
-            # No files, but subdirectories. Needed to be added one-by-one
-            # Maybe change so we look through the subdirs and add those files?
-            elif subdirs:
-                raise Exception("Directory ({directory}) has no files in it. Please add subdirectories individually.".format(directory=dname))
-            else:
-                raise Exception("Directory ({directory}) is empty.".format(directory=dname))
-        elif os.path.isfile(item):
-            files.append(item)
-        else:
-            logger.warning('{0} is not a directory or file or does not exist'.format(item))
-    return files
-
-
 @exception_handler
 def upload(args):
     """
@@ -894,286 +855,51 @@ def upload(args):
     Upload files into Rucio
     """
 
-    rse_settings = rsemgr.get_rse_info(args.rse)
-    if rse_settings['availability_write'] != 1:
-        logger.critical('RSE is not available for writing right now. Aborting.')
-        return FAILURE
+    dsscope = None
+    dsname = None
+    for arg in args.args:
+        did = arg.split(':')
+        if not dsscope and len(did) == 2:
+            dsscope = did[0]
+            dsname = did[1]
+        elif len(did) == 2:
+            logger.warning('Ignoring input {} because dataset DID is already set {}:{}'.format(arg, dsscope, dsname))
 
-    client = get_client(args)
-    try:
-        dsscope, dsname = __get_dataset(args.args)    # None, None if no dataset given
-    except Exception:
-        logger.error('rucio upload only allows to upload files to one dataset, more than one provided.')
-        return FAILURE
+    items = []
+    for arg in args.args:
+        if arg.count(':') > 0:
+            continue
+        items.append({'path': arg,
+                      'rse': args.rse,
+                      'did_scope': args.scope,
+                      'did_name': args.name,
+                      'dataset_scope': dsscope,
+                      'dataset_name': dsname,
+                      'force_scheme': args.protocol,
+                      'pfn': args.pfn,
+                      'no_register': args.no_register,
+                      'lifetime': args.lifetime,
+                      'transfer_timeout': args.transfer_timeout,
+                      'guid': args.guid})
 
-    files = __get_files(args.args)               # a list of file names (even if a directory is given)
-    if not files:
-        return FAILURE
-    list_files = []
-    files_to_list = []
-    revert_dict = {}
-    if args.scope:
-        fscope = args.scope
-    else:
-        fscope = 'user.' + client.account
+    if len(items) < 1:
+        raise InputValidationError('No files could be extracted from the given arguments')
 
-    if args.pfn and not args.no_register:
-        logger.error('You must specify --no-register if you use the --pfn option. Aborting.')
-        return FAILURE
-    elif args.pfn:
-        selected_pfn_protocol = args.pfn.split(':')[0]
-        logger.debug('PFN option specified, extracting protocol from given PFN: %s' % selected_pfn_protocol)
-        try:
-            rse_settings['hostname'] = ''
-            rse_settings['prefix'] = ''
-            protocol = rsemgr.select_protocol(rse_settings, operation='read', scheme=selected_pfn_protocol)
-        except RSEProtocolNotSupported as error:
-            logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
-            logger.debug(error)
-            return FAILURE
-
-    summary = []
-    trace = {}
-    trace['hostname'] = socket.getfqdn()
-    trace['scope'] = fscope
-    trace['uuid'] = generate_uuid()
-    if len(files) > 1 and args.guid:
+    if len(items) > 1 and args.guid:
         logger.error("A single GUID was specified on the command line, but there are multiple files to upload.")
         logger.error("If GUID auto-detection is not used, only one file may be uploaded at a time")
-        return FAILURE
-    if len(files) > 1 and args.name:
+        raise InputValidationError('Invalid input argument composition')
+    if len(items) > 1 and args.name:
         logger.error("A single LFN was specified on the command line, but there are multiple files to upload.")
         logger.error("If LFN auto-detection is not used, only one file may be uploaded at a time")
-        return FAILURE
-    for filename in files:
-        try:
-            size = os.stat(filename).st_size
-            a32_checksum = adler32(filename)
-            md5_checksum = md5(filename)
-            base_name = os.path.basename(filename)
-            dir_name = os.path.dirname(filename)
-            name = base_name
-            if args.name:
-                name = args.name
-            logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), a32_checksum, fscope, name))
-            files_to_list.append({'scope': fscope, 'name': name, 'filename': base_name})
-            current_file_info = {'scope': fscope, 'filename': base_name, 'name': name, 'bytes': size, 'adler32': a32_checksum, 'md5': md5_checksum, 'state': 'C', 'meta': {}}
-            if not args.guid and 'pool.root' in filename.lower() and not args.no_register:  # is a root file, getting the GUID
-                status, output, err = execute('pool_extractFileIdentifier {0}'.format(filename))
-                if status != 0:
-                    logger.error('Trying to upload ROOT files but pool_extractFileIdentifier tool can not be found.')
-                    logger.error('Setup your ATHENA environment and try again.')
-                    return FAILURE
-                try:
-                    logger.debug('Extracting GUID from POOL file: {0}'.format(output.splitlines()[-1].split()[0].replace('-', '').lower()))
-                    guid = output.splitlines()[-1].split()[0].replace('-', '').lower()
-                except Exception:
-                    logger.error('Error during GUID extraction. Failing. None of the files will be uploaded.')
-                    return FAILURE
-                current_file_info['meta']['guid'] = guid
-            elif args.guid:
-                logger.info('Manually set GUID: %s' % args.guid.replace('-', ''))
-                current_file_info['meta']['guid'] = args.guid.replace('-', '')
-            else:
-                logger.debug('Automatically setting new GUID')
-                current_file_info['meta']['guid'] = generate_uuid()
-            list_files.append(current_file_info)
-            revert_dict[fscope, name] = dir_name
+        raise InputValidationError('Invalid input argument composition')
 
-        except OSError as error:
-            logger.error(error)
-            logger.error("No operation will be performed. Exiting!")
-            return FAILURE
+    client = get_client(args)
+    upload_client = UploadClient(client, logger)
 
-    if args.protocol:
-        try:
-            logger.debug('Forcing protocol : %s' % args.protocol)
-            logger.debug('Forcing RSE : %s' % args.rse)
-            protocol = rsemgr.select_protocol(rse_settings,
-                                              operation='read',
-                                              scheme=args.protocol)
-        except RSEProtocolNotSupported as error:
-            logger.error('The specified protocol (%s) is not supported by %s' % (args.protocol, args.rse))
-            logger.debug(error)
-            return FAILURE
-        rse_settings['protocols'] = [protocol, ]
+    summary_file_path = 'rucio_upload.json' if args.summary else None
+    upload_client.upload(items, summary_file_path)
 
-    if args.account is None:
-        account = client.whoami()['account']
-    else:
-        account = args.account
-    logger.debug('Using account %s' % (account))
-
-    trace['account'] = client.account
-    trace['dataset'] = ''
-    trace['datasetScope'] = ''
-    trace['eventType'] = 'upload'
-    trace['eventVersion'] = version.RUCIO_VERSION[0]
-    if dsscope and dsname and args.no_register is False:
-        if files_to_list.count({'scope': dsscope, 'name': dsname}) > 0:
-            # There is a file with the name of the destination dataset.
-            logger.error('scope:name for the files must be different from scope:name for the destination dataset. {0}:{1}'.format(dsscope, dsname))
-            return FAILURE
-        try:
-            client.add_dataset(scope=dsscope, name=dsname, rules=[{'account': client.account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET', 'lifetime': args.lifetime}])
-            logger.info('Dataset successfully created')
-            trace['dataset'] = dsname
-            trace['datasetScope'] = dsscope
-        except DataIdentifierAlreadyExists:
-            # TODO: Need to check the rules thing!!
-            logger.warning("The dataset name already exist")
-    else:
-        logger.debug('Skipping dataset registration')
-
-    # Adding files to the catalog
-    for f in list_files:
-        logger.debug("Processing file %s:%s for upload" % (f['scope'], f['name']))
-        try:  # If the did already exist in the catalog, only should be upload if the checksum is the same
-            meta = client.get_metadata(f['scope'], f['name'])
-            replicastate = [rep for rep in client.list_replicas([{'scope': f['scope'], 'name': f['name']}], all_states=True)]
-            if args.rse not in replicastate[0]['rses']:
-                try:
-                    client.add_replicas(files=[f], rse=args.rse)
-                except RucioException:
-                    logger.error("A Rucio exception occurred when registering a file replica in Rucio.")
-                    raise
-            # logger.warning("The file {0}:{1} already exist in the catalog and will not be added.".format(f['scope'], f['name']))
-            if rsemgr.exists(rse_settings=rse_settings, files={'name': f['name'], 'scope': f['scope']}):
-                logger.warning('File {0}:{1} already exists on RSE. Will not try to reupload'.format(f['scope'], f['name']))
-            else:
-                if meta['adler32'] == f['adler32']:
-                    logger.info('Local files and file %s:%s recorded in Rucio have the same checksum. Will try the upload' % (f['scope'], f['name']))
-                    directory = revert_dict[f['scope'], f['name']]
-                    trace['remoteSite'] = rse_settings['rse']
-                    trace['protocol'] = rse_settings['protocols'][0]['scheme']
-                    trace['filesize'] = f['bytes']
-                    trace['transferStart'] = time.time()
-                    f['upstate'] = rsemgr.upload(rse_settings=rse_settings,
-                                                 lfns=[{'filename': f['filename'],
-                                                        'name': f['name'],
-                                                        'scope': f['scope'],
-                                                        'adler32': f['adler32'],
-                                                        'md5': f['md5'],
-                                                        'filesize': f['bytes']}],
-                                                 source_dir=directory,
-                                                 force_pfn=args.pfn,
-                                                 transfer_timeout=args.transfer_timeout)
-                    trace['transferEnd'] = time.time()
-                    trace['clientState'] = 'DONE'
-                    logger.info('File %s:%s successfully uploaded on the storage' % (f['scope'], f['name']))
-                    send_trace(trace, client.host, args.user_agent)
-                    summary.append(deepcopy(f))
-                    f.pop('upstate', None)
-                else:
-                    raise DataIdentifierAlreadyExists
-        except NotImplementedError as error:
-            for proto in rse_settings['protocols']:
-                if proto['domains']['wan']['read'] == 1:
-                    prot = proto['scheme']
-            logger.error('Protocol {0} for RSE {1} not supported!'.format(prot, args.rse))
-            return FAILURE
-        except DataIdentifierNotFound:
-            try:
-                if args.no_register is False:
-                    # Skipping registration for pilot
-                    logger.info('Adding replicas in Rucio catalog')
-                    try:
-                        client.add_replicas(files=[make_valid_did(f)], rse=args.rse)
-                    except RucioException:
-                        logger.error("A Rucio exception occurred when adding replicas for %s:%s" % (f['scope'], f['name']))
-                        raise
-                    logger.info('Replicas successfully added')
-                    if not dsscope:
-                        # only need to add rules for files if no dataset is given
-                        logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
-                        try:
-                            client.add_replication_rule([make_valid_did(f)], copies=1, rse_expression=args.rse, lifetime=args.lifetime)
-                        except RucioException:
-                            logger.error("A Rucio exception occurred when adding a replication rule for %s:%s" % (f['scope'], f['name']))
-                directory = revert_dict[f['scope'], f['name']]
-                trace['remoteSite'] = rse_settings['rse']
-                trace['protocol'] = rse_settings['protocols'][0]['scheme']
-                trace['filesize'] = f['bytes']
-                trace['transferStart'] = time.time()
-                logger.debug("Uploading source file to RSE")
-                f['upstate'] = rsemgr.upload(rse_settings=rse_settings,
-                                             lfns=[{'filename': f['filename'],
-                                                    'name': f['name'],
-                                                    'scope': f['scope'],
-                                                    'adler32': f['adler32'],
-                                                    'md5': f['md5'],
-                                                    'filesize': f['bytes']}],
-                                             source_dir=directory,
-                                             force_pfn=args.pfn,
-                                             transfer_timeout=args.transfer_timeout)
-                trace['transferEnd'] = time.time()
-                trace['clientState'] = 'DONE'
-                logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
-                send_trace(trace, client.host, args.user_agent)
-                summary.append(deepcopy(f))
-                f.pop('upstate', None)
-            except (Duplicate, FileAlreadyExists) as error:
-                logger.warning(error)
-                return FAILURE
-            except ResourceTemporaryUnavailable as error:
-                logger.error(error)
-                return FAILURE
-        except DataIdentifierAlreadyExists as error:
-            logger.debug(error)
-            logger.error("Some of the files already exist in the catalog. No one will be added.")
-        except RucioException:
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.exception("A Rucio exception occurred when processing a file for upload.")
-            else:
-                logger.error("A Rucio exception occurred when processing a file for upload.")
-            raise
-    logger.debug("Finished uploading files to RSE.")
-
-    if dsname:
-        # A dataset is provided. Must add the files to the dataset.
-        for f in list_files:
-            try:
-                client.add_files_to_dataset(scope=dsscope, name=dsname, files=[make_valid_did(f)])
-            except Exception as error:
-                logger.warning('Failed to attach file {0} to the dataset'.format(f))
-                logger.warning(error)
-                logger.warning("Continuing with the next one")
-
-    replicas = []
-    replica_dictionary = {}
-    for chunk_files_to_list in chunks(files_to_list, 50):
-        for rep in client.list_replicas([make_valid_did(f) for f in chunk_files_to_list]):
-            replica_dictionary[rep['scope'], rep['name']] = list(rep['rses'].keys())
-    for file in list_files:
-        if (file['scope'], file['name']) not in replica_dictionary:
-            file['state'] = 'A'
-            replicas.append(file)
-        elif args.rse not in replica_dictionary[file['scope'], file['name']]:
-            file['state'] = 'A'
-            replicas.append(file)
-    if args.no_register is False and replicas != []:
-        logger.info('Will update the file replicas states')
-        for chunk_replicas in chunks(replicas, 20):
-            try:
-                client.update_replicas_states(rse=args.rse, files=[make_valid_did(f) for f in chunk_replicas])
-            except AccessDenied as error:
-                logger.error(error)
-                return FAILURE
-        logger.info('File replicas states successfully updated')
-    if args.summary:
-        final_summary = {}
-        for file in summary:
-            final_summary['%s:%s' % (file['scope'],
-                                     file['name'])] = {'scope': file['scope'],
-                                                       'name': file['name'],
-                                                       'bytes': file['bytes'],
-                                                       'rse': args.rse,
-                                                       'pfn': file['upstate']['pfn'],
-                                                       'guid': file['meta']['guid'],
-                                                       'adler32': file['adler32'],
-                                                       'md5': file['md5']}
-        with open('rucio_upload.json', 'wb') as summary_file:
-            json.dump(final_summary, summary_file, sort_keys=True, indent=1)
     return SUCCESS
 
 
