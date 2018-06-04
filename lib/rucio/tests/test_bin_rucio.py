@@ -25,7 +25,7 @@
 
 from __future__ import print_function
 
-from os import remove, unlink, listdir, rmdir, stat
+from os import remove, unlink, listdir, rmdir, stat, path
 
 import nose.tools
 import re
@@ -56,6 +56,8 @@ class TestBinRucio():
         self.replica_client = ReplicaClient()
         self.account_client = AccountLimitClient()
         self.account_client.set_account_limit('root', self.def_rse, -1)
+
+        self.upload_success_str = 'Successfully uploaded file %s'
 
     def test_rucio_version(self):
         """CLIENT(USER): Rucio version"""
@@ -210,7 +212,9 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_true("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out)
+        nose.tools.assert_true((self.upload_success_str % path.basename(tmp_file1)) in out)
+        nose.tools.assert_true((self.upload_success_str % path.basename(tmp_file2)) in out)
+        nose.tools.assert_true((self.upload_success_str % path.basename(tmp_file3)) in out)
 
     def test_upload_file_guid(self):
         """CLIENT(USER): Rucio upload file with guid"""
@@ -222,7 +226,7 @@ class TestBinRucio():
         print(out)
         print(err)
         remove(tmp_file1)
-        nose.tools.assert_true("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out)
+        nose.tools.assert_true((self.upload_success_str % path.basename(tmp_file1)) in out)
 
     def test_upload_repeated_file(self):
         """CLIENT(USER): Rucio upload repeated files"""
@@ -230,13 +234,14 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
+        tmp_file1_name = path.basename(tmp_file1)
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
         # get the rule for the file
-        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1_name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -246,8 +251,8 @@ class TestBinRucio():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        # delete the fisical file
-        cmd = "find /tmp/rucio_rse/ -name {0} |xargs rm".format(tmp_file1[5:])
+        # delete the physical file
+        cmd = "find /tmp/rucio_rse/ -name {0} |xargs rm".format(tmp_file1_name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -259,7 +264,7 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_not_equal("File %s:%s successfully uploaded on the storage" % (self.user, tmp_file1[5:]) in out, None)
+        nose.tools.assert_true((self.upload_success_str % tmp_file1_name) in out)
 
     def test_upload_repeated_file_dataset(self):
         """CLIENT(USER): Rucio upload repeated files to dataset"""
@@ -267,6 +272,8 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
+        tmp_file1_name = path.basename(tmp_file1)
+        tmp_file3_name = path.basename(tmp_file3)
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
@@ -290,15 +297,16 @@ class TestBinRucio():
         print(out)
         print(err)
         # tmp_file1 must be in the dataset
-        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out), None)
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1_name), out), None)
         # tmp_file3 must be in the dataset
-        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file3[5:]), out), None)
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file3_name), out), None)
 
     def test_upload_file_dataset(self):
         """CLIENT(USER): Rucio upload files to dataset"""
         tmp_file1 = file_generator()
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
+        tmp_file1_name = path.basename(tmp_file1)
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
@@ -315,12 +323,13 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
-        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out), None)
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1_name), out), None)
 
     def test_upload_adds_md5digest(self):
         """CLIENT(USER): Upload Checksums"""
         # user has a file to upload
         filename = file_generator()
+        tmp_file1_name = path.basename(filename)
         file_md5 = md5(filename)
         # user uploads file
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, filename)
@@ -329,7 +338,7 @@ class TestBinRucio():
         print(out)
         print(err)
         # When inspecting the metadata of the new file the user finds the md5 checksum
-        meta = self.did_client.get_metadata(scope=self.user, name=filename[5:])
+        meta = self.did_client.get_metadata(scope=self.user, name=tmp_file1_name)
         nose.tools.assert_in('md5', meta)
         nose.tools.assert_equal(meta['md5'], file_md5)
         remove(filename)
