@@ -38,6 +38,18 @@ The container environment may also be setup by hand. First setup the mysql serve
            -e MYSQL_PASSWORD=rucio \
            mysql/mysql-server:5.7
 
+And to provide a server for rucio monitoring to report to:
+
+  $> docker run -d\
+                --name graphite\
+                --restart=always\
+                -p 80:80\
+                -p 2003-2004:2003-2004\
+                -p 2023-2024:2023-2024\
+                -p 8125:8125/udp\
+                -p 8126:8126\
+                graphiteapp/graphite-statsd
+
 Then start the rucio container::
 
    $> docker run -it -d --name rucio -p "443:443" \
@@ -54,14 +66,15 @@ Running Tests
 You should have something like this::
 
    $> docker ps
-   CONTAINER ID        IMAGE                    COMMAND                  CREATED             STATUS                    PORTS                  NAMES
-   3d9dfb317ada        rucio-dev                "httpd -D FOREGROUND"    28 minutes ago      Up 28 minutes             0.0.0.0:443->443/tcp   dev_rucio_1
-   88a5ad6cf6d0        mysql/mysql-server:5.7   "/entrypoint.sh my..."   28 minutes ago      Up 28 minutes (healthy)   3306/tcp, 33060/tcp    dev_mysql_1
+   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                    PORTS                        NAMES
+   5bbf88de58a7        graphiteapp/graphite-statsd   "/sbin/my_init"           2 hours ago        Up 2 hours                0.0.0.0:80->80/tcp, ...     dev_graphite_1
+   3d9dfb317ada        rucio-dev                     "httpd -D FOREGROUND"    28 minutes ago      Up 28 minutes             0.0.0.0:443->443/tcp        dev_rucio_1
+   88a5ad6cf6d0        mysql/mysql-server:5.7        "/entrypoint.sh my..."   28 minutes ago      Up 28 minutes (healthy)   3306/tcp, 33060/tcp         dev_mysql_1
 
 
 Note that the names of the containers may end up looking different on your system. To run the test suite use `docker exec` with the rucio container, e.g.::
 
-   $> docker exec -it dev_rucio_1 tools/run_tests.sh
+   $> docker exec -it dev_rucio_1 tools/run_tests_docker.sh
 
 If needed, it is also possible to login directly to the container::
 
