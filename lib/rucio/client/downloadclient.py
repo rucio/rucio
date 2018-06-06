@@ -29,9 +29,9 @@ import time
 import socket
 import signal
 
-from rucio.common.exception import (FileConsistencyMismatch, InputValidationError, NoFilesDownloaded,
-                                    NotAllFilesDownloaded, RSEProtocolNotSupported, RSENotFound, RucioException)
-from rucio.common.utils import detect_client_location, generate_uuid, send_trace, sizefmt
+from rucio.common.exception import (FileConsistencyMismatch, InputValidationError, NoFilesDownloaded, ServiceUnavailable,
+                                    NotAllFilesDownloaded, RSEProtocolNotSupported, RSENotFound, RucioException, SourceNotFound)
+from rucio.common.utils import detect_client_location, generate_uuid, send_trace, sizefmt, execute
 
 from rucio.client.client import Client
 from Queue import Queue, Empty, deque
@@ -72,6 +72,134 @@ class DownloadClient:
         self.trace_tpl['account'] = self.client.account
         self.trace_tpl['eventType'] = 'download'
         self.trace_tpl['eventVersion'] = 'api'
+
+    def download_file_from_archive(self, items, trace_custom_fields={}):
+        """
+        Download items with a given PFN. This function can only download files, no datasets.
+
+        :param items: List of dictionaries. Each dictionary describing a file to download. Keys:
+            did                 - DID string of the archive file (e.g. 'scope:file.name'). Wildcards are not allowed
+            rse                 - rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are not allowed
+            archive             - name of the archive from which the file should be extracted
+            base_dir            - Optional: Base directory where the downloaded files will be stored. (Default: '.')
+            no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
+            ignore_checksum     - Optional: If true, the checksum validation is skipped (for pfn downloads the checksum must be given explicitly). (Default: True)
+            transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
+        :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
+        :param trace_custom_fields: Custom key value pairs to send with the traces
+
+        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+                  clientState can be one of the following: ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
+
+        :raises InputValidationError: if one of the input items is in the wrong format
+        :raises NoFilesDownloaded: if no files could be downloaded
+        :raises NotAllFilesDownloaded: if not all files could be downloaded
+        :raises RucioException: if something unexpected went wrong during the download
+        """
+        logger = self.logger
+        trace = copy.deepcopy(self.trace_tpl)
+        log_prefix = 'Unarchiving'
+
+        logger.info('Processing %d item(s) for input' % len(items))
+        input_items = []
+        for item in items:
+            archive = item.get('archive')
+            file_extract = item.get('did')
+            rse_name = item.get('rse')
+            file_extract_scope, file_extract_name = self._split_did_str(file_extract)
+            archive_scope, archive_name = self._split_did_str(archive)
+
+            # if not specified, taking first availbale replica
+            if not rse_name:
+                replicas = self.client.list_replicas([{'scope': archive_scope, 'name': archive_name}],
+                                                     schemes='root',
+                                                     client_location=detect_client_location())
+                for r in replicas:
+                    for rse in r['states'].keys():
+                        if r['states'][rse] == 'AVAILABLE':
+                            rse_attr = self.client.list_rse_attributes(rse)
+                            if rse_attr['istape'] == 'False':
+                                rse_name = rse
+                                break
+                    if rse_name and rse_name is not None:
+                        break
+
+            rse = {}
+            try:
+                rse = rsemgr.get_rse_info(rse_name)
+            except RSENotFound:
+                logger.warning('%sCould not get info of RSE %s' % (log_prefix, rse_name))
+                continue
+
+                raise InputValidationError('The keys archive (zip file), file_extract, and rse are mandatory')
+
+            logger.debug('Preparing pfn of archive for download of %s (%s) from %s' % (archive, file_extract, rse))
+            pfn_archive = ''
+            try:
+                pfns_dict = rsemgr.lfns2pfns(rse,
+                                             lfns={'name': archive_name, 'scope': archive_scope},
+                                             operation='read',
+                                             scheme='root')
+                pfn_archive = pfns_dict[archive]
+            except:
+                raise InputValidationError('The pfn of archive file not found.')
+
+            if '*' in archive:
+                logger.debug(archive)
+                raise InputValidationError('Cannot use PFN download with wildcard in DID')
+
+            # preparing output directories
+            dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'),
+                                                   os.path.join(archive_scope, archive_name + '.extracted'), file_extract,
+                                                   item.get('no_subdir'))
+            logger.debug('Preparing output destination %s' % dest_dir_path)
+
+            item['file_extract'] = file_extract_name
+            item['scope_archive'] = archive_scope
+            item['name_archive'] = archive_name
+            item['rse'] = rse_name
+            item['pfn_archive'] = pfn_archive
+            item['force_scheme'] = pfn_archive.split(':')[0]
+            item['dest_dir_path'] = dest_dir_path
+            item.setdefault('ignore_checksum', True)
+            input_items.append(item)
+
+        for item in input_items:
+            trace['uuid'] = generate_uuid()
+            trace['scope'] = item['scope_archive']
+            trace['dataset'] = item['name_archive']
+            trace['filename'] = item['file_extract']
+            trace['rse'] = item['rse']
+
+            # if file already exists, set state, send trace, and return
+            dest_dir_path = item['dest_dir_path']
+            dest_file_path = os.path.join(dest_dir_path, file_extract)
+            if os.path.isfile(dest_file_path):
+                logger.info('%s File exists already locally: %s' % (file_extract, dest_dir_path))
+                trace['clientState'] = 'ALREADY_DONE'
+                trace['transferStart'] = time.time()
+                trace['transferEnd'] = time.time()
+                send_trace(trace, self.client.host, self.user_agent)
+                continue
+            try:
+                start_time = time.time()
+                cmd = 'xrdcp -vf %s -z %s file://%s' % (item['pfn_archive'], item['file_extract'], item['dest_dir_path'])
+                status, out, err = execute(cmd)
+                end_time = time.time()
+                trace['transferStart'] = start_time
+                trace['transferEnd'] = end_time
+                if status == 54:
+                    trace['clientState'] = 'FAILED'
+                    raise SourceNotFound()
+                elif status != 0:
+                    trace['clientState'] = 'FAILED'
+                    raise RucioException(err)
+                else:
+                    trace['clientState'] = 'DONE'
+            except Exception as e:
+                trace['clientState'] = 'FAILED'
+                raise ServiceUnavailable(e)
+            send_trace(trace, self.client.host, self.user_agent)
 
     def download_pfns(self, items, num_threads=2, trace_custom_fields={}):
         """
@@ -500,7 +628,7 @@ class DownloadClient:
             logger.info('%sFile %s successfully downloaded in %s seconds' % (log_prefix, did_str, duration))
         return item
 
-    def download(self, dids, rse, protocol=None, pfn=None, nrandom=None, nprocs=3, user_agent='rucio_clients', dir='.', no_subd=False, transfer_timeout=None):
+    def download(self, dids, rse=None, archive=None, protocol=None, pfn=None, nrandom=None, nprocs=3, user_agent='rucio_clients', dir='.', no_subd=False, transfer_timeout=None):
         """
         OBSOLETE! This function is kept for compability reasons and will be removed in a future release!
         """
@@ -517,6 +645,8 @@ class DownloadClient:
             item = {}
             item.update(item_tpl)
             item['did'] = did
+            if archive:
+                item['archive'] = archive
             input_items.append(item)
 
         trace_pattern = {'appid': os.environ.get('RUCIO_TRACE_APPID', None),
@@ -528,6 +658,8 @@ class DownloadClient:
 
         if pfn:
             return self.download_pfns(input_items, nprocs, trace_pattern)
+        elif archive:
+            self.download_file_from_archive(input_items, trace_pattern)
         else:
             return self.download_dids(input_items, nprocs, trace_pattern)
 
