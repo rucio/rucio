@@ -19,7 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Tobias Wegner <twegner@cern.ch>, 2018
 
@@ -859,3 +859,13 @@ class RSEChecksumUnavailable(RucioException):
         super(RSEChecksumUnavailable, self).__init__(*args, **kwargs)
         self._message = "RSE checksum unavailable."
         self.error_code = 81
+
+
+class UndefinedPolicy(RucioException):
+    """
+    Cannot find a defined policy in the Rucio config
+    """
+    def __init__(self, *args, **kwargs):
+        super(UndefinedPolicy, self).__init__(args, kwargs)
+        self._message = "No policy is defined."
+        self.error_code = 82
