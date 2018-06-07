@@ -98,7 +98,7 @@ class DownloadClient:
         """
         logger = self.logger
         trace = copy.deepcopy(self.trace_tpl)
-        log_prefix = 'Unarchiving'
+        log_prefix = 'Extracting'
 
         logger.info('Processing %d item(s) for input' % len(items))
         input_items = []
