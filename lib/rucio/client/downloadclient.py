@@ -98,7 +98,7 @@ class DownloadClient:
         """
         logger = self.logger
         trace = copy.deepcopy(self.trace_tpl)
-        log_prefix = 'Extracting'
+        log_prefix = 'Extracting files : '
 
         logger.info('Processing %d item(s) for input' % len(items))
         input_items = []
@@ -113,14 +113,14 @@ class DownloadClient:
             if not rse_name:
                 replicas = self.client.list_replicas([{'scope': archive_scope, 'name': archive_name}],
                                                      schemes='root',
+                                                     rse_expression='istape=False',
+                                                     unavailable=False,
                                                      client_location=detect_client_location())
                 for r in replicas:
                     for rse in r['states'].keys():
                         if r['states'][rse] == 'AVAILABLE':
-                            rse_attr = self.client.list_rse_attributes(rse)
-                            if rse_attr['istape'] == 'False':
-                                rse_name = rse
-                                break
+                            rse_name = rse
+                            break
                     if rse_name and rse_name is not None:
                         break
 
@@ -130,8 +130,6 @@ class DownloadClient:
             except RSENotFound:
                 logger.warning('%sCould not get info of RSE %s' % (log_prefix, rse_name))
                 continue
-
-                raise InputValidationError('The keys archive (zip file), file_extract, and rse are mandatory')
 
             logger.debug('Preparing pfn of archive for download of %s (%s) from %s' % (archive, file_extract, rse))
             pfn_archive = ''
@@ -190,7 +188,7 @@ class DownloadClient:
                 trace['transferEnd'] = end_time
                 if status == 54:
                     trace['clientState'] = 'FAILED'
-                    raise SourceNotFound()
+                    raise SourceNotFound(err)
                 elif status != 0:
                     trace['clientState'] = 'FAILED'
                     raise RucioException(err)
