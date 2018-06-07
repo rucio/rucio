@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -404,13 +404,13 @@ def __add_collections_to_container(scope, name, collections, account, session):
     """
 
     condition = or_()
-    for c in collections:
+    for cond in collections:
 
-        if (scope == c['scope']) and (name == c['name']):
+        if (scope == cond['scope']) and (name == cond['name']):
             raise exception.UnsupportedOperation('Self-append is not valid!')
 
-        condition.append(and_(models.DataIdentifier.scope == c['scope'],
-                              models.DataIdentifier.name == c['name']))
+        condition.append(and_(models.DataIdentifier.scope == cond['scope'],
+                              models.DataIdentifier.name == cond['name']))
 
     available_dids = {}
     child_type = None
@@ -568,7 +568,10 @@ def delete_dids(dids, account, session=None):
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'] != 'archive':
-            rucio.core.rule.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+            try:
+                rucio.core.rule.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+            except exception.UndefinedPolicy:
+                pass
 
         if did['purge_replicas'] is False:
             not_purge_replicas.append((did['scope'], did['name']))
