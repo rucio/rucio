@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
@@ -48,7 +48,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
-                                    ManualRuleApprovalBlocked, UnsupportedOperation)
+                                    ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter, request as request_core
@@ -126,7 +126,10 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise StagingAreaRuleRequiresLifetime()
 
             # Check SCRATCHDISK Policy
-            lifetime = get_scratch_policy(account, rses, lifetime, session=session)
+            try:
+                lifetime = get_scratch_policy(account, rses, lifetime, session=session)
+            except UndefinedPolicy:
+                pass
 
             # Auto-lock rules for TAPE rses
             if not locked and lifetime is None:
@@ -374,7 +377,12 @@ def add_rules(dids, rules, session=None):
                             raise StagingAreaRuleRequiresLifetime()
 
                     # Check SCRATCHDISK Policy
-                    rule['lifetime'] = get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
+                    try:
+                        lifetime = get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
+                    except UndefinedPolicy:
+                        lifetime = rule.get('lifetime', None)
+
+                    rule['lifetime'] = lifetime
 
                     # 4.5 Get the lifetime
                     eol_at = define_eol(did.scope, did.name, rses, session=session)
@@ -1126,8 +1134,11 @@ def update_rule(rule_id, options, session=None):
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
                 rses = parse_expression(rule.rse_expression, session=session)
-                lifetime = get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
-                rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if options['lifetime'] is not None else None
+                try:
+                    lifetime = get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
+                except UndefinedPolicy:
+                    lifetime = options['lifetime']
+                rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
 
