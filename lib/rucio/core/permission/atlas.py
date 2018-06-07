@@ -382,14 +382,13 @@ def perm_attach_dids_to_dids(issuer, kwargs):
     """
     if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
         return True
-    else:
-        attachments = kwargs['attachments']
-        scopes = [did['scope'] for did in attachments]
-        scopes = list(set(scopes))
-        for scope in scopes:
-            if not rucio.core.scope.is_scope_owner(scope, issuer):
-                return False
-        return True
+    attachments = kwargs['attachments']
+    scopes = [did['scope'] for did in attachments]
+    scopes = list(set(scopes))
+    for scope in scopes:
+        if not rucio.core.scope.is_scope_owner(scope, issuer):
+            return False
+    return True
 
 
 def perm_create_did_sample(issuer, kwargs):
@@ -712,21 +711,21 @@ def perm_add_replicas(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     rse = str(kwargs.get('rse', ''))
-    phys_group = []
+    group = []
 
     for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('group-') and kv['value'] in ['admin', 'user']:
-            phys_group.append(kv['key'].partition('-')[2])
-    if phys_group:
-        rse_attr = list_rse_attributes(rse=rse)
+        if (kv['key'].startswith('group-') or kv['key'].startswith('country-')) and kv['value'] in ['admin', 'user']:
+            group.append(kv['key'].partition('-')[2])
+    rse_attr = list_rse_attributes(rse=rse)
+    if group:
         if rse_attr.get('type', '') == 'GROUPDISK':
-            if rse_attr.get('physgroup', '') in phys_group:
+            if rse_attr.get('physgroup', '') in group:
+                return True
+        if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+            if rse_attr.get('country', '') in group:
                 return True
 
-    return rse.endswith('SCRATCHDISK')\
-        or rse.endswith('USERDISK')\
-        or rse.endswith('MOCK')\
-        or rse.endswith('LOCALGROUPDISK')\
+    return rse_attr.get('type', '') in ['SCRATCHDISK', 'MOCK', 'TEST']\
         or issuer == 'root'\
         or has_account_attribute(account=issuer, key='admin')
 
@@ -762,20 +761,23 @@ def perm_update_replicas_states(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     rse = str(kwargs.get('rse', ''))
-    phys_group = []
+    group = []
 
     for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('group-') and kv['value'] in ['admin', 'user']:
-            phys_group.append(kv['key'].partition('-')[2])
+        if (kv['key'].startswith('group-') or kv['key'].startswith('country-')) and kv['value'] in ['admin', 'user']:
+            group.append(kv['key'].partition('-')[2])
     rse_attr = list_rse_attributes(rse=rse)
-    if phys_group:
+    if group:
         if rse_attr.get('type', '') == 'GROUPDISK':
-            if rse_attr.get('physgroup', '') in phys_group:
+            if rse_attr.get('physgroup', '') in group:
                 return True
-    else:
-        return rse_attr.get('type', '') in ['SCRATCHDISK', 'MOCK', 'LOCALGROUPDISK', 'TEST']\
-            or issuer == 'root'\
-            or has_account_attribute(account=issuer, key='admin')
+        if rse_attr.get('type', '') == 'LOCALGROUPDISK':
+            if rse_attr.get('country', '') in group:
+                return True
+
+    return rse_attr.get('type', '') in ['SCRATCHDISK', 'MOCK', 'TEST']\
+        or issuer == 'root'\
+        or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_queue_requests(issuer, kwargs):
