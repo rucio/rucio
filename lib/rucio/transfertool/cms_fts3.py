@@ -14,7 +14,6 @@ import os
 import sys
 import subprocess
 import tempfile
-import urlparse
 from datetime import timedelta
 from hashlib import sha1
 from socket import gaierror
@@ -357,6 +356,3 @@ class CMSUserTransfer(FTS3Transfertool):
         os.unlink(usercert)
 
         return transfer_id
-
-    @staticmethod
-    def __extract_host(external_host):
