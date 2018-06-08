@@ -253,6 +253,27 @@ def get_metadata(scope, name):
     return did.get_metadata(scope=scope, name=name)
 
 
+def get_did_meta(scope, name):
+    """
+    Get all metadata for a given did
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    """
+    return did.get_did_meta(scope=scope, name=name)
+
+
+def add_did_meta(scope, name, meta):
+    """
+    Add or update the given metadata to the given did
+
+    :param scope: the scope of the did
+    :param name: the name of the did
+    :param meta: the metadata to be added or updated
+    """
+    return did.add_did_meta(scope=scope, name=name, meta=meta)
+
+
 def set_status(scope, name, issuer, **kwargs):
     """
     Set data identifier status

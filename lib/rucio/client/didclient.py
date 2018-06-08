@@ -664,7 +664,7 @@ class DIDClient(BaseClient):
         :param scope: the scope of did
         :param name: the name of the did
         """
-        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'generic_meta'])
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'did_meta'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -680,7 +680,7 @@ class DIDClient(BaseClient):
         :param scope: the scope of the search
         :param select: the key value pairs to search with
         """
-        path = 'list_did_by_metadata'
+        path = 'list_did_by_meta'
         payload = {}
         if scope is not None:
             payload['scope'] = scope

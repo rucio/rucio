@@ -31,7 +31,8 @@ from rucio.api.did import (add_did, add_dids, list_content, list_content_history
                            list_dids, list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
-                           create_did_sample, list_new_dids, resurrect)
+                           create_did_sample, list_new_dids, resurrect, get_did_meta,
+                           add_did_meta)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -57,6 +58,7 @@ URLS = (
     '%s/rules' % SCOPE_NAME_REGEXP, 'Rules',
     '%s/parents' % SCOPE_NAME_REGEXP, 'Parents',
     '%s/associated_rules' % SCOPE_NAME_REGEXP, 'AssociatedRules',
+    '%s/did_meta' % SCOPE_NAME_REGEXP, 'DidMeta',
     '/(.*)/(.*)/(.*)/(.*)/(.*)/sample', 'Sample',
     '%s' % SCOPE_NAME_REGEXP, 'DIDs',
     '', 'BulkDIDS',
@@ -812,6 +814,69 @@ class Resurrect(RucioController):
             print format_exc()
             raise InternalError(error)
         raise Created()
+
+
+class DidMeta(RucioController):
+
+    def POST(self, scope, name):
+        """
+        Add did_meta to DID
+        HTTP Success:
+        201 Created
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 Internal Error
+
+        """
+        json_data = data()
+        try:
+            meta = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            add_did_meta(scope=scope, name=name, meta=meta)
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except DuplicateContent as error:
+            raise generate_http_error(409, 'DuplicateContent', error.args[0])
+        except DataIdentifierAlreadyExists as error:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except UnsupportedOperation as error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
+        except DatabaseException as error:
+            raise generate_http_error(500, 'DatabaseException', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print format_exc()
+            raise InternalError(error)
+        raise Created()
+
+    def GET(self, scope, name):
+        """
+        Gets metadata for a did
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+        """
+        header('Content-Type', 'application/json')
+        try:
+            meta = get_did_meta(scope=scope, name=name)
+            return render_json(**meta)
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print format_exc()
+            raise InternalError(error)
 
 
 """----------------------

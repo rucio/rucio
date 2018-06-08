@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - John Doe <john.doe@asdf.com>, 2017-2018
+# - Asket Agarwal, <asket.agarwal96@gmail.com>, 2018
 # Adding did_meta table
 #
 # Revision ID: 688ef1840840
