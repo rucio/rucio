@@ -98,106 +98,92 @@ class DownloadClient:
         """
         logger = self.logger
         trace = copy.deepcopy(self.trace_tpl)
-        log_prefix = 'Extracting files : '
+        log_prefix = 'Extracting files: '
 
         logger.info('Processing %d item(s) for input' % len(items))
-        input_items = []
         for item in items:
             archive = item.get('archive')
             file_extract = item.get('did')
             rse_name = item.get('rse')
+            if not archive or not file_extract:
+                raise InputValidationError('File DID and archive DID are mandatory')
+            if '*' in archive:
+                logger.debug(archive_did_str)
+                raise InputValidationError('Cannot use PFN download with wildcard in DID')
+
             file_extract_scope, file_extract_name = self._split_did_str(file_extract)
             archive_scope, archive_name = self._split_did_str(archive)
 
-            # if not specified, taking first availbale replica
-            if not rse_name:
-                replicas = self.client.list_replicas([{'scope': archive_scope, 'name': archive_name}],
-                                                     schemes='root',
-                                                     rse_expression='istape=False',
-                                                     unavailable=False,
-                                                     client_location=detect_client_location())
-                for r in replicas:
-                    for rse in r['states'].keys():
-                        if r['states'][rse] == 'AVAILABLE':
-                            rse_name = rse
-                            break
-                    if rse_name and rse_name is not None:
-                        break
+            # listing all available replicas of given archhive file
+            rse_expression = 'istape=False' if not rse_name else '(%s)&istape=False' % rse_name
+            archive_replicas = self.client.list_replicas([{'scope': archive_scope, 'name': archive_name}],
+                                                  schemes=['root'],
+                                                  rse_expression=rse_expression,
+                                                  unavailable=False,
+                                                  client_location=detect_client_location())
 
-            rse = {}
-            try:
-                rse = rsemgr.get_rse_info(rse_name)
-            except RSENotFound:
-                logger.warning('%sCould not get info of RSE %s' % (log_prefix, rse_name))
-                continue
 
-            logger.debug('Preparing pfn of archive for download of %s (%s) from %s' % (archive, file_extract, rse))
-            pfn_archive = ''
-            try:
-                pfns_dict = rsemgr.lfns2pfns(rse,
-                                             lfns={'name': archive_name, 'scope': archive_scope},
-                                             operation='read',
-                                             scheme='root')
-                pfn_archive = pfns_dict[archive]
-            except:
-                raise InputValidationError('The pfn of archive file not found.')
-
-            if '*' in archive:
-                logger.debug(archive)
-                raise InputValidationError('Cannot use PFN download with wildcard in DID')
+            # preparing trace
+            trace['uuid'] = generate_uuid()
+            trace['scope'] = archive_scope
+            trace['dataset'] = archive_name
+            trace['filename'] = file_extract
 
             # preparing output directories
             dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'),
                                                    os.path.join(archive_scope, archive_name + '.extracted'), file_extract,
                                                    item.get('no_subdir'))
-            logger.debug('Preparing output destination %s' % dest_dir_path)
+            logger.debug('%sPreparing output destination %s' % (log_prefix, dest_dir_path))
 
-            item['file_extract'] = file_extract_name
-            item['scope_archive'] = archive_scope
-            item['name_archive'] = archive_name
-            item['rse'] = rse_name
-            item['pfn_archive'] = pfn_archive
-            item['force_scheme'] = pfn_archive.split(':')[0]
-            item['dest_dir_path'] = dest_dir_path
-            item.setdefault('ignore_checksum', True)
-            input_items.append(item)
+            # validation and customisation of list of replicas
+            archive_pfns = []
+            replicas = next(archive_replicas)
+            for rse in replicas['rses']:
+                archive_pfns.extend(replicas['rses'][rse])
+                if len(archive_pfns) == 0:
+                    raise InputValidationError('No PFNs for replicas of archive %s' % archive)
+            archive_pfns.reverse()
 
-        for item in input_items:
-            trace['uuid'] = generate_uuid()
-            trace['scope'] = item['scope_archive']
-            trace['dataset'] = item['name_archive']
-            trace['filename'] = item['file_extract']
-            trace['rse'] = item['rse']
-
-            # if file already exists, set state, send trace, and return
-            dest_dir_path = item['dest_dir_path']
+            # checking whether file already exists
+            success = False
             dest_file_path = os.path.join(dest_dir_path, file_extract)
             if os.path.isfile(dest_file_path):
-                logger.info('%s File exists already locally: %s' % (file_extract, dest_dir_path))
+                logger.info('%s%s File exists already locally: %s' % (log_prefix, file_extract_name, dest_dir_path))
                 trace['clientState'] = 'ALREADY_DONE'
                 trace['transferStart'] = time.time()
                 trace['transferEnd'] = time.time()
                 send_trace(trace, self.client.host, self.user_agent)
-                continue
-            try:
-                start_time = time.time()
-                cmd = 'xrdcp -vf %s -z %s file://%s' % (item['pfn_archive'], item['file_extract'], item['dest_dir_path'])
-                status, out, err = execute(cmd)
-                end_time = time.time()
-                trace['transferStart'] = start_time
-                trace['transferEnd'] = end_time
-                if status == 54:
+                success = True
+
+            # DOWNLOAD, iteration over different rses unitl success
+            retry_counter = 0
+            while not success and len(archive_pfns):
+                retry_counter += 1
+                pfn = archive_pfns.pop()
+                trace['rse'] = replicas['pfns'][pfn]['rse']
+                try:
+                    start_time = time.time()
+                    cmd = 'xrdcp -vf %s -z %s file://%s' % (pfn, file_extract_name, dest_dir_path)
+                    logger.debug('%sExecuting: %s' % (log_prefix, cmd))
+                    status, out, err = execute(cmd)
+                    end_time = time.time()
+                    trace['transferStart'] = start_time
+                    trace['transferEnd'] = end_time
+                    if status == 54:
+                        trace['clientState'] = 'FAILED'
+                        raise SourceNotFound(err)
+                    elif status != 0:
+                        trace['clientState'] = 'FAILED'
+                        raise RucioException(err)
+                    else:
+                        success = True
+                        trace['clientState'] = 'DONE'
+                except Exception as e:
                     trace['clientState'] = 'FAILED'
-                    raise SourceNotFound(err)
-                elif status != 0:
-                    trace['clientState'] = 'FAILED'
-                    raise RucioException(err)
-                else:
-                    trace['clientState'] = 'DONE'
-            except Exception as e:
-                trace['clientState'] = 'FAILED'
-                raise ServiceUnavailable(e)
-            send_trace(trace, self.client.host, self.user_agent)
+                    raise ServiceUnavailable(e)
+                send_trace(trace, self.client.host, self.user_agent)
+            if not success:
+                raise RucioException('Failed to download file %s after %d retries' % (file_did_str, retry_counter))
 
     def download_pfns(self, items, num_threads=2, trace_custom_fields={}):
         """
