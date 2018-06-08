@@ -26,6 +26,7 @@
 import logging
 import random
 import sys
+import json
 
 from datetime import datetime, timedelta
 from hashlib import md5
@@ -168,6 +169,10 @@ def add_dids(dids, account, session=None):
                 # Add metadata
                 for key in did.get('meta', {}):
                     new_did.update({key: did['meta'][key]})
+
+                # Add metadata column to new table
+                did_meta = models.DidMeta(scope=did['scope'], name=did['name'])
+                did_meta.save(session=session, flush=False)
 
                 new_did.save(session=session, flush=False)
 
@@ -1265,6 +1270,43 @@ def get_metadata(scope, name, session=None):
         for column in row.__table__.columns:
             d[column.name] = getattr(row, column.name)
         return d
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@read_session
+def get_did_meta(scope, name, session=None):
+    """
+    Get all metadata for a given did
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    """
+    try:
+        row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+        meta = row.meta
+        return meta
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@transactional_session
+def add_did_meta(scope, name, meta, session=None):
+    """
+    Add or update the given metadata to the given did
+
+    :param scope: the scope of the did
+    :param name: the name of the did
+    :param meta: the metadata to be added or updated
+    """
+    try:
+        row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+        existing_meta = getattr(row, 'meta')
+        if existing_meta is None:
+            existing_meta = {}
+        for k, v in meta.iteritems():
+            existing_meta[k] = v
+        row.meta = json.dumps(existing_meta)
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
