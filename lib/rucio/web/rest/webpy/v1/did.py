@@ -869,7 +869,7 @@ class DidMeta(RucioController):
         header('Content-Type', 'application/json')
         try:
             meta = get_did_meta(scope=scope, name=name)
-            return render_json(**meta)
+            yield meta + "\n"
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:

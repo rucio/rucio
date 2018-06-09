@@ -170,11 +170,11 @@ def add_dids(dids, account, session=None):
                 for key in did.get('meta', {}):
                     new_did.update({key: did['meta'][key]})
 
+                new_did.save(session=session, flush=True)
+
                 # Add metadata column to new table
                 did_meta = models.DidMeta(scope=did['scope'], name=did['name'])
                 did_meta.save(session=session, flush=False)
-
-                new_did.save(session=session, flush=False)
 
                 if did.get('dids', None):
                     attach_dids(scope=did['scope'], name=did['name'], dids=did['dids'],
@@ -1284,7 +1284,7 @@ def get_did_meta(scope, name, session=None):
     """
     try:
         row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
-        meta = row.meta
+        meta = getattr(row, 'meta')
         return meta
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
@@ -1304,6 +1304,8 @@ def add_did_meta(scope, name, meta, session=None):
         existing_meta = getattr(row, 'meta')
         if existing_meta is None:
             existing_meta = {}
+        else:
+            existing_meta = json.loads(existing_meta)
         for k, v in meta.iteritems():
             existing_meta[k] = v
         row.meta = json.dumps(existing_meta)
