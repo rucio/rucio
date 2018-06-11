@@ -1,12 +1,19 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Diego Ciangottini, <ciangottini@pg.infn.it>, 2018
+# - dciangot <diego.ciangottini@cern.ch>, 2018
 
 from __future__ import absolute_import
 import logging
@@ -48,7 +55,7 @@ REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=1800)
 
 
-class CMSUserTransfer(FTS3Transfertool):
+class FTS3MyProxyTransfertool(FTS3Transfertool):
     """CMS implementation of a Rucio FTS3 transfertool
     """
 
@@ -58,7 +65,7 @@ class CMSUserTransfer(FTS3Transfertool):
 
         :param external_host:   The external host where the transfertool API is running
         """
-        super(CMSUserTransfer, self).__init__(external_host)
+        super(FTS3MyProxyTransfertool, self).__init__(external_host)
 
         self.hostcert = config_get('conveyor', 'hostcert', False, None)
         self.hostkey = config_get('conveyor', 'hostkey', False, None)
@@ -346,12 +353,12 @@ class CMSUserTransfer(FTS3Transfertool):
             return None
 
         if jobID:
-            record_counter('transfertool.fts3.%s.submission.success' % self.__extract_host(self.external_host), len(files))
+            record_counter('transfertool.fts3myproxy.%s.submission.success' % self.__extract_host(self.external_host), len(files))
             transfer_id = jobID
         else:
             transfer_id = jobID
             logging.error("Unexpected failure during FTS job submission.")
-            record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
+            record_counter('transfertool.fts3myproxy.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
 
         os.unlink(usercert)
 
