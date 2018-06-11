@@ -31,7 +31,7 @@ from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
 from rucio.common.config import config_get
 
-USER_ACTIVITY = ['user', 'user_test']
+USER_ACTIVITY = config_get('conveyor', 'user_activities', False, ['user', 'user_test'])
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 
@@ -51,7 +51,6 @@ def submit_transfer(external_host, job, submitter='submitter', process=0, thread
     xfers_ret = {}
 
     try:
-        print job
         for file in job['files']:
             file_metadata = file['metadata']
             request_id = file_metadata['request_id']
@@ -186,7 +185,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                     grouped_transfers[external_host][scope] = {}
                     grouped_jobs[external_host][scope] = []
 
-        job_params = {'verify_checksum': True if file['checksum'] and file['metadata'].get('verify_checksum', True) else False,
+        job_params = {'verify_checksum': verify_checksum,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
