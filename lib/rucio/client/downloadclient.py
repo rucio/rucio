@@ -108,7 +108,7 @@ class DownloadClient:
             if not archive or not file_extract:
                 raise InputValidationError('File DID and archive DID are mandatory')
             if '*' in archive:
-                logger.debug(archive_did_str)
+                logger.debug(archive)
                 raise InputValidationError('Cannot use PFN download with wildcard in DID')
 
             file_extract_scope, file_extract_name = self._split_did_str(file_extract)
@@ -117,11 +117,10 @@ class DownloadClient:
             # listing all available replicas of given archhive file
             rse_expression = 'istape=False' if not rse_name else '(%s)&istape=False' % rse_name
             archive_replicas = self.client.list_replicas([{'scope': archive_scope, 'name': archive_name}],
-                                                  schemes=['root'],
-                                                  rse_expression=rse_expression,
-                                                  unavailable=False,
-                                                  client_location=detect_client_location())
-
+                                                         schemes=['root'],
+                                                         rse_expression=rse_expression,
+                                                         unavailable=False,
+                                                         client_location=detect_client_location())
 
             # preparing trace
             trace['uuid'] = generate_uuid()
@@ -183,7 +182,7 @@ class DownloadClient:
                     raise ServiceUnavailable(e)
                 send_trace(trace, self.client.host, self.user_agent)
             if not success:
-                raise RucioException('Failed to download file %s after %d retries' % (file_did_str, retry_counter))
+                raise RucioException('Failed to download file %s after %d retries' % (file_extract_name, retry_counter))
 
     def download_pfns(self, items, num_threads=2, trace_custom_fields={}):
         """
