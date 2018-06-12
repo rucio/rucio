@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
 
-from sqlalchemy import and_, or_, exists
+from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
@@ -1304,13 +1304,32 @@ def add_did_meta(scope, name, meta, session=None):
         existing_meta = getattr(row, 'meta')
         if existing_meta is None:
             existing_meta = {}
-        else:
-            existing_meta = json.loads(existing_meta)
         for k, v in meta.iteritems():
             existing_meta[k] = v
-        row.meta = json.dumps(existing_meta)
+        row.meta = existing_meta
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@read_session
+def list_dids_by_metadata(scope, select, session=None):
+    """
+    Add or update the given metadata to the given did
+
+    :param scope: the scope of the did
+    :param name: the name of the did
+    :param meta: the metadata to be added or updated
+    """
+    query = session.query(models.DidMeta)
+    if scope is not None:
+        query = query.filter(models.DidMeta.scope == scope)
+
+    for k, v in select.iteritems():
+        query = query.filter(cast(models.DidMeta.meta[k], String) == type_coerce(v, JSON))
+    dids = list()
+    for row in query.yield_per(10):
+        dids.append({'scope': row.scope, 'name': row.name})
+    return dids
 
 
 @transactional_session

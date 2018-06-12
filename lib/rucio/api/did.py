@@ -274,6 +274,16 @@ def add_did_meta(scope, name, meta):
     return did.add_did_meta(scope=scope, name=name, meta=meta)
 
 
+def list_dids_by_metadata(scope, select):
+    """
+    List all data identifiers in a scope(optional) which match a given metadata.
+
+    :param scope: the scope to search in(optional)
+    :param select: the list of key value pairs to filter on
+    """
+    return did.list_dids_by_metadata(scope=scope, select=select)
+
+
 def set_status(scope, name, issuer, **kwargs):
     """
     Set data identifier status
