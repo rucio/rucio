@@ -674,21 +674,21 @@ class DIDClient(BaseClient):
         #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         #     raise exc_cls(exc_msg)
 
-    def list_dids_by_meta(self, scope=None, select={}):
+    def list_dids_by_metadata(self, scope=None, select={}):
         """
         Gets all dids matching the values of the provided metadata keys
         :param scope: the scope of the search
         :param select: the key value pairs to search with
         """
-        path = 'list_did_by_meta'
+        path = '/'.join([self.DIDS_BASEURL, 'list_dids_by_meta'])
         payload = {}
         if scope is not None:
             payload['scope'] = scope
-        payload['select'] = select
+        payload['select'] = dumps(select)
         url = build_url(choice(self.list_hosts), path=path, params=payload)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            return self._load_json_data(r)
+            return next(self._load_json_data(r))
         # else:
         #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         #     raise exc_cls(exc_msg)

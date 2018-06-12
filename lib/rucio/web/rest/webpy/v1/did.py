@@ -32,7 +32,7 @@ from rucio.api.did import (add_did, add_dids, list_content, list_content_history
                            get_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect, get_did_meta,
-                           add_did_meta)
+                           add_did_meta, list_dids_by_metadata)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -65,6 +65,7 @@ URLS = (
     '/attachments', 'Attachments',
     '/new', 'NewDIDs',
     '/resurrect', 'Resurrect',
+    '/list_dids_by_meta', 'ListByMetadata',
 )
 
 
@@ -816,6 +817,37 @@ class Resurrect(RucioController):
         raise Created()
 
 
+class ListByMetadata(RucioController):
+
+    def GET(self):
+        """
+        List all data identifiers in a scope(optional) which match a given metadata.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            500 Server Error
+
+        :param scope: The scope name.
+        """
+
+        select = {}
+        scope = ""
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'scope' in params:
+                scope = params['scope'][0]
+            select = loads(params['select'][0])
+
+        try:
+            dids = list_dids_by_metadata(scope=scope, select=select)
+            yield dumps(dids, cls=APIEncoder) + '\n'
+        except Exception as error:
+            print format_exc()
+            raise InternalError(error)
+
+
 class DidMeta(RucioController):
 
     def POST(self, scope, name):
@@ -869,7 +901,7 @@ class DidMeta(RucioController):
         header('Content-Type', 'application/json')
         try:
             meta = get_did_meta(scope=scope, name=name)
-            yield meta + "\n"
+            yield dumps(meta, cls=APIEncoder) + "\n"
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:

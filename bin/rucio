@@ -2072,15 +2072,21 @@ def delete_did_meta(args):
 
 
 @exception_handler
-def list_dids_by_meta(args):
+def list_dids_by_metadata(args):
     """
-    %(prog)s list-dids-by-meta [options] <field1=value1 field2=value2 ...>
+    %(prog)s list-dids-by-metadata [options] <field1=value1 field2=value2 ...>
 
     List dids by metadata key value
     """
     client = get_client(args)
-    select = {args.key: args.value}
-    client.list_dids_by_meta(select=select)
+    select = {}
+    for key_value in args.key_values:
+        if len(key_value.split('=')) != 2:
+            logger.error("Usage: rucio list-dids-by-meta key1=value1 key2=value2 ......")
+        else:
+            key, value = key_value.split('=')
+            select[key] = value
+    client.list_dids_by_metadata(select=select)
     return SUCCESS
 
 
@@ -2998,10 +3004,9 @@ You can filter by key/value, e.g.::
     delete_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
 
     # Get dids by metadata key value
-    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-meta', help='list dids by a key value pair')
-    list_dids_by_meta_parser.set_defaults(which='list_dids_by_meta')
-    list_dids_by_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
-    list_dids_by_meta_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
+    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-metadata', help='list dids by a key value pair')
+    list_dids_by_meta_parser.set_defaults(which='list_dids_by_metadata')
+    list_dids_by_meta_parser.add_argument(dest='key_values', nargs='+', action='store', help='KeyValue pairs')
 
     # The list-rse-usage subparser
     list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='Shows the total/free/used space for a given RSE. This values can differ for different RSE source.')
