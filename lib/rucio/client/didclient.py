@@ -30,7 +30,7 @@ try:
 except ImportError:
     from urllib.parse import quote_plus
 
-from json import dumps
+from json import dumps, loads
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -636,9 +636,9 @@ class DIDClient(BaseClient):
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True
-        # else:
-        #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-        #     raise exc_cls(exc_msg)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
 
     def delete_did_meta(self, scope, name, key):
         """
@@ -648,15 +648,16 @@ class DIDClient(BaseClient):
         :param name: the name of the did
         :param key: the key to be deleted
         """
-        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'did_meta', key])
-        url = build_url(choice(self.list_hosts), path=path)
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'did_meta'])
+        url = build_url(choice(self.list_hosts), path=path, params={'key': key})
         r = self._send_request(url, type='DEL')
 
         if r.status_code == codes.ok:
+            print(r.text)
             return True
-        # else:
-        #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-        #     raise exc_cls(exc_msg)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
 
     def get_did_meta(self, scope, name):
         """
@@ -670,11 +671,11 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             meta = self._load_json_data(r)
             return next(meta)
-        # else:
-        #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-        #     raise exc_cls(exc_msg)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
 
-    def list_dids_by_metadata(self, scope=None, select={}):
+    def list_dids_by_meta(self, scope=None, select={}):
         """
         Gets all dids matching the values of the provided metadata keys
         :param scope: the scope of the search
@@ -688,7 +689,7 @@ class DIDClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path, params=payload)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            return next(self._load_json_data(r))
-        # else:
-        #     exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-        #     raise exc_cls(exc_msg)
+            return loads(next(self._load_json_data(r)))
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
