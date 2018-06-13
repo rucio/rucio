@@ -32,7 +32,7 @@ from rucio.api.did import (add_did, add_dids, list_content, list_content_history
                            get_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect, get_did_meta,
-                           add_did_meta, list_dids_by_metadata)
+                           add_did_meta, list_dids_by_meta, delete_did_meta)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -65,7 +65,7 @@ URLS = (
     '/attachments', 'Attachments',
     '/new', 'NewDIDs',
     '/resurrect', 'Resurrect',
-    '/list_dids_by_meta', 'ListByMetadata',
+    '/list_dids_by_meta', 'ListByMeta',
 )
 
 
@@ -817,7 +817,7 @@ class Resurrect(RucioController):
         raise Created()
 
 
-class ListByMetadata(RucioController):
+class ListByMeta(RucioController):
 
     def GET(self):
         """
@@ -838,11 +838,14 @@ class ListByMetadata(RucioController):
             params = parse_qs(ctx.query[1:])
             if 'scope' in params:
                 scope = params['scope'][0]
-            select = loads(params['select'][0])
+            if 'select' in params:
+                select = loads(params['select'][0])
 
         try:
-            dids = list_dids_by_metadata(scope=scope, select=select)
+            dids = list_dids_by_meta(scope=scope, select=select)
             yield dumps(dids, cls=APIEncoder) + '\n'
+        except NotImplementedError:
+            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
         except Exception as error:
             print format_exc()
             raise InternalError(error)
@@ -880,6 +883,8 @@ class DidMeta(RucioController):
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation as error:
             raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
+        except NotImplementedError:
+            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
         except DatabaseException as error:
             raise generate_http_error(500, 'DatabaseException', error.args[0])
         except RucioException as error:
@@ -897,6 +902,8 @@ class DidMeta(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            404 DataIdentifier Not found
+            409 NotImplemented
         """
         header('Content-Type', 'application/json')
         try:
@@ -906,9 +913,44 @@ class DidMeta(RucioController):
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except NotImplementedError:
+            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
         except Exception as error:
             print format_exc()
             raise InternalError(error)
+
+    def DELETE(self, scope, name):
+        """
+        Deletes the specified key from the DID
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 KeyNotFound
+        """
+        key = ""
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'key' in params:
+                key = params['key'][0]
+            else:
+                raise generate_http_error(404, 'KeyNotFound', 'No key provided to remove')
+
+        try:
+            delete_did_meta(scope=scope, name=name, key=key)
+        except KeyNotFound as error:
+            raise generate_http_error(404, 'KeyNotFound', error.args[0])
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except NotImplementedError:
+            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print format_exc()
+            raise InternalError(error)
+        raise OK()
 
 
 """----------------------

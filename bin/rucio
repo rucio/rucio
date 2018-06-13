@@ -2072,9 +2072,9 @@ def delete_did_meta(args):
 
 
 @exception_handler
-def list_dids_by_metadata(args):
+def list_dids_by_meta(args):
     """
-    %(prog)s list-dids-by-metadata [options] <field1=value1 field2=value2 ...>
+    %(prog)s list-dids-by-meta [options] <field1=value1 field2=value2 ...>
 
     List dids by metadata key value
     """
@@ -2086,7 +2086,7 @@ def list_dids_by_metadata(args):
         else:
             key, value = key_value.split('=')
             select[key] = value
-    client.list_dids_by_metadata(select=select)
+    client.list_dids_by_meta(select=select)
     return SUCCESS
 
 
@@ -3004,8 +3004,8 @@ You can filter by key/value, e.g.::
     delete_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
 
     # Get dids by metadata key value
-    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-metadata', help='list dids by a key value pair')
-    list_dids_by_meta_parser.set_defaults(which='list_dids_by_metadata')
+    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-meta', help='list dids by a key value pair')
+    list_dids_by_meta_parser.set_defaults(which='list_dids_by_meta')
     list_dids_by_meta_parser.add_argument(dest='key_values', nargs='+', action='store', help='KeyValue pairs')
 
     # The list-rse-usage subparser
