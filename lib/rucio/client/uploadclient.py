@@ -50,7 +50,7 @@ class UploadClient:
         """
         if not logger:
             logger = logging.getLogger('%s.null' % __name__)
-            logger.addHandler(logging.NullHandler())
+            logger.disable = True
 
         self.logger = logger
         self.client = _client if _client else Client()
