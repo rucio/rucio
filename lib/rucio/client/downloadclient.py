@@ -51,7 +51,7 @@ class DownloadClient:
         """
         if not logger:
             logger = logging.getLogger('%s.null' % __name__)
-            logger.addHandler(logging.NullHandler())
+            logger.disable = True
 
         self.logger = logger
         self.is_human_readable = True
