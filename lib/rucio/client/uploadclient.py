@@ -49,8 +49,8 @@ class UploadClient:
         :param logger:      - logging.Logger object to use for uploads. If None nothing will be logged.
         """
         if not logger:
-            logger = logging.getLogger(__name__).getChild('null')
-            logger.addHandler(logging.NullHandler())
+            logger = logging.getLogger('%s.null' % __name__)
+            logger.disabled = True
 
         self.logger = logger
         self.client = _client if _client else Client()
