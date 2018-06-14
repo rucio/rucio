@@ -34,21 +34,16 @@
 from __future__ import print_function
 
 import argparse
-import json
 import logging
 import os
-import random
 import signal
-import socket
 import subprocess
 import sys
 import time
 import traceback
 import uuid
 
-
 import argcomplete
-import requests
 import tabulate
 
 try:
@@ -56,33 +51,24 @@ try:
 except ImportError:
     from configparser import NoOptionError, NoSectionError
 
-from copy import deepcopy
 from functools import wraps
-try:
-    from Queue import Queue, Empty
-except ImportError:
-    from queue import Queue, Empty
-from threading import Thread, Event
-from xml.etree import ElementTree
 
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
+from rucio.client.downloadclient import DownloadClient
 from rucio import version
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
-                                    RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent, RSEProtocolNotSupported,
-                                    RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation, FileConsistencyMismatch,
+                                    RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
+                                    RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import adler32, generate_uuid, execute, sizefmt, Color, detect_client_location
-from rucio.rse import rsemanager as rsemgr
+from rucio.common.utils import sizefmt, Color, detect_client_location
 
 SUCCESS = 0
 FAILURE = 1
 
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
-
-STOP_REQUEST = Event()
 
 logger = logging.getLogger("user")
 gfal2_logger = logging.getLogger("gfal2")
@@ -137,7 +123,6 @@ def signal_handler(sig, frame):
             os.kill(int(pid), signal.SIGTERM)
         except Exception:
             print('Cannot kill child process')
-    STOP_REQUEST.set()
     sys.exit(1)
 
 
@@ -160,28 +145,6 @@ def extract_scope(did):
         if did.endswith('/'):
             did = did[:-1]
         return scope, did
-
-
-def send_trace(trace, trace_endpoint, user_agent, retries=5, threadnb=None, total_threads=None):
-    if user_agent.startswith('pilot'):
-        logger.debug('pilot detected - not sending trace')
-        return 0
-    else:
-        if threadnb is not None and total_threads is not None:
-            logger.debug('Thread %s/%s : sending trace' % (threadnb, total_threads))
-        else:
-            logger.debug('sending trace')
-
-    for dummy in range(retries):
-        try:
-            requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
-            return 0
-        except Exception as error:
-            if threadnb is not None and total_threads is not None:
-                logger.debug('Thread %s/%s : %s' % (threadnb, total_threads, error))
-            else:
-                logger.debug(error)
-    return 1
 
 
 def exception_handler(function):
@@ -903,559 +866,6 @@ def upload(args):
     return SUCCESS
 
 
-def _file_exists(type, scope, name, directory, dsn=None, no_subdir=False):
-    file_exists = False
-    dest_dir = None
-    if no_subdir:
-        dest_dir = '%s' % (directory)
-    else:
-        if type != 'FILE':
-            dest_dir = '%s/%s' % (directory, dsn)
-            if os.path.isfile('%s/%s' % (dest_dir, name)):
-                file_exists = True
-        else:
-            dest_dir = '%s/%s' % (directory, scope)
-            if os.path.isfile('%s/%s' % (dest_dir, name)):
-                file_exists = True
-    return file_exists, dest_dir
-
-
-def _replica_mlstr_to_list(mlstr):
-    root = ElementTree.fromstring(mlstr)
-    files = []
-
-    # metalink namespace mapping
-    ns = {'list_replicas_ml': 'urn:ietf:params:xml:ns:metalink'}
-
-    # loop over all <file> tags of the metalink string
-    for file_ml in root.findall('list_replicas_ml:file', ns):
-        # search for identity-tag
-        cur_did = file_ml.find('list_replicas_ml:identity', ns)
-        if not ElementTree.iselement(cur_did):
-            raise RucioException('Failed to locate identity-tag inside %s' % ElementTree.tostring(file_ml))
-
-        # try extracting scope,name
-        try:
-            scope, name = extract_scope(cur_did.text)
-        except RucioException:
-            raise RucioException('Failed extract scope,name from %s' % cur_did.text)
-
-        cur_file = {'scope': scope,
-                    'name': name,
-                    'bytes': None,
-                    'adler32': None,
-                    'rses': {}}
-
-        size = file_ml.find('list_replicas_ml:size', ns)
-        if ElementTree.iselement(size):
-            cur_file['bytes'] = int(size.text)
-
-        adler32hash = file_ml.find('list_replicas_ml:hash', ns)
-        if ElementTree.iselement(adler32hash):
-            cur_file['adler32'] = adler32hash.text
-
-        for rse_ml in file_ml.findall('list_replicas_ml:url', ns):
-            # check if location attrib (rse name) is given
-            rse = rse_ml.get('location')
-            if rse is None:
-                continue
-            pfn = rse_ml.text
-            # if rse isnt in cur_file yet, create a new pfn list
-            cur_file['rses'].setdefault(rse, []).append(pfn)
-
-        files.append(cur_file)
-
-    return files
-
-
-def _downloader(args, input_queue, output_queue, threadnb, total_threads, trace_endpoint, trace_pattern):
-    rse_dict = {}
-    thread_prefix = 'Thread %s/%s' % (threadnb, total_threads)
-    while True:
-        try:
-            file = input_queue.get_nowait()
-        except Empty:
-            return
-
-        dest_dir = file['dest_dir']
-        file_scope = file['scope']
-        file_name = file['name']
-        file_didstr = '%s:%s' % (file_scope, file_name)
-
-        # arguments for rsemgr.download already known
-        dlfile = {}
-        dlfile['name'] = file_name
-        dlfile['scope'] = file_scope
-        dlfile['adler32'] = file['adler32']
-        dlfile['md5'] = file['md5']
-        ignore_checksum = True if args.pfn else False
-        if args.pfn:
-            dlfile['pfn'] = args.pfn
-
-        logger.info('%s : Starting the download of %s' % (thread_prefix, file_didstr))
-
-        trace = deepcopy(trace_pattern)
-        trace.update({'scope': file_scope,
-                      'filename': file_name,
-                      'datasetScope': file['dataset_scope'],
-                      'dataset': file['dataset_name'],
-                      'filesize': file['bytes']})
-
-        rses = list(file['rses'].keys())
-        if rses == []:
-            logger.warning('%s : File %s has no available replicas. Cannot be downloaded.' % (thread_prefix, file_didstr))
-            trace['clientState'] = 'FILE_NOT_FOUND'
-            send_trace(trace, trace_endpoint, args.user_agent)
-            input_queue.task_done()
-            continue
-
-        random.shuffle(rses)
-
-        logger.debug('%s : Potential sources : %s' % (thread_prefix, str(rses)))
-        success = False
-        while not success and len(rses):
-            rse_name = rses.pop()
-            if rse_name not in rse_dict:
-                try:
-                    rse_dict[rse_name] = rsemgr.get_rse_info(rse_name)
-                except RSENotFound:
-                    logger.warning('%s : Could not get info of RSE %s' % (thread_prefix, rse_name))
-                    continue
-
-            rse = rse_dict[rse_name]
-
-            if not rse['availability_read']:
-                logger.info('%s : %s is blacklisted for reading' % (thread_prefix, rse_name))
-                continue
-
-            try:
-                if args.pfn:
-                    protocols = [rsemgr.select_protocol(rse, operation='read', scheme=args.pfn.split(':')[0])]
-                else:
-                    protocols = rsemgr.get_protocols_ordered(rse, operation='read', scheme=args.protocol)
-                    protocols.reverse()
-            except RSEProtocolNotSupported as error:
-                logger.info('%s : The protocol specfied (%s) is not supported by %s' % (thread_prefix, args.protocol, rse_name))
-                logger.debug(error)
-                continue
-
-            logger.debug('%s : %d possible protocol(s) for read' % (thread_prefix, len(protocols)))
-            trace['remoteSite'] = rse_name
-            trace['clientState'] = 'DOWNLOAD_ATTEMPT'
-
-            while not success and len(protocols):
-                protocol = protocols.pop()
-
-                logger.debug('%s : Trying protocol %s at %s' % (thread_prefix, protocol['scheme'], rse_name))
-                trace['protocol'] = protocol['scheme']
-
-                out = {}
-                out['dataset_scope'] = file['dataset_scope']
-                out['dataset_name'] = file['dataset_name']
-                out['scope'] = file_scope
-                out['name'] = file_name
-
-                attempt = 0
-                retries = 2
-                while not success and attempt < retries:
-                    attempt += 1
-                    out['attemptnr'] = attempt
-
-                    logger.info('%s : File %s trying from %s' % (thread_prefix, file_didstr, rse_name))
-                    try:
-                        trace['transferStart'] = time.time()
-
-                        # If we use https, we need to check if we need to sign URLs for this RSE.
-                        # Since we don't have the PFN yet, we can just use list_replicas to do it for us.
-                        # TODO: Obsoleted with download API.
-                        if protocol['scheme'] == 'https':
-                            c = Client()
-                            rse_attrs = c.list_rse_attributes(rse_name)
-                            if 'sign_url' in rse_attrs:
-                                logger.debug('%s : Signature type %s is required for RSE' % (thread_prefix, rse_attrs['sign_url']))
-                                dlfile['pfn'] = list(c.list_replicas(dids=[{'scope': dlfile['scope'],
-                                                                            'name': dlfile['name']}],
-                                                                     rse_expression=rse_name))[0]['rses'][rse_name][0]
-
-                        rsemgr.download(rse,
-                                        files=[dlfile],
-                                        dest_dir=dest_dir,
-                                        force_scheme=protocol['scheme'],
-                                        ignore_checksum=ignore_checksum,
-                                        transfer_timeout=args.transfer_timeout)
-
-                        trace['transferEnd'] = time.time()
-                        trace['clientState'] = 'DONE'
-                        out['clientState'] = 'DONE'
-                        success = True
-                        output_queue.put(out)
-                        logger.info('%s : File %s successfully downloaded from %s' % (thread_prefix, file_didstr, rse_name))
-                    except KeyboardInterrupt:
-                        logger.warning('You pressed Ctrl+C! Exiting gracefully')
-                        os.kill(os.getpgid(), signal.SIGINT)
-                        return
-                    except FileConsistencyMismatch as error:
-                        logger.warning(str(error))
-                        try:
-                            pfns_dict = rsemgr.lfns2pfns(rse,
-                                                         lfns=[{'name': file_name, 'scope': file_scope}],
-                                                         operation='read',
-                                                         scheme=args.protocol)
-                            pfn = pfns_dict[file_didstr]
-
-                            out['clientState'] = 'CORRUPTED'
-                            out['pfn'] = pfn
-                            output_queue.put(out)
-                        except Exception as error:
-                            logger.debug('%s : %s' % (thread_prefix, str(error)))
-                        trace['clientState'] = 'FAIL_VALIDATE'
-                        logger.debug('%s : Failed attempt %s/%s' % (thread_prefix, attempt, retries))
-                    except Exception as error:
-                        logger.warning(str(error))
-                        trace['clientState'] = str(type(error).__name__)
-                        logger.debug('%s : Failed attempt %s/%s' % (thread_prefix, attempt, retries))
-
-                send_trace(trace, trace_endpoint, args.user_agent, threadnb=threadnb, total_threads=total_threads)
-
-        if success:
-            duration = round(trace['transferEnd'] - trace['transferStart'], 2)
-            if args.pfn:
-                logger.info('%s : File %s successfully downloaded in %s seconds' % (thread_prefix, file_didstr, duration))
-            else:
-                logger.info('%s : File %s successfully downloaded. %s in %s seconds = %s MBps' % (thread_prefix,
-                                                                                                  file_didstr,
-                                                                                                  sizefmt(file['bytes'], args.human),
-                                                                                                  duration,
-                                                                                                  round((file['bytes'] / duration) * 1e-6, 2)))
-        else:
-            logger.error('%s : Cannot download file %s' % (thread_prefix, file_didstr))
-
-        input_queue.task_done()
-
-
-def download_rucio(args, input_queue, output_queue, trace_pattern, trace_endpoint):
-    total_workers = 1
-    if args.ndownloader and not args.pfn:
-        total_workers = args.ndownloader
-        nlimit = 5
-        if total_workers > nlimit:
-            logger.warning('Cannot use more than %s parallel downloader.' % nlimit)
-            total_workers = nlimit
-    total_workers = min(total_workers, input_queue.qsize())
-
-    logger.debug('Starting %d download threads' % total_workers)
-    threads = []
-    for worker in range(total_workers):
-        kwargs = {'args': args,
-                  'input_queue': input_queue,
-                  'output_queue': output_queue,
-                  'threadnb': worker + 1,
-                  'total_threads': total_workers,
-                  'trace_endpoint': trace_endpoint,
-                  'trace_pattern': trace_pattern}
-        try:
-            thread = Thread(target=_downloader, kwargs=kwargs)
-            thread.start()
-            threads.append(thread)
-        except:
-            logger.warning('Failed to start thread %d' % (worker + 1))
-
-    try:
-        logger.debug('Waiting for threads to finish')
-        for thread in threads:
-            thread.join()
-    except KeyboardInterrupt:
-        logger.warning('You pressed Ctrl+C! Exiting gracefully')
-        for thread in threads:
-            thread.kill_received = True
-    logger.debug('All threads finished')
-
-
-def _stop_aria_rpc(auth, prox, proc, hard=False):
-    try:
-        if not hard:
-            logger.debug('Shutting down aria rpc')
-            prox.aria2.shutdown(auth)
-        else:
-            logger.debug('Force shutting down aria rpc')
-            prox.aria2.forceShutdown(auth)
-            proc.terminate()
-    except:
-        pass
-
-
-def download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint):
-    logger.info('Using aria2c downloader...')
-
-    # from xmlrpc.client import MultiCall as RPCMultiCall  # py3
-    try:
-        from xmlrpclib import ServerProxy as RPCServerProxy  # py2
-    except ImportError:
-        from xmlrpc.client import ServerProxy as RPCServerProxy
-    # from xmlrpclib import MultiCall as RPCMultiCall  # py2
-
-    rpc_secret = '%x' % (random.getrandbits(64))
-    cmd = 'aria2c '\
-          '--enable-rpc '\
-          '--certificate=$X509_USER_PROXY '\
-          '--private-key=$X509_USER_PROXY '\
-          '--ca-certificate=/etc/pki/tls/certs/CERN-bundle.pem '\
-          '--quiet=true '\
-          '--allow-overwrite=true '\
-          '--auto-file-renaming=false '\
-          '--stop-with-process=%d '\
-          '--rpc-secret=%s '\
-          '--rpc-listen-all=false '\
-          '--rpc-max-request-size=100M '\
-          '--connect-timeout=5 '\
-          '--rpc-listen-port=%d'
-
-    logger.info('Starting aria2c rpc server...')
-
-    # trying up to 3 random ports
-    for _ in range(3):
-        port = random.randint(1024, 65534)
-        logger.debug('Trying to start rpc server on port: %d' % port)
-        try:
-            rpcproc = subprocess.Popen(cmd % (os.getpid(), rpc_secret, port),
-                                       shell=True,
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE)
-        except:
-            raise RucioException('Failed to execute aria2c!')
-
-        # if port is in use aria should fail to start so give it some time
-        time.sleep(2)
-
-        # did it fail?
-        if rpcproc.poll() is not None:
-            (out, err) = rpcproc.communicate()
-            logger.debug('Failed to start aria2c with port: %d' % port)
-            logger.debug('aria2c output: %s' % out)
-        else:
-            break
-
-    if rpcproc.poll() is not None:
-        raise RucioException('Failed to start aria2c rpc server!')
-
-    try:
-        aria_rpc = RPCServerProxy('http://localhost:%d/rpc' % port)
-    except:
-        rpcproc.kill()
-        raise RucioException('Failed to initialise rpc proxy!')
-
-    try:
-        rpc_auth = 'token:' + rpc_secret
-
-        gid_to_file = {}
-        all_files_queued = False
-
-        # files get removed from gid_to_file when they are complete or failed
-        while len(gid_to_file) or not all_files_queued:
-            num_queued = 0
-
-            # queue up to 100 files and then check arias status
-            while (num_queued < 100) and not all_files_queued:
-                try:
-                    file = input_queue.get_nowait()
-                except Empty:
-                    all_files_queued = True
-                    break
-
-                file_scope = file['scope']
-                file_name = file['name']
-                file_didstr = '%s:%s' % (file_scope, file_name)
-
-                # get pfns from all replicas
-                file['pfn_to_rse'] = {'': ''}
-                pfns = []
-                for rse in file['rses']:
-                    rse_pfns = file['rses'][rse]
-                    pfns.extend(rse_pfns)
-                    file['pfn_to_rse'].update(dict.fromkeys(rse_pfns, rse))
-
-                # any replica available?
-                if len(pfns) > 0:
-                    options = {'dir': file['dest_dir'],
-                               'out': file['name'] + '.part'}
-                    # 'checksum': 'adler32=' + file['adler32']}
-                    gid = aria_rpc.aria2.addUri(rpc_auth, pfns, options)
-                    gid_to_file[gid] = file
-                    num_queued += 1
-                    logger.debug('Queued file: %s' % file_didstr)
-                    del file['rses']
-                else:
-                    trace = trace_pattern  # no need for deep copy
-                    trace['scope'] = file_scope
-                    trace['filename'] = file_name
-                    trace['datasetScope'] = file['dataset_scope']
-                    trace['dataset'] = file['dataset_name']
-                    trace['filesize'] = file['bytes']
-                    trace['clientState'] = 'FILE_NOT_FOUND'
-                    send_trace(trace, trace_endpoint, args.user_agent)
-                    logger.warning('File %s has no available replicas.' % file_didstr)
-
-            # get some statistics
-            aria_stat = aria_rpc.aria2.getGlobalStat(rpc_auth)
-            num_active = int(aria_stat['numActive'])
-            num_waiting = int(aria_stat['numWaiting'])
-            num_stopped = int(aria_stat['numStoppedTotal'])
-
-            complete = []
-            faulty = []
-
-            # save start time if one of the active downloads has started
-            active = aria_rpc.aria2.tellActive(rpc_auth, ['gid', 'completedLength'])
-            for dlinfo in active:
-                gid = dlinfo['gid']
-                if 'transferStart' not in gid_to_file[gid]:
-                    if int(dlinfo['completedLength']) > 0:
-                        gid_to_file[gid]['transferStart'] = time.time()
-
-            stopped = aria_rpc.aria2.tellStopped(rpc_auth, -1, num_stopped, ['gid', 'status', 'files'])
-            for dlinfo in stopped:
-                gid = dlinfo['gid']
-                file = gid_to_file[gid]
-
-                # ensure we didnt miss the active state
-                if 'transferStart' not in file:
-                    logger.debug('Missed active state of DL with GID %s' % gid)
-                    gid_to_file[gid]['transferStart'] = time.time()
-                file['transferEnd'] = time.time()
-
-                # get used pfn for traces
-                file['used_pfn'] = ''
-                for uri in dlinfo['files'][0]['uris']:
-                    if uri['status'].lower() == 'used':
-                        file['used_pfn'] = uri['uri']
-
-                # append file to the completed/error list
-                status = dlinfo['status'].lower()
-                if status == 'complete':
-                    complete.append(gid)
-                elif status == 'error':
-                    faulty.append(gid)
-                else:
-                    del gid_to_file[gid]
-                    logger.warning('Download with GID %s has unexpected status: %s' % (gid, status))
-
-            for gid in complete:
-                file = gid_to_file[gid]
-                file_scope = file['scope']
-                file_name = file['name']
-                file_didstr = '%s:%s' % (file_scope, file_name)
-                file_path = '%s/%s' % (file['dest_dir'], file_name)
-
-                # ensure file exists
-                if not os.path.isfile(file_path + '.part'):
-                    logger.error('Failed to locate downloaded file %s.part' % file_path)
-                    del gid_to_file[gid]
-                    continue
-
-                # remove .part ending
-                os.rename(file_path + '.part', file_path)
-
-                # checksum check
-                local_hash = adler32(file_path)
-                if local_hash != file['adler32']:
-                    logger.debug('File: %s, localHash: %s, serverHash: %s' % (file_didstr,
-                                                                              local_hash,
-                                                                              file['adler32']))
-                    file['validation_failed'] = True
-                    faulty.append(gid)
-                    continue
-
-                # calculate duration
-                duration = round(file['transferEnd'] - file['transferStart'], 2)
-                if duration == 0:
-                    duration += 0.01
-                logger.info('File %s successfully downloaded. %s in %s seconds = %s MBps' % (file_didstr,
-                                                                                             sizefmt(file['bytes'], args.human),
-                                                                                             duration,
-                                                                                             round((file['bytes'] / duration) * 1e-6, 2)))
-
-                # insert to output queue
-                out = {}
-                out['dataset_scope'] = file['dataset_scope']
-                out['dataset_name'] = file['dataset_name']
-                out['scope'] = file_scope
-                out['name'] = file_name
-                out['clientState'] = 'DONE'
-                out['attemptnr'] = 1
-                output_queue.put(out)
-
-                # send trace
-                trace = trace_pattern  # no need for deep copy
-                trace['remoteSite'] = ''
-                trace['remoteSite'] = file['pfn_to_rse'][file['used_pfn']]
-                trace['protocol'] = 'https'
-                trace['transferStart'] = file['transferStart']
-                trace['transferEnd'] = file['transferEnd']
-                trace['scope'] = file_scope
-                trace['filename'] = file_name
-                trace['datasetScope'] = file['dataset_scope']
-                trace['dataset'] = file['dataset_name']
-                trace['filesize'] = file['bytes']
-                trace['clientState'] = 'DONE'
-                send_trace(trace, trace_endpoint, args.user_agent)
-
-                aria_rpc.aria2.removeDownloadResult(rpc_auth, gid)
-                del gid_to_file[gid]
-
-            for gid in faulty:
-                file = gid_to_file[gid]
-                file_scope = file['scope']
-                file_name = file['name']
-                file_didstr = '%s:%s' % (file['scope'], file['name'])
-
-                trace = trace_pattern  # no need for deep copy
-                if 'validation_failed' in file:
-                    logger.info('Validation of %s failed.' % file_didstr)
-
-                    # insert to output queue
-                    out = {}
-                    out['dataset_scope'] = file['dataset_scope']
-                    out['dataset_name'] = file['dataset_name']
-                    out['scope'] = file_scope
-                    out['name'] = file_name
-                    out['clientState'] = 'CORRUPTED'
-                    out['attemptnr'] = 1
-                    out['pfn'] = file['used_pfn']
-                    output_queue.put(out)
-
-                    trace['clientState'] = 'FAIL_VALIDATE'
-                else:
-                    logger.info('Download of %s failed.' % file_didstr)
-                    trace['clientState'] = 'DOWNLOAD_ATTEMPT'
-
-                trace['remoteSite'] = ''
-                trace['remoteSite'] = file['pfn_to_rse'][file['used_pfn']]
-                trace['protocol'] = 'https'
-                trace['transferStart'] = file['transferStart']
-                trace['transferEnd'] = file['transferEnd']
-                trace['scope'] = file_scope
-                trace['filename'] = file_name
-                trace['datasetScope'] = file['dataset_scope']
-                trace['dataset'] = file['dataset_name']
-                trace['filesize'] = file['bytes']
-                send_trace(trace, trace_endpoint, args.user_agent)
-
-                aria_rpc.aria2.removeDownloadResult(rpc_auth, gid)
-                del gid_to_file[gid]
-            if len(stopped) > 0:
-                logger.info('Active: %d, Waiting: %d, Stopped: %d' % (num_active, num_waiting, num_stopped))
-    except (KeyboardInterrupt, SystemExit):
-        pass
-    except Exception as error:
-        _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc, True)
-        raise error
-    except:
-        _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc, True)
-        raise RucioException('Caught unknown exception! Killed aria2c rpc!')
-
-    _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc)
-
-
 @exception_handler
 def download(args):
     """
@@ -1463,16 +873,7 @@ def download(args):
 
     Download files from Rucio using new threaded model and RSE expression support
     """
-    if args.old:
-        logger.warning('--old option has no effect, since it is obsolete and has been removed.')
-
-    client = get_client(args)
-    trace_endpoint = client.host
-    trace_pattern = {'hostname': socket.getfqdn(),
-                     'account': client.account,
-                     'uuid': generate_uuid(),
-                     'eventType': 'download',
-                     'eventVersion': version.RUCIO_VERSION[0]}
+    trace_pattern = {'eventVersion': version.RUCIO_VERSION[0]}
 
     if args.trace_appid:
         trace_pattern['appid'] = args.trace_appid
@@ -1489,252 +890,90 @@ def download(args):
     if args.trace_usrdn:
         trace_pattern['usrdn'] = args.trace_usrdn
 
-    # is used account an admin account?
-    account_attributes = [acc for acc in client.list_account_attributes(client.account)]
-    is_admin = False
-    for attr in account_attributes[0]:
-        if attr['key'] == 'admin' and attr['value'] is True:
-            logger.debug('Admin mode enabled')
-            is_admin = True
-            break
+    client = get_client(args)
+    download_client = DownloadClient(client, logger)
 
-    # extend RSE expression to exclude tape RSEs for non-admin accounts
-    rse_expression = args.rse
-    if not is_admin:
-        rse_expression = 'istape=False'
-        if args.rse and len(args.rse.strip()) > 0:
-            rse_expression = '(%s)&istape=False' % args.rse
-    logger.debug('RSE-Expression: %s' % rse_expression)
+    result = None
+    item_defaults = {}
+    item_defaults['rse'] = args.rse
+    item_defaults['base_dir'] = args.dir
+    item_defaults['no_subdir'] = args.no_subdir
+    item_defaults['transfer_timeout'] = args.transfer_timeout
+    archive_did = args.archive_did
+    if not args.pfn and not archive_did:
+        item_defaults['force_scheme'] = args.protocol
+        item_defaults['nrandom'] = args.nrandom
 
-    # Extract the scope, name from the did(s)
-    dids = []
-    for did in args.dids:
-        try:
-            scope, name = extract_scope(did)
-            if name.find('*') > -1:
-                for dsn in client.list_dids(scope, filters={'name': name}):
-                    dids.append({'scope': scope, 'name': dsn})
-            else:
-                dids.append({'scope': scope, 'name': name})
-        except ValueError as error:
-            logger.error('Cannot extract the scope and name from %s : [%s]' % (did, error))
-            return FAILURE
+        items = []
+        for did in args.dids:
+            item = {'did': did}
+            item.update(item_defaults)
+            items.append(item)
 
-    # check if we shall use aria2c
-    use_aria = False
-    if args.aria and not args.pfn:
-        logger.debug('Checking if aria2c is executable...')
-        try:
-            (exitcode, out, err) = execute('aria2c --version')
-            if exitcode == 0:
-                # aria2c is executable
-                use_aria = True
-            else:
-                logger.debug('aria2c --version exited with code %d' % exitcode)
-                logger.warning('--aria given but failed to execute aria2c!')
-        except:
-            logger.warning('--aria given but failed to execute aria2c!')
-    elif args.aria:
-        logger.warning('--pfn with --aria is not supported yet!')
+        if args.aria:
+            result = download_client.download_aria2c(items, trace_pattern)
+        else:
+            result = download_client.download_dids(items, args.ndownloader, trace_pattern)
+    elif archive_did:
+        if args.aria:
+            logger.warning('Ignoring --aria option because --archive_did option given')
+        if args.protocol:
+            logger.warning('Ignoring --protocol option because --archive_did option given')
+        num_dids = len(args.dids)
+        did_str = args.dids[0]
+        if num_dids > 1:
+            logger.warning('Download with --archive_did option only supports one DID but {} DIDs were given. Considering only first DID: {}'.format(num_dids, did_str))
+            logger.debug(args.dids)
+        item_defaults['archive'] = archive_did
+        item_defaults['did'] = did_str
+        result = download_client.download_file_from_archive([item_defaults], trace_pattern)
+    else:
+        if args.aria:
+            logger.warning('Ignoring --aria option because --pfn option given')
+        if args.protocol:
+            logger.warning('Ignoring --protocol option because --pfn option given')
+        num_dids = len(args.dids)
+        did_str = args.dids[0]
+        if num_dids > 1:
+            logger.warning('Download with --pfn option only supports one DID but {} DIDs were given. Considering only first DID: {}'.format(num_dids, did_str))
+            logger.debug(args.dids)
+        item_defaults['pfn'] = args.pfn
+        item_defaults['did'] = did_str
+        result = download_client.download_pfns([item_defaults], 1, trace_pattern)
 
-    # if user wants to use aria, check if every file has a https pfn
-    if use_aria:
-        logger.debug('aria2c is executable! Checking if all files have https PFNs...')
-        try:
-            # metalink string for replicas of all arg.dids
-            mlstr = client.list_replicas(dids, rse_expression=rse_expression, metalink=True, schemes=['https'])
-            files = _replica_mlstr_to_list(mlstr)
-            for file in files:
-                if len(file['rses']) == 0:
-                    use_aria = False
-                    filename = '%s:%s' % (file['scope'], file['name'])
-                    logger.warning('--aria given but didnt find rse with https support for file %s' % filename)
-                    break
-        except Exception as error:
-            use_aria = False
-            logger.warning('Cannot use aria2c due to following error: %s' % str(error))
-
-    if use_aria and args.protocol:
-        logger.warning('Ignoring --protocol, since aria only supports https!')
-
-    if args.pfn:
-        if not args.rse:
-            logger.error('--rse option is mandatory in combination with --pfn!')
-            return FAILURE
-
-        if len(dids) > 1:
-            dids = [dids[0]]
-            logger.warning('--pfn option and multiple DIDs given! Only considering first DID...')
+    if not result:
+        raise RucioException('Download API failed')
 
     summary = {}
-    num_files_to_dl = {}
-    input_queue = Queue()
-    output_queue = Queue()
-    # get replicas for every file of the given dids
-    for arg_did in dids:
-        arg_didstr = '%s:%s' % (arg_did['scope'], arg_did['name'])
-        summary[arg_didstr] = {}
+    for item in result:
+        file_didstr = '%s:%s' % (item['scope'], item['name'])
+        ds_didstr = '%s:%s' % (item['dataset_scope'], item['dataset_name'])
+        ds_didstr = file_didstr if ds_didstr == '' else ds_didstr
 
-        # get type of given did; save did if its a dataset
-        if not args.pfn:
-            try:
-                did_info = client.get_did(arg_did['scope'], arg_did['name'])
-                did_type = did_info['type'].upper()
-                dataset_scope = '' if did_type == 'FILE' else arg_did['scope']
-                dataset_name = '' if did_type == 'FILE' else arg_did['name']
-            except:
-                logger.error('Failed to get did info for did %s' % arg_didstr)
-                return FAILURE
+        summary.setdefault(ds_didstr, {'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
+        summary[ds_didstr]['_total'] += 1
+        state = item['clientState'].upper()
+        if state in summary[ds_didstr]:
+            summary[ds_didstr][state] += 1
 
-            metalink = True if use_aria else None
-            schemes = ['https'] if use_aria else None
-            try:
-                files_with_replicas = client.list_replicas([arg_did],
-                                                           schemes=schemes,
-                                                           rse_expression=rse_expression,
-                                                           metalink=metalink)
-            except:
-                logger.error('Failed to get list of files with their replicas for DID %s' % arg_didstr)
-                return FAILURE
-
-            if metalink:
-                try:
-                    files_with_replicas = _replica_mlstr_to_list(files_with_replicas)
-                except Exception as error:
-                    logger.error('Failed to parse metalink file for did %s with. Error: %s' % (arg_didstr, str(error)))
-                    return FAILURE
-            else:
-                files_with_replicas = [f for f in files_with_replicas]
-
-            if args.nrandom:
-                random.shuffle(files_with_replicas)
-                files_with_replicas = files_with_replicas[0:args.nrandom]
-        else:
-            logger.debug('PFN option overrides replica listing')
-            did_type = 'FILE'
-            dataset_scope = ''
-            dataset_name = ''
-            files_with_replicas = [{'bytes': None,
-                                    'adler32': None,
-                                    'md5': None,
-                                    'scope': arg_did['scope'],
-                                    'name': arg_did['name'],
-                                    'pfns': {args.pfn: {'rse': args.rse}},
-                                    'rses': {args.rse: [args.pfn]}}]
-
-        num_files_to_dl[arg_didstr] = len(files_with_replicas)
-        for file in files_with_replicas:
-            file_scope = file['scope']
-            file_name = file['name']
-            file_didstr = '%s:%s' % (file_scope, file_name)
-
-            file_exists, dest_dir = _file_exists(did_type,
-                                                 file_scope,
-                                                 file_name,
-                                                 args.dir,
-                                                 dsn=dataset_name,
-                                                 no_subdir=args.no_subdir)
-            dest_dir = os.path.abspath(dest_dir)
-            if file_exists:
-                logger.info('File %s already exists locally' % file_didstr)
-
-                out = {}
-                out['dataset_scope'] = dataset_scope
-                out['dataset_name'] = dataset_name
-                out['scope'] = file_scope
-                out['name'] = file_name
-                out['clientState'] = 'ALREADY_DONE'
-                output_queue.put(out)
-
-                trace = deepcopy(trace_pattern)
-
-                if 'datasetScope' not in trace:
-                    trace['datasetScope'] = dataset_scope
-                if 'dataset' not in trace:
-                    trace['dataset'] = dataset_name
-                trace.update({'scope': file_scope,
-                              'filename': file_name,
-                              'filesize': file['bytes'],
-                              'transferStart': time.time(),
-                              'transferEnd': time.time(),
-                              'clientState': 'ALREADY_DONE'})
-                send_trace(trace, trace_endpoint, args.user_agent)
-            else:
-                if not os.path.isdir(dest_dir):
-                    logger.debug('Destination dir not found: %s' % dest_dir)
-                    try:
-                        os.makedirs(dest_dir)
-                    except:
-                        logger.error('Failed to create missing destination directory %s' % dest_dir)
-                        return FAILURE
-                if args.no_subdir and os.path.isfile('%s/%s' % (dest_dir, file_name)):
-                    # Overwrite the files
-                    logger.debug('Deleteing existing files: %s' % file_name)
-                    os.remove("%s/%s" % (dest_dir, file_name))
-                file['dataset_scope'] = dataset_scope
-                file['dataset_name'] = dataset_name
-                file['dest_dir'] = dest_dir
-                input_queue.put(file)
-    try:
-        if use_aria:
-            download_aria(args, input_queue, output_queue, trace_pattern, trace_endpoint)
-        else:
-            download_rucio(args, input_queue, output_queue, trace_pattern, trace_endpoint)
-    except Exception as error:
-        logger.error('Exception during download: %s' % str(error))
-
-    while True:
-        try:
-            item = output_queue.get_nowait()
-            output_queue.task_done()
-            ds_didstr = '%s:%s' % (item['dataset_scope'], item['dataset_name'])
-            file_didstr = '%s:%s' % (item['scope'], item['name'])
-
-            if ds_didstr in summary or file_didstr in summary:
-                if item['dataset_scope'] == '':
-                    summary[file_didstr][file_didstr] = item['clientState']
-                else:
-                    summary[ds_didstr][file_didstr] = item['clientState']
-                if item['clientState'] == 'CORRUPTED':
-                    try:
-                        client.declare_suspicious_file_replicas([item['pfn']], reason='Corrupted')
-                    except:
-                        logger.warning('File replica %s might be corrupted. Failure to declare it bad to Rucio' % item['pfn'])
-        except Empty:
-            break
-
-    not_downloaded_files = 0
-    total_successes = 0
-    total_failures = 0
     print('----------------------------------')
     print('Download summary')
-    if len(summary) > 0:
-        for did in summary:
-            print('-' * 40)
-            print('DID %s' % (did))
-            downloaded_files = 0
-            not_downloaded_files = 0
-            local_files = 0
-            for file in summary[did]:
-                if summary[did][file] == 'DONE':
-                    downloaded_files += 1
-                elif summary[did][file] == 'ALREADY_DONE':
-                    local_files += 1
-            not_downloaded_files = num_files_to_dl[did] - downloaded_files - local_files
-            total_successes += downloaded_files + local_files
-            total_failures += not_downloaded_files
-            print('{0:40} {1:6d}'.format('Total files : ', num_files_to_dl[did]))
-            print('{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files))
-            print('{0:40} {1:6d}'.format('Files already found locally : ', local_files))
-            print('{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files))
-    else:
+    if not len(summary):
         print('-' * 40)
         print('No DID matching the pattern')
 
-    if total_successes == 0 and total_failures > 0:
-        raise NoFilesDownloaded
-    if total_successes > 0 and total_failures > 0:
-        raise NotAllFilesDownloaded
+    for ds_didstr in summary:
+        print('-' * 40)
+        print('DID %s' % (ds_didstr))
+        ds_total = summary[ds_didstr]['_total']
+        downloaded_files = summary[ds_didstr]['DONE']
+        local_files = summary[ds_didstr]['ALREADY_DONE']
+        not_downloaded_files = ds_total - downloaded_files - local_files
+        print('{0:40} {1:6d}'.format('Total files : ', ds_total))
+        print('{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files))
+        print('{0:40} {1:6d}'.format('Files already found locally : ', local_files))
+        print('{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files))
+
     return SUCCESS
 
 
@@ -2626,8 +1865,8 @@ You can filter by key/value, e.g.::
     get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
     get_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
     get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
-    get_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     get_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
+    get_parser.add_argument('--archive_did', action='store', help="DID of an archive from where to extract the files.")
     get_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
     get_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
     get_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
@@ -2647,8 +1886,8 @@ You can filter by key/value, e.g.::
     download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
     download_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
     download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
-    download_parser.add_argument('--old', action='store_true', default=False, help=argparse.SUPPRESS)
     download_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
+    download_parser.add_argument('--archive_did', action='store', help="DID of an archive from where to extract the files.")
     download_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
     download_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
     download_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
