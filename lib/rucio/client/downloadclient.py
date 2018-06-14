@@ -50,7 +50,7 @@ class DownloadClient:
         :param logger: logging.Logger object to use for downloads. If None nothing will be logged.
         """
         if not logger:
-            logger = logging.getLogger(__name__).getChild('null')
+            logger = logging.getLogger('%s.null' % __name__)
             logger.addHandler(logging.NullHandler())
 
         self.logger = logger
