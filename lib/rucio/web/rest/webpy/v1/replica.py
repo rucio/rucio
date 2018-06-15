@@ -348,16 +348,27 @@ class ListReplicas(RucioController):
                                        client_location=client_location,
                                        domain=domain, signature_lifetime=signature_lifetime,
                                        issuer=ctx.env.get('issuer')):
-                replicas = []
-                dictreplica = {}
-                for rse in rfile['rses']:
-                    for replica in rfile['rses'][rse]:
-                        replicas.append(replica)
-                        dictreplica[replica] = rse
 
                 if not metalink:
                     yield dumps(rfile, cls=APIEncoder) + '\n'
                 else:
+
+                    replicas = []
+                    dictreplica = {}
+                    for rse in rfile['rses']:
+                        for replica in rfile['rses'][rse]:
+                            replicas.append(replica)
+                            dictreplica[replica] = (rfile['pfns'][replica]['domain'], rfile['pfns'][replica]['priority'], rse)
+
+                    # we need to sort first by domain
+                    # --> exploit that L(AN) comes before W(AN) in the alphabet :-D
+                    tmp = sorted([(dictreplica[r] + (r,)) for r in dictreplica])
+
+                    # then rewrite priorities in ascending order starting from 1 across both domains to be correct metalink
+                    dictreplica = {}
+                    for i in xrange(len(tmp)):
+                        dictreplica[tmp[i][3]] = (tmp[i][0], i + 1, tmp[i][2])
+
                     yield ' <file name="' + rfile['name'] + '">\n'
                     yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
                     if rfile['adler32'] is not None:
@@ -369,6 +380,7 @@ class ListReplicas(RucioController):
                     yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
                     yield '</glfn>\n'
 
+                    # TODO: deprecate this
                     if select == 'geoip':
                         replicas = sort_geoip(dictreplica, client_location['ip'])
                     elif select == 'closeness':
@@ -377,12 +389,17 @@ class ListReplicas(RucioController):
                         replicas = sort_dynamic(dictreplica, client_location)
                     elif select == 'ranking':
                         replicas = sort_ranking(dictreplica, client_location)
-                    else:
+                    elif select == 'random':
                         replicas = sort_random(dictreplica)
+                    else:
+                        replicas = sorted(dictreplica, key=dictreplica.get)
 
                     idx = 0
                     for replica in replicas:
-                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + replica + '</url>\n'
+                        yield '   <url location="' + str(dictreplica[replica][2]) \
+                            + '" domain="' + str(dictreplica[replica][0]) \
+                            + '" priority="' + str(dictreplica[replica][1]) \
+                            + '">' + replica + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break
