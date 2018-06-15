@@ -20,7 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 
@@ -72,7 +72,7 @@ for extra_module in EXTRA_MODULES:
         EXTRA_MODULES[extra_module] = False
 
 if EXTRA_MODULES['requests_kerberos']:
-    from requests_kerberos import HTTPKerberosAuth
+    from requests_kerberos import HTTPKerberosAuth  # pylint: disable=import-error
 
 
 LOG = getLogger(__name__)
@@ -106,7 +106,7 @@ class BaseClient(object):
     TOKEN_PATH_PREFIX = get_tmp_dir() + '/.rucio_'
     TOKEN_PREFIX = 'auth_token_'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         """
         Constructor of the BaseClient.
         :param rucio_host: the address of the rucio server, if None it is read from the config file.
@@ -504,7 +504,7 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
-        if not EXTRA_MODULES['requests-kerberos']:
+        if not EXTRA_MODULES['requests_kerberos']:
             raise MissingModuleException('The requests-kerberos module is not installed.')
 
         headers = {'X-Rucio-Account': self.account}

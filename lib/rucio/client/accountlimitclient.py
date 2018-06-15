@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
@@ -33,7 +33,7 @@ class AccountLimitClient(BaseClient):
     ACCOUNTLIMIT_BASEURL = 'accountlimits'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
-                 auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         super(AccountLimitClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                                  auth_type, creds, timeout, user_agent)
 
