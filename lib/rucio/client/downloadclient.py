@@ -19,42 +19,28 @@
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Tobias Wegner <tobias.wegner@cern.ch>, 2018
 
-import os
-import os.path
 
 import copy
 import logging
+import os
+import os.path
 import random
-import time
 import socket
 import signal
-
-from rucio.common.exception import (InputValidationError, NoFilesDownloaded, ServiceUnavailable,
-                                    NotAllFilesDownloaded, RSENotFound, RucioException, SourceNotFound)
-from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, send_trace, sizefmt, execute
-
-from xml.etree import ElementTree
-
-from rucio.client.client import Client
+import time
 
 try:
     from Queue import Queue, Empty, deque
 except ImportError:
     from queue import Queue, Empty, deque
-
 from threading import Thread
+from xml.etree import ElementTree
+
+from rucio.client.client import Client
+from rucio.common.exception import (InputValidationError, NoFilesDownloaded, ServiceUnavailable,
+                                    NotAllFilesDownloaded, RSENotFound, RucioException, SourceNotFound)
+from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, send_trace, sizefmt, execute
 from rucio.rse import rsemanager as rsemgr
-
-
-def _stop_aria_rpc(auth, prox, proc, hard=False):
-    try:
-        if not hard:
-            prox.aria2.shutdown(auth)
-        else:
-            prox.aria2.forceShutdown(auth)
-            proc.terminate()
-    except Exception:
-        pass
 
 
 class DownloadClient:
@@ -98,7 +84,7 @@ class DownloadClient:
         :param items: List of dictionaries. Each dictionary describing a file to download. Keys:
             did                 - DID string of the archive file (e.g. 'scope:file.name'). Wildcards are not allowed
             archive             - DID string of the archive from which the file should be extracted
-            rse                 - rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are not allowed
+            rse                 - Optional: rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are allowed
             base_dir            - Optional: Base directory where the downloaded files will be stored. (Default: '.')
             no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
         :param trace_custom_fields: Custom key value pairs to send with the traces
@@ -473,9 +459,9 @@ class DownloadClient:
                 attempt += 1
                 item['attemptnr'] = attempt
 
-                temp_file_path = dest_file_path + '.part'
+                temp_file_path = item['temp_file_path']
                 if os.path.isfile(temp_file_path):
-                    logger.debug('%sDeleting existing .part file: %s' % (log_prefix, temp_file_path))
+                    logger.debug('%sDeleting existing temporary file: %s' % (log_prefix, temp_file_path))
                     os.unlink(temp_file_path)
 
                 start_time = time.time()
@@ -505,7 +491,7 @@ class DownloadClient:
                         logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
                         try:
                             self.client.declare_suspicious_file_replicas([pfn], reason='Corrupted')
-                        except Exception as error:
+                        except Exception:
                             pass
                         trace['clientState'] = 'FAIL_VALIDATE'
                 if not success:
@@ -514,17 +500,18 @@ class DownloadClient:
 
             protocol.close()
 
-        if success:
-            os.rename(temp_file_path, dest_file_path)
-            trace['transferStart'] = start_time
-            trace['transferEnd'] = end_time
-            trace['clientState'] = 'DONE'
-            item['clientState'] = 'DONE'
-            send_trace(trace, self.client.host, self.client.user_agent)
-        else:
+        if not success:
             logger.error('%sFailed to download file %s' % (log_prefix, did_str))
             item['clientState'] = 'FAILED'
             return item
+
+        os.rename(temp_file_path, dest_file_path)
+
+        trace['transferStart'] = start_time
+        trace['transferEnd'] = end_time
+        trace['clientState'] = 'DONE'
+        item['clientState'] = 'DONE'
+        send_trace(trace, self.client.host, self.client.user_agent)
 
         duration = round(end_time - start_time, 2)
         size = item.get('bytes')
@@ -571,7 +558,28 @@ class DownloadClient:
         else:
             return self.download_dids(input_items, nprocs, trace_pattern)
 
-    def download_aria(self, items, trace_custom_fields={}):
+    def download_aria2c(self, items, trace_custom_fields={}):
+        """
+        Uses aria2c to download the items with given DIDs. This function can also download datasets and wildcarded DIDs.
+        It only can download files that are available via https/davs.
+        Aria2c needs to be installed and X509_USER_PROXY needs to be set!
+
+        :param items: List of dictionaries. Each dictionary describing an item to download. Keys:
+            did                 - DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
+            rse                 - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
+            base_dir            - Optional: base directory where the downloaded files will be stored. (Default: '.')
+            no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
+            nrandom             - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
+            ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
+        :param trace_custom_fields: Custom key value pairs to send with the traces
+
+        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+
+        :raises InputValidationError: if one of the input items is in the wrong format
+        :raises NoFilesDownloaded: if no files could be downloaded
+        :raises NotAllFilesDownloaded: if not all files could be downloaded
+        :raises RucioException: if something went wrong during the download (e.g. aria2c could not be started)
+        """
         trace_custom_fields['uuid'] = generate_uuid()
 
         rpc_secret = '%x' % (random.getrandbits(64))
@@ -579,19 +587,34 @@ class DownloadClient:
         rpcproc, aria_rpc = self._start_aria2c_rpc(rpc_secret)
 
         for item in items:
-            item['force_scheme'] = ['https']
+            item['force_scheme'] = ['https', 'davs']
         input_items = self._prepare_items_for_download(items)
 
         try:
             output_items = self._download_items_aria2c(input_items, aria_rpc, rpc_auth, trace_custom_fields)
         except Exception as error:
-            _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc, True)
-            raise RucioException('Unknown exception during aria2c download', error)
+            self.logger.error('Unknown exception during aria2c download')
+            self.logger.debug(error)
+        finally:
+            try:
+                aria_rpc.aria2.forceShutdown(rpc_auth)
+            finally:
+                rpcproc.terminate()
 
-        _stop_aria_rpc(rpc_auth, aria_rpc, rpcproc)
         return self._check_output(output_items)
 
     def _start_aria2c_rpc(self, rpc_secret):
+        """
+        Starts aria2c in RPC mode as a subprocess. Also creates
+        the RPC proxy instance.
+        (This function is meant to be used as class internal only)
+
+        :param rpc_secret: the secret for the RPC proxy
+
+        :returns: a tupel with the process and the rpc proxy objects
+
+        :raises RucioException: if the process or the proxy could not be created
+        """
         logger = self.logger
         try:
             from xmlrpclib import ServerProxy as RPCServerProxy  # py2
@@ -620,7 +643,9 @@ class DownloadClient:
             port = random.randint(1024, 65534)
             logger.debug('Trying to start rpc server on port: %d' % port)
             try:
-                rpcproc = execute(cmd % (os.getpid(), rpc_secret, port), False)
+                to_exec = cmd % (os.getpid(), rpc_secret, port)
+                logger.debug(to_exec)
+                rpcproc = execute(to_exec, False)
             except Exception as error:
                 raise RucioException('Failed to execute aria2c!', error)
 
@@ -646,6 +671,18 @@ class DownloadClient:
         return (rpcproc, aria_rpc)
 
     def _download_items_aria2c(self, items, aria_rpc, rpc_auth, trace_custom_fields={}):
+        """
+        Uses aria2c to download the given items. Aria2c needs to be started
+        as RPC background process first and a RPC proxy is needed.
+        (This function is meant to be used as class internal only)
+
+        :param items: list of dictionaries containing one dict for each file to download
+        :param aria_rcp: RPCProxy to the aria2c process
+        :param rpc_auth: the rpc authentication token
+        :param trace_custom_fields: Custom key value pairs to send with the traces
+
+        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+        """
         logger = self.logger
 
         gid_to_item = {}  # maps an aria2c download id (gid) to the download item
@@ -679,6 +716,8 @@ class DownloadClient:
                 pfns = []
                 for src in item['sources']:
                     pfn = src['pfn']
+                    if pfn[0:4].lower() == 'davs':
+                        pfn = pfn.replace('davs', 'https', 1)
                     pfns.append(pfn)
                     pfn_to_rse[pfn] = src['rse']
 
@@ -696,7 +735,7 @@ class DownloadClient:
                 else:
                     item['trace'] = trace
                     options = {'dir': item['dest_dir_path'],
-                               'out': item['temp_file_name']}
+                               'out': os.path.basename(item['temp_file_path'])}
                     gid = aria_rpc.aria2.addUri(rpc_auth, pfns, options)
                     gid_to_item[gid] = item
                     num_queued += 1
@@ -740,10 +779,12 @@ class DownloadClient:
                 trace['transferEnd'] = end_time
 
                 # ensure file exists
-                if dlinfo.get('status', '').lower() == 'complete' and os.path.isfile(temp_file_path):
+                status = dlinfo.get('status', '').lower()
+                if status == 'complete' and os.path.isfile(temp_file_path):
                     # checksum check
-                    rucio_checksum = item.get('adler32')
-                    local_checksum = adler32(temp_file_path)
+                    skip_check = item.get('ignore_checksum', False)
+                    rucio_checksum = 0 if skip_check else item.get('adler32')
+                    local_checksum = 0 if skip_check else adler32(temp_file_path)
                     if rucio_checksum == local_checksum:
                         item['clientState'] = 'DONE'
                         trace['clientState'] = 'DONE'
@@ -767,7 +808,8 @@ class DownloadClient:
                         item['clientState'] = 'FAIL_VALIDATE'
                         trace['clientState'] = 'FAIL_VALIDATE'
                 else:
-                    logger.error('Failed to locate downloaded file %s' % temp_file_path)
+                    logger.error('Failed to download file: %s' % file_did_str)
+                    logger.debug('Aria2c status: %s' % status)
                     item['clientState'] = 'FAILED'
                     trace['clientState'] = 'DOWNLOAD_ATTEMPT'
 
@@ -783,6 +825,17 @@ class DownloadClient:
         return items
 
     def _prepare_items_for_download(self, items):
+        """
+        Resolves wildcarded DIDs, get DID details (e.g. type), and collects
+        the available replicas for each DID
+        (This function is meant to be used as class internal only)
+
+        :param items: list of dictionaries containing the items to prepare
+
+        :returns: list of dictionaries, one dict for each file to download
+
+        :raises InputValidationError: if the given input is not valid or incomplete
+        """
         logger = self.logger
 
         logger.info('Processing %d item(s) for input' % len(items))

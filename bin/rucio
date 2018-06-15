@@ -919,14 +919,14 @@ def download(args):
             logger.warning('Ignoring --aria option because --archive_did option given')
         if args.protocol:
             logger.warning('Ignoring --protocol option because --archive_did option given')
-        num_dids = len(args.dids)
-        did_str = args.dids[0]
-        if num_dids > 1:
-            logger.warning('Download with --archive_did option only supports one DID but {} DIDs were given. Considering only first DID: {}'.format(num_dids, did_str))
-            logger.debug(args.dids)
+
         item_defaults['archive'] = archive_did
-        item_defaults['did'] = did_str
-        result = download_client.download_file_from_archive([item_defaults], trace_pattern)
+        items = []
+        for did in args.dids:
+            item = {'did': did}
+            item.update(item_defaults)
+            items.append(item)
+        result = download_client.download_file_from_archive(items, trace_pattern)
     else:
         if args.aria:
             logger.warning('Ignoring --aria option because --pfn option given')
@@ -946,15 +946,18 @@ def download(args):
 
     summary = {}
     for item in result:
-        file_didstr = '%s:%s' % (item['scope'], item['name'])
-        ds_didstr = '%s:%s' % (item['dataset_scope'], item['dataset_name'])
-        ds_didstr = file_didstr if ds_didstr == '' else ds_didstr
+        ds_scope = item.get('dataset_scope')
+        ds_name = item.get('dataset_name')
+        if ds_scope and ds_name:
+            summary_key = '%s:%s' % (ds_scope, ds_name)
+        else:
+            summary_key = item['did']
 
-        summary.setdefault(ds_didstr, {'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
-        summary[ds_didstr]['_total'] += 1
+        summary.setdefault(summary_key, {'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
+        summary[summary_key]['_total'] += 1
         state = item['clientState'].upper()
-        if state in summary[ds_didstr]:
-            summary[ds_didstr][state] += 1
+        if state in summary[summary_key]:
+            summary[summary_key][state] += 1
 
     print('----------------------------------')
     print('Download summary')
@@ -962,12 +965,12 @@ def download(args):
         print('-' * 40)
         print('No DID matching the pattern')
 
-    for ds_didstr in summary:
+    for summary_key in summary:
         print('-' * 40)
-        print('DID %s' % (ds_didstr))
-        ds_total = summary[ds_didstr]['_total']
-        downloaded_files = summary[ds_didstr]['DONE']
-        local_files = summary[ds_didstr]['ALREADY_DONE']
+        print('DID %s' % (summary_key))
+        ds_total = summary[summary_key]['_total']
+        downloaded_files = summary[summary_key]['DONE']
+        local_files = summary[summary_key]['ALREADY_DONE']
         not_downloaded_files = ds_total - downloaded_files - local_files
         print('{0:40} {1:6d}'.format('Total files : ', ds_total))
         print('{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files))
