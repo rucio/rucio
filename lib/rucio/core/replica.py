@@ -757,6 +757,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                 if rse not in rse_info:
                     rse_info[rse] = rsemgr.get_rse_info(rse, session=session)
 
+                # assign scheme priorities
+                rse_info[rse]['priority_wan'] = {p['scheme']: p['domains']['wan']['read'] for p in rse_info[rse]['protocols']}
+                rse_info[rse]['priority_lan'] = {p['scheme']: p['domains']['lan']['read'] for p in rse_info[rse]['protocols']}
+
                 # select the lan door in autoselect mode, otherwise use the wan door
                 if domain is None:
                     domain = 'wan'
@@ -789,16 +793,19 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                                 protocols.append(('lan', rsemgr.create_protocol(rse_settings=rse_info[rse],
                                                                                 operation='read',
                                                                                 scheme=s,
-                                                                                domain='lan')))
+                                                                                domain='lan'),
+                                                  rse_info[rse]['priority_lan'][s]))
                                 protocols.append(('wan', rsemgr.create_protocol(rse_settings=rse_info[rse],
                                                                                 operation='read',
                                                                                 scheme=s,
-                                                                                domain='wan')))
+                                                                                domain='wan'),
+                                                  rse_info[rse]['priority_wan'][s]))
                             else:
                                 protocols.append((domain, rsemgr.create_protocol(rse_settings=rse_info[rse],
                                                                                  operation='read',
                                                                                  scheme=s,
-                                                                                 domain=domain)))
+                                                                                 domain=domain),
+                                                  rse_info[rse]['priority_%s' % domain][s]))
                         except exception.RSEProtocolNotSupported:
                             pass  # no need to be verbose
                         except:
@@ -845,10 +852,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                             if sign and isinstance(sign, list) and sign[0]:
                                 pfn = get_signed_url(service='gcs', operation='read', url=pfn, lifetime=signature_lifetime)
 
-                        # TODO: this is not nice, but since pfns don't have the concept of 'domain'
+                        # TODO: this is not nice, but since pfns don't have the concept of 'domain' or 'priority'
                         #       we can work around by encapsulating it in a tuple. a proper refactor requires
                         #       far-reaching changes in the rsemgr
-                        pfns.append((tmp_protocol[0], pfn))
+                        pfns.append((pfn, tmp_protocol[0], tmp_protocol[2]))
                     except:
                         # temporary protection
                         print format_exc()
@@ -861,13 +868,14 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
 
             if 'scope' in file and 'name' in file:
                 if file['scope'] == scope and file['name'] == name:
-                    file['rses'][rse] += list(set([tmp_pfn[1] for tmp_pfn in pfns]))  # extract properly the pfn from the (domain, pfn)
+                    file['rses'][rse] += list(set([tmp_pfn[0] for tmp_pfn in pfns]))  # extract properly the pfn from the (pfn, domain, priority)
                     file['states'][rse] = str(state)
                     for tmp_pfn in pfns:
-                        file['pfns'][tmp_pfn[1]] = {'rse': rse,
+                        file['pfns'][tmp_pfn[0]] = {'rse': rse,
                                                     'type': str(rse_type),
                                                     'volatile': volatile,
-                                                    'domain': tmp_pfn[0]}  # extract properly the domain from the (domain, pfn)
+                                                    'domain': tmp_pfn[1],
+                                                    'priority': tmp_pfn[2]}
                 else:
                     yield file
                     file = {}
@@ -878,12 +886,13 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                         'pfns': {}, 'rses': defaultdict(list),
                         'states': {rse: str(state)}}
                 if rse:
-                    file['rses'][rse] = list(set([tmp_pfn[1] for tmp_pfn in pfns]))  # extract properly the pfn from the (domain, pfn)
+                    file['rses'][rse] = list(set([tmp_pfn[0] for tmp_pfn in pfns]))  # extract properly the pfn from the (pfn, domain, priority)
                     for tmp_pfn in pfns:
-                        file['pfns'][tmp_pfn[1]] = {'rse': rse,
+                        file['pfns'][tmp_pfn[0]] = {'rse': rse,
                                                     'type': str(rse_type),
                                                     'volatile': volatile,
-                                                    'domain': tmp_pfn[0]}  # extract properly the domain from the (domain, pfn)
+                                                    'domain': tmp_pfn[1],
+                                                    'priority': tmp_pfn[2]}
 
     if 'scope' in file and 'name' in file:
         yield file
