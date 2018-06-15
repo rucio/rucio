@@ -204,7 +204,7 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
-        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
+        cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -220,7 +220,7 @@ class TestBinRucio():
         """CLIENT(USER): Rucio upload file with guid"""
         tmp_file1 = file_generator()
         tmp_guid = generate_uuid()
-        cmd = 'rucio upload --rse {0} --guid {1} --scope {2} {3}'.format(self.def_rse, tmp_guid, self.user, tmp_file1)
+        cmd = 'rucio -v upload --rse {0} --guid {1} --scope {2} {3}'.format(self.def_rse, tmp_guid, self.user, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -235,7 +235,7 @@ class TestBinRucio():
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
         tmp_file1_name = path.basename(tmp_file1)
-        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio -v upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -256,7 +256,7 @@ class TestBinRucio():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
+        cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -276,13 +276,13 @@ class TestBinRucio():
         tmp_file3_name = path.basename(tmp_file3)
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
+        cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
         # upload the files to the dataset
-        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -309,7 +309,7 @@ class TestBinRucio():
         tmp_file1_name = path.basename(tmp_file1)
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -332,7 +332,7 @@ class TestBinRucio():
         tmp_file1_name = path.basename(filename)
         file_md5 = md5(filename)
         # user uploads file
-        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, filename)
+        cmd = 'rucio -v upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, filename)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -388,7 +388,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         # download files
-        cmd = 'rucio download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -422,7 +422,7 @@ class TestBinRucio():
         protocol.close()
         remove(filename)
         # download files
-        cmd = 'rucio download --dir /tmp {0}:{1}'.format(self.user, filename[5:])
+        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, filename[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -457,13 +457,12 @@ class TestBinRucio():
         remove(filename)
 
         # download file
-        cmd = 'rucio download --dir /tmp {0}:{1}'.format(self.user, filename[5:])
+        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, filename[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
 
-        # a failure message 'Checksum mismatch : local _____ vs storage _____' appears
-        report = 'Checksum\ mismatch\ \:\ local\ {0}\ vs\ recorded\ 0123456789abcdef0123456789abcdef'.format(file_md5)
+        report = 'Local\ checksum\:\ {0},\ Rucio\ checksum\:\ 0123456789abcdef0123456789abcdef'.format(file_md5)
         print('searching', report, 'in', err)
         nose.tools.assert_not_equal(re.search(report, err), None)
 
@@ -501,7 +500,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         # download dataset
-        cmd = 'rucio download --dir /tmp {0}'.format(tmp_dataset)  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --dir /tmp {0}'.format(tmp_dataset)  # triming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
