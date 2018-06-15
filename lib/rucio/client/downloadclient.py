@@ -239,8 +239,10 @@ class DownloadClient:
             item['scope'] = did_scope
             item['name'] = did_name
             item['sources'] = [{'pfn': pfn, 'rse': rse}]
-            item['force_scheme'] = [pfn.split(':')[0]]
+            dest_file_path = os.path.join(dest_dir_path, did_name)
             item['dest_dir_path'] = dest_dir_path
+            item['dest_file_path'] = dest_file_path
+            item['temp_file_path'] = dest_file_path + '.part'
             item.setdefault('ignore_checksum', True)
 
             input_items.append(item)
@@ -401,8 +403,7 @@ class DownloadClient:
         trace.setdefault('filesize', item.get('bytes'))
 
         # if file already exists, set state, send trace, and return
-        dest_dir_path = item['dest_dir_path']
-        dest_file_path = os.path.join(dest_dir_path, did_name)
+        dest_file_path = item['dest_file_path']
         if os.path.isfile(dest_file_path):
             logger.info('%sFile exists already locally: %s' % (log_prefix, did_str))
             item['clientState'] = 'ALREADY_DONE'
