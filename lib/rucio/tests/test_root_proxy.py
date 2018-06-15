@@ -36,16 +36,16 @@ class TestROOTProxy(object):
 
         self.client_location_without_proxy = {'ip': '192.168.0.1',
                                               'fqdn': 'anomalous-materials.blackmesa.com',
-                                              'site': 'BLACKMESA'}
+                                              'site': 'BLACKMESA1'}
         self.rse_without_proxy = rse_name_generator()
         add_rse(self.rse_without_proxy)
         add_rse_attribute(rse=self.rse_without_proxy,
                           key='site',
-                          value='BLACKMESA')
+                          value='BLACKMESA1')
 
         self.client_location_with_proxy = {'ip': '10.0.1.1',
                                            'fqdn': 'test-chamber.aperture.com',
-                                           'site': 'APERTURE'}
+                                           'site': 'APERTURE1'}
         self.rse_with_proxy = rse_name_generator()
         add_rse(self.rse_with_proxy)
         add_rse_attribute(rse=self.rse_with_proxy,
@@ -53,7 +53,7 @@ class TestROOTProxy(object):
                           value='root://proxy.aperture.com:1094')
         add_rse_attribute(rse=self.rse_with_proxy,
                           key='site',
-                          value='APERTURE')
+                          value='APERTURE1')
 
         self.files = [{'scope': 'mock',
                        'name': 'half-life_%s' % i,
