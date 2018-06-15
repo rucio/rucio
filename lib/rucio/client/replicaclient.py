@@ -138,7 +138,7 @@ class ReplicaClient(BaseClient):
             headers['Accept'] = 'application/metalink4+xml'
 
         # pass json dict in querystring
-        r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
+        r = self._send_request(url, headers=headers, type='POST', data=dumps(data), stream=True)
         if r.status_code == codes.ok:
             if not metalink:
                 return self._load_json_data(r)
