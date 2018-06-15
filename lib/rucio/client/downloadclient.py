@@ -891,7 +891,7 @@ class DownloadClient:
             if force_scheme:
                 schemes = force_scheme if isinstance(force_scheme, list) else [force_scheme]
             else:
-                schemes = ['davs', 'gsiftp', 'https', 'root', 'srm']
+                schemes = ['davs', 'gsiftp', 'https', 'root', 'srm', 'file']
 
             # get PFNs of files and datasets
             metalink_str = self.client.list_replicas([{'scope': did_scope, 'name': did_name}],
