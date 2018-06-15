@@ -18,7 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
 
 """
 Client class for callers of the Rucio system
@@ -43,7 +43,7 @@ class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaC
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         """
         Constructor for the Rucio main client class.
 

@@ -17,6 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -34,7 +35,7 @@ class FileClient(BaseClient):
 
     BASEURL = 'files'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         """ Constructor """
         super(FileClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
