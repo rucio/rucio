@@ -274,7 +274,7 @@ class BaseClient(object):
         else:  # Exception ?
             yield response.text
 
-    def _send_request(self, url, headers=None, type='GET', data=None, params=None):
+    def _send_request(self, url, headers=None, type='GET', data=None, params=None, stream=False):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
@@ -300,7 +300,7 @@ class BaseClient(object):
                 elif type == 'PUT':
                     result = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
-                    result = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=True)
+                    result = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=stream)
                 elif type == 'DEL':
                     result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
