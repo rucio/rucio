@@ -14,7 +14,7 @@
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from rucio.common import exception
-from rucio.db.sqla.models import Distance
+from rucio.db.sqla.models import Distance, RSE
 from rucio.db.sqla.session import transactional_session, read_session
 
 
@@ -139,5 +139,33 @@ def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, session
         if dest_rse_id:
             query = query.filter(Distance.dest_rse_id == dest_rse_id)
         query.update(params)
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+
+
+@read_session
+def export_distances(session=None):
+    """
+    Get distances between all the rses.
+
+    :param session: The database session to use.
+
+    :returns distance: dictionary of dictionaries with all the distances.
+    """
+
+    rsemap = {}
+    for k, v in session.query(RSE.id, RSE.rse).all():
+        rsemap[k] = v
+    distances = {}
+    try:
+        query = session.query(Distance)
+        for distance in query.all():
+            src_name = rsemap[distance.src_rse_id]
+            dst_name = rsemap[distance.dest_rse_id]
+            key = src_name + '__' + dst_name
+            distances[key] = {}
+            for k, v in distance:
+                distances[key][k] = v
+        return distances
     except IntegrityError as error:
         raise exception.RucioException(error.args)
