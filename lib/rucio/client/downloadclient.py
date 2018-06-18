@@ -25,7 +25,6 @@ import logging
 import os
 import os.path
 import random
-import socket
 import signal
 import time
 
@@ -73,7 +72,8 @@ class DownloadClient:
             logger.debug('Admin mode enabled')
 
         self.trace_tpl = {}
-        self.trace_tpl['hostname'] = socket.getfqdn()
+        self.trace_tpl['hostname'] = self.client_location['fqdn']
+        self.trace_tpl['localSite'] = self.client_location['site']
         self.trace_tpl['account'] = self.client.account
         self.trace_tpl['eventType'] = 'download'
         self.trace_tpl['eventVersion'] = 'api_' + version.RUCIO_VERSION[0]
