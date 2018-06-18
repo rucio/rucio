@@ -315,7 +315,7 @@ class ListReplicas(RucioController):
             if 'signature_lifetime' in params:
                 signature_lifetime = params['signature_lifetime']
             else:
-                # hardcoded default of 1h if config is not parseable
+                # hardcoded default of 10 minutes if config is not parseable
                 signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
 
         except ValueError:
