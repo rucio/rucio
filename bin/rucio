@@ -873,7 +873,7 @@ def download(args):
 
     Download files from Rucio using new threaded model and RSE expression support
     """
-    trace_pattern = {'eventVersion': version.RUCIO_VERSION[0]}
+    trace_pattern = {}
 
     if args.trace_appid:
         trace_pattern['appid'] = args.trace_appid
