@@ -549,7 +549,7 @@ def get_did_from_pfns(pfns, rse=None, session=None):
 
 def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
     """
-    resolve list of dids into a list of conditions.
+    Resolve list of DIDs into a list of conditions.
 
     :param dids: The list of data identifiers (DIDs).
     :param unavailable: Also include unavailable replicas in the list.
@@ -557,7 +557,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param session: The database session in use.
     """
-    did_clause, dataset_clause, file_clause, files = [], [], [], []
+    did_clause, dataset_clause, file_clause, files, constituents = [], [], [], [], {}
     for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
         if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):  # pylint: disable=no-member
             files.append({'scope': did['scope'], 'name': did['name']})
@@ -569,9 +569,21 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
                                    models.DataIdentifier.name == did['name']))
 
     if did_clause:
-        for scope, name, did_type in session.query(models.DataIdentifier.scope,
-                                                   models.DataIdentifier.name,
-                                                   models.DataIdentifier.did_type).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*did_clause)):
+        for scope, name, did_type, constituent in session.query(models.DataIdentifier.scope,
+                                                                models.DataIdentifier.name,
+                                                                models.DataIdentifier.did_type,
+                                                                models.DataIdentifier.constituent)\
+                                                         .with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')\
+                                                         .filter(or_(*did_clause)):
+            if constituent:
+                # file is a constituent, resolve to any parent archive
+                archive = session.query(models.ConstituentAssociation.scope,
+                                        models.ConstituentAssociation.name)\
+                                 .filter(models.ConstituentAssociation.child_scope == scope,
+                                         models.ConstituentAssociation.child_name == name).one()
+                constituents['%s:%s' % (scope, name)] = {'scope': archive[0],
+                                                         'name': archive[1]}
+
             if did_type == DIDType.FILE:
                 files.append({'scope': scope, 'name': name})
                 file_clause.append(and_(models.RSEFileAssociation.scope == scope,
@@ -599,7 +611,6 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
 
     state_clause = None
     if not all_states:
-        # models.RSE.volatile == false()
         if not unavailable:
             state_clause = and_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
 
@@ -608,7 +619,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
                                models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
                                models.RSEFileAssociation.state == ReplicaState.COPYING)
 
-    return file_clause, dataset_clause, state_clause, files
+    return file_clause, dataset_clause, state_clause, files, constituents
 
 
 def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session):
@@ -722,11 +733,10 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
             yield scope, name, bytes, md5, adler32, None, None, None, None, None
             {'scope': scope, 'name': name} in files and files.remove({'scope': scope, 'name': name})
 
-        # if files:
-        #    raise exception.DataIdentifierNotFound("Files not found %s", str(files))
 
-
-def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes, files, rse_clause, client_location, domain, sign_urls, signature_lifetime, session):
+def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
+                   schemes, files, rse_clause, client_location, domain,
+                   sign_urls, signature_lifetime, constituents, session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
@@ -852,6 +862,16 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns, schemes
                             if sign and isinstance(sign, list) and sign[0]:
                                 pfn = get_signed_url(service='gcs', operation='read', url=pfn, lifetime=signature_lifetime)
 
+                        # is the file part of an archive and can be extract directly?
+                        if protocol.attributes['scheme'] == 'root' and '%s:%s' % (scope, name) in constituents:
+                            # parent archive can have a different access path! need to run full PFN resolve for it
+                            archive_pfn = list(list_replicas(dids=[constituents['%s:%s' % (scope, name)]],
+                                                             schemes=['root'],
+                                                             rse_expression=rse,
+                                                             client_location=client_location,
+                                                             domain=domain))[0]['pfns'].keys()[0]
+                            pfn = '%s?xrdcl.unzip=%s' % (archive_pfn, name)
+
                         # TODO: this is not nice, but since pfns don't have the concept of 'domain' or 'priority'
                         #       we can work around by encapsulating it in a tuple. a proper refactor requires
                         #       far-reaching changes in the rsemgr
@@ -921,15 +941,18 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param session: The database session in use.
     """
 
-    file_clause, dataset_clause, state_clause, files = _resolve_dids(dids=dids, unavailable=unavailable,
-                                                                     ignore_availability=ignore_availability,
-                                                                     all_states=all_states, session=session)
+    file_clause, dataset_clause, state_clause, files, constituents = _resolve_dids(dids=dids, unavailable=unavailable,
+                                                                                   ignore_availability=ignore_availability,
+                                                                                   all_states=all_states, session=session)
+
     rse_clause = []
     if rse_expression:
         for rse in parse_expression(expression=rse_expression, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 
-    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns, schemes, files, rse_clause, client_location, domain, sign_urls, signature_lifetime, session):
+    for file in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
+                               schemes, files, rse_clause, client_location, domain,
+                               sign_urls, signature_lifetime, constituents, session):
         yield file
 
 
