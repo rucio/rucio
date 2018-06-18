@@ -41,6 +41,7 @@ from rucio.common.exception import (InputValidationError, NoFilesDownloaded, Ser
                                     NotAllFilesDownloaded, RSENotFound, RucioException, SourceNotFound)
 from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, send_trace, sizefmt, execute
 from rucio.rse import rsemanager as rsemgr
+from rucio import version
 
 
 class DownloadClient:
@@ -75,7 +76,7 @@ class DownloadClient:
         self.trace_tpl['hostname'] = socket.getfqdn()
         self.trace_tpl['account'] = self.client.account
         self.trace_tpl['eventType'] = 'download'
-        self.trace_tpl['eventVersion'] = 'api'
+        self.trace_tpl['eventVersion'] = 'api_' + version.RUCIO_VERSION[0]
 
     def download_file_from_archive(self, items, trace_custom_fields={}):
         """
@@ -398,7 +399,7 @@ class DownloadClient:
 
         trace['scope'] = did_scope
         trace['filename'] = did_name
-        trace.setdefault('dataset_scope', item.get('dataset_scope', ''))
+        trace.setdefault('datasetScope', item.get('dataset_scope', ''))
         trace.setdefault('dataset', item.get('dataset_name', ''))
         trace.setdefault('filesize', item.get('bytes'))
 
