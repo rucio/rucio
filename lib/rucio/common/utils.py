@@ -316,7 +316,7 @@ def generate_http_error_flask(status_code, exc_cls, exc_msg):
         raise
 
 
-def execute(cmd):
+def execute(cmd, blocking=True):
     """
     Executes a command in a subprocess. Returns a tuple
     of (exitcode, out, err), where out is the string output
@@ -335,11 +335,12 @@ def execute(cmd):
     err = ''
     exitcode = 0
 
-    result = process.communicate()
-    (out, err) = result
-    exitcode = process.returncode
-
-    return exitcode, out, err
+    if blocking:
+        result = process.communicate()
+        (out, err) = result
+        exitcode = process.returncode
+        return exitcode, out, err
+    return process
 
 
 def rse_supported_protocol_operations():

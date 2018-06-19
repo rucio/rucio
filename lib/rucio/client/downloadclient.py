@@ -19,35 +19,38 @@
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Tobias Wegner <tobias.wegner@cern.ch>, 2018
 
-import os
-import os.path
 
 import copy
 import logging
+import os
+import os.path
 import random
-import time
-import socket
 import signal
+import time
 
-from rucio.common.exception import (FileConsistencyMismatch, InputValidationError, NoFilesDownloaded, ServiceUnavailable,
-                                    NotAllFilesDownloaded, RSEProtocolNotSupported, RSENotFound, RucioException, SourceNotFound)
-from rucio.common.utils import detect_client_location, generate_uuid, send_trace, sizefmt, execute
+try:
+    from Queue import Queue, Empty, deque
+except ImportError:
+    from queue import Queue, Empty, deque
+from threading import Thread
+from xml.etree import ElementTree
 
 from rucio.client.client import Client
-from Queue import Queue, Empty, deque
-from threading import Thread
+from rucio.common.exception import (InputValidationError, NoFilesDownloaded, ServiceUnavailable,
+                                    NotAllFilesDownloaded, RSENotFound, RucioException, SourceNotFound)
+from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, send_trace, sizefmt, execute
 from rucio.rse import rsemanager as rsemgr
+from rucio import version
 
 
 class DownloadClient:
 
-    def __init__(self, _client=None, user_agent='rucio_clients', logger=None):
+    def __init__(self, client=None, logger=None):
         """
         Initialises the basic settings for an DownloadClient object
 
-        :param _client: Optional: rucio.client.client.Client object. If None, a new object will be created.
-        :param user_agent: user_agent that is using the download client
-        :param logger: logging.Logger object to use for downloads. If None nothing will be logged.
+        :param client: Optional: rucio.client.client.Client object. If None, a new object will be created.
+        :param logger: Optional: logging.Logger object to use for downloads. If None nothing will be logged.
         """
         if not logger:
             logger = logging.getLogger('%s.null' % __name__)
@@ -55,8 +58,9 @@ class DownloadClient:
 
         self.logger = logger
         self.is_human_readable = True
-        self.client = _client if _client else Client()
-        self.user_agent = user_agent
+        self.client = client if client else Client()
+
+        self.client_location = detect_client_location()
 
         account_attributes = [acc for acc in self.client.list_account_attributes(self.client.account)]
         self.is_admin = False
@@ -68,10 +72,11 @@ class DownloadClient:
             logger.debug('Admin mode enabled')
 
         self.trace_tpl = {}
-        self.trace_tpl['hostname'] = socket.getfqdn()
+        self.trace_tpl['hostname'] = self.client_location['fqdn']
+        self.trace_tpl['localSite'] = self.client_location['site']
         self.trace_tpl['account'] = self.client.account
         self.trace_tpl['eventType'] = 'download'
-        self.trace_tpl['eventVersion'] = 'api'
+        self.trace_tpl['eventVersion'] = 'api_' + version.RUCIO_VERSION[0]
 
     def download_file_from_archive(self, items, trace_custom_fields={}):
         """
@@ -79,13 +84,10 @@ class DownloadClient:
 
         :param items: List of dictionaries. Each dictionary describing a file to download. Keys:
             did                 - DID string of the archive file (e.g. 'scope:file.name'). Wildcards are not allowed
-            rse                 - rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are not allowed
-            archive             - name of the archive from which the file should be extracted
+            archive             - DID string of the archive from which the file should be extracted
+            rse                 - Optional: rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are allowed
             base_dir            - Optional: Base directory where the downloaded files will be stored. (Default: '.')
             no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
-            ignore_checksum     - Optional: If true, the checksum validation is skipped (for pfn downloads the checksum must be given explicitly). (Default: True)
-            transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
-        :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
@@ -94,10 +96,13 @@ class DownloadClient:
         :raises InputValidationError: if one of the input items is in the wrong format
         :raises NoFilesDownloaded: if no files could be downloaded
         :raises NotAllFilesDownloaded: if not all files could be downloaded
+        :raises SourceNotFound: if xrdcp was unable to find the PFN
+        :raises ServiceUnavailable: if xrdcp failed
         :raises RucioException: if something unexpected went wrong during the download
         """
         logger = self.logger
         trace = copy.deepcopy(self.trace_tpl)
+        trace['uuid'] = generate_uuid()
         log_prefix = 'Extracting files: '
 
         logger.info('Processing %d item(s) for input' % len(items))
@@ -120,10 +125,9 @@ class DownloadClient:
                                                          schemes=['root'],
                                                          rse_expression=rse_expression,
                                                          unavailable=False,
-                                                         client_location=detect_client_location())
+                                                         client_location=self.client_location)
 
             # preparing trace
-            trace['uuid'] = generate_uuid()
             trace['scope'] = archive_scope
             trace['dataset'] = archive_name
             trace['filename'] = file_extract
@@ -135,13 +139,12 @@ class DownloadClient:
             logger.debug('%sPreparing output destination %s' % (log_prefix, dest_dir_path))
 
             # validation and customisation of list of replicas
-            archive_pfns = []
-            replicas = next(archive_replicas)
-            for rse in replicas['rses']:
-                archive_pfns.extend(replicas['rses'][rse])
-                if len(archive_pfns) == 0:
-                    raise InputValidationError('No PFNs for replicas of archive %s' % archive)
-            archive_pfns.reverse()
+            archive_replicas = list(archive_replicas)
+            if len(archive_replicas) != 1:
+                raise RucioException('No replicas for DID found or dataset was given.')
+            archive_pfns = archive_replicas[0]['pfns'].keys()
+            if len(archive_pfns) == 0:
+                raise InputValidationError('No PFNs for replicas of archive %s' % archive)
 
             # checking whether file already exists
             success = False
@@ -151,7 +154,7 @@ class DownloadClient:
                 trace['clientState'] = 'ALREADY_DONE'
                 trace['transferStart'] = time.time()
                 trace['transferEnd'] = time.time()
-                send_trace(trace, self.client.host, self.user_agent)
+                send_trace(trace, self.client.host, self.client.user_agent)
                 success = True
 
             # DOWNLOAD, iteration over different rses unitl success
@@ -159,7 +162,7 @@ class DownloadClient:
             while not success and len(archive_pfns):
                 retry_counter += 1
                 pfn = archive_pfns.pop()
-                trace['rse'] = replicas['pfns'][pfn]['rse']
+                trace['rse'] = archive_replicas[0]['pfns'][pfn]['rse']
                 try:
                     start_time = time.time()
                     cmd = 'xrdcp -vf %s -z %s file://%s' % (pfn, file_extract_name, dest_dir_path)
@@ -176,13 +179,15 @@ class DownloadClient:
                         raise RucioException(err)
                     else:
                         success = True
+                        item['clientState'] = 'DONE'
                         trace['clientState'] = 'DONE'
                 except Exception as e:
                     trace['clientState'] = 'FAILED'
                     raise ServiceUnavailable(e)
-                send_trace(trace, self.client.host, self.user_agent)
+                send_trace(trace, self.client.host, self.client.user_agent)
             if not success:
                 raise RucioException('Failed to download file %s after %d retries' % (file_extract_name, retry_counter))
+        return self._check_output(items)
 
     def download_pfns(self, items, num_threads=2, trace_custom_fields={}):
         """
@@ -234,9 +239,11 @@ class DownloadClient:
 
             item['scope'] = did_scope
             item['name'] = did_name
-            item['rses'] = {rse: pfn}
-            item['force_scheme'] = pfn.split(':')[0]
+            item['sources'] = [{'pfn': pfn, 'rse': rse}]
+            dest_file_path = os.path.join(dest_dir_path, did_name)
             item['dest_dir_path'] = dest_dir_path
+            item['dest_file_path'] = dest_file_path
+            item['temp_file_path'] = dest_file_path + '.part'
             item.setdefault('ignore_checksum', True)
 
             input_items.append(item)
@@ -273,95 +280,9 @@ class DownloadClient:
         :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something unexpected went wrong during the download
         """
-        logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
-        logger.info('Processing %d item(s) for input' % len(items))
-        resolved_items = []
-        for item in items:
-            did_str = item.get('did')
-            if not did_str:
-                raise InputValidationError('The key did is mandatory')
-
-            logger.debug('Processing item %s' % did_str)
-
-            new_item = copy.deepcopy(item)
-
-            # extend RSE expression to exclude tape RSEs for non-admin accounts
-            if not self.is_admin:
-                rse = new_item.get('rse')
-                new_item['rse'] = 'istape=False' if not rse else '(%s)&istape=False' % rse
-                logger.debug('RSE-Expression: %s' % new_item['rse'])
-
-            # resolve any wildcards in the input dids
-            did_scope, did_name = self._split_did_str(did_str)
-            logger.debug('Splitted DID: %s:%s' % (did_scope, did_name))
-            new_item['scope'] = did_scope
-            if '*' in did_name:
-                logger.debug('Resolving wildcarded DID %s' % did_str)
-                for dsn in self.client.list_dids(did_scope, filters={'name': did_name}, type='all'):
-                    logger.debug('%s:%s' % (did_scope, dsn))
-                    new_item['name'] = dsn
-                    new_item['did'] = '%s:%s' % (did_scope, dsn)
-                    resolved_items.append(new_item)
-            else:
-                new_item['name'] = did_name
-                resolved_items.append(new_item)
-
-        input_items = []
-
-        # get replicas for every file of the given dids
-        logger.debug('%d DIDs after processing input' % len(resolved_items))
-        for item in resolved_items:
-            did_scope = item['scope']
-            did_name = item['name']
-            did_str = item['did']
-
-            logger.debug('Processing: %s' % item)
-
-            # get type of given did
-            did_type = self.client.get_did(did_scope, did_name)['type'].upper()
-            logger.debug('Type: %s' % did_type)
-
-            # get replicas (RSEs) with PFNs for each file (especially if its a dataset)
-            files_with_replicas = self.client.list_replicas([{'scope': did_scope, 'name': did_name}],
-                                                            schemes=item.get('force_scheme'),
-                                                            rse_expression=item.get('rse'),
-                                                            client_location=detect_client_location())
-
-            nrandom = item.get('nrandom')
-            if nrandom:
-                logger.info('Selecting %d random replicas from dataset %s' % (nrandom, did_str))
-                files_with_replicas = list(files_with_replicas)
-                random.shuffle(files_with_replicas)
-                files_with_replicas = files_with_replicas[0:nrandom]
-
-            for file_item in files_with_replicas:
-                file_did_scope = file_item['scope']
-                file_did_name = file_item['name']
-                file_did_str = '%s:%s' % (file_did_scope, file_did_name)
-
-                logger.debug('Queueing file: %s' % file_did_str)
-
-                # put the input options from item into the file item
-                file_item.update(item)
-
-                dest_dir_name = file_did_scope
-                if did_type == 'DATASET':
-                    # if the did is a dataset, scope and name were updated wrongly
-                    file_item['scope'] = file_did_scope
-                    file_item['name'] = file_did_name
-                    file_item['did'] = file_did_str
-                    file_item['dataset_scope'] = did_scope
-                    file_item['dataset_name'] = did_name
-                    dest_dir_name = did_name
-
-                dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'),
-                                                       dest_dir_name, file_did_name,
-                                                       item.get('no_subdir'))
-                file_item['dest_dir_path'] = dest_dir_path
-
-                input_items.append(file_item)
+        input_items = self._prepare_items_for_download(items)
 
         num_files_in = len(input_items)
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
@@ -402,7 +323,7 @@ class DownloadClient:
         logger.info('Using %d threads to download %d files' % (num_threads, num_files))
         threads = []
         for thread_num in range(1, num_threads + 1):
-            log_prefix = 'Thread %s/%s : ' % (thread_num, num_threads)
+            log_prefix = 'Thread %s/%s: ' % (thread_num, num_threads)
             kwargs = {'input_queue': input_queue,
                       'output_queue': output_queue,
                       'trace_custom_fields': trace_custom_fields,
@@ -478,13 +399,12 @@ class DownloadClient:
 
         trace['scope'] = did_scope
         trace['filename'] = did_name
-        trace.setdefault('dataset_scope', item.get('dataset_scope', ''))
+        trace.setdefault('datasetScope', item.get('dataset_scope', ''))
         trace.setdefault('dataset', item.get('dataset_name', ''))
         trace.setdefault('filesize', item.get('bytes'))
 
         # if file already exists, set state, send trace, and return
-        dest_dir_path = item['dest_dir_path']
-        dest_file_path = os.path.join(dest_dir_path, did_name)
+        dest_file_path = item['dest_file_path']
         if os.path.isfile(dest_file_path):
             logger.info('%sFile exists already locally: %s' % (log_prefix, did_str))
             item['clientState'] = 'ALREADY_DONE'
@@ -492,114 +412,108 @@ class DownloadClient:
             trace['transferStart'] = time.time()
             trace['transferEnd'] = time.time()
             trace['clientState'] = 'ALREADY_DONE'
-            send_trace(trace, self.client.host, self.user_agent)
+            send_trace(trace, self.client.host, self.client.user_agent)
             return item
 
         # check if file has replicas
-        rse_names = list(item['rses'].keys())
-        if not len(rse_names):
-            logger.warning('%sFile %s has no available replicas. Cannot be downloaded' % (log_prefix, did_str))
+        sources = item.get('sources')
+        if not sources or not len(sources):
+            logger.warning('%sNo available source found for file: %s' % (log_prefix, did_str))
             item['clientState'] = 'FILE_NOT_FOUND'
 
             trace['clientState'] = 'FILE_NOT_FOUND'
-            send_trace(trace, self.client.host, self.user_agent)
+            send_trace(trace, self.client.host, self.client.user_agent)
             return item
 
-        # list_replicas order is: best rse at [0]
-        rse_names.reverse()
-
-        logger.debug('%sPotential sources: %s' % (log_prefix, str(rse_names)))
-
         success = False
-        # retry with different rses if one is not available or fails
-        while not success and len(rse_names):
-            rse_name = rse_names.pop()
+        # try different PFNs until one succeeded
+        i = 0
+        while not success and i < len(sources):
+            pfn = sources[i]['pfn']
+            rse_name = sources[i]['rse']
+            i += 1
+            scheme = pfn.split(':')[0]
+
             try:
                 rse = rsemgr.get_rse_info(rse_name)
             except RSENotFound:
                 logger.warning('%sCould not get info of RSE %s' % (log_prefix, rse_name))
                 continue
 
-            if not rse['availability_read']:
-                logger.info('%s%s is blacklisted for reading' % (log_prefix, rse_name))
-                continue
-
-            force_scheme = item.get('force_scheme')
-            try:
-                protocols = rsemgr.get_protocols_ordered(rse, operation='read', scheme=force_scheme)
-                protocols.reverse()
-            except RSEProtocolNotSupported as error:
-                logger.info('%sThe protocol specfied (%s) is not supported by %s' % (log_prefix, force_scheme, rse_name))
-                logger.debug(error)
-                continue
-
-            logger.debug('%sPotential protocol(s) read: %s' % (log_prefix, protocols))
-
             trace['remoteSite'] = rse_name
             trace['clientState'] = 'DOWNLOAD_ATTEMPT'
+            trace['protocol'] = scheme
 
-            # retry with different protocols on the given rse
-            while not success and len(protocols):
-                protocol = protocols.pop()
-                cur_scheme = protocol['scheme']
-                trace['protocol'] = cur_scheme
+            logger.info('%sTrying to download with %s from %s: %s ' % (log_prefix, scheme, rse_name, did_str))
 
-                logger.info('%sTrying to download with %s from %s: %s ' % (log_prefix, cur_scheme, rse_name, did_str))
+            try:
+                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme)
+                protocol.connect()
+            except Exception as error:
+                logger.warning('%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
+                logger.debug('scheme: %s, exception: %s' % (scheme, error))
+                continue
 
-                attempt = 0
-                retries = 2
-                # do some retries with the same rse and protocol if the download fails
-                while not success and attempt < retries:
-                    attempt += 1
-                    item['attemptnr'] = attempt
+            attempt = 0
+            retries = 2
+            # do some retries with the same PFN if the download fails
+            while not success and attempt < retries:
+                attempt += 1
+                item['attemptnr'] = attempt
 
-                    try:
+                temp_file_path = item['temp_file_path']
+                if os.path.isfile(temp_file_path):
+                    logger.debug('%sDeleting existing temporary file: %s' % (log_prefix, temp_file_path))
+                    os.unlink(temp_file_path)
 
-                        start_time = time.time()
-                        rsemgr.download(rse,
-                                        files=item,
-                                        dest_dir=dest_dir_path,
-                                        force_scheme=cur_scheme,
-                                        ignore_checksum=item.get('ignore_checksum', False),
-                                        transfer_timeout=item.get('transfer_timeout'))
-                        end_time = time.time()
+                start_time = time.time()
 
-                        trace['transferStart'] = start_time
-                        trace['transferEnd'] = end_time
-                        trace['clientState'] = 'DONE'
-                        item['clientState'] = 'DONE'
-                        success = True
-                    except FileConsistencyMismatch as error:
-                        logger.warning(str(error))
+                try:
+                    protocol.get(pfn, temp_file_path, transfer_timeout=item.get('transfer_timeout'))
+                    success = True
+                except Exception as error:
+                    logger.debug(error)
+                    trace['clientState'] = str(type(error).__name__)
+
+                end_time = time.time()
+
+                if success and not item.get('ignore_checksum', False):
+                    rucio_checksum = item.get('adler32')
+                    local_checksum = None
+                    if not rucio_checksum:
+                        rucio_checksum = item.get('md5')
+                        local_checksum = md5(temp_file_path)
+                    else:
+                        local_checksum = adler32(temp_file_path)
+
+                    if rucio_checksum != local_checksum:
+                        success = False
+                        os.unlink(temp_file_path)
+                        logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
+                        logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
                         try:
-                            pfn = item.get('pfn')
-                            if not pfn:
-                                pfns_dict = rsemgr.lfns2pfns(rse,
-                                                             lfns={'name': did_name, 'scope': did_scope},
-                                                             operation='read',
-                                                             scheme=cur_scheme)
-                                pfn = pfns_dict[did_str]
-
-                            corrupted_item = copy.deepcopy(item)
-                            corrupted_item['clientState'] = 'FAIL_VALIDATE'
-                            corrupted_item['pfn'] = pfn
-                            # self.corrupted_files.append(corrupted_item)
-                        except Exception as error:
-                            logger.debug('%s%s' % (log_prefix, str(error)))
+                            self.client.declare_suspicious_file_replicas([pfn], reason='Corrupted')
+                        except Exception:
+                            pass
                         trace['clientState'] = 'FAIL_VALIDATE'
-                    except Exception as error:
-                        logger.warning(str(error))
-                        trace['clientState'] = str(type(error).__name__)
+                if not success:
+                    logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
+                    send_trace(trace, self.client.host, self.client.user_agent)
 
-                    if not success:
-                        logger.debug('%sFailed attempt %s/%s' % (log_prefix, attempt, retries))
-
-                    send_trace(trace, self.client.host, self.user_agent)
+            protocol.close()
 
         if not success:
             logger.error('%sFailed to download file %s' % (log_prefix, did_str))
             item['clientState'] = 'FAILED'
             return item
+
+        os.rename(temp_file_path, dest_file_path)
+
+        trace['transferStart'] = start_time
+        trace['transferEnd'] = end_time
+        trace['clientState'] = 'DONE'
+        item['clientState'] = 'DONE'
+        send_trace(trace, self.client.host, self.client.user_agent)
 
         duration = round(end_time - start_time, 2)
         size = item.get('bytes')
@@ -616,7 +530,7 @@ class DownloadClient:
         OBSOLETE! This function is kept for compability reasons and will be removed in a future release!
         """
         item_tpl = {'rse': rse,
-                    'force_scheme': protocol,
+                    'force_scheme': [protocol],
                     'nrandom': nrandom,
                     'base_dir': dir,
                     'no_subdir': no_subd,
@@ -646,6 +560,387 @@ class DownloadClient:
         else:
             return self.download_dids(input_items, nprocs, trace_pattern)
 
+    def download_aria2c(self, items, trace_custom_fields={}):
+        """
+        Uses aria2c to download the items with given DIDs. This function can also download datasets and wildcarded DIDs.
+        It only can download files that are available via https/davs.
+        Aria2c needs to be installed and X509_USER_PROXY needs to be set!
+
+        :param items: List of dictionaries. Each dictionary describing an item to download. Keys:
+            did                 - DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
+            rse                 - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
+            base_dir            - Optional: base directory where the downloaded files will be stored. (Default: '.')
+            no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
+            nrandom             - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
+            ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
+        :param trace_custom_fields: Custom key value pairs to send with the traces
+
+        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+
+        :raises InputValidationError: if one of the input items is in the wrong format
+        :raises NoFilesDownloaded: if no files could be downloaded
+        :raises NotAllFilesDownloaded: if not all files could be downloaded
+        :raises RucioException: if something went wrong during the download (e.g. aria2c could not be started)
+        """
+        trace_custom_fields['uuid'] = generate_uuid()
+
+        rpc_secret = '%x' % (random.getrandbits(64))
+        rpc_auth = 'token:' + rpc_secret
+        rpcproc, aria_rpc = self._start_aria2c_rpc(rpc_secret)
+
+        for item in items:
+            item['force_scheme'] = ['https', 'davs']
+        input_items = self._prepare_items_for_download(items)
+
+        try:
+            output_items = self._download_items_aria2c(input_items, aria_rpc, rpc_auth, trace_custom_fields)
+        except Exception as error:
+            self.logger.error('Unknown exception during aria2c download')
+            self.logger.debug(error)
+        finally:
+            try:
+                aria_rpc.aria2.forceShutdown(rpc_auth)
+            finally:
+                rpcproc.terminate()
+
+        return self._check_output(output_items)
+
+    def _start_aria2c_rpc(self, rpc_secret):
+        """
+        Starts aria2c in RPC mode as a subprocess. Also creates
+        the RPC proxy instance.
+        (This function is meant to be used as class internal only)
+
+        :param rpc_secret: the secret for the RPC proxy
+
+        :returns: a tupel with the process and the rpc proxy objects
+
+        :raises RucioException: if the process or the proxy could not be created
+        """
+        logger = self.logger
+        try:
+            from xmlrpclib import ServerProxy as RPCServerProxy  # py2
+        except ImportError:
+            from xmlrpc.client import ServerProxy as RPCServerProxy
+
+        cmd = 'aria2c '\
+              '--enable-rpc '\
+              '--certificate=$X509_USER_PROXY '\
+              '--private-key=$X509_USER_PROXY '\
+              '--ca-certificate=/etc/pki/tls/certs/CERN-bundle.pem '\
+              '--quiet=true '\
+              '--allow-overwrite=true '\
+              '--auto-file-renaming=false '\
+              '--stop-with-process=%d '\
+              '--rpc-secret=%s '\
+              '--rpc-listen-all=false '\
+              '--rpc-max-request-size=100M '\
+              '--connect-timeout=5 '\
+              '--rpc-listen-port=%d'
+
+        logger.info('Starting aria2c rpc server...')
+
+        # trying up to 3 random ports
+        for attempt in range(3):
+            port = random.randint(1024, 65534)
+            logger.debug('Trying to start rpc server on port: %d' % port)
+            try:
+                to_exec = cmd % (os.getpid(), rpc_secret, port)
+                logger.debug(to_exec)
+                rpcproc = execute(to_exec, False)
+            except Exception as error:
+                raise RucioException('Failed to execute aria2c!', error)
+
+            # if port is in use aria should fail to start so give it some time
+            time.sleep(2)
+
+            # did it fail?
+            if rpcproc.poll() is not None:
+                (out, err) = rpcproc.communicate()
+                logger.debug('Failed to start aria2c with port: %d' % port)
+                logger.debug('aria2c output: %s' % out)
+            else:
+                break
+
+        if rpcproc.poll() is not None:
+            raise RucioException('Failed to start aria2c rpc server!')
+
+        try:
+            aria_rpc = RPCServerProxy('http://localhost:%d/rpc' % port)
+        except Exception as error:
+            rpcproc.kill()
+            raise RucioException('Failed to initialise rpc proxy!', error)
+        return (rpcproc, aria_rpc)
+
+    def _download_items_aria2c(self, items, aria_rpc, rpc_auth, trace_custom_fields={}):
+        """
+        Uses aria2c to download the given items. Aria2c needs to be started
+        as RPC background process first and a RPC proxy is needed.
+        (This function is meant to be used as class internal only)
+
+        :param items: list of dictionaries containing one dict for each file to download
+        :param aria_rcp: RPCProxy to the aria2c process
+        :param rpc_auth: the rpc authentication token
+        :param trace_custom_fields: Custom key value pairs to send with the traces
+
+        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+        """
+        logger = self.logger
+
+        gid_to_item = {}  # maps an aria2c download id (gid) to the download item
+        pfn_to_rse = {}
+        items_to_queue = [item for item in items]
+
+        # items get removed from gid_to_item when they are complete or failed
+        while len(gid_to_item) or len(items_to_queue):
+            num_queued = 0
+
+            # queue up to 100 files and then check arias status
+            while (num_queued < 100) and len(items_to_queue):
+                item = items_to_queue.pop()
+
+                file_scope = item['scope']
+                file_name = item['name']
+                file_did_str = '%s:%s' % (file_scope, file_name)
+                trace = {'scope': file_scope,
+                         'filename': file_name,
+                         'datasetScope': item.get('dataset_scope', ''),
+                         'dataset': item.get('dataset_name', ''),
+                         'protocol': 'https',
+                         'remoteSite': '',
+                         'filesize': item.get('bytes', None),
+                         'transferStart': time.time(),
+                         'transferEnd': time.time()}
+                trace.update(self.trace_tpl)
+                trace.update(trace_custom_fields)
+
+                # get pfns from all replicas
+                pfns = []
+                for src in item['sources']:
+                    pfn = src['pfn']
+                    if pfn[0:4].lower() == 'davs':
+                        pfn = pfn.replace('davs', 'https', 1)
+                    pfns.append(pfn)
+                    pfn_to_rse[pfn] = src['rse']
+
+                # does file exist and are sources available?
+                if os.path.isfile(item['dest_file_path']):
+                    logger.info('File exists already locally: %s' % file_did_str)
+                    item['clientState'] = 'ALREADY_DONE'
+                    trace['clientState'] = 'ALREADY_DONE'
+                    send_trace(trace, self.client.host, self.client.user_agent)
+                elif len(pfns) == 0:
+                    logger.warning('No available source found for file: %s' % file_did_str)
+                    item['clientState'] = 'FILE_NOT_FOUND'
+                    trace['clientState'] = 'FILE_NOT_FOUND'
+                    send_trace(trace, self.client.host, self.client.user_agent)
+                else:
+                    item['trace'] = trace
+                    options = {'dir': item['dest_dir_path'],
+                               'out': os.path.basename(item['temp_file_path'])}
+                    gid = aria_rpc.aria2.addUri(rpc_auth, pfns, options)
+                    gid_to_item[gid] = item
+                    num_queued += 1
+                    logger.debug('Queued file: %s' % file_did_str)
+
+            # get some statistics
+            aria_stat = aria_rpc.aria2.getGlobalStat(rpc_auth)
+            num_active = int(aria_stat['numActive'])
+            num_waiting = int(aria_stat['numWaiting'])
+            num_stopped = int(aria_stat['numStoppedTotal'])
+
+            # save start time if one of the active downloads has started
+            active = aria_rpc.aria2.tellActive(rpc_auth, ['gid', 'completedLength'])
+            for dlinfo in active:
+                gid = dlinfo['gid']
+                if int(dlinfo['completedLength']) > 0:
+                    gid_to_item[gid].setdefault('transferStart', time.time())
+
+            stopped = aria_rpc.aria2.tellStopped(rpc_auth, -1, num_stopped, ['gid', 'status', 'files'])
+            for dlinfo in stopped:
+                gid = dlinfo['gid']
+                item = gid_to_item[gid]
+
+                file_scope = item['scope']
+                file_name = item['name']
+                file_did_str = '%s:%s' % (file_scope, file_name)
+                temp_file_path = item['temp_file_path']
+                dest_file_path = item['dest_file_path']
+
+                # ensure we didnt miss the active state (e.g. a very fast download)
+                start_time = item.setdefault('transferStart', time.time())
+                end_time = item.setdefault('transferEnd', time.time())
+
+                # get used pfn for traces
+                trace = item['trace']
+                for uri in dlinfo['files'][0]['uris']:
+                    if uri['status'].lower() == 'used':
+                        trace['remoteSite'] = pfn_to_rse.get(uri['uri'], '')
+
+                trace['transferStart'] = start_time
+                trace['transferEnd'] = end_time
+
+                # ensure file exists
+                status = dlinfo.get('status', '').lower()
+                if status == 'complete' and os.path.isfile(temp_file_path):
+                    # checksum check
+                    skip_check = item.get('ignore_checksum', False)
+                    rucio_checksum = 0 if skip_check else item.get('adler32')
+                    local_checksum = 0 if skip_check else adler32(temp_file_path)
+                    if rucio_checksum == local_checksum:
+                        item['clientState'] = 'DONE'
+                        trace['clientState'] = 'DONE'
+                        # remove .part ending
+                        os.rename(temp_file_path, dest_file_path)
+
+                        # calculate duration
+                        duration = round(end_time - start_time, 2)
+                        duration = max(duration, 0.01)  # protect against 0 division
+                        size = item.get('bytes', 0)
+                        rate = round((size / duration) * 1e-6, 2)
+                        size_str = sizefmt(size, self.is_human_readable)
+                        logger.info('File %s successfully downloaded. %s in %s seconds = %s MBps' % (file_did_str,
+                                                                                                     size_str,
+                                                                                                     duration,
+                                                                                                     rate))
+                    else:
+                        os.unlink(temp_file_path)
+                        logger.warning('Checksum validation failed for file: %s' % file_did_str)
+                        logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
+                        item['clientState'] = 'FAIL_VALIDATE'
+                        trace['clientState'] = 'FAIL_VALIDATE'
+                else:
+                    logger.error('Failed to download file: %s' % file_did_str)
+                    logger.debug('Aria2c status: %s' % status)
+                    item['clientState'] = 'FAILED'
+                    trace['clientState'] = 'DOWNLOAD_ATTEMPT'
+
+                send_trace(trace, self.client.host, self.client.user_agent)
+                del item['trace']
+
+                aria_rpc.aria2.removeDownloadResult(rpc_auth, gid)
+                del gid_to_item[gid]
+
+            if len(stopped) > 0:
+                logger.info('Active: %d, Waiting: %d, Stopped: %d' % (num_active, num_waiting, num_stopped))
+
+        return items
+
+    def _prepare_items_for_download(self, items):
+        """
+        Resolves wildcarded DIDs, get DID details (e.g. type), and collects
+        the available replicas for each DID
+        (This function is meant to be used as class internal only)
+
+        :param items: list of dictionaries containing the items to prepare
+
+        :returns: list of dictionaries, one dict for each file to download
+
+        :raises InputValidationError: if the given input is not valid or incomplete
+        """
+        logger = self.logger
+
+        logger.info('Processing %d item(s) for input' % len(items))
+        resolved_items = []
+        # resolve input: extend rse expression, resolve wildcards, get did type
+        for item in items:
+            did_str = item.get('did')
+            if not did_str:
+                raise InputValidationError('The key did is mandatory')
+
+            logger.debug('Processing item %s' % did_str)
+
+            new_item = copy.deepcopy(item)
+
+            # extend RSE expression to exclude tape RSEs for non-admin accounts
+            if not self.is_admin:
+                rse = new_item.get('rse')
+                new_item['rse'] = 'istape=False' if not rse else '(%s)&istape=False' % rse
+                logger.debug('RSE-Expression: %s' % new_item['rse'])
+
+            # resolve any wildcards in the input dids
+            did_scope, did_name = self._split_did_str(did_str)
+            logger.debug('Splitted DID: %s:%s' % (did_scope, did_name))
+            new_item['scope'] = did_scope
+            if '*' in did_name:
+                logger.debug('Resolving wildcarded DID %s' % did_str)
+                for dids in self.client.list_dids(did_scope, filters={'name': did_name}, type='all', long=True):
+                    logger.debug('%s - %s:%s' % (dids['did_type'], did_scope, dids['name']))
+                    new_item['type'] = dids['did_type'].upper()
+                    new_item['name'] = dids['name']
+                    new_item['did'] = '%s:%s' % (did_scope, dids['name'])
+                    resolved_items.append(new_item)
+            else:
+                new_item['type'] = self.client.get_did(did_scope, did_name)['type'].upper()
+                new_item['name'] = did_name
+                resolved_items.append(new_item)
+
+        # this list will have one dict for each file to download
+        file_items = []
+
+        # get replicas for every file of the given dids
+        logger.debug('%d DIDs after processing input' % len(resolved_items))
+        for item in resolved_items:
+            did_scope = item['scope']
+            did_name = item['name']
+            did_str = item['did']
+
+            logger.debug('Processing: %s' % item)
+
+            # since we are using metalink we need to explicitly
+            # give all schemes (probably due to a bad server site implementation)
+            force_scheme = item.get('force_scheme')
+            if force_scheme:
+                schemes = force_scheme if isinstance(force_scheme, list) else [force_scheme]
+            else:
+                schemes = ['davs', 'gsiftp', 'https', 'root', 'srm', 'file']
+
+            # get PFNs of files and datasets
+            metalink_str = self.client.list_replicas([{'scope': did_scope, 'name': did_name}],
+                                                     schemes=schemes,
+                                                     rse_expression=item.get('rse'),
+                                                     client_location=self.client_location,
+                                                     metalink=True)
+            files_with_pfns = self._parse_list_replica_metalink(metalink_str)
+
+            nrandom = item.get('nrandom')
+            if nrandom:
+                logger.info('Selecting %d random replicas from dataset %s' % (nrandom, did_str))
+                random.shuffle(files_with_pfns)
+                files_with_pfns = files_with_pfns[0:nrandom]
+
+            for file_item in files_with_pfns:
+                file_did_scope = file_item['scope']
+                file_did_name = file_item['name']
+                file_did_str = '%s:%s' % (file_did_scope, file_did_name)
+
+                logger.debug('Queueing file: %s' % file_did_str)
+
+                # put the input options from item into the file item
+                file_item.update(item)
+
+                dest_dir_name = file_did_scope
+                if item['type'] != 'FILE':
+                    # if the did is a dataset, scope and name were updated wrongly
+                    file_item['scope'] = file_did_scope
+                    file_item['name'] = file_did_name
+                    file_item['did'] = file_did_str
+                    file_item['dataset_scope'] = did_scope
+                    file_item['dataset_name'] = did_name
+                    dest_dir_name = did_name
+
+                dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'),
+                                                       dest_dir_name, file_did_name,
+                                                       item.get('no_subdir'))
+                file_item['dest_dir_path'] = dest_dir_path
+                dest_file_path = os.path.join(dest_dir_path, file_did_name)
+                file_item['dest_file_path'] = dest_file_path
+                file_item['temp_file_path'] = dest_file_path + '.part'
+
+                file_items.append(file_item)
+
+        return file_items
+
     def _split_did_str(self, did_str):
         """
         Splits a given DID string (e.g. 'scope1:name.file') into its scope and name part
@@ -674,6 +969,49 @@ class DownloadClient:
             did_name = did_name[:-1]
 
         return did_scope, did_name
+
+    def _parse_list_replica_metalink(self, metalink_str):
+        root = ElementTree.fromstring(metalink_str)
+        files = []
+
+        # metalink namespace mapping
+        ns = {'list_replicas_ml': 'urn:ietf:params:xml:ns:metalink'}
+
+        # loop over all <file> tags of the metalink string
+        for file_ml in root.findall('list_replicas_ml:file', ns):
+            # search for identity-tag
+            cur_did = file_ml.find('list_replicas_ml:identity', ns)
+            if not ElementTree.iselement(cur_did):
+                raise RucioException('Failed to locate identity-tag inside %s' % ElementTree.tostring(file_ml))
+
+            # try extracting scope,name
+            scope, name = self._split_did_str(cur_did.text)
+
+            cur_file = {'scope': scope,
+                        'name': name,
+                        'bytes': None,
+                        'adler32': None,
+                        'md5': None,
+                        'sources': []}
+
+            size = file_ml.find('list_replicas_ml:size', ns)
+            if ElementTree.iselement(size):
+                cur_file['bytes'] = int(size.text)
+
+            for cur_hash in file_ml.findall('list_replicas_ml:hash', ns):
+                hash_type = cur_hash.get('type')
+                if hash_type:
+                    cur_file[hash_type] = cur_hash.text
+
+            for rse_ml in file_ml.findall('list_replicas_ml:url', ns):
+                # check if location attrib (rse name) is given
+                rse = rse_ml.get('location')
+                pfn = rse_ml.text
+                cur_file['sources'].append({'pfn': pfn, 'rse': rse})
+
+            files.append(cur_file)
+
+        return files
 
     def _prepare_dest_dir(self, base_dir, dest_dir_name, file_name, no_subdir):
         """
