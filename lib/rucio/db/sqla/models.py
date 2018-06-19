@@ -373,7 +373,7 @@ class DidMeta(BASE, ModelBase):
     name = Column(String(NAME_LENGTH))
     meta = Column(JSON())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_META_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], ondelete='CASCADE', name='DID_META_FK'),)
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_META_FK'),)
 
 
 class DeletedDataIdentifier(BASE, ModelBase):

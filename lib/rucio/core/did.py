@@ -169,11 +169,7 @@ def add_dids(dids, account, session=None):
                 for key in did.get('meta', {}):
                     new_did.update({key: did['meta'][key]})
 
-                new_did.save(session=session, flush=True)
-
-                # Add metadata column to new table
-                did_meta = models.DidMeta(scope=did['scope'], name=did['name'])
-                did_meta.save(session=session, flush=False)
+                new_did.save(session=session, flush=False)
 
                 if did.get('dids', None):
                     attach_dids(scope=did['scope'], name=did['name'], dids=did['dids'],
@@ -1303,16 +1299,22 @@ def add_did_meta(scope, name, meta, session=None):
     if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
     try:
-        row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
-        existing_meta = getattr(row, 'meta')
+        row_did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+        row_did_meta = session.query(models.DidMeta).filter_by(scope=scope, name=name).scalar()
+        if row_did_meta is None:
+            # Add metadata column to new table (if not already present)
+            row_did_meta = models.DidMeta(scope=scope, name=name)
+            row_did_meta.save(session=session, flush=True)
+
+        existing_meta = getattr(row_did_meta, 'meta')
         if existing_meta is None:
             existing_meta = {}
         for k, v in meta.iteritems():
             existing_meta[k] = v
 
-        row.meta = None
+        row_did_meta.meta = None
         session.flush()
-        row.meta = existing_meta
+        row_did_meta.meta = existing_meta
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
