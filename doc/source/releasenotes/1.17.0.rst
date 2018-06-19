@@ -1,0 +1,74 @@
+======================
+1.17.0 "Donkey Surfer"
+======================
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Release management: Cleanup unused packages in pip-requires `#45 <https://github.com/rucio/rucio/issues/45>`_
+- Transfers: FTS3 transfertool: proxy delegation function `#1177 <https://github.com/rucio/rucio/issues/1177>`_
+
+************
+Enhancements
+************
+
+- Functional tests: Functional tests: dev container fails on userpass authentication `#1156 <https://github.com/rucio/rucio/issues/1156>`_
+- Transfers: Features for user data transfers in CMS `#1179 <https://github.com/rucio/rucio/issues/1179>`_
+
+****
+Bugs
+****
+
+- Clients: Sorting of replicas in list_replicas `#668 <https://github.com/rucio/rucio/issues/668>`_
+- Core & Internals: policy_filter decorator makes methods fail in certain cases `#1143 <https://github.com/rucio/rucio/issues/1143>`_
+- Core & Internals: Permission : Fix update_replica_state for ATLAS `#1228 <https://github.com/rucio/rucio/issues/1228>`_
+
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: Switch bin/rucio download to downloadclient `#669 <https://github.com/rucio/rucio/issues/669>`_
+- Clients: Switch bin/rucio upload to uploadclient `#670 <https://github.com/rucio/rucio/issues/670>`_
+
+************
+Enhancements
+************
+
+- Clients: Client : localSite is not filled in traces for downloadclient `#1263 <https://github.com/rucio/rucio/issues/1263>`_
+- Clients: Automatic protocol failover for upload `#468 <https://github.com/rucio/rucio/issues/468>`_
+- Clients: bin/rucio upload/download still have a lot of return FAILURE statements `#567 <https://github.com/rucio/rucio/issues/567>`_
+
+****
+Bugs
+****
+
+- Clients: rucio download does not respect protocol order `#1222 <https://github.com/rucio/rucio/issues/1222>`_
+- Clients: Rucio download randomly shuffles the rses, even if they are retrieved in a sorted way `#490 <https://github.com/rucio/rucio/issues/490>`_
+- Clients: Traceback error in rucio upload `#501 <https://github.com/rucio/rucio/issues/501>`_
+
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: hide accounts without quota and usage from manage quota page  `#1216 <https://github.com/rucio/rucio/issues/1216>`_
+
+****
+Bugs
+****
+
+- WebUI: WebUI: UUID not correctly set for files `#1227 <https://github.com/rucio/rucio/issues/1227>`_
