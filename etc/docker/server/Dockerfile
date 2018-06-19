@@ -15,7 +15,7 @@ ADD oic.rpm /tmp
 
 RUN yum install -y epel-release.noarch
 RUN yum upgrade -y
-RUN yum install -y httpd mod_wsgi python-pip libaio gcc python-devel.x86_64 mod_ssl
+RUN yum install -y httpd mod_wsgi python-pip libaio gcc python-devel.x86_64 mod_ssl openssl-devel.x86_64
 
 RUN rpm -i /tmp/oic.rpm; \
     echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
