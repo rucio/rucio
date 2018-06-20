@@ -1176,6 +1176,12 @@ def set_metadata(scope, name, key, value, type=None, did=None,
     :param recursive: Option to propagate the metadata change to content.
     :param session: The database session in use.
     """
+    try:
+        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
+
     if key == 'lifetime':
         try:
             expired_at = None
