@@ -9,7 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2018
 
 import logging
@@ -429,7 +429,8 @@ def touch_dataset_locks(dataset_locks, session=None):
         try:
             session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
                 update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
-            session.query(models.ReplicationRule).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name']).update({'eol_at': eol_at}, synchronize_session=False)
+            for rule_id in session.query(models.DatasetLock.rule_id).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']):
+                session.query(models.ReplicationRule).filter_by(id=rule_id).update({'eol_at': eol_at}, synchronize_session=False)
         except DatabaseError:
             return False
 
