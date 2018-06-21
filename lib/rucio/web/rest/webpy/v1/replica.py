@@ -348,7 +348,6 @@ class ListReplicas(RucioController):
                                        client_location=client_location,
                                        domain=domain, signature_lifetime=signature_lifetime,
                                        issuer=ctx.env.get('issuer')):
-
                 if not metalink:
                     yield dumps(rfile, cls=APIEncoder) + '\n'
                 else:
@@ -359,15 +358,6 @@ class ListReplicas(RucioController):
                         for replica in rfile['rses'][rse]:
                             replicas.append(replica)
                             dictreplica[replica] = (rfile['pfns'][replica]['domain'], rfile['pfns'][replica]['priority'], rse)
-
-                    # we need to sort first by domain
-                    # --> exploit that L(AN) comes before W(AN) in the alphabet :-D
-                    tmp = sorted([(dictreplica[r] + (r,)) for r in dictreplica])
-
-                    # then rewrite priorities in ascending order starting from 1 across both domains to be correct metalink
-                    dictreplica = {}
-                    for i in xrange(len(tmp)):
-                        dictreplica[tmp[i][3]] = (tmp[i][0], i + 1, tmp[i][2])
 
                     yield ' <file name="' + rfile['name'] + '">\n'
                     yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
