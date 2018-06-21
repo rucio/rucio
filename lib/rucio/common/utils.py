@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
@@ -39,6 +39,8 @@ import re
 import requests
 import socket
 import subprocess
+import urllib
+import urlparse
 import zlib
 
 from getpass import getuser
@@ -703,3 +705,19 @@ def send_trace(trace, trace_endpoint, user_agent, retries=5, logger=None, log_pr
         except Exception as error:
             logger.debug('%s%s' % (log_prefix, error))
     return 1
+
+
+def add_url_query(url, query):
+    """
+    Add a new dictionary to URL parameters
+
+    :param url: The existing URL
+    :param query: A dictionary containing key/value pairs to be added to the URL
+    :return: The expanded URL with the new query parameters
+    """
+
+    url_parts = list(urlparse.urlparse(url))
+    mod_query = dict(urlparse.parse_qsl(url_parts[4]))
+    mod_query.update(query)
+    url_parts[4] = urllib.urlencode(mod_query)
+    return urlparse.urlunparse(url_parts)
