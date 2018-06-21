@@ -132,9 +132,15 @@ def test_agis_endpoints_data_parses_proper_json():
 
 def test_ddmendpoint_url_builds_url_from_agis_records():
     agisdata = [{
+        'arprotocols': {
+            'read_wan': [
+                {
+                    'endpoint': 'srm://example.com',
+                    'path': '/atlasdatadisk/rucio/'
+                }
+            ]
+        },
         'name': 'SOMEENDPOINT',
-        'se': 'srm://example.com/',
-        'endpoint': 'atlasdatadisk/',
     }]
     with stubbed(dumper.agis_endpoints_data, lambda: agisdata):
         eq_(dumper.ddmendpoint_url('SOMEENDPOINT'), 'srm://example.com/atlasdatadisk/')

@@ -244,6 +244,7 @@ def download_rse_dump(rse, configuration, date='latest', destdir=DUMPS_CACHE_DIR
     logger = logging.getLogger('auditor.srmdumps')
     base_url, url_pattern = generate_url(rse, configuration)
     if date == 'latest':
+        logger.debug('Looking for site dumps in: "%s"', base_url)
         links = get_links(base_url)
         url, date = get_newest(base_url, url_pattern, links)
     else:

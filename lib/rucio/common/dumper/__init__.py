@@ -273,7 +273,9 @@ def agis_endpoints_data(cache=True):
 def ddmendpoint_url(ddmendpoint):
     agisdata = agis_endpoints_data()
     endpointdata = next(entry for entry in agisdata if entry['name'] == ddmendpoint)
-    return str(''.join((endpointdata['se'], endpointdata['endpoint'])))
+    protocoldata = endpointdata['arprotocols']['read_wan'][0]
+    return str(''.join([protocoldata['endpoint'],
+                       re.sub(r'rucio/$', '', protocoldata['path'])]))
 
 # Using AGIS is better to avoid the use of ATLAS credentials, but using
 # rucio.client for the same task is also possible:
