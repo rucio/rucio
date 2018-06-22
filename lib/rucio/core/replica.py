@@ -967,7 +967,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     # set the total order for the priority
     # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
     # and use 1-indexing to be compatible with metalink
-    if rse:
+    if 'pfns' in file:
         tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
         for i in xrange(0, len(tmp)):
             file['pfns'][tmp[i][2]]['priority'] = i + 1
