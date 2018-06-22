@@ -6,11 +6,11 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
+# - Tomas Javurek, <tomas.javurek@cern.ch>, 2017
 
 """
-This script is to be used to background rebalance ATLAS Nuclei datadisks
+This script is to be used to background rebalance ATLAS t2 datadisks
 """
-
 from sqlalchemy import or_
 
 from rucio.core.rse_expression_parser import parse_expression
@@ -23,24 +23,27 @@ from rucio.db.sqla.constants import RuleState
 
 tolerance = 0.1
 max_total_rebalance_volume = 200 * 1E12
-max_rse_rebalance_volume = 20 * 1E12
-
+max_rse_rebalance_volume = 40 * 1E12
+min_total = 50 * 1E12
 total_rebalance_volume = 0
 
 # Calculate the current ratios
-rses = parse_expression('(datapolicynucleus=1|tier=1)&type=DATADISK')
+rses = parse_expression("(datapolicynucleus=1|tier=1)&type=DATADISK\\bb8-enabled=0")
 total_primary = 0
 total_secondary = 0
+total_total = 0
 global_ratio = float(0)
 for rse in rses:
-    rse['primary'] = get_rse_usage(rse=None, rse_id=rse['id'], source='rucio')[0]['used']
+    rse['primary'] = get_rse_usage(rse=None, rse_id=rse['id'], source='rucio')[0]['used'] - get_rse_usage(rse=None, rse_id=rse['id'], source='expired')[0]['used']
     rse['secondary'] = get_rse_usage(rse=None, rse_id=rse['id'], source='expired')[0]['used']
-    rse['ratio'] = float(rse['primary']) / float(rse['secondary'])
+    rse['total'] = get_rse_usage(rse=None, rse_id=rse['id'], source='storage')[0]['total'] - get_rse_usage(rse=None, rse_id=rse['id'], source='min_free_space')[0]['used']
+    rse['ratio'] = float(rse['primary']) / float(rse['total'])
     total_primary += rse['primary']
     total_secondary += rse['secondary']
+    total_total += float(rse['total'])
     rse['receive_volume'] = 0  # Already rebalanced volume in this run
-global_ratio = float(total_primary) / float(total_secondary)
 
+global_ratio = float(total_primary) / float(total_total)
 print 'Global ratio: %f' % (global_ratio)
 for rse in sorted(rses, key=lambda k: k['ratio']):
     print '  %s (%f)' % (rse['rse'], rse['ratio'])
@@ -50,7 +53,9 @@ rses_under_ratio = sorted([rse for rse in rses if rse['ratio'] < global_ratio - 
 
 session = get_session()
 active_rses = session.query(models.ReplicationRule.rse_expression).filter(or_(models.ReplicationRule.state == RuleState.REPLICATING, models.ReplicationRule.state == RuleState.STUCK),
-                                                                          models.ReplicationRule.comments == 'Nuclei Background rebalancing').group_by(models.ReplicationRule.rse_expression).all()
+                                                                          models.ReplicationRule.comments == 'T2 Background rebalancing').group_by(models.ReplicationRule.rse_expression).all()
+
+# Excluding RSEs
 print 'Excluding RSEs as destination which have active Background Rebalancing rules:'
 for rse in active_rses:
     print '  %s' % (rse[0])
@@ -59,26 +64,52 @@ for rse in active_rses:
             rses_under_ratio.remove(des)
             break
 
+print 'Excluding RSEs as destination which are too small by size:'
+for des in rses_under_ratio:
+    if des['total'] < min_total:
+        print '  %s' % (des['rse'])
+        rses_under_ratio.remove(des)
+
+print 'Excluding RSEs as sources which are too small by size:'
+for src in rses_over_ratio:
+    if src['total'] < min_total:
+        print '  %s' % (src['rse'])
+        rses_over_ratio.remove(src)
+
+print 'Excluding RSEs as desetinations which are blacklisted:'
+for des in rses_under_ratio:
+    if des['availability'] != 7:
+        print '  %s' % (des['rse'])
+        rses_under_ratio.remove(des)
+
+print 'Excluding RSEs as sources which are blacklisted:'
+for src in rses_over_ratio:
+    if src['availability'] != 7:
+        print '  %s' % (src['rse'])
+        rses_over_ratio.remove(src)
+
 # Loop over RSEs over the ratio
 for source_rse in rses_over_ratio:
-    if source_rse['ratio'] > global_ratio + global_ratio * tolerance:
-        available_source_rebalance_volume = int((source_rse['primary'] - global_ratio * source_rse['secondary']) / (global_ratio + 1))
-        if available_source_rebalance_volume > max_rse_rebalance_volume:
-            available_source_rebalance_volume = max_rse_rebalance_volume
-        if available_source_rebalance_volume > max_total_rebalance_volume - total_rebalance_volume:
-            available_source_rebalance_volume = max_total_rebalance_volume - total_rebalance_volume
-        # Select a target:
-        for destination_rse in rses_under_ratio:
-            if available_source_rebalance_volume > 0:
-                if destination_rse['receive_volume'] >= max_rse_rebalance_volume:
-                    continue
-                available_target_rebalance_volume = max_rse_rebalance_volume - destination_rse['receive_volume']
-                if available_target_rebalance_volume >= available_source_rebalance_volume:
-                    available_target_rebalance_volume = available_source_rebalance_volume
 
-                print 'Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'])
-                rebalance_rse(source_rse['rse'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=destination_rse['rse'])
+    # The volume that would be rebalanced, not real availability of the data:
+    available_source_rebalance_volume = int((source_rse['primary'] - global_ratio * source_rse['secondary']) / (global_ratio + 1))
+    if available_source_rebalance_volume > max_rse_rebalance_volume:
+        available_source_rebalance_volume = max_rse_rebalance_volume
+    if available_source_rebalance_volume > max_total_rebalance_volume - total_rebalance_volume:
+        available_source_rebalance_volume = max_total_rebalance_volume - total_rebalance_volume
 
-                destination_rse['receive_volume'] += available_target_rebalance_volume
-                total_rebalance_volume += available_target_rebalance_volume
-                available_source_rebalance_volume -= available_target_rebalance_volume
+    # Select a target:
+    for destination_rse in rses_under_ratio:
+        if available_source_rebalance_volume > 0:
+            if destination_rse['receive_volume'] >= max_rse_rebalance_volume:
+                continue
+            available_target_rebalance_volume = max_rse_rebalance_volume - destination_rse['receive_volume']
+            if available_target_rebalance_volume >= available_source_rebalance_volume:
+                available_target_rebalance_volume = available_source_rebalance_volume
+
+            print 'Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'])
+            rebalance_rse(source_rse['rse'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=destination_rse['rse'])
+
+            destination_rse['receive_volume'] += available_target_rebalance_volume
+            total_rebalance_volume += available_target_rebalance_volume
+            available_source_rebalance_volume -= available_target_rebalance_volume
