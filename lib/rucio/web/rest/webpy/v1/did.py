@@ -19,7 +19,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
 
 from json import dumps, loads
@@ -584,6 +584,7 @@ class Meta(RucioController):
             201 Created
 
         HTTP Error:
+            400 Bad Request
             401 Unauthorized
             404 Not Found
             409 Conflict
@@ -604,6 +605,8 @@ class Meta(RucioController):
         try:
             set_metadata(scope=scope, name=name, key=key, value=value,
                          issuer=ctx.env.get('issuer'), recursive=recursive)
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except Duplicate as error:
             raise generate_http_error(409, 'Duplicate', error.args[0])
         except KeyNotFound as error:
