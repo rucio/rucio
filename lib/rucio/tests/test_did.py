@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
@@ -119,7 +119,7 @@ class TestDIDCore:
         set_metadata(scope=tmp_scope, name=lfn, key='adler32', value='0cc737ee')
         assert_equal(get_metadata(scope=tmp_scope, name=lfn)['adler32'], '0cc737ee')
 
-        with assert_raises(UnsupportedOperation):
+        with assert_raises(DataIdentifierNotFound):
             set_metadata(scope=tmp_scope, name='Nimportnawak', key='adler32', value='0cc737ee')
 
         set_metadata(scope=tmp_scope, name=lfn, key='bytes', value=724963577)
