@@ -974,13 +974,13 @@ class DownloadClient:
         root = ElementTree.fromstring(metalink_str)
         files = []
 
-        # metalink namespace mapping
-        ns = {'list_replicas_ml': 'urn:ietf:params:xml:ns:metalink'}
+        # metalink namespace
+        ns = '{urn:ietf:params:xml:ns:metalink}'
 
         # loop over all <file> tags of the metalink string
-        for file_ml in root.findall('list_replicas_ml:file', ns):
+        for file_ml in root.findall(ns + 'file'):
             # search for identity-tag
-            cur_did = file_ml.find('list_replicas_ml:identity', ns)
+            cur_did = file_ml.find(ns + 'identity')
             if not ElementTree.iselement(cur_did):
                 raise RucioException('Failed to locate identity-tag inside %s' % ElementTree.tostring(file_ml))
 
@@ -994,16 +994,16 @@ class DownloadClient:
                         'md5': None,
                         'sources': []}
 
-            size = file_ml.find('list_replicas_ml:size', ns)
+            size = file_ml.find(ns + 'size')
             if ElementTree.iselement(size):
                 cur_file['bytes'] = int(size.text)
 
-            for cur_hash in file_ml.findall('list_replicas_ml:hash', ns):
+            for cur_hash in file_ml.findall(ns + 'hash'):
                 hash_type = cur_hash.get('type')
                 if hash_type:
                     cur_file[hash_type] = cur_hash.text
 
-            for rse_ml in file_ml.findall('list_replicas_ml:url', ns):
+            for rse_ml in file_ml.findall(ns + 'url'):
                 # check if location attrib (rse name) is given
                 rse = rse_ml.get('location')
                 pfn = rse_ml.text
