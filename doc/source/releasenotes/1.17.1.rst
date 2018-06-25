@@ -1,0 +1,48 @@
+======
+1.17.1
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Transparent list-replicas support of zip contents `#1138 <https://github.com/rucio/rucio/issues/1138>`_
+
+************
+Enhancements
+************
+
+- Consistency checks: Auditor is looking for site dumps in invalid locations `#1268 <https://github.com/rucio/rucio/issues/1268>`_
+- Core & Internals: closeness_sorter module seems to be dead code `#320 <https://github.com/rucio/rucio/issues/320>`_
+- Infrastructure: add kubernetes config to repo `#1226 <https://github.com/rucio/rucio/issues/1226>`_
+- Infrastructure: docker builds fail with pip install error (pycurl/m2crypto) `#1269 <https://github.com/rucio/rucio/issues/1269>`_
+- Rebalancing: Uniformize the rebalancing scripts for Nuclei and T2 `#1283 <https://github.com/rucio/rucio/issues/1283>`_
+- Release management: Relax the dependency versions the pip-requires `#1215 <https://github.com/rucio/rucio/issues/1215>`_
+
+****
+Bugs
+****
+
+- Clients: REST/Client : set-metadata should raise DataIdentifierNotFound when the DID doesn't exist `#1272 <https://github.com/rucio/rucio/issues/1272>`_
+- Core & Internals: Resurrect method doesn't remove expired_at for deleted_dids `#1276 <https://github.com/rucio/rucio/issues/1276>`_
+- Life time model: End of life badly set for non-pledged endpoints `#1240 <https://github.com/rucio/rucio/issues/1240>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: rucio download --archive_did should be renamed to --archive-did `#1282 <https://github.com/rucio/rucio/issues/1282>`_
+
+****
+Bugs
+****
+
+- Clients: findall with 2 arguments failing on SL6 `#1288 <https://github.com/rucio/rucio/issues/1288>`_
