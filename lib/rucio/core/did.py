@@ -1597,6 +1597,8 @@ def resurrect(dids, session=None):
         #    raise exception.UnsupportedOperation("File '%(scope)s:%(name)s' cannot be resurrected" % did)
 
         kargs = del_did.to_dict()
+        if kargs['expired_at']:
+            kargs['expired_at'] = None
         kargs.pop("_sa_instance_state", None)
 
         session.query(models.DeletedDataIdentifier).\
