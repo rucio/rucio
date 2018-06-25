@@ -312,11 +312,9 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
             session.query(models.DataIdentifier).\
                 filter(models.DataIdentifier.did_type == DIDType.FILE).\
                 filter(or_(*existing_files_condition)).update({'constituent': True})
-
-        print contents
         contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
         session.flush()
-    except IntegrityError, error:
+    except IntegrityError as error:
         raise exception.RucioException(error.args)
 
 
