@@ -65,6 +65,12 @@ def _psql_rename_type(target, connection, **kw):
         target.columns.path.type = String(255)
 
 
+@event.listens_for(Table, "before_create")
+def _oracle_json_constraint(target, connection, **kw):
+    if connection.dialect.name == 'oracle' and target.name == 'did_meta':
+        target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
+
+
 @event.listens_for(Engine, "before_execute", retval=True)
 def _add_hint(conn, element, multiparams, params):
     if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'locks':
