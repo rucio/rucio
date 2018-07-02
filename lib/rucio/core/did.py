@@ -26,6 +26,7 @@
 import logging
 import random
 import sys
+import json
 
 from datetime import datetime, timedelta
 from hashlib import md5
@@ -1285,12 +1286,12 @@ def get_did_meta(scope, name, session=None):
     :param scope: the scope of did
     :param name: the name of the did
     """
-    if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite':
+    if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
     try:
         row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
         meta = getattr(row, 'meta')
-        return meta
+        return json.loads(meta) if session.bind.dialect.name == 'oracle' else meta
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
@@ -1304,7 +1305,7 @@ def add_did_meta(scope, name, meta, session=None):
     :param name: the name of the did
     :param meta: the metadata to be added or updated
     """
-    if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite':
+    if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
     try:
         row_did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
@@ -1315,13 +1316,24 @@ def add_did_meta(scope, name, meta, session=None):
             row_did_meta.save(session=session, flush=True)
 
         existing_meta = getattr(row_did_meta, 'meta')
+
+        # Oracle returns a string instead of a dict
+        if session.bind.dialect.name == 'oracle' and existing_meta is not None:
+            existing_meta = json.loads(existing_meta)
+
         if existing_meta is None:
             existing_meta = {}
+
         for k, v in meta.iteritems():
             existing_meta[k] = v
 
         row_did_meta.meta = None
         session.flush()
+
+        # Oracle insert takes a string as input
+        if session.bind.dialect.name == 'oracle':
+            existing_meta = json.dumps(existing_meta)
+
         row_did_meta.meta = existing_meta
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
@@ -1336,11 +1348,15 @@ def delete_did_meta(scope, name, key, session=None):
     :param name: the name of the did
     :param key: the key to be deleted
     """
-    if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite':
+    if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
     try:
         row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
         existing_meta = getattr(row, 'meta')
+        # Oracle returns a string instead of a dict
+        if session.bind.dialect.name == 'oracle' and existing_meta is not None:
+            existing_meta = json.loads(existing_meta)
+
         if key not in existing_meta:
             raise exception.KeyNotFound(key)
 
@@ -1348,6 +1364,11 @@ def delete_did_meta(scope, name, key, session=None):
 
         row.meta = None
         session.flush()
+
+        # Oracle insert takes a string as input
+        if session.bind.dialect.name == 'oracle':
+            existing_meta = json.dumps(existing_meta)
+
         row.meta = existing_meta
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
@@ -1362,14 +1383,17 @@ def list_dids_by_meta(scope, select, session=None):
     :param name: the name of the did
     :param meta: the metadata to be added or updated
     """
-    if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite':
+    if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
     query = session.query(models.DidMeta)
     if scope is not None:
         query = query.filter(models.DidMeta.scope == scope)
 
     for k, v in select.iteritems():
-        query = query.filter(cast(models.DidMeta.meta[k], String) == type_coerce(v, JSON))
+        if session.bind.dialect.name == 'oracle':
+            query = query.filter(text("json_exists(meta,'$.%s?(@==''%s'')')" % (k, v)))
+        else:
+            query = query.filter(cast(models.DidMeta.meta[k], String) == type_coerce(v, JSON))
     dids = list()
     for row in query.yield_per(10):
         dids.append({'scope': row.scope, 'name': row.name})
