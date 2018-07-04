@@ -15,11 +15,34 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 
-if [[ $RDBMS == "oracle" ]]; then
+if [[ $RDBMS == "oracle11" ]]; then
     docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true sath89/oracle-xe-11g
     docker run --name=activemq -d webcenter/activemq:latest
-    sleep 100
+    while true
+    do
+          sleep 30
+          docker logs oracle | grep -e "Database ready to use"
+          if [[ $? -eq 0 ]]; then
+              break
+          fi
+    done
+    docker run -d --link oracle:oracle --link activemq:activemq --name=rucio rucio/rucio
+    docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
+    docker exec -it rucio httpd -k start
+
+elif [[ $RDBMS == "oracle12" ]]; then
+    docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e WEB_CONSOLE=false sath89/oracle-12c
+    docker run --name=activemq -d webcenter/activemq:latest
+    while true
+    do
+          sleep 30
+          docker logs oracle | grep -e "Database ready to use"
+          if [[ $? -eq 0 ]]; then
+              break
+          fi
+    done
     docker run -d --link oracle:oracle --link activemq:activemq --name=rucio rucio/rucio
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
     docker exec -it rucio httpd -k start
@@ -27,7 +50,14 @@ if [[ $RDBMS == "oracle" ]]; then
 elif [[ $RDBMS == "mysql" ]]; then
     docker run --name=mysql -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
     docker run --name=activemq -d webcenter/activemq:latest
-    sleep 100
+    while true
+    do
+          sleep 10
+          docker logs mysql | grep -e "MySQL init process done"
+          if [[ $? -eq 0 ]]; then
+              break
+          fi
+    done
     docker run -d --link mysql:mysql --link activemq:activemq --name=rucio rucio/rucio
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_mysql.cfg /opt/rucio/etc/rucio.cfg
     docker exec -it rucio httpd -k start
@@ -36,7 +66,14 @@ elif [[ $RDBMS == "mysql" ]]; then
 elif [[ $RDBMS == "postgres" ]]; then
     docker run --name=postgres -e POSTGRES_PASSWORD=secret -d postgres
     docker run --name=activemq -d webcenter/activemq:latest
-    sleep 100
+    while true
+    do
+          sleep 10
+          docker logs postgres | grep -e "database system is ready to accept connections"
+          if [[ $? -eq 0 ]]; then
+              break
+          fi
+    done
     docker run -d --link postgres:postgres --link activemq:activemq --name=rucio rucio/rucio
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
     docker exec -it rucio httpd -k start

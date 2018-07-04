@@ -50,7 +50,8 @@ script:
   - if [[ $SUITE == "all" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_tests_docker.sh -1q" ; fi
 
 env:
-    - SUITE=all RDBMS=oracle
+    - SUITE=all RDBMS=oracle11
+    - SUITE=all RDBMS=oracle12
     - SUITE=all RDBMS=mysql
     - SUITE=all RDBMS=postgres
     - SUITE=all RDBMS=sqlite
@@ -61,7 +62,9 @@ matrix:
   fast_finish: true
   exclude:
   - python: 2.6
-    env: SUITE=all RDBMS=oracle
+    env: SUITE=all RDBMS=oracle11
+  - python: 2.6
+    env: SUITE=all RDBMS=oracle12
   - python: 2.6
     env: SUITE=all RDBMS=mysql
   - python: 2.6
@@ -71,7 +74,9 @@ matrix:
   - python: 2.6
     env: SUITE=syntax
   - python: 3.4
-    env:  SUITE=all RDBMS=oracle
+    env:  SUITE=all RDBMS=oracle11
+  - python: 3.4
+    env:  SUITE=all RDBMS=oracle12
   - python: 3.4
     env:  SUITE=all RDBMS=mysql
   - python: 3.4
@@ -83,7 +88,9 @@ matrix:
   - python: 3.5
     env: SUITE=syntax
   - python: 3.5
-    env:  SUITE=all RDBMS=oracle
+    env:  SUITE=all RDBMS=oracle11
+  - python: 3.5
+    env:  SUITE=all RDBMS=oracle12
   - python: 3.5
     env:  SUITE=all RDBMS=mysql
   - python: 3.5
@@ -93,7 +100,9 @@ matrix:
   - python: 3.6
     env: SUITE=all
   - python: 3.5
-    env:  SUITE=all RDBMS=oracle
+    env:  SUITE=all RDBMS=oracle11
+  - python: 3.5
+    env:  SUITE=all RDBMS=oracle12
   - python: 3.5
     env:  SUITE=all RDBMS=mysql
   - python: 3.5
@@ -101,7 +110,9 @@ matrix:
   - python: 3.5
     env:  SUITE=all RDBMS=sqlite
   - python: 3.6
-    env:  SUITE=all RDBMS=oracle
+    env:  SUITE=all RDBMS=oracle11
+  - python: 3.6
+    env:  SUITE=all RDBMS=oracle12
   - python: 3.6
     env:  SUITE=all RDBMS=mysql
   - python: 3.6
