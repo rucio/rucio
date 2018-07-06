@@ -114,6 +114,6 @@ class JSON(TypeDecorator):
         elif dialect.name == 'mysql':
             return dialect.type_descriptor(types.JSON())
         elif dialect.name == 'oracle':
-        	return dialect.type_descriptor(CLOB())
+            return dialect.type_descriptor(CLOB())
         else:
             return dialect.type_descriptor(LargeBinary())
