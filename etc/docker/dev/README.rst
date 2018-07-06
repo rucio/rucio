@@ -20,7 +20,7 @@ run against the development code without having to rebuild the environment for e
 docker-compose
 --------------
 
-YAML for docker compose has been provided to allow easily setup the containers::
+YAML for docker compose has been provided to allow easily setup the containers from the rucio code directory::
 
    $> docker-compose --file etc/docker/dev/docker-compose.yml up -d
 
