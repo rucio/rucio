@@ -23,10 +23,10 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 
+import json
 import logging
 import random
 import sys
-import json
 
 from datetime import datetime, timedelta
 from hashlib import md5
