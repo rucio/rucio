@@ -85,7 +85,9 @@ class TestArchive(object):
         add_replicas(rse=rse, files=files_with_replicas, account='root')
         self.dc.add_files_to_archive(scope=scope, name=archive['name'], files=files_with_replicas)
 
-        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files_with_replicas])]
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files_with_replicas],
+                                                        resolve_archives=True)]
+        print res
         assert_equal(len(res), 2)
         assert_equal(len(res[0]), 2)
         assert_equal(len(res[1]), 2)
@@ -100,7 +102,8 @@ class TestArchive(object):
         files = [{'scope': scope, 'name': 'norep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
                   'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
         self.dc.add_files_to_archive(scope=scope, name=archive['name'], files=files)
-        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files])]
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files],
+                                                        resolve_archives=True)]
         assert_equal(len(res), 2)
         for r in res:
             assert_in('weighted.storage.cube.zip?xrdcl.unzip=norep-', r.keys()[0])
