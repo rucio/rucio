@@ -17,7 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2012-2017
 # - Wen Guan <wguan.icedew@gmail.com>, 2014
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 
 '''
 Setup.py which moves kerberos modules in extra dependencies to be buildthedocs compliant.
@@ -164,7 +164,7 @@ def write_requirements():
         req_file.close()
 
 
-oracle_extras = ['cx_oracle>=5.1']
+oracle_extras = ['cx_oracle===6.3.1']
 postgresql_extras = ['psycopg2>=2.4.2']
 mysql_extras = ['PyMySQL']
 kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']
