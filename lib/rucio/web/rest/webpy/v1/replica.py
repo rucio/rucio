@@ -287,7 +287,7 @@ class ListReplicas(RucioController):
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
-        signature_lifetime = None
+        signature_lifetime, resolve_archives = None, False
         client_location = {}
 
         json_data = data()
@@ -311,6 +311,8 @@ class ListReplicas(RucioController):
                 select = params['sort']
             if 'domain' in params:
                 domain = params['domain']
+            if 'resolve_archives' in params:
+                resolve_archives = True
 
             if 'signature_lifetime' in params:
                 signature_lifetime = params['signature_lifetime']
@@ -347,6 +349,7 @@ class ListReplicas(RucioController):
                                        rse_expression=rse_expression,
                                        client_location=client_location,
                                        domain=domain, signature_lifetime=signature_lifetime,
+                                       resolve_archives=resolve_archives,
                                        issuer=ctx.env.get('issuer')):
                 if not metalink:
                     yield dumps(rfile, cls=APIEncoder) + '\n'

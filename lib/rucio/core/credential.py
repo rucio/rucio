@@ -58,8 +58,12 @@ def get_signed_url(service, operation, url, lifetime=600):
     if url is None or url == '':
         raise UnsupportedOperation('URL must not be empty')
 
-    if not isinstance(lifetime, (int, long)) and lifetime > 0:
-        raise UnsupportedOperation('Lifetime must be greater than 0.')
+    if lifetime:
+        if not isinstance(lifetime, (int, long)):
+            try:
+                lifetime = long(lifetime)
+            except:
+                raise UnsupportedOperation('Lifetime must be convertible to numeric.')
 
     signed_url = None
     if service == 'gcs':

@@ -89,7 +89,7 @@ def get_did_from_pfns(pfns, rse):
 
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, rse_expression=None,
-                  client_location=None, domain=None, signature_lifetime=None, issuer=None):
+                  client_location=None, domain=None, signature_lifetime=None, resolve_archives=False, issuer=None):
     """
     List file replicas for a list of data identifiers.
 
@@ -102,6 +102,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
     :param domain: The network domain for the call, either None, 'wan' or 'lan'. Compatibility fallback: None falls back to 'wan'.
     :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
+    :param resolve_archives: When set to True, find archives which contain the replicas.
     :param issuer: The issuer account.
     """
     validate_schema(name='r_dids', obj=dids)
@@ -117,7 +118,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                                  ignore_availability=ignore_availability,
                                  all_states=all_states, rse_expression=rse_expression,
                                  client_location=client_location, domain=domain,
-                                 sign_urls=sign_urls, signature_lifetime=signature_lifetime)
+                                 sign_urls=sign_urls, signature_lifetime=signature_lifetime, resolve_archives=resolve_archives)
 
 
 def add_replicas(rse, files, issuer, ignore_availability=False):
