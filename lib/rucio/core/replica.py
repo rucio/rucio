@@ -547,7 +547,7 @@ def get_did_from_pfns(pfns, rse=None, session=None):
                 yield {pfndict[pfn]: {'scope': scope, 'name': name}}
 
 
-def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
+def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_archives, session):
     """
     Resolve list of DIDs into a list of conditions.
 
@@ -555,6 +555,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
     :param unavailable: Also include unavailable replicas in the list.
     :param ignore_availability: Ignore the RSE blacklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
+    :param resolve_archives: When set to true, find archives which contain the replicas.
     :param session: The database session in use.
     """
     did_clause, dataset_clause, file_clause, files, constituents = [], [], [], [], {}
@@ -575,8 +576,8 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, session):
                                                                 models.DataIdentifier.constituent)\
                                                          .with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')\
                                                          .filter(or_(*did_clause)):
-            if constituent:
-                # file is a constituent, resolve to any parent archive
+            if resolve_archives and constituent:
+                # file is a constituent, resolve to parent archives if necessary
                 archive = session.query(models.ConstituentAssociation.scope,
                                         models.ConstituentAssociation.name)\
                                  .filter(models.ConstituentAssociation.child_scope == scope,
@@ -808,7 +809,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         # use zip domain for sorting, and pass through all the information
                         # we need it later to reconstruct the final PFNS
                         # ('pfn', 'domain', 'priority', 'client_extract', archive-passthrough)
-                        pfns.append((pfn, 'zip', archive[archive_pfn]['priority'], client_extract, archive))
+                        pfns.append((pfn, 'zip', archive[archive_pfn]['priority'], client_extract, archive[archive_pfn]))
 
             if show_pfns and rse:
                 if rse not in rse_info:
@@ -928,9 +929,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     file['rses'][rse] += list(set([tmp_pfn[0] for tmp_pfn in pfns]))
                     file['states'][rse] = str(state)
                     for tmp_pfn in pfns:
-                        file['pfns'][tmp_pfn[0]] = {'rse': rse,
-                                                    'type': str(rse_type),
-                                                    'volatile': volatile,
+                        file['pfns'][tmp_pfn[0]] = {'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
+                                                    'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
+                                                    'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
                                                     'domain': tmp_pfn[1],
                                                     'priority': tmp_pfn[2]}
                         # instruct the client that the archive needs to be manually extracted
@@ -943,6 +944,12 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
                     for i in xrange(0, len(tmp)):
                         file['pfns'][tmp[i][2]]['priority'] = i + 1
+                        file['rses'] = {}
+                        for t_rse, t_pfn in [(file['pfns'][t_pfn]['rse'], t_pfn) for t_pfn in file['pfns']]:
+                            if(t_rse in file['rses']):
+                                file['rses'][t_rse].append(t_pfn)
+                            else:
+                                file['rses'][t_rse] = [t_pfn]
                     yield file
                     file = {}
 
@@ -955,9 +962,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     # extract properly the pfn from the tuple
                     file['rses'][rse] = list(set([tmp_pfn[0] for tmp_pfn in pfns]))
                     for tmp_pfn in pfns:
-                        file['pfns'][tmp_pfn[0]] = {'rse': rse,
-                                                    'type': str(rse_type),
-                                                    'volatile': volatile,
+                        file['pfns'][tmp_pfn[0]] = {'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
+                                                    'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
+                                                    'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
                                                     'domain': tmp_pfn[1],
                                                     'priority': tmp_pfn[2]}
                         # instruct the client that the archive needs to be manually extracted
@@ -973,6 +980,12 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
             file['pfns'][tmp[i][2]]['priority'] = i + 1
 
     if 'scope' in file and 'name' in file:
+        file['rses'] = {}
+        for t_rse, t_pfn in [(file['pfns'][t_pfn]['rse'], t_pfn) for t_pfn in file['pfns']]:
+            if(t_rse in file['rses']):
+                file['rses'][t_rse].append(t_pfn)
+            else:
+                file['rses'][t_rse] = [t_pfn]
         yield file
         file = {}
 
@@ -981,7 +994,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
                   rse_expression=None, client_location=None, domain=None,
-                  sign_urls=False, signature_lifetime=None, session=None):
+                  sign_urls=False, signature_lifetime=None, resolve_archives=False,
+                  session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -996,12 +1010,15 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param domain: The network domain for the call, either None, 'wan' or 'lan'. None is automatic mode, 'all' is both ['lan','wan']
     :param sign_urls: If set, will sign the PFNs if necessary.
     :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
+    :param resolve_archives: When set to true, find archives which contain the replicas.
     :param session: The database session in use.
     """
 
     file_clause, dataset_clause, state_clause, files, constituents = _resolve_dids(dids=dids, unavailable=unavailable,
                                                                                    ignore_availability=ignore_availability,
-                                                                                   all_states=all_states, session=session)
+                                                                                   all_states=all_states,
+                                                                                   resolve_archives=resolve_archives,
+                                                                                   session=session)
 
     rse_clause = []
     if rse_expression:
