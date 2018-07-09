@@ -1,0 +1,24 @@
+======
+1.17.2
+======
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: core: archive replicas have wrong RSE `#1305 <https://github.com/rucio/rucio/issues/1305>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: core+client: switch to enable archive listing `#1306 <https://github.com/rucio/rucio/issues/1306>`_
+- RSE Manager: Handle RSEChecksumUnavailable for protocols without renaming `#1299 <https://github.com/rucio/rucio/issues/1299>`_
