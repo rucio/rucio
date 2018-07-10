@@ -96,7 +96,10 @@ if EXTRA_MODULES['web']:
     from web import HTTPError
 
 if EXTRA_MODULES['paramiko']:
-    from paramiko import RSAKey
+    try:
+        from paramiko import RSAKey
+    except Exception:
+        EXTRA_MODULES['paramiko'] = False
 
 if EXTRA_MODULES['flask']:
     from flask import Response
@@ -659,7 +662,7 @@ def ssh_sign(private_key, message):
     :return: Base64 encoded signature as a string.
     """
     if not EXTRA_MODULES['paramiko']:
-        raise MissingModuleException('The paramiko module is not installed.')
+        raise MissingModuleException('The paramiko module is not installed or faulty.')
     sio_private_key = StringIO(private_key)
     priv_k = RSAKey.from_private_key(sio_private_key)
     sio_private_key.close()
