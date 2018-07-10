@@ -185,7 +185,7 @@ class UploadClient:
                 self.trace['clientState'] = 'DONE'
                 file['state'] = 'A'
                 logger.info('Successfully uploaded file %s' % basename)
-                send_trace(self.trace, self.client.host, self.client.user_agent, logger=logger)
+                send_trace(self.trace, self.client.host, self.client.user_agent)
 
                 if summary_file_path:
                     summary.append(copy.deepcopy(file))
