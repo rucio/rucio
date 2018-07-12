@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
 
 """
@@ -69,13 +70,14 @@ class Default(protocol.RSEProtocol):
         if 'STAGE_SVCCLASS' in os.environ:
             del os.environ['STAGE_SVCCLASS']
 
-    def put(self, source, target, source_dir):
+    def put(self, source, target, source_dir, transfer_timeout=None):
         """
             Allows to store files inside the referred RSE.
 
             :param source: path to the source file on the client file system
             :param target: path to the destination file on the storage
             :param source_dir: Path where the to be transferred files are stored in the local file system
+            :param transfer_timeout: Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.

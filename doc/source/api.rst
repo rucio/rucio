@@ -11,6 +11,7 @@ example of using Rucio Client class::
    >>> CLIENT = Client()
    >>> CLIENT.ping()
 
+
 The methods are separated per resource type.
 
 .. toctree::
@@ -19,12 +20,22 @@ The methods are separated per resource type.
     api/account
     api/accountlimit
     api/scope
-    api/identity
     api/did
     api/meta-data
     api/rse
+    api/objectstore
     api/replica
     api/rule
     api/lock
     api/subscription
+    api/lifetime
+    api/touch
+    api/config
     api/exception
+    api/ping
+
+..  To add:
+..  api/upload
+..  api/download
+
+

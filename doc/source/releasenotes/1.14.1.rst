@@ -1,0 +1,49 @@
+======
+1.14.1
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Release management: Create a script which automatically compiles release notes based on github milestones `#213 <https://github.com/rucio/rucio/issues/213>`_
+
+************
+Enhancements
+************
+
+- Infrastructure: Restructure Dockerfile `#246 <https://github.com/rucio/rucio/issues/246>`_
+- RSE Manager: root: force GSI authentication `#83 <https://github.com/rucio/rucio/issues/83>`_
+- Release management: Removing duplicate packages in pip-requires `#214 <https://github.com/rucio/rucio/issues/214>`_
+- Release management: Removed kerberos from requirements to enable buildthedocs `#237 <https://github.com/rucio/rucio/issues/237>`_
+- Testing: Fix pylint tests on travis `#209 <https://github.com/rucio/rucio/issues/209>`_
+- Testing: remove instant client installation from travis dockerfile `#258 <https://github.com/rucio/rucio/issues/258>`_
+
+****
+Bugs
+****
+
+- Core & Internals: db: fix outer join read lock for PostgreSQL `#262 <https://github.com/rucio/rucio/issues/262>`_
+- Core & Internals: lifetime: circular dependency `#77 <https://github.com/rucio/rucio/issues/77>`_
+- check_quota probe does not create quota for new SCRATCHDISKS for old accounts `#199 <https://github.com/rucio/rucio/issues/199>`_
+- Release management: Remove import rucio from webui setup.py `#227 <https://github.com/rucio/rucio/issues/227>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Add eventType and usrDN parameters to CLI up/download `#211 <https://github.com/rucio/rucio/issues/211>`_
+
+****
+Bugs
+****
+
+- Clients: Error when adding dataset with lifetime `#244 <https://github.com/rucio/rucio/issues/244>`_

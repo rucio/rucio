@@ -1,0 +1,61 @@
+======
+1.14.6
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Clients: RSE distance APIs not exposed `#330 <https://github.com/rucio/rucio/issues/330>`_
+- Core & Internals: support for multiple permission and schema policy `#356 <https://github.com/rucio/rucio/issues/356>`_
+- Core & Internals: add # in cms regexp name `#394 <https://github.com/rucio/rucio/issues/394>`_
+- Core & Internals: Configurable name length `#399 <https://github.com/rucio/rucio/issues/399>`_
+- Core & Internals: Client: Check URL escaping code for handling of / `#411 <https://github.com/rucio/rucio/issues/411>`_
+- Core & Internals: Include the network domain (wan, lan) in list_replicas `#64 <https://github.com/rucio/rucio/issues/64>`_
+- Documentation: space-usage: Add documentation. `#329 <https://github.com/rucio/rucio/issues/329>`_
+- Documentation: Contributing guide Improvement  `#331 <https://github.com/rucio/rucio/issues/331>`_
+- Infrastructure: Provide dev container that mounts code `#322 <https://github.com/rucio/rucio/issues/322>`_
+- Release management: AUTHORS update `#380 <https://github.com/rucio/rucio/issues/380>`_
+- Testing: propagate the rigth postgresql file in travis `#359 <https://github.com/rucio/rucio/issues/359>`_
+
+****
+Bugs
+****
+
+- Core & Internals: get_submitted_at_rucio should return an array of submitted_at time stamps `#232 <https://github.com/rucio/rucio/issues/232>`_
+- Core & Internals: redirect: wrong link follow format to metalink `#348 <https://github.com/rucio/rucio/issues/348>`_
+- Core & Internals: PostgreSQL not working, 1 test failing `#388 <https://github.com/rucio/rucio/issues/388>`_
+- Core & Internals: `import rucio.core.rule` fails with missing section `#407 <https://github.com/rucio/rucio/issues/407>`_
+- Core & Internals: Move rule permission check is not working `#426 <https://github.com/rucio/rucio/issues/426>`_
+- Core & Internals: database: bootstrap mismatch between SSH and GSS `#439 <https://github.com/rucio/rucio/issues/439>`_
+- Infrastructure: Fix missing cx_Oracle dependency in DockerFile `#317 <https://github.com/rucio/rucio/issues/317>`_
+- Life time model: Atropos doesn't properly take into account computed eol_at `#412 <https://github.com/rucio/rucio/issues/412>`_
+- Subscriptions: Change the set_new_dids method to set NULL value instead of 0 `#447 <https://github.com/rucio/rucio/issues/447>`_
+- Testing: Database tests are not executed `#383 <https://github.com/rucio/rucio/issues/383>`_
+- Transfers: Link_ranking based sorting in case of multipe tape replicas is done wrong `#351 <https://github.com/rucio/rucio/issues/351>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Avoid session reuse when new token is needed `#433 <https://github.com/rucio/rucio/issues/433>`_
+- Clients: Client-side escaping of generated URLs `#436 <https://github.com/rucio/rucio/issues/436>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: add suspicious files dump description to WebUI `#363 <https://github.com/rucio/rucio/issues/363>`_
+- WebUI: Copyright statement of WebUI footer needs to be updated to include 2018 `#430 <https://github.com/rucio/rucio/issues/430>`_

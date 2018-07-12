@@ -2,7 +2,7 @@
 Scope Methods
 -------------
 
-.. _permissions:
+.. _scope:
 .. automodule:: rucio.client.scopeclient
     :members:
     :undoc-members:

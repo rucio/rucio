@@ -1,13 +1,23 @@
 #!/usr/bin/env python
-
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan <wguan.icedew@gmail.com>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 """
     Rucio Cache client.
@@ -27,7 +37,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.rseclient import RSEClient
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DataIdentifierNotFound
-from rucio.common.schema import cache_add_replicas, cache_delete_replicas, message_operation
+from rucio.common.schema import CACHE_ADD_REPLICAS, CACHE_DELETE_REPLICAS, MESSAGE_OPERATION
 
 SUCCESS = 0
 FAILURE = 1
@@ -64,13 +74,13 @@ def validate_rse(rse):
 def cache_operation(args):
     """ cache operation"""
     payload = json.loads(args.message)
-    validate(payload, message_operation)
+    validate(payload, MESSAGE_OPERATION)
     validate_rse(payload["rse"])
     if payload["operation"] == "add_replicas":
-        validate(payload, cache_add_replicas)
+        validate(payload, CACHE_ADD_REPLICAS)
         validate_files(payload["files"])
     else:
-        validate(payload, cache_delete_replicas)
+        validate(payload, CACHE_DELETE_REPLICAS)
     conn = stomp.Connection([(args.broker, args.port)], use_ssl=True, ssl_key_file=args.ssl_key_file, ssl_cert_file=args.ssl_cert_file, ssl_version=ssl.PROTOCOL_TLSv1)
 
     conn.start()
@@ -80,15 +90,10 @@ def cache_operation(args):
     conn.disconnect()
 
 
-if __name__ == '__main__':
-    usage = """
-usage: %(prog)s <command> [options] [args]
-
-Commands:
-
-    help <command>  Output help for one of the commands below
-
-"""
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
 
     message_help = """
     Add replicas message:
@@ -111,16 +116,21 @@ Commands:
     oparser.add_argument('-b', '--broker', dest='broker', default=config_get('messaging-cache', 'brokers').split(',')[0], help='Message broker name')
     oparser.add_argument('-p', '--port', dest='port', default=config_get_int('messaging-cache', 'port'), help='Message broker port')
     oparser.add_argument('-c', '--certificate', dest='ssl_cert_file', default=config_get('messaging-cache', 'ssl_cert_file'), help='Certificate file')
-    oparser.add_argument('-k', '--certificate_key', dest='ssl_key_file', default=config_get('messaging-cache', 'ssl_key_file'), help='Certificate key file')
+    oparser.add_argument('-k', '--certificate-key', dest='ssl_key_file', default=config_get('messaging-cache', 'ssl_key_file'), help='Certificate key file')
     oparser.add_argument('-d', '--destination', dest='destination', default=config_get('messaging-cache', 'destination'), help="Message broker topic")
     oparser.add_argument('-m', '--message', dest='message', default=None, help=message_help)
 
+    return oparser
+
+
+if __name__ == '__main__':
+
+    oparser = get_parser()
     if len(sys.argv) == 1:
         oparser.print_help()
         sys.exit(FAILURE)
 
     args = oparser.parse_args(sys.argv[1:])
-
     try:
         result = cache_operation(args)
         sys.exit(result)

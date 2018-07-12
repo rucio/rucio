@@ -11,25 +11,47 @@ Listen 80
 Header set X-Rucio-Host "%{HTTP_HOST}e"
 RequestHeader add X-Rucio-RequestId "%{UNIQUE_ID}e"
 
+{% if RUCIO_LOG_FORMAT is defined %}
+LogFormat "{{ RUCIO_LOG_FORMAT }}" combinedrucio
+{% else %}
 LogFormat "%h\t%t\t%{X-Rucio-Forwarded-For}i\t%T\t%D\t\"%{X-Rucio-Auth-Token}i\"\t%{X-Rucio-RequestId}i\t%{X-Rucio-Client-Ref}i\t\"%r\"\t%>s\t%b" combinedrucio
+{% endif %}
 
 LoadModule authn_core_module modules/mod_authn_core.so
 LoadModule cache_disk_module modules/mod_cache_disk.so
 
 CacheEnable disk /
 CacheRoot /tmp
+{% if RUCIO_HOSTNAME is defined %}
+{% if RUCIO_ENABLE_SSL|default('False') == 'True' %}
+<VirtualHost *:443>
+ ServerName {{ RUCIO_HOSTNAME }}:443
+{% else %}
+<VirtualHost *:80>
+ ServerName {{ RUCIO_HOSTNAME }}:80
+{% endif %}
+{% else %}
 {% if RUCIO_ENABLE_SSL|default('False') == 'True' %}
 <VirtualHost *:443>
 {% else %}
 <VirtualHost *:80>
 {% endif %}
+{% endif %}
+{% if RUCIO_SERVER_ADMIN is defined %}
+ ServerAdmin {{ RUCIO_SERVER_ADMIN }}
+{% else %}
  ServerAdmin rucio-admin@cern.ch
+{% endif %}
 {% if RUCIO_ENABLE_SSL|default('False') == 'True' %}
  SSLEngine on
  SSLCertificateFile /etc/grid-security/hostcert.pem
  SSLCertificateKeyFile /etc/grid-security/hostkey.pem
- SSLCACertificatePath /etc/grid-security/certificates
- SSLCARevocationPath /etc/grid-security/certificates
+{% if RUCIO_CA_PATH is defined %}
+ SSLCACertificatePath {{ RUCIO_CA_PATH }}
+ SSLCARevocationPath {{ RUCIO_CA_PATH }}
+{% else %}
+ SSLCACertificateFile /etc/grid-security/ca.pem
+{% endif %}
  SSLVerifyClient optional_no_ca
  SSLVerifyDepth 10
  SSLOptions +StdEnvVars
@@ -39,9 +61,23 @@ CacheRoot /tmp
  #AB: for Security
  SSLCipherSuite           HIGH:!CAMELLIA:!ADH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!3DES
 {% endif %}
+{% if RUCIO_LOG_LEVEL is defined %}
+ LogLevel {{ RUCIO_LOG_LEVEL }}
+{% else %}
  LogLevel info
- CustomLog logs/access_log combinedrucio
+{% endif %}
 
+{% if RUCIO_ENABLE_LOGFILE|default('False') == 'True' %}
+ CustomLog logs/access_log combinedrucio
+ ErrorLog logs/error_log
+{% else %}
+ CustomLog /dev/stdout combinedrucio
+ ErrorLog /dev/stderr
+{% endif %}
+
+{% if RUCIO_DEFINE_ALIASES|default('False') == 'True' %}
+ Include /opt/rucio/etc/aliases.conf
+{% else %}
  WSGIScriptAlias /ping                   /usr/lib/python2.7/site-packages/rucio/web/rest/ping.py
  WSGIScriptAlias /accounts               /usr/lib/python2.7/site-packages/rucio/web/rest/account.py
  WSGIScriptAlias /accountlimits          /usr/lib/python2.7/site-packages/rucio/web/rest/account_limit.py
@@ -61,5 +97,6 @@ CacheRoot /tmp
  WSGIScriptAlias /subscriptions          /usr/lib/python2.7/site-packages/rucio/web/rest/subscription.py
  WSGIScriptAlias /objectstores           /usr/lib/python2.7/site-packages/rucio/web/rest/objectstore.py
  WSGIScriptAlias /lifetime_exceptions    /usr/lib/python2.7/site-packages/rucio/web/rest/lifetime_exception.py
-</VirtualHost>
+{% endif %}
 
+</VirtualHost>

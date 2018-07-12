@@ -58,7 +58,7 @@ def create_files(nrfiles, scope, rse, bytes=1):
     :returns:        List of dict
     """
     files = []
-    for i in xrange(nrfiles):
+    for i in range(nrfiles):
         file = 'file_%s' % uuid()
         if isinstance(rse, list):
             for r in rse:
@@ -219,7 +219,7 @@ class TestReplicationRuleCore():
         container = 'container_' + str(uuid())
         add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         all_files = []
-        for i in xrange(3):
+        for i in range(3):
             files = create_files(3, scope, self.rse1)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
@@ -264,7 +264,7 @@ class TestReplicationRuleCore():
         container = 'container_' + str(uuid())
         add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         all_files = []
-        for i in xrange(3):
+        for i in range(3):
             files = create_files(3, scope, self.rse1)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
@@ -328,7 +328,7 @@ class TestReplicationRuleCore():
         add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         all_files = []
         dataset_files = []
-        for i in xrange(3):
+        for i in range(3):
             files = create_files(3, scope, self.rse1)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
@@ -373,7 +373,7 @@ class TestReplicationRuleCore():
         add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         all_files = []
         dataset_files = []
-        for i in xrange(3):
+        for i in range(3):
             files = create_files(3, scope, self.rse1)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())

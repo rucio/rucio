@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 
 """
@@ -23,8 +23,9 @@ RESERVED_KEYS = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic',
 KEY_TYPES = ['ALL', 'COLLECTION', 'FILE', 'DERIVED']
 # all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection)
 
-SCHEME_MAP = {'srm': ['srm', 'gsiftp', 's3'],
-              'gsiftp': ['srm', 'gsiftp', 's3'],
-              'https': ['https', 'davs'],
-              'davs': ['https', 'davs'],
-              's3': ['https', 'davs', 'gsiftp', 'srm']}
+SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
+              'gsiftp': ['srm', 'gsiftp'],
+              'https': ['https', 'davs', 's3'],
+              'davs': ['https', 'davs', 's3'],
+              'root': ['root'],
+              's3': ['https', 'davs', 's3']}

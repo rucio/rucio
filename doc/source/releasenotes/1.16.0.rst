@@ -1,0 +1,79 @@
+======================
+1.16.0 "Doctor Donkey"
+======================
+
+-------
+General
+-------
+
+*******************
+Update Instructions
+*******************
+
+This feature release requires a database schema update. Please consult the documentation about updating your database schema.
+
+********
+Features
+********
+
+- Documentation: Add new unique index to oracle schema file `#762 <https://github.com/rucio/rucio/issues/762>`_
+- Transfers: Define a proper interface for the rucio transfertool `#954 <https://github.com/rucio/rucio/issues/954>`_
+
+************
+Enhancements
+************
+
+- Clients: Add client tests and packaging validation for python 2.6, 2,7, 3.4, 3.5, 3.6 in travis `#1017 <https://github.com/rucio/rucio/issues/1017>`_
+- Core & Internals: Fix permissions for CMS `#1005 <https://github.com/rucio/rucio/issues/1005>`_
+- Core & Internals: CMS schema is too permissive `#1007 <https://github.com/rucio/rucio/issues/1007>`_
+- Core & Internals: core package updates `#1080 <https://github.com/rucio/rucio/issues/1080>`_
+- Core & Internals: Add rucio daemons CLIS as command-Line applications and entry points `#992 <https://github.com/rucio/rucio/issues/992>`_
+- Documentation: add documentation build validation in travis `#1025 <https://github.com/rucio/rucio/issues/1025>`_
+- Documentation: Add release notes to repository `#912 <https://github.com/rucio/rucio/issues/912>`_
+- remove unused file from common `#1083 <https://github.com/rucio/rucio/issues/1083>`_
+- Probes & Alarms: nagios: sync root internal proxies `#1032 <https://github.com/rucio/rucio/issues/1032>`_
+- Release management: Add python2.7 conditional requirements to core dependencies to support pip py3 installation `#1009 <https://github.com/rucio/rucio/issues/1009>`_
+- Release management: flake8 package update to 3.5.0 `#1012 <https://github.com/rucio/rucio/issues/1012>`_
+- Release management: Extend setup.py with dev requirements/dependencies in extra-requires `#1020 <https://github.com/rucio/rucio/issues/1020>`_
+- Release management: setuptools package update to 39.0.1    `#1024 <https://github.com/rucio/rucio/issues/1024>`_
+- Testing: Extend travis with matrix expansion to tests in parallel several configurations (py26, 27, 3, mysql, oracle, postgresl, etc )  `#1018 <https://github.com/rucio/rucio/issues/1018>`_
+- Testing: Add flake8 and pylint python 3 syntax check for rucio (allow_failures mode) `#1019 <https://github.com/rucio/rucio/issues/1019>`_
+- Testing: add sqlite backend tests to Travis `#1022 <https://github.com/rucio/rucio/issues/1022>`_
+- Testing: Change pep8 to pycodestyle `#1039 <https://github.com/rucio/rucio/issues/1039>`_
+
+****
+Bugs
+****
+
+- Core & Internals:  Adding existing files to archive fails `#1051 <https://github.com/rucio/rucio/issues/1051>`_
+- Core & Internals: core: rse add protocols does not set third_party_copy `#1057 <https://github.com/rucio/rucio/issues/1057>`_
+- Transfers: Transfer : verify_checksum is not properly passed to FTS `#1040 <https://github.com/rucio/rucio/issues/1040>`_
+- Transfers: Transfer : Fix compatible transfers mapping `#1060 <https://github.com/rucio/rucio/issues/1060>`_
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: Possibility to pass a timeout for a protocol `#27 <https://github.com/rucio/rucio/issues/27>`_
+
+************
+Enhancements
+************
+
+- Clients: Clients: configurable transfer_timeout in rucio.cfg `#1038 <https://github.com/rucio/rucio/issues/1038>`_
+- Clients: package updates `#1078 <https://github.com/rucio/rucio/issues/1078>`_
+- Clients: Documentation and cleanup of downloadclient and uploadclient `#717 <https://github.com/rucio/rucio/issues/717>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Automatic file transfers for non-WebDAV enabled sites `#666 <https://github.com/rucio/rucio/issues/666>`_

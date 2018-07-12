@@ -1,0 +1,39 @@
+======
+1.14.7
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Clients: CMS: Allow `rucio upload` to accept alternate LFNs `#377 <https://github.com/rucio/rucio/issues/377>`_
+
+****
+Bugs
+****
+
+- Transfers: Crash when trying to find matching scheme `#460 <https://github.com/rucio/rucio/issues/460>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Lifetime in add_container ignore `#444 <https://github.com/rucio/rucio/issues/444>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Prevent user in R2D2 to select an RSE before any DID is selected `#453 <https://github.com/rucio/rucio/issues/453>`_

@@ -7,6 +7,9 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+
+from __future__ import print_function
 
 import json
 import os
@@ -72,7 +75,7 @@ class TestRseS3():
                 data = json.load(f)
             rse_settings['credentials'] = data[rse_tag]
         except KeyError:
-            print 'No credentials found for this RSE.'
+            print('No credentials found for this RSE.')
             pass
 
         for protocol in rse_settings['protocols']:
@@ -111,7 +114,7 @@ class TestRseS3():
                 data = json.load(f)
             rse_settings['credentials'] = data[rse_tag]
         except KeyError:
-            print 'No credentials found for this RSE.'
+            print('No credentials found for this RSE.')
             pass
 
         for protocol in rse_settings['protocols']:

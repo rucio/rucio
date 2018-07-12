@@ -1,17 +1,25 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
-'''
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
+# - David Cameron <d.g.cameron@gmail.com>, 2014
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
 
 import json
 import logging
@@ -40,7 +48,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
-                                    ManualRuleApprovalBlocked, UnsupportedOperation)
+                                    ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter, request as request_core
@@ -60,7 +68,10 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 from rucio.extensions.forecast import T3CModel
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
@@ -115,7 +126,10 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise StagingAreaRuleRequiresLifetime()
 
             # Check SCRATCHDISK Policy
-            lifetime = get_scratch_policy(account, rses, lifetime, session=session)
+            try:
+                lifetime = get_scratch_policy(account, rses, lifetime, session=session)
+            except UndefinedPolicy:
+                pass
 
             # Auto-lock rules for TAPE rses
             if not locked and lifetime is None:
@@ -195,7 +209,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                        or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
                        or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
                        or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
-                        raise DuplicateRule()
+                        raise DuplicateRule(error.args[0])
                     raise InvalidReplicationRule(error.args[0])
                 rule_ids.append(new_rule.id)
 
@@ -279,9 +293,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 if new_rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.OK})
                     session.flush()
-                    generate_message_for_dataset_ok_callback(rule=new_rule, session=session)
                 if new_rule.notification == RuleNotification.YES:
                     generate_email_for_rule_ok_notification(rule=new_rule, session=session)
+                generate_rule_notifications(rule=new_rule, session=session)
             else:
                 new_rule.state = RuleState.REPLICATING
                 if new_rule.grouping != RuleGrouping.NONE:
@@ -363,7 +377,12 @@ def add_rules(dids, rules, session=None):
                             raise StagingAreaRuleRequiresLifetime()
 
                     # Check SCRATCHDISK Policy
-                    rule['lifetime'] = get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
+                    try:
+                        lifetime = get_scratch_policy(rule.get('account'), rses, rule.get('lifetime', None), session=session)
+                    except UndefinedPolicy:
+                        lifetime = rule.get('lifetime', None)
+
+                    rule['lifetime'] = lifetime
 
                     # 4.5 Get the lifetime
                     eol_at = define_eol(did.scope, did.name, rses, session=session)
@@ -429,9 +448,9 @@ def add_rules(dids, rules, session=None):
                             new_rule.save(session=session)
                         except IntegrityError as error:
                             if match('.*ORA-00001.*', str(error.args[0])):
-                                raise DuplicateRule()
+                                raise DuplicateRule(error.args[0])
                             elif str(error.args[0]) == '(IntegrityError) UNIQUE constraint failed: rules.scope, rules.name, rules.account, rules.rse_expression, rules.copies':
-                                raise DuplicateRule()
+                                raise DuplicateRule(error.args[0])
                             raise InvalidReplicationRule(error.args[0])
 
                         rule_ids[(did.scope, did.name)].append(new_rule.id)
@@ -496,9 +515,9 @@ def add_rules(dids, rules, session=None):
                         if new_rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.OK})
                             session.flush()
-                            generate_message_for_dataset_ok_callback(rule=new_rule, session=session)
                         if new_rule.notification == RuleNotification.YES:
                             generate_email_for_rule_ok_notification(rule=new_rule, session=session)
+                        generate_rule_notifications(rule=new_rule, session=session)
                     else:
                         new_rule.state = RuleState.REPLICATING
                         if new_rule.grouping != RuleGrouping.NONE:
@@ -621,9 +640,9 @@ def inject_rule(rule_id, session=None):
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                 session.flush()
-                generate_message_for_dataset_ok_callback(rule=rule, session=session)
             if rule.notification == RuleNotification.YES:
                 generate_email_for_rule_ok_notification(rule=rule, session=session)
+            generate_rule_notifications(rule=rule, session=session)
             # Try to release potential parent rules
             release_parent_rule(child_rule_id=rule.id, session=session)
         else:
@@ -1050,9 +1069,9 @@ def repair_rule(rule_id, session=None):
         if rule.grouping != RuleGrouping.NONE:
             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
             session.flush()
-            generate_message_for_dataset_ok_callback(rule=rule, session=session)
         if rule.notification == RuleNotification.YES:
             generate_email_for_rule_ok_notification(rule=rule, session=session)
+        generate_rule_notifications(rule=rule, session=session)
         # Try to release potential parent rules
         rucio.core.rule.release_parent_rule(child_rule_id=rule.id, session=session)
 
@@ -1115,8 +1134,11 @@ def update_rule(rule_id, options, session=None):
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
                 rses = parse_expression(rule.rse_expression, session=session)
-                lifetime = get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
-                rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if options['lifetime'] is not None else None
+                try:
+                    lifetime = get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
+                except UndefinedPolicy:
+                    lifetime = options['lifetime']
+                rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
 
@@ -1218,7 +1240,7 @@ def update_rule(rule_id, options, session=None):
            or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
            or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
            or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
-            raise DuplicateRule()
+            raise DuplicateRule(error.args[0])
         else:
             raise error
     except NoResultFound:
@@ -1658,9 +1680,9 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                 session.flush()
-                if rule_state_before != RuleState.OK:
-                    generate_message_for_dataset_ok_callback(rule=rule, session=session)
-                    generate_email_for_rule_ok_notification(rule=rule, session=session)
+            if rule_state_before != RuleState.OK:
+                generate_rule_notifications(rule=rule, session=session)
+                generate_email_for_rule_ok_notification(rule=rule, session=session)
             # Try to release potential parent rules
             release_parent_rule(child_rule_id=rule.id, session=session)
         # Insert rule history
@@ -1760,9 +1782,9 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
 
 
 @transactional_session
-def generate_message_for_dataset_ok_callback(rule, session=None):
+def generate_rule_notifications(rule, session=None):
     """
-    Generate (If necessary) a callback for a rule (DATASETLOCK_OK)
+    Generate (If necessary) a callback for a rule (DATASETLOCK_OK, RULE_OK)
 
     :param rule:     The rule object.
     :param session:  The Database session
@@ -1770,33 +1792,57 @@ def generate_message_for_dataset_ok_callback(rule, session=None):
 
     session.flush()
 
-    if rule.state == RuleState.OK and rule.grouping != RuleGrouping.NONE:
+    if rule.state == RuleState.OK:
+        # Only notify when rule is in state OK
+
+        # RULE_OK NOTIFICATIONS:
         if rule.notification == RuleNotification.YES:
-            dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
-            for dataset_lock in dataset_locks:
-                add_message(event_type='DATASETLOCK_OK',
-                            payload={'scope': dataset_lock.scope,
-                                     'name': dataset_lock.name,
-                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
-                                     'rule_id': rule.id},
-                            session=session)
+            add_message(event_type='RULE_OK',
+                        payload={'scope': rule.scope,
+                                 'name': rule.name,
+                                 'rule_id': rule.id},
+                        session=session)
         elif rule.notification == RuleNotification.CLOSE:
-            dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
-            for dataset_lock in dataset_locks:
-                try:
-                    did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
-                    if not did['open']:
-                        if did['length'] is None:
-                            return
-                        if did['length'] * rule.copies == rule.locks_ok_cnt:
-                            add_message(event_type='DATASETLOCK_OK',
-                                        payload={'scope': dataset_lock.scope,
-                                                 'name': dataset_lock.name,
-                                                 'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
-                                                 'rule_id': rule.id},
-                                        session=session)
-                except DataIdentifierNotFound:
-                    pass
+            try:
+                did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
+                if not did['open']:
+                    add_message(event_type='RULE_OK',
+                                payload={'scope': rule.scope,
+                                         'name': rule.name,
+                                         'rule_id': rule.id},
+                                session=session)
+            except DataIdentifierNotFound:
+                pass
+
+        # DATASETLOCK_OK NOTIFICATIONS:
+        if rule.grouping != RuleGrouping.NONE:
+            # Only send DATASETLOCK_OK callbacks for ALL/DATASET grouped rules
+            if rule.notification == RuleNotification.YES:
+                dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
+                for dataset_lock in dataset_locks:
+                    add_message(event_type='DATASETLOCK_OK',
+                                payload={'scope': dataset_lock.scope,
+                                         'name': dataset_lock.name,
+                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                                         'rule_id': rule.id},
+                                session=session)
+            elif rule.notification == RuleNotification.CLOSE:
+                dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
+                for dataset_lock in dataset_locks:
+                    try:
+                        did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
+                        if not did['open']:
+                            if did['length'] is None:
+                                return
+                            if did['length'] * rule.copies == rule.locks_ok_cnt:
+                                add_message(event_type='DATASETLOCK_OK',
+                                            payload={'scope': dataset_lock.scope,
+                                                     'name': dataset_lock.name,
+                                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                                                     'rule_id': rule.id},
+                                            session=session)
+                    except DataIdentifierNotFound:
+                        pass
 
 
 @transactional_session
@@ -2273,9 +2319,9 @@ def __evaluate_did_detach(eval_did, session=None):
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                     session.flush()
-                    if rule_locks_ok_cnt_before != rule.locks_ok_cnt:
-                        generate_message_for_dataset_ok_callback(rule=rule, session=session)
-                        generate_email_for_rule_ok_notification(rule=rule, session=session)
+                if rule_locks_ok_cnt_before != rule.locks_ok_cnt:
+                    generate_rule_notifications(rule=rule, session=session)
+                    generate_email_for_rule_ok_notification(rule=rule, session=session)
                 # Try to release potential parent rules
                 release_parent_rule(child_rule_id=rule.id, session=session)
 
@@ -2456,9 +2502,9 @@ def __evaluate_did_attach(eval_did, session=None):
                             if rule.grouping != RuleGrouping.NONE:
                                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                                 session.flush()
-                                if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
-                                    generate_message_for_dataset_ok_callback(rule=rule, session=session)
-                                    generate_email_for_rule_ok_notification(rule=rule, session=session)
+                            if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
+                                generate_rule_notifications(rule=rule, session=session)
+                                generate_email_for_rule_ok_notification(rule=rule, session=session)
 
                         # Insert rule history
                         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)

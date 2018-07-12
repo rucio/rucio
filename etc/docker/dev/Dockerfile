@@ -1,93 +1,116 @@
-# Copyright 2017
-#   European Organization for Nuclear Research (CERN)
-#   University of Oslo (Norway)
-# for the benefit of the ATLAS collaboration
+# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
-# - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 
 FROM rucio/rucio-systemd-cc7
 
 ADD etc/docker/dev/ca.repo /etc/yum.repos.d/ca.repo
 
-RUN yum -y update
-RUN yum clean all
+RUN yum -y update && yum clean all && yum install -y epel-release &&\
+    yum install -y \
+      gcc \
+      httpd \
+      mod_ssl \
+      mod_auth_kerb \
+      mod_wsgi \
+      python \
+      python-pip \
+      python-virtualenv \
+      python-devel \
+      python34 \
+      python34-pip \
+      python34-devel \
+      gmp-devel \
+      krb5-devel \
+      git \
+      openssl-devel \
+      gridsite \
+      which \
+      libaio \
+      mysql-devel &&\
+    rm -rf /usr/lib/python2.7/site-packages/ipaddress*
 
-RUN yum install -y ca-certificates.noarch
-RUN yum install -y epel-release.noarch
+ENV RUCIOHOME=/opt/rucio
+RUN mkdir -p $RUCIOHOME
+WORKDIR $RUCIOHOME
+RUN mkdir -p \
+      bin \
+      etc \
+      lib/rucio \
+      tools
 
-RUN yum install -y gcc python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 lcg-CA gridsite MySQL-python which
+COPY .pep8 .pep8
+COPY .flake8 .flake8
+COPY pylintrc /etc/pylintrc
+COPY etc etc
+COPY tools tools
 
-RUN pip install --upgrade pip
+#RUN virtualenv env
+#RUN env/bin/pip install --upgrade pip && env/bin/pip install --upgrade setuptools &&\
+#    env/bin/pip install \
+#      -r tools/pip-requires-client \
+#      -r tools/pip-requires \
+#      -r tools/pip-requires-test \
+#      MySQL-python
+RUN pip install --upgrade pip && pip install --upgrade setuptools &&\
+    pip install \
+      -r tools/pip-requires-client \
+      -r tools/pip-requires \
+      -r tools/pip-requires-test &&\
+    ln -s $RUCIOHOME/lib/rucio /usr/lib/python2.7/site-packages/rucio &&\
+    ln -s $RUCIOHOME/lib/rucio /usr/lib/python3.4/site-packages/rucio
+#RUN ln -s ../../../../lib/rucio env/lib/python2.7/site-packages/rucio
 
-# Uncomment if oracle clients are needed (only works from inside CERN)
-#RUN yum-config-manager --enable cernonly
-#RUN yum install -y oracle-instantclient11.2-devel.x86_64 oracle-instantclient11.2-basic.x86_64 oracle-instantclient11.2-sqlplus.x86_64
-#RUN echo "/usr/lib/oracle/11.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf
-#RUN ldconfig
-#RUN pip install cx_Oracle
+RUN mkdir /var/log/rucio /var/log/rucio/trace && chmod 777 /var/log/rucio
 
-WORKDIR /opt
+COPY etc/docker/dev/rucio.cfg etc/rucio.cfg
+COPY etc/alembic.ini.template etc/alembic.ini
+COPY etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
+COPY etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
+COPY etc/docker/dev/httpd.conf /etc/httpd/conf/httpd.conf
+COPY etc/docker/dev/rucio.conf /etc/httpd/conf.d/rucio.conf
+COPY etc/docker/dev/certs/ca.pem $RUCIOHOME/etc/web/CERN-bundle.pem
+COPY etc/docker/dev/certs/ca.pem $RUCIOHOME/etc/web/ca.crt
+COPY etc/docker/dev/certs/usercert.pem $RUCIOHOME/etc/web/usercert.pem
+COPY etc/docker/dev/certs/server.crt /etc/grid-security/hostcert.pem
+COPY etc/docker/dev/certs/server.key /etc/grid-security/hostkey.pem
 
-RUN mkdir /opt/rucio
-
-COPY .pep8 /opt/rucio/
-COPY .flake8 /opt/rucio/
-COPY pylintrc /opt/rucio/
-
-RUN mkdir /opt/rucio/bin
-
-RUN mkdir /opt/rucio/etc
-COPY etc /opt/rucio/etc
-
-RUN mkdir -p /opt/rucio/lib/rucio
-
-RUN mkdir /opt/rucio/tools
-COPY tools /opt/rucio/tools
-
-WORKDIR /opt/rucio
-
-RUN pip install -r tools/pip-requires-client
-RUN pip install -r tools/pip-requires
-RUN pip install -r tools/pip-requires-test
-
-RUN ln -s /opt/rucio/lib/rucio /usr/lib/python2.7/site-packages/rucio
-
-ADD etc/docker/dev/rucio.cfg etc/
-RUN cp etc/alembic.ini.template etc/alembic.ini
-ADD etc/docker/dev/aliases-py27.conf etc/web/
-RUN chmod 755 -R /opt/rucio/
-
-RUN mkdir /var/log/rucio
-RUN mkdir /var/log/rucio/trace
-RUN chmod 777 /var/log/rucio
-
-ADD etc/docker/dev/httpd.conf /etc/httpd/conf/httpd.conf
-ADD etc/docker/dev/rucio.conf /etc/httpd/conf.d/rucio.conf
-
-ADD etc/docker/dev/certs/ca.pem /opt/rucio/etc/web/CERN-bundle.pem
-ADD etc/docker/dev/certs/ca.pem /opt/rucio/etc/web/ca.crt
-ADD etc/docker/dev/certs/usercert.pem /opt/rucio/etc/web/usercert.pem
-
-ADD etc/docker/dev/certs/server.crt /etc/grid-security/hostcert.pem
-ADD etc/docker/dev/certs/server.key /etc/grid-security/hostkey.pem
-RUN chmod 400 /etc/grid-security/hostkey.pem
-
-WORKDIR /opt/rucio
-
-RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf
+RUN chmod 400 /etc/grid-security/hostkey.pem &&\
+    rm -rf $RUCIOHOME/tools && mkdir -p $RUCIOHOME/tools &&\
+    mkdir -p /etc/httpd &&\
+    echo "" > /etc/httpd/conf.d/ssl.conf &&\
+    echo "" > /etc/httpd/conf.d/autoindex.conf &&\
+    echo "" > /etc/httpd/conf.d/userdir.conf &&\
+    echo "" > /etc/httpd/conf.d/welcome.conf &&\
+    echo "" > /etc/httpd/conf.d/ssl.conf &&\
+    echo "" > /etc/httpd/conf.d/autoindex.conf &&\
+    echo "" > /etc/httpd/conf.d/userdir.conf &&\
+    echo "" > /etc/httpd/conf.d/welcome.conf
 
 EXPOSE 443
+ENV PATH $PATH:$RUCIOHOME/bin
 
-ENV PATH $PATH:/opt/rucio/bin
+#COPY etc/docker/dev/entrypoint.sh /entrypoint.sh
+#ENTRYPOINT ["/entrypoint.sh"]
 
-RUN rm -rf /opt/rucio/tools && mkdir -p /opt/rucio/tools
+#ENV VIRTUAL_ENV $RUCIOHOME/env
+#ENV PATH $VIRTUAL_ENV/bin:$PATH
+#RUN hash -r
 
 CMD ["httpd","-D","FOREGROUND"]

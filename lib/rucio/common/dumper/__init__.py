@@ -1,17 +1,25 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Fernando Lopez, <felopez@cern.ch>, 2015
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
-'''
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Fernando Lopez <felopez@cern.ch>, 2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from rucio.common import config
+
 import contextlib
 import datetime
 import gzip
@@ -28,7 +36,7 @@ try:
     import gfal2
     from gfal2 import GError
 except ImportError as e:
-    if 'nose' not in sys.modules and 'py.test' not in sys.modules:
+    if 'nose' not in sys.modules and 'py.test' not in sys.modules and 'sphinx' not in sys.modules:
         raise e
 
 # bz2 module doesn't support multi-stream files in Python < 3.3
@@ -265,7 +273,9 @@ def agis_endpoints_data(cache=True):
 def ddmendpoint_url(ddmendpoint):
     agisdata = agis_endpoints_data()
     endpointdata = next(entry for entry in agisdata if entry['name'] == ddmendpoint)
-    return str(''.join((endpointdata['se'], endpointdata['endpoint'])))
+    protocoldata = endpointdata['arprotocols']['read_wan'][0]
+    return str(''.join([protocoldata['endpoint'],
+                       re.sub(r'rucio/$', '', protocoldata['path'])]))
 
 # Using AGIS is better to avoid the use of ATLAS credentials, but using
 # rucio.client for the same task is also possible:
@@ -308,7 +318,7 @@ def http_download(url, filename):
         http_download_to_file(url, f)
 
 
-def srm_download_to_file(url, file_):
+def gfal_download_to_file(url, file_):
     '''
     Download the file in `url` storing it in the `file_` file-like
     object.
@@ -333,9 +343,9 @@ def srm_download_to_file(url, file_):
         chunk = infile.read(CHUNK_SIZE)
 
 
-def srm_download(url, filename):
+def gfal_download(url, filename):
     '''
     Download the file in `url` storing it in the path given by `filename`.
     '''
     with open(filename, 'w') as f:
-        srm_download_to_file(url, f)
+        gfal_download_to_file(url, f)

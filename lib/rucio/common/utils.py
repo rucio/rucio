@@ -1,47 +1,106 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Tobias Wegner <twegner@cern.ch>, 2018
+
+from __future__ import print_function
 
 import base64
 import datetime
 import errno
 import hashlib
+import imp
 import json
+import logging
 import os
 import pwd
 import re
+import requests
 import socket
 import subprocess
+import urllib
 import zlib
 
 from getpass import getuser
-from itertools import izip_longest
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
-from urllib import urlencode, quote
 from uuid import uuid4 as uuid
-from StringIO import StringIO
-
-from rucio.common.config import config_get
 
 try:
-    # Hack for the client distribution
-    from web import HTTPError
-    from rucio.db.sqla.enum import EnumSymbol
-except:
-    pass
+    # Python 2
+    from itertools import izip_longest
+except ImportError:
+    # Python 3
+    from itertools import zip_longest as izip_longest
+try:
+    # Python 2
+    from urllib import urlencode, quote
+except ImportError:
+    # Python 3
+    from urllib.parse import urlencode, quote
+try:
+    # Python 2
+    from StringIO import StringIO
+except ImportError:
+    # Python 3
+    from io import StringIO
+try:
+    # Python 2
+    import urlparse
+except ImportError:
+    # Python 3
+    import urllib.parse as urlparse
 
+from rucio.common.config import config_get
+from rucio.common.exception import MissingModuleException
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'web': False,
+                 'paramiko': False,
+                 'flask': False}
+
+try:
+    from rucio.db.sqla.enum import EnumSymbol
+    EXTRA_MODULES['rucio.db.sqla.enum'] = True
+except ImportError:
+    EXTRA_MODULES['rucio.db.sqla.enum'] = False
+
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['web']:
+    from web import HTTPError
+
+if EXTRA_MODULES['paramiko']:
+    from paramiko import RSAKey
+
+if EXTRA_MODULES['flask']:
+    from flask import Response
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
 codes = {
@@ -115,13 +174,13 @@ def adler32(file):
     """
 
     # adler starting value is _not_ 0
-    adler = 1L
+    adler = 1
 
     try:
         openFile = open(file, 'rb')
         for line in openFile:
             adler = zlib.adler32(line, adler)
-    except:
+    except Exception:
         raise Exception('FATAL - could not get checksum of file %s' % file)
 
     # backflip on 32bit
@@ -142,7 +201,7 @@ def md5(file):
     try:
         with open(file, "rb") as f:
             map(hash_md5.update, iter(lambda: f.read(4096), b""))
-    except:
+    except Exception:
         raise Exception('FATAL - could not get MD5 checksum of file %s' % file)
 
     return hash_md5.hexdigest()
@@ -198,11 +257,15 @@ def render_json_list(l):
 def datetime_parser(dct):
     """ datetime parser
     """
-    for k, v in dct.items():
-        if isinstance(v, basestring) and re.search(" UTC", v):
+    try:
+        varType = basestring
+    except NameError:
+        varType = str
+    for k, v in list(dct.items()):
+        if isinstance(v, varType) and re.search(" UTC", v):
             try:
                 dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
-            except:
+            except Exception:
                 pass
     return dct
 
@@ -210,7 +273,7 @@ def datetime_parser(dct):
 def parse_response(data):
     """ JSON render function
     """
-    return json.loads(data, object_hook=datetime_parser)
+    return json.loads(data.decode('utf-8'), object_hook=datetime_parser)
 
 
 def generate_http_error(status_code, exc_cls, exc_msg):
@@ -221,7 +284,6 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     :param exc_msg: The error message.
     :returns: a web.py HTTP response object.
     """
-
     status = codes[status_code]
     data = {'ExceptionClass': exc_cls,
             'ExceptionMessage': exc_msg}
@@ -233,12 +295,36 @@ def generate_http_error(status_code, exc_cls, exc_msg):
                'ExceptionMessage': clean_headers(exc_msg)}
     try:
         return HTTPError(status, headers=headers, data=render_json(**data))
-    except:
-        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+    except Exception:
+        print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
         raise
 
 
-def execute(cmd):
+def generate_http_error_flask(status_code, exc_cls, exc_msg):
+    """
+    utitily function to generate a complete HTTP error response.
+    :param status_code: The HTTP status code to generate a response for.
+    :param exc_cls: The name of the exception class to send with the response.
+    :param exc_msg: The error message.
+    :returns: a web.py HTTP response object.
+    """
+    data = {'ExceptionClass': exc_cls,
+            'ExceptionMessage': exc_msg}
+    # Truncate too long exc_msg
+    if len(str(exc_msg)) > 15000:
+        exc_msg = str(exc_msg)[:15000]
+    resp = Response(response=render_json(**data), status=status_code, content_type='application/octet-stream')
+    resp.headers['ExceptionClass'] = exc_cls
+    resp.headers['ExceptionMessage'] = clean_headers(exc_msg)
+
+    try:
+        return resp
+    except Exception:
+        print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
+        raise
+
+
+def execute(cmd, blocking=True):
     """
     Executes a command in a subprocess. Returns a tuple
     of (exitcode, out, err), where out is the string output
@@ -257,11 +343,12 @@ def execute(cmd):
     err = ''
     exitcode = 0
 
-    result = process.communicate()
-    (out, err) = result
-    exitcode = process.returncode
-
-    return exitcode, out, err
+    if blocking:
+        result = process.communicate()
+        (out, err) = result
+        exitcode = process.returncode
+        return exitcode, out, err
+    return process
 
 
 def rse_supported_protocol_operations():
@@ -285,7 +372,7 @@ def chunks(l, n):
     """
     Yield successive n-sized chunks from l.
     """
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):
         yield l[i:i + n]
 
 
@@ -494,7 +581,7 @@ def get_tmp_dir():
     user, tmp_dir = None, None
     try:
         user = pwd.getpwuid(os.getuid()).pw_name
-    except:
+    except Exception:
         pass
 
     for env_var in ('TMP', 'TMPDIR', 'TEMP'):
@@ -551,7 +638,7 @@ def detect_client_location():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
-    except:
+    except Exception:
         pass
 
     site = os.environ.get('SITE_NAME',
@@ -572,9 +659,8 @@ def ssh_sign(private_key, message):
     :param message: The message to sign as a string.
     :return: Base64 encoded signature as a string.
     """
-
-    from paramiko import RSAKey
-
+    if not EXTRA_MODULES['paramiko']:
+        raise MissingModuleException('The paramiko module is not installed.')
     sio_private_key = StringIO(private_key)
     priv_k = RSAKey.from_private_key(sio_private_key)
     sio_private_key.close()
@@ -598,3 +684,47 @@ def make_valid_did(lfn_dict):
     lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
     del lfn_copy['filename']
     return lfn_copy
+
+
+def send_trace(trace, trace_endpoint, user_agent, retries=5, logger=None, log_prefix=''):
+    """
+    Send the given trace to the trace endpoint
+
+    :param trace: the trace dictionary to send
+    :param trace_endpoint: the endpoint where the trace should be send
+    :param user_agent: the user agent sending the trace
+    :param retries: the number of retries if sending fails
+    :param logger: the logger object to put debug output, None means no logging
+    :param log_prefix: a string that will be put in front of each debug msg
+    :return: 0 on success, 1 on failure
+    """
+    if not logger:
+        logger = logging.getLogger(__name__).getChild('null')
+        logger.disabled = True
+    if user_agent.startswith('pilot'):
+        logger.debug('%spilot detected - not sending trace' % log_prefix)
+        return 0
+    logger.debug('%ssending trace' % log_prefix)
+    for dummy in range(retries):
+        try:
+            requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
+            return 0
+        except Exception as error:
+            logger.debug('%s%s' % (log_prefix, error))
+    return 1
+
+
+def add_url_query(url, query):
+    """
+    Add a new dictionary to URL parameters
+
+    :param url: The existing URL
+    :param query: A dictionary containing key/value pairs to be added to the URL
+    :return: The expanded URL with the new query parameters
+    """
+
+    url_parts = list(urlparse.urlparse(url))
+    mod_query = dict(urlparse.parse_qsl(url_parts[4]))
+    mod_query.update(query)
+    url_parts[4] = urllib.urlencode(mod_query)
+    return urlparse.urlunparse(url_parts)

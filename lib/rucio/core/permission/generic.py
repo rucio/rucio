@@ -1,15 +1,22 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -91,7 +98,8 @@ def has_permission(issuer, action, kwargs):
             'list_heartbeats': perm_list_heartbeats,
             'resurrect': perm_resurrect,
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
-            'get_ssh_challenge_token': perm_get_ssh_challenge_token}
+            'get_ssh_challenge_token': perm_get_ssh_challenge_token,
+            'get_signed_url': perm_get_signed_url}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -803,3 +811,13 @@ def perm_get_ssh_challenge_token(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return True
+
+
+def perm_get_signed_url(issuer, kwargs):
+    """
+    Checks if an account can request a signed URL.
+
+    :param issuer: Account identifier which issues the command.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'

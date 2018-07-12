@@ -1,16 +1,26 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0OA
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
+# - Tomas Kouba <tomas.kouba@cern.ch>, 2014
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
 
 """
 Conveyor transfer submitter is a daemon to manage non-tape file transfers.
@@ -32,14 +42,19 @@ from threadpool import ThreadPool, makeRequests
 from rucio.common.config import config_get
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
-from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses
+from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
 from rucio.db.sqla.constants import RequestState
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
+
+USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 
 def submitter(once=False, rses=[], mock=False,
@@ -112,11 +127,16 @@ def submitter(once=False, rses=[], mock=False,
                 rse_ids = [rse['id'] for rse in rses]
             else:
                 rse_ids = None
-
             for activity in activities:
                 if activity_next_exe_time[activity] > time.time():
                     graceful_stop.wait(1)
                     continue
+
+                user_transfer = False
+
+                if activity in USER_ACTIVITY and USER_TRANSFERS in ['cms']:
+                    logging.info("CMS user transfer activity")
+                    user_transfer = True
 
                 logging.info("%s:%s Starting to get transfer transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
@@ -141,22 +161,35 @@ def submitter(once=False, rses=[], mock=False,
                 # group transfers
                 logging.info("%s:%s Starting to group transfers for %s" % (process, hb['assign_thread'], activity))
                 ts = time.time()
+
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy, max_time_in_queue)
                 record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
 
                 logging.info("%s:%s Starting to submit transfers for %s" % (process, hb['assign_thread'], activity))
+
                 for external_host in grouped_jobs:
-                    for job in grouped_jobs[external_host]:
-                        # submit transfers
-                        # job_requests = makeRequests(submit_transfer, args_list=[((external_host, job, 'transfer_submitter', process, thread), {})])
-                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host,
-                                                                                      'job': job,
-                                                                                      'submitter':
-                                                                                      'transfer_submitter',
-                                                                                      'process': process,
-                                                                                      'thread': hb['assign_thread'],
-                                                                                      'timeout': timeout})])
-                        [threadPool.putRequest(job_req) for job_req in job_requests]
+                    if not user_transfer:
+                        for job in grouped_jobs[external_host]:
+                            # submit transfers
+                            job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host,
+                                                                                          'job': job,
+                                                                                          'submitter': 'transfer_submitter',
+                                                                                          'process': process,
+                                                                                          'thread': hb['assign_thread'],
+                                                                                          'timeout': timeout})])
+                            [threadPool.putRequest(job_req) for job_req in job_requests]
+                    else:
+                        for user, jobs in grouped_jobs[external_host].iteritems():
+                            # submit transfers
+                            for job in jobs:
+                                job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host,
+                                                                                              'job': job,
+                                                                                              'submitter': 'transfer_submitter',
+                                                                                              'process': process,
+                                                                                              'thread': hb['assign_thread'],
+                                                                                              'timeout': timeout,
+                                                                                              'user_transfer_job': user_transfer})])
+                                [threadPool.putRequest(job_req) for job_req in job_requests]
                 threadPool.wait()
 
                 if len(transfers) < group_bulk:

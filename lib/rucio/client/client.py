@@ -1,14 +1,24 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2017
-# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2016
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
 
 """
 Client class for callers of the Rucio system
@@ -33,7 +43,7 @@ class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaC
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         """
         Constructor for the Rucio main client class.
 

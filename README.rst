@@ -1,3 +1,15 @@
+.. -*- mode: rst -*-
+
+Build Status:
+
+.. image:: https://travis-ci.org/rucio/rucio.svg?branch=master
+   :target: https://travis-ci.org/rucio/rucio
+   :alt: Master
+
+.. image:: https://readthedocs.org/projects/rucio/badge/?version=latest
+   :target: http://rucio.readthedocs.io/en/latest/
+   :alt: Documentation
+
 Rucio
 ======
 
@@ -34,4 +46,3 @@ Getting Support
 
 If you are looking for support, please contact our mailing list rucio-users@googlegroups.com
 or join us on our slack `support <https://rucio.slack.com/messages/#support>`_ channel.
-

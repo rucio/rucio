@@ -1,12 +1,23 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
 
-  Authors:
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
-'''
+from __future__ import print_function
 
 from json import loads
 from requests.status_codes import codes
@@ -22,7 +33,7 @@ class LifetimeClient(BaseClient):
 
     LIFETIME_BASEURL = 'lifetime_exceptions'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         super(LifetimeClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
     def list_exceptions(self, exception_id=None, states=None):
@@ -64,9 +75,9 @@ class LifetimeClient(BaseClient):
         path = self.LIFETIME_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids, 'account': account, 'pattern': pattern, 'comments': comments, 'expires_at': expires_at}
-        print render_json(**data)
+        print(render_json(**data))
         result = self._send_request(url, type='POST', data=render_json(**data))
-        print result.text
+        print(result.text)
         if result.status_code == codes.created:
             return loads(result.text)
         exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)

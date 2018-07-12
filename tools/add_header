@@ -1,0 +1,193 @@
+#!/usr/bin/env python
+# coding=utf-8
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
+
+'''
+Utility script to generate header file
+Usage: add_header {file name}
+'''
+
+import argparse
+import collections
+try:
+    import commands
+except ImportError:
+    import subprocess as commands
+import datetime
+import sys
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--script', '-s', dest='script', action='store_true', default=False,
+                        help='Generate header for python script.')
+    parser.add_argument('--documentation', '-D', dest='documentation', action='store_true', default=False,
+                        help='Generate header for documentation file.')
+    parser.add_argument('--in-place', '-i', action='store_true', default=False,
+                        help='Edit files in-place (otherwise prepend).')
+    parser.add_argument('--dry-run', '-d', action='store_true', help='Dry run mode')
+    parser.add_argument(dest='MyFiles', action='store', nargs='+', default=None, help='The files')
+
+    arguments = parser.parse_args()
+    format = '%aN,<%aE>,%ad'
+    now = datetime.datetime.now()
+
+    # Get username and mail from git
+    cmd = 'git config --global user.name'
+    status, username = commands.getstatusoutput(cmd)
+    username = username.strip()
+    cmd = 'git config --global user.email'
+    status, email = commands.getstatusoutput(cmd)
+    email = email.strip()
+    email = '<%s>' % email
+
+    for MyFile in arguments.MyFiles:
+        # Query log history
+        cmd = '''git log --reverse --date=short --format='%s'  %s ''' % (format, MyFile)
+        status, output = commands.getstatusoutput(cmd)
+
+        # parse git log output
+        authors = collections.OrderedDict()
+        min, max = now.year, now.year
+        for line in output.split('\n'):
+            # remove leading and trailing whitespace
+            line = line.strip()
+            if line == '':
+                continue
+
+            # split the line into words
+            author, mail, date = line.split(',')
+            year = int(date.split('-')[0])
+
+            if int(min) > int(year):
+                min = year
+
+            if author not in authors:
+                authors[author] = {'name': author,
+                                   'mail': mail,
+                                   'max': year,
+                                   'min': year}
+            else:
+                if year > authors[author]['max']:
+                    authors[author]['max'] = year
+                if year < authors[author]['min']:
+                    authors[author]['min'] = year
+
+            if authors[author]['name'] == username:
+                authors[author]['max'] = now.year
+
+        if username not in authors:
+            authors[username] = {'name': username,
+                                 'mail': email,
+                                 'max': max,
+                                 'min': now.year}
+
+        header = ''
+        if arguments.documentation:
+
+            if int(min) == int(max):
+                header += '..  Copyright %s CERN for the benefit of the ATLAS collaboration.\n' % max
+            else:
+                header += '..  Copyright %s-%s CERN for the benefit of the ATLAS collaboration.\n' % (min, max)
+            header += '''    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+
+     Authors:\n'''
+            for author in authors:
+                if int(authors[author]['min']) == int(authors[author]['max']):
+                    header += '   - %(name)s %(mail)s, %(min)s\n' % authors[author]
+                else:
+                    header += '   - %(name)s %(mail)s, %(min)s-%(max)s\n' % authors[author]
+
+            if not arguments.dry_run:
+                    with open(MyFile, 'r') as original:
+                        data = original.read()
+
+                    with open(MyFile, 'w') as modified:
+                        modified.write(header + data)
+            else:
+                print(header)
+
+            sys.exit(0)
+
+        if arguments.script:
+            header = '#!/usr/bin/env python\n'
+
+        if int(min) == int(max):
+            header += '# Copyright %s CERN for the benefit of the ATLAS collaboration.\n' % max
+        else:
+            header += '# Copyright %s-%s CERN for the benefit of the ATLAS collaboration.\n' % (min, max)
+
+        header += '''#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+'''
+        for author in authors:
+            if int(authors[author]['min']) == int(authors[author]['max']):
+                header += '# - %(name)s %(mail)s, %(min)s\n' % authors[author]
+            else:
+                header += '# - %(name)s %(mail)s, %(min)s-%(max)s\n' % authors[author]
+
+        # Remove non ascii characters
+        special_characters = (('í', 'i'),
+                              ('ó', 'o'),
+                              ('á', 'a'),
+                              ('š', 's'))
+        for old, new in special_characters:
+            header = header.replace(old, new)
+
+        if not arguments.dry_run:
+
+            if not arguments.in_place:
+                with open(MyFile, 'r') as original:
+                    data = original.read()
+
+                with open(MyFile, 'w') as modified:
+                    modified.write(header + data)
+            else:
+
+                with open(MyFile, 'r') as original:
+                    lines = original.readlines()
+
+                with open(MyFile, 'w') as modified:
+                    modified.write(header)
+                    for line in lines:
+                        if not line.startswith('#'):
+                            modified.write(line)
+        else:
+            print(header)

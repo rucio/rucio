@@ -1,23 +1,32 @@
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
+# - WeiJen Chang <e4523744@gmail.com>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+
 '''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-  - JingYa You, <jingya.you@twgrid.org>, 2014
-  - ChengHsi Chao, <chenghsi.chao@twgrid.org>, 2014
-  - Ookey Lai, <ookey.lai@twgird.org>, 2014
-  - HuoHao Ho, <luke.ho@twgrid.org>, 2014
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-
 Compatibility Wrapper for DQ2 and Rucio.
      http://svnweb.cern.ch/world/wsvn/dq2/trunk/dq2.clients/lib/dq2/clientapi/DQ2.py
 '''
-# pylint: skip-file
+
+from __future__ import print_function
 
 import copy
 import hashlib
@@ -37,11 +46,11 @@ def validate_time_formats(time_string):
                      r'((?P<hours>\d+):(?P<minutes>\d+):(?P<seconds>\d+))?',
                      str(time_string))
 
-        if not filter(lambda r: r[1], d.groupdict().items()):
+        if not filter(lambda r: r[1], list(d.groupdict().items())):
             err_msg = 'Parameter value [%s] is not a valid time delta !' % (time_string)
             raise InputValidationError(err_msg)
 
-        delta = timedelta(**dict([(key, (value and int(value) or 0)) for key, value in d.groupdict(0).items()]))
+        delta = timedelta(**dict([(key, (value and int(value) or 0)) for key, value in list(d.groupdict(0).items())]))
         return delta
     except:
         err_msg = 'Parameter value [%s] is not a valid time delta !' % (time_string)
@@ -571,7 +580,7 @@ class DQ2Client:
         elif False:
             # The old way
             for f in self.client.list_replicas(dids=[{'scope': scope, 'name': dsn}], schemes=['srm']):
-                rses = f['rses'].keys()
+                rses = list(f['rses'].keys())
                 if not f['name'] in files:
                     files.append(f['name'])
                     for rse in rses:
@@ -634,7 +643,7 @@ class DQ2Client:
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
                 result['%s:%s' % (i['scope'], i['name'])] = {vuid: replicas}
 
-        for dsn in result.keys():
+        for dsn in list(result.keys()):
             dscope, name = dsn.split(':')
             replicas = self.listDatasetReplicas(scope=dscope, dsn=name, old=True)
             result[dsn] = replicas
@@ -1024,7 +1033,7 @@ class DQ2Client:
             rse_dict = {}
         for f in self.client.list_replicas(dids=[{'scope': scope, 'name': dsn}]):
             # rses the file is in
-            in_rse = f['rses'].keys()
+            in_rse = list(f['rses'].keys())
             for rse in in_rse:
                 rse = str(rse)
                 if rse not in rse_dict and not locations:
@@ -1144,7 +1153,7 @@ class DQ2Client:
         creationdate = datetime.now()
         for rule in self.client.list_did_rules(scope, dsn):
             if rule['state'] != 'OK' and (location == rule['rse_expression']):  # or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]):
-                print rule
+                print(rule)
                 if rule['created_at'] < creationdate:
                     id = rule['id']
                     id = '%s-%s-%s-%s-%s' % (id[0:8], id[8:12], id[12:16], id[16:20], id[20:32])
@@ -1285,7 +1294,7 @@ class DQ2Client:
                     result.append({'files': None, 'key': 'srm', 'datasets': None, 'tera': d['total'] / 1024. / 1024. / 1024. / 1024, 'giga': d['total'] / 1024. / 1024. / 1024,
                                    'mega': d['total'] / 1024. / 1024., 'bytes': d['total'], 'timestamp': str(d['updated_at']), 'value': 'total', 'location': rse})
                 except StopIteration:
-                    print 'Error'
+                    print('Error')
                 except RSENotFound:
                     # In DQ2 it does not fail if the site does not exist
                     pass
@@ -1329,7 +1338,7 @@ class DQ2Client:
             name = name[:-1]
         self.client.add_container(scope=scope, name=name)
         if datasets:
-            self.client.add_datasets_to_container(scope=scope, name=name, dsn=datasets)
+            self.client.add_datasets_to_container(scope=scope, name=name, dsns=datasets)
 
     def registerDatasetLocation(self, dsn, location, version=0, complete=0, group=None, archived=None, acl_alias=None, lifetime=None, pin_lifetime=None, activity=None, scope=None):
         """
@@ -1433,9 +1442,9 @@ class DQ2Client:
         if not owner:
             owner = self.client.account
         else:
-            l = [i for i in self.client.list_accounts('user', owner)]
-            if l != []:
-                owner = l[0]['account']
+            accounts_l = [i for i in self.client.list_accounts('user', owner)]
+            if accounts_l != []:
+                owner = accounts_l[0]['account']
         dids = [{'scope': scope, 'name': dsn}]
 
         notify = 'N'
@@ -1449,7 +1458,7 @@ class DQ2Client:
         elif acl_alias == 'custodial':
             locked = True
 
-        list_sources = sources.keys()
+        list_sources = list(sources.keys())
         if len(list_sources) == 1 and list_sources[0] == location:
             # This is a staging request
             attr = self.client.list_rse_attributes(location)
@@ -1582,7 +1591,7 @@ class DQ2Client:
                         result[lfn] = {'status': False, 'error': FileConsistencyMismatch('filesize mismatch DDM %s vs user %s' % (meta['bytes'], did['bytes']))}
                     else:
                         result[lfn] = {'status': False, 'error': FileAlreadyExists('File %s:%s already exists' % (did['scope'], did['name']))}
-                except UnsupportedOperation, e:
+                except UnsupportedOperation as e:
                     result[lfn] = {'status': False, 'error': e}
         return result
 

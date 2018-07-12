@@ -6,8 +6,9 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 
 import datetime
 import json
@@ -33,8 +34,9 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
-from rucio.transfertool import fts3
-
+from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.transfertool.fts3_myproxy import FTS3MyProxyTransfertool
+from rucio.common.config import config_get
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
 where the external_id is already known.
@@ -44,9 +46,10 @@ Requests accessed by request_id  are covered in the core request.py
 REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
                                        arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 
-def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None):
+def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
     """
     Submit transfer request to a transfertool.
 
@@ -75,7 +78,13 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
-        transfer_id = fts3.submit_bulk_transfers(external_host, job_files, job_params, timeout)
+        if not user_transfer_job:
+            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+        elif USER_TRANSFERS == "cms":
+            transfer_id = FTS3MyProxyTransfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+        else:
+            # if no valid USER TRANSFER cases --> go with std submission
+            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000 / len(files))
     return transfer_id
 
@@ -122,8 +131,8 @@ def prepare_sources_for_transfers(transfers, session=None):
                                       is_using=True).\
                             save(session=session, flush=False)
 
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
 
 @transactional_session
@@ -175,8 +184,8 @@ def set_transfers_state(transfers, submitted_at, session=None):
             transfer_status = transfer_status.lower()
             message_core.add_message(transfer_status, msg, session=session)
 
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
 
 @read_session
@@ -245,7 +254,7 @@ def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None
             elif session.bind.dialect.name == 'mysql':
                 query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
+                query = query.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
 
         if (total_threads - 1) > 0:
             if session.bind.dialect.name == 'oracle':
@@ -254,7 +263,7 @@ def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None
             elif session.bind.dialect.name == 'mysql':
                 query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+                query = query.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
         if share:
             query = query.limit(activity_shares[share])
@@ -284,7 +293,7 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
     if transfertool == 'fts3':
         try:
             ts = time.time()
-            fts_resps = fts3.bulk_query(transfer_ids, request_host, timeout)
+            fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
             record_timer('core.request.bulk_query_transfers', (time.time() - ts) * 1000 / len(transfer_ids))
         except Exception:
             raise
@@ -322,8 +331,8 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
 
     try:
         rowcount = session.query(models.Request).filter_by(external_id=transfer_id, state=RequestState.SUBMITTED).update({'updated_at': update_time}, synchronize_session=False)
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
     if not rowcount:
         raise UnsupportedOperation("Transfer %s doesn't exist or its status is not submitted." % (transfer_id))
@@ -342,7 +351,7 @@ def query_latest(external_host, state, last_nhours=1):
     record_counter('core.request.query_latest')
 
     ts = time.time()
-    resps = fts3.query_latest(external_host, state, last_nhours)
+    resps = FTS3Transfertool(external_host=external_host).query_latest(state=state, last_nhours=last_nhours)
     record_timer('core.request.query_latest_fts3.%s.%s_hours' % (external_host, last_nhours), (time.time() - ts) * 1000)
 
     if not resps:
@@ -358,8 +367,8 @@ def query_latest(external_host, state, last_nhours=1):
             try:
                 logging.debug("Transfer %s on %s is %s, decrease its updated_at." % (resp['job_id'], external_host, resp['job_state']))
                 set_transfer_update_time(external_host, resp['job_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
-            except Exception, e:
-                logging.debug("Exception happened when updating transfer updatetime: %s" % str(e).replace('\n', ''))
+            except Exception as error:
+                logging.debug("Exception happened when updating transfer updatetime: %s" % str(error).replace('\n', ''))
 
     return ret_resps
 
@@ -383,8 +392,8 @@ def touch_transfer(external_host, transfer_id, session=None):
                                      .filter(models.Request.state == RequestState.SUBMITTED)\
                                      .filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30))\
                                      .update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
 
 @transactional_session
@@ -532,6 +541,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id not in rses_info:
                     source_rse = get_rse_name(rse_id=source_rse_id, session=session)
                     rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+                if source_rse_id not in rse_attrs:
+                    rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
                 attr = None
                 if attributes:
@@ -545,8 +556,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_replica_expression:
                     try:
                         parsed_rses = parse_expression(source_replica_expression, session=session)
-                    except InvalidRSEExpression, e:
-                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, e))
+                    except InvalidRSEExpression as error:
+                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, error))
                         continue
                     else:
                         allowed_rses = [x['rse'] for x in parsed_rses]
@@ -558,16 +569,15 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 allow_tape_source = True
 
                 # Find matching scheme between destination and source
-                # TODO: In the future, move to domain "third_party_copy"
                 try:
                     matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=rses_info[dest_rse_id],
                                                                   rse_settings_src=rses_info[source_rse_id],
-                                                                  operation_src='read',
-                                                                  operation_dest='write',
+                                                                  operation_src='third_party_copy',
+                                                                  operation_dest='third_party_copy',
                                                                   domain='wan',
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
-                    logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                    logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                     if id in reqs_no_source:
                         reqs_no_source.remove(id)
                     if id not in reqs_scheme_mismatch:
@@ -577,9 +587,9 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # Get destination protocol
                 if dest_rse_id not in protocols:
                     try:
-                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write', matching_scheme[0])
+                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', matching_scheme[0])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "write" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                        logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -596,7 +606,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
                 # Compute the destination url
                 if rses_info[dest_rse_id]['deterministic']:
-                    dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values()[0]
+                    dest_url = list(protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
                 else:
                     # compute dest url in case of non deterministic
                     # naming convention, etc.
@@ -617,13 +627,13 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                    dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values()[0]
+                    dest_url = list(protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
 
                 # Get source protocol
                 source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join([matching_scheme[0], matching_scheme[1]]))
                 if source_rse_id_key not in protocols:
                     try:
-                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', matching_scheme[1])
+                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', matching_scheme[1])
                     except RSEProtocolNotSupported:
                         logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], matching_scheme[1]))
                         if id in reqs_no_source:
@@ -632,7 +642,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                             reqs_scheme_mismatch.append(id)
                         continue
 
-                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
 
                 # Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
@@ -659,14 +669,21 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     retry_count = 0
                 fts_list = fts_hosts.split(",")
 
+                verify_checksum = 'both'
+                if not rse_attrs[dest_rse_id].get('verify_checksum', True):
+                    if not rse_attrs[source_rse_id].get('verify_checksum', True):
+                        verify_checksum = 'none'
+                    else:
+                        verify_checksum = 'source'
+                else:
+                    if not rse_attrs[source_rse_id].get('verify_checksum', True):
+                        verify_checksum = 'destination'
+                    else:
+                        verify_checksum = 'both'
+
                 external_host = fts_list[0]
                 if retry_other_fts:
                     external_host = fts_list[retry_count % len(fts_list)]
-
-                if id in reqs_no_source:
-                    reqs_no_source.remove(id)
-                if id in reqs_only_tape_source:
-                    reqs_only_tape_source.remove(id)
 
                 file_metadata = {'request_id': id,
                                  'scope': scope,
@@ -682,7 +699,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                  'filesize': bytes,
                                  'md5': md5,
                                  'adler32': adler32,
-                                 'verify_checksum': rse_attrs[dest_rse_id].get('verify_checksum', True)}
+                                 'verify_checksum': verify_checksum}
 
                 if previous_attempt_id:
                     file_metadata['previous_attempt_id'] = previous_attempt_id
@@ -709,7 +726,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id is None or rse is None:
                     continue
 
-                if link_ranking is None or link_ranking == 0:
+                if link_ranking is None:
                     logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
                     continue
 
@@ -728,8 +745,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_replica_expression:
                     try:
                         parsed_rses = parse_expression(source_replica_expression, session=session)
-                    except InvalidRSEExpression, e:
-                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, e))
+                    except InvalidRSEExpression as error:
+                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, error))
                         continue
                     else:
                         allowed_rses = [x['rse'] for x in parsed_rses]
@@ -748,11 +765,11 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(current_schemes))
                 if source_rse_id_key not in protocols:
                     try:
-                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', current_schemes)
+                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', current_schemes)
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], current_schemes))
+                        logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], current_schemes))
                         continue
-                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
 
                 if ranking is None:
                     ranking = 0
@@ -824,6 +841,14 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
             logging.critical("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
             break
 
+    for id in transfers:
+        if id in reqs_no_source:
+            reqs_no_source.remove(id)
+        if id in reqs_only_tape_source:
+            reqs_only_tape_source.remove(id)
+        if id in reqs_scheme_mismatch:
+            reqs_scheme_mismatch.remove(id)
+
     return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
 
@@ -876,7 +901,7 @@ def __list_transfer_requests_and_source_replicas(process=None, total_processes=N
         elif session.bind.dialect.name == 'mysql':
             sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
 
     if (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
@@ -885,7 +910,7 @@ def __list_transfer_requests_and_source_replicas(process=None, total_processes=N
         elif session.bind.dialect.name == 'mysql':
             sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)
@@ -953,8 +978,8 @@ def __set_transfer_state(external_host, transfer_id, new_state, session=None):
 
     try:
         rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
     if not rowcount:
         raise UnsupportedOperation("Transfer %s on %s state %s cannot be updated." % (transfer_id, external_host, new_state))

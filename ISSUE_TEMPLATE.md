@@ -3,6 +3,3 @@ Motivation
 
 Modification
 ------------
-
-Expected behavior
------------------

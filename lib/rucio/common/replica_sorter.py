@@ -1,19 +1,27 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# This product includes GeoLite data created by MaxMind,
+# available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
+from __future__ import print_function
 
- Authors:
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
-
- This product includes GeoLite data created by MaxMind,
- available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
-'''
 import gzip
 import os
 import random
@@ -56,10 +64,10 @@ def __get_geoip_db(directory, filename):
     if directory.endswith('/'):
         directory = directory[:-1]
     if not os.path.isfile('%s/%s' % (directory, filename)):
-        print '%s does not exist. Downloading it.' % (filename)
+        print('%s does not exist. Downloading it.' % (filename))
         __download_geoip_db(directory, filename)
     elif (time.time() - os.stat('%s/%s' % (directory, filename)).st_atime > 30 * 86400):
-        print '%s is too old. Re-downloading it.' % (filename)
+        print('%s is too old. Re-downloading it.' % (filename))
         __download_geoip_db(directory, filename)
     else:
         return
@@ -84,16 +92,16 @@ def __get_lat_long(se, gi, gi2):
         ip = socket.gethostbyname(se)
         d = gi.record_by_addr(ip)
         return d['latitude'], d['longitude']
-    except socket.gaierror, e:
+    except socket.gaierror as e:
         try:
             # Host unknown. It might be IPv6. Trying with geoip2
-            print e
+            print(e)
             ip = socket.getaddrinfo(se, None)[0][4][0]
             response = gi2.city(ip)
             return response.location.latitude, response.location.longitude
-        except socket.gaierror, e:
+        except socket.gaierror as e:
             # Host definitively unknown
-            print e
+            print(e)
             return None, None
 
 
@@ -156,7 +164,7 @@ def sort_random(replicas):
     :param replicas : A dict with RSEs as values and replicas as keys (URIs).
     """
 
-    list_replicas = replicas.keys()
+    list_replicas = list(replicas.keys())
     random.shuffle(list_replicas)
 
     return list_replicas
@@ -174,7 +182,7 @@ def sort_geoip(replicas, client_ip):
         se = replica.split('/')[2].split(':')[0]
         distance = __get_distance(se, client_ip)
         distances[replica] = distance
-    tmp = map(lambda x: x[0], sorted(distances.items(), key=lambda x: x[1]))
+    tmp = map(lambda x: x[0], sorted(list(distances.items()), key=lambda x: x[1]))
 
     return tmp
 

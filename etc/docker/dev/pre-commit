@@ -8,7 +8,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2018
 
 from __future__ import with_statement
 import os
@@ -47,34 +47,37 @@ def main():
         with file(filename, 'w') as f:
             system('git', 'show', ':' + name, stdout=f)
 
+    # Run flake8 on stages files
     f = open(tempdir + '/.flake8', 'w+')
-    f.write('''[pep8]
+    f.write('''[pycodestyle]
 max-line-length=256
+ignore=E722
 
 [flake8]
 max-line-length=256
+ignore=E722
 ''')
-    f.close()
-    f = open(tempdir + '/.pylintrc', 'w')
     f.close()
     output = system('flake8', '.', cwd=tempdir)
     if output:
         print output,
         sys.exit(1)
 
+    # Run pylint on stages files inside a rucio-dev container
+    tools_path = '{cwd}/tools'.format(cwd = os.getcwd())
+    bin_path = '{cwd}/bin'.format(cwd = os.getcwd())
+    lib_path = '{cwd}/lib'.format(cwd = os.getcwd())
     for path, subdirs, files in os.walk(tempdir):
         for filename in files:
             if filename.endswith('.py'):
-                tools_path = '{cwd}/tools'.format(cwd = os.getcwd())
-                bin_path = '{cwd}/bin'.format(cwd = os.getcwd())
-                lib_path = '{cwd}/lib'.format(cwd = os.getcwd())
-                path = '{p}'.format(p=path, f=filename)
-                output = container('rucio/rucio-dev', command=['pylint', '-E', '%s/%s' % (path, filename)],
-                                   working_dir=tempdir, remove = True,
+                filepath = '{p}/{f}'.format(p=path, f=filename)
+                output = container('rucio/rucio-dev', command=['pylint', '-E', '{f}'.format(f=filename)],
+                                   remove = True,
                                    volumes = {tools_path: {'bind': '/opt/rucio/tools', 'mode': 'ro'},
                                               bin_path: {'bind': '/opt/rucio/bin', 'mode': 'ro'},
                                               lib_path: {'bind': '/opt/rucio/lib', 'mode': 'ro'},
-                                              path: {'bind': '{p}'.format(p=path), 'mode': 'ro'}})
+                                              lib_path: {'bind': '/opt/rucio/lib', 'mode': 'ro'},
+                                              filepath: {'bind': '/opt/rucio/{f}'.format(f=filename), 'mode': 'ro'}})
                 if output:
                     print output,
                     sys.exit(1)

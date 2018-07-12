@@ -1,13 +1,25 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2012
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2014
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+
+from __future__ import print_function
 
 """
 Test the WebDAV protocol
@@ -69,8 +81,8 @@ class TestRseWebDAV(object):
             destfile = rsemanager.lfns2pfns(rse_settings, [{'name': f, 'scope': 'user.%s' % (cls.user)}, ], operation='write', scheme='https').values()[0]
             try:
                 storage.put('%s/%s' % (cls.tmpdir, f), destfile)
-            except FileReplicaAlreadyExists, e:
-                print e
+            except FileReplicaAlreadyExists as e:
+                print(e)
         with open('%s/data.raw' % cls.tmpdir, 'rb') as f_file:
             session.put(cls.static_file, data=f_file.read(), verify=False, allow_redirects=True)
 
@@ -85,12 +97,12 @@ class TestRseWebDAV(object):
         hostname = data[cls.site]['protocols']['supported']['https']['hostname']
         port = data[cls.site]['protocols']['supported']['https']['port']
         storage = rsemanager.create_protocol(rse_settings, operation='write', scheme='https')
-        print rse_settings
+        print(rse_settings)
         storage.connect()
         status1 = storage.delete('%s://%s:%s%suser/%s' % (scheme, hostname, port, prefix, cls.user))
-        print status1
+        print(status1)
         status2 = storage.delete('%s://%s:%s%sgroup/%s' % (scheme, hostname, port, prefix, cls.user))
-        print status2
+        print(status2)
 
     def setup(self):
         """WebDAV (RSE/PROTOCOLS): Creating Mgr-instance """
