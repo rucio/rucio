@@ -264,6 +264,7 @@ class DownloadClient:
         :param items: List of dictionaries. Each dictionary describing an item to download. Keys:
             did                 - DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
             rse                 - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
+            resolve_archives    - Optional: bool indicating whether archives should be considered for download (Default: False)
             force_scheme        - Optional: force a specific scheme to download this item. (Default: None)
             base_dir            - Optional: base directory where the downloaded files will be stored. (Default: '.')
             no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
@@ -900,6 +901,7 @@ class DownloadClient:
                                                      schemes=schemes,
                                                      rse_expression=item.get('rse'),
                                                      client_location=self.client_location,
+                                                     resolve_archives=item.get('resolve_archives', False),
                                                      metalink=True)
             files_with_pfns = self._parse_list_replica_metalink(metalink_str)
 
@@ -971,7 +973,19 @@ class DownloadClient:
         return did_scope, did_name
 
     def _parse_list_replica_metalink(self, metalink_str):
-        root = ElementTree.fromstring(metalink_str)
+        """
+        Parses the metalink string that list_replicas can return into a list of dictionaries.
+        (This function is meant to be used as class internal only)
+
+        :param metalink_str: the metalink string to be parsed
+
+        :returns: a list with a dictionary for each file
+        """
+        try:
+            root = ElementTree.fromstring(metalink_str)
+        except Exception as error:
+            self.logger.debug(metalink_str)
+            raise error
         files = []
 
         # metalink namespace
