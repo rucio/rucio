@@ -15,8 +15,8 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
@@ -42,7 +42,7 @@ from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlread
                                     UnsupportedStatus, ScopeNotFound)
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_account_limit
-from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids,
+from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt)
 from rucio.core.rse import get_rse_id
 from rucio.core.replica import add_replica
@@ -119,7 +119,7 @@ class TestDIDCore:
         set_metadata(scope=tmp_scope, name=lfn, key='adler32', value='0cc737ee')
         assert_equal(get_metadata(scope=tmp_scope, name=lfn)['adler32'], '0cc737ee')
 
-        with assert_raises(UnsupportedOperation):
+        with assert_raises(DataIdentifierNotFound):
             set_metadata(scope=tmp_scope, name='Nimportnawak', key='adler32', value='0cc737ee')
 
         set_metadata(scope=tmp_scope, name=lfn, key='bytes', value=724963577)
@@ -143,6 +143,23 @@ class TestDIDCore:
 
         assert_equal(get_did(scope=tmp_scope, name=tmp_dsn1, dynamic=True)['bytes'], 20)
         assert_equal(get_did(scope=tmp_scope, name=tmp_dsn4, dynamic=True)['bytes'], 20)
+
+    def test_reattach_dids(self):
+        """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """
+        tmp_scope = 'mock'
+        parent_name = 'parent_%s' % generate_uuid()
+        add_did(scope=tmp_scope, name=parent_name, type=DIDType.DATASET, account='root')
+
+        child_name = 'child_%s' % generate_uuid()
+        files = [{'scope': tmp_scope, 'name': child_name,
+                  'bytes': 12345, 'adler32': '0cc737eb'}]
+        attach_dids(scope=tmp_scope, name=parent_name, rse='MOCK', dids=files, account='root')
+
+        detach_dids(scope=tmp_scope, name=parent_name, dids=files)
+
+        attach_dids(scope=tmp_scope, name=parent_name, rse='MOCK', dids=files, account='root')
+
+        detach_dids(scope=tmp_scope, name=parent_name, dids=files)
 
 
 class TestDIDApi:

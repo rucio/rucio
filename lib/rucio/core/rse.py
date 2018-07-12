@@ -434,12 +434,13 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
 
 
 @read_session
-def get_rse_attribute(key, rse_id=None, session=None):
+def get_rse_attribute(key, rse_id=None, value=None, session=None):
     """
     Retrieve RSE attribute value.
 
     :param rse_id: The RSE id.
     :param key: The key for the attribute.
+    :param value: Optionally, the desired value for the attribute.
     :param session: The database session in use.
 
     :returns: A list with RSE attribute values for a Key.
@@ -447,8 +448,12 @@ def get_rse_attribute(key, rse_id=None, session=None):
     rse_attrs = []
     if rse_id:
         query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).distinct()
+        if value:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key, value=value).distinct()
     else:
         query = session.query(models.RSEAttrAssociation.value).filter_by(key=key).distinct()
+        if value:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(key=key, value=value).distinct()
     for attr_value in query:
         rse_attrs.append(attr_value[0])
     return rse_attrs
@@ -1025,3 +1030,46 @@ def update_rse(rse, parameters, session=None):
         query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == rse)
         rse_attr = query.one()
         rse_attr.delete(session=session)
+
+
+@read_session
+def export_rse(rse, rse_id=None, session=None):
+    """
+    Get the internal representation of an RSE.
+
+    :param rse: The RSE name.
+    :param rse_id: The RSE id.
+
+    :returns: A dictionary with the internal representation of an RSE.
+    """
+    if not rse_id:
+        rse_id = get_rse_id(rse=rse, session=session)
+
+    query = session.query(models.RSE).filter_by(rse_id=rse_id)
+
+    rse_data = {}
+    for _rse in query:
+        for k, v in _rse:
+            rse_data[k] = v
+
+    # get RSE attributes
+    rse_data['attributes'] = list_rse_attributes(rse, rse_id=rse_id)
+
+    # get RSE protocols
+    rse_data['protocols'] = get_rse_protocols(rse)
+
+    # remove duplicated keys returned by get_rse_protocols()
+    rse_data['protocols'].pop('id')
+    rse_data['protocols'].pop('rse')
+    rse_data['protocols'].pop('rse_type')
+    rse_data['protocols'].pop('staging_area')
+    rse_data['protocols'].pop('deterministic')
+    rse_data['protocols'].pop('volatile')
+
+    # get RSE limits
+    rse_data['limits'] = get_rse_limits(rse)
+
+    # get RSE xfer limits
+    rse_data['transfer_limits'] = get_rse_transfer_limits(rse)
+
+    return rse_data

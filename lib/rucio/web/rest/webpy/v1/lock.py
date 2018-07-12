@@ -1,21 +1,29 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
-
+# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 from logging import getLogger, StreamHandler, DEBUG
 from urlparse import parse_qs
 from web import application, ctx, header, InternalError, loadhook
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
-from rucio.common.exception import RucioException
+from rucio.common.exception import RucioException, RSENotFound
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook
@@ -56,9 +64,11 @@ class LockByRSE(object):
                     yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')
-        except RucioException, error:
+        except RSENotFound as error:
+            raise generate_http_error(404, error.__class__.__name__, error.args[0])
+        except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
 
@@ -89,9 +99,9 @@ class LockByScopeName(object):
                     yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')
-        except RucioException, error:
+        except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
+        except Exception as error:
             raise InternalError(error)
 
 

@@ -15,6 +15,7 @@
 # Authors:
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
 
 import json
 from requests.status_codes import codes
@@ -28,7 +29,7 @@ class ObjectStoreClient(BaseClient):
 
     OBJECTSTORE_BASEURL = 'objectstores'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         super(ObjectStoreClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
     def connect(self, rse, url):

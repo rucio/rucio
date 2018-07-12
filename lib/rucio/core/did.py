@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -312,11 +312,9 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
             session.query(models.DataIdentifier).\
                 filter(models.DataIdentifier.did_type == DIDType.FILE).\
                 filter(or_(*existing_files_condition)).update({'constituent': True})
-
-        print contents
         contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
         session.flush()
-    except IntegrityError, error:
+    except IntegrityError as error:
         raise exception.RucioException(error.args)
 
 
@@ -404,13 +402,13 @@ def __add_collections_to_container(scope, name, collections, account, session):
     """
 
     condition = or_()
-    for c in collections:
+    for cond in collections:
 
-        if (scope == c['scope']) and (name == c['name']):
+        if (scope == cond['scope']) and (name == cond['name']):
             raise exception.UnsupportedOperation('Self-append is not valid!')
 
-        condition.append(and_(models.DataIdentifier.scope == c['scope'],
-                              models.DataIdentifier.name == c['name']))
+        condition.append(and_(models.DataIdentifier.scope == cond['scope'],
+                              models.DataIdentifier.name == cond['name']))
 
     available_dids = {}
     child_type = None
@@ -568,7 +566,10 @@ def delete_dids(dids, account, session=None):
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'] != 'archive':
-            rucio.core.rule.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+            try:
+                rucio.core.rule.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+            except exception.UndefinedPolicy:
+                pass
 
         if did['purge_replicas'] is False:
             not_purge_replicas.append((did['scope'], did['name']))
@@ -707,23 +708,25 @@ def detach_dids(scope, name, dids, session=None):
         associ_did.delete(session=session)
 
         # Archive contents
-        models.DataIdentifierAssociationHistory(scope=associ_did.scope,
-                                                name=associ_did.name,
-                                                child_scope=associ_did.child_scope,
-                                                child_name=associ_did.child_name,
-                                                did_type=associ_did.did_type,
-                                                child_type=associ_did.child_type,
-                                                bytes=associ_did.bytes,
-                                                adler32=associ_did.adler32,
-                                                md5=associ_did.md5,
-                                                guid=associ_did.guid,
-                                                events=associ_did.events,
-                                                rule_evaluation=associ_did.rule_evaluation,
-                                                did_created_at=did.created_at,
-                                                created_at=associ_did.created_at,
-                                                updated_at=associ_did.updated_at,
-                                                deleted_at=datetime.utcnow()).\
-            save(session=session, flush=False)
+        # If reattach happens, merge the latest due to primary key constraint
+        new_detach = models.DataIdentifierAssociationHistory(scope=associ_did.scope,
+                                                             name=associ_did.name,
+                                                             child_scope=associ_did.child_scope,
+                                                             child_name=associ_did.child_name,
+                                                             did_type=associ_did.did_type,
+                                                             child_type=associ_did.child_type,
+                                                             bytes=associ_did.bytes,
+                                                             adler32=associ_did.adler32,
+                                                             md5=associ_did.md5,
+                                                             guid=associ_did.guid,
+                                                             events=associ_did.events,
+                                                             rule_evaluation=associ_did.rule_evaluation,
+                                                             did_created_at=did.created_at,
+                                                             created_at=associ_did.created_at,
+                                                             updated_at=associ_did.updated_at,
+                                                             deleted_at=datetime.utcnow())
+        new_detach = session.merge(new_detach)
+        new_detach.save(session=session, flush=False)
 
         # Send message for AMI. To be removed in the future when they use the DETACH messages
         if did.did_type == DIDType.CONTAINER:
@@ -1171,18 +1174,23 @@ def set_metadata(scope, name, key, value, type=None, did=None,
     :param recursive: Option to propagate the metadata change to content.
     :param session: The database session in use.
     """
+    try:
+        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
+
     if key == 'lifetime':
         try:
             expired_at = None
             if value is not None:
                 expired_at = datetime.utcnow() + timedelta(seconds=float(value))
-            session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
+            rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
         except TypeError as error:
             raise exception.InvalidValueForKey(error)
     elif key in ['guid', 'events']:
         rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        if not rowcount:
-            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
+
         session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
         if key == 'events':
             for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
@@ -1191,16 +1199,12 @@ def set_metadata(scope, name, key, value, type=None, did=None,
 
     elif key == 'adler32':
         rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        if not rowcount:
-            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
         session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
         session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
         session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
 
     elif key == 'bytes':
         rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        if not rowcount:
-            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
         session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
         session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
 
@@ -1224,7 +1228,7 @@ def set_metadata(scope, name, key, value, type=None, did=None,
             session.query(models.DatasetLock).filter_by(scope=parent_scope, name=parent_name).update({'length': values['length'], 'bytes': values['bytes']}, synchronize_session=False)
     else:
         try:
-            session.query(models.DataIdentifier).\
+            rowcount = session.query(models.DataIdentifier).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                 filter_by(scope=scope, name=name).\
                 update({key: value}, synchronize_session='fetch')
@@ -1247,6 +1251,10 @@ def set_metadata(scope, name, key, value, type=None, did=None,
                         update({key: value}, synchronize_session='fetch')
                 except CompileError as error:
                     raise exception.InvalidMetadata(error)
+
+    if not rowcount:
+        # check for did presence
+        raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
 
 
 @read_session
@@ -1323,7 +1331,7 @@ def set_status(scope, name, session=None, **kwargs):
         if not values['is_open']:
             rules_on_ds = session.query(models.ReplicationRule).filter_by(scope=scope, name=name).all()
             for rule in rules_on_ds:
-                rucio.core.rule.generate_message_for_dataset_ok_callback(rule=rule, session=session)
+                rucio.core.rule.generate_rule_notifications(rule=rule, session=session)
 
 
 @stream_session
@@ -1589,6 +1597,8 @@ def resurrect(dids, session=None):
         #    raise exception.UnsupportedOperation("File '%(scope)s:%(name)s' cannot be resurrected" % did)
 
         kargs = del_did.to_dict()
+        if kargs['expired_at']:
+            kargs['expired_at'] = None
         kargs.pop("_sa_instance_state", None)
 
         session.query(models.DeletedDataIdentifier).\

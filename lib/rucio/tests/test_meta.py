@@ -10,6 +10,7 @@
 
 from nose.tools import assert_true, assert_in, raises, assert_is_instance
 
+from rucio.db.sqla.constants import DIDType
 from rucio.client.metaclient import MetaClient
 from rucio.common.exception import KeyNotFound, InvalidValueForKey, UnsupportedValueType
 from rucio.common.utils import generate_uuid as uuid
@@ -78,3 +79,7 @@ class TestMetaClient():
         """ META (CLIENTS):  Add a new value to a non existing key """
         value = 'value_' + str(uuid())
         self.meta_client.add_value(key="Nimportnawak", value=value)
+
+    def xtest_add_key_mysql(self):
+        """ META (CORE): Add a new key to test conversions on MySQL"""
+        self.meta_client.add_key('datatype', DIDType.FILE)

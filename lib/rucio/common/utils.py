@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
@@ -39,30 +39,38 @@ import re
 import requests
 import socket
 import subprocess
+import urllib
 import zlib
 
 from getpass import getuser
+from logging import getLogger, Formatter
+from logging.handlers import RotatingFileHandler
+from uuid import uuid4 as uuid
+
 try:
     # Python 2
     from itertools import izip_longest
 except ImportError:
     # Python 3
     from itertools import zip_longest as izip_longest
-from logging import getLogger, Formatter
-from logging.handlers import RotatingFileHandler
 try:
     # Python 2
     from urllib import urlencode, quote
 except ImportError:
     # Python 3
     from urllib.parse import urlencode, quote
-from uuid import uuid4 as uuid
 try:
     # Python 2
     from StringIO import StringIO
 except ImportError:
     # Python 3
     from io import StringIO
+try:
+    # Python 2
+    import urlparse
+except ImportError:
+    # Python 3
+    import urllib.parse as urlparse
 
 from rucio.common.config import config_get
 from rucio.common.exception import MissingModuleException
@@ -172,7 +180,7 @@ def adler32(file):
         openFile = open(file, 'rb')
         for line in openFile:
             adler = zlib.adler32(line, adler)
-    except:
+    except Exception:
         raise Exception('FATAL - could not get checksum of file %s' % file)
 
     # backflip on 32bit
@@ -193,7 +201,7 @@ def md5(file):
     try:
         with open(file, "rb") as f:
             map(hash_md5.update, iter(lambda: f.read(4096), b""))
-    except:
+    except Exception:
         raise Exception('FATAL - could not get MD5 checksum of file %s' % file)
 
     return hash_md5.hexdigest()
@@ -257,7 +265,7 @@ def datetime_parser(dct):
         if isinstance(v, varType) and re.search(" UTC", v):
             try:
                 dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
-            except:
+            except Exception:
                 pass
     return dct
 
@@ -287,7 +295,7 @@ def generate_http_error(status_code, exc_cls, exc_msg):
                'ExceptionMessage': clean_headers(exc_msg)}
     try:
         return HTTPError(status, headers=headers, data=render_json(**data))
-    except:
+    except Exception:
         print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
         raise
 
@@ -311,12 +319,12 @@ def generate_http_error_flask(status_code, exc_cls, exc_msg):
 
     try:
         return resp
-    except:
+    except Exception:
         print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
         raise
 
 
-def execute(cmd):
+def execute(cmd, blocking=True):
     """
     Executes a command in a subprocess. Returns a tuple
     of (exitcode, out, err), where out is the string output
@@ -335,11 +343,12 @@ def execute(cmd):
     err = ''
     exitcode = 0
 
-    result = process.communicate()
-    (out, err) = result
-    exitcode = process.returncode
-
-    return exitcode, out, err
+    if blocking:
+        result = process.communicate()
+        (out, err) = result
+        exitcode = process.returncode
+        return exitcode, out, err
+    return process
 
 
 def rse_supported_protocol_operations():
@@ -572,7 +581,7 @@ def get_tmp_dir():
     user, tmp_dir = None, None
     try:
         user = pwd.getpwuid(os.getuid()).pw_name
-    except:
+    except Exception:
         pass
 
     for env_var in ('TMP', 'TMPDIR', 'TEMP'):
@@ -629,7 +638,7 @@ def detect_client_location():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
-    except:
+    except Exception:
         pass
 
     site = os.environ.get('SITE_NAME',
@@ -690,8 +699,8 @@ def send_trace(trace, trace_endpoint, user_agent, retries=5, logger=None, log_pr
     :return: 0 on success, 1 on failure
     """
     if not logger:
-        logger = getLogger('rucio_utils')
-        logger.addHandler(logging.NullHandler())
+        logger = logging.getLogger(__name__).getChild('null')
+        logger.disabled = True
     if user_agent.startswith('pilot'):
         logger.debug('%spilot detected - not sending trace' % log_prefix)
         return 0
@@ -703,3 +712,19 @@ def send_trace(trace, trace_endpoint, user_agent, retries=5, logger=None, log_pr
         except Exception as error:
             logger.debug('%s%s' % (log_prefix, error))
     return 1
+
+
+def add_url_query(url, query):
+    """
+    Add a new dictionary to URL parameters
+
+    :param url: The existing URL
+    :param query: A dictionary containing key/value pairs to be added to the URL
+    :return: The expanded URL with the new query parameters
+    """
+
+    url_parts = list(urlparse.urlparse(url))
+    mod_query = dict(urlparse.parse_qsl(url_parts[4]))
+    mod_query.update(query)
+    url_parts[4] = urllib.urlencode(mod_query)
+    return urlparse.urlunparse(url_parts)

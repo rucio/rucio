@@ -7,7 +7,7 @@
  http://www.apache.org/licenses/LICENSE-2.0
 
  Authors:
- - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
+ - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
  - Martin Barisits <martin.barisits@cern.ch>, 2017-2018
  - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
  - Brian Bockelman <bbockelm@cse.unl.edu>, 2017
@@ -25,6 +25,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_get
+from rucio.common.exception import UndefinedPolicy
 
 REGION = make_region().configure('dogpile.cache.memory',
                                  expiration_time=1800)
@@ -88,6 +89,6 @@ def policy_filter(function):
         return new_funct
 
     @wraps(function)
-    def null_funct(*args, **kwargs):
-        return
-    return null_funct
+    def raise_funct(*args, **kwargs):
+        raise UndefinedPolicy
+    return raise_funct

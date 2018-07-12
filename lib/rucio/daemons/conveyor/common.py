@@ -1,17 +1,27 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
-# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Eric Vaandering, <ewv@fnal.gov>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Eric Vaandering <ericvaandering@gmail.com>, 2018
 
 """
 Methods common to different conveyor submitter daemons.
@@ -29,9 +39,13 @@ from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
+from rucio.common.config import config_get
+
+USER_ACTIVITY = config_get('conveyor', 'user_activities', False, ['user', 'user_test'])
+USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 
-def submit_transfer(external_host, job, submitter='submitter', process=0, thread=0, timeout=None):
+def submit_transfer(external_host, job, submitter='submitter', process=0, thread=0, timeout=None, user_transfer_job=False):
     """
     Submit a transfer or staging request
 
@@ -45,6 +59,7 @@ def submit_transfer(external_host, job, submitter='submitter', process=0, thread
 
     # prepare submitting
     xfers_ret = {}
+
     try:
         for file in job['files']:
             file_metadata = file['metadata']
@@ -72,7 +87,12 @@ def submit_transfer(external_host, job, submitter='submitter', process=0, thread
     try:
         ts = time.time()
         logging.info("%s:%s About to submit job to %s with timeout %s" % (process, thread, external_host, timeout))
-        eid = transfer_core.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'], timeout=timeout)
+        eid = transfer_core.submit_bulk_transfers(external_host,
+                                                  files=job['files'],
+                                                  transfertool='fts3',
+                                                  job_params=job['job_params'],
+                                                  timeout=timeout,
+                                                  user_transfer_job=user_transfer_job)
         duration = time.time() - ts
         logging.info("%s:%s Submit job %s to %s in %s seconds" % (process, thread, eid, external_host, duration))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - ts) * 1000 / len(job['files']))
@@ -141,14 +161,11 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
 
     grouped_transfers = {}
     grouped_jobs = {}
+
     for request_id in transfers:
         transfer = transfers[request_id]
-        external_host = transfer['external_host']
-        if external_host not in grouped_transfers:
-            grouped_transfers[external_host] = {}
-            grouped_jobs[external_host] = []
 
-        verify_checksum = transfer.get('verify_checksum', 'both')
+        verify_checksum = transfer['file_metadata'].get('verify_checksum', 'both')
         file = {'sources': transfer['sources'],
                 'destinations': transfer['dest_urls'],
                 'metadata': transfer['file_metadata'],
@@ -163,6 +180,20 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
             if 'adler32' in list(file['metadata'].keys()) and file['metadata']['adler32']:
                 file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
+
+        external_host = transfer['external_host']
+        scope = file['metadata']['scope']
+        activity = file['activity']
+
+        if external_host not in grouped_transfers:
+            grouped_transfers[external_host] = {}
+            if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
+                grouped_jobs[external_host] = []
+            elif activity in USER_ACTIVITY:
+                grouped_jobs[external_host] = {}
+                if scope not in grouped_transfers[external_host]:
+                    grouped_transfers[external_host][scope] = {}
+                    grouped_jobs[external_host][scope] = []
 
         job_params = {'verify_checksum': verify_checksum,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
@@ -187,7 +218,10 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
         # for multiple source replicas, no bulk submission
         if len(transfer['sources']) > 1:
             job_params['job_metadata']['multi_sources'] = True
-            grouped_jobs[external_host].append({'files': [file], 'job_params': job_params})
+            if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
+                grouped_jobs[external_host].append({'files': [file], 'job_params': job_params})
+            elif activity in USER_ACTIVITY:
+                grouped_jobs[external_host][scope].append({'files': [file], 'job_params': job_params})
         else:
             job_params['job_metadata']['multi_sources'] = False
             job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
@@ -199,7 +233,10 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 job_key = job_key + ',%s' % job_params['max_time_in_queue']
 
             if job_key not in grouped_transfers[external_host]:
-                grouped_transfers[external_host][job_key] = {}
+                if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
+                    grouped_transfers[external_host][job_key] = {}
+                elif activity in USER_ACTIVITY:
+                    grouped_transfers[external_host][scope][job_key] = {}
 
             if policy == 'rule':
                 policy_key = '%s' % (transfer['rule_id'])
@@ -211,20 +248,36 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 policy_key = '%s,%s,%s' % (transfer['rule_id'], file['metadata']['src_rse'], file['metadata']['dst_rse'])
             # maybe here we need to hash the key if it's too long
 
-            if policy_key not in grouped_transfers[external_host][job_key]:
-                grouped_transfers[external_host][job_key][policy_key] = {'files': [file], 'job_params': job_params}
-            else:
-                grouped_transfers[external_host][job_key][policy_key]['files'].append(file)
+            if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
+                if policy_key not in grouped_transfers[external_host][job_key]:
+                    grouped_transfers[external_host][job_key][policy_key] = {'files': [file], 'job_params': job_params}
+                else:
+                    grouped_transfers[external_host][job_key][policy_key]['files'].append(file)
+            elif activity in USER_ACTIVITY:
+                if policy_key not in grouped_transfers[external_host][scope][job_key]:
+                    grouped_transfers[external_host][scope][job_key][policy_key] = {'files': [file], 'job_params': job_params}
+                else:
+                    grouped_transfers[external_host][scope][job_key][policy_key]['files'].append(file)
 
     # for jobs with different job_key, we cannot put in one job.
     for external_host in grouped_transfers:
-        for job_key in grouped_transfers[external_host]:
-            # for all policy groups in job_key, the job_params is the same.
-            for policy_key in grouped_transfers[external_host][job_key]:
-                job_params = grouped_transfers[external_host][job_key][policy_key]['job_params']
-                for xfers_files in chunks(grouped_transfers[external_host][job_key][policy_key]['files'], group_bulk):
-                    # for the last small piece, just submit it.
-                    grouped_jobs[external_host].append({'files': xfers_files, 'job_params': job_params})
+        if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
+            for job_key in grouped_transfers[external_host]:
+                # for all policy groups in job_key, the job_params is the same.
+                for policy_key in grouped_transfers[external_host][job_key]:
+                    job_params = grouped_transfers[external_host][job_key][policy_key]['job_params']
+                    for xfers_files in chunks(grouped_transfers[external_host][job_key][policy_key]['files'], group_bulk):
+                        # for the last small piece, just submit it.
+                        grouped_jobs[external_host].append({'files': xfers_files, 'job_params': job_params})
+        elif activity in USER_ACTIVITY:
+            for scope_key in grouped_transfers[external_host]:
+                for job_key in grouped_transfers[external_host][scope_key]:
+                    # for all policy groups in job_key, the job_params is the same.
+                    for policy_key in grouped_transfers[external_host][scope_key][job_key]:
+                        job_params = grouped_transfers[external_host][scope_key][job_key][policy_key]['job_params']
+                        for xfers_files in chunks(grouped_transfers[external_host][scope_key][job_key][policy_key]['files'], group_bulk):
+                            # for the last small piece, just submit it.
+                            grouped_jobs[external_host][scope_key].append({'files': xfers_files, 'job_params': job_params})
 
     return grouped_jobs
 
