@@ -1,0 +1,13 @@
+============
+1.17.2.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- rest: metalink in replica frontend badly constructed `#1338 <https://github.com/rucio/rucio/issues/1338>`_
