@@ -357,10 +357,9 @@ class ListReplicas(RucioController):
 
                     replicas = []
                     dictreplica = {}
-                    for rse in rfile['rses']:
-                        for replica in rfile['rses'][rse]:
-                            replicas.append(replica)
-                            dictreplica[replica] = (rfile['pfns'][replica]['domain'], rfile['pfns'][replica]['priority'], rse)
+                    for replica in rfile['pfns'].keys():
+                        replicas.append(replica)
+                        dictreplica[replica] = (rfile['pfns'][replica]['domain'], rfile['pfns'][replica]['priority'], rfile['pfns'][replica]['rse'])
 
                     yield ' <file name="' + rfile['name'] + '">\n'
                     yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
