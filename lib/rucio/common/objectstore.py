@@ -1,13 +1,21 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2016 - 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 """
 methods of objectstore
@@ -59,7 +67,7 @@ def _get_credentials(rse, endpoint):
             else:
                 raise Exception("Failed to load account credentials")
             logging.debug("Loaded account credentials")
-        except KeyError, e:
+        except KeyError as e:
             raise exception.CannotAuthenticate('RSE %s endpoint %s not in rse account cfg: %s' % (rse, endpoint, e))
         except:
             raise exception.RucioException("Failed to load credentials for RSE(%s) endpoint(%s), error: %s" % (rse, endpoint, traceback.format_exc()))
@@ -101,7 +109,7 @@ def _get_connection(rse, endpoint):
                 logging.debug("Created connection object")
             else:
                 raise exception.CannotAuthenticate("Either access_key, secret_key or is_secure is not defined for RSE %s endpoint %s" % (rse, endpoint))
-        except exception.RucioException, e:
+        except exception.RucioException as e:
             raise e
         except:
             raise exception.RucioException("Failed to get connection for RSE(%s) endpoint(%s), error: %s" % (rse, endpoint, traceback.format_exc()))
@@ -135,7 +143,7 @@ def _get_bucket(rse, endpoint, bucket_name, operation='read'):
             else:
                 result = conn.create_bucket(bucket_name)
                 REGION.set(key, result)
-        except exception.RucioException, e:
+        except exception.RucioException as e:
             raise e
         except:
             raise exception.RucioException("Failed to get bucket on RSE(%s), error: %s" % (rse, traceback.format_exc()))
@@ -218,7 +226,7 @@ def get_signed_urls(urls, rse, operation='read'):
                 result[url] = exception.DestinationNotAccessible(e)
             else:
                 result[url] = exception.ServiceUnavailable(e)
-        except exception.RucioException, e:
+        except exception.RucioException as e:
             result[url] = e
         except:
             result[url] = exception.RucioException("Failed to get signed url for %s, error: %s" % (url, traceback.format_exc()))
@@ -250,7 +258,7 @@ def get_metadata(urls, rse):
                 raise exception.DestinationNotAccessible(e)
             else:
                 raise exception.ServiceUnavailable(e)
-        except exception.RucioException, e:
+        except exception.RucioException as e:
             result[url] = e
         except:
             result[url] = exception.RucioException("Failed to get metadata for %s, error: %s" % (endpoint, traceback.format_exc()))
@@ -308,12 +316,12 @@ def delete(urls, rse):
         try:
             endpoint, bucket_name = bucket_key.split('+')
             bucket = _get_bucket(rse, endpoint, bucket_name)
-            ret = _delete_keys(bucket, bucket_keys[bucket_key].keys())
+            ret = _delete_keys(bucket, list(bucket_keys[bucket_key].keys()))
             for key in ret:
                 result[bucket_keys[bucket_key][key]] = ret[key]
         except:
             ret = {'status': -1, 'output': "Failed to delete url: %s, error: %s" % (url, traceback.format_exc())}
-            for key in bucket_keys[bucket_key].keys():
+            for key in list(bucket_keys[bucket_key].keys()):
                 url = bucket_keys[bucket_key][key]
                 if url not in result:
                     result[url] = ret
@@ -380,7 +388,7 @@ def rename(url, new_url, rse):
             raise exception.DestinationNotAccessible(e)
         else:
             raise exception.ServiceUnavailable(e)
-    except exception.RucioException, e:
+    except exception.RucioException as e:
         raise e
     except:
         raise exception.RucioException("Failed to get metadata for %s, error: %s" % (endpoint, traceback.format_exc()))

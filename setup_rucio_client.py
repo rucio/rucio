@@ -1,15 +1,20 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-  - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
-'''
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
 
 import os
 import re
@@ -25,7 +30,7 @@ sys.path.insert(0, os.path.abspath('lib/'))
 from rucio import version  # noqa
 
 if sys.version_info < (2, 5):
-    print 'ERROR: Rucio requires at least Python 2.6 to run.'
+    print('ERROR: Rucio requires at least Python 2.6 to run.')
     sys.exit(1)
 sys.path.insert(0, os.path.abspath('lib/'))
 
@@ -48,6 +53,13 @@ if os.path.exists('lib/rucio_clients.egg-info/'):
     shutil.rmtree('lib/rucio_clients.egg-info/')
 if os.path.exists('lib/rucio.egg-info/'):
     shutil.rmtree('lib/rucio.egg-info/')
+
+SSH_EXTRAS = ['paramiko==1.18.4']
+KERBEROS_EXTRAS = ['kerberos>=1.2.5', 'pykerberos>=1.1.14', 'requests-kerberos>=0.11.0']
+SWIFT_EXTRAS = ['python-swiftclient>=3.5.0', ]
+EXTRAS_REQUIRES = dict(ssh=SSH_EXTRAS,
+                       kerberos=KERBEROS_EXTRAS,
+                       swift=SWIFT_EXTRAS)
 
 if '--release' in COPY_ARGS:
     IS_RELEASE = True
@@ -75,7 +87,7 @@ try:
                 self.finalize_options()
                 BuildDoc.run(self)
     cmdclass['build_sphinx'] = local_BuildDoc
-except:
+except Exception:
     pass
 
 
@@ -154,7 +166,7 @@ class CustomSdist(_sdist):
         '''
         get_file_list
         '''
-        print "Chosen packaging option: " + NAME
+        print("Chosen packaging option: " + NAME)
         self.distribution.data_files = DATA_FILES
         _sdist.get_file_list(self)
 
@@ -177,6 +189,7 @@ setup(
     description=DESCRIPTION,
     license="Apache License, Version 2.0",
     url="http://rucio.cern.ch/",
+    python_requires=">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
@@ -187,7 +200,15 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
-        'Environment :: No Input/Output (Daemon)', ],
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: Implementation :: PyPy',
+        'Environment :: No Input/Output (Daemon)'
+    ],
     install_requires=REQUIRES,
+    extras_require=EXTRAS_REQUIRES,
     dependency_links=DEPEND_LINKS,
 )

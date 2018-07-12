@@ -1,19 +1,26 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Wen Guan, <wguan@cern.ch>, 2014-2016
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
- - Tobias Wegner, <tobias.wegner@cern.ch>, 2017
- - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
-'''
+# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2017
+# - Tobias Wegner <twegner@cern.ch>, 2017
+# - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 
 import errno
 import json
@@ -22,6 +29,7 @@ import re
 import urlparse
 
 from rucio.common import exception, config
+from rucio.common.constraints import STRING_TYPES
 from rucio.rse.protocols import protocol
 
 try:
@@ -45,7 +53,7 @@ class Default(protocol.RSEProtocol):
 
         pfns = {}
         prefix = self.attributes['prefix']
-        if self.attributes['extended_attributes'] is not None and 'web_service_path' in self.attributes['extended_attributes'].keys():
+        if self.attributes['extended_attributes'] is not None and 'web_service_path' in list(self.attributes['extended_attributes'].keys()):
             web_service_path = self.attributes['extended_attributes']['web_service_path']
         else:
             web_service_path = ''
@@ -90,7 +98,7 @@ class Default(protocol.RSEProtocol):
         """
 
         ret = dict()
-        pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
+        pfns = [pfns] if isinstance(pfns, STRING_TYPES) else pfns
         for pfn in pfns:
             parsed = urlparse.urlparse(pfn)
             if parsed.path.startswith('/srm/managerv2') or parsed.path.startswith('/srm/managerv1') or parsed.path.startswith('/srm/v2/server'):
@@ -142,7 +150,7 @@ class Default(protocol.RSEProtocol):
         if '://' in hostname:
             hostname = hostname.split("://")[1]
 
-        if 'extended_attributes' in self.attributes.keys() and self.attributes['extended_attributes'] is not None and 'web_service_path' in self.attributes['extended_attributes'].keys():
+        if 'extended_attributes' in list(self.attributes.keys()) and self.attributes['extended_attributes'] is not None and 'web_service_path' in list(self.attributes['extended_attributes'].keys()):
             web_service_path = self.attributes['extended_attributes']['web_service_path']
         else:
             web_service_path = ''
@@ -169,12 +177,13 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
 
-    def get(self, path, dest):
+    def get(self, path, dest, transfer_timeout=None):
         """
         Provides access to files stored inside connected the RSE.
 
         :param path: Physical file name of requested file
         :param dest: Name and path of the files when stored at the client
+        :param transfer_timeout: Transfer timeout (in seconds)
 
         :raises DestinationNotAccessible: if the destination storage was not accessible.
         :raises ServiceUnavailable: if some generic error occured in the library.
@@ -186,7 +195,7 @@ class Default(protocol.RSEProtocol):
             dest = "file://" + dest
 
         try:
-            status = self.__gfal2_copy(path, dest)
+            status = self.__gfal2_copy(path, dest, transfer_timeout=transfer_timeout)
             if status:
                 raise exception.RucioException()
         except exception.DestinationNotAccessible as error:
@@ -196,13 +205,14 @@ class Default(protocol.RSEProtocol):
         except Exception as error:
             raise exception.ServiceUnavailable(error)
 
-    def put(self, source, target, source_dir):
+    def put(self, source, target, source_dir, transfer_timeout=None):
         """
         Allows to store files inside the referred RSE.
 
         :param source: path to the source file on the client file system
         :param target: path to the destination file on the storage
         :param source_dir: Path where the to be transferred files are stored in the local file system
+        :param transfer_timeout: Transfer timeout (in seconds)
 
         :raises DestinationNotAccessible: if the destination storage was not accessible.
         :raises ServiceUnavailable: if some generic error occured in the library.
@@ -218,11 +228,11 @@ class Default(protocol.RSEProtocol):
             source_url = "file://" + source_url
 
         space_token = None
-        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+        if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = self.attributes['extended_attributes']['space_token']
 
         try:
-            status = self.__gfal2_copy(str(source_url), str(target), None, space_token)
+            status = self.__gfal2_copy(str(source_url), str(target), None, space_token, transfer_timeout=transfer_timeout)
             if status:
                 raise exception.RucioException()
         except exception.DestinationNotAccessible as error:
@@ -242,7 +252,7 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
-        pfns = [path] if ((type(path) == str) or (type(path) == unicode)) else path
+        pfns = [path] if isinstance(path, STRING_TYPES) else path
 
         try:
             status = self.__gfal2_rm(pfns)
@@ -335,11 +345,11 @@ class Default(protocol.RSEProtocol):
             ret['adler32'] = ctx.checksum(str(path), str('ADLER32'))
         except Exception as error:
             msg = 'Error while processing gfal checksum call. Error: %s'
-            raise exception.ServiceUnavailable(msg % str(error))
+            raise exception.RSEChecksumUnavailable(msg % str(error))
 
         return ret
 
-    def __gfal2_copy(self, src, dest, src_spacetoken=None, dest_spacetoken=None):
+    def __gfal2_copy(self, src, dest, src_spacetoken=None, dest_spacetoken=None, transfer_timeout=None):
         """
         Uses gfal2 to copy file from src to dest.
 
@@ -347,6 +357,7 @@ class Default(protocol.RSEProtocol):
         :param src_spacetoken: The source file's space token
         :param dest: Physical destination file name
         :param dest_spacetoken: The destination file's space token
+        :param transfer_timeout: Transfer timeout (in seconds)
 
         :returns: 0 if copied successfully, other than 0 if failed
 
@@ -360,12 +371,13 @@ class Default(protocol.RSEProtocol):
             params.src_spacetoken = str(src_spacetoken)
         if dest_spacetoken:
             params.dst_spacetoken = str(dest_spacetoken)
-        params.timeout = 3600
+        if transfer_timeout:
+            params.timeout = int(transfer_timeout)
 
         dir_name = os.path.dirname(dest)
         # This function will be removed soon. gfal2 will create parent dir automatically.
         try:
-            ctx.mkdir_rec(str(dir_name), 0775)
+            ctx.mkdir_rec(str(dir_name), 0o775)
         except:
             pass
 
@@ -442,7 +454,7 @@ class Default(protocol.RSEProtocol):
             dir_name = os.path.dirname(new_path)
             # This function will be removed soon. gfal2 will create parent dir automatically.
             try:
-                ctx.mkdir_rec(str(dir_name), 0775)
+                ctx.mkdir_rec(str(dir_name), 0o775)
             except Exception:
                 pass
             ret = ctx.rename(str(path), str(new_path))
@@ -462,7 +474,7 @@ class Default(protocol.RSEProtocol):
         """
         endpoint_basepath = self.path2pfn(self.attributes['prefix'])
         space_token = None
-        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+        if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = self.attributes['extended_attributes']['space_token']
 
         if space_token is None or space_token == "":

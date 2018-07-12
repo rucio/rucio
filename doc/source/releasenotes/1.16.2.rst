@@ -1,0 +1,21 @@
+======
+1.16.2
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Authentication & Authorisation: Permission : Fix update_replicas_states permission for ATLAS `#1163 <https://github.com/rucio/rucio/issues/1163>`_
+- Functional tests: Travis build fails because of ipaddress `#1169 <https://github.com/rucio/rucio/issues/1169>`_
+
+****
+Bugs
+****
+
+- Core & Internals: get_dataset_locks_by_rse throws exception if RSE is empty `#941 <https://github.com/rucio/rucio/issues/941>`_
+- Rules: Error when re-adding the same rule `IndexError: tuple index out of range` `#1160 <https://github.com/rucio/rucio/issues/1160>`_

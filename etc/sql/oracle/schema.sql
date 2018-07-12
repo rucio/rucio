@@ -429,6 +429,7 @@ CREATE TABLE dids (
     eol_at DATE,
     is_archive NUMBER(1),
     constituent  NUMBER(1),
+    access_cnt NUMBER(11),
     CONSTRAINT "DIDS_PK" PRIMARY KEY (scope, name) USING INDEX COMPRESS 1,
     CONSTRAINT "DIDS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
     CONSTRAINT "DIDS_SCOPE_FK" FOREIGN KEY(scope) REFERENCES scopes (scope),
@@ -1330,6 +1331,7 @@ CREATE TABLE DELETED_DIDS
     eol_at DATE,
     is_archive NUMBER(1),
     constituent  NUMBER(1),
+    access_cnt NUMBER(11),
     CONSTRAINT "DELETED_DIDS_PK" PRIMARY KEY ("SCOPE", "NAME") USING INDEX LOCAL COMPRESS 1
    ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
 	 COMPRESS FOR OLTP
@@ -1749,6 +1751,8 @@ CREATE TABLE QUARANTINED_REPLICAS (
 
 
 COMMENT ON TABLE QUARANTINED_REPLICAS IS 'Table to store the list of inconsistent files at site not known to Rucio and delete ten from the sites.' ;
+CREATE UNIQUE INDEX QUARANTINED_REPLICAS_PATH_IDX on QUARANTINED_REPLICAS(PATH,RSE_ID) tablespace ATLAS_RUCIO_FACT_DATA01;
+
 
 -- ============================= QUARANTINED_REPLICAS_HISTORY =========================================
 -- Description: Table to store quarantined replicas

@@ -6,19 +6,23 @@
 #
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
 
-FROM rucio/rucio-systemd-cc7
-ENV container docker
+FROM centos:7
 
-
-# Set the working directory to /app
 WORKDIR /tmp
+ADD oic.rpm /tmp
 
-# Copy the current directory contents into the container at /app
-ADD . /tmp
+RUN yum install -y epel-release.noarch
+RUN yum upgrade -y
+RUN yum install -y python-pip libaio gcc python-devel.x86_64 openssl-devel.x86_64
 
-# Install Rucio
-RUN pip install rucio
+RUN rpm -i /tmp/oic.rpm; \
+    echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
+    ldconfig
+RUN pip install --upgrade pip setuptools
+RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
+RUN pip install rucio[oracle,mysql,postgresql] j2cli psycopg2-binary
 
 # Install dependecies
 RUN yum install -y \
@@ -28,12 +32,13 @@ RUN yum install -y \
     gfal2-plugin-http \
     gfal2-plugin-srm \
     gfal2-plugin-xrootd \
-    gfal2-python \
-    supervisor
+    gfal2-python
 
-RUN cp supervisord.conf /etc/supervisord.conf
+ADD start-daemon.sh /
+
+RUN mkdir /var/log/rucio
 
 VOLUME /var/log/rucio
+VOLUME /opt/rucio/etc
 
-RUN systemctl enable supervisord.service
-CMD ["/usr/sbin/init"]
+ENTRYPOINT ["/start-daemon.sh"]

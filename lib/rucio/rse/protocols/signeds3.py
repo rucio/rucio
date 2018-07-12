@@ -1,13 +1,25 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+
+
+from __future__ import print_function
 
 import os
 import requests
@@ -135,12 +147,13 @@ class Default(protocol.RSEProtocol):
         """ Closes the connection to RSE."""
         pass
 
-    def get(self, path, dest):
+    def get(self, path, dest, transfer_timeout=None):
         """
             Provides access to files stored inside connected the RSE.
 
             :param path: Physical file name of requested file
             :param dest: Name and path of the files when stored at the client
+            :param transfer_timeout: Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.
@@ -164,7 +177,7 @@ class Default(protocol.RSEProtocol):
                         if length:
                             pbar = ProgressBar(maxval=totnchunk).start()
                         else:
-                            print 'Malformed HTTP response (missing content-length header). Cannot show progress bar.'
+                            print('Malformed HTTP response (missing content-length header). Cannot show progress bar.')
                         for chunk in result.iter_content(chunksize):
                             f.write(chunk)
                             if length:
@@ -184,13 +197,14 @@ class Default(protocol.RSEProtocol):
         except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable(error)
 
-    def put(self, source, target, source_dir=None):
+    def put(self, source, target, source_dir=None, transfer_timeout=None):
         """
             Allows to store files inside the referred RSE.
 
             :param source: path to the source file on the client file system
             :param target: path to the destination file on the storage
             :param source_dir: Path where the to be transferred files are stored in the local file system
+            :param transfer_timeout: Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.

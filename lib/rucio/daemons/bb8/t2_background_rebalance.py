@@ -90,24 +90,26 @@ for src in rses_over_ratio:
 
 # Loop over RSEs over the ratio
 for source_rse in rses_over_ratio:
-    if source_rse['ratio'] > global_ratio + global_ratio * tolerance:
-        available_source_rebalance_volume = int((source_rse['primary'] - global_ratio * source_rse['secondary']) / (global_ratio + 1))
-        if available_source_rebalance_volume > max_rse_rebalance_volume:
-            available_source_rebalance_volume = max_rse_rebalance_volume
-        if available_source_rebalance_volume > max_total_rebalance_volume - total_rebalance_volume:
-            available_source_rebalance_volume = max_total_rebalance_volume - total_rebalance_volume
-        # Select a target:
-        for destination_rse in rses_under_ratio:
-            if available_source_rebalance_volume > 0:
-                if destination_rse['receive_volume'] >= max_rse_rebalance_volume:
-                    continue
-                available_target_rebalance_volume = max_rse_rebalance_volume - destination_rse['receive_volume']
-                if available_target_rebalance_volume >= available_source_rebalance_volume:
-                    available_target_rebalance_volume = available_source_rebalance_volume
 
-                print 'Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'])
-                rebalance_rse(source_rse['rse'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='T2 Background rebalancing', force_expression=destination_rse['rse'])
+    # The volume that would be rebalanced, not real availability of the data:
+    available_source_rebalance_volume = int((source_rse['primary'] - global_ratio * source_rse['secondary']) / (global_ratio + 1))
+    if available_source_rebalance_volume > max_rse_rebalance_volume:
+        available_source_rebalance_volume = max_rse_rebalance_volume
+    if available_source_rebalance_volume > max_total_rebalance_volume - total_rebalance_volume:
+        available_source_rebalance_volume = max_total_rebalance_volume - total_rebalance_volume
 
-                destination_rse['receive_volume'] += available_target_rebalance_volume
-                total_rebalance_volume += available_target_rebalance_volume
-                available_source_rebalance_volume -= available_target_rebalance_volume
+    # Select a target:
+    for destination_rse in rses_under_ratio:
+        if available_source_rebalance_volume > 0:
+            if destination_rse['receive_volume'] >= max_rse_rebalance_volume:
+                continue
+            available_target_rebalance_volume = max_rse_rebalance_volume - destination_rse['receive_volume']
+            if available_target_rebalance_volume >= available_source_rebalance_volume:
+                available_target_rebalance_volume = available_source_rebalance_volume
+
+            print 'Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'])
+            rebalance_rse(source_rse['rse'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='T2 Background rebalancing', force_expression=destination_rse['rse'])
+
+            destination_rse['receive_volume'] += available_target_rebalance_volume
+            total_rebalance_volume += available_target_rebalance_volume
+            available_source_rebalance_volume -= available_target_rebalance_volume

@@ -1,19 +1,29 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
-  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
-'''
-
-from urllib import quote_plus
+try:
+    from urllib import quote_plus
+except ImportError:
+    from urllib.parse import quote_plus
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -28,7 +38,7 @@ class ReplicaClient(BaseClient):
 
     REPLICAS_BASEURL = 'replicas'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         super(ReplicaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
     def declare_bad_file_replicas(self, pfns, reason):
@@ -82,12 +92,13 @@ class ReplicaClient(BaseClient):
 
     def list_replicas(self, dids, schemes=None, unavailable=False,
                       all_states=False, metalink=False, rse_expression=None,
-                      client_location=None, sort=None, domain=None):
+                      client_location=None, sort=None, domain=None,
+                      resolve_archives=False):
         """
         List file replicas for a list of data identifiers (DIDs).
 
         :param dids: The list of data identifiers (DIDs) like :
-        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+            [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
         :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
         :param unavailable: Also include unavailable replicas in the list.
         :param metalink: ``False`` (default) retrieves as JSON,
@@ -98,6 +109,10 @@ class ReplicaClient(BaseClient):
                                         ``closeness`` - based on src/dst closeness
                                         ``dynamic`` - Rucio Dynamic Smart Sort (tm)
         :param domain: Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
+        :param resolve_archives: When set to True, find archives which contain the replicas.
+
+        :returns: A list of dictionaries with replica information.
+
         """
         data = {'dids': dids,
                 'domain': domain}
@@ -117,6 +132,9 @@ class ReplicaClient(BaseClient):
         if sort:
             data['sort'] = sort
 
+        if resolve_archives:
+            data['resolve_archives'] = True
+
         url = build_url(choice(self.list_hosts),
                         path='/'.join([self.REPLICAS_BASEURL, 'list']))
 
@@ -125,7 +143,7 @@ class ReplicaClient(BaseClient):
             headers['Accept'] = 'application/metalink4+xml'
 
         # pass json dict in querystring
-        r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
+        r = self._send_request(url, headers=headers, type='POST', data=dumps(data), stream=True)
         if r.status_code == codes.ok:
             if not metalink:
                 return self._load_json_data(r)
@@ -162,10 +180,11 @@ class ReplicaClient(BaseClient):
 
         :param rse: the RSE name.
         :param files: The list of files. This is a list of DIDs like :
-        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+            [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
         :param ignore_availability: Ignore the RSE blacklisting.
 
         :return: True if files were created successfully.
+
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files, 'ignore_availability': ignore_availability}
@@ -181,10 +200,11 @@ class ReplicaClient(BaseClient):
 
         :param rse: the RSE name.
         :param files: The list of files. This is a list of DIDs like :
-        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+            [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
         :param ignore_availability: Ignore the RSE blacklisting.
 
         :return: True if files have been deleted successfully.
+
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files, 'ignore_availability': ignore_availability}
@@ -200,9 +220,10 @@ class ReplicaClient(BaseClient):
 
         :param rse: the RSE name.
         :param files: The list of files. This is a list of DIDs like :
-        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+            [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
 
         :return: True if files have been deleted successfully.
+
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files}
@@ -214,11 +235,14 @@ class ReplicaClient(BaseClient):
 
     def list_dataset_replicas(self, scope, name, deep=False):
         """
+        List dataset replicas for a did (scope:name).
+
         :param scope: The scope of the dataset.
         :param name: The name of the dataset.
         :param deep: Lookup at the file level.
 
-        :returns: A list of dict dataset replicas
+        :returns: A list of dict dataset replicas.
+
         """
         payload = {}
         if deep:
@@ -241,7 +265,8 @@ class ReplicaClient(BaseClient):
         :param filters: dictionary of attributes by which the results should be filtered.
         :param limit: limit number.
 
-        :returns: A list of dict dataset replicas
+        :returns: A list of dict dataset replicas.
+
         """
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'rse', rse]))
         r = self._send_request(url, type='GET')

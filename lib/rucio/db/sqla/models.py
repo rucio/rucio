@@ -10,8 +10,8 @@
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
   - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
   - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
   - Wen Guan, <wen.guan@cern.ch>, 2015
 
 SQLAlchemy models for rucio data
@@ -353,6 +353,7 @@ class DataIdentifier(BASE, ModelBase):
     eol_at = Column(DateTime)
     is_archive = Column(Boolean(name='DIDS_ARCHIVE_CHK'))
     constituent = Column(Boolean(name='DIDS_CONSTITUENT_CHK'))
+    access_cnt = Column(Integer())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -410,6 +411,7 @@ class DeletedDataIdentifier(BASE, ModelBase):
     eol_at = Column(DateTime)
     is_archive = Column(Boolean(name='DEL_DIDS_ARCH_CHK'))
     constituent = Column(Boolean(name='DEL_DIDS_CONST_CHK'))
+    access_cnt = Column(Integer())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
 
 
@@ -454,7 +456,8 @@ class QuarantinedReplica(BASE, ModelBase, Versioned):
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     _table_args = (PrimaryKeyConstraint('rse_id', 'path', name='QURD_REPLICAS_STATE_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'))
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'),
+                   Index('QUARANTINED_REPLICAS_PATH_IDX', 'path', 'rse_id', unique=True))
 
 
 class DIDKey(BASE, ModelBase):

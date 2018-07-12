@@ -1,23 +1,34 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Yun-Pin Sun <winter0128@gmail.com>, 2013
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Eric Vaandering <ericvaandering@gmail.com>, 2018
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+try:
+    from urllib import quote_plus
+except ImportError:
+    from urllib.parse import quote_plus
 
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-  - Thomas Beermann, <thomas.beermann@cern.ch> 2013
-  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-  - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
-  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
-  - Eric Vaandering, <ewv@fnal.gov>, 2018
-'''
-
-from urllib import quote_plus
 from json import dumps
 from requests.status_codes import codes
 
@@ -34,7 +45,7 @@ class DIDClient(BaseClient):
     ARCHIVES_BASEURL = 'archives'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
-                 auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                         auth_type, creds, timeout, user_agent)
 
@@ -52,7 +63,7 @@ class DIDClient(BaseClient):
         if long:
             payload['long'] = 1
 
-        for k, v in filters.items():
+        for k, v in list(filters.items()):
             if k in ('created_before', 'created_after'):
                 payload[k] = date_to_str(v)
             else:
@@ -142,7 +153,7 @@ class DIDClient(BaseClient):
 
         :param dsns: A list of datasets.
         """
-        return self.add_dids(dids=[dict(dsn.items() + [('type', 'DATASET')]) for dsn in dsns])
+        return self.add_dids(dids=[dict(list(dsn.items()) + [('type', 'DATASET')]) for dsn in dsns])
 
     def add_container(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None):
         """
@@ -163,7 +174,7 @@ class DIDClient(BaseClient):
 
         :param cnts: A list of containers.
         """
-        return self.add_dids(dids=[dict(cnts.items() + [('type', 'CONTAINER')]) for cnt in cnts])
+        return self.add_dids(dids=[dict(list(cnts.items()) + [('type', 'CONTAINER')]) for cnt in cnts])
 
     def attach_dids(self, scope, name, dids, rse=None):
         """
@@ -366,7 +377,7 @@ class DIDClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            return self._load_json_data(r).next()
+            return next(self._load_json_data(r))
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
@@ -383,7 +394,7 @@ class DIDClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             meta = self._load_json_data(r)
-            return meta.next()
+            return next(meta)
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
@@ -490,10 +501,11 @@ class DIDClient(BaseClient):
     def get_dataset_by_guid(self, guid):
         """
         Get the parent datasets for a given GUID.
-       :param guid: The GUID.
+        :param guid: The GUID.
 
         :returns: A did
         """
+
         path = '/'.join([self.DIDS_BASEURL, guid, 'guid'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')

@@ -1,22 +1,33 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014, 2017
-# - Wen Guan, <wen.guan@cern.ch>, 2015-2016
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
+# - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 
 from re import match
-from StringIO import StringIO
-
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import json
 import sqlalchemy
 import sqlalchemy.orm
@@ -34,6 +45,7 @@ import rucio.core.account_counter
 from rucio.core.rse_counter import add_counter
 
 from rucio.common import exception, utils
+from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -69,8 +81,8 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
         new_rse.save(session=session)
     except IntegrityError:
         raise exception.Duplicate('RSE \'%(rse)s\' already exists!' % locals())
-    except DatabaseError, e:
-        raise exception.RucioException(e.args)
+    except DatabaseError as error:
+        raise exception.RucioException(error.args)
 
     # Add rse name as a RSE-Tag
     add_rse_attribute(rse=rse, key=rse, value=True, session=session)
@@ -268,10 +280,10 @@ def list_rses(filters={}, session=None):
 
         query = session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse)
         for row in query:
-            d = {}
+            dic = {}
             for column in row.__table__.columns:
-                d[column.name] = getattr(row, column.name)
-            rse_list.append(d)
+                dic[column.name] = getattr(row, column.name)
+            rse_list.append(dic)
 
     return rse_list
 
@@ -422,12 +434,13 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
 
 
 @read_session
-def get_rse_attribute(key, rse_id=None, session=None):
+def get_rse_attribute(key, rse_id=None, value=None, session=None):
     """
     Retrieve RSE attribute value.
 
     :param rse_id: The RSE id.
     :param key: The key for the attribute.
+    :param value: Optionally, the desired value for the attribute.
     :param session: The database session in use.
 
     :returns: A list with RSE attribute values for a Key.
@@ -435,8 +448,12 @@ def get_rse_attribute(key, rse_id=None, session=None):
     rse_attrs = []
     if rse_id:
         query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).distinct()
+        if value:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key, value=value).distinct()
     else:
         query = session.query(models.RSEAttrAssociation.value).filter_by(key=key).distinct()
+        if value:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(key=key, value=value).distinct()
     for attr_value in query:
         rse_attrs.append(attr_value[0])
     return rse_attrs
@@ -560,8 +577,8 @@ def set_rse_transfer_limits(rse, activity, rse_id=None, rse_expression=None, max
         rse_tr_limit = session.merge(rse_tr_limit)
         rowcount = rse_tr_limit.save(session=session)
         return rowcount
-    except IntegrityError, e:
-        raise exception.RucioException(e.args)
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
 
 
 @read_session
@@ -593,8 +610,8 @@ def get_rse_transfer_limits(rse=None, activity=None, rse_id=None, session=None):
                                                     'transfers': limit.transfers,
                                                     'waitings': limit.waitings}
         return limits
-    except IntegrityError, e:
-        raise exception.RucioException(e.args)
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
 
 
 @transactional_session
@@ -615,8 +632,8 @@ def delete_rse_transfer_limits(rse, activity=None, rse_id=None, session=None):
             query = query.filter_by(activity=activity)
         rowcount = query.delete()
         return rowcount
-    except IntegrityError, e:
-        raise exception.RucioException(e.args)
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
 
 
 @stream_session
@@ -675,7 +692,7 @@ def add_protocol(rse, parameter, session=None):
             for op in parameter['domains'][s]:
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = ''.join([op, '_', s]).lower()
+                op_name = op if op == 'third_party_copy' else ''.join([op, '_', s]).lower()
                 if parameter['domains'][s][op] < 0:
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
                 parameter[op_name] = parameter['domains'][s][op]
@@ -688,25 +705,25 @@ def add_protocol(rse, parameter, session=None):
             pass  # String is not JSON
 
     if parameter['scheme'] == 'srm':
-        if ('space_token' not in parameter['extended_attributes']) or ('web_service_path' not in parameter['extended_attributes']):
+        if ('extended_attributes' not in parameter) or ('web_service_path' not in parameter['extended_attributes']):
             raise exception.InvalidObject('Missing values! For SRM, extended_attributes and web_service_path must be specified')
 
     try:
         new_protocol = models.RSEProtocols()
         new_protocol.update(parameter)
         new_protocol.save(session=session)
-    except (IntegrityError, FlushError, OperationalError) as e:
-        if ('UNIQUE constraint failed' in e.args[0]) or ('conflicts with persistent instance' in e.args[0]) \
-           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]) \
-           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0])\
-           or match('.*IntegrityError.*columns.*are not unique.*', e.args[0]):
+    except (IntegrityError, FlushError, OperationalError) as error:
+        if ('UNIQUE constraint failed' in error.args[0]) or ('conflicts with persistent instance' in error.args[0]) \
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', error.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
+           or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
-        elif 'may not be NULL' in e.args[0] \
-             or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', e.args[0]) \
-             or match('.*OperationalError.*cannot be null.*', e.args[0]):
+        elif 'may not be NULL' in error.args[0] \
+             or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
+             or match('.*OperationalError.*cannot be null.*', error.args[0]):
             raise exception.InvalidObject('Missing values!')
-        raise e
+        raise error
     return new_protocol
 
 
@@ -729,9 +746,14 @@ def get_rse_protocols(rse, schemes=None, session=None):
         raise exception.RSENotFound('RSE \'%s\' not found')
 
     lfn2pfn_algorithms = get_rse_attribute('lfn2pfn_algorithm', rse_id=_rse.id, session=session)
-    lfn2pfn_algorithm = 'default'
+    # Resolve LFN2PFN default algorithm as soon as possible.  This way, we can send back the actual
+    # algorithm name in response to REST queries.
+    lfn2pfn_algorithm = get_lfn2pfn_algorithm_default()
     if lfn2pfn_algorithms:
         lfn2pfn_algorithm = lfn2pfn_algorithms[0]
+
+    # Copy verify_checksum from the attributes, later: assume True if not specified
+    verify_checksum = get_rse_attribute('verify_checksum', rse_id=_rse.id, session=session)
 
     read = True if _rse.availability & 4 else False
     write = True if _rse.availability & 2 else False
@@ -749,6 +771,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
             'rse_type': str(_rse.rse_type),
             'credentials': None,
             'volatile': _rse.volatile,
+            'verify_checksum': verify_checksum[0] if verify_checksum else True,
             'staging_area': _rse.staging_area}
 
     for op in utils.rse_supported_protocol_operations():
@@ -835,10 +858,12 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
             for op in data['domains'][s]:
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = ''.join([op, '_', s])
+                op_name = op
+                if op != 'third_party_copy':
+                    op_name = ''.join([op, '_', s])
                 no = session.query(models.RSEProtocols).\
                     filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
-                                           getattr(models.RSEProtocols, op_name) > 0)).\
+                                           getattr(models.RSEProtocols, op_name) >= 0)).\
                     count()
                 if not 0 <= data['domains'][s][op] <= no:
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (data['domains'][s][op], op, s))
@@ -868,7 +893,9 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
         # Preparing gaps if priority is updated
         for domain in utils.rse_supported_protocol_domains():
             for op in utils.rse_supported_protocol_operations():
-                op_name = ''.join([op, '_', domain])
+                op_name = op
+                if op != 'third_party_copy':
+                    op_name = ''.join([op, '_', domain])
                 if op_name in data:
                     prots = []
                     if (not getattr(up, op_name)) and data[op_name]:  # reactivate protocol e.g. from 0 to 1
@@ -903,16 +930,16 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
                         val += 1
 
         up.update(data, flush=True, session=session)
-    except (IntegrityError, OperationalError) as e:
-        if 'UNIQUE'.lower() in e.args[0].lower() or 'Duplicate' in e.args[0]:  # Covers SQLite, Oracle and MySQL error
+    except (IntegrityError, OperationalError) as error:
+        if 'UNIQUE'.lower() in error.args[0].lower() or 'Duplicate' in error.args[0]:  # Covers SQLite, Oracle and MySQL error
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse, hostname))
-        elif 'may not be NULL' in e.args[0] or "cannot be null" in e.args[0]:
-            raise exception.InvalidObject('Missing values: %s' % e.args[0])
-        raise e
-    except DatabaseError, e:
-        if match('.*DatabaseError.*ORA-01407: cannot update .*RSE_PROTOCOLS.*IMPL.*to NULL.*', e.args[0]):
+        elif 'may not be NULL' in error.args[0] or "cannot be null" in error.args[0]:
+            raise exception.InvalidObject('Missing values: %s' % error.args[0])
+        raise error
+    except DatabaseError as error:
+        if match('.*DatabaseError.*ORA-01407: cannot update .*RSE_PROTOCOLS.*IMPL.*to NULL.*', error.args[0]):
             raise exception.InvalidObject('Invalid values !')
-        raise e
+        raise error
 
 
 @transactional_session
@@ -1003,3 +1030,46 @@ def update_rse(rse, parameters, session=None):
         query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == rse)
         rse_attr = query.one()
         rse_attr.delete(session=session)
+
+
+@read_session
+def export_rse(rse, rse_id=None, session=None):
+    """
+    Get the internal representation of an RSE.
+
+    :param rse: The RSE name.
+    :param rse_id: The RSE id.
+
+    :returns: A dictionary with the internal representation of an RSE.
+    """
+    if not rse_id:
+        rse_id = get_rse_id(rse=rse, session=session)
+
+    query = session.query(models.RSE).filter_by(rse_id=rse_id)
+
+    rse_data = {}
+    for _rse in query:
+        for k, v in _rse:
+            rse_data[k] = v
+
+    # get RSE attributes
+    rse_data['attributes'] = list_rse_attributes(rse, rse_id=rse_id)
+
+    # get RSE protocols
+    rse_data['protocols'] = get_rse_protocols(rse)
+
+    # remove duplicated keys returned by get_rse_protocols()
+    rse_data['protocols'].pop('id')
+    rse_data['protocols'].pop('rse')
+    rse_data['protocols'].pop('rse_type')
+    rse_data['protocols'].pop('staging_area')
+    rse_data['protocols'].pop('deterministic')
+    rse_data['protocols'].pop('volatile')
+
+    # get RSE limits
+    rse_data['limits'] = get_rse_limits(rse)
+
+    # get RSE xfer limits
+    rse_data['transfer_limits'] = get_rse_transfer_limits(rse)
+
+    return rse_data

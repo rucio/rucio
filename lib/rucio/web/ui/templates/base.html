@@ -9,7 +9,7 @@ $def with (token, account, rucio_ui_version, policy, content)
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2018
  - Martin Barisits, <martin.barisits@cern.ch>, 2014
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
@@ -64,7 +64,8 @@ $def with (token, account, rucio_ui_version, policy, content)
       <nav class="top-bar" data-topbar role="navigation">
         <ul class="title-area">
           <li class="name">
-            <h1><a href="/">ATLAS Rucio UI</a></h1>
+            $if policy == 'atlas': <h1><a href="/">ATLAS Rucio UI</a></h1>
+            $else: <h1><a href="/">Rucio UI</a></h1>
           </li>
           <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
         </ul>

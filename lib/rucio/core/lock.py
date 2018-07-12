@@ -8,9 +8,9 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2018
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2018
 
 import logging
 import sys
@@ -24,6 +24,7 @@ import rucio.core.rule
 import rucio.core.did
 
 from rucio.common.config import config_get
+from rucio.common.exception import RSENotFound
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db.sqla import models
@@ -31,7 +32,10 @@ from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType,
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
@@ -331,7 +335,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                 for ds_lock in ds_locks:
                     ds_lock.state = LockState.OK
                 session.flush()
-                rucio.core.rule.generate_message_for_dataset_ok_callback(rule=rule, session=session)
+            rucio.core.rule.generate_rule_notifications(rule=rule, session=session)
             if rule.notification == RuleNotification.YES:
                 rucio.core.rule.generate_email_for_rule_ok_notification(rule=rule, session=session)
             # Try to release potential parent rules
@@ -413,16 +417,20 @@ def touch_dataset_locks(dataset_locks, session=None):
 
     rse_ids, now = {}, datetime.utcnow()
     for dataset_lock in dataset_locks:
-        if 'rse_id' not in dataset_lock:
-            if dataset_lock['rse'] not in rse_ids:
-                rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
-            dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
+        try:
+            if 'rse_id' not in dataset_lock:
+                if dataset_lock['rse'] not in rse_ids:
+                    rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
+                dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
+        except RSENotFound:
+            continue
 
         eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'id': dataset_lock['rse_id']}], session=session)
         try:
             session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
                 update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
-            session.query(models.ReplicationRule).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name']).update({'eol_at': eol_at}, synchronize_session=False)
+            for rule_id in session.query(models.DatasetLock.rule_id).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']):
+                session.query(models.ReplicationRule).filter_by(id=rule_id).update({'eol_at': eol_at}, synchronize_session=False)
         except DatabaseError:
             return False
 

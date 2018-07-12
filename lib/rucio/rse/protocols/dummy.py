@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
 
 from exceptions import NotImplementedError
@@ -67,22 +68,24 @@ class Default(protocol.RSEProtocol):
         """ Closes the connection to RSE."""
         raise NotImplementedError
 
-    def get(self, pfn, dest):
+    def get(self, pfn, dest, transfer_timeout=None):
         """ Provides access to files stored inside connected the RSE.
 
             :param pfn Physical file name of requested file
             :param dest Name and path of the files when stored at the client
+            :param transfer_timeout Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
          """
         raise NotImplementedError
 
-    def put(self, source, target, source_dir=None):
+    def put(self, source, target, source_dir=None, transfer_timeout=None):
         """ Allows to store files inside the referred RSE.
 
             :param source Physical file name
             :param target Name of the file on the storage system e.g. with prefixed scope
             :param source_dir Path where the to be transferred files are stored in the local file system
+            :param transfer_timeout Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """

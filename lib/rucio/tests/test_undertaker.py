@@ -1,13 +1,21 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 from datetime import datetime, timedelta
 
@@ -36,7 +44,7 @@ class TestUndertaker:
         dsns1 = [{'name': 'dsn_%s' % generate_uuid(),
                   'scope': tmp_scope,
                   'type': 'DATASET',
-                  'lifetime': -1} for i in xrange(nbdatasets)]
+                  'lifetime': -1} for i in range(nbdatasets)]
 
         dsns2 = [{'name': 'dsn_%s' % generate_uuid(),
                   'scope': tmp_scope,
@@ -44,13 +52,15 @@ class TestUndertaker:
                   'lifetime': -1,
                   'rules': [{'account': 'jdoe', 'copies': 1,
                              'rse_expression': 'MOCK',
-                             'grouping': 'DATASET'}]} for i in xrange(nbdatasets)]
+                             'grouping': 'DATASET'}]} for i in range(nbdatasets)]
 
         add_dids(dids=dsns1 + dsns2, account='root')
 
         replicas = list()
         for dsn in dsns1 + dsns2:
-            files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in xrange(nbfiles)]
+            files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(),
+                      'bytes': 1, 'adler32': '0cc737eb',
+                      'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in range(nbfiles)]
             attach_dids(scope=tmp_scope, name=dsn['name'], rse='MOCK', dids=files, account='root')
             replicas += files
 
@@ -99,13 +109,14 @@ class TestUndertaker:
                   'lifetime': -1,
                   'rules': [{'account': 'jdoe', 'copies': 1,
                              'rse_expression': rse,
-                             'grouping': 'DATASET'}]} for i in xrange(nbdatasets)]
+                             'grouping': 'DATASET'}]} for i in range(nbdatasets)]
 
         add_dids(dids=dsns2, account='root')
 
         replicas = list()
         for dsn in dsns2:
-            files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in xrange(nbfiles)]
+            files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1,
+                      'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in range(nbfiles)]
             attach_dids(scope=tmp_scope, name=dsn['name'], rse=rse, dids=files, account='root')
             replicas += files
 

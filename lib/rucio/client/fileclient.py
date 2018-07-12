@@ -1,14 +1,25 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
+
+from __future__ import print_function
 
 from urllib import quote_plus
 from json import loads
@@ -24,7 +35,7 @@ class FileClient(BaseClient):
 
     BASEURL = 'files'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         """ Constructor """
         super(FileClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
@@ -46,6 +57,6 @@ class FileClient(BaseClient):
             rses = loads(r.text)
             return rses
         else:
-            print r.status_code
+            print(r.status_code)
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)

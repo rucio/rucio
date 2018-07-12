@@ -6,6 +6,8 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
 [common]
 
@@ -15,3 +17,16 @@ auth_host = https://voatlasrucio-auth-prod.cern.ch:443
 ca_cert = $RUCIO_HOME/etc/ca.crt
 client_x509_proxy = $X509_USER_PROXY
 request_retries = 3
+
+[policy]
+permission = atlas
+schema = atlas
+lfn2pfn_algorithm_default = hash
+support = hn-atlas-dist-analysis-help@cern.ch
+support_rucio = https://github.com/rucio/rucio/issues/
+
+[upload]
+#transfer_timeout = 3600
+
+[download]
+#transfer_timeout = 3600

@@ -48,7 +48,7 @@ SCOPE_LENGTH = 25
 
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "pattern": "^[a-zA-Z'_'-.0-9]{1,%s}$" % SCOPE_LENGTH}
+         "pattern": r"^(cms)|(user\.[a-zA-Z0-9\.]{1,%s})$" % (SCOPE_LENGTH - len('user.'))}
 
 R_SCOPE = {"description": "Scope name",
            "type": "string",
@@ -59,7 +59,7 @@ NAME_LENGTH = 500
 
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "pattern": "^\/[A-Za-z0-9][A-Za-z0-9\\.\\-\\_\/\#]{1,%s}$" % NAME_LENGTH}
+        "pattern": r"^\/[A-Za-z0-9][A-Za-z0-9\.\-\_\/\#]{1,%s}$" % NAME_LENGTH}
 
 # read name
 R_NAME = NAME
@@ -81,7 +81,7 @@ IGNORE_AVAILABILITY = {"description": "Rule ignore availability status",
 
 RSE = {"description": "RSE name",
        "type": "string",
-       "pattern": "(T[0-3]_[A-Z]{2}_([_-][A-Za-z0-9]+)*)"}
+       "pattern": "^T[0-3]_[A-Z]{2}((_[A-Za-z0-9]+)+)$"}
 
 RSE_ATTRIBUTE = {"description": "RSE attribute",
                  "type": "string",

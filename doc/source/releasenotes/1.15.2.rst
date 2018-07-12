@@ -1,0 +1,60 @@
+======
+1.15.2
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Documentation: Add REST API frontend using flask `#586 <https://github.com/rucio/rucio/issues/586>`_
+- Traces: Include the number of accesses column in DID table to count dataset accesses `#525 <https://github.com/rucio/rucio/issues/525>`_
+
+************
+Enhancements
+************
+
+- Documentation: Documentation overhaul for the workshop `#572 <https://github.com/rucio/rucio/issues/572>`_
+- Documentation: Typo in the doc `#799 <https://github.com/rucio/rucio/issues/799>`_
+- Functional tests: Configure slack notifications for travis `#633 <https://github.com/rucio/rucio/issues/633>`_
+- Release management: setup.py and setup_rucio.py should be the same file `#850 <https://github.com/rucio/rucio/issues/850>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Postgres incompatibility `#738 <https://github.com/rucio/rucio/issues/738>`_
+- Documentation: Spelling mistake in documentation `#796 <https://github.com/rucio/rucio/issues/796>`_
+- Documentation: RSE_Expressions link broken in documentation `#808 <https://github.com/rucio/rucio/issues/808>`_
+- Transfers: Protocol mismatch error in the conveyor `#849 <https://github.com/rucio/rucio/issues/849>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Option to specify protocol implementation for upload `#29 <https://github.com/rucio/rucio/issues/29>`_
+- Clients: Add Suggestions For MD5 Calculation `#811 <https://github.com/rucio/rucio/issues/811>`_
+- Documentation: Improve doc for the CLI `#551 <https://github.com/rucio/rucio/issues/551>`_
+- Release management: client dependencies update `#754 <https://github.com/rucio/rucio/issues/754>`_
+
+****
+Bugs
+****
+
+- Clients: Flask imported in clients `#800 <https://github.com/rucio/rucio/issues/800>`_
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- Traces: webui: add tracing for webui downloads `#665 <https://github.com/rucio/rucio/issues/665>`_

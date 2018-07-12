@@ -34,6 +34,7 @@ Setting up the repository
 **Step 2**: Clone the repository to your development machine and configure it::
 
   $ git clone https://github.com/<YOUR_USER>/rucio/
+  $ cd rucio
   $ git remote add upstream https://github.com/rucio/rucio.git
   # Optional to track changes on the next branch
   $ git branch --track next
@@ -51,9 +52,9 @@ Every issue will get a **unique issue number**.
   $ ./tools/create-patch-branch <unique issue number> '<short_change_message>'
   $ ./tools/create-feature-branch <unique issue number> '<short_change_message>'
 
-**Step 3**: Commit your change. The format of the commit message must be::
+**Step 3**: Commit your change. The commit command must include a specific message format::
 
-<component>: <change_message> #<issue number>
+git commit -m "<component>: <change_message> #<issue number>"
 
 Valid component names are listed in the `label list <https://github.com/rucio/rucio/labels>`_.
 
@@ -116,3 +117,11 @@ Coding Style and testing
 
 We use flake8 and pylint to sanitize our code. Please do the same before
 submitting a pull request.
+
+
+Git Hooks
+---------
+
+Some git hooks (pre-commit, prepare-commit-msg) can be installed by executing the script::
+
+    $ ./tools/configure_git.sh

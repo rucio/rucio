@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2017
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2018
 
 from json import dumps
 from os.path import dirname, join
@@ -55,7 +55,7 @@ def check_token(rendered_tpl):
     accounts = None
     cookie_accounts = None
     rucio_ui_version = version.version_string()
-    policy = config_get('permission', 'policy')
+    policy = config_get('policy', 'permission')
 
     ui_account = None
     if 'ui_account' in input():
@@ -66,6 +66,9 @@ def check_token(rendered_tpl):
         return render.problem("No certificate provided. Please authenticate with a certificate registered in Rucio.")
 
     dn = ctx.env.get('SSL_CLIENT_S_DN')
+
+    if not dn.startswith('/'):
+        dn = '/%s' % '/'.join(dn.split(',')[::-1])
 
     msg = "Your certificate (%s) is not mapped to any rucio account." % dn
     msg += "<br><br><font color=\"red\">First, please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> and be patient until it has been fully propagated through the system.</font>"

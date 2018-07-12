@@ -1,27 +1,44 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
-# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017
-#
-# Client class for callers of the Rucio system
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Yun-Pin Sun <winter0128@gmail.com>, 2013
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
+# - Tobias Wegner <twegner@cern.ch>, 2017
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 
+'''
+ Client class for callers of the Rucio system
+'''
+
+from __future__ import print_function
+
+import imp
 import random
 import sys
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter
+from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
+                                    NoAuthInformation, MissingClientParameter,
+                                    MissingModuleException, ServerConnectionException)
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
 from rucio import version
 
@@ -29,17 +46,33 @@ from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
-from urlparse import urlparse
-
-from ConfigParser import NoOptionError, NoSectionError
+try:
+    # Python 2
+    from urlparse import urlparse
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    # Python 3
+    from urllib.parse import urlparse
+    from configparser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
 from requests import session
 from requests.status_codes import codes, _codes
 from requests.exceptions import ConnectionError
-from requests_kerberos import HTTPKerberosAuth
-# See https://github.com/kennethreitz/requests/issues/2214
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 disable_warnings()
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'requests_kerberos': False}
+
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['requests_kerberos']:
+    from requests_kerberos import HTTPKerberosAuth  # pylint: disable=import-error
 
 
 LOG = getLogger(__name__)
@@ -73,7 +106,7 @@ class BaseClient(object):
     TOKEN_PATH_PREFIX = get_tmp_dir() + '/.rucio_'
     TOKEN_PREFIX = 'auth_token_'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         """
         Constructor of the BaseClient.
         :param rucio_host: the address of the rucio server, if None it is read from the config file.
@@ -241,7 +274,7 @@ class BaseClient(object):
         else:  # Exception ?
             yield response.text
 
-    def _send_request(self, url, headers=None, type='GET', data=None, params=None):
+    def _send_request(self, url, headers=None, type='GET', data=None, params=None, stream=False):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
@@ -267,7 +300,7 @@ class BaseClient(object):
                 elif type == 'PUT':
                     result = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
-                    result = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=True)
+                    result = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=stream)
                 elif type == 'DEL':
                     result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
@@ -285,6 +318,9 @@ class BaseClient(object):
                 hds['X-Rucio-Auth-Token'] = self.auth_token
             else:
                 break
+
+        if result is None:
+            raise ServerConnectionException
         return result
 
     def __get_token_userpass(self):
@@ -389,7 +425,6 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
-
         headers = {'X-Rucio-Account': self.account}
 
         private_key_path = self.creds['ssh_private_key']
@@ -469,6 +504,8 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
+        if not EXTRA_MODULES['requests_kerberos']:
+            raise MissingModuleException('The requests-kerberos module is not installed.')
 
         headers = {'X-Rucio-Account': self.account}
         url = build_url(self.auth_host, path='auth/gss')
@@ -542,8 +579,8 @@ class BaseClient(object):
             token_file_handler = open(self.token_file, 'r')
             self.auth_token = token_file_handler.readline()
             self.headers['X-Rucio-Auth-Token'] = self.auth_token
-        except IOError as (errno, strerror):  # NOQA
-            print("I/O error({0}): {1}".format(errno, strerror))
+        except IOError as error:
+            print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise
 
@@ -562,7 +599,7 @@ class BaseClient(object):
         if not path.isdir(token_path):
             try:
                 LOG.debug('rucio token folder \'%s\' not found. Create it.' % token_path)
-                makedirs(token_path, 0700)
+                makedirs(token_path, 0o700)
             except Exception:
                 raise
 
@@ -572,8 +609,8 @@ class BaseClient(object):
             with fdopen(file_d, "w") as f_token:
                 f_token.write(self.auth_token)
             move(file_n, self.token_file)
-        except IOError as (errno, strerror):  # NOQA
-            print("I/O error({0}): {1}".format(errno, strerror))
+        except IOError as error:
+            print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise
 
