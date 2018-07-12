@@ -35,7 +35,8 @@ from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, Re
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
-
+from rucio.transfertool.fts3_myproxy import FTS3MyProxyTransfertool
+from rucio.common.config import config_get
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
 where the external_id is already known.
@@ -45,9 +46,10 @@ Requests accessed by request_id  are covered in the core request.py
 REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
                                        arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 
-def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None):
+def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
     """
     Submit transfer request to a transfertool.
 
@@ -76,7 +78,13 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
-        transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+        if not user_transfer_job:
+            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+        elif USER_TRANSFERS == "cms":
+            transfer_id = FTS3MyProxyTransfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+        else:
+            # if no valid USER TRANSFER cases --> go with std submission
+            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000 / len(files))
     return transfer_id
 
@@ -662,13 +670,13 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 fts_list = fts_hosts.split(",")
 
                 verify_checksum = 'both'
-                if rse_attrs[dest_rse_id].get('verify_checksum', 'True').lower() == 'false':
-                    if rse_attrs[source_rse_id].get('verify_checksum', 'True').lower() == 'false':
+                if not rse_attrs[dest_rse_id].get('verify_checksum', True):
+                    if not rse_attrs[source_rse_id].get('verify_checksum', True):
                         verify_checksum = 'none'
                     else:
                         verify_checksum = 'source'
                 else:
-                    if rse_attrs[source_rse_id].get('verify_checksum', 'True').lower() == 'false':
+                    if not rse_attrs[source_rse_id].get('verify_checksum', True):
                         verify_checksum = 'destination'
                     else:
                         verify_checksum = 'both'
@@ -718,7 +726,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 if source_rse_id is None or rse is None:
                     continue
 
-                if link_ranking is None or link_ranking == 0:
+                if link_ranking is None:
                     logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
                     continue
 

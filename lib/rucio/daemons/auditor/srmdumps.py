@@ -15,10 +15,11 @@
 # Authors:
 # - Fernando Lopez <felopez@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from rucio.common.config import __CONFIGFILES as __RUCIOCONFIGFILES
 from rucio.common.dumper import DUMPS_CACHE_DIR
-from rucio.common.dumper import http_download_to_file, srm_download_to_file, ddmendpoint_url, temp_file
+from rucio.common.dumper import http_download_to_file, gfal_download_to_file, ddmendpoint_url, temp_file
 
 import ConfigParser
 import HTMLParser
@@ -112,7 +113,7 @@ def get_newest(base_url, url_pattern, links):
     return max(times, key=operator.itemgetter(1))
 
 
-def srm_links(base_url):
+def gfal_links(base_url):
     '''
     Returns a list of the urls contained in `base_url`.
     '''
@@ -150,11 +151,27 @@ def http_links(base_url):
 
 
 protocol_funcs = {
+    'davs': {
+        'links': gfal_links,
+        'download': gfal_download_to_file,
+    },
+    'gsiftp': {
+        'links': gfal_links,
+        'download': gfal_download_to_file,
+    },
+    'root': {
+        'links': gfal_links,
+        'download': gfal_download_to_file,
+    },
     'srm': {
-        'links': srm_links,
-        'download': srm_download_to_file,
+        'links': gfal_links,
+        'download': gfal_download_to_file,
     },
     'http': {
+        'links': http_links,
+        'download': http_download_to_file,
+    },
+    'https': {
         'links': http_links,
         'download': http_download_to_file,
     },
@@ -227,6 +244,7 @@ def download_rse_dump(rse, configuration, date='latest', destdir=DUMPS_CACHE_DIR
     logger = logging.getLogger('auditor.srmdumps')
     base_url, url_pattern = generate_url(rse, configuration)
     if date == 'latest':
+        logger.debug('Looking for site dumps in: "%s"', base_url)
         links = get_links(base_url)
         url, date = get_newest(base_url, url_pattern, links)
     else:

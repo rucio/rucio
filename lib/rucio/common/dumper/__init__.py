@@ -16,6 +16,7 @@
 # - Fernando Lopez <felopez@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from rucio.common import config
 
@@ -272,7 +273,9 @@ def agis_endpoints_data(cache=True):
 def ddmendpoint_url(ddmendpoint):
     agisdata = agis_endpoints_data()
     endpointdata = next(entry for entry in agisdata if entry['name'] == ddmendpoint)
-    return str(''.join((endpointdata['se'], endpointdata['endpoint'])))
+    protocoldata = endpointdata['arprotocols']['read_wan'][0]
+    return str(''.join([protocoldata['endpoint'],
+                       re.sub(r'rucio/$', '', protocoldata['path'])]))
 
 # Using AGIS is better to avoid the use of ATLAS credentials, but using
 # rucio.client for the same task is also possible:
@@ -315,7 +318,7 @@ def http_download(url, filename):
         http_download_to_file(url, f)
 
 
-def srm_download_to_file(url, file_):
+def gfal_download_to_file(url, file_):
     '''
     Download the file in `url` storing it in the `file_` file-like
     object.
@@ -340,9 +343,9 @@ def srm_download_to_file(url, file_):
         chunk = infile.read(CHUNK_SIZE)
 
 
-def srm_download(url, filename):
+def gfal_download(url, filename):
     '''
     Download the file in `url` storing it in the path given by `filename`.
     '''
     with open(filename, 'w') as f:
-        srm_download_to_file(url, f)
+        gfal_download_to_file(url, f)

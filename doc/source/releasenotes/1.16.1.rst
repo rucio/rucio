@@ -1,0 +1,51 @@
+======
+1.16.1
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Authz: Signed URL support `#1054 <https://github.com/rucio/rucio/issues/1054>`_
+- Core & Internals: core: exception handler truncates some error messages `#1116 <https://github.com/rucio/rucio/issues/1116>`_
+- Core & Internals: schema: add root and webdav functional test for atlas `#1117 <https://github.com/rucio/rucio/issues/1117>`_
+- Messaging: Create a new RULE_OK notification for all rules `#1115 <https://github.com/rucio/rucio/issues/1115>`_
+
+****
+Bugs
+****
+
+- Core & Internals: core.account_limit.get_rse_account_usage should liste accounts who have usage, but no quota `#1045 <https://github.com/rucio/rucio/issues/1045>`_
+- Core & Internals: regex for dids in cms schema not matching '-'  `#1128 <https://github.com/rucio/rucio/issues/1128>`_
+- Transfers: Transfers : Bug with verify checksum `#1118 <https://github.com/rucio/rucio/issues/1118>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: list-rules CLI should give a warning if it does not find a rule but looks on content of a container/DS `#1077 <https://github.com/rucio/rucio/issues/1077>`_
+- Testing: Extend the client validation with test_bin_rucio.py on Travis `#1036 <https://github.com/rucio/rucio/issues/1036>`_
+
+****
+Bugs
+****
+
+- Clients: Fix in rucio/bin, empty md5 `#1104 <https://github.com/rucio/rucio/issues/1104>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: lifetime field for rule creation should be pre-filled with 180 days `#1127 <https://github.com/rucio/rucio/issues/1127>`_

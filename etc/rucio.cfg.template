@@ -201,3 +201,7 @@ support_rucio = https://github.com/rucio/rucio/issues/
 
 [webui]
 usercert = /opt/rucio/etc/usercert_with_key.pem
+
+[credentials]
+gcs = /opt/rucio/etc/google-cloud-storage-test.json
+signature_lifetime = 3600

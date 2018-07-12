@@ -1,22 +1,30 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
-
 
 from logging import getLogger, StreamHandler, DEBUG
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
-from rucio.common.exception import RucioException
+from rucio.common.exception import RucioException, RSENotFound
 from rucio.common.utils import generate_http_error_flask, render_json
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 
@@ -50,6 +58,8 @@ class LockByRSE(MethodView):
                 return Response(data, content_type="application/x-json-stream")
             else:
                 return 'Wrong did_type specified', 500
+        except RSENotFound as error:
+            return generate_http_error_flask(404, error.__class__.__name__, error.args[0])
         except RucioException, error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:

@@ -16,23 +16,26 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_in, assert_not_in
 
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
-
 from rucio.common.utils import generate_uuid
+from rucio.core.replica import add_replicas
+from rucio.core.rse import add_rse, del_rse, add_protocol
+from rucio.tests.common import rse_name_generator
 
 
-class TestDIDClients(object):
+class TestArchive(object):
 
     def __init__(self):
-        self.did_client = DIDClient()
-        self.replica_client = ReplicaClient()
+        self.dc = DIDClient()
+        self.rc = ReplicaClient()
 
     def test_add_and_list_archive(self):
-        """  ARCHIVE (CLIENT): Add files to archive and list the content."""
+        """  ARCHIVE (CLIENT): Add files to archive and list the content """
         scope, rse = 'mock', 'MOCK'
         archive_files = ['file_' + generate_uuid() + '.zip' for _ in range(2)]
         files = []
@@ -44,14 +47,65 @@ class TestDIDClients(object):
                           'meta': {'guid': str(generate_uuid())}})
         for archive_file in archive_files:
 
-            self.replica_client.add_replicas(rse=rse, files=[{'scope': scope,
-                                                              'name': archive_file,
-                                                              'bytes': 1,
-                                                              'adler32': '0cc737eb'}])
+            self.rc.add_replicas(rse=rse, files=[{'scope': scope,
+                                                  'name': archive_file,
+                                                  'bytes': 1,
+                                                  'adler32': '0cc737eb'}])
 
-            self.did_client.add_files_to_archive(scope=scope, name=archive_file, files=files)
+            self.dc.add_files_to_archive(scope=scope, name=archive_file, files=files)
 
-            content = [fil for fil in self.did_client.list_archive_content(scope=scope,
-                                                                           name=archive_file)]
+            content = [f for f in self.dc.list_archive_content(scope=scope, name=archive_file)]
 
             assert_equal(len(content), 10)
+
+    def test_list_archive_contents_transparently(self):
+        """ ARCHIVE (CORE): Transparent archive listing """
+
+        scope = 'mock'
+        rse = 'APERTURE_%s' % rse_name_generator()
+        add_rse(rse)
+
+        add_protocol(rse, {'scheme': 'root',
+                           'hostname': 'root.aperture.com',
+                           'port': 1409,
+                           'prefix': '//test/chamber/',
+                           'impl': 'rucio.rse.protocols.xrootd.Default',
+                           'domains': {
+                               'lan': {'read': 1, 'write': 1, 'delete': 1},
+                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        # register archive
+        archive = {'scope': scope, 'name': 'weighted.storage.cube.zip', 'type': 'FILE',
+                   'bytes': 2596, 'adler32': 'beefdead'}
+        add_replicas(rse=rse, files=[archive], account='root')
+
+        # archived files with replicas
+        files_with_replicas = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
+                                'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+        add_replicas(rse=rse, files=files_with_replicas, account='root')
+        self.dc.add_files_to_archive(scope=scope, name=archive['name'], files=files_with_replicas)
+
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files_with_replicas],
+                                                        resolve_archives=True)]
+        print res
+        assert_equal(len(res), 2)
+        assert_equal(len(res[0]), 2)
+        assert_equal(len(res[1]), 2)
+        for r in res:
+            for p in r:
+                if r[p]['domain'] == 'zip':
+                    assert_in('weighted.storage.cube.zip?xrdcl.unzip=witrep-', p)
+                else:
+                    assert_not_in('weighted.storage.cube.zip?xrdcl.unzip=witrep-', p)
+
+        # archived files without replicas
+        files = [{'scope': scope, 'name': 'norep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
+                  'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+        self.dc.add_files_to_archive(scope=scope, name=archive['name'], files=files)
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files],
+                                                        resolve_archives=True)]
+        assert_equal(len(res), 2)
+        for r in res:
+            assert_in('weighted.storage.cube.zip?xrdcl.unzip=norep-', r.keys()[0])
+
+        del_rse(rse)

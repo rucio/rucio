@@ -1,0 +1,45 @@
+======
+1.16.3
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Consistency checks: Auditor is not able to handle dumps on non-SRM endpoint `#429 <https://github.com/rucio/rucio/issues/429>`_
+- Core & Internals: dataset thread in kronos dies when RSE doesn't exist `#1184 <https://github.com/rucio/rucio/issues/1184>`_
+- Infrastructure: Rework docker images for Kubernetes `#1086 <https://github.com/rucio/rucio/issues/1086>`_
+- Infrastructure: server and daemons container builds are failing caused by pip install `#1190 <https://github.com/rucio/rucio/issues/1190>`_
+- Transfers: Fixes for replica selection in conveyor `#667 <https://github.com/rucio/rucio/issues/667>`_
+
+****
+Bugs
+****
+
+- Clients: rucio set-metadata returns status code 0 for non-existing DID `#493 <https://github.com/rucio/rucio/issues/493>`_
+- Consistency checks: Auditor does not work with certain HTTPS dumps `#367 <https://github.com/rucio/rucio/issues/367>`_
+- Core & Internals: DB exception occur after detach and attach DID repeatedly `#1004 <https://github.com/rucio/rucio/issues/1004>`_
+- Core & Internals: Credentials config/file should be optional not mandatory `#1144 <https://github.com/rucio/rucio/issues/1144>`_
+- Transfers: transfers: verify_checksum badly propagated `#1219 <https://github.com/rucio/rucio/issues/1219>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Raise Meaningful Exception When Protocol Fails To Get Checksum `#1149 <https://github.com/rucio/rucio/issues/1149>`_
+- Clients: clients: workaround url signature for rucio download until download-api is deployed `#1208 <https://github.com/rucio/rucio/issues/1208>`_
+
+****
+Bugs
+****
+
+- Clients: `rucio erase` with wildcards `#406 <https://github.com/rucio/rucio/issues/406>`_
+- RSE Manager: RSE manager: remove .part from filename if adler32 is set and ignore_checksum is true `#1185 <https://github.com/rucio/rucio/issues/1185>`_

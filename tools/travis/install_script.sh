@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 if [[ $SUITE == "client" ]]; then
 
@@ -23,14 +24,15 @@ if [[ $SUITE == "client" ]]; then
     pip install -r tools/pip-requires-test
     python setup_rucio_client.py install
     cp etc/docker/travis/rucio_client.cfg etc/rucio.cfg
-
     cp etc/docker/travis/Dockerfile Dockerfile
     docker build -t rucio/rucio .
 
 elif [[ $SUITE == "syntax" ]]; then
     pip install setuptools_scm
-    pip install  google_compute_engine
+    pip install google_compute_engine
     pip install .[dev]
+    cp etc/docker/travis/rucio_syntax.cfg etc/rucio.cfg
+    cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 
 elif [[ $SUITE == "all" ]]; then
 

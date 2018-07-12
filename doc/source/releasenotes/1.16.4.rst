@@ -1,0 +1,20 @@
+=====================
+1.16.4 (clients only)
+=====================
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Add a timeout to rucio client commands `#1204 <https://github.com/rucio/rucio/issues/1204>`_
+- Clients: stream=True should only be used for list_replicas POST calls `#1249 <https://github.com/rucio/rucio/issues/1249>`_
+
+****
+Bugs
+****
+
+- Clients: clients: download api, logger `#1250 <https://github.com/rucio/rucio/issues/1250>`_

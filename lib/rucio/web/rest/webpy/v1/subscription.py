@@ -1,15 +1,22 @@
 #!/usr/bin/env python
-"""
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-"""
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 from json import dumps, loads
 try:
@@ -59,7 +66,7 @@ class Subscription:
             for subscription in list_subscriptions(name=name, account=account):
                 yield dumps(subscription, cls=APIEncoder) + '\n'
         except SubscriptionNotFound as error:
-            raise generate_http_error(404, 'SubscriptionNotFound', error[0][0])
+            raise generate_http_error(404, 'SubscriptionNotFound', error.args[0])
         except Exception as error:
             raise InternalError(error)
 
@@ -93,11 +100,11 @@ class Subscription:
         try:
             update_subscription(name=name, account=account, metadata=metadata, issuer=ctx.env.get('issuer'))
         except (InvalidObject, TypeError) as error:
-            raise generate_http_error(400, 'InvalidObject', error[0][0])
+            raise generate_http_error(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
-            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
         except SubscriptionNotFound as error:
-            raise generate_http_error(404, 'SubscriptionNotFound', error[0][0])
+            raise generate_http_error(404, 'SubscriptionNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -135,13 +142,13 @@ class Subscription:
         try:
             subscription_id = add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority, issuer=ctx.env.get('issuer'))
         except (InvalidObject, TypeError) as error:
-            raise generate_http_error(400, 'InvalidObject', error[0][0])
+            raise generate_http_error(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
-            raise generate_http_error(401, 'AccessDenied', error.args[0][0])
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
         except SubscriptionDuplicate as error:
-            raise generate_http_error(409, 'SubscriptionDuplicate', error.args[0][0])
+            raise generate_http_error(409, 'SubscriptionDuplicate', error.args[0])
         except RucioException as error:
-            raise generate_http_error(500, error.__class__.__name__, error.args[0][0])
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             raise InternalError(error)
 
@@ -182,9 +189,9 @@ class Rules:
                     for rule in list_replication_rules({'subscription_id': subscriptions[0]}):
                         yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound as error:
-            raise generate_http_error(404, 'RuleNotFound', error.args[0][0])
+            raise generate_http_error(404, 'RuleNotFound', error.args[0])
         except SubscriptionNotFound as error:
-            raise generate_http_error(404, 'SubscriptionNotFound', error[0][0])
+            raise generate_http_error(404, 'SubscriptionNotFound', error[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -242,7 +249,7 @@ class SubscriptionId:
         try:
             subscription = get_subscription_by_id(subscription_id)
         except SubscriptionNotFound as error:
-            raise generate_http_error(404, 'SubscriptionNotFound', error.args[0][0])
+            raise generate_http_error(404, 'SubscriptionNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:

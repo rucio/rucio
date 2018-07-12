@@ -17,6 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
 
 from requests.status_codes import codes
 
@@ -36,7 +37,7 @@ class ConfigClient(BaseClient):
 
     CONFIG_BASEURL = 'config'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         super(ConfigClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
     def get_config(self, section=None, option=None):

@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
 
@@ -93,7 +93,8 @@ def has_permission(issuer, action, kwargs):
             'list_heartbeats': perm_list_heartbeats,
             'resurrect': perm_resurrect,
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
-            'get_ssh_challenge_token': perm_get_ssh_challenge_token}
+            'get_ssh_challenge_token': perm_get_ssh_challenge_token,
+            'get_signed_url': perm_get_signed_url}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -819,3 +820,13 @@ def perm_get_ssh_challenge_token(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return True
+
+
+def perm_get_signed_url(issuer, kwargs):
+    """
+    Checks if an account can request a signed URL.
+
+    :param issuer: Account identifier which issues the command.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
