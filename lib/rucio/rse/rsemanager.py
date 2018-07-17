@@ -372,7 +372,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
 
     protocol = create_protocol(rse_settings, 'write', scheme=force_scheme)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete', scheme=force_scheme)
+    protocol_delete = create_protocol(rse_settings, 'delete')
     protocol_delete.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
