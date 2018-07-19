@@ -1288,6 +1288,11 @@ def get_did_meta(scope, name, session=None):
     """
     if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
     try:
         row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
         meta = getattr(row, 'meta')
@@ -1307,6 +1312,11 @@ def add_did_meta(scope, name, meta, session=None):
     """
     if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
     try:
         row_did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
         row_did_meta = session.query(models.DidMeta).filter_by(scope=scope, name=name).scalar()
@@ -1350,6 +1360,11 @@ def delete_did_meta(scope, name, key, session=None):
     """
     if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
     try:
         row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
         existing_meta = getattr(row, 'meta')
@@ -1385,6 +1400,11 @@ def list_dids_by_meta(scope, select, session=None):
     """
     if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
     query = session.query(models.DidMeta)
     if scope is not None:
         query = query.filter(models.DidMeta.scope == scope)
