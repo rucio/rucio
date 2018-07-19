@@ -68,7 +68,9 @@ def _psql_rename_type(target, connection, **kw):
 @event.listens_for(Table, "before_create")
 def _oracle_json_constraint(target, connection, **kw):
     if connection.dialect.name == 'oracle' and target.name == 'did_meta':
-        target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
+        oracle_version = int(connection.connection.version.split('.')[0])
+        if oracle_version >= 12:
+            target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
 
 
 @event.listens_for(Engine, "before_execute", retval=True)
