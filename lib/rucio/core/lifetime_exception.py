@@ -1,14 +1,12 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
-'''
+#  Copyright European Organization for Nuclear Research (CERN)
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  You may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Authors:
+#  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
 
 from re import match
 from datetime import datetime, timedelta
@@ -50,7 +48,8 @@ def list_exceptions(exception_id, states, session=None):
                           models.LifetimeExceptions.pattern,
                           models.LifetimeExceptions.comments,
                           models.LifetimeExceptions.state,
-                          models.LifetimeExceptions.expires_at)
+                          models.LifetimeExceptions.expires_at,
+                          models.LifetimeExceptions.created_at)
     if state_clause != []:
         query = query.filter(or_(*state_clause))
     if exception_id:
@@ -60,7 +59,8 @@ def list_exceptions(exception_id, states, session=None):
         yield {'id': exception.id, 'scope': exception.scope, 'name': exception.name,
                'did_type': exception.did_type, 'account': exception.account,
                'pattern': exception.pattern, 'comments': exception.comments,
-               'state': exception.state, 'expires_at': exception.expires_at}
+               'state': exception.state, 'created_at': exception.created_at,
+               'expires_at': exception.expires_at}
 
 
 @transactional_session
