@@ -1,0 +1,35 @@
+======
+1.17.5
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Documentation: rucio documentation fixes `#1310 <https://github.com/rucio/rucio/issues/1310>`_
+- Infrastructure: cx_oracle version in containers should be fixed to 6.3.1 `#1318 <https://github.com/rucio/rucio/issues/1318>`_
+- Infrastructure: Docker image build of rucio demo fails `#1329 <https://github.com/rucio/rucio/issues/1329>`_
+- Infrastructure: Incorrect configuration of rucio demo? `#1334 <https://github.com/rucio/rucio/issues/1334>`_
+
+****
+Bugs
+****
+
+- Rebalancing: Fix activity in BB8 `#1361 <https://github.com/rucio/rucio/issues/1361>`_
+- Testing: Reset db tables script fails silently `#1317 <https://github.com/rucio/rucio/issues/1317>`
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- RSE Manager: Deleting left-overs of first attempt of upload by correct protocol `#1346 <https://github.com/rucio/rucio/issues/1346>`_
+- Release management: Downgrade to older setuptools version as 39.0.1 is not py2.6 compatible `#1355 <https://github.com/rucio/rucio/issues/1355>`_
+
