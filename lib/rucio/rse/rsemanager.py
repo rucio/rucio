@@ -428,7 +428,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                         if rse_settings['verify_checksum'] is False:
                             valid = True
                         else:
-                            raise
+                            raise exception.RucioException('Checksum not validated')
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
@@ -470,7 +470,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                         if rse_settings['verify_checksum'] is False:
                             valid = True
                         else:
-                            raise
+                            raise exception.RucioException('Checksum not validated')
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
