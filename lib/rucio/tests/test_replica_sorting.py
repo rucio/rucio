@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
 
 from nose.tools import assert_equal, assert_in, assert_not_in
 
@@ -155,11 +156,11 @@ class TestReplicaSorting(object):
                                    schemes=['root', 'gsiftp', 'davs'],
                                    metalink=True,
                                    client_location={'site': 'APERTURE'})
-        assert_in('domain="lan" priority="1">root://root.aperture.com:1409//test/chamber/mock/58/b5/element_0', ml)
-        assert_in('domain="lan" priority="2">davs://davs.aperture.com:443/test/chamber/mock/58/b5/element_0', ml)
-        assert_in('domain="wan" priority="3">gsiftp://gsiftp.blackmesa.com:8446/lambda/complex/mock/58/b5/element_0', ml)
-        assert_in('domain="wan" priority="4">davs://davs.blackmesa.com:443/lambda/complex/mock/58/b5/element_0', ml)
-        assert_in('domain="wan" priority="5">root://root.blackmesa.com:1409//lambda/complex/mock/58/b5/element_0', ml)
+        assert_in('domain="lan" priority="1" client_extract="False">root://root.aperture.com:1409//test/chamber/mock/58/b5/element_0', ml)
+        assert_in('domain="lan" priority="2" client_extract="False">davs://davs.aperture.com:443/test/chamber/mock/58/b5/element_0', ml)
+        assert_in('domain="wan" priority="3" client_extract="False">gsiftp://gsiftp.blackmesa.com:8446/lambda/complex/mock/58/b5/element_0', ml)
+        assert_in('domain="wan" priority="4" client_extract="False">davs://davs.blackmesa.com:443/lambda/complex/mock/58/b5/element_0', ml)
+        assert_in('domain="wan" priority="5" client_extract="False">root://root.blackmesa.com:1409//lambda/complex/mock/58/b5/element_0', ml)
         assert_not_in('priority="6"', ml)
 
         ml = self.rc.list_replicas(dids=[{'scope': 'mock',
@@ -168,11 +169,11 @@ class TestReplicaSorting(object):
                                    schemes=['root', 'gsiftp', 'davs'],
                                    metalink=True,
                                    client_location={'site': 'BLACKMESA'})
-        assert_in('domain="lan" priority="1">root://root.blackmesa.com:1409//lambda/complex/mock/58/b5/element_0', ml)
-        assert_in('domain="lan" priority="2">gsiftp://gsiftp.blackmesa.com:8446/lambda/complex/mock/58/b5/element_0', ml)
-        assert_in('domain="wan" priority="3">root://root.aperture.com:1409//test/chamber/mock/58/b5/element_0', ml)
-        assert_in('domain="wan" priority="4">davs://davs.aperture.com:443/test/chamber/mock/58/b5/element_0', ml)
-        assert_in('domain="wan" priority="5">gsiftp://gsiftp.aperture.com:8446/test/chamber/mock/58/b5/element_0', ml)
+        assert_in('domain="lan" priority="1" client_extract="False">root://root.blackmesa.com:1409//lambda/complex/mock/58/b5/element_0', ml)
+        assert_in('domain="lan" priority="2" client_extract="False">gsiftp://gsiftp.blackmesa.com:8446/lambda/complex/mock/58/b5/element_0', ml)
+        assert_in('domain="wan" priority="3" client_extract="False">root://root.aperture.com:1409//test/chamber/mock/58/b5/element_0', ml)
+        assert_in('domain="wan" priority="4" client_extract="False">davs://davs.aperture.com:443/test/chamber/mock/58/b5/element_0', ml)
+        assert_in('domain="wan" priority="5" client_extract="False">gsiftp://gsiftp.aperture.com:8446/test/chamber/mock/58/b5/element_0', ml)
         assert_not_in('priority="6"', ml)
 
         # TODO: intractable until RSE sorting is enabled

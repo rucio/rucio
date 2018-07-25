@@ -19,6 +19,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
 
 from datetime import datetime
 from json import dumps, loads
@@ -359,7 +360,10 @@ class ListReplicas(RucioController):
                     dictreplica = {}
                     for replica in rfile['pfns'].keys():
                         replicas.append(replica)
-                        dictreplica[replica] = (rfile['pfns'][replica]['domain'], rfile['pfns'][replica]['priority'], rfile['pfns'][replica]['rse'])
+                        dictreplica[replica] = (rfile['pfns'][replica]['domain'],
+                                                rfile['pfns'][replica]['priority'],
+                                                rfile['pfns'][replica]['rse'],
+                                                rfile['pfns'][replica]['client_extract'])
 
                     yield ' <file name="' + rfile['name'] + '">\n'
                     yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
@@ -391,6 +395,7 @@ class ListReplicas(RucioController):
                         yield '   <url location="' + str(dictreplica[replica][2]) \
                             + '" domain="' + str(dictreplica[replica][0]) \
                             + '" priority="' + str(dictreplica[replica][1]) \
+                            + '" client_extract="' + str(dictreplica[replica][3]) \
                             + '">' + replica + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
