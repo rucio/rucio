@@ -36,5 +36,7 @@ elif POLICY.lower() == 'atlas':
     from .atlas import *  # NOQA pylint:disable=wildcard-import
 elif POLICY.lower() == 'cms':
     from .cms import *  # NOQA pylint:disable=wildcard-import
+elif POLICY.lower() == 'icecube':
+    from .icecube import *  # NOQA pylint:disable=wildcard-import
 else:
     from .generic import *  # NOQA pylint:disable=wildcard-import
