@@ -409,6 +409,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                         protocol_delete.delete('%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                     except Exception as e:
                         ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
+                        gs = False
                         continue
                 try:  # Try uploading file
                     protocol.put(base_name, '%s.rucio.upload' % pfn, source_dir, transfer_timeout=transfer_timeout)
