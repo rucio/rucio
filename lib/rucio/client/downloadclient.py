@@ -531,7 +531,7 @@ class DownloadClient:
         OBSOLETE! This function is kept for compability reasons and will be removed in a future release!
         """
         item_tpl = {'rse': rse,
-                    'force_scheme': [protocol],
+                    'force_scheme': protocol,
                     'nrandom': nrandom,
                     'base_dir': dir,
                     'no_subdir': no_subd,
