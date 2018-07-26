@@ -19,16 +19,16 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2018
 # - Stefan Prenner <stefan.prenner@cern.ch>, 2018
 
 from io import BytesIO
 from json import dumps
 from os.path import dirname, join
+from tarfile import open, TarError
 
 from gzip import GzipFile
 from requests import get, ConnectionError
-from tarfile import open, TarError
 from web import application, header, input as param_input, seeother, template
 
 from rucio.common.config import config_get
@@ -46,6 +46,7 @@ COMMON_URLS = (
     '/did', 'DID',
     '/heartbeats', 'Heartbeats',
     '/lifetime_exception', 'LifetimeException',
+    '/list_lifetime_exceptions', 'ListLifetimeExceptions',
     '/list_accounts', 'ListAccounts',
     '/list_rules', 'ListRulesRedirect',
     '/r2d2/approve', 'ApproveRules',
@@ -226,6 +227,14 @@ class LifetimeException():
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.lifetime_exception())
+
+
+class ListLifetimeExceptions():
+    """ List lifetime exceptions requests """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.list_lifetime_exceptions())
 
 
 class ListAccounts(object):
