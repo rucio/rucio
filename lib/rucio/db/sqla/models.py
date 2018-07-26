@@ -454,6 +454,7 @@ class BadReplicas(BASE, ModelBase):
     reason = Column(String(255))
     state = Column(BadFilesStatus.db_type(name='BAD_REPLICAS_STATE_CHK'), default=BadFilesStatus.SUSPICIOUS)
     account = Column(String(25))
+    bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'created_at', name='BAD_REPLICAS_STATE_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='BAD_REPLICAS_NAME_NN'),
