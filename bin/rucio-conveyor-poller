@@ -17,6 +17,8 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014-2015
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -35,12 +37,6 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
-    parser.add_argument("--process", action="store", default=0, type=int,
-                        help='Concurrency control: current processes number')
-    parser.add_argument("--total-processes", action="store", default=1, type=int,
-                        help='Concurrency control: total number of processes')
-    parser.add_argument("--total-threads", action="store", default=1, type=int,
-                        help='Concurrency control: total number of threads per process')
     parser.add_argument("--fts-bulk", action="store", default=100, type=int,
                         help='Bulk control: number of transfers per FTS query')
     parser.add_argument("--db-bulk", action="store", default=1000, type=int,
@@ -53,6 +49,9 @@ def get_parser():
                         help='Explicit list of activities to include')
     parser.add_argument('--activity-shares', action='store', default=None, type=str,
                         help='JSON-encoded string of an activity shares dictionary {"act_1": 0.2, "act_2": 0.4, ...}')
+    parser.add_argument('--total-threads', action="store", default=1, type=int,
+                        help='Concurrency control: total number of threads for this process')
+
     return parser
 
 
@@ -63,14 +62,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         run(once=args.run_once,
-            process=args.process,
-            total_processes=args.total_processes,
-            total_threads=args.total_threads,
             fts_bulk=args.fts_bulk,
             db_bulk=args.db_bulk,
             older_than=args.older_than,
             sleep_time=args.sleep_time,
             activities=args.activities,
-            activity_shares=args.activity_shares)
+            activity_shares=args.activity_shares,
+            total_threads=args.total_threads)
     except KeyboardInterrupt:
         stop()
