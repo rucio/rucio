@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Edgar Fajardo <emfajard@ucsd.edu>, 2018
 
 try:
     from ConfigParser import NoOptionError, NoSectionError

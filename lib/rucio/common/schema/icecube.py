@@ -12,6 +12,7 @@
   - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2016
+  - Edgar Fajardo, <emfajard@ucsd,edu>, 2018
 '''
 
 from jsonschema import validate, ValidationError
