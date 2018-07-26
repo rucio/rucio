@@ -41,10 +41,9 @@ numpy==1.14.2                                     # Numpy for forecasting T3C
 paramiko==2.4.1                                   # SSH2 protocol library
 Flask==0.12.2                                     # Python web framework
 idna==2.6                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
-fts3-rest-API==3.7.1                              # FTS rest API
 MyProxyClient==2.0.1                              # myproxy client bindings
 # All dependencies needed to run rucio client should be defined here
-setuptools>=39.0.1                                # Python packaging utilities
+setuptools>=36.8.0                                # Python packaging utilities (36.8.0 last py2.6 compatible version)
 argparse>=1.4.0; python_version == '2.6'          # Command-line parsing library
 argcomplete>=1.9.4                                # Bash tab completion for argparse
 requests>=2.6.0                                   # Python HTTP for Humans.
