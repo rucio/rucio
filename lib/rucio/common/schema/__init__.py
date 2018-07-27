@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Edgar Fajardo <emfajard@ucsd.edu>, 2018
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
@@ -36,5 +37,7 @@ elif POLICY.lower() == 'atlas':
     from .atlas import *  # NOQA pylint:disable=wildcard-import
 elif POLICY.lower() == 'cms':
     from .cms import *  # NOQA pylint:disable=wildcard-import
+elif POLICY.lower() == 'icecube':
+    from .icecube import *  # NOQA pylint:disable=wildcard-import
 else:
     from .generic import *  # NOQA pylint:disable=wildcard-import
