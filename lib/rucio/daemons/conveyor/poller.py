@@ -124,15 +124,17 @@ def poller(once=False, activities=None, sleep_time=60,
                     xfers_ids[transf['external_host']].append((transf['external_id'], transf['request_id']))
 
                 for external_host in xfers_ids:
-                    for xfers in chunks(xfers_ids[external_host], fts_bulk):
+                    external_ids = list({trf[0] for trf in xfers_ids[external_host]})
+                    request_ids = [trf[1] for trf in xfers_ids[external_host]]
+                    for xfers in chunks(external_ids, fts_bulk):
                         # poll transfers
-                        poll_transfers(external_host=external_host, xfers=xfers, nthreads=heart_beat['nr_threads'], thread=heart_beat['assign_thread'] + 1, timeout=timeout)
+                        poll_transfers(external_host=external_host, xfers=xfers, prepend_str=prepend_str, request_ids=request_ids, timeout=timeout)
 
                 if len(transfs) < fts_bulk / 2:
                     logging.info(prepend_str + "Only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (len(transfs), activity, fts_bulk, sleep_time))
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
-        except:
+        except Exception:
             logging.critical(prepend_str + "%s" % (traceback.format_exc()))
 
         if once:
@@ -163,7 +165,7 @@ def run(once=False, sleep_time=60, activities=None,
 
         try:
             activity_shares = json.loads(activity_shares)
-        except:
+        except Exception:
             logging.critical('activity share is not a valid JSON dictionary')
             return
 
@@ -171,7 +173,7 @@ def run(once=False, sleep_time=60, activities=None,
             if round(sum(activity_shares.values()), 2) != 1:
                 logging.critical('activity shares do not sum up to 1, got %s - aborting' % round(sum(activity_shares.values()), 2))
                 return
-        except:
+        except Exception:
             logging.critical('activity shares are not numbers? - aborting')
             return
 
@@ -202,7 +204,7 @@ def run(once=False, sleep_time=60, activities=None,
             threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
 
 
-def poll_transfers(external_host, xfers, nthreads=0, thread=0, timeout=None):
+def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeout=None):
     """
     Poll a list of transfers from an FTS server
 
@@ -212,21 +214,23 @@ def poll_transfers(external_host, xfers, nthreads=0, thread=0, timeout=None):
     :param thread:           Thread number.
     :param timeout:          Timeout.
     """
-    prepend_str = 'Thread [%i/%i] : ' % (thread, nthreads)
     try:
         try:
             tss = time.time()
             logging.info(prepend_str + 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
-            resps = transfer_core.bulk_query_transfers(external_host, [xfer[0] for xfer in xfers], 'fts3', timeout)
+            resps = transfer_core.bulk_query_transfers(external_host, xfers, 'fts3', timeout)
             record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - tss) * 1000 / len(xfers))
         except RequestException as error:
             logging.error(prepend_str + "Failed to contact FTS server: %s" % (str(error)))
             return
-        except:
+        except Exception:
             logging.error(prepend_str + "Failed to query FTS info: %s" % (traceback.format_exc()))
             return
 
-        logging.debug(prepend_str + 'Updating %s requests status' % (len(xfers)))
+        logging.debug(prepend_str + 'Polled %s transfer requests status in %s seconds' % (len(xfers), (time.time() - tss)))
+        tss = time.time()
+        logging.debug(prepend_str + 'Updating %s transfer requests status' % (len(xfers)))
+        cnt = 0
         for transfer_id in resps:
             try:
                 transf_resp = resps[transfer_id]
@@ -242,9 +246,11 @@ def poll_transfers(external_host, xfers, nthreads=0, thread=0, timeout=None):
                     record_counter('daemons.conveyor.poller.query_transfer_exception')
                 else:
                     for request_id in transf_resp:
-                        if (transfer_id, request_id) in xfers:
+                        if request_id in request_ids:
                             ret = request_core.update_request_state(transf_resp[request_id], logging_prepend_str=prepend_str)
                             # if True, really update request content; if False, only touch request
+                            if ret:
+                                cnt += 1
                             record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
 
                 # should touch transfers.
@@ -255,6 +261,6 @@ def poll_transfers(external_host, xfers, nthreads=0, thread=0, timeout=None):
                     logging.warn(prepend_str + "Lock detected when handling request %s - skipping" % request_id)
                 else:
                     logging.error(traceback.format_exc())
-        logging.debug(prepend_str + 'Finished updating %s requests status in %s seconds' % (len(xfers), (time.time() - tss)))
-    except:
+        logging.debug(prepend_str + 'Finished updating %s tranfer requests status (%i requests state changed) in %s seconds' % (len(xfers), cnt, (time.time() - tss)))
+    except Exception:
         logging.error(traceback.format_exc())
