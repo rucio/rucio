@@ -395,7 +395,7 @@ class ListReplicas(RucioController):
                         yield '   <url location="' + str(dictreplica[replica][2]) \
                             + '" domain="' + str(dictreplica[replica][0]) \
                             + '" priority="' + str(dictreplica[replica][1]) \
-                            + '" client_extract="' + str(dictreplica[replica][3]) \
+                            + '" client_extract="' + str(dictreplica[replica][3]).lower() \
                             + '">' + replica + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
