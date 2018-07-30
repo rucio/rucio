@@ -144,10 +144,25 @@ class UploadClient:
 
             rse = file['rse']
             rse_settings = self.rses[rse]
-            # if file already exists on RSE we're done
-            if rsemgr.exists(rse_settings, file_did):
-                logger.info('File already exists on RSE. Skipping upload')
+            is_deterministic = rse_settings['deterministic']
+            if not is_deterministic and not pfn:
+                logger.warning('PFN has to be defined for NON-DETERMINISTIC site.')
                 continue
+
+            # if file already exists on RSE we're done
+            if not is_deterministic and not no_register:
+                if rsemgr.exists(rse_settings, pfn):
+                    logger.info('File already exists on RSE with given pfn. Skipping upload. Re-upload is not supported. In such case, existing replica has to be removed first.')
+                    continue
+                elif rsemgr.exists(rse_settings, file_did):
+                    logger.info('File already exists on RSE with different pfn. Skipping upload')
+                    continue
+                else:
+                    pass
+            else:
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did):
+                    logger.info('File already exists on RSE. Skipping upload')
+                    continue
 
             protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
             protocols.reverse()
@@ -173,7 +188,7 @@ class UploadClient:
                                           force_scheme=cur_scheme,
                                           force_pfn=pfn,
                                           transfer_timeout=file.get('transfer_timeout'))
-                    success = True
+                    success = state['success']
                     file['upload_result'] = state
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
                     logger.warning('Upload attempt failed')
@@ -366,8 +381,8 @@ class UploadClient:
                 logger.warning('Skipping file %s because no rse was given' % path)
                 continue
             if pfn:
-                if item.get('no_register'):
-                    logger.warning('Upload with given pfn implies that no_register is True')
+                if item.get('no_register') and item.get('deterministic'):
+                    logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic sites')
                     item['no_register'] = True
                 item['force_scheme'] = pfn.split(':')[0]
 
@@ -409,4 +424,6 @@ class UploadClient:
         replica['md5'] = file['md5']
         replica['meta'] = file['meta']
         replica['state'] = file['state']
+        if 'pfn' in file:
+            replica['pfn'] = file['pfn']
         return replica
