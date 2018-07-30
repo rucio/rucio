@@ -1071,7 +1071,7 @@ def list_dids_by_meta(args):
     """
     %(prog)s list-dids-by-meta [options] <field1=value1 field2=value2 ...>
 
-    List dids by metadata key value
+    List dids by metadata key values
     """
     client = get_client(args)
     select = {}
