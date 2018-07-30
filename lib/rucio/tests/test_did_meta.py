@@ -113,22 +113,22 @@ class TestDidMetaClient():
 
             dids = self.did_client.list_dids_by_meta(scope=tmp_scope, select={"key1": "value1"})
             for did in tmp_dids:
-                assert_in({'scope': 'mock', 'name': did})
+                assert_in({'scope': 'mock', 'name': did}, dids)
             tmp_dids.remove(did1)
 
             dids = self.did_client.list_dids_by_meta(scope=tmp_scope, select={"key2": "value2"})
             for did in tmp_dids:
-                assert_in({'scope': 'mock', 'name': did})
+                assert_in({'scope': 'mock', 'name': did}, dids)
             tmp_dids.remove(did2)
 
             dids = self.did_client.list_dids_by_meta(scope=tmp_scope, select={"key3": "value3"})
             for did in tmp_dids:
-                assert_in({'scope': 'mock', 'name': did})
+                assert_in({'scope': 'mock', 'name': did}, dids)
             tmp_dids.remove(did3)
 
             dids = self.did_client.list_dids_by_meta(scope=tmp_scope, select={"key4": "value4"})
             for did in tmp_dids:
-                assert_in({'scope': 'mock', 'name': did})
+                assert_in({'scope': 'mock', 'name': did}, dids)
             tmp_dids.remove(did4)
 
             select_query = {"key1": "value1", "key2": "value2"}
