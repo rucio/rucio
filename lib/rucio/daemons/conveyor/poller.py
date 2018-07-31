@@ -261,6 +261,6 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
                     logging.warn(prepend_str + "Lock detected when handling request %s - skipping" % request_id)
                 else:
                     logging.error(traceback.format_exc())
-        logging.debug(prepend_str + 'Finished updating %s tranfer requests status (%i requests state changed) in %s seconds' % (len(xfers), cnt, (time.time() - tss)))
+        logging.debug(prepend_str + 'Finished updating %s transfer requests status (%i requests state changed) in %s seconds' % (len(xfers), cnt, (time.time() - tss)))
     except Exception:
         logging.error(traceback.format_exc())
