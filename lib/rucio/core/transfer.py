@@ -191,7 +191,7 @@ def set_transfers_state(transfers, submitted_at, session=None):
 @read_session
 def get_next_transfers_new(request_type, state, limit=100, older_than=None, rse=None, activity=None,
                            total_workers=0, worker_number=0,
-                           activity_shares=None, session=None):
+                           activity_shares=None, session=None):  # TODO rename to get_next_transfers
     """
     Retrieve the next transfers matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -267,7 +267,7 @@ def get_next_transfers_new(request_type, state, limit=100, older_than=None, rse=
 @read_session
 def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None, activity=None,
                        process=None, total_processes=None, thread=None, total_threads=None,
-                       activity_shares=None, session=None):
+                       activity_shares=None, session=None):   # TODO tobedeleted when get_next_transfers_new renamed to get_next_transfers
     """
     Retrieve the next transfers matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -916,7 +916,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # transfers[id]['src_urls'].append((source_rse_id, source_url))
                 transfers[id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
 
-        except:
+        except Exception:
             logging.critical("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
             break
 
@@ -1079,7 +1079,7 @@ def __get_unavailable_read_rse_ids(session=None):
             unavailable_read_rse_ids = [r['id'] for r in unavailable_read_rses]
             REGION_SHORT.set(key, unavailable_read_rse_ids)
             return unavailable_read_rse_ids
-        except:
+        except Exception:
             logging.warning("Failed to refresh unavailable read rses, error: %s" % (traceback.format_exc()))
             return []
     return result
