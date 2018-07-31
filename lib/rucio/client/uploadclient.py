@@ -144,7 +144,7 @@ class UploadClient:
 
             rse = file['rse']
             rse_settings = self.rses[rse]
-            is_deterministic = rse_settings['deterministic']
+            is_deterministic = rse_settings.get('deterministic', True)
             if not is_deterministic and not pfn:
                 logger.warning('PFN has to be defined for NON-DETERMINISTIC site.')
                 continue
@@ -424,6 +424,7 @@ class UploadClient:
         replica['md5'] = file['md5']
         replica['meta'] = file['meta']
         replica['state'] = file['state']
-        if 'pfn' in file:
+        pfn = file.get('pfn')
+        if pfn:
             replica['pfn'] = file['pfn']
         return replica
