@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014-2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2016-2018
 
@@ -36,10 +36,6 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
-    parser.add_argument("--process", action="store", default=0, type=int,
-                        help='Concurrency control: current processes number')
-    parser.add_argument("--total-processes", action="store", default=1, type=int,
-                        help='Concurrency control: total number of processes')
     parser.add_argument("--total-threads", action="store", default=1, type=int,
                         help='Concurrency control: total number of threads per process')
     parser.add_argument("--bulk", action="store", default=100, type=int,
@@ -76,9 +72,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         run(once=args.run_once,
-            process=args.process,
-            total_processes=args.total_processes,
-            total_threads=args.total_threads,
             bulk=args.bulk,
             group_bulk=args.group_bulk,
             mock=args.mock,
@@ -89,6 +82,7 @@ if __name__ == "__main__":
             activities=args.activities,
             sleep_time=args.sleep_time,
             max_sources=args.max_sources,
-            retry_other_fts=args.retry_other_fts)
+            retry_other_fts=args.retry_other_fts,
+            total_threads=args.total_threads)
     except KeyboardInterrupt:
         stop()
