@@ -624,11 +624,11 @@ class DIDClient(BaseClient):
 
     def add_did_meta(self, scope, name, meta):
         """
-        Insert metadata to the json column of a did, updates key if not already present
+        Insert metadata to the json column of a did, updates key if already present
 
         :param scope: the scope of did
         :param name: the name of the did
-        :param meta: the metadata to be inserted or updated
+        :param meta: the metadata to be inserted or updated(in json format)
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'did_meta'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -679,7 +679,7 @@ class DIDClient(BaseClient):
         """
         Gets all dids matching the values of the provided metadata keys
         :param scope: the scope of the search
-        :param select: the key value pairs to search with
+        :param select: the key value pairs to search with(query in json format)
         """
         path = '/'.join([self.DIDS_BASEURL, 'list_dids_by_meta'])
         payload = {}

@@ -878,8 +878,6 @@ class DidMeta(RucioController):
             add_did_meta(scope=scope, name=name, meta=meta)
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
-        except DuplicateContent as error:
-            raise generate_http_error(409, 'DuplicateContent', error.args[0])
         except DataIdentifierAlreadyExists as error:
             raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0])
         except AccessDenied as error:
