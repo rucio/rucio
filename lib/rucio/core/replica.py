@@ -933,10 +933,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                     'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
                                                     'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
                                                     'domain': tmp_pfn[1],
-                                                    'priority': tmp_pfn[2]}
-                        # instruct the client that the archive needs to be manually extracted
-                        if tmp_pfn[3]:
-                            file['pfns'][tmp_pfn[0]]['client_extract'] = True
+                                                    'priority': tmp_pfn[2],
+                                                    'client_extract': tmp_pfn[3]}
                 else:
                     # quick exit, but don't forget to set the total order for the priority
                     # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
@@ -966,10 +964,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                     'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
                                                     'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
                                                     'domain': tmp_pfn[1],
-                                                    'priority': tmp_pfn[2]}
-                        # instruct the client that the archive needs to be manually extracted
-                        if tmp_pfn[3]:
-                            file['pfns'][tmp_pfn[0]]['client_extract'] = True
+                                                    'priority': tmp_pfn[2],
+                                                    'client_extract': tmp_pfn[3]}
 
     # set the total order for the priority
     # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
