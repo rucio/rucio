@@ -206,11 +206,11 @@ class TestReplicaSorting(object):
                                    schemes=['root', 'gsiftp', 'davs'],
                                    metalink=True,
                                    client_location={'site': 'BLACKMESA'})
-        assert_in('domain="lan" priority="1">root://root.blackmesa.com:1409//lambda/complex/mock/58/b5/element_0', ml)
-        assert_in('domain="lan" priority="2">gsiftp://gsiftp.blackmesa.com:8446/lambda/complex/mock/58/b5/element_0', ml)
-        assert_in('domain="wan" priority="3">root://root.aperture.com:1409//test/chamber/mock/58/b5/element_0', ml)
-        assert_in('domain="wan" priority="4">davs://davs.aperture.com:443/test/chamber/mock/58/b5/element_0', ml)
-        assert_in('domain="wan" priority="5">gsiftp://gsiftp.aperture.com:8446/test/chamber/mock/58/b5/element_0', ml)
+        assert_in('domain="lan" priority="1" client_extract="false">root://root.blackmesa.com:1409//lambda/complex/mock/58/b5/element_0', ml)
+        assert_in('domain="lan" priority="2" client_extract="false">gsiftp://gsiftp.blackmesa.com:8446/lambda/complex/mock/58/b5/element_0', ml)
+        assert_in('domain="wan" priority="3" client_extract="false">root://root.aperture.com:1409//test/chamber/mock/58/b5/element_0', ml)
+        assert_in('domain="wan" priority="4" client_extract="false">davs://davs.aperture.com:443/test/chamber/mock/58/b5/element_0', ml)
+        assert_in('domain="wan" priority="5" client_extract="false">gsiftp://gsiftp.aperture.com:8446/test/chamber/mock/58/b5/element_0', ml)
         assert_not_in('priority="6"', ml)
 
         delete_replicas(rse=self.rse1, files=self.files)
