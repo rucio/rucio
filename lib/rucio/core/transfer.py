@@ -652,7 +652,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                   domain='wan',
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
-                    logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                    logging.error('No matching schemes in %s for operation "third_party_copy" between %s and %s' % (current_schemes, rses_info[source_rse_id]['rse'], rses_info[dest_rse_id]['rse']))
                     if id in reqs_no_source:
                         reqs_no_source.remove(id)
                     if id not in reqs_scheme_mismatch:
@@ -664,7 +664,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     try:
                         protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', matching_scheme[0])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                        logging.error('Operation "third_party_copy" not supported by dest_rse %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -710,7 +710,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     try:
                         protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', matching_scheme[1])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], matching_scheme[1]))
+                        logging.error('Operation "third_party_copy" not supported by source_rse %s with schemes %s' % (rses_info[source_rse_id]['rse'], matching_scheme[1]))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
