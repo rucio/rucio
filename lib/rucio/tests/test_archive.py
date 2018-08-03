@@ -87,7 +87,6 @@ class TestArchive(object):
 
         res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files_with_replicas],
                                                         resolve_archives=True)]
-        print res
         assert_equal(len(res), 2)
         assert_equal(len(res[0]), 2)
         assert_equal(len(res[1]), 2)
@@ -109,3 +108,57 @@ class TestArchive(object):
             assert_in('weighted.storage.cube.zip?xrdcl.unzip=norep-', r.keys()[0])
 
         del_rse(rse)
+
+    def test_list_archive_contents_at_rse(self):
+        """ ARCHIVE (CORE): Transparent archive listing at RSE """
+
+        scope = 'mock'
+
+        rse1 = 'APERTURE_%s' % rse_name_generator()
+        add_rse(rse1)
+        add_protocol(rse1, {'scheme': 'root',
+                            'hostname': 'root.aperture.com',
+                            'port': 1409,
+                            'prefix': '//test/chamber/',
+                            'impl': 'rucio.rse.protocols.xrootd.Default',
+                            'domains': {
+                                'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        rse2 = 'BLACKMESA_%s' % rse_name_generator()
+        add_rse(rse2)
+        add_protocol(rse2, {'scheme': 'root',
+                            'hostname': 'root.blackmesa.com',
+                            'port': 1409,
+                            'prefix': '//lambda/complex/',
+                            'impl': 'rucio.rse.protocols.xrootd.Default',
+                            'domains': {
+                                'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        # register archive
+        archive1 = {'scope': scope, 'name': 'cube.1.zip', 'type': 'FILE', 'bytes': 2596, 'adler32': 'beefdead'}
+        archive2 = {'scope': scope, 'name': 'cube.2.zip', 'type': 'FILE', 'bytes': 5432, 'adler32': 'deadbeef'}
+        add_replicas(rse=rse1, files=[archive1], account='root')
+        add_replicas(rse=rse2, files=[archive2], account='root')
+
+        # archived files with replicas
+        archived_file = [{'scope': scope, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
+                          'bytes': 4322, 'adler32': 'beefbeef'} for i in xrange(2)]
+        self.dc.add_files_to_archive(scope=scope, name=archive1['name'], files=archived_file)
+        self.dc.add_files_to_archive(scope=scope, name=archive2['name'], files=archived_file)
+
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in archived_file],
+                                                        rse_expression=rse1,
+                                                        resolve_archives=True)]
+
+        res = self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in archived_file], metalink=True, rse_expression=rse1, resolve_archives=True)
+        assert_in('APERTURE', res)
+        assert_not_in('BLACKMESA', res)
+
+        res = self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in archived_file], metalink=True, rse_expression=rse2, resolve_archives=True)
+        assert_in('BLACKMESA', res)
+        assert_not_in('APERTURE', res)
+
+        del_rse(rse1)
+        del_rse(rse2)
