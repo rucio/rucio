@@ -1,0 +1,62 @@
+======
+1.17.6
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Transfers: Threadpool package is obsolete, needs to be replaced by something newer in conveyor `#63 <https://github.com/rucio/rucio/issues/63>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: client_extract flag needs to be added to metalink list_Replicas `#1353 <https://github.com/rucio/rucio/issues/1353>`_
+- RSE Manager: Replacing single 'raise' from rsemgr by 'raise e' `#1366 <https://github.com/rucio/rucio/issues/1366>`_
+- Transfers: Add  a activity, dest_rse policy in bulk_group_transfer `#1394 <https://github.com/rucio/rucio/issues/1394>`_
+
+****
+Bugs
+****
+
+- Core & Internals: list_replicas with rse_Expression and resolve_archive makes 2 files out of 1 `#1352 <https://github.com/rucio/rucio/issues/1352>`_
+- Core & Internals: list_replicas with schemes=None and schemes=[...] gives conflicting results `#1379 <https://github.com/rucio/rucio/issues/1379>`_
+- Transfers: Misleading error message from conveyor-transfer-submitter `#1168 <https://github.com/rucio/rucio/issues/1168>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: clients: add option to create non-deterministic RSEs `#1405 <https://github.com/rucio/rucio/issues/1405>`_
+
+****
+Bugs
+****
+
+- RSE Manager: Upload fails to delete left-overs `#1359 <https://github.com/rucio/rucio/issues/1359>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- Life time model: WebUI page to list Liftetime Model exceptions `#1367 <https://github.com/rucio/rucio/issues/1367>`_
+
+****
+Bugs
+****
+
+- WebUI: Lifetime exception request interface doesn't properly show errors `#1295 <https://github.com/rucio/rucio/issues/1295>`_
+- WebUI: WebUI : Wrong link to DDM Dashboard `#1410 <https://github.com/rucio/rucio/issues/1410>`_
