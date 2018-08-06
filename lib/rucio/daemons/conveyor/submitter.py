@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
@@ -37,7 +37,6 @@ import traceback
 
 from collections import defaultdict
 from ConfigParser import NoOptionError
-from threadpool import ThreadPool, makeRequests
 
 from rucio.common.config import config_get
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
@@ -57,17 +56,12 @@ graceful_stop = threading.Event()
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 
-def submitter(once=False, rses=[], mock=False,
-              process=0, total_processes=1, total_threads=1,
+def submitter(once=False, rses=None, mock=False,
               bulk=100, group_bulk=1, group_policy='rule', fts_source_strategy='auto',
               activities=None, sleep_time=600, max_sources=4, retry_other_fts=False):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
-
-    logging.info('Transfer submitter starting - process (%i/%i) threads (%i)' % (process,
-                                                                                 total_processes,
-                                                                                 total_threads))
 
     try:
         scheme = config_get('conveyor', 'scheme')
@@ -102,24 +96,25 @@ def submitter(once=False, rses=[], mock=False,
         max_time_in_queue['default'] = 168
     logging.debug("Maximum time in queue for different activities: %s" % max_time_in_queue)
 
+    activity_next_exe_time = defaultdict(time.time)
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
-    hb = heartbeat.live(executable, hostname, pid, hb_thread)
+    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    logging.info(prepend_str + 'Submitter starting with timeout %s' % (timeout))
 
-    logging.info('Transfer submitter started - process (%i/%i) threads (%i/%i) timeout (%s)' % (process, total_processes,
-                                                                                                hb['assign_thread'], hb['nr_threads'],
-                                                                                                timeout))
-
-    threadPool = ThreadPool(total_threads)
-    activity_next_exe_time = defaultdict(time.time)
+    time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
+    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    logging.info(prepend_str + 'Transfer submitter started')
 
     while not graceful_stop.is_set():
 
         try:
-            hb = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
+            heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
 
             if activities is None:
                 activities = [None]
@@ -135,15 +130,13 @@ def submitter(once=False, rses=[], mock=False,
                 user_transfer = False
 
                 if activity in USER_ACTIVITY and USER_TRANSFERS in ['cms']:
-                    logging.info("CMS user transfer activity")
+                    logging.info(prepend_str + "CMS user transfer activity")
                     user_transfer = True
 
-                logging.info("%s:%s Starting to get transfer transfers for %s" % (process, hb['assign_thread'], activity))
-                ts = time.time()
-                transfers = __get_transfers(process=process,
-                                            total_processes=total_processes,
-                                            thread=hb['assign_thread'],
-                                            total_threads=hb['nr_threads'],
+                logging.info(prepend_str + 'Starting to get transfer transfers for %s' % (activity))
+                start_time = time.time()
+                transfers = __get_transfers(total_workers=heart_beat['nr_threads'] - 1,
+                                            worker_number=heart_beat['assign_thread'],
                                             failover_schemes=failover_scheme,
                                             limit=bulk,
                                             activity=activity,
@@ -153,61 +146,48 @@ def submitter(once=False, rses=[], mock=False,
                                             max_sources=max_sources,
                                             bring_online=bring_online,
                                             retry_other_fts=retry_other_fts)
-                record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
+                record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_transfers', len(transfers))
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', len(transfers))
-                logging.info("%s:%s Got %s transfers for %s" % (process, hb['assign_thread'], len(transfers), activity))
+                logging.info(prepend_str + 'Got %s transfers for %s in %s seconds' % (len(transfers), activity, time.time() - start_time))
 
                 # group transfers
-                logging.info("%s:%s Starting to group transfers for %s" % (process, hb['assign_thread'], activity))
-                ts = time.time()
+                logging.info(prepend_str + 'Starting to group transfers for %s' % (activity))
+                start_time = time.time()
 
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy, max_time_in_queue)
-                record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
+                record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
-                logging.info("%s:%s Starting to submit transfers for %s" % (process, hb['assign_thread'], activity))
+                logging.info(prepend_str + 'Starting to submit transfers for %s' % (activity))
 
                 for external_host in grouped_jobs:
                     if not user_transfer:
                         for job in grouped_jobs[external_host]:
                             # submit transfers
-                            job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host,
-                                                                                          'job': job,
-                                                                                          'submitter': 'transfer_submitter',
-                                                                                          'process': process,
-                                                                                          'thread': hb['assign_thread'],
-                                                                                          'timeout': timeout})])
-                            [threadPool.putRequest(job_req) for job_req in job_requests]
+                            submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
+                                            logging_prepend_str=prepend_str, timeout=timeout)
                     else:
-                        for user, jobs in grouped_jobs[external_host].iteritems():
+                        for _, jobs in grouped_jobs[external_host].iteritems():
                             # submit transfers
                             for job in jobs:
-                                job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host,
-                                                                                              'job': job,
-                                                                                              'submitter': 'transfer_submitter',
-                                                                                              'process': process,
-                                                                                              'thread': hb['assign_thread'],
-                                                                                              'timeout': timeout,
-                                                                                              'user_transfer_job': user_transfer})])
-                                [threadPool.putRequest(job_req) for job_req in job_requests]
-                threadPool.wait()
+                                submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
+                                                logging_prepend_str=prepend_str, timeout=timeout, user_transfer_job=user_transfer)
 
                 if len(transfers) < group_bulk:
-                    logging.info('%i:%i - only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (process, hb['assign_thread'], len(transfers), activity, group_bulk, sleep_time))
+                    logging.info(prepend_str + 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (len(transfers), activity, group_bulk, sleep_time))
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
-        except:
-            logging.critical('%s:%s %s' % (process, hb['assign_thread'], traceback.format_exc()))
+        except Exception:
+            logging.critical(prepend_str + '%s' % (traceback.format_exc()))
 
         if once:
             break
 
-    logging.info('%s:%s graceful stop requested' % (process, hb['assign_thread']))
+    logging.info(prepend_str + 'Graceful stop requested')
 
-    threadPool.dismissWorkers(total_threads, do_join=True)
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info('%s:%s graceful stop done' % (process, hb['assign_thread']))
+    logging.info(prepend_str + 'Graceful stop done')
     return
 
 
@@ -218,10 +198,9 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False,
-        process=0, total_processes=1, total_threads=1, group_bulk=1, group_policy='rule',
-        mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100, fts_source_strategy='auto',
-        activities=None, sleep_time=600, max_sources=4, retry_other_fts=False):
+def run(once=False, group_bulk=1, group_policy='rule',
+        mock=False, rses=None, include_rses=None, exclude_rses=None, bulk=100, fts_source_strategy='auto',
+        activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, total_threads=1):
     """
     Starts up the conveyer threads.
     """
@@ -240,9 +219,6 @@ def run(once=False,
 
     logging.info('starting submitter threads')
     threads = [threading.Thread(target=submitter, kwargs={'once': once,
-                                                          'process': process,
-                                                          'total_processes': total_processes,
-                                                          'total_threads': total_threads,
                                                           'rses': working_rses,
                                                           'bulk': bulk,
                                                           'group_bulk': group_bulk,
@@ -252,28 +228,25 @@ def run(once=False,
                                                           'sleep_time': sleep_time,
                                                           'max_sources': max_sources,
                                                           'fts_source_strategy': fts_source_strategy,
-                                                          'retry_other_fts': retry_other_fts})]
+                                                          'retry_other_fts': retry_other_fts}) for _ in range(0, total_threads)]
 
-    [t.start() for t in threads]
+    [thread.start() for thread in threads]
 
     logging.info('waiting for interrupts')
 
     # Interruptible joins require a timeout.
-    while len(threads) > 0:
-        threads = [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+    while threads:
+        threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
 
 
-def __get_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                    failover_schemes=None, limit=None, activity=None, older_than=None,
+def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
                     rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200,
                     retry_other_fts=False):
     """
     Get transfers to process
 
-    :param process:          Identifier of the caller process as an integer.
-    :param total_processes:  Maximum number of processes as an integer.
-    :param thread:           Identifier of the caller thread as an integer.
-    :param total_threads:    Maximum number of threads as an integer.
+    :param total_workers:    Number of total workers.
+    :param worker_number:    Id of the executing worker.
     :param failover_schemes: Failover schemes.
     :param limit:            Integer of requests to retrieve.
     :param activity:         Activity to be selected.
@@ -287,10 +260,8 @@ def __get_transfers(process=None, total_processes=None, thread=None, total_threa
     :returns:                List of transfers
     """
 
-    transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = transfer_core.get_transfer_requests_and_source_replicas(process=process,
-                                                                                                                                     total_processes=total_processes,
-                                                                                                                                     thread=thread,
-                                                                                                                                     total_threads=total_threads,
+    transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = transfer_core.get_transfer_requests_and_source_replicas(total_workers=total_workers,
+                                                                                                                                     worker_number=worker_number,
                                                                                                                                      limit=limit,
                                                                                                                                      activity=activity,
                                                                                                                                      older_than=older_than,
@@ -316,8 +287,7 @@ def __get_transfers(process=None, total_processes=None, thread=None, total_threa
         # remove link_ranking in the final sources
         sources = transfers[request_id]['sources']
         transfers[request_id]['sources'] = []
-        for source in sources:
-            rse, source_url, source_rse_id, ranking, link_ranking = source
+        for rse, source_url, source_rse_id, ranking, link_ranking in sources:
             transfers[request_id]['sources'].append((rse, source_url, source_rse_id, ranking))
 
         transfers[request_id]['file_metadata']['src_rse'] = sources[0][0]
