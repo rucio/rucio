@@ -681,20 +681,17 @@ def cancel_request_external_id(transfer_id, transfer_host):
     record_counter('core.request.cancel_request_external_id')
     try:
         FTS3Transfertool(external_host=transfer_host).cancel(transfer_ids=[transfer_id])
-    except:
+    except Exception:
         raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfer_host, traceback.format_exc()))
 
 
 @read_session
-def list_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                              limit=None, activity=None, older_than=None, rses=None, session=None):
+def list_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, session=None):
     """
     List stagein requests with source replicas
 
-    :param process:          Identifier of the caller process as an integer.
-    :param total_processes:  Maximum number of processes as an integer.
-    :param thread:           Identifier of the caller thread as an integer.
-    :param total_threads:    Maximum number of threads as an integer.
+    :param total_workers:         Number of total workers.
+    :param worker_number:         Id of the executing worker.
     :param limit:            Integer of requests to retrieve.
     :param activity:         Activity to be selected.
     :param older_than:       Only select requests older than this DateTime.
@@ -724,23 +721,15 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
-    if (total_processes - 1) > 0:
+    if total_workers > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            sub_requests = sub_requests.filter(text('ORA_HASH(id, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
+            sub_requests = sub_requests.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
-
-    if (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)
@@ -964,7 +953,7 @@ def update_requests_priority(priority, filter, session=None):
                 if item[2] not in transfertool_map:
                     transfertool_map[item[2]] = FTS3Transfertool(external_host=item[2])
                 res = transfertool_map[item[2]].update_priority(transfer_id=item[1], priority=priority)
-            except:
+            except Exception:
                 logging.debug("Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
             else:
                 logging.debug("Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
@@ -1010,7 +999,7 @@ def update_request_state(response, logging_prepend_str=None, session=None):
                 if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
                     try:
                         src_rse_name, src_rse_id = __get_source_rse(response['request_id'], scope, name, src_url, session=session)
-                    except:
+                    except Exception:
                         logging.warn(prepend_str + 'Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
                         src_rse_name = None
                     if src_rse_name and src_rse_name != src_rse:
@@ -1042,7 +1031,7 @@ def update_request_state(response, logging_prepend_str=None, session=None):
     except UnsupportedOperation as error:
         logging.warning(prepend_str + "Request %s doesn't exist - Error: %s" % (response['request_id'], str(error).replace('\n', '')))
         return False
-    except:
+    except Exception:
         logging.critical(prepend_str + traceback.format_exc())
 
 
@@ -1187,6 +1176,6 @@ def __get_source_rse(request_id, scope, name, src_url, session=None):
         # cannot find matched surl
         logging.warn('Cannot get correct RSE for source url: %s' % (src_url))
         return None, None
-    except:
+    except Exception:
         logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
         return None, None

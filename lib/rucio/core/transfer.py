@@ -481,6 +481,7 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
     :param request_host:          Name of the external host.
     :param transfer_id:           External transfer job id as a string.
     :param state:                 Request state as a string.
+    :param logging_prepend_str:   String to prepend to the logging
     :param session:               The database session to use.
     :returns commit_or_rollback:  Boolean.
     """
@@ -545,16 +546,13 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
 
 
 @read_session
-def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                              limit=None, activity=None, older_than=None, rses=None, schemes=None,
+def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
                                               bring_online=43200, retry_other_fts=False, failover_schemes=None, session=None):
     """
     Get transfer requests and the associated source replicas
 
-    :param process:               Current process.
-    :param total_processes:       Total processes.
-    :param thread:                Thread number.
-    :param total_threads:         Total threads.
+    :param total_workers:         Number of total workers.
+    :param worker_number:         Id of the executing worker.
     :param limit:                 Limit.
     :param activity:              Activity.
     :param older_than:            Get transfers older than.
@@ -567,10 +565,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
     :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
     """
 
-    req_sources = __list_transfer_requests_and_source_replicas(process=process,
-                                                               total_processes=total_processes,
-                                                               thread=thread,
-                                                               total_threads=total_threads,
+    req_sources = __list_transfer_requests_and_source_replicas(total_workers=total_workers,
+                                                               worker_number=worker_number,
                                                                limit=limit,
                                                                activity=activity,
                                                                older_than=older_than,
@@ -656,7 +652,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                                                   domain='wan',
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
-                    logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                    logging.error('No matching schemes in %s for operation "third_party_copy" between %s and %s' % (current_schemes, rses_info[source_rse_id]['rse'], rses_info[dest_rse_id]['rse']))
                     if id in reqs_no_source:
                         reqs_no_source.remove(id)
                     if id not in reqs_scheme_mismatch:
@@ -668,7 +664,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     try:
                         protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', matching_scheme[0])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                        logging.error('Operation "third_party_copy" not supported by dest_rse %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -714,7 +710,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     try:
                         protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', matching_scheme[1])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], matching_scheme[1]))
+                        logging.error('Operation "third_party_copy" not supported by source_rse %s with schemes %s' % (rses_info[source_rse_id]['rse'], matching_scheme[1]))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -932,15 +928,13 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
 
 @read_session
-def __list_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
+def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=0,
                                                  limit=None, activity=None, older_than=None, rses=None, session=None):
     """
     List requests with source replicas
 
-    :param process:          Identifier of the caller process as an integer.
-    :param total_processes:  Maximum number of processes as an integer.
-    :param thread:           Identifier of the caller thread as an integer.
-    :param total_threads:    Maximum number of threads as an integer.
+    :param total_workers:     Number of total workers.
+    :param worker_number:     Id of the executing worker.
     :param limit:            Integer of requests to retrieve.
     :param activity:         Activity to be selected.
     :param older_than:       Only select requests older than this DateTime.
@@ -948,8 +942,6 @@ def __list_transfer_requests_and_source_replicas(process=None, total_processes=N
     :param session:          Database session to use.
     :returns:                List.
     """
-    if total_processes > 1 and total_processes == total_threads:
-        raise RucioException("Total process %s is the same with total threads %s, will create potential same hash" % (total_processes, total_threads))
 
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
@@ -973,23 +965,15 @@ def __list_transfer_requests_and_source_replicas(process=None, total_processes=N
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
-    if (total_processes - 1) > 0:
+    if total_workers > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            sub_requests = sub_requests.filter(text('ORA_HASH(id, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
+            sub_requests = sub_requests.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
-
-    if (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)

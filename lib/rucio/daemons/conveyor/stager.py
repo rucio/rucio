@@ -17,6 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 
 """
 Conveyor stager is a daemon to manage stagein file transfers.
@@ -32,7 +33,6 @@ import traceback
 
 from collections import defaultdict
 from ConfigParser import NoOptionError
-from threadpool import ThreadPool, makeRequests
 
 from rucio.common.config import config_get
 from rucio.core import heartbeat
@@ -52,17 +52,11 @@ logging.basicConfig(stream=sys.stdout,
 graceful_stop = threading.Event()
 
 
-def stager(once=False, rses=[], mock=False,
-           process=0, total_processes=1, thread=0, total_threads=1,
-           bulk=100, group_bulk=1, group_policy='rule', fts_source_strategy='auto',
-           activities=None, sleep_time=600, retry_other_fts=False):
+def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_policy='rule',
+           fts_source_strategy='auto', activities=None, sleep_time=600, retry_other_fts=False):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
-
-    logging.info('Stager starting - process (%i/%i) thread (%i)' % (process,
-                                                                    total_processes,
-                                                                    total_threads))
 
     try:
         scheme = config_get('conveyor', 'scheme')
@@ -92,23 +86,25 @@ def stager(once=False, rses=[], mock=False,
         max_time_in_queue['default'] = 168
     logging.debug("Maximum time in queue for different activities: %s" % max_time_in_queue)
 
+    activity_next_exe_time = defaultdict(time.time)
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
-    hb = heartbeat.live(executable, hostname, pid, hb_thread)
+    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    logging.info(prepend_str + 'Stager starting with bring_online %s seconds' % (bring_online))
 
-    logging.info('Stager started - process (%i/%i) thread (%i/%i)' % (process, total_processes,
-                                                                      hb['assign_thread'], hb['nr_threads']))
-
-    threadPool = ThreadPool(total_threads)
-    activity_next_exe_time = defaultdict(time.time)
+    time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
+    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    logging.info(prepend_str + 'Stager started')
 
     while not graceful_stop.is_set():
 
         try:
-            hb = heartbeat.live(executable, hostname, pid, hb_thread)
+            heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
 
             if activities is None:
                 activities = [None]
@@ -122,12 +118,10 @@ def stager(once=False, rses=[], mock=False,
                     graceful_stop.wait(1)
                     continue
 
-                logging.info("%s:%s Starting to get stagein transfers for %s" % (process, hb['assign_thread'], activity))
-                ts = time.time()
-                transfers = __get_stagein_transfers(process=process,
-                                                    total_processes=total_processes,
-                                                    thread=hb['assign_thread'],
-                                                    total_threads=hb['nr_threads'],
+                logging.info(prepend_str + 'Starting to get stagein transfers for %s' % (activity))
+                start_time = time.time()
+                transfers = __get_stagein_transfers(total_workers=heart_beat['nr_threads'] - 1,
+                                                    worker_number=heart_beat['assign_thread'],
                                                     failover_schemes=failover_scheme,
                                                     limit=bulk,
                                                     activity=activity,
@@ -136,43 +130,39 @@ def stager(once=False, rses=[], mock=False,
                                                     schemes=scheme,
                                                     bring_online=bring_online,
                                                     retry_other_fts=retry_other_fts)
-                record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
+                record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
                 record_counter('daemons.conveyor.stager.get_stagein_transfers', len(transfers))
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', len(transfers))
-                logging.info("%s:%s Got %s stagein transfers for %s" % (process, hb['assign_thread'], len(transfers), activity))
+                logging.info(prepend_str + 'Got %s stagein transfers for %s' % (len(transfers), activity))
 
                 # group transfers
-                logging.info("%s:%s Starting to group transfers for %s" % (process, hb['assign_thread'], activity))
-                ts = time.time()
+                logging.info(prepend_str + 'Starting to group transfers for %s' % (activity))
+                start_time = time.time()
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy, max_time_in_queue)
-                record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - ts) * 1000 / (len(transfers) if len(transfers) else 1))
+                record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
-                logging.info("%s:%s Starting to submit transfers for %s" % (process, hb['assign_thread'], activity))
+                logging.info(prepend_str + 'Starting to submit transfers for %s' % (activity))
                 # submit transfers
                 for external_host in grouped_jobs:
                     for job in grouped_jobs[external_host]:
                         # submit transfers
-                        # job_requests = makeRequests(submit_transfer, args_list=[((external_host, job, 'transfer_submitter', process, thread), {})])
-                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host, 'job': job, 'submitter': 'transfer_submitter', 'process': process, 'thread': hb['assign_thread']})])
-                        [threadPool.putRequest(job_req) for job_req in job_requests]
-                threadPool.wait()
+                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter', logging_prepend_str=prepend_str)
 
                 if len(transfers) < group_bulk:
-                    logging.info('%i:%i - only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (process, hb['assign_thread'], len(transfers), activity, group_bulk, sleep_time))
+                    logging.info(prepend_str + 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (len(transfers), activity, group_bulk, sleep_time))
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
-        except:
-            logging.critical('%s:%s %s' % (process, hb['assign_thread'], traceback.format_exc()))
+        except Exception:
+            logging.critical(prepend_str + '%s' % (traceback.format_exc()))
 
         if once:
             break
 
-    logging.info('%s:%s graceful stop requested' % (process, hb['assign_thread']))
+    logging.info(prepend_str + 'Graceful stop requested')
 
-    threadPool.dismissWorkers(total_threads, do_join=True)
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info('%s:%s graceful stop done' % (process, hb['assign_thread']))
+    logging.info(prepend_str + 'Graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -183,9 +173,8 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False,
-        process=0, total_processes=1, total_threads=1, group_bulk=1, group_policy='rule',
-        mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100, fts_source_strategy='auto',
+def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
+        mock=False, rses=None, include_rses=None, exclude_rses=None, bulk=100, fts_source_strategy='auto',
         activities=[], sleep_time=600, retry_other_fts=False):
     """
     Starts up the conveyer threads.
@@ -217,10 +206,7 @@ def run(once=False,
 
     else:
         logging.info('starting stager threads')
-        threads = [threading.Thread(target=stager, kwargs={'process': process,
-                                                           'total_processes': total_processes,
-                                                           'total_threads': total_threads,
-                                                           'rses': working_rses,
+        threads = [threading.Thread(target=stager, kwargs={'rses': working_rses,
                                                            'bulk': bulk,
                                                            'group_bulk': group_bulk,
                                                            'group_policy': group_policy,
@@ -228,25 +214,22 @@ def run(once=False,
                                                            'mock': mock,
                                                            'sleep_time': sleep_time,
                                                            'fts_source_strategy': fts_source_strategy,
-                                                           'retry_other_fts': retry_other_fts})]
+                                                           'retry_other_fts': retry_other_fts}) for _ in range(0, total_threads)]
 
-        [t.start() for t in threads]
+        [thread.start() for thread in threads]
 
         logging.info('waiting for interrupts')
 
         # Interruptible joins require a timeout.
-        while len(threads) > 0:
-            threads = [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+        while threads:
+            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
 
 
-def __get_stagein_transfers(process=None, total_processes=None, thread=None, total_threads=None, failover_schemes=None,
-                            limit=None, activity=None, older_than=None, rses=None, mock=False, schemes=None, bring_online=43200,
-                            retry_other_fts=False, session=None):
+def __get_stagein_transfers(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
+                            rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, session=None):
 
-    transfers, reqs_no_source = get_stagein_requests_and_source_replicas(process=process,
-                                                                         total_processes=total_processes,
-                                                                         thread=thread,
-                                                                         total_threads=total_threads,
+    transfers, reqs_no_source = get_stagein_requests_and_source_replicas(total_workers=total_workers,
+                                                                         worker_number=worker_number,
                                                                          limit=limit,
                                                                          activity=activity,
                                                                          older_than=older_than,
