@@ -815,9 +815,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 if rse not in rse_info:
                     rse_info[rse] = rsemgr.get_rse_info(rse, session=session)
 
-                # assign scheme priorities
-                rse_info[rse]['priority_wan'] = {p['scheme']: p['domains']['wan']['read'] for p in rse_info[rse]['protocols']}
-                rse_info[rse]['priority_lan'] = {p['scheme']: p['domains']['lan']['read'] for p in rse_info[rse]['protocols']}
+                # assign scheme priorities, and don't forget to exclude disabled protocols
+                # 0 in RSE protocol definition = disabled, 1 = highest priority
+                rse_info[rse]['priority_wan'] = {p['scheme']: p['domains']['wan']['read'] for p in rse_info[rse]['protocols'] if p['domains']['wan']['read'] > 0}
+                rse_info[rse]['priority_lan'] = {p['scheme']: p['domains']['lan']['read'] for p in rse_info[rse]['protocols'] if p['domains']['lan']['read'] > 0}
 
                 # select the lan door in autoselect mode, otherwise use the wan door
                 if domain is None:
