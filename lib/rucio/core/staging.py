@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 
 
 """
@@ -28,16 +29,13 @@ from rucio.rse import rsemanager as rsemgr
 
 
 @read_session
-def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                             failover_schemes=None, limit=None, activity=None, older_than=None, rses=None,
-                                             mock=False, schemes=None, bring_online=43200, retry_other_fts=False, session=None):
+def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
+                                             rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, logging_prepend_str='', session=None):
     """
     Get staging requests and the associated source replicas
 
-    :param process:               Current process.
-    :param total_processes:       Total processes.
-    :param thread:                Thread number.
-    :param total_threads:         Total threads.
+    :param total_workers:         Number of total workers.
+    :param worker_number:         Id of the executing worker.
     :param failover_schemes:      Failover schemes.
     :param limit:                 Limit.
     :param activity:              Activity.
@@ -47,14 +45,17 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
     :param schemes:               Include schemes.
     :param bring_online:          Bring online timeout.
     :parm retry_other_fts:        Retry other fts servers.
+    :param logging_prepend_str:   String to prepend to the logging
     :session:                     The database session in use.
     :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
     """
 
-    req_sources = request.list_stagein_requests_and_source_replicas(process=process,
-                                                                    total_processes=total_processes,
-                                                                    thread=thread,
-                                                                    total_threads=total_threads,
+    prepend_str = ''
+    if logging_prepend_str:
+        prepend_str = logging_prepend_str
+
+    req_sources = request.list_stagein_requests_and_source_replicas(total_workers=total_workers,
+                                                                    worker_number=worker_number,
                                                                     limit=limit,
                                                                     activity=activity,
                                                                     older_than=older_than,
@@ -62,7 +63,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                                                                     session=session)
 
     transfers, rses_info, protocols, rse_attrs, reqs_no_source = {}, {}, {}, {}, []
-    for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, staging_buffer, retry_count, previous_attempt_id, src_url, ranking in req_sources:
+    for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, staging_buffer, retry_count, previous_attempt_id, src_url, ranking in req_sources:
         try:
             if rses and dest_rse_id not in rses:
                 continue
@@ -71,9 +72,9 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
             if previous_attempt_id and failover_schemes:
                 current_schemes = failover_schemes
 
-            if id not in transfers:
-                if id not in reqs_no_source:
-                    reqs_no_source.append(id)
+            if req_id not in transfers:
+                if req_id not in reqs_no_source:
+                    reqs_no_source.append(req_id)
 
                 if not src_url:
                     # source_rse_id will be None if no source replicas
@@ -92,7 +93,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
 
                     attr = None
                     if attributes:
-                        if type(attributes) is dict:
+                        if isinstance(attributes, dict):
                             attr = json.loads(json.dumps(attributes))
                         else:
                             attr = json.loads(str(attributes))
@@ -101,8 +102,8 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                     if source_replica_expression:
                         try:
                             parsed_rses = parse_expression(source_replica_expression, session=session)
-                        except InvalidRSEExpression, e:
-                            logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, e))
+                        except InvalidRSEExpression as error:
+                            logging.error(prepend_str + "Invalid RSE exception %s: %s" % (source_replica_expression, error))
                             continue
                         else:
                             allowed_rses = [x['rse'] for x in parsed_rses]
@@ -164,7 +165,7 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
 
                 fts_hosts = rse_attrs[source_rse_id].get('fts', None)
                 if not fts_hosts:
-                    logging.error('Source RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse, id))
+                    logging.error(prepend_str + 'Source RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse, req_id))
                     continue
                 if not retry_count:
                     retry_count = 0
@@ -174,10 +175,10 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                 if retry_other_fts:
                     external_host = fts_list[retry_count % len(fts_list)]
 
-                if id in reqs_no_source:
-                    reqs_no_source.remove(id)
+                if req_id in reqs_no_source:
+                    reqs_no_source.remove(req_id)
 
-                file_metadata = {'request_id': id,
+                file_metadata = {'request_id': req_id,
                                  'scope': scope,
                                  'name': name,
                                  'activity': activity,
@@ -194,22 +195,22 @@ def get_stagein_requests_and_source_replicas(process=None, total_processes=None,
                 if previous_attempt_id:
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
-                transfers[id] = {'request_id': id,
-                                 # 'src_urls': [source_url],
-                                 'sources': [(rse, source_url, source_rse_id, ranking)],
-                                 'dest_urls': [source_url],
-                                 'src_spacetoken': None,
-                                 'dest_spacetoken': dest_spacetoken,
-                                 'overwrite': False,
-                                 'bring_online': bring_online,
-                                 'copy_pin_lifetime': attr.get('lifetime', -1) if attr else -1,
-                                 'external_host': external_host,
-                                 'selection_strategy': 'auto',
-                                 'rule_id': rule_id,
-                                 'file_metadata': file_metadata}
-                logging.debug("Transfer for request(%s): %s" % (id, transfers[id]))
-        except:
-            logging.critical("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
+                transfers[req_id] = {'request_id': req_id,
+                                     # 'src_urls': [source_url],
+                                     'sources': [(rse, source_url, source_rse_id, ranking)],
+                                     'dest_urls': [source_url],
+                                     'src_spacetoken': None,
+                                     'dest_spacetoken': dest_spacetoken,
+                                     'overwrite': False,
+                                     'bring_online': bring_online,
+                                     'copy_pin_lifetime': attr.get('lifetime', -1) if attr else -1,
+                                     'external_host': external_host,
+                                     'selection_strategy': 'auto',
+                                     'rule_id': rule_id,
+                                     'file_metadata': file_metadata}
+                logging.debug(prepend_str + "Transfer for request(%s): %s" % (req_id, transfers[req_id]))
+        except Exception:
+            logging.critical(prepend_str + "Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
             break
 
     return transfers, reqs_no_source
