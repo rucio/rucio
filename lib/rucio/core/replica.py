@@ -737,7 +737,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
 
 
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
-                   schemes, files, rse_clause, client_location, domain,
+                   schemes, files, rse_clause, rse_expression, client_location, domain,
                    sign_urls, signature_lifetime, constituents, session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
@@ -766,10 +766,12 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
             domain = deepcopy(original_domain)
 
             # if the file is a constituent, find the available archives and add them to the list of possible PFNs
+            # taking into account the original rse_expression
             if '%s:%s' % (scope, name) in constituents:
                 archive_result = list_replicas(dids=constituents['%s:%s' % (scope, name)],
                                                schemes=schemes, client_location=client_location,
                                                domain=domain, sign_urls=sign_urls,
+                                               rse_expression=rse_expression,
                                                signature_lifetime=signature_lifetime,
                                                session=session)
 
@@ -778,6 +780,12 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 # an additional empty pfn to the client
                 if rse is None:
                     for archive in archive_result:
+
+                        # RSE expression might limit the archives we're allowed to use
+                        # if it's empty due to non-matching RSE expression we must skip
+                        if archive['pfns'] == {}:
+                            continue
+
                         for tmp_archive in archive['pfns']:
                             archive['pfns'][tmp_archive]['domain'] = 'zip'
                             # at this point we don't know the protocol of the parent, so we have to peek
@@ -793,7 +801,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
                 # now, repeat the procedure slightly different in case if there are replicas available
                 # and make the archive just an additional available PFN
-                available_archives = [r['pfns'] for r in archive_result]
+                available_archives = [r['pfns'] for r in archive_result if r['pfns'] != {}]
                 for archive in available_archives:
                     for archive_pfn in archive:
                         # at this point we don't know the protocol of the parent, so we have to peek
@@ -1022,7 +1030,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
         for rse in parse_expression(expression=rse_expression, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
     for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
-                            schemes, files, rse_clause, client_location, domain,
+                            schemes, files, rse_clause, rse_expression, client_location, domain,
                             sign_urls, signature_lifetime, constituents, session):
         yield f
 
