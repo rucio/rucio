@@ -139,26 +139,28 @@ class UploadClient:
             file_did = {'scope': file['did_scope'], 'name': file['did_name']}
             dataset_did_str = file.get('dataset_did_str')
 
-            if not no_register:
-                self._register_file(file, registered_dataset_dids)
-
             rse = file['rse']
             rse_settings = self.rses[rse]
             is_deterministic = rse_settings.get('deterministic', True)
             if not is_deterministic and not pfn:
                 logger.warning('PFN has to be defined for NON-DETERMINISTIC site.')
                 continue
+            if pfn:
+                if no_register and not is_deterministic:
+                    logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic sites')
+                    no_register = True
+
+            if not no_register:
+                self._register_file(file, registered_dataset_dids)
 
             # if file already exists on RSE we're done
             if not is_deterministic and not no_register:
                 if rsemgr.exists(rse_settings, pfn):
-                    logger.info('File already exists on RSE with given pfn. Skipping upload. Re-upload is not supported. In such case, existing replica has to be removed first.')
+                    logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     continue
                 elif rsemgr.exists(rse_settings, file_did):
-                    logger.info('File already exists on RSE with different pfn. Skipping upload')
+                    logger.info('File already exists on RSE with different pfn. Skipping upload.')
                     continue
-                else:
-                    pass
             else:
                 if rsemgr.exists(rse_settings, pfn if pfn else file_did):
                     logger.info('File already exists on RSE. Skipping upload')
@@ -381,9 +383,6 @@ class UploadClient:
                 logger.warning('Skipping file %s because no rse was given' % path)
                 continue
             if pfn:
-                if item.get('no_register') and item.get('deterministic'):
-                    logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic sites')
-                    item['no_register'] = True
                 item['force_scheme'] = pfn.split(':')[0]
 
             if os.path.isdir(path):
@@ -426,5 +425,5 @@ class UploadClient:
         replica['state'] = file['state']
         pfn = file.get('pfn')
         if pfn:
-            replica['pfn'] = file['pfn']
+            replica['pfn'] = pfn
         return replica
