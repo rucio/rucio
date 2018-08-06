@@ -19,7 +19,6 @@ pygeoip==0.3.2                                    # GeoIP API
 geoip2==2.8.0                                     # GeoIP2 API (for IPv6 support)
 ipaddress==1.0.22                                 # IPv4/IPv6 manipulation library - Dependency of geoip2
 maxminddb==1.3.0                                  # extension for reading the MaxMind DB format - Dependency of geoip2
-threadpool==1.3.2                                 # threadpool
 cffi==1.11.5                                      # Foreign Function Interface for Python calling C code
 pycparser==2.18                                   # C parser in Python - Dependency of cffi
 gcloud==0.18.3                                    # API Client library for Google Cloud
