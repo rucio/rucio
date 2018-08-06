@@ -1286,8 +1286,6 @@ def get_did_meta(scope, name, session=None):
     :param scope: the scope of did
     :param name: the name of the did
     """
-    if session.bind.dialect.name == 'sqlite':
-        raise NotImplementedError
     if session.bind.dialect.name == 'oracle':
         oracle_version = int(session.connection.connection.version.split('.')[0])
         if oracle_version < 12:
@@ -1296,7 +1294,7 @@ def get_did_meta(scope, name, session=None):
     try:
         row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
         meta = getattr(row, 'meta')
-        return json.loads(meta) if session.bind.dialect.name == 'oracle' else meta
+        return json.loads(meta) if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite' else meta
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
@@ -1310,8 +1308,6 @@ def add_did_meta(scope, name, meta, session=None):
     :param name: the name of the did
     :param meta: the metadata to be added or updated
     """
-    if session.bind.dialect.name == 'sqlite':
-        raise NotImplementedError
     if session.bind.dialect.name == 'oracle':
         oracle_version = int(session.connection.connection.version.split('.')[0])
         if oracle_version < 12:
@@ -1328,8 +1324,9 @@ def add_did_meta(scope, name, meta, session=None):
         existing_meta = getattr(row_did_meta, 'meta')
 
         # Oracle returns a string instead of a dict
-        if session.bind.dialect.name == 'oracle' and existing_meta is not None:
-            existing_meta = json.loads(existing_meta)
+        if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite':
+            if existing_meta is not None:
+                existing_meta = json.loads(existing_meta)
 
         if existing_meta is None:
             existing_meta = {}
@@ -1341,7 +1338,7 @@ def add_did_meta(scope, name, meta, session=None):
         session.flush()
 
         # Oracle insert takes a string as input
-        if session.bind.dialect.name == 'oracle':
+        if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite':
             existing_meta = json.dumps(existing_meta)
 
         row_did_meta.meta = existing_meta
@@ -1358,8 +1355,6 @@ def delete_did_meta(scope, name, key, session=None):
     :param name: the name of the did
     :param key: the key to be deleted
     """
-    if session.bind.dialect.name == 'sqlite':
-        raise NotImplementedError
     if session.bind.dialect.name == 'oracle':
         oracle_version = int(session.connection.connection.version.split('.')[0])
         if oracle_version < 12:
@@ -1369,8 +1364,9 @@ def delete_did_meta(scope, name, key, session=None):
         row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
         existing_meta = getattr(row, 'meta')
         # Oracle returns a string instead of a dict
-        if session.bind.dialect.name == 'oracle' and existing_meta is not None:
-            existing_meta = json.loads(existing_meta)
+        if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite':
+            if existing_meta is not None:
+                existing_meta = json.loads(existing_meta)
 
         if key not in existing_meta:
             raise exception.KeyNotFound(key)
@@ -1381,7 +1377,7 @@ def delete_did_meta(scope, name, key, session=None):
         session.flush()
 
         # Oracle insert takes a string as input
-        if session.bind.dialect.name == 'oracle':
+        if session.bind.dialect.name == 'oracle' or session.bind.dialect.name == 'sqlite':
             existing_meta = json.dumps(existing_meta)
 
         row.meta = existing_meta
@@ -1398,6 +1394,7 @@ def list_dids_by_meta(scope, select, session=None):
     :param name: the name of the did
     :param meta: the metadata to be added or updated
     """
+    # Currently for sqlite only add, get and delete is implemented.
     if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
     if session.bind.dialect.name == 'oracle':
