@@ -72,7 +72,14 @@ def poller(once=False, activities=None, sleep_time=60,
     except NoOptionError:
         timeout = None
 
-    executable = ' '.join(sys.argv)
+    executable = sys.argv[0]
+    if activities:
+        activities.sort()
+        executable += '--activities ' + str(activities)
+    if activity_shares:
+        activities.sort()
+        executable += '--activity_shares' + str(activity_shares)
+
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
