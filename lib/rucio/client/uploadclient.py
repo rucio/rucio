@@ -143,12 +143,11 @@ class UploadClient:
             rse_settings = self.rses[rse]
             is_deterministic = rse_settings.get('deterministic', True)
             if not is_deterministic and not pfn:
-                logger.warning('PFN has to be defined for NON-DETERMINISTIC site.')
+                logger.error('PFN has to be defined for NON-DETERMINISTIC site.')
                 continue
-            if pfn:
-                if no_register and not is_deterministic:
-                    logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic sites')
-                    no_register = True
+            if pfn and not is_deterministic:
+                logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic sites')
+                no_register = True
 
             if not no_register:
                 self._register_file(file, registered_dataset_dids)
