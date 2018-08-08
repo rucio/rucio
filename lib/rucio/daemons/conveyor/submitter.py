@@ -97,7 +97,11 @@ def submitter(once=False, rses=None, mock=False,
     logging.debug("Maximum time in queue for different activities: %s" % max_time_in_queue)
 
     activity_next_exe_time = defaultdict(time.time)
-    executable = ' '.join(sys.argv)
+    executable = sys.argv[0]
+    if activities:
+        activities.sort()
+        executable += '--activities ' + str(activities)
+
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
