@@ -210,7 +210,7 @@ def get_next_transfers_new(request_type, state, limit=100, older_than=None, rse=
     record_counter('core.request.get_next_transfers.%s-%s' % (request_type, state))
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
-    if isinstance(request_type, list):
+    if not isinstance(request_type, list):
         request_type = [request_type, request_type]
     elif len(request_type) == 1:
         request_type = [request_type[0], request_type[0]]
