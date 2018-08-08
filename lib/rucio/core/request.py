@@ -1,20 +1,18 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
- - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
- - Wen Guan, <wen.guan@cern.ch>, 2014-2016
- - Joaquin Bogado, <jbogadog@cern.ch>, 2016
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
-"""
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
+# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2018
 
 import datetime
 import json
@@ -683,20 +681,17 @@ def cancel_request_external_id(transfer_id, transfer_host):
     record_counter('core.request.cancel_request_external_id')
     try:
         FTS3Transfertool(external_host=transfer_host).cancel(transfer_ids=[transfer_id])
-    except:
+    except Exception:
         raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfer_host, traceback.format_exc()))
 
 
 @read_session
-def list_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                              limit=None, activity=None, older_than=None, rses=None, session=None):
+def list_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, session=None):
     """
     List stagein requests with source replicas
 
-    :param process:          Identifier of the caller process as an integer.
-    :param total_processes:  Maximum number of processes as an integer.
-    :param thread:           Identifier of the caller thread as an integer.
-    :param total_threads:    Maximum number of threads as an integer.
+    :param total_workers:         Number of total workers.
+    :param worker_number:         Id of the executing worker.
     :param limit:            Integer of requests to retrieve.
     :param activity:         Activity to be selected.
     :param older_than:       Only select requests older than this DateTime.
@@ -726,23 +721,15 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
-    if (total_processes - 1) > 0:
+    if total_workers > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            sub_requests = sub_requests.filter(text('ORA_HASH(id, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
+            sub_requests = sub_requests.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
-
-    if (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)
@@ -966,7 +953,7 @@ def update_requests_priority(priority, filter, session=None):
                 if item[2] not in transfertool_map:
                     transfertool_map[item[2]] = FTS3Transfertool(external_host=item[2])
                 res = transfertool_map[item[2]].update_priority(transfer_id=item[1], priority=priority)
-            except:
+            except Exception:
                 logging.debug("Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
             else:
                 logging.debug("Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
@@ -975,16 +962,20 @@ def update_requests_priority(priority, filter, session=None):
 
 
 @transactional_session
-def update_request_state(response, session=None):
+def update_request_state(response, logging_prepend_str=None, session=None):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
 
     :param response:              The transfertool response dictionary, retrieved via request.query_request().
+    :param logging_prepend_str:   String to prepend to the logging
     :param session:               The database session to use.
     :returns commit_or_rollback:  Boolean.
     """
 
+    prepend_str = ''
+    if logging_prepend_str:
+        prepend_str = logging_prepend_str
     try:
         if not response['new_state']:
             __touch_request(response['request_id'], session=session)
@@ -995,7 +986,7 @@ def update_request_state(response, session=None):
                 response['submitted_at'] = request.get('submitted_at', None)
                 response['external_host'] = request['external_host']
                 transfer_id = response['transfer_id'] if 'transfer_id' in response else None
-                logging.info('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
+                logging.info(prepend_str + 'UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
 
                 job_m_replica = response.get('job_m_replica', None)
                 src_url = response.get('src_url', None)
@@ -1008,13 +999,13 @@ def update_request_state(response, session=None):
                 if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
                     try:
                         src_rse_name, src_rse_id = __get_source_rse(response['request_id'], scope, name, src_url, session=session)
-                    except:
-                        logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
+                    except Exception:
+                        logging.warn(prepend_str + 'Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
                         src_rse_name = None
                     if src_rse_name and src_rse_name != src_rse:
                         response['src_rse'] = src_rse_name
                         response['src_rse_id'] = src_rse_id
-                        logging.debug('Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
+                        logging.debug(prepend_str + 'Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
                 err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
 
                 set_request_state(response['request_id'],
@@ -1029,19 +1020,19 @@ def update_request_state(response, session=None):
                 add_monitor_message(request, response, session=session)
                 return True
             elif not request:
-                logging.debug("Request %s doesn't exist, will not update" % (response['request_id']))
+                logging.debug(prepend_str + "Request %s doesn't exist, will not update" % (response['request_id']))
                 return False
             elif request['external_id'] != response['transfer_id']:
-                logging.warning("Reponse %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
+                logging.warning(prepend_str + "Response %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
                 return False
             else:
-                logging.debug("Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
+                logging.debug(prepend_str + "Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
                 return False
     except UnsupportedOperation as error:
-        logging.warning("Request %s doesn't exist - Error: %s" % (response['request_id'], str(error).replace('\n', '')))
+        logging.warning(prepend_str + "Request %s doesn't exist - Error: %s" % (response['request_id'], str(error).replace('\n', '')))
         return False
-    except:
-        logging.critical(traceback.format_exc())
+    except Exception:
+        logging.critical(prepend_str + traceback.format_exc())
 
 
 @read_session
@@ -1185,6 +1176,6 @@ def __get_source_rse(request_id, scope, name, src_url, session=None):
         # cannot find matched surl
         logging.warn('Cannot get correct RSE for source url: %s' % (src_url))
         return None, None
-    except:
+    except Exception:
         logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
         return None, None

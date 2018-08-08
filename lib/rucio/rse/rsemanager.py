@@ -372,7 +372,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
 
     protocol = create_protocol(rse_settings, 'write', scheme=force_scheme)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete', scheme=force_scheme)
+    protocol_delete = create_protocol(rse_settings, 'delete')
     protocol_delete.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -406,9 +406,11 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
             else:
                 if protocol.exists('%s.rucio.upload' % pfn):  # Check for left over of previous unsuccessful attempts
                     try:
-                        protocol_delete.delete('%s.rucio.upload', list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
+                        protocol_delete.delete('%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                     except Exception as e:
                         ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
+                        gs = False
+                        continue
                 try:  # Try uploading file
                     protocol.put(base_name, '%s.rucio.upload' % pfn, source_dir, transfer_timeout=transfer_timeout)
                 except Exception as e:
@@ -428,7 +430,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                         if rse_settings['verify_checksum'] is False:
                             valid = True
                         else:
-                            raise
+                            raise exception.RucioException('Checksum not validated')
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
@@ -470,7 +472,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                         if rse_settings['verify_checksum'] is False:
                             valid = True
                         else:
-                            raise
+                            raise exception.RucioException('Checksum not validated')
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e

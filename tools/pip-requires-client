@@ -1,5 +1,5 @@
 # All dependencies needed to run rucio client should be defined here
-setuptools>=39.0.1                                # Python packaging utilities
+setuptools>=36.8.0                                # Python packaging utilities (36.8.0 last py2.6 compatible version)
 argparse>=1.4.0; python_version == '2.6'          # Command-line parsing library
 argcomplete>=1.9.4                                # Bash tab completion for argparse
 requests>=2.6.0                                   # Python HTTP for Humans.

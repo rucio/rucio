@@ -189,9 +189,85 @@ def set_transfers_state(transfers, submitted_at, session=None):
 
 
 @read_session
+def get_next_transfers_new(request_type, state, limit=100, older_than=None, rse=None, activity=None,
+                           total_workers=0, worker_number=0,
+                           activity_shares=None, session=None):  # TODO rename to get_next_transfers
+    """
+    Retrieve the next transfers matching the request type and state.
+    Workers are balanced via hashing to reduce concurrency on database.
+
+    :param request_type:      Type of the request as a string or list of strings.
+    :param state:             State of the request as a string or list of strings.
+    :param limit:             Integer of requests to retrieve.
+    :param older_than:        Only select requests older than this DateTime.
+    :param total_workers:     Number of total workers.
+    :param worker_number:     Id of the executing worker.
+    :param activity_shares:   Activity shares dictionary, with number of requests
+    :param session:           Database session to use.
+    :returns:                 List of a {external_host, external_id, request_id} dictionary.
+    """
+
+    record_counter('core.request.get_next_transfers.%s-%s' % (request_type, state))
+
+    # lists of one element are not allowed by SQLA, so just duplicate the item
+    if not isinstance(request_type, list):
+        request_type = [request_type, request_type]
+    elif len(request_type) == 1:
+        request_type = [request_type[0], request_type[0]]
+    if not isinstance(state, list):
+        state = [state, state]
+    elif len(state) == 1:
+        state = [state[0], state[0]]
+
+    result = []
+    if not activity_shares:
+        activity_shares = [None]
+
+    for share in activity_shares:
+
+        query = session.query(models.Request.id, models.Request.external_host, models.Request.external_id).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+                                                                                                          .distinct()\
+                                                                                                          .filter(models.Request.state.in_(state))\
+                                                                                                          .filter(models.Request.request_type.in_(request_type))\
+                                                                                                          .order_by(asc(models.Request.updated_at))
+
+        if isinstance(older_than, datetime.datetime):
+            query = query.filter(models.Request.updated_at < older_than)
+
+        if rse:
+            query = query.filter(models.Request.dest_rse_id == rse)
+
+        if share:
+            query = query.filter(models.Request.activity == share)
+        elif activity:
+            query = query.filter(models.Request.activity == activity)
+
+        if total_workers > 0:
+            if session.bind.dialect.name == 'oracle':
+                bindparams = [bindparam('worker_number', worker_number),
+                              bindparam('total_workers', total_workers)]
+                query = query.filter(text('ORA_HASH(id, :total_workers) = :worker_number', bindparams=bindparams))
+            elif session.bind.dialect.name == 'mysql':
+                query = query.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
+            elif session.bind.dialect.name == 'postgresql':
+                query = query.filter(text('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+
+        if share:
+            query = query.limit(activity_shares[share])
+        else:
+            query = query.limit(limit)
+
+        query_result = query.all()
+        if query_result:
+            for t in query_result:
+                result.append({'request_id': t[0], 'external_host': t[1], 'external_id': t[2]})
+    return result
+
+
+@read_session
 def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None, activity=None,
                        process=None, total_processes=None, thread=None, total_threads=None,
-                       activity_shares=None, session=None):
+                       activity_shares=None, session=None):   # TODO tobedeleted when get_next_transfers_new renamed to get_next_transfers
     """
     Retrieve the next transfers matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -397,7 +473,7 @@ def touch_transfer(external_host, transfer_id, session=None):
 
 
 @transactional_session
-def update_transfer_state(external_host, transfer_id, state, session=None):
+def update_transfer_state(external_host, transfer_id, state, logging_prepend_str=None, session=None):
     """
     Used by poller to update the internal state of transfer,
     after the response by the external transfertool.
@@ -405,15 +481,19 @@ def update_transfer_state(external_host, transfer_id, state, session=None):
     :param request_host:          Name of the external host.
     :param transfer_id:           External transfer job id as a string.
     :param state:                 Request state as a string.
+    :param logging_prepend_str:   String to prepend to the logging
     :param session:               The database session to use.
     :returns commit_or_rollback:  Boolean.
     """
 
+    prepend_str = ''
+    if logging_prepend_str:
+        prepend_str = logging_prepend_str
     try:
         if state == RequestState.LOST:
             reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
             for req in reqs:
-                logging.info('REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
+                logging.info(prepend_str + 'REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
                 src_rse_id = req.get('source_rse_id', None)
                 dst_rse_id = req.get('dest_rse_id', None)
                 src_rse = None
@@ -461,21 +541,18 @@ def update_transfer_state(external_host, transfer_id, state, session=None):
             __set_transfer_state(external_host, transfer_id, state, session=session)
         return True
     except UnsupportedOperation as error:
-        logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
+        logging.warning(prepend_str + "Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
         return False
 
 
 @read_session
-def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
-                                              limit=None, activity=None, older_than=None, rses=None, schemes=None,
+def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
                                               bring_online=43200, retry_other_fts=False, failover_schemes=None, session=None):
     """
     Get transfer requests and the associated source replicas
 
-    :param process:               Current process.
-    :param total_processes:       Total processes.
-    :param thread:                Thread number.
-    :param total_threads:         Total threads.
+    :param total_workers:         Number of total workers.
+    :param worker_number:         Id of the executing worker.
     :param limit:                 Limit.
     :param activity:              Activity.
     :param older_than:            Get transfers older than.
@@ -488,10 +565,8 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
     :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
     """
 
-    req_sources = __list_transfer_requests_and_source_replicas(process=process,
-                                                               total_processes=total_processes,
-                                                               thread=thread,
-                                                               total_threads=total_threads,
+    req_sources = __list_transfer_requests_and_source_replicas(total_workers=total_workers,
+                                                               worker_number=worker_number,
                                                                limit=limit,
                                                                activity=activity,
                                                                older_than=older_than,
@@ -577,7 +652,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                                                                   domain='wan',
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
-                    logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                    logging.error('No matching schemes in %s for operation "third_party_copy" between %s and %s' % (current_schemes, rses_info[source_rse_id]['rse'], rses_info[dest_rse_id]['rse']))
                     if id in reqs_no_source:
                         reqs_no_source.remove(id)
                     if id not in reqs_scheme_mismatch:
@@ -589,7 +664,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     try:
                         protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', matching_scheme[0])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "third_party_copy" not supported by %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
+                        logging.error('Operation "third_party_copy" not supported by dest_rse %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -635,7 +710,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                     try:
                         protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', matching_scheme[1])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], matching_scheme[1]))
+                        logging.error('Operation "third_party_copy" not supported by source_rse %s with schemes %s' % (rses_info[source_rse_id]['rse'], matching_scheme[1]))
                         if id in reqs_no_source:
                             reqs_no_source.remove(id)
                         if id not in reqs_scheme_mismatch:
@@ -837,7 +912,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
                 # transfers[id]['src_urls'].append((source_rse_id, source_url))
                 transfers[id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
 
-        except:
+        except Exception:
             logging.critical("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
             break
 
@@ -853,15 +928,13 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
 
 @read_session
-def __list_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
+def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=0,
                                                  limit=None, activity=None, older_than=None, rses=None, session=None):
     """
     List requests with source replicas
 
-    :param process:          Identifier of the caller process as an integer.
-    :param total_processes:  Maximum number of processes as an integer.
-    :param thread:           Identifier of the caller thread as an integer.
-    :param total_threads:    Maximum number of threads as an integer.
+    :param total_workers:     Number of total workers.
+    :param worker_number:     Id of the executing worker.
     :param limit:            Integer of requests to retrieve.
     :param activity:         Activity to be selected.
     :param older_than:       Only select requests older than this DateTime.
@@ -869,8 +942,6 @@ def __list_transfer_requests_and_source_replicas(process=None, total_processes=N
     :param session:          Database session to use.
     :returns:                List.
     """
-    if total_processes > 1 and total_processes == total_threads:
-        raise RucioException("Total process %s is the same with total threads %s, will create potential same hash" % (total_processes, total_threads))
 
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
@@ -894,23 +965,15 @@ def __list_transfer_requests_and_source_replicas(process=None, total_processes=N
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
-    if (total_processes - 1) > 0:
+    if total_workers > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            sub_requests = sub_requests.filter(text('ORA_HASH(id, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
+            sub_requests = sub_requests.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
-
-    if (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)
@@ -1000,7 +1063,7 @@ def __get_unavailable_read_rse_ids(session=None):
             unavailable_read_rse_ids = [r['id'] for r in unavailable_read_rses]
             REGION_SHORT.set(key, unavailable_read_rse_ids)
             return unavailable_read_rse_ids
-        except:
+        except Exception:
             logging.warning("Failed to refresh unavailable read rses, error: %s" % (traceback.format_exc()))
             return []
     return result
