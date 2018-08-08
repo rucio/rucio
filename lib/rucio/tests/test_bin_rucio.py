@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -22,6 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
+# - Tobias Wegner <twegner@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -169,7 +170,16 @@ class TestBinRucio():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        nose.tools.assert_equal('Added new RSE: %s\n' % tmp_val, out)
+        nose.tools.assert_equal('Added new deterministic RSE: %s\n' % tmp_val, out)
+
+    def test_add_rse_nondet(self):
+        """CLIENT(ADMIN): Add non-deterministic RSE"""
+        tmp_val = rse_name_generator()
+        cmd = 'rucio-admin rse add --non-deterministic %s' % tmp_val
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        nose.tools.assert_equal('Added new non-deterministic RSE: %s\n' % tmp_val, out)
 
     def test_list_rses(self):
         """CLIENT(ADMIN): List RSEs"""

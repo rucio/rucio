@@ -1,0 +1,13 @@
+=====================
+1.17.4 (clients only)
+=====================
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: add --resolve-archive option to cli download `#1335 <https://github.com/rucio/rucio/issues/1335>`_

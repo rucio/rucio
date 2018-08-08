@@ -58,6 +58,14 @@ td.details-control {
     cursor: pointer;
 }
 
+td.details-control2 {
+    background: url('/media/details_open.png') no-repeat center center;
+    cursor: pointer;
+}
+tr.shown td.details-control2 {
+    background: url('/media/details_close.png') no-repeat center center;
+}
+
 .select-checkbox {
     background: red;
     text-align: center;

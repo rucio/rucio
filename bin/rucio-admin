@@ -402,8 +402,8 @@ def add_rse(args):
 
     """
     client = get_client(args)
-    client.add_rse(args.rse)
-    print('Added new RSE: %s' % args.rse)
+    client.add_rse(args.rse, deterministic=not args.non_deterministic)
+    print('Added new %sdeterministic RSE: %s' % ('non-' if args.non_deterministic else '', args.rse))
     return SUCCESS
 
 
@@ -1264,10 +1264,14 @@ def get_parser():
                                                      '::\n'
                                                      '\n'
                                                      '    $ rucio-admin rse add JDOES-TEST_DATADISK\n'
-                                                     '    Added new RSE: JDOES-TEST_DATADISK\n'
+                                                     '    Added new deterministic RSE: JDOES-TEST_DATADISK\n'
+                                                     '\n'
+                                                     '    $ rucio-admin rse add --non-deterministic JDOES-TEST_DATATAPE\n'
+                                                     '    Added new non-deterministic RSE: JDOES-TEST_DATATAPE\n'
                                                      '\n')
     add_rse_parser.set_defaults(which='add_rse')
     add_rse_parser.add_argument('rse', action='store', help='RSE name')
+    add_rse_parser.add_argument('--non-deterministic', action='store_true', help='Create RSE in non-deterministic mode')
 
     # The info_rse command
     info_rse_parser = rse_subparser.add_parser('info',
