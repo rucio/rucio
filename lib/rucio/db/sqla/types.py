@@ -13,7 +13,7 @@ import uuid
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.dialects.oracle import RAW, CLOB
 from sqlalchemy.dialects.mysql import BINARY
-from sqlalchemy.types import TypeDecorator, CHAR, String, LargeBinary
+from sqlalchemy.types import TypeDecorator, CHAR, String
 import sqlalchemy.types as types
 
 
@@ -116,4 +116,4 @@ class JSON(TypeDecorator):
         elif dialect.name == 'oracle':
             return dialect.type_descriptor(CLOB())
         else:
-            return dialect.type_descriptor(LargeBinary())
+            return dialect.type_descriptor(String())
