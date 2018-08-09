@@ -1270,7 +1270,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
     replica_condition, parent_condition, did_condition = [], [], []
     clt_replica_condition, dst_replica_condition = [], []
-    incomplete_condition, messages = [], []
+    incomplete_condition, messages, archive_contents_condition = [], [], []
     for file in files:
         replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'],
                                       models.RSEFileAssociation.name == file['name']))
@@ -1291,6 +1291,13 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
         did_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name'], models.DataIdentifier.availability != DIDAvailability.LOST,
                                   ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
+
+        archive_contents_condition.append(and_(models.ConstituentAssociation.scope == file['scope'],
+                                               models.ConstituentAssociation.name == file['name'],
+                                               ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == file['scope'],
+                                                                                                                                           models.DataIdentifier.name == file['name'],
+                                                                                                                                           models.DataIdentifier.availability == DIDAvailability.LOST)),
+                                               ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
     delta, bytes, rowcount = 0, 0, 0
     for chunk in chunks(replica_condition, 10):
@@ -1412,6 +1419,13 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                       models.ReplicationRule.name == name))
             deleted_dids.append(and_(models.DataIdentifier.scope == scope,
                                      models.DataIdentifier.name == name))
+
+    # Remove Archive Constituents
+    for chunk in chunks(archive_contents_condition, 100):
+        session.query(models.ConstituentAssociation).\
+            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle').\
+            filter(or_(*chunk)).\
+            delete(synchronize_session=False)
 
     # Remove rules in Waiting for approval or Suspended
     for chunk in chunks(deleted_rules, 100):
