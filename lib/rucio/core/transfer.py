@@ -250,7 +250,7 @@ def get_next_transfers_new(request_type, state, limit=100, older_than=None, rse=
             elif session.bind.dialect.name == 'mysql':
                 query = query.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+                query = query.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
         if share:
             query = query.limit(activity_shares[share])
@@ -973,7 +973,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
         elif session.bind.dialect.name == 'mysql':
             sub_requests = sub_requests.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)
