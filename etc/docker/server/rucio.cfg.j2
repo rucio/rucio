@@ -30,6 +30,14 @@ port = {{ RUCIO_CFG_TRACE_PORT | default('61013') }}
 {%- if RUCIO_CFG_TRACE_PASSWORD is defined -%}password = {{ RUCIO_CFG_TRACE_PASSWORD }}{% endif %}
 topic = {{ RUCIO_CFG_TRACE_TOPIC | default('/topic/rucio.tracer') }}
 
+[nongrid_trace]
+tracedir = {{ RUCIO_CFG_NONGRID_TRACE_TRACEDIR | default('/var/log/rucio/trace') }}
+brokers = {{ RUCIO_CFG_NONGRID_TRACE_BROKERS | default('localhost') }}
+port = {{ RUCIO_CFG_NONGRID_TRACE_PORT | default('61013') }}
+{%- if RUCIO_CFG_NONGRID_TRACE_USERNAME is defined -%}username = {{ RUCIO_CFG_NONGRID_TRACE_USERNAME }}{% endif %}
+{%- if RUCIO_CFG_NONGRID_TRACE_PASSWORD is defined -%}password = {{ RUCIO_CFG_NONGRID_TRACE_PASSWORD }}{% endif %}
+topic = {{ RUCIO_CFG_NONGRID_TRACE_TOPIC | default('/topic/rucio.tracer') }}
+
 [permission]
 policy = {{ RUCIO_CFG_PERMISSION_POLICY | default('generic') }}
 schema = {{ RUCIO_CFG_PERMISSION_SCHEMA | default('generic') }}
