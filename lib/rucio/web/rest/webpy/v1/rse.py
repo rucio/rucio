@@ -81,7 +81,7 @@ class RSEs(RucioController):
         :returns: A list containing all RSEs.
         """
         header('Content-Type', 'application/x-json-stream')
-        params = eval(input())
+        params = input()
         if 'expression' in params:
             try:
                 for rse in parse_rse_expression(params['expression']):
