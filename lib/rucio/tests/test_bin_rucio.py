@@ -36,6 +36,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get
 from rucio.common.utils import generate_uuid, md5
+from rucio.core.rse import add_rse_attribute
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 from rucio.rse import rsemanager as rsemgr
 
@@ -57,6 +58,8 @@ class TestBinRucio():
         self.replica_client = ReplicaClient()
         self.account_client = AccountLimitClient()
         self.account_client.set_account_limit('root', self.def_rse, -1)
+
+        add_rse_attribute(self.def_rse, 'istape', 'False')
 
         self.upload_success_str = 'Successfully uploaded file %s'
 
