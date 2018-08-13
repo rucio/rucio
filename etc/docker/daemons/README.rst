@@ -19,7 +19,7 @@ Getting Started
 ---------------
 This image provides the Rucio daemons. Each daemon has to be run in a separate container. It supports MySQL, PostgreSQL, Oracle and SQLite as database backends.
 
-This image expects to that there is an already initialised Rucio DB. To start a simple `judge-cleaner` daemon using a database on `mysql.db` without a additional parameters just run this:
+This image expects that there is an already initialised Rucio DB. To start a simple `judge-cleaner` daemon using a database on `mysql.db` without a additional parameters just run this:
 
 ```docker run --name=rucio-judge-cleaner -e RUCIO_CFG_DATABASE_DEFAULT="mysql://rucio:rucio@mysql.db/rucio" -e RUCIO_DAEMON=judge-cleaner  rucio/rucio-daemons```
 
@@ -55,7 +55,7 @@ By default the log output of the daemon is written to stdout and stderr. If you 
 `RUCIO_CFG` configuration parameters:
 =====================================
 
-Environment variables can be used to set values for the auto-generated rucio.cfg. The names are derived from the actual names in the configuration file prefixed by `RUCIO_CFG`, e.g., the `default` value under the `database` becomes `RUCIO_CFG_DATABASE_DEFAULT`.
+Environment variables can be used to set values for the auto-generated rucio.cfg. The names are derived from the actual names in the configuration file prefixed by `RUCIO_CFG`, e.g., the `default` value in the `database` section becomes `RUCIO_CFG_DATABASE_DEFAULT`.
 All available environment variables are:
 
 * RUCIO_CFG_ACCOUNTS_SPECIAL_ACCOUNTS
