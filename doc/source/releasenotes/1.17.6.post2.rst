@@ -1,0 +1,13 @@
+============
+1.17.6.post2
+============
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: replicas: sort pfns inside rse structure for protocol priority `#1443 <https://github.com/rucio/rucio/issues/1443>`_
