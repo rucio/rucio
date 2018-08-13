@@ -28,7 +28,7 @@ This will start up a simple server using sqlite based on an automatically genera
 
 This should return the Rucio version used in the container. Any other curl requests will not work as the database backend is not initialized as this image is meant to be used with an already bootstraped database backend. I.e., that the container has to be configured to point to the correct database. There are two ways to manange the Rucio configuration: using environment variables or by mounting a full rucio.cfg.
 
-If you want to set the connection string for the database is can be done using the `RUCIO_CFG_DATABASE_DEFAULT` environment variable, e.g., to start a container connecting to a MySQL DB running at `mysql.db` you could use something like this:
+If you want to set the connection string for the database it can be done using the `RUCIO_CFG_DATABASE_DEFAULT` environment variable, e.g., to start a container connecting to a MySQL DB running at `mysql.db` you could use something like this:
 
 ```docker run --name=rucio-server -e RUCIO_CFG_DATABASE_DEFAULT="mysql://rucio:rucio@mysql.db/rucio" -p 80:80 -d rucio/rucio-server```
 
@@ -89,7 +89,7 @@ This variable sets the server admin in the apache config.
 `RUCIO_CFG` configuration parameters:
 =====================================
 
-Environment variables can be used to set values for the auto-generated rucio.cfg. The names are derived from the actual names in the configuration file prefixed by `RUCIO_CFG`, e.g., the `default` value under the `database` becomes `RUCIO_CFG_DATABASE_DEFAULT`.
+Environment variables can be used to set values for the auto-generated rucio.cfg. The names are derived from the actual names in the configuration file prefixed by `RUCIO_CFG`, e.g., the `default` value in the `database` section becomes `RUCIO_CFG_DATABASE_DEFAULT`.
 All available environment variables are:
 
 * RUCIO_CFG_COMMON_LOGDIR
