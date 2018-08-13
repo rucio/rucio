@@ -19,7 +19,7 @@ Getting Started
 ---------------
 This image provides the Rucio daemons. Each daemon has to be run in a separate container. It supports MySQL, PostgreSQL, Oracle and SQLite as database backends.
 
-This image expects that there is an already initialised Rucio DB. To start a simple `judge-cleaner` daemon using a database on `mysql.db` without a additional parameters just run this:
+This image expects that there is an already initialised Rucio DB. To start a simple `judge-cleaner` daemon using a database on `mysql.db` without an additional parameters just run this:
 
 ```docker run --name=rucio-judge-cleaner -e RUCIO_CFG_DATABASE_DEFAULT="mysql://rucio:rucio@mysql.db/rucio" -e RUCIO_DAEMON=judge-cleaner  rucio/rucio-daemons```
 
