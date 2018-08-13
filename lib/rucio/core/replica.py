@@ -986,7 +986,14 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
     if 'scope' in file and 'name' in file:
         file['rses'] = {}
-        for t_rse, t_pfn in [(file['pfns'][t_pfn]['rse'], t_pfn) for t_pfn in file['pfns']]:
+
+        # also sort the pfns inside the rse structure
+        rse_pfns = []
+        for t_rse, t_priority, t_pfn in [(file['pfns'][t_pfn]['rse'], file['pfns'][t_pfn]['priority'], t_pfn) for t_pfn in file['pfns']]:
+            rse_pfns.append((t_rse, t_priority, t_pfn))
+            rse_pfns = sorted(rse_pfns)
+
+        for t_rse, t_priority, t_pfn in rse_pfns:
             if(t_rse in file['rses']):
                 file['rses'][t_rse].append(t_pfn)
             else:
