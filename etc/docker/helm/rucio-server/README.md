@@ -2,7 +2,7 @@
 
 ##  Data Management for science in the Big Data era.
 
-Rucio is a project that provides services and associated libraries for allowing scientific collaborations to manage large volumes of data spread across facilities at multiple institutions and organisations. Rucio has been developed by the ATLAS. experiment. It offers advanced features, is highly scalable and modular. Rucio is a data management solution that could cover the needs of different communities in the scientific domain (e.g., HEP, astronomy, biology).
+Rucio is a project that provides services and associated libraries for allowing scientific collaborations to manage large volumes of data spread across facilities at multiple institutions and organisations. Rucio has been developed by the `ATLAS <https://atlas.cern/>`_ experiment. It offers advanced features, is highly scalable and modular.
 
 ## QuickStart
 
