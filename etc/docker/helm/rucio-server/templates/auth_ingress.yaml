@@ -1,23 +1,23 @@
-{{- if .Values.ingress.enabled -}}
+{{- if .Values.authIngress.enabled -}}
 {{- $fullName := include "rucio.fullname" . -}}
-{{- $ingressPath := .Values.ingress.path -}}
+{{- $ingressPath := .Values.authIngress.path -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ $fullName }}
+  name: {{ $fullName }}-auth
   labels:
-    app: {{ template "rucio.name" . }}
+    app: {{ template "rucio.name" . }}-auth
     chart: {{ template "rucio.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-{{- with .Values.ingress.annotations }}
+{{- with .Values.authIngress.annotations }}
   annotations:
 {{ toYaml . | indent 4 }}
 {{- end }}
 spec:
-{{- if .Values.ingress.tls }}
+{{- if .Values.authIngress.tls }}
   tls:
-  {{- range .Values.ingress.tls }}
+  {{- range .Values.authIngress.tls }}
     - hosts:
       {{- range $.Values.ingress.hosts }}
         - {{ . }}
@@ -26,13 +26,13 @@ spec:
   {{- end }}
 {{- end }}
   rules:
-  {{- range .Values.ingress.hosts }}
+  {{- range .Values.authIngress.hosts }}
     - host: {{ . }}
       http:
         paths:
           - path: {{ $ingressPath }}
             backend:
-              serviceName: {{ $fullName }}
+              serviceName: {{ $fullName }}-auth
               servicePort: http
   {{- end }}
 {{- end }}

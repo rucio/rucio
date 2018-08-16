@@ -59,8 +59,12 @@ The default installation does not include an ingress controller. It can be enabl
 If you want to use TLS with the ingress a valid certifcate/key is needed. It can be configurated directly in the `values.yaml`. Alternatively, it is also possible to manage it outside of Helm:
 
 ```bash
-$ kubectl create secret tls rucio.tls-secret --key=tls.key --cert=tls.crt
+$ kubectl create secret tls rucio-server.tls-secret --key=tls.key --cert=tls.crt
 ```
+
+## Authentication Ingress
+
+The ingress controller for the authentication servers is configurated separately. So it's possible, if necessary, to use different entrypoints for the regular servers and the authentication server. The ingress can be enabled with `authIngress.enabled:true`. The rest of the configuration parameters are the same as for the regular servers.
 
 ## Uninstalling the Chart
 

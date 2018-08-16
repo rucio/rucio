@@ -2,7 +2,10 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+## replicaCount gives the number of server pods to run
 replicaCount: 2
+## authReplicaCount gives the number of authentication server pods to run
+authReplicaCount: 1
 
 image:
   repository: rucio/rucio-server
@@ -29,9 +32,9 @@ ingress:
     # traefik.ingress.kubernetes.io/redirect-entry-point: https
   path: /
   hosts: []
-  #  - my.rucio.test
-  # tls:
-  #  - secretName: rucio.tls-secret
+  #   - my.rucio.test
+  tls:
+    - secretName: rucio-server.tls-secret
   secrets:
   ## If you're providing your own certificates, please use this to add the certificates as secrets
   ## key and certificate should start with -----BEGIN CERTIFICATE----- or
@@ -49,6 +52,36 @@ ingress:
   #   certificate: |+
   #     -----BEGIN CERTIFICATE-----
   #     -----END CERTIFICATE-----
+
+authIngress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: traefik
+    # traefik.ingress.kubernetes.io/frontend-entry-points: http
+    # traefik.ingress.kubernetes.io/redirect-entry-point: https
+  path: /auth
+  hosts: []
+  #   - my.rucio.test
+  # tls:
+  #   - secretName: rucio-auth.tls-secret
+  secrets:
+  ## If you're providing your own certificates, please use this to add the certificates as secrets
+  ## key and certificate should start with -----BEGIN CERTIFICATE----- or
+  ## -----BEGIN RSA PRIVATE KEY-----
+  ##
+  ## name should line up with a tlsSecret set further up
+  ## If you're using kube-lego, this is unneeded, as it will create the secret for you if it is not set
+  ##
+  ## It is also possible to create and manage the certificates outside of this helm chart
+  ## Please see README.md for more information
+  # - name: rucio-auth.tls-secret
+  #   key: |+
+  #     -----BEGIN RSA PRIVATE KEY-----
+  #     -----END RSA PRIVATE KEY-----
+  #   certificate: |+
+  #     -----BEGIN CERTIFICATE-----
+  #     -----END CERTIFICATE-----
+
 
 ## values used to configure Rucio
 config:
