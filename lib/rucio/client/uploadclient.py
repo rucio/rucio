@@ -74,7 +74,7 @@ class UploadClient:
             dataset_scope    - Optional: custom dataset scope
             dataset_name     - Optional: custom dataset name
             force_scheme     - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
-            pfn              - Optional: use a given PFN (this sets no_register to True)
+            pfn              - Optional: use a given PFN (this sets no_register to True, and no_register becomes mandatory)
             no_register      - Optional: if True, the file will not be registered in the rucio catalogue
             lifetime         - Optional: the lifetime of the file after it was uploaded
             transfer_timeout - Optional: time after the upload will be aborted
