@@ -1,0 +1,14 @@
+name: rucio-server
+version: 0.2.0
+apiVersion: v1
+description: A Helm chart to deploy servers for Rucio
+keywords:
+  - data-management
+  - science
+home: https://rucio.cern.ch/
+sources:
+  - https://github.com/rucio/rucio
+maintainers:
+  - name: Thomas Beermann
+    email: thomas.beermann@cern.ch
+

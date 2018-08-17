@@ -1,0 +1,170 @@
+# Default values for rucio.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+## replicaCount gives the number of server pods to run
+replicaCount: 2
+## authReplicaCount gives the number of authentication server pods to run
+authReplicaCount: 1
+
+image:
+  repository: rucio/rucio-server
+  tag: release-1.17.6.post2
+  pullPolicy: Always
+
+service:
+  type: NodePort
+  port: 80
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+
+minReadySeconds: 5
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: traefik
+    # traefik.ingress.kubernetes.io/frontend-entry-points: http
+    # traefik.ingress.kubernetes.io/redirect-entry-point: https
+  path: /
+  hosts: []
+  #   - my.rucio.test
+  tls:
+    - secretName: rucio-server.tls-secret
+  secrets:
+  ## If you're providing your own certificates, please use this to add the certificates as secrets
+  ## key and certificate should start with -----BEGIN CERTIFICATE----- or
+  ## -----BEGIN RSA PRIVATE KEY-----
+  ##
+  ## name should line up with a tlsSecret set further up
+  ## If you're using kube-lego, this is unneeded, as it will create the secret for you if it is not set
+  ##
+  ## It is also possible to create and manage the certificates outside of this helm chart
+  ## Please see README.md for more information
+  # - name: rucio-server.tls-secret
+  #   key: |+
+  #     -----BEGIN RSA PRIVATE KEY-----
+  #     -----END RSA PRIVATE KEY-----
+  #   certificate: |+
+  #     -----BEGIN CERTIFICATE-----
+  #     -----END CERTIFICATE-----
+
+authIngress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: traefik
+    # traefik.ingress.kubernetes.io/frontend-entry-points: http
+    # traefik.ingress.kubernetes.io/redirect-entry-point: https
+  path: /auth
+  hosts: []
+  #   - my.rucio.test
+  # tls:
+  #   - secretName: rucio-auth.tls-secret
+  secrets:
+  ## If you're providing your own certificates, please use this to add the certificates as secrets
+  ## key and certificate should start with -----BEGIN CERTIFICATE----- or
+  ## -----BEGIN RSA PRIVATE KEY-----
+  ##
+  ## name should line up with a tlsSecret set further up
+  ## If you're using kube-lego, this is unneeded, as it will create the secret for you if it is not set
+  ##
+  ## It is also possible to create and manage the certificates outside of this helm chart
+  ## Please see README.md for more information
+  # - name: rucio-auth.tls-secret
+  #   key: |+
+  #     -----BEGIN RSA PRIVATE KEY-----
+  #     -----END RSA PRIVATE KEY-----
+  #   certificate: |+
+  #     -----BEGIN CERTIFICATE-----
+  #     -----END CERTIFICATE-----
+
+
+## values used to configure Rucio
+config:
+  # common:
+    ## config.common.logdir: the default directoy to write logs to (default: "/var/log/rucio")
+    # logdir: "/var/log/rucio"
+    ## config.common.logdir: the max loglevel (default: "DEBUG")
+    # loglevel: "DEBUG"
+    ## config.common.mailtemplatedir: directory containing the mail templates (default: "/opt/rucio/etc/mail_templates")
+    # mailtemplatedir: "/opt/rucio/etc/mail_templates"
+
+  # database:
+    ## config.database.default: the connection string for the database (default: "sqlite:////tmp/rucio.db")
+    # default: "sqlite:////tmp/rucio.db"
+    ## config.database.schema: the schema used in the DB. only necessary when using Oracle.
+    # schema: ""
+    ## config.database.pool_reset_on_return: set the “reset on return” behavior of the pool (default: "rollback")
+    # pool_reset_on_return: "rollback"
+    ## config.database.echo: flag to control the logging of all statements to stdout (default: "0")
+    # echo: "0"
+    ## config.database.po0l_recycle: this setting causes the pool to recycle connections after the given number of seconds has passed (default: "600")
+    # pool_recycle: "600"
+    ## config.database.pool_size: the number of connections to keep open inside the connection pool
+    # pool_size: ""
+    ## config.database.pool_timeout: number of seconds to wait before giving up on getting a connection from the pool
+    # pool_timeout: ""
+    ## config.database.maxoverflow: the number of connections to allow in connection pool "overflow"
+    # max_overflow: ""
+    ## config.database.powuseraccount: user used to check the DB
+    # powuseraccount: ""
+    ## config.database.powuseraccount: password for user used to check the DB
+    # powuserpassword: ""
+
+  # monitor:
+    ## config.monitor.carbon_server: address of carbon server used for graphite monitoring (default: "localhost")
+    # carbon_server: "localhost"
+    ## config.monitor.carbon_port: port of carbon server used for graphite monitoring (default: "8125")
+    # carbon_server: "8125"
+    ## config.monitor.user_scope: scope used on the graphite server (default: "default_docker")
+    # user_scope: "default_docker"
+
+  ## only necessary if the server is configurated to receive traces
+  # trace:
+    ## config.trace.tracedir: directory where traces are written to (default "/var/log/rucio/trace")
+    # tracedir: "/var/log/rucio/trace"
+    ## config.trace.brokers: address of ActiveMQ brokers (default: "localhost")
+    # brokers: "localhost"
+    ## config.trace.brokers: port of ActiveMQ brokers (default: "61013")
+    # port: "61013"
+    ## config.trace.brokers: port of ActiveMQ brokers (default: "/topic/rucio.trace")
+    # topic: "/topic/rucio.tracer"
+    ## config.trace.username: username for the topic (if necessary)
+    # username: ""
+    ## config.trace.password: password for the topic (if necessary)
+    # password: ""
+
+  # permission:
+    ## config.permission.policy: (default "generic")
+    # policy: "generic"
+    ## config.permission.schema: (default "generic")
+    # schema: "generic"
+    ## config.permission.lfn2pfn_algorithm_default: (default "hash")
+    # lfn2pfn_algorithm_default: "hash"
+    ## config.permission.support: (default "https://github.com/rucio/rucio/issues/")
+    # support: "https://github.com/rucio/rucio/issues/"
+    ## config.permission.support_rucio: (default "https://github.com/rucio/rucio/issues/")
+    # support_rucio: "https://github.com/rucio/rucio/issues/"
+
+  ## Only necessary for webui deployments
+  # webui:
+    ## config.webui.usercert:  (default "/opt/rucio/etc/usercert_with_key.pem")
+    # usercert: "/opt/rucio/etc/usercert_with_key.pem"
+
+resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
