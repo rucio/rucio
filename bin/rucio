@@ -892,7 +892,7 @@ def download(args):
         trace_pattern['usrdn'] = args.trace_usrdn
 
     client = get_client(args)
-    download_client = DownloadClient(client, logger)
+    download_client = DownloadClient(client=client, logger=logger, check_admin=args.allow_tape)
 
     result = None
     item_defaults = {}
@@ -1949,6 +1949,7 @@ You can filter by key/value, e.g.::
     download_parser.set_defaults(which='download')
     download_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
     download_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    download_parser.add_argument('--allow-tape', action='store_true', default=False, help="Also consider tape endpoints as source of the download.")
     download_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')
     download_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
     download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
