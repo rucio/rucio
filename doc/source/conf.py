@@ -33,7 +33,7 @@ class Mock(MagicMock):
         return Mock()
 
 
-MOCK_MODULES = ['pycurl']
+MOCK_MODULES = ['pycurl', 'M2Crypto']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- General configuration ------------------------------------------------
