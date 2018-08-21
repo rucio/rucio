@@ -26,7 +26,7 @@ gcloud==0.18.3                                    # API Client library for Googl
 googleapis-common-protos==1.5.3                   # Common protobufs used in Google APIs - Dependency of gcloud
 httplib2==0.11.3                                  # A comprehensive HTTP client library
 pyOpenSSL==17.5.0                                 # Python wrapper module around the OpenSSL library
-cryptography==2.2.2                               # Cryptographic recipes and primitives - Dependency of pyOpenSSL
+cryptography==2.3.1                               # Cryptographic recipes and primitives - Dependency of pyOpenSSL
 oauth2client==4.1.2                               # OAuth 2.0 client library
 protobuf==3.5.2.post1                             # Protocol Buffers - Dependency of gcloud
 grpcio==1.11.0                                    # Package for gRPC Python.
