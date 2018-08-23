@@ -491,7 +491,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
             else:
                 return {'success': ret[x],
                         'pfn': pfn}
-    return [gs, ret]
+    return {'success': gs, 'pfn': pfn}
 
 
 def delete(rse_settings, lfns):
