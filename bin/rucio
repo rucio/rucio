@@ -1953,7 +1953,7 @@ You can filter by key/value, e.g.::
     add_rule_parser.add_argument('--locked', dest='locked', action='store_true', help='Rule locking')
     add_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='RSE Expression for RSEs to be considered for source replicas')
     add_rule_parser.add_argument('--notify', dest='notify', action='store', help='Notification strategy : Y (Yes), N (No), C (Close)')
-    add_rule_parser.add_argument('--activity', dest='activity', action='store', help='Activity to be used (e.g. User, Data Consolidation')
+    add_rule_parser.add_argument('--activity', dest='activity', action='store', help='Activity to be used (e.g. User, Data Consolidation)')
     add_rule_parser.add_argument('--comment', dest='comment', action='store', help='Comment about the replication rule')
     add_rule_parser.add_argument('--ask-approval', dest='ask_approval', action='store_true', help='Ask for rule approval')
     add_rule_parser.add_argument('--asynchronous', dest='asynchronous', action='store_true', help='Create rule asynchronously')
