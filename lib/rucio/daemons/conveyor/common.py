@@ -31,7 +31,7 @@ import logging
 import time
 import traceback
 
-from rucio.common.exception import InvalidRSEExpression
+from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound
 from rucio.common.utils import chunks
 from rucio.core import request, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
@@ -81,8 +81,11 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
         logging.debug(prepend_str + 'Start to prepare transfer')
         transfer_core.prepare_sources_for_transfers(xfers_ret)
         logging.debug(prepend_str + 'Finished to prepare transfer')
+    except RequestNotFound as error:
+        logging.error(prepend_str + error)
+        return
     except Exception:
-        logging.error(prepend_str + 'Failed to prepare requests %s state to SUBMITTING(Will not submit jobs but return directly) with error: %s' % (list(xfers_ret.keys()), traceback.format_exc()))
+        logging.error(prepend_str + 'Failed to prepare requests %s state to SUBMITTING (Will not submit jobs but return directly) with error: %s' % (list(xfers_ret.keys()), traceback.format_exc()))
         return
 
     # submit the job
@@ -101,6 +104,9 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000 / len(job['files']))
         record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
+    except (TransferToolTimeout, TransferToolWrongAnswer) as error:
+        logging.error(prepend_str + str(error))
+
     except Exception as error:
         logging.error(prepend_str + 'Failed to submit a job with error %s: %s' % (str(error), traceback.format_exc()))
 
@@ -122,7 +128,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
                                          'src_rse': file_metadata.get('src_rse', None),
                                          'src_rse_id': file_metadata['src_rse_id'],
                                          'metadata': file_metadata}
-                log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
+                log_str += ' with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
                 logging.info("%s" % (log_str))
             else:
                 xfers_ret[request_id] = {'scope': file_metadata['scope'],
@@ -135,7 +141,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
                                          'src_rse': file_metadata.get('src_rse', None),
                                          'src_rse_id': file_metadata['src_rse_id'],
                                          'metadata': file_metadata}
-                log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMISSION_FAILED, None)
+                log_str += ' with state(%s) with eid(%s)' % (RequestState.SUBMISSION_FAILED, None)
                 logging.warn("%s" % (log_str))
         logging.debug(prepend_str + 'Start to register transfer state')
         transfer_core.set_transfers_state(xfers_ret, datetime.datetime.utcnow())

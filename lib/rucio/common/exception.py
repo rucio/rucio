@@ -869,3 +869,23 @@ class UndefinedPolicy(RucioException):
         super(UndefinedPolicy, self).__init__(args, kwargs)
         self._message = "No policy is defined."
         self.error_code = 82
+
+
+class TransferToolTimeout(RucioException):
+    """
+    Timeout from the transfer tool
+    """
+    def __init__(self, *args, **kwargs):
+        super(TransferToolTimeout, self).__init__(args, kwargs)
+        self._message = "Timeout from the transfer tool."
+        self.error_code = 83
+
+
+class TransferToolWrongAnswer(RucioException):
+    """
+    Wrong answer returned by the transfer tool
+    """
+    def __init__(self, *args, **kwargs):
+        super(TransferToolWrongAnswer, self).__init__(args, kwargs)
+        self._message = "Wrong answer returned by the transfer tool."
+        self.error_code = 84
