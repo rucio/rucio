@@ -133,7 +133,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                     logging.debug(prepend_str + 'Finish to update %s finished requests for activity %s in %s seconds' % (len(reqs), activity, time.time() - time2))
 
         except (DatabaseException, DatabaseError) as error:
-            if isinstance(error.args[0], tuple) and (re.match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
+            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                 logging.warn(prepend_str + 'Lock detected when handling request - skipping: %s' % (str(error)))
             else:
                 logging.error(prepend_str + '%s' % (traceback.format_exc()))
@@ -378,7 +378,7 @@ def __handle_terminated_replicas(replicas, prepend_str=''):
                     try:
                         __update_replica(replica)
                     except (DatabaseException, DatabaseError) as error:
-                        if isinstance(error.args[0], tuple) and (re.match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
+                        if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                             logging.warn(prepend_str + "Locks detected when handling replica %s:%s at RSE %s" % (replica['scope'], replica['name'], replica['rse_id']))
                         else:
                             logging.error(prepend_str + "Could not finish handling replicas %s:%s at RSE %s (%s)" % (replica['scope'], replica['name'], replica['rse_id'], traceback.format_exc()))
@@ -388,7 +388,7 @@ def __handle_terminated_replicas(replicas, prepend_str=''):
                                                                                                                                                  replica['rse_id'],
                                                                                                                                                  str(error)))
             except (DatabaseException, DatabaseError) as error:
-                if isinstance(error.args[0], tuple) and (re.match('.*ORA-00054.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
+                if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                     logging.warn(prepend_str + "Locks detected when handling replicas on %s rule %s, update updated time." % (req_type, rule_id))
                     try:
                         request_core.touch_requests_by_rule(rule_id)

@@ -27,13 +27,12 @@ import datetime
 import json
 import logging
 import os
+import re
 import socket
 import sys
 import threading
 import time
 import traceback
-
-from re import match
 
 from collections import defaultdict
 from ConfigParser import NoOptionError
@@ -267,7 +266,7 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
                 # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
                 transfer_core.touch_transfer(external_host, transfer_id)
             except (DatabaseException, DatabaseError) as error:
-                if isinstance(error.args[0], tuple) and (match('.*ORA-00054.*', error.args[0][0]) or match('.*ORA-00060.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
+                if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                     logging.warn(prepend_str + "Lock detected when handling request %s - skipping" % request_id)
                 else:
                     logging.error(traceback.format_exc())
