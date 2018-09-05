@@ -28,7 +28,7 @@ from rucio.core.rule import get_rule, add_rule, update_rule
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse import list_rse_attributes, get_rse_name
 from rucio.core.rse_selector import RSESelector
-from rucio.common.config import config_get, config_has_section, config_get_options
+from rucio.common.config import config_get
 from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, DuplicateRule,
                                     InsufficientAccountLimit)
 from rucio.db.sqla.constants import RuleGrouping
@@ -126,7 +126,7 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
     # expected location of a dump for given rse
     dumps_location = config_get('bb8', 'dumps_location', raise_exception=False, default='http://rucio-analytix.cern.ch:8080/LOCKS/')
     rse_dump = '%sGetFileFromHDFS?date=%s&rse=%s' % (dumps_location, str(last_sunday_date), rse)
- 
+
     # fetching the dump
     candidates = []
     rules = {}
@@ -142,16 +142,17 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
             if rule_id not in rules:
                 rule_info = {}
                 try:
-                   rule_info = get_rule(rule_id=rule_id)
+                    rule_info = get_rule(rule_id=rule_id)
                 except Exception as e:
-                   rules[rule_id] = {'state': 'DELETED'}
-                   continue
+                    rules[rule_id] = {'state': 'DELETED'}
+                    print e
+                    continue
                 rules[rule_id] = {'scope': rule_info['scope'],
                                   'name': rule_info['name'],
                                   'rse_expression': rse_expression,
                                   'subscription_id': rule_info['subscription_id'],
                                   'length': 1,
-                                  'state': 'ACTIVE', 
+                                  'state': 'ACTIVE',
                                   'bytes': int(file_size)}
             elif rules[rule_id]['state'] == 'ACTIVE':
                 rules[rule_id]['length'] += 1
@@ -159,15 +160,15 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
 
     # looping over agragated rules collected from dump
     for r_id in rules:
-        if mode=='decommission': # other modes can be added later
+        if mode == 'decommission':  # other modes can be added later
             if rules[r_id]['state'] == 'DELETED':
                 continue
-            candidates.append((rules[r_id]['scope'], 
-                               rules[r_id]['name'], 
-                               r_id, 
-                               rules[r_id]['rse_expression'], 
-                               rules[r_id]['subscription_id'], 
-                               rules[r_id]['bytes'], 
+            candidates.append((rules[r_id]['scope'],
+                               rules[r_id]['name'],
+                               r_id,
+                               rules[r_id]['rse_expression'],
+                               rules[r_id]['subscription_id'],
+                               rules[r_id]['bytes'],
                                rules[r_id]['length']))
     return candidates
 
@@ -200,7 +201,7 @@ r.grouping IN ('D', 'A') and
 1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
 0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id IN (SELECT id FROM atlas_rucio.rses WHERE rse_type='TAPE'))
 ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
-    elif mode == 'decommission': # OBSOLETE
+    elif mode == 'decommission':  # OBSOLETE
         sql = """SELECT r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
 WHERE
 r.id IN (SELECT rule_id FROM atlas_rucio.locks WHERE rse_id = atlas_rucio.rse2id(:rse) GROUP BY rule_id) and
@@ -209,7 +210,7 @@ r.child_rule_id is NULL"""  # NOQA
 
     if mode != 'decommission':
         return session.execute(sql, {'rse': rse}).fetchall()
-    else: # can be applied only for decommission since the dumps doesn't contain info from dids and rules tables.
+    else:  # can be applied only for decommission since the dumps doesn't contain info from dids and rules tables.
         return _list_rebalance_rule_candidates_dump(rse, mode)
 
 
@@ -243,7 +244,7 @@ def select_target_rse(parent_rule, current_rse, rse_expression, subscription_id,
     #     pass
     #     # get_subscription_by_id(subscription_id, session)
     if force_expression is not None:
-        if parent_rule['grouping'] != RuleGrouping.NONE: 
+        if parent_rule['grouping'] != RuleGrouping.NONE:
             rses = parse_expression(expression='(%s)\\%s' % (force_expression, target_rse), filter={'availability_write': True}, session=session)
         else:
             # in order to avoid replication of the part of distributed dataset not present at rabalanced rse -> rses in force_expression
