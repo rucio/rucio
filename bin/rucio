@@ -213,7 +213,7 @@ def exception_handler(function):
                 logger.error('Specified account %s does not have an associated identity.' % used_account)
             else:
                 logger.debug(traceback.format_exc())
-                contact= config_get('policy', 'support', raise_exception=False)
+                contact = config_get('policy', 'support', raise_exception=False)
                 support = ('Please followup with all relevant information at: ' + contact) if contact else ''
                 logger.error('\nThe object is missing this property: %s\n'
                              'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n'
