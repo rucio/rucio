@@ -212,23 +212,26 @@ def exception_handler(function):
                     pass
                 logger.error('Specified account %s does not have an associated identity.' % used_account)
             else:
-                logger.error(error)
                 logger.debug(traceback.format_exc())
+                contact= config_get('policy', 'support', raise_exception=False)
+                support = ('Please followup with all relevant information at: ' + contact) if contact else ''
                 logger.error('\nThe object is missing this property: %s\n'
                              'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n'
-                             'Please followup with all relevant information at: %s' % (str(error), config_get('policy', 'support')))
-            raise
+                             '%s' % (str(error), support))
+            return FAILURE
         except RucioException as error:
             logger.error(error)
             return error.error_code
         except Exception as error:
             logger.debug(traceback.format_exc())
             logger.error(error)
+            contact = config_get('policy', 'support', raise_exception=False)
+            support = ("If it's a problem concerning your experiment or if you're unsure what to do, please followup at: %s\n" % contact) if contact else ''
+            contact = config_get('policy', 'support_rucio', raise_exception=False)
+            support += ("If you're sure there is a problem with Rucio itself, please followup at: " + contact) if contact else ''
             logger.error('\nRucio exited with an unexpected/unknown error.\n'
                          'Please rerun the last command with the "-v" option to gather more information.\n'
-                         'If it is a problem concerning your experiment or if you unsure what to do, please followup at: %s\n'
-                         'If you are sure that there is a problem with Rucio itself, please followup at: %s' % (config_get('policy', 'support'),
-                                                                                                                config_get('policy', 'support_rucio')))
+                         '%s' % support)
             return FAILURE
     return new_funct
 
