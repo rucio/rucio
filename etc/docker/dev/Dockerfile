@@ -81,7 +81,8 @@ RUN mkdir /var/log/rucio /var/log/rucio/trace && chmod 777 /var/log/rucio
 
 COPY etc/docker/dev/rucio.cfg etc/rucio.cfg
 COPY etc/alembic.ini.template etc/alembic.ini
-COPY etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
+COPY etc/docker/dev/aliases-py27.conf etc/web/aliases-py27.conf
+COPY etc/docker/dev/ui-aliases-py27.conf etc/web/ui-aliases-py27.conf
 COPY etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 COPY etc/docker/dev/httpd.conf /etc/httpd/conf/httpd.conf
 COPY etc/docker/dev/rucio.conf /etc/httpd/conf.d/rucio.conf
@@ -90,6 +91,9 @@ COPY etc/docker/dev/certs/ca.pem $RUCIOHOME/etc/web/ca.crt
 COPY etc/docker/dev/certs/usercert.pem $RUCIOHOME/etc/web/usercert.pem
 COPY etc/docker/dev/certs/server.crt /etc/grid-security/hostcert.pem
 COPY etc/docker/dev/certs/server.key /etc/grid-security/hostkey.pem
+
+ADD etc/docker/dev/setup_demo.sh /
+ADD etc/docker/dev/setup_data.py /
 
 RUN chmod 400 /etc/grid-security/hostkey.pem &&\
     rm -rf $RUCIOHOME/tools && mkdir -p $RUCIOHOME/tools &&\
