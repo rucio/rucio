@@ -47,7 +47,7 @@ def rebalance_rule(parent_rule, activity, rse_expression, priority, source_repli
     """
     Rebalance a replication rule to a new RSE
 
-    :param parent_rule_id:             Replication rule to be rebalanced.
+    :param parent_rule:                Replication rule to be rebalanced.
     :param activity:                   Activity to be used for the rebalancing.
     :param rse_expression:             RSE expression of the new rule.
     :param priority:                   Priority of the newly created rule.
@@ -219,6 +219,7 @@ def select_target_rse(parent_rule, current_rse, rse_expression, subscription_id,
     """
     Select a new target RSE for a rebalanced rule.
 
+    :param parent_rule           rule that is rebalanced.
     :param current_rse:          RSE of the source.
     :param rse_expression:       RSE Expression of the source rule.
     :param subscription_id:      Subscription ID of the source rule.
@@ -307,10 +308,9 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
             if rebalanced_files + length > max_files:
                 continue
 
-        rule = get_rule(rule_id=rule_id)
         try:
+            rule = get_rule(rule_id=rule_id)
             other_rses = [r['rse_id'] for r in get_dataset_locks(scope, name, session=session)]
-
             # Select the target RSE for this rule
             try:
                 target_rse_exp = select_target_rse(parent_rule=rule,
