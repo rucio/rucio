@@ -92,9 +92,6 @@ COPY etc/docker/dev/certs/usercert.pem $RUCIOHOME/etc/web/usercert.pem
 COPY etc/docker/dev/certs/server.crt /etc/grid-security/hostcert.pem
 COPY etc/docker/dev/certs/server.key /etc/grid-security/hostkey.pem
 
-ADD etc/docker/dev/setup_demo.sh /
-ADD etc/docker/dev/setup_data.py /
-
 RUN chmod 400 /etc/grid-security/hostkey.pem &&\
     rm -rf $RUCIOHOME/tools && mkdir -p $RUCIOHOME/tools &&\
     mkdir -p /etc/httpd &&\
