@@ -53,6 +53,9 @@ COMMON_URLS = (
     '/r2d2/request', 'RequestRule',
     '/r2d2/manage_quota', 'RSEAccountUsage',
     '/r2d2', 'ListRules',
+    '/rse', 'RSE',
+    '/rses', 'RSES',
+    '/rses/add', 'AddRSE',
     '/rse_usage', 'RSEUsage',
     '/rse_locks', 'RSELocks',
     '/rule', 'Rule',
@@ -111,6 +114,14 @@ class AccountRSEUsage(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.account_rse_usage())
+
+
+class AddRSE(object):
+    """ Add RSE """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.add_rse())
 
 
 class ApproveRules(object):
@@ -317,6 +328,22 @@ class Infrastructure(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.infrastructure())
+
+
+class RSE(object):
+    """ RSE detail page """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.rse())
+
+
+class RSES(object):
+    """ List of all RSEs """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.rses())
 
 
 class Rules(object):
