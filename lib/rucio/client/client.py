@@ -37,9 +37,10 @@ from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.configclient import ConfigClient
 from rucio.client.touchclient import TouchClient
+from rucio.client.downloadclient import DownloadClient
+from rucio.client.uploadclient import UploadClient
 
-
-class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient, SubscriptionClient, LockClient, ConfigClient, TouchClient):
+class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient, SubscriptionClient, LockClient, ConfigClient, TouchClient, DownloadClient, UploadClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
