@@ -227,8 +227,8 @@ def exception_handler(function):
             logger.error(error)
             contact = config_get('policy', 'support', raise_exception=False)
             support = ("If it's a problem concerning your experiment or if you're unsure what to do, please followup at: %s\n" % contact) if contact else ''
-            contact = config_get('policy', 'support_rucio', raise_exception=False)
-            support += ("If you're sure there is a problem with Rucio itself, please followup at: " + contact) if contact else ''
+            contact = config_get('policy', 'support_rucio', default='https://github.com/rucio/rucio/issues')
+            support += "If you're sure there is a problem with Rucio itself, please followup at: " + contact
             logger.error('\nRucio exited with an unexpected/unknown error.\n'
                          'Please rerun the last command with the "-v" option to gather more information.\n'
                          '%s' % support)
