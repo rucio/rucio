@@ -1,0 +1,152 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+-->
+
+$var title: RSE Protocol
+$var script: <script src="/static/rse_add_protocol.js"></script>
+
+<div class="panel">
+    <div class="row collapse">
+        <form id="did_form">
+            <div>
+                <h3>Domains</h3>
+                <div>
+                    <h4>LAN</h4>
+                    <div class="row collapse">
+                        <div class="large-1 columns">
+                            <label for="lan_delete" class="left inline">Delete</label>
+                        </div>
+                        <div class="large-10 columns">
+                            <input type="number" id="lan_delete" placeholder="">
+                        </div>
+                    </div>
+                    <div class="row collapse">
+                        <div class="large-1 columns">
+                            <label for="lan_read" class="left inline">Read</label>
+                        </div>
+                        <div class="large-10 columns">
+                            <input type="number" id="lan_read" placeholder="">
+                        </div>
+                    </div>
+                    <div class="row collapse">
+                        <div class="large-1 columns">
+                            <label for="lan_write" class="left inline">Write</label>
+                        </div>
+                        <div class="large-10 columns">
+                            <input type="number" id="lan_write" placeholder="">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h4>WAN</h4>
+                    <div class="row collapse">
+                        <div class="large-1 columns">
+                            <label for="wan_delete" class="left inline">Delete</label>
+                        </div>
+                        <div class="large-10 columns">
+                            <input type="number" id="wan_delete" placeholder="">
+                        </div>
+                    </div>
+                    <div class="row collapse">
+                        <div class="large-1 columns">
+                            <label for="wan_read" class="left inline">Read</label>
+                        </div>
+                        <div class="large-10 columns">
+                            <input type="number" id="wan_read" placeholder="">
+                        </div>
+                    </div>
+                    <div class="row collapse">
+                        <div class="large-1 columns">
+                            <label for="wan_third_party_copy" class="left inline">Third party copy</label>
+                        </div>
+                        <div class="large-10 columns">
+                            <input type="number" id="wan_third_party_copy" placeholder="">
+                        </div>
+                    </div>
+                    <div class="row collapse">
+                        <div class="large-1 columns">
+                            <label for="wan_write" class="left inline">Write</label>
+                        </div>
+                        <div class="large-10 columns">
+                            <input type="number" id="wan_write" placeholder="">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br>
+            <div>
+                <h3>Informations</h3>
+                <div class="row collapse">
+                    <div class="large-1 columns">
+                        <label for="hostname" class="left inline">Hostname</label>
+                    </div>
+                    <div class="large-10 columns">
+                        <input type="text" id="hostname" placeholder="">
+                    </div>
+                </div>
+                <div class="row collapse">
+                    <div class="large-1 columns">
+                        <label for="implementation" class="left inline">Implementation</label>
+                    </div>
+                    <div class="large-10 columns">
+                        <input type="text" id="implementation" placeholder="">
+                    </div>
+                </div>
+                <div class="row collapse">
+                    <div class="large-1 columns">
+                        <label for="port" class="left inline">Port</label>
+                    </div>
+                    <div class="large-10 columns">
+                        <input type="number" id="port" placeholder="">
+                    </div>
+                </div>
+                <div class="row collapse">
+                    <div class="large-1 columns">
+                        <label for="prefix" class="left inline">Prefix</label>
+                    </div>
+                    <div class="large-10 columns">
+                        <input type="text" id="prefix" placeholder="">
+                    </div>
+                </div>
+                <div class="row collapse">
+                    <div class="large-1 columns">
+                        <label for="scheme" class="left inline">Scheme</label>
+                    </div>
+                    <div class="large-10 columns">
+                        <input type="text" id="scheme" placeholder="">
+                    </div>
+                </div>
+            </div>
+            <div class="row collapse" id="extended_attributes">
+                <h3>Extended attributes</h3>
+                <div class="large-1 columns">
+                    <label for="web_service_path" class="left inline">Web service path</label>
+                </div>
+                <div class="large-10 columns">
+                    <input type="text" id="web_service_path" placeholder="">
+                </div>
+            </div>
+            <div class="row collapse">
+                <div class="large-2 columns">
+                    <a class="button postfix" id="addProtocol">Add</a>
+                </div>
+            </div>
+            <div id="loader">
+                <div class="row">
+                    <div class="small-1 small-centered columns">
+                        <img src="/media/spinner.gif">
+                    </div>
+                </div>
+            </div>
+            <div id="result" class="row collapse"></div>
+        </form>
+    </div>
+</div>

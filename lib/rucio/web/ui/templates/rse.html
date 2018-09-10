@@ -16,24 +16,44 @@ $var script: <script src="/static/rse.js"></script>
 <div id="result" class="row" data-equalizer>
     <div id="rse_info" class="columns panel">
         <h4>Informations</h4>
-        <div id="loadingInfo">
-            <div class="row">
-                <div class="small-1 small-centered columns">
-                    <img src="/media/spinner.gif">
-                </div>
+        <div class="row" id="loadingInfo">
+            <div class="small-1 small-centered columns">
+                <img src="/media/spinner.gif">
             </div>
         </div>
         <table id="t_metadata" style="word-wrap: break-word;">
         </table>
         <div id="errorLoadingInfo"></div>
     </div>
-    <div id="rse_attributes" class="columns panel">
-        <h4>Attributes</h4>
-        <div id="loadingAttributes">
+    <div id="rse_protocols" class="columns panel">
+        <h4>Protocols</h4>
+        <div id="loadingProtocols">
             <div class="row">
                 <div class="small-1 small-centered columns">
                     <img src="/media/spinner.gif">
                 </div>
+            </div>
+        </div>
+        <table id="t_rse_protocols" style="word-wrap: break-word;">
+        </table>
+        <div id="resultDeleteProtocol">
+            <div class="row" id="loaderDeleteProtocol">
+                <div class="small-1 small-centered columns">
+                    <img src="/media/spinner.gif">
+                </div>
+            </div>
+        </div>
+        <div class="row collapse">
+            <div class="large-2 columns">
+                <a class="button postfix" id="addProtocol">Add protocol</a>
+            </div>
+        </div>
+    </div>
+    <div id="rse_attributes" class="columns panel">
+        <h4>Attributes</h4>
+        <div class="row" id="loadingAttributes">
+            <div class="small-1 small-centered columns">
+                <img src="/media/spinner.gif">
             </div>
         </div>
         <table id="t_rse_attributes" style="word-wrap: break-word;">
@@ -55,10 +75,22 @@ $var script: <script src="/static/rse.js"></script>
                 </select>
             </div>
             <div class="large-3 columns left">
-                <a class="button postfix" id="addAttribute">Add</a>
+                <a class="button postfix" id="addAttribute">Add attribute</a>
             </div>
-            <div id="resultAddAttribute" class="row"></div>
-            <div id="resultDeleteAttribute" class="row"></div>
+            <div id="resultAddAttribute" class="row">
+                <div class="row" id="loaderAddAttribute">
+                    <div class="small-1 small-centered columns">
+                        <img src="/media/spinner.gif">
+                    </div>
+                </div>
+            </div>
+            <div id="resultDeleteAttribute" class="row">
+                <div class="row" id="loaderDeleteAttribute">
+                    <div class="small-1 small-centered columns">
+                        <img src="/media/spinner.gif">
+                    </div>
+                </div>
+            </div>
         </form>
     </div>
 </div>
@@ -67,4 +99,10 @@ $var script: <script src="/static/rse.js"></script>
         <a class="button postfix" id="deleteRSE">Delete RSE</a>
     </div>
 </div>
-<div id="resultDeleteRSE" class="row"></div>
+<div id="resultDeleteRSE" class="row">
+    <div class="row" id="loaderDeleteRSE">
+        <div class="small-1 small-centered columns">
+            <img src="/media/spinner.gif">
+        </div>
+    </div>
+</div>
