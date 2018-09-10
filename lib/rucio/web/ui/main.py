@@ -54,6 +54,7 @@ COMMON_URLS = (
     '/r2d2/manage_quota', 'RSEAccountUsage',
     '/r2d2', 'ListRules',
     '/rse', 'RSE',
+    '/rse/protocol/add', 'AddRSEProtocol',
     '/rses', 'RSES',
     '/rses/add', 'AddRSE',
     '/rse_usage', 'RSEUsage',
@@ -122,6 +123,14 @@ class AddRSE(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.add_rse())
+
+
+class AddRSEProtocol(object):
+    """ Add protocol to RSE """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.rse_add_protocol())
 
 
 class ApproveRules(object):
