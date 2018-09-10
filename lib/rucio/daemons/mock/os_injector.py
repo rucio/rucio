@@ -8,7 +8,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2017
 
 """
-Ligh injector is a daemon to inject OS files for deletion
+OS injector is a daemon to inject OS files for deletion
 """
 
 import datetime
