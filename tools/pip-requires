@@ -24,7 +24,7 @@ pycparser==2.18                                   # C parser in Python - Depende
 gcloud==0.18.3                                    # API Client library for Google Cloud
 googleapis-common-protos==1.5.3                   # Common protobufs used in Google APIs - Dependency of gcloud
 httplib2==0.11.3                                  # A comprehensive HTTP client library
-pyOpenSSL==17.5.0                                 # Python wrapper module around the OpenSSL library
+pyOpenSSL==18.0.0                                 # Python wrapper module around the OpenSSL library - Dependency of MyProxyClient
 cryptography==2.3.1                               # Cryptographic recipes and primitives - Dependency of pyOpenSSL
 oauth2client==4.1.2                               # OAuth 2.0 client library
 protobuf==3.5.2.post1                             # Protocol Buffers - Dependency of gcloud

@@ -220,7 +220,6 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Natural Language :: English',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Environment :: No Input/Output (Daemon)', ],
     install_requires=requires,
