@@ -37,6 +37,7 @@ import signal
 import sys
 import time
 import traceback
+import re
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
@@ -329,8 +330,36 @@ def set_limits(args):
     Set account limit for an account and rse.
     """
     client = get_client(args)
-    client.set_account_limit(account=args.account, rse=args.rse, bytes=args.bytes)
-    print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(args.bytes, True)))
+    limit = args.limit
+    result = re.findall('^([0-9]+)([A-Z]+)$',limit)
+     
+    if limit == 'inf' or limit == 'infinity':
+        limit = -1
+    elif len(result) is not 0:
+        value = int(result[0][0])
+        unit = result[0][1]
+        
+        if unit == 'B':
+            limit = value
+        elif unit == 'KB':
+            limit = value * 1000
+        elif unit == 'MB':
+            limit = value * 1000000
+        elif unit == 'GB':
+            limit = value * 1000000000
+        elif unit == 'TB':
+            limit = value * 1000000000000
+        elif unit == 'PB':
+            limit = value * 1000000000000000
+        else:
+            print('The unit of your limit could not be recognized. Please use one of the following units: B,KB,MB,GB,TB,PB.')
+            return FAILURE
+    else:
+        print('The limit could not be set. Either you misspelled infinity or used a wrong pattern. Please use a format like 10GB with B,KB,MB,GB,TB,PB as units.')
+        return FAILURE
+        
+    client.set_account_limit(account=args.account, rse=args.rse, bytes=limit)
+    print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(limit, True)))
     return SUCCESS
 
 
@@ -1114,7 +1143,7 @@ def get_parser():
     set_account_limits_parser.set_defaults(which='set_limits')
     set_account_limits_parser.add_argument('account', action='store', help='Account name')
     set_account_limits_parser.add_argument('rse', action='store', help='RSE boolean expression')
-    set_account_limits_parser.add_argument('bytes', action='store', type=int, help='The total number of bytes that can be stored')
+    set_account_limits_parser.add_argument('limit', action='store', help='The total number of bytes that can be stored. Value can be either the number of bytes as Integer like 10000 or in units like 10GB with the common units or inf/infinity.')
 
     # The account-limit subparser
     get_account_limits_parser = account_subparser.add_parser('get-limits',
