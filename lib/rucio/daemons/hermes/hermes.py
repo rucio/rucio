@@ -18,6 +18,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -31,7 +32,6 @@ import os
 import random
 import smtplib
 import socket
-import ssl
 import sys
 import threading
 import time
@@ -40,7 +40,6 @@ import traceback
 from email.mime.text import MIMEText
 from sqlalchemy.orm.exc import NoResultFound
 
-import dns.resolver
 import stomp
 
 from rucio.common.config import config_get, config_get_int, config_get_bool
@@ -182,6 +181,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         logging.info('[broker] could not find use_ssl in configuration -- please update your rucio.cfg')
 
     port = config_get_int('messaging-hermes', 'port')
+    vhost = config_get('messaging-hermes', 'broker_virtual_host', raise_exception=False)
     if not use_ssl:
         username = config_get('messaging-hermes', 'username')
         password = config_get('messaging-hermes', 'password')
@@ -192,6 +192,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         if not use_ssl:
             logging.info('[broker] setting up username/password authentication: %s' % broker)
             con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                     vhost=vhost,
                                      keepalive=True,
                                      timeout=broker_timeout)
         else:
@@ -200,7 +201,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                      use_ssl=True,
                                      ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
                                      ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
-                                     ssl_version=ssl.PROTOCOL_TLSv1,
+                                     vhost=vhost,
                                      keepalive=True,
                                      timeout=broker_timeout)
 
@@ -392,11 +393,10 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
     brokers_resolved = []
     for broker in brokers_alias:
         try:
-            brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
-        except dns.resolver.NXDOMAIN:
-            logging.error('Cannot resolve domain name %s', broker)
-
-    brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+            addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+            brokers_resolved.extend(ai[4][0] for ai in addrinfos)
+        except socket.gaierror as ex:
+            logging.error('Cannot resolve domain name %s (%s)', broker, str(ex))
 
     logging.debug('brokers resolved to %s', brokers_resolved)
 
