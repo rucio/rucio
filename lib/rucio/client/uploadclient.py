@@ -226,11 +226,11 @@ class UploadClient:
                 file_scope = file['did_scope']
                 file_name = file['did_name']
                 file_did_str = '%s:%s' % (file_scope, file_name)
-                final_summary[file_did_str] = {'scope': file['scope'],
-                                               'name': file['name'],
+                final_summary[file_did_str] = {'scope': file_scope,
+                                               'name': file_name,
                                                'bytes': file['bytes'],
                                                'rse': file['rse'],
-                                               'pfn': file['upload_result']['pfn'],
+                                               'pfn': file['upload_result'].get('pfn', ''),
                                                'guid': file['meta']['guid'],
                                                'adler32': file['adler32'],
                                                'md5': file['md5']}
