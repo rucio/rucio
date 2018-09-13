@@ -23,6 +23,7 @@
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -723,3 +724,18 @@ def add_url_query(url, query):
     mod_query.update(query)
     url_parts[4] = urllib.urlencode(mod_query)
     return urlparse.urlunparse(url_parts)
+
+
+def extract_storage_unit_and_value(input_string):
+    """
+    Extract storage unit like GB and value like 10 from a string
+
+    :param input_string: String containing a value and an unit
+    :return Tuple with value and unit if or empty tuple
+    """
+    result = re.findall('^([0-9]+)([A-Za-z]+)$', input_string)
+    if result:
+        return (int(result[0][0]), result[0][1])
+    else:
+        return ()
+            
