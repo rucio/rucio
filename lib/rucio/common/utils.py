@@ -726,16 +726,31 @@ def add_url_query(url, query):
     return urlparse.urlunparse(url_parts)
 
 
-def extract_storage_unit_and_value(input_string):
+def get_bytes_value_from_string(input_string):
     """
-    Extract storage unit like GB and value like 10 from a string
+    Get bytes from a string that represents a storage value and unit
 
     :param input_string: String containing a value and an unit
-    :return Tuple with value and unit if or empty tuple
+    :return: Integer value representing the value in bytes
     """
     result = re.findall('^([0-9]+)([A-Za-z]+)$', input_string)
     if result:
-        return (int(result[0][0]), result[0][1])
+        value = int(result[0][0])
+        unit = result[0][1].lower()
+        if unit == 'b':
+            value = value
+        elif unit == 'kb':
+            value = value * 1000
+        elif unit == 'mb':
+            value = value * 1000000
+        elif unit == 'gb':
+            value = value * 1000000000
+        elif unit == 'tb':
+            value = value * 1000000000000
+        elif unit == 'pb':
+            value = value * 1000000000000000
+        else:
+            return False
+        return value
     else:
-        return ()
-            
+        return False
