@@ -22,6 +22,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -1196,6 +1197,16 @@ class TestRSEClient(object):
         for usage in self.client.list_rse_usage_history(rse='MOCK'):
             assert_equal(usage['free'], 80)
             break
+
+    def test_get_rse_usage(self):
+        """ RSE (CLIENTS): Test getting the RSE usage. """
+        usages = self.client.get_rse_usage(rse='MOCK', filters={'per_account': True})
+        for usage in usages:
+            assert_true(usage['account_usages'])
+
+        usages = self.client.get_rse_usage(rse='MOCK')
+        for usage in usages:
+            assert_true('account_usages' not in usage)
 
     def test_set_rse_limits(self):
         """ RSE (CLIENTS): Test the update of RSE limits."""
