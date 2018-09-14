@@ -331,7 +331,7 @@ def set_limits(args):
     """
     client = get_client(args)
     byte_limit = None
-    limit_input = args.bytes
+    limit_input = args.bytes.lower()
 
     if limit_input == 'inf' or limit_input == 'infinity':
         byte_limit = -1
