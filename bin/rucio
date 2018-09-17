@@ -1028,6 +1028,67 @@ def delete_metadata(args):
 
 
 @exception_handler
+def get_did_meta(args):
+    """
+    %(prog)s get-did-meta [options] <field1=value1 field2=value2 ...>
+
+    Get data identifier metadata
+    """
+    client = get_client(args)
+    for did in args.dids:
+        scope, name = extract_scope(did)
+        meta = client.get_did_meta(scope=scope, name=name)
+        for k in meta:
+            print('%s: %s' % (k, meta[k]))
+    return SUCCESS
+
+
+@exception_handler
+def add_did_meta(args):
+    """
+    %(prog)s add-did-meta [options] <field1=value1 field2=value2 ...>
+
+    Add or update data identifier metadata
+    """
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    client.add_did_meta(scope=scope, name=name, key=args.key, value=args.value)
+    return SUCCESS
+
+
+@exception_handler
+def delete_did_meta(args):
+    """
+    %(prog)s delete-did-meta [options] <field1=value1 field2=value2 ...>
+
+    Add or update data identifier metadata
+    """
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    client.delete_did_meta(scope=scope, name=name, key=args.key)
+    return SUCCESS
+
+
+@exception_handler
+def list_dids_by_meta(args):
+    """
+    %(prog)s list-dids-by-meta [options] <field1=value1 field2=value2 ...>
+
+    List dids by metadata key values
+    """
+    client = get_client(args)
+    select = {}
+    for key_value in args.key_values:
+        if len(key_value.split('=')) != 2:
+            logger.error("Usage: rucio list-dids-by-meta key1=value1 key2=value2 ......")
+        else:
+            key, value = key_value.split('=')
+            select[key] = value
+    client.list_dids_by_meta(select=select)
+    return SUCCESS
+
+
+@exception_handler
 def add_rule(args):
     """
     %(prog)s add-rule <did> <copies> <rse-expression> [options]
@@ -1905,6 +1966,29 @@ You can filter by key/value, e.g.::
     # The delete-metadata subparser
     # delete_metadata_parser = subparsers.add_parser('delete-metadata', help='Delete metadata')
     # delete_metadata_parser.set_defaults(which='delete_metadata')
+
+    # The get-did-meta subparser
+    get_did_meta_parser = subparsers.add_parser('get-did-meta', help='Get generic metadata for DIDs.')
+    get_did_meta_parser.set_defaults(which='get_did_meta')
+    get_did_meta_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+
+    # Add add-did-meta subparser
+    add_did_meta_parser = subparsers.add_parser('add-did-meta', help='Add or update metadata')
+    add_did_meta_parser.set_defaults(which='add_did_meta')
+    add_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add', required=True)
+    add_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    add_did_meta_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
+
+    # delete-did-meta subparser
+    delete_did_meta_parser = subparsers.add_parser('delete-did-meta', help='delete metadata')
+    delete_did_meta_parser.set_defaults(which='delete_did_meta')
+    delete_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to delete', required=True)
+    delete_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+
+    # Get dids by metadata key value
+    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-meta', help='list dids by a key value pair')
+    list_dids_by_meta_parser.set_defaults(which='list_dids_by_meta')
+    list_dids_by_meta_parser.add_argument(dest='key_values', nargs='+', action='store', help='KeyValue pairs')
 
     # The list-rse-usage subparser
     list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='Shows the total/free/used space for a given RSE. This values can differ for different RSE source.')

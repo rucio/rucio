@@ -1,0 +1,64 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+-->
+
+$var title: RSE List
+$var script: <script src="/static/rses.js"></script>
+
+<div id="results" class="row">
+  <div id="t_data" class="columns panel">
+    <h4>RSE List</h4>
+    <div id="loader">
+      <div class="row">
+        <div class="small-1 small-centered columns">
+          <img src="/media/spinner.gif">
+        </div>
+      </div>
+    </div>
+    <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead>
+        <tr>
+          <th>RSE</th>
+          <th>Type</th>
+          <th>City</th>
+          <th>Region</th>
+          <th>Country</th>
+          <th>ISP</th>
+          <th>Time Zone</th>
+          <th>Volatile</th>
+          <th>Deterministic</th>
+          <th>Staging Area</th>
+        </tr>
+      </thead>
+      <tfoot>
+        <tr>
+          <th>RSE</th>
+          <th>Type</th>
+          <th>City</th>
+          <th>Region</th>
+          <th>Country</th>
+          <th>ISP</th>
+          <th>Time Zone</th>
+          <th>Volatile</th>
+          <th>Deterministic</th>
+          <th>Staging Area</th>
+        </tr>
+      </tfoot>
+    </table>
+    <div id="error"></div>
+  </div>
+
+</div>
+<div class="row collapse">
+  <div class="large-2 columns">
+    <a class="button postfix" href="/rses/add">Add RSE</a>
+  </div>
+</div>
