@@ -23,6 +23,7 @@
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -723,3 +724,33 @@ def add_url_query(url, query):
     mod_query.update(query)
     url_parts[4] = urllib.urlencode(mod_query)
     return urlparse.urlunparse(url_parts)
+
+
+def get_bytes_value_from_string(input_string):
+    """
+    Get bytes from a string that represents a storage value and unit
+
+    :param input_string: String containing a value and an unit
+    :return: Integer value representing the value in bytes
+    """
+    result = re.findall('^([0-9]+)([A-Za-z]+)$', input_string)
+    if result:
+        value = int(result[0][0])
+        unit = result[0][1].lower()
+        if unit == 'b':
+            value = value
+        elif unit == 'kb':
+            value = value * 1000
+        elif unit == 'mb':
+            value = value * 1000000
+        elif unit == 'gb':
+            value = value * 1000000000
+        elif unit == 'tb':
+            value = value * 1000000000000
+        elif unit == 'pb':
+            value = value * 1000000000000000
+        else:
+            return False
+        return value
+    else:
+        return False
