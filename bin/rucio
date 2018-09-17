@@ -262,7 +262,9 @@ def get_client(args):
                 except (NoOptionError, NoSectionError):
                     logger.error('Cannot get AUTH_TYPE')
                     sys.exit(FAILURE)
-        if auth_type == 'x509_proxy':
+        if 'alert certificate expired' in error:
+            logger.error('The server certificate expired.')
+        elif auth_type == 'x509_proxy':
             logger.error('Please verify that your proxy is still valid and renew it if needed.')
         sys.exit(FAILURE)
     return client
