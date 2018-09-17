@@ -8,12 +8,12 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
-from nose.tools import assert_true, assert_in, raises, assert_is_instance
+from nose.tools import assert_in, assert_is_instance, assert_true, raises
 
-from rucio.db.sqla.constants import DIDType
 from rucio.client.metaclient import MetaClient
-from rucio.common.exception import KeyNotFound, InvalidValueForKey, UnsupportedValueType
+from rucio.common.exception import InvalidValueForKey, KeyNotFound, UnsupportedValueType
 from rucio.common.utils import generate_uuid as uuid
+from rucio.db.sqla.constants import DIDType
 
 
 class TestMetaClient():

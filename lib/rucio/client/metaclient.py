@@ -25,6 +25,7 @@ except ImportError:
     from urllib.parse import quote_plus
 
 from json import dumps, loads
+
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient

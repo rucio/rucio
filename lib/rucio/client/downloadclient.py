@@ -527,41 +527,6 @@ class DownloadClient:
             logger.info('%sFile %s successfully downloaded in %s seconds' % (log_prefix, did_str, duration))
         return item
 
-    def download(self, dids, rse=None, archive=None, protocol=None, pfn=None, nrandom=None, nprocs=3, user_agent='rucio_clients', dir='.', no_subd=False, transfer_timeout=None):
-        """
-        OBSOLETE! This function is kept for compability reasons and will be removed in a future release!
-        """
-        item_tpl = {'rse': rse,
-                    'force_scheme': protocol,
-                    'nrandom': nrandom,
-                    'base_dir': dir,
-                    'no_subdir': no_subd,
-                    'transfer_timeout': transfer_timeout}
-        if pfn:
-            item_tpl['pfn'] = pfn
-        input_items = []
-        for did in dids:
-            item = {}
-            item.update(item_tpl)
-            item['did'] = did
-            if archive:
-                item['archive'] = archive
-            input_items.append(item)
-
-        trace_pattern = {'appid': os.environ.get('RUCIO_TRACE_APPID', None),
-                         'dataset': os.environ.get('RUCIO_TRACE_DATASET', None),
-                         'datasetScope': os.environ.get('RUCIO_TRACE_DATASETSCOPE', None),
-                         'pq': os.environ.get('RUCIO_TRACE_PQ', None),
-                         'taskid': os.environ.get('RUCIO_TRACE_TASKID', None),
-                         'usrdn': os.environ.get('RUCIO_TRACE_USRDN', None)}
-
-        if pfn:
-            return self.download_pfns(input_items, nprocs, trace_pattern)
-        elif archive:
-            self.download_file_from_archive(input_items, trace_pattern)
-        else:
-            return self.download_dids(input_items, nprocs, trace_pattern)
-
     def download_aria2c(self, items, trace_custom_fields={}):
         """
         Uses aria2c to download the items with given DIDs. This function can also download datasets and wildcarded DIDs.

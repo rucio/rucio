@@ -253,6 +253,48 @@ def get_metadata(scope, name):
     return did.get_metadata(scope=scope, name=name)
 
 
+def get_did_meta(scope, name):
+    """
+    Get all metadata for a given did
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    """
+    return did.get_did_meta(scope=scope, name=name)
+
+
+def add_did_meta(scope, name, meta):
+    """
+    Add or update the given metadata to the given did
+
+    :param scope: the scope of the did
+    :param name: the name of the did
+    :param meta: the metadata to be added or updated
+    """
+    return did.add_did_meta(scope=scope, name=name, meta=meta)
+
+
+def delete_did_meta(scope, name, key):
+    """
+    Delete a key from the metadata column
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    :param key: the key to be deleted
+    """
+    return did.delete_did_meta(scope=scope, name=name, key=key)
+
+
+def list_dids_by_meta(scope, select):
+    """
+    List all data identifiers in a scope(optional) which match a given metadata.
+
+    :param scope: the scope to search in(optional)
+    :param select: the list of key value pairs to filter on
+    """
+    return did.list_dids_by_meta(scope=scope, select=select)
+
+
 def set_status(scope, name, issuer, **kwargs):
     """
     Set data identifier status

@@ -23,6 +23,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 
+import json
 import logging
 import random
 import sys
@@ -31,7 +32,7 @@ from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
 
-from sqlalchemy import and_, or_, exists
+from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
@@ -1275,6 +1276,143 @@ def get_metadata(scope, name, session=None):
         return d
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@read_session
+def get_did_meta(scope, name, session=None):
+    """
+    Get all metadata for a given did
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    """
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
+    try:
+        row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+        meta = getattr(row, 'meta')
+        return json.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@transactional_session
+def add_did_meta(scope, name, meta, session=None):
+    """
+    Add or update the given metadata to the given did
+
+    :param scope: the scope of the did
+    :param name: the name of the did
+    :param meta: the metadata to be added or updated
+    """
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
+    try:
+        row_did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+        row_did_meta = session.query(models.DidMeta).filter_by(scope=scope, name=name).scalar()
+        if row_did_meta is None:
+            # Add metadata column to new table (if not already present)
+            row_did_meta = models.DidMeta(scope=scope, name=name)
+            row_did_meta.save(session=session, flush=True)
+
+        existing_meta = getattr(row_did_meta, 'meta')
+
+        # Oracle returns a string instead of a dict
+        if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:
+            existing_meta = json.loads(existing_meta)
+
+        if existing_meta is None:
+            existing_meta = {}
+
+        for k, v in meta.iteritems():
+            existing_meta[k] = v
+
+        row_did_meta.meta = None
+        session.flush()
+
+        # Oracle insert takes a string as input
+        if session.bind.dialect.name in ['oracle', 'sqlite']:
+            existing_meta = json.dumps(existing_meta)
+
+        row_did_meta.meta = existing_meta
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@transactional_session
+def delete_did_meta(scope, name, key, session=None):
+    """
+    Delete a key from the metadata column
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    :param key: the key to be deleted
+    """
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
+    try:
+        row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+        existing_meta = getattr(row, 'meta')
+        # Oracle returns a string instead of a dict
+        if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:
+            existing_meta = json.loads(existing_meta)
+
+        if key not in existing_meta:
+            raise exception.KeyNotFound(key)
+
+        existing_meta.pop(key, None)
+
+        row.meta = None
+        session.flush()
+
+        # Oracle insert takes a string as input
+        if session.bind.dialect.name in ['oracle', 'sqlite']:
+            existing_meta = json.dumps(existing_meta)
+
+        row.meta = existing_meta
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@read_session
+def list_dids_by_meta(scope, select, session=None):
+    """
+    Add or update the given metadata to the given did
+
+    :param scope: the scope of the did
+    :param name: the name of the did
+    :param meta: the metadata to be added or updated
+    """
+    # Currently for sqlite only add, get and delete is implemented.
+    if session.bind.dialect.name == 'sqlite':
+        raise NotImplementedError
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
+    query = session.query(models.DidMeta)
+    if scope is not None:
+        query = query.filter(models.DidMeta.scope == scope)
+
+    for k, v in select.iteritems():
+        if session.bind.dialect.name == 'oracle':
+            query = query.filter(text("json_exists(meta,'$.%s?(@==''%s'')')" % (k, v)))
+        else:
+            query = query.filter(cast(models.DidMeta.meta[k], String) == type_coerce(v, JSON))
+    dids = list()
+    for row in query.yield_per(10):
+        dids.append({'scope': row.scope, 'name': row.name})
+    return dids
 
 
 @transactional_session
