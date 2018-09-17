@@ -1,6 +1,12 @@
 =========================
-1.17.0 "Invisible Donkey"
+1.18.0 "Invisible Donkey"
 =========================
+
+-------------------
+Update Instructions
+-------------------
+
+This feature release requires a database schema update. Please consult the documentation about updating your database schema.
 
 -------
 General
