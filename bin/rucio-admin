@@ -26,6 +26,7 @@
 # - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -53,7 +54,7 @@ from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate)
-from rucio.common.utils import chunks, construct_surl, sizefmt
+from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
 
@@ -329,8 +330,22 @@ def set_limits(args):
     Set account limit for an account and rse.
     """
     client = get_client(args)
-    client.set_account_limit(account=args.account, rse=args.rse, bytes=args.bytes)
-    print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(args.bytes, True)))
+    byte_limit = None
+    limit_input = args.bytes.lower()
+
+    if limit_input == 'inf' or limit_input == 'infinity':
+        byte_limit = -1
+    else:
+        byte_limit = get_bytes_value_from_string(limit_input)
+        if not byte_limit:
+            try:
+                byte_limit = int(limit_input)
+            except ValueError:
+                logger.error('The limit could not be set. Either you misspelled infinity or your input could not be converted to integer or you used a wrong pattern. Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensistive)')
+                return FAILURE
+
+    client.set_account_limit(account=args.account, rse=args.rse, bytes=byte_limit)
+    print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(byte_limit, True)))
     return SUCCESS
 
 
@@ -1114,7 +1129,7 @@ def get_parser():
     set_account_limits_parser.set_defaults(which='set_limits')
     set_account_limits_parser.add_argument('account', action='store', help='Account name')
     set_account_limits_parser.add_argument('rse', action='store', help='RSE boolean expression')
-    set_account_limits_parser.add_argument('bytes', action='store', type=int, help='The total number of bytes that can be stored')
+    set_account_limits_parser.add_argument('bytes', action='store', help='Value can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"')
 
     # The account-limit subparser
     get_account_limits_parser = account_subparser.add_parser('get-limits',
