@@ -22,6 +22,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from re import match
 try:
@@ -485,7 +486,7 @@ def set_rse_usage(rse, source, used, free, session=None):
 
 
 @read_session
-def get_rse_usage(rse, source=None, rse_id=None, session=None):
+def get_rse_usage(rse, source=None, rse_id=None, session=None, per_account=False):
     """
     get rse usage information.
 
@@ -493,22 +494,34 @@ def get_rse_usage(rse, source=None, rse_id=None, session=None):
     :param source: The information source, e.g. srm.
     :param rse_id:  The RSE id.
     :param session: The database session in use.
+    :param per_account: Boolean whether the usage should be calculated per account or not.
 
     :returns: True if successful, otherwise false.
     """
     if not rse_id:
         rse_id = get_rse_id(rse, session=session)
 
-    query = session.query(models.RSEUsage).filter_by(rse_id=rse_id)
-    if source:
-        query = query.filter_by(source=source)
-
+    query_rse_usage = session.query(models.RSEUsage).filter_by(rse_id=rse_id)
     usage = list()
-    for row in query:
-        usage.append({'rse': rse, 'source': row.source,
-                      'used': row.used, 'free': row.free,
-                      'total': (row.free or 0) + (row.used or 0),
-                      'updated_at': row.updated_at})
+
+    if source:
+        query_rse_usage = query_rse_usage.filter_by(source=source)
+
+    for row in query_rse_usage:
+        total = (row.free or 0) + (row.used or 0)
+        rse_usage = {'rse': rse, 'source': row.source,
+                     'used': row.used, 'free': row.free,
+                     'total': total,
+                     'updated_at': row.updated_at}
+        if per_account:
+            query_account_usage = session.query(models.AccountUsage).filter_by(rse_id=rse_id)
+            account_usages = []
+            for row in query_account_usage:
+                if row.bytes != 0:
+                    account_usages.append({'used': row.bytes, 'account': row.account, 'percentage': round(float(row.bytes) / float(total) * 100, 2)})
+            account_usages.sort(key=lambda x: x['used'], reverse=True)
+            rse_usage['account_usages'] = account_usages
+        usage.append(rse_usage)
     return usage
 
 
