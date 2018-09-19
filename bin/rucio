@@ -1437,7 +1437,7 @@ def list_rse_usage(args):
 
     """
     client = get_client(args)
-    usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.per_account})
+    usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.show_accounts})
     print('USAGE:')
     for usage in usages:
         if usage['source'] not in ['srm', 'gsiftp', 'webdav']:
@@ -2009,7 +2009,7 @@ You can filter by key/value, e.g.::
     list_rse_usage_parser.set_defaults(which='list_rse_usage')
     list_rse_usage_parser.add_argument(dest='rse', action='store', help='Rucio Storage Element (RSE) name.').completer = rse_completer
     list_rse_usage_parser.add_argument('--history', dest='history', default=False, action='store', help='List RSE usage history. [Unimplemented]')
-    list_rse_usage_parser.add_argument('--per-account', dest='per_account', action='store_true', default=False, help='List RSE usage per account')
+    list_rse_usage_parser.add_argument('--show-accounts', dest='show_accounts', action='store_true', default=False, help='List RSE usage per account')
 
     # The list-account-usage subparser
     list_account_usage_parser = subparsers.add_parser('list-account-usage', help='Shows the space used, the quota limit and the quota left for an account for every RSE where the user have quota.')

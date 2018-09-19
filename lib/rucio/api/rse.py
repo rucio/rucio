@@ -253,7 +253,7 @@ def get_rse_usage(rse, issuer, source=None, per_account=False):
     :param source: dictionary of attributes by which the results should be filtered
     :param per_account: Boolean whether usage should be calculated per account or not
 
-    :returns: True if successful, otherwise false.
+    :returns: List of RSE usage data.
     """
     return rse_module.get_rse_usage(rse=rse, source=source, per_account=per_account)
 

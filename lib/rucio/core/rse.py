@@ -494,9 +494,9 @@ def get_rse_usage(rse, source=None, rse_id=None, session=None, per_account=False
     :param source: The information source, e.g. srm.
     :param rse_id:  The RSE id.
     :param session: The database session in use.
-    :param per_account: Boolean whether the usage should be calculated per account or not.
+    :param per_account: Boolean whether the usage should be also calculated per account or not.
 
-    :returns: True if successful, otherwise false.
+    :returns: List of RSE usage data.
     """
     if not rse_id:
         rse_id = get_rse_id(rse, session=session)
