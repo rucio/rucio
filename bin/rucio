@@ -64,7 +64,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import sizefmt, Color, detect_client_location
+from rucio.common.utils import sizefmt, Color, detect_client_location, chunks
 
 SUCCESS = 0
 FAILURE = 1
@@ -469,8 +469,7 @@ def attach(args):
             logger.error("Can't open file '" + dids[0] + "'.")
             return FAILURE
 
-    chunks = [dids[i:i + limit] for i in range(0, len(dids), limit)]
-    for chunk in chunks:
+    for chunk in chunks(dids, limit):
         dids = []
         for did in chunk:
             cscope, cname = extract_scope(did)
