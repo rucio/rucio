@@ -455,24 +455,28 @@ def attach(args):
     """
     client = get_client(args)
     scope, name = extract_scope(args.todid)
-    dids = []
+    dids = args.dids
+    limit = 1000
+
     if args.fromfile:
-        if len(args.dids) > 1:
+        if len(dids) > 1:
             logger.error("If --fromfile option is active, only one file is supported. The file should contain a list of dids, one per line.")
             return FAILURE
         try:
-            f = open(args.dids[0], 'r')
-            for did in f.readlines():
-                cscope, cname = extract_scope(did.rstrip())
-                dids.append({'scope': cscope, 'name': cname})
+            f = open(dids[0], 'r')
+            dids = [did.rstrip() for did in f.readlines()]
         except IOError:
-            logger.error("Can't open file '" + args.dids[0] + "'.")
+            logger.error("Can't open file '" + dids[0] + "'.")
             return FAILURE
-    else:
-        for did in args.dids:
+
+    chunks = [dids[i:i + limit] for i in range(0, len(dids), limit)]
+    for chunk in chunks:
+        dids = []
+        for did in chunk:
             cscope, cname = extract_scope(did)
             dids.append({'scope': cscope, 'name': cname})
-    client.attach_dids(scope=scope, name=name, dids=dids)
+        client.attach_dids(scope=scope, name=name, dids=dids)
+
     print('DIDs successfully attached to %s:%s' % (scope, name))
     return SUCCESS
 
