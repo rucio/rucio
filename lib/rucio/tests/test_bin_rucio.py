@@ -23,6 +23,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -818,3 +819,78 @@ class TestBinRucio():
         cmd = 'rucio list-dids {0}:* --recursive'.format(tmp_scope)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_not_equal(re.search("Option recursive cannot be used with wildcards", err), None)
+
+    def test_attach_many_dids(self):
+        """ CLIENT(USER): Rucio attach many (>1000) DIDs """
+        # Setup data for CLI check
+        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        tmp_file1 = file_generator()
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
+        exitcode, out, err = execute(cmd)
+        remove(tmp_file1)
+        files = []
+        for i in range(0, 1001):
+            print(str(i) + ' of 1001')
+            # Adding DIDs to a new dataset
+            tmp_file = file_generator(1)
+            files.append(tmp_file)
+            cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file)
+            exitcode, out, err = execute(cmd)
+            remove(tmp_file)
+
+        # Attaching over 1000 files with CLI
+        cmd = 'rucio attach {0}'.format(tmp_dsn)
+        for tmp_file in files:
+            cmd += ' {0}:{1}'.format(self.user, tmp_file[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+
+        # Checking if the execution was successfull and if the DIDs belong together
+        nose.tools.assert_not_equal(re.search('DIDs successfully attached', out), None)
+        cmd = 'rucio list-files {0}'.format(tmp_dsn)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+
+        # first file must be in the dataset
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[0][5:]), out), None)
+        # last file must be in the dataset
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[-1][5:]), out), None)
+
+        # Setup data with file
+        did_file_path = 'list_dids.txt'
+        files = []
+        with open(did_file_path, 'w') as did_file:
+            for i in range(0, 1001):
+                print(str(i) + ' of 1001')
+                tmp_file = file_generator(1)
+                files.append(tmp_file)
+                cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file)
+                exitcode, out, err = execute(cmd)
+                did_file.write(self.user + ':' + tmp_file[5:] + '\n')
+                remove(tmp_file)
+            did_file.close()
+
+        # Attaching over 1000 files per file
+        cmd = 'rucio attach {0} -f {1}'.format(tmp_dsn, did_file_path)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        remove(did_file_path)
+
+        # Checking if the execution was successfull and if the DIDs belong together
+        nose.tools.assert_not_equal(re.search('DIDs successfully attached', out), None)
+        cmd = 'rucio list-files {0}'.format(tmp_dsn)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+
+        # first file must be in the dataset
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[0][5:]), out), None)
+        # last file must be in the dataset
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[-1][5:]), out), None)
