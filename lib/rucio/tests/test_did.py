@@ -21,6 +21,7 @@
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -242,6 +243,31 @@ class TestDIDClients:
         assert_equal(len(results), 0)
         with assert_raises(UnsupportedOperation):
             self.did_client.list_dids(tmp_scope, {'name': 'file*'}, type='whateverytype')
+
+    def test_list_by_length(self):
+        """ DATA IDENTIFIERS (CLIENT): List did with length """
+        tmp_scope = 'mock'
+
+        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn3)
+
+        dids = self.did_client.list_dids(tmp_scope, {'length.gt': 0})
+        results = []
+        for d in dids:
+            results.append(d)
+        assert_not_equal(len(results), 0)
+
+        dids = self.did_client.list_dids(tmp_scope, {'length.gt': -1, 'length.lt': 1})
+        results = []
+        for d in dids:
+            results.append(d)
+        assert_equal(len(results), 0)
+
+        dids = self.did_client.list_dids(tmp_scope, {'length': 0})
+        results = []
+        for d in dids:
+            results.append(d)
+        assert_equal(len(results), 0)
 
     def test_list_by_metadata(self):
         """ DATA IDENTIFIERS (CLIENT): List did with metadata"""

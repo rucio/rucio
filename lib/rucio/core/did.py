@@ -22,6 +22,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 import json
 import logging
@@ -1475,7 +1476,7 @@ def set_status(scope, name, session=None, **kwargs):
 @stream_session
 def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
               offset=None, long=False, session=None):
-    """0
+    """
     Search data identifiers
 
     :param scope: the scope name.
@@ -1517,7 +1518,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
 
     for (k, v) in filters.items():
 
-        if k not in ['created_before', 'created_after'] \
+        if k not in ['created_before', 'created_after', 'length.gt', 'length.lt', 'length.lte', 'length.gte', 'length'] \
            and not hasattr(models.DataIdentifier, k):
             raise exception.KeyNotFound(k)
 
@@ -1540,6 +1541,16 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
         elif k == 'guid':
             query = query.filter_by(guid=v).\
                 with_hint(models.ReplicaLock, "INDEX(DIDS_GUIDS_IDX)", 'oracle')
+        elif k == 'length.gt':
+            query = query.filter(models.DataIdentifier.length > v)
+        elif k == 'length.lt':
+            query = query.filter(models.DataIdentifier.length < v)
+        elif k == 'length.gte':
+            query = query.filter(models.DataIdentifier.length >= v)
+        elif k == 'length.lte':
+            query = query.filter(models.DataIdentifier.length <= v)
+        elif k == 'length':
+            query = query.filter(models.DataIdentifier.length == v)
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
 
