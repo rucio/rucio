@@ -579,13 +579,16 @@ class Usage(RucioController):
         header('Content-Type', 'application/x-json-stream')
         usage = None
         source = None
+        per_account = False
         if ctx.query:
             params = parse_qs(ctx.query[1:])
             if 'source' in params:
                 source = params['source'][0]
+            if 'per_account' in params:
+                per_account = params['per_account'][0] == 'True'
 
         try:
-            usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=source)
+            usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=source, per_account=per_account)
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RucioException as error:
