@@ -12,6 +12,7 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2013
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 '''
 
 from rucio.api import permission
@@ -233,8 +234,7 @@ def set_rse_usage(rse, source, used, free, issuer):
     :param free: the free space in bytes.
     :param issuer: The issuer account.
 
-
-    :returns: True if successful, otherwise false.
+    :returns: List of RSE usage data.
     """
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='set_rse_usage', kwargs=kwargs):
@@ -243,7 +243,7 @@ def set_rse_usage(rse, source, used, free, issuer):
     return rse_module.set_rse_usage(rse=rse, source=source, used=used, free=free)
 
 
-def get_rse_usage(rse, issuer, source=None):
+def get_rse_usage(rse, issuer, source=None, per_account=False):
     """
     get RSE usage information.
 
@@ -253,7 +253,7 @@ def get_rse_usage(rse, issuer, source=None):
 
     :returns: True if successful, otherwise false.
     """
-    return rse_module.get_rse_usage(rse=rse, source=source)
+    return rse_module.get_rse_usage(rse=rse, source=source, per_account=per_account)
 
 
 def list_rse_usage_history(rse, issuer, source=None):
