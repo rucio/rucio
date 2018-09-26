@@ -1475,7 +1475,7 @@ def set_status(scope, name, session=None, **kwargs):
 
 @stream_session
 def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
-              offset=None, long=False, session=None):
+              offset=None, long=False, recursive=False, session=None):
     """
     Search data identifiers
 
@@ -1487,6 +1487,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
     :param offset: offset number.
     :param long: Long format option to display more information for each DID.
     :param session: The database session in use.
+    :param recursive: Also list attached DIDs.
     """
     types = ['all', 'collection', 'container', 'dataset', 'file']
     if type not in types:
@@ -1564,6 +1565,20 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
 
     if limit:
         query = query.limit(limit)
+
+    if recursive:
+        # Get attachted DIDs and save in list because query has to be finished before starting a new one in the recursion
+        collections_content = []
+        parent_scope = scope
+        for scope, name, did_type, bytes, length in query.yield_per(5):
+            if (did_type == DIDType.CONTAINER or did_type == DIDType.DATASET):
+                collections_content += [did for did in list_content(scope=scope, name=name)]
+
+        # List DIDs again to use filter
+        for did in collections_content:
+            filters['name'] = did['name']
+            for result in list_dids(scope=did['scope'], filters=filters, recursive=True, type=type, limit=limit, offset=offset, long=long, session=session):
+                yield result
 
     if long:
         for scope, name, did_type, bytes, length in query.yield_per(5):
