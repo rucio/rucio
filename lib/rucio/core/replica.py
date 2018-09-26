@@ -900,8 +900,16 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         # cannot be pushed into protocols because we need to lookup rse attributes.
                         # ultra-conservative implementation.
                         if domain == 'wan' and protocol.attributes['scheme'] == 'root' and client_location:
+
                             if 'site' in client_location and client_location['site']:
-                                replica_site = get_rse_attribute('site', rse_info[rse]['id'], session=session)[0]
+
+                                # is the RSE site-configured?
+                                rse_site_attr = get_rse_attribute('site', rse_info[rse]['id'], session=session)
+                                replica_site = ['']
+                                if isinstance(rse_site_attr, list) and len(rse_site_attr):
+                                    replica_site = rse_site_attr[0]
+
+                                # does it match with the client?
                                 if client_location['site'] != replica_site:
                                     root_proxy_internal = get_rses_with_attribute_value('site', client_location['site'],
                                                                                         'root-proxy-internal',

@@ -44,7 +44,7 @@ from rucio.core.replica import (add_replica, add_replicas, delete_replicas,
                                 declare_bad_file_replicas, list_bad_replicas,
                                 update_replicas_paths, update_replica_state,
                                 get_replica_atime, touch_replica)
-from rucio.core.rse import add_rse, add_protocol
+from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.necromancer import run
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, rse_name_generator
@@ -340,6 +340,45 @@ class TestReplicaCore:
             errno, stdout, stderr = execute(cmd)
             assert_in('/i/prefer/the/wan', stdout)
             assert_in('/i/prefer/the/lan', stdout)
+
+    def test_replica_no_site(self):
+        """ REPLICA (CORE): Test listing replicas without site attribute """
+
+        rc = ReplicaClient()
+
+        rse = 'APERTURE_%s' % rse_name_generator()
+        add_rse(rse)
+
+        add_protocol(rse, {'scheme': 'root',
+                           'hostname': 'root.aperture.com',
+                           'port': 1409,
+                           'prefix': '//test/chamber/',
+                           'impl': 'rucio.rse.protocols.xrootd.Default',
+                           'domains': {
+                               'lan': {'read': 1, 'write': 1, 'delete': 1},
+                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        add_rse_attribute(rse=rse, key='site', value='APERTURE')
+
+        files = [{'scope': 'mock', 'name': 'element_%s' % generate_uuid(),
+                  'bytes': 1234, 'adler32': 'deadbeef'}]
+        add_replicas(rse=rse, files=files, account='root')
+
+        replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
+        assert_in('root://', replicas[0]['pfns'].keys()[0])
+
+        replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
+                                                client_location={'site': 'SOMEWHERE'})]
+        assert_in('root://', replicas[0]['pfns'].keys()[0])
+
+        del_rse_attribute(rse=rse, key='site')
+
+        replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
+        assert_in('root://', replicas[0]['pfns'].keys()[0])
+
+        replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
+                                                client_location={'site': 'SOMEWHERE'})]
+        assert_in('root://', replicas[0]['pfns'].keys()[0])
 
 
 class TestReplicaClients:
