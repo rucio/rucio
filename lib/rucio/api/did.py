@@ -12,6 +12,7 @@
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
   - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 '''
 
 import rucio.api.permission
@@ -22,7 +23,7 @@ from rucio.common.schema import validate_schema
 from rucio.db.sqla.constants import DIDType
 
 
-def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False):
+def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False):
     """
     List dids in a scope.
 
@@ -33,10 +34,11 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param limit: The maximum number of DIDs returned.
     :param offset: Offset number.
     :param long: Long format option to display more information for each DID.
+    :param recursive: Also list attached DIDs.
     """
     validate_schema(name='did_filters', obj=filters)
     return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case,
-                         limit=limit, offset=offset, long=long)
+                         limit=limit, offset=offset, long=long, recursive=recursive)
 
 
 def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None):
