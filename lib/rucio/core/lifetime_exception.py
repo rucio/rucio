@@ -7,6 +7,7 @@
 #
 #  Authors:
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
+#  - Dimitrios Christidis, <dimitrios.christidis@cern.ch> 2018
 
 from re import match
 from datetime import datetime, timedelta
