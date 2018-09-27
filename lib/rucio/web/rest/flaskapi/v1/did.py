@@ -21,6 +21,7 @@
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from json import dumps, loads
 from traceback import format_exc
@@ -130,6 +131,7 @@ class Search(MethodView):
 
         :query type: specify a DID type to search for
         :query long: set to True for long output, otherwise only name
+        :query recursive: recursively list DIDs content
         :resheader Content-Type: application/x-json-stream
         :status 200: DIDs found
         :status 401: Invalid Auth Token
@@ -140,19 +142,21 @@ class Search(MethodView):
 
         filters = {}
         long = False
-
+        recursive = False
         type = 'collection'
         for k, v in request.args.items():
             if k == 'type':
                 type = v
             elif k == 'long':
-                long = bool(v)
+                long = v == '1'
+            elif k == 'recursive':
+                recursive = v == 'True'
             else:
-                filters[k] = v[0]
+                filters[k] = v
 
         try:
             data = ""
-            for did in list_dids(scope=scope, filters=filters, type=type, long=long):
+            for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive):
                 data += dumps(did) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except UnsupportedOperation as error:

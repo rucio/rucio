@@ -34,7 +34,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param limit: The maximum number of DIDs returned.
     :param offset: Offset number.
     :param long: Long format option to display more information for each DID.
-    :param recursive: Also list attached DIDs.
+    :param recursive: Recursively list DIDs content.
     """
     validate_schema(name='did_filters', obj=filters)
     return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case,

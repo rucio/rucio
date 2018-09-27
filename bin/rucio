@@ -537,7 +537,7 @@ def list_dids(args):
                     else:
                         logger.error('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
                         return FAILURE
-                elif key == 'length.gt' or key == 'length.lt' or key == 'length.gte' or key == 'length.lte' or key == 'length':
+                elif key in ('length.gt', 'length.lt', 'length.gte', 'length.lte', 'length'):
                     try:
                         value = int(value)
                         filters[key] = value
