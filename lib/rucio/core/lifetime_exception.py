@@ -7,6 +7,7 @@
 #
 #  Authors:
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
+#  - Dimitrios Christidis, <dimitrios.christidis@cern.ch> 2018
 
 from re import match
 from datetime import datetime, timedelta
@@ -152,7 +153,7 @@ def update_exception(exception_id, state, session=None):
     """
     query = session.query(models.LifetimeExceptions).filter_by(id=exception_id)
     try:
-        query.one()
+        query.first()
     except NoResultFound:
         raise LifetimeExceptionNotFound
 
