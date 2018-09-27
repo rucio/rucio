@@ -53,7 +53,7 @@ def list_exceptions(exception_id, states, session=None):
     if state_clause != []:
         query = query.filter(or_(*state_clause))
     if exception_id:
-        query = query.filter(id=exception_id)
+        query = query.filter_by(id=exception_id)
 
     for exception in query.yield_per(5):
         yield {'id': exception.id, 'scope': exception.scope, 'name': exception.name,
