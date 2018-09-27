@@ -20,6 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 from json import dumps, loads
@@ -590,6 +591,7 @@ class Usage(MethodView):
 
         :param rse: the RSE name.
         :query source: The information source, e.g., srm.
+        :query per_account: Boolean whether the usage should be also calculated per account or not.
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid Auth Token.
@@ -600,9 +602,9 @@ class Usage(MethodView):
         """
         usage = None
         source = request.args.get('source', None)
-
+        per_account = request.args.get('per_account', False) == 'True'
         try:
-            usage = get_rse_usage(rse, issuer=request.environ.get('issuer'), source=source)
+            usage = get_rse_usage(rse, issuer=request.environ.get('issuer'), source=source, per_account=per_account)
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except RucioException as error:

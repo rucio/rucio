@@ -59,7 +59,7 @@ class DIDClient(BaseClient):
         :param filters: A dictionary of key/value pairs like {'name': 'file_name','rse-expression': 'tier0'}.
         :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         :param long: Long format option to display more information for each DID.
-        :param recursive: Also list attached DIDs.
+        :param recursive: Recursively list DIDs content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
         payload = {}
