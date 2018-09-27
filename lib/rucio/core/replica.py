@@ -1006,7 +1006,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
                   rse_expression=None, client_location=None, domain=None,
-                  sign_urls=False, signature_lifetime=None, resolve_archives=False,
+                  sign_urls=False, signature_lifetime=None, resolve_archives=True,
                   session=None):
     """
     List file replicas for a list of data identifiers (DIDs).

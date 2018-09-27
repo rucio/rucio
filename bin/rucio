@@ -368,7 +368,7 @@ def list_file_replicas(args):
                                     metalink=args.metalink,
                                     client_location=detect_client_location(),
                                     sort=args.sort, domain=args.domain,
-                                    resolve_archives=args.resolve_archives)
+                                    resolve_archives=not args.no_resolve_archives)
 
     if args.metalink:
         print(replicas[:-1])  # last character is newline, no need to print that
@@ -936,7 +936,7 @@ def download(args):
     item_defaults['base_dir'] = args.dir
     item_defaults['no_subdir'] = args.no_subdir
     item_defaults['transfer_timeout'] = args.transfer_timeout
-    item_defaults['resolve_archives'] = args.resolve_archives
+    item_defaults['resolve_archives'] = not args.no_resolve_archives
     archive_did = args.archive_did
     if not args.pfn and not archive_did:
         item_defaults['force_scheme'] = args.protocol
@@ -1688,7 +1688,7 @@ To list the missing replica of a dataset of a given RSE::
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False).completer = rse_completer
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE. Must be used with --rse option', required=False)
     list_file_replicas_parser.add_argument('--metalink', dest='metalink', default=False, action='store_true', help='Output available replicas as metalink.', required=False)
-    list_file_replicas_parser.add_argument('--resolve-archives', dest='resolve_archives', default=False, action='store_true', help='Also resolve archives which may contain the files.', required=False)
+    list_file_replicas_parser.add_argument('--no-resolve-archives', dest='no_resolve_archives', default=False, action='store_true', help='Do not resolve archives which may contain the files.', required=False)
     list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: random (default), geoip', required=False)
     list_file_replicas_parser.add_argument('--expression', dest='rse_expression', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
             can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
@@ -1986,7 +1986,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
         selected_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
         selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="DID of an archive from where to extract the files.")
-        selected_parser.add_argument('--resolve-archives', action='store_true', default=False, help="If set archives will be considered for download.")
+        selected_parser.add_argument('--no-resolve-archives', action='store_true', default=False, help="If set archives will not be considered for download.")
         selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
         selected_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
