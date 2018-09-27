@@ -152,7 +152,7 @@ def update_exception(exception_id, state, session=None):
     """
     query = session.query(models.LifetimeExceptions).filter_by(id=exception_id)
     try:
-        query.one()
+        query.first()
     except NoResultFound:
         raise LifetimeExceptionNotFound
 
