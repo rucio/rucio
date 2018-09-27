@@ -41,15 +41,7 @@ def list_exceptions(exception_id, states, session=None):
     if states:
         state_clause = [models.LifetimeExceptions.state == state for state in states]
 
-    query = session.query(models.LifetimeExceptions.id,
-                          models.LifetimeExceptions.scope, models.LifetimeExceptions.name,
-                          models.LifetimeExceptions.did_type,
-                          models.LifetimeExceptions.account,
-                          models.LifetimeExceptions.pattern,
-                          models.LifetimeExceptions.comments,
-                          models.LifetimeExceptions.state,
-                          models.LifetimeExceptions.expires_at,
-                          models.LifetimeExceptions.created_at)
+    query = session.query(models.LifetimeExceptions)
     if state_clause != []:
         query = query.filter(or_(*state_clause))
     if exception_id:
