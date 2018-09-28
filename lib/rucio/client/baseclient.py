@@ -182,7 +182,7 @@ class BaseClient(object):
                         else:
                             fname = '/tmp/x509up_u%d' % geteuid()
                             if path.exists(fname):
-                                self.creds['client_proxy'] = path
+                                self.creds['client_proxy'] = fname
                             else:
                                 raise MissingClientParameter('Cannot find a valid X509 proxy; not in %s, $X509_USER_PROXY not set, and '
                                                              '\'x509_proxy\' not set in the configuration file.' % fname)
