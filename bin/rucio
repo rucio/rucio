@@ -212,23 +212,26 @@ def exception_handler(function):
                     pass
                 logger.error('Specified account %s does not have an associated identity.' % used_account)
             else:
-                logger.error(error)
                 logger.debug(traceback.format_exc())
+                contact = config_get('policy', 'support', raise_exception=False)
+                support = ('Please followup with all relevant information at: ' + contact) if contact else ''
                 logger.error('\nThe object is missing this property: %s\n'
                              'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n'
-                             'Please followup with all relevant information at: %s' % (str(error), config_get('policy', 'support')))
-            raise
+                             '%s' % (str(error), support))
+            return FAILURE
         except RucioException as error:
             logger.error(error)
             return error.error_code
         except Exception as error:
             logger.debug(traceback.format_exc())
             logger.error(error)
+            contact = config_get('policy', 'support', raise_exception=False)
+            support = ("If it's a problem concerning your experiment or if you're unsure what to do, please followup at: %s\n" % contact) if contact else ''
+            contact = config_get('policy', 'support_rucio', default='https://github.com/rucio/rucio/issues')
+            support += "If you're sure there is a problem with Rucio itself, please followup at: " + contact
             logger.error('\nRucio exited with an unexpected/unknown error.\n'
                          'Please rerun the last command with the "-v" option to gather more information.\n'
-                         'If it is a problem concerning your experiment or if you unsure what to do, please followup at: %s\n'
-                         'If you are sure that there is a problem with Rucio itself, please followup at: %s' % (config_get('policy', 'support'),
-                                                                                                                config_get('policy', 'support_rucio')))
+                         '%s' % support)
             return FAILURE
     return new_funct
 
@@ -892,7 +895,7 @@ def download(args):
         trace_pattern['usrdn'] = args.trace_usrdn
 
     client = get_client(args)
-    download_client = DownloadClient(client, logger)
+    download_client = DownloadClient(client=client, logger=logger, check_admin=args.allow_tape)
 
     result = None
     item_defaults = {}
@@ -1552,7 +1555,7 @@ To list the file replicas for a given dataset::
 
     $ rucio list-file-replicas user.jdoe:user.jdoe.test.data.1234.1
     +-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
-    | SCOPE      | NAME                              | FILESIZE   | ADLER32   | RSE: REPLICA                                                                   |
+    | SCOPE     | NAME                            | FILESIZE   | ADLER32   | RSE: REPLICA                                                                      |
     |-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
     | user.jdoe | user.jdoe.test.data.1234.file.1 | 94.835 MB  | 5d000974  | SITE1_DISK: srm://blahblih/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.1 |
     | user.jdoe | user.jdoe.test.data.1234.file.1 | 94.835 MB  | 5d000974  | SITE2_DISK: file://another/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.1 |
@@ -1562,9 +1565,9 @@ To list the file replicas for a given dataset::
 To list the missing replica of a dataset of a given RSE::
 
     $ rucio list-file-replicas --rse SITE1_DISK user.jdoe:user.jdoe.test.data.1234.1
-    +---------------+------------------------+
+    +-----------+----------------------------+
     | SCOPE     | NAME                       |
-    |---------------+------------------------|
+    |-----------+----------------------------|
     | user.jdoe | user.jdoe.test.data.1234.2 |
     +-----------+----------------------------+
     ''')
@@ -1861,50 +1864,31 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('upload', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
-    # The download subparser
+    # The download and get subparser
     get_parser = subparsers.add_parser('get', help='Download method (synonym for download)')
-    get_parser.set_defaults(which='download')
-    get_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
-    get_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-    get_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources.')
-    get_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
-    get_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
-    get_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
-    get_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
-    get_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
-    get_parser.add_argument('--archive-did', action='store', dest='archive_did', help="DID of an archive from where to extract the files.")
-    get_parser.add_argument('--resolve-archives', action='store_true', default=False, help="If set archives will be considered for download.")
-    get_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
-    get_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
-    get_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
-    get_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
-    get_parser.add_argument('--trace_datasetscope', dest='trace_datasetscope', action='store', default=os.environ.get('RUCIO_TRACE_DATASETSCOPE', None), help=argparse.SUPPRESS)
-    get_parser.add_argument('--trace_eventtype', dest='trace_eventtype', action='store', default=os.environ.get('RUCIO_TRACE_EVENTTYPE', None), help=argparse.SUPPRESS)
-    get_parser.add_argument('--trace_pq', dest='trace_pq', action='store', default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
-    get_parser.add_argument('--trace_taskid', dest='trace_taskid', action='store', default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
-    get_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
-
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
-    download_parser.set_defaults(which='download')
-    download_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
-    download_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-    download_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')
-    download_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
-    download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
-    download_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
-    download_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
-    download_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
-    download_parser.add_argument('--archive-did', action='store', dest='archive_did', help="DID of an archive from where to extract the files.")
-    download_parser.add_argument('--resolve-archives', action='store_true', default=False, help="If set archives will be considered for download.")
-    download_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
-    download_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
-    download_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
-    download_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
-    download_parser.add_argument('--trace_datasetscope', dest='trace_datasetscope', action='store', default=os.environ.get('RUCIO_TRACE_DATASETSCOPE', None), help=argparse.SUPPRESS)
-    download_parser.add_argument('--trace_eventtype', dest='trace_eventtype', action='store', default=os.environ.get('RUCIO_TRACE_EVENTTYPE', None), help=argparse.SUPPRESS)
-    download_parser.add_argument('--trace_pq', dest='trace_pq', action='store', default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
-    download_parser.add_argument('--trace_taskid', dest='trace_taskid', action='store', default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
-    download_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
+    for selected_parser in [get_parser, download_parser]:
+        selected_parser.set_defaults(which='download')
+        selected_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
+        selected_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+        selected_parser.add_argument('--allow-tape', action='store_true', default=False, help="Also consider tape endpoints as source of the download.")
+        selected_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')
+        selected_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
+        selected_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
+        selected_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
+        selected_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
+        selected_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
+        selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="DID of an archive from where to extract the files.")
+        selected_parser.add_argument('--resolve-archives', action='store_true', default=False, help="If set archives will be considered for download.")
+        selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
+        selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
+        selected_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_datasetscope', dest='trace_datasetscope', action='store', default=os.environ.get('RUCIO_TRACE_DATASETSCOPE', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_eventtype', dest='trace_eventtype', action='store', default=os.environ.get('RUCIO_TRACE_EVENTTYPE', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_pq', dest='trace_pq', action='store', default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_taskid', dest='trace_taskid', action='store', default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
@@ -1950,9 +1934,9 @@ You can filter by key/value, e.g.::
     add_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Rule lifetime (in seconds)')
     add_rule_parser.add_argument('--grouping', dest='grouping', action='store', choices=['DATASET', 'ALL', 'NONE'], help='Rule grouping')
     add_rule_parser.add_argument('--locked', dest='locked', action='store_true', help='Rule locking')
-    add_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Source Replica Expression')
+    add_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='RSE Expression for RSEs to be considered for source replicas')
     add_rule_parser.add_argument('--notify', dest='notify', action='store', help='Notification strategy : Y (Yes), N (No), C (Close)')
-    add_rule_parser.add_argument('--activity', dest='activity', action='store', help='Activity to be used (e.g. User, Data Consolidation')
+    add_rule_parser.add_argument('--activity', dest='activity', action='store', help='Activity to be used (e.g. User, Data Consolidation)')
     add_rule_parser.add_argument('--comment', dest='comment', action='store', help='Comment about the replication rule')
     add_rule_parser.add_argument('--ask-approval', dest='ask_approval', action='store_true', help='Ask for rule approval')
     add_rule_parser.add_argument('--asynchronous', dest='asynchronous', action='store_true', help='Create rule asynchronously')
