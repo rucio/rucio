@@ -17,10 +17,11 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
+from __future__ import print_function
 from json import dumps, loads
 from traceback import format_exc
 from flask import Flask, Blueprint, Response, request
@@ -68,11 +69,11 @@ class RSEs(MethodView):
                     item = {'rse': rse}
                     data += render_json(**item) + '\n'
                 return Response(data, content_type="application/x-json-stream")
-            except InvalidRSEExpression, error:
+            except InvalidRSEExpression as error:
                 return generate_http_error_flask(400, 'InvalidRSEExpression', error.args[0])
-            except InvalidObject, error:
+            except InvalidObject as error:
                 return generate_http_error_flask(400, 'InvalidObject', error.args[0])
-            except RucioException, error:
+            except RucioException as error:
                 return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         else:
             data = ""
@@ -123,19 +124,19 @@ class RSE(MethodView):
         kwargs['issuer'] = request.environ.get('issuer')
         try:
             add_rse(rse, **kwargs)
-        except InvalidObject, error:
+        except InvalidObject as error:
             return generate_http_error_flask(400, 'InvalidObject', error.args[0])
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except Duplicate, error:
+        except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print error
-            print format_exc()
+        except Exception as error:
+            print(error)
+            print(format_exc())
             return error, 500
 
         return "Created", 201
@@ -166,19 +167,19 @@ class RSE(MethodView):
         kwargs['issuer'] = request.environ.get('issuer')
         try:
             update_rse(rse, **kwargs)
-        except InvalidObject, error:
+        except InvalidObject as error:
             return generate_http_error_flask(400, 'InvalidObject', error.args[0])
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except Duplicate, error:
+        except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print error
-            print format_exc()
+        except Exception as error:
+            print(error)
+            print(format_exc())
             return error, 500
 
         return "Created", 201
@@ -200,9 +201,9 @@ class RSE(MethodView):
         try:
             rse_prop = get_rse(rse=rse)
             return Response(render_json(**rse_prop), content_type="application/json")
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
 
     def delete(self, rse):
@@ -219,9 +220,9 @@ class RSE(MethodView):
         """
         try:
             del_rse(rse=rse, issuer=request.environ.get('issuer'))
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
 
         return "OK", 200
@@ -254,16 +255,16 @@ class Attributes(MethodView):
 
         try:
             value = parameter['value']
-        except KeyError, error:
+        except KeyError as error:
             return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
 
         try:
             add_rse_attribute(rse=rse, key=key, value=value, issuer=request.environ.get('issuer'))
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except Duplicate, error:
+        except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error[0])
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
         return "Created", 201
@@ -282,8 +283,15 @@ class Attributes(MethodView):
         :returns: A list containing all RSE attributes.
 
         """
-
-        return Response(dumps(list_rse_attributes(rse)), content_type="application/json")
+        try:
+            rse_attr = list_rse_attributes(rse)
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except Exception as error:
+            return error, 500
+        return Response(dumps(rse_attr), content_type="application/json")
 
     def delete(self, rse, key):
         """ Delete an RSE attribute for given RSE name.
@@ -299,11 +307,11 @@ class Attributes(MethodView):
         """
         try:
             del_rse_attribute(rse=rse, key=key, issuer=request.environ.get('issuer'))
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
         return "OK", 200
@@ -332,17 +340,17 @@ class Protocols(MethodView):
         p_list = None
         try:
             p_list = get_rse_protocols(rse, issuer=request.environ.get('issuer'))
-        except RSEOperationNotSupported, error:
+        except RSEOperationNotSupported as error:
             return generate_http_error_flask(404, 'RSEOperationNotSupported', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEProtocolNotSupported, error:
+        except RSEProtocolNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSEProtocolDomainNotSupported, error:
+        except RSEProtocolDomainNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except Exception, error:
-            print error
-            print format_exc()
+        except Exception as error:
+            print(error)
+            print(format_exc())
             return error, 500
         if len(p_list['protocols']):
             return Response(dumps(p_list['protocols']), content_type="application/json")
@@ -391,15 +399,15 @@ class LFNS2PFNS(MethodView):
         rse_settings = None
         try:
             rse_settings = get_rse_protocols(rse, issuer=request.environ.get('issuer'))
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEProtocolNotSupported, error:
+        except RSEProtocolNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSEProtocolDomainNotSupported, error:
+        except RSEProtocolDomainNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except Exception, error:
-            print error
-            print format_exc()
+        except Exception as error:
+            print(error)
+            print(format_exc())
             return error, 500
 
         pfns = rsemanager.lfns2pfns(rse_settings, lfns, operation=operation, scheme=scheme, domain=domain)
@@ -438,23 +446,23 @@ class Protocol(MethodView):
 
         try:
             add_protocol(rse, issuer=request.environ.get('issuer'), data=parameters)
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except Duplicate, error:
+        except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except InvalidObject, error:
+        except InvalidObject as error:
             return generate_http_error_flask(400, 'InvalidObject', error.args[0])
-        except RSEProtocolDomainNotSupported, error:
+        except RSEProtocolDomainNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except RSEProtocolPriorityError, error:
+        except RSEProtocolPriorityError as error:
             return generate_http_error_flask(409, 'RSEProtocolPriorityError', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print error
-            print format_exc()
+        except Exception as error:
+            print(error)
+            print (format_exc())
             return error, 500
         return "Created", 201
 
@@ -477,15 +485,15 @@ class Protocol(MethodView):
         p_list = None
         try:
             p_list = get_rse_protocols(rse, issuer=request.environ.get('issuer'))
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEProtocolNotSupported, error:
+        except RSEProtocolNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSEProtocolDomainNotSupported, error:
+        except RSEProtocolDomainNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except Exception, error:
-            print error
-            print format_exc()
+        except Exception as error:
+            print(error)
+            print(format_exc())
             return error, 500
         return Response(dumps(p_list), content_type="application/json")
 
@@ -519,21 +527,21 @@ class Protocol(MethodView):
 
         try:
             update_protocols(rse, issuer=request.environ.get('issuer'), scheme=scheme, hostname=hostname, port=port, data=parameter)
-        except InvalidObject, error:
+        except InvalidObject as error:
             return generate_http_error_flask(400, 'InvalidObject', error.args[0])
-        except RSEProtocolNotSupported, error:
+        except RSEProtocolNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEProtocolDomainNotSupported, error:
+        except RSEProtocolDomainNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except RSEProtocolPriorityError, error:
+        except RSEProtocolPriorityError as error:
             return generate_http_error_flask(409, 'RSEProtocolPriorityError', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print error
-            print format_exc()
+        except Exception as error:
+            print(error)
+            print(format_exc())
             return error, 500
 
         return "OK", 200
@@ -557,15 +565,15 @@ class Protocol(MethodView):
         """
         try:
             del_protocols(rse, issuer=request.environ.get('issuer'), scheme=scheme, hostname=hostname, port=port)
-        except RSEProtocolNotSupported, error:
+        except RSEProtocolNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print error
-            print format_exc()
+        except Exception as error:
+            print(error)
+            print(format_exc())
             return error, 500
 
         return "OK", 200
@@ -595,12 +603,12 @@ class Usage(MethodView):
 
         try:
             usage = get_rse_usage(rse, issuer=request.environ.get('issuer'), source=source)
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print format_exc()
+        except Exception as error:
+            print(format_exc())
             return error, 500
 
         data = ""
@@ -630,14 +638,14 @@ class Usage(MethodView):
 
         try:
             set_rse_usage(rse=rse, issuer=request.environ.get('issuer'), **parameter)
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print format_exc()
+        except Exception as error:
+            print(format_exc())
             return error, 500
 
         return "OK", 200
@@ -668,12 +676,12 @@ class UsageHistory(MethodView):
             for usage in list_rse_usage_history(rse=rse, issuer=request.environ.get('issuer'), source=source):
                 data = render_json(**usage) + '\n'
             return Response(data, content_type="application/x-json-stream")
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print format_exc()
+        except Exception as error:
+            print(format_exc())
             return error, 500
 
 
@@ -698,12 +706,12 @@ class Limits(MethodView):
         try:
             limits = get_rse_limits(rse=rse, issuer=request.environ.get('issuer'))
             return Response(render_json(**limits), content_type="application/json")
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print format_exc()
+        except Exception as error:
+            print(format_exc())
             return error, 500
 
     def put(self, rse):
@@ -726,14 +734,14 @@ class Limits(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
         try:
             set_rse_limits(rse=rse, issuer=request.environ.get('issuer'), **parameter)
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print format_exc()
+        except Exception as error:
+            print(format_exc())
             return error, 500
 
         return "OK", 200
@@ -763,12 +771,12 @@ class RSEAccountUsageLimit(MethodView):
             for row in usage:
                 data = dumps(row, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/json")
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print format_exc()
+        except Exception as error:
+            print(format_exc())
             return error, 500
 
 
@@ -795,12 +803,12 @@ class Distance(MethodView):
                                     destination=destination,
                                     issuer=request.environ.get('issuer'))
             return Response(dumps(distance, cls=APIEncoder), content_type="application/json")
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print format_exc()
+        except Exception as error:
+            print(format_exc())
             return error, 500
 
     def post(self, source, destination):
@@ -827,14 +835,14 @@ class Distance(MethodView):
                          destination=destination,
                          issuer=request.environ.get('issuer'),
                          **parameter)
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print format_exc()
+        except Exception as error:
+            print(format_exc())
             return error, 500
         return "Created", 201
 
@@ -860,14 +868,14 @@ class Distance(MethodView):
             update_distance(source=source, destination=destination,
                             issuer=request.environ.get('issuer'),
                             parameters=parameters)
-        except AccessDenied, error:
+        except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound, error:
+        except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
-            print format_exc()
+        except Exception as error:
+            print(format_exc())
             return error, 500
         return "OK", 200
 

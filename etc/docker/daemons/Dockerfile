@@ -34,6 +34,7 @@ RUN yum install -y \
     gfal2-plugin-xrootd \
     gfal2-python
 
+ADD rucio.cfg.j2 /tmp/
 ADD start-daemon.sh /
 
 RUN mkdir /var/log/rucio

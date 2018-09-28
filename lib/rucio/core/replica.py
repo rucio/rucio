@@ -1277,7 +1277,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
     replica_condition, parent_condition, did_condition = [], [], []
     clt_replica_condition, dst_replica_condition = [], []
-    incomplete_condition, messages = [], []
+    incomplete_condition, messages, archive_contents_condition = [], [], []
     for file in files:
         replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'],
                                       models.RSEFileAssociation.name == file['name']))
@@ -1298,6 +1298,13 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
         did_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name'], models.DataIdentifier.availability != DIDAvailability.LOST,
                                   ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
+
+        archive_contents_condition.append(and_(models.ConstituentAssociation.scope == file['scope'],
+                                               models.ConstituentAssociation.name == file['name'],
+                                               ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == file['scope'],
+                                                                                                                                           models.DataIdentifier.name == file['name'],
+                                                                                                                                           models.DataIdentifier.availability == DIDAvailability.LOST)),
+                                               ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
     delta, bytes, rowcount = 0, 0, 0
     for chunk in chunks(replica_condition, 10):
@@ -1419,6 +1426,13 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                       models.ReplicationRule.name == name))
             deleted_dids.append(and_(models.DataIdentifier.scope == scope,
                                      models.DataIdentifier.name == name))
+
+    # Remove Archive Constituents
+    for chunk in chunks(archive_contents_condition, 100):
+        session.query(models.ConstituentAssociation).\
+            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle').\
+            filter(or_(*chunk)).\
+            delete(synchronize_session=False)
 
     # Remove rules in Waiting for approval or Suspended
     for chunk in chunks(deleted_rules, 100):
@@ -2004,8 +2018,10 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
     :param deep: Lookup at the file level.
     :param session: Database session to use.
 
-    :returns: A list of dict dataset replicas
+    :returns: A list of dictionaries containing the dataset replicas
+              with associated metrics and timestamps
     """
+
     if not deep:
         query = session.query(models.CollectionReplica.scope,
                               models.CollectionReplica.name,
@@ -2027,9 +2043,11 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
             yield row._asdict()
 
     else:
-        content_query = session.\
-            query(func.sum(models.DataIdentifierAssociation.bytes).label("bytes"),
-                  func.count().label("length"))\
+
+        # find maximum values
+        content_query = session\
+            .query(func.sum(models.DataIdentifierAssociation.bytes).label("bytes"),
+                   func.count().label("length"))\
             .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
             .filter(models.DataIdentifierAssociation.scope == scope)\
             .filter(models.DataIdentifierAssociation.name == name)
@@ -2038,15 +2056,77 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
         for row in content_query:
             bytes, length = row.bytes, row.length
 
-        sub_query = session.\
-            query(models.DataIdentifierAssociation.scope,
-                  models.DataIdentifierAssociation.name,
-                  models.RSEFileAssociation.rse_id,
-                  func.sum(models.RSEFileAssociation.bytes).label("available_bytes"),
-                  func.count().label("available_length"),
-                  func.min(models.RSEFileAssociation.created_at).label("created_at"),
-                  func.max(models.RSEFileAssociation.updated_at).label("updated_at"),
-                  func.max(models.RSEFileAssociation.accessed_at).label("accessed_at"))\
+        # find archives that contain files of the requested dataset
+        sub_query_archives = session\
+            .query(models.DataIdentifierAssociation.scope.label('dataset_scope'),
+                   models.DataIdentifierAssociation.name.label('dataset_name'),
+                   models.DataIdentifierAssociation.bytes.label('file_bytes'),
+                   models.ConstituentAssociation.child_scope.label('file_scope'),
+                   models.ConstituentAssociation.child_name.label('file_name'),
+                   models.RSEFileAssociation.scope.label('replica_scope'),
+                   models.RSEFileAssociation.name.label('replica_name'),
+                   models.RSE.rse,
+                   models.RSE.id.label('rse_id'),
+                   models.RSEFileAssociation.created_at,
+                   models.RSEFileAssociation.accessed_at,
+                   models.RSEFileAssociation.updated_at)\
+            .filter(models.DataIdentifierAssociation.scope == scope)\
+            .filter(models.DataIdentifierAssociation.name == name)\
+            .filter(models.ConstituentAssociation.child_scope == models.DataIdentifierAssociation.child_scope)\
+            .filter(models.ConstituentAssociation.child_name == models.DataIdentifierAssociation.child_name)\
+            .filter(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope)\
+            .filter(models.ConstituentAssociation.name == models.RSEFileAssociation.name)\
+            .filter(models.RSEFileAssociation.rse_id == models.RSE.id)\
+            .filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
+            .filter(models.RSE.deleted == false())\
+            .subquery()
+
+        # count the metrics
+        group_query_archives = session\
+            .query(sub_query_archives.c.dataset_scope,
+                   sub_query_archives.c.dataset_name,
+                   sub_query_archives.c.file_scope,
+                   sub_query_archives.c.file_name,
+                   sub_query_archives.c.rse_id,
+                   sub_query_archives.c.rse,
+                   func.sum(sub_query_archives.c.file_bytes).label('file_bytes'),
+                   func.min(sub_query_archives.c.created_at).label('created_at'),
+                   func.max(sub_query_archives.c.updated_at).label('updated_at'),
+                   func.max(sub_query_archives.c.accessed_at).label('accessed_at'))\
+            .group_by(sub_query_archives.c.dataset_scope,
+                      sub_query_archives.c.dataset_name,
+                      sub_query_archives.c.file_scope,
+                      sub_query_archives.c.file_name,
+                      sub_query_archives.c.rse_id,
+                      sub_query_archives.c.rse)\
+            .subquery()
+
+        # bring it in the same column state as the non-archive query
+        full_query_archives = session\
+            .query(group_query_archives.c.dataset_scope.label('scope'),
+                   group_query_archives.c.dataset_name.label('name'),
+                   group_query_archives.c.rse_id,
+                   group_query_archives.c.rse,
+                   func.sum(group_query_archives.c.file_bytes).label('available_bytes'),
+                   func.count().label('available_length'),
+                   func.min(group_query_archives.c.created_at).label('created_at'),
+                   func.max(group_query_archives.c.updated_at).label('updated_at'),
+                   func.max(group_query_archives.c.accessed_at).label('accessed_at'))\
+            .group_by(group_query_archives.c.dataset_scope,
+                      group_query_archives.c.dataset_name,
+                      group_query_archives.c.rse_id,
+                      group_query_archives.c.rse)
+
+        # find the non-archive dataset replicas
+        sub_query = session\
+            .query(models.DataIdentifierAssociation.scope,
+                   models.DataIdentifierAssociation.name,
+                   models.RSEFileAssociation.rse_id,
+                   func.sum(models.RSEFileAssociation.bytes).label("available_bytes"),
+                   func.count().label("available_length"),
+                   func.min(models.RSEFileAssociation.created_at).label("created_at"),
+                   func.max(models.RSEFileAssociation.updated_at).label("updated_at"),
+                   func.max(models.RSEFileAssociation.accessed_at).label("accessed_at"))\
             .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
             .filter(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope)\
             .filter(models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)\
@@ -2058,19 +2138,23 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
                       models.RSEFileAssociation.rse_id)\
             .subquery()
 
-        query = session.query(sub_query.c.scope,
-                              sub_query.c.name,
-                              sub_query.c.rse_id,
-                              models.RSE.rse,
-                              sub_query.c.available_bytes,
-                              sub_query.c.available_length,
-                              sub_query.c.created_at,
-                              sub_query.c.updated_at,
-                              sub_query.c.accessed_at)\
+        query = session\
+            .query(sub_query.c.scope,
+                   sub_query.c.name,
+                   sub_query.c.rse_id,
+                   models.RSE.rse,
+                   sub_query.c.available_bytes,
+                   sub_query.c.available_length,
+                   sub_query.c.created_at,
+                   sub_query.c.updated_at,
+                   sub_query.c.accessed_at)\
             .filter(models.RSE.id == sub_query.c.rse_id)\
             .filter(models.RSE.deleted == false())
 
-        for row in query:
+        # join everything together
+        final_query = query.union_all(full_query_archives)
+
+        for row in final_query.all():
             replica = row._asdict()
             replica['length'], replica['bytes'] = length, bytes
             if replica['length'] == row.available_length:

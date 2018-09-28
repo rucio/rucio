@@ -1,0 +1,13 @@
+============
+1.17.6.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Bug due to move to heartbeat `#1423 <https://github.com/rucio/rucio/issues/1423>`_

@@ -17,10 +17,11 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
+from __future__ import print_function
 from json import dumps, loads
 from traceback import format_exc
 from urlparse import parse_qs, parse_qsl
@@ -141,8 +142,8 @@ class RSE(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             raise InternalError(error)
 
         raise Created()
@@ -183,8 +184,8 @@ class RSE(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             raise InternalError(error)
 
         raise Created()
@@ -290,7 +291,17 @@ class Attributes(RucioController):
         :returns: A list containing all RSE attributes.
         """
         header('Content-Type', 'application/json')
-        return dumps(list_rse_attributes(rse))
+        try:
+            rse_attr = list_rse_attributes(rse)
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        return dumps(rse_attr)
 
     def DELETE(self, rse, key):
         try:
@@ -333,8 +344,8 @@ class Protocols(RucioController):
         except RSEProtocolDomainNotSupported as error:
             raise generate_http_error(404, 'RSEProtocolDomainNotSupported', error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             raise InternalError(error)
         if len(p_list['protocols']):
             return dumps(p_list['protocols'])
@@ -401,8 +412,8 @@ class LFNS2PFNS(RucioController):
         except RSEProtocolDomainNotSupported as error:
             raise generate_http_error(404, 'RSEProtocolDomainNotSupported', error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             raise InternalError(error)
 
         pfns = rsemanager.lfns2pfns(rse_settings, lfns, operation=operation, scheme=scheme, domain=domain)
@@ -453,8 +464,8 @@ class Protocol(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             raise InternalError(error)
         raise Created()
 
@@ -481,8 +492,8 @@ class Protocol(RucioController):
         except RSEProtocolDomainNotSupported as error:
             raise generate_http_error(404, 'RSEProtocolDomainNotSupported', error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             raise InternalError(error)
         return dumps(p_list)
 
@@ -522,8 +533,8 @@ class Protocol(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             raise InternalError(error)
 
         raise OK()
@@ -549,8 +560,8 @@ class Protocol(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             raise InternalError(error)
 
         raise OK()
@@ -580,7 +591,7 @@ class Usage(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         for u in usage:
@@ -616,7 +627,7 @@ class Usage(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         raise OK()
@@ -646,7 +657,7 @@ class UsageHistory(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -668,7 +679,7 @@ class Limits(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
     def PUT(self, rse):
@@ -701,7 +712,7 @@ class Limits(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         raise OK()
@@ -726,7 +737,7 @@ class RSEAccountUsageLimit(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -750,7 +761,7 @@ class Distance(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
     def POST(self, source, destination):
@@ -786,7 +797,7 @@ class Distance(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created()
 
@@ -822,7 +833,7 @@ class Distance(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise OK()
 

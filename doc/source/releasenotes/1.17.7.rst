@@ -1,0 +1,40 @@
+======
+1.17.7
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Documentation: Mention upload with PFN should also be with no_register `#1464 <https://github.com/rucio/rucio/issues/1464>`_
+- Infrastructure: set rucio.cfg values for docker containers with env variables `#1432 <https://github.com/rucio/rucio/issues/1432>`_
+- Infrastructure: dev docker YAML file  `#1457 <https://github.com/rucio/rucio/issues/1457>`_
+
+****
+Bugs
+****
+
+- Core & Internals: No exceptions handled for list_rse_attributes `#1155 <https://github.com/rucio/rucio/issues/1155>`_
+- Core & Internals: postgres requires ::text conversion of uuid for md5 `#1446 <https://github.com/rucio/rucio/issues/1446>`_
+- Deletion: Reaper needs to remove archive_contents when removing an archive logically `#1433 <https://github.com/rucio/rucio/issues/1433>`_
+- Transfers: find_matching_scheme function is not working properly `#1434 <https://github.com/rucio/rucio/issues/1434>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Add a --allow-tape option in rucio download `#1404 <https://github.com/rucio/rucio/issues/1404>`_
+
+****
+Bugs
+****
+
+- Clients: rucio upload --no-register --pfn fails `#1377 <https://github.com/rucio/rucio/issues/1377>`_
