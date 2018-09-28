@@ -263,5 +263,5 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
             print 'Exception %s occured while rebalancing %s:%s, rule_id: %s!' % (str(error), scope, name, str(rule_id))
             raise error
 
-    print 'BB8 is rebalancing %d Gb of data (%d rules)' % (int(rebalanced_bytes / 1E9), len(rebalanced_datasets))
+    print 'BB8 is rebalancing %d GB of data (%d rules)' % (int(rebalanced_bytes / 1E9), len(rebalanced_datasets))
     return rebalanced_datasets

@@ -45,7 +45,7 @@ from rucio import version
 
 class DownloadClient:
 
-    def __init__(self, client=None, logger=None):
+    def __init__(self, client=None, logger=None, check_admin=False):
         """
         Initialises the basic settings for an DownloadClient object
 
@@ -62,12 +62,13 @@ class DownloadClient:
 
         self.client_location = detect_client_location()
 
-        account_attributes = [acc for acc in self.client.list_account_attributes(self.client.account)]
         self.is_admin = False
-        for attr in account_attributes[0]:
-            if attr['key'] == 'admin':
-                self.is_admin = attr['value'] is True
-                break
+        if check_admin:
+            account_attributes = list(self.client.list_account_attributes(self.client.account))
+            for attr in account_attributes[0]:
+                if attr['key'] == 'admin':
+                    self.is_admin = attr['value'] is True
+                    break
         if self.is_admin:
             logger.debug('Admin mode enabled')
 

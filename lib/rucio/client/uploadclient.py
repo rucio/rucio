@@ -74,7 +74,7 @@ class UploadClient:
             dataset_scope    - Optional: custom dataset scope
             dataset_name     - Optional: custom dataset name
             force_scheme     - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
-            pfn              - Optional: use a given PFN (this sets no_register to True)
+            pfn              - Optional: use a given PFN (this sets no_register to True, and no_register becomes mandatory)
             no_register      - Optional: if True, the file will not be registered in the rucio catalogue
             lifetime         - Optional: the lifetime of the file after it was uploaded
             transfer_timeout - Optional: time after the upload will be aborted
@@ -139,15 +139,31 @@ class UploadClient:
             file_did = {'scope': file['did_scope'], 'name': file['did_name']}
             dataset_did_str = file.get('dataset_did_str')
 
+            rse = file['rse']
+            rse_settings = self.rses[rse]
+            is_deterministic = rse_settings.get('deterministic', True)
+            if not is_deterministic and not pfn:
+                logger.error('PFN has to be defined for NON-DETERMINISTIC RSE.')
+                continue
+            if pfn and not is_deterministic:
+                logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic RSEs')
+                no_register = True
+
             if not no_register:
                 self._register_file(file, registered_dataset_dids)
 
-            rse = file['rse']
-            rse_settings = self.rses[rse]
             # if file already exists on RSE we're done
-            if rsemgr.exists(rse_settings, file_did):
-                logger.info('File already exists on RSE. Skipping upload')
-                continue
+            if not is_deterministic and not no_register:
+                if rsemgr.exists(rse_settings, pfn):
+                    logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
+                    continue
+                elif rsemgr.exists(rse_settings, file_did):
+                    logger.info('File already exists on RSE with different pfn. Skipping upload.')
+                    continue
+            else:
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did):
+                    logger.info('File already exists on RSE. Skipping upload')
+                    continue
 
             protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
             protocols.reverse()
@@ -173,7 +189,7 @@ class UploadClient:
                                           force_scheme=cur_scheme,
                                           force_pfn=pfn,
                                           transfer_timeout=file.get('transfer_timeout'))
-                    success = True
+                    success = state['success']
                     file['upload_result'] = state
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
                     logger.warning('Upload attempt failed')
@@ -366,9 +382,6 @@ class UploadClient:
                 logger.warning('Skipping file %s because no rse was given' % path)
                 continue
             if pfn:
-                if item.get('no_register'):
-                    logger.warning('Upload with given pfn implies that no_register is True')
-                    item['no_register'] = True
                 item['force_scheme'] = pfn.split(':')[0]
 
             if os.path.isdir(path):
@@ -409,4 +422,7 @@ class UploadClient:
         replica['md5'] = file['md5']
         replica['meta'] = file['meta']
         replica['state'] = file['state']
+        pfn = file.get('pfn')
+        if pfn:
+            replica['pfn'] = pfn
         return replica

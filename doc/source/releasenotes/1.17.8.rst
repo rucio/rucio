@@ -1,0 +1,39 @@
+======
+1.17.7
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Include archives in list_dataset_replicas(deep=True) `#1375 <https://github.com/rucio/rucio/issues/1375>`_
+
+************
+Enhancements
+************
+
+- Clients: Typos and other small fixes `#1497 <https://github.com/rucio/rucio/issues/1497>`_
+- Release management: Upgrade cryptography version due to CVE-2018-10903 `#1480 <https://github.com/rucio/rucio/issues/1480>`_
+
+****
+Bugs
+****
+
+- Documentation: readthedocs build fails due to pycurl `#1390 <https://github.com/rucio/rucio/issues/1390>`_
+- Release management: Restrict futures package to python 2.* setups `#1486 <https://github.com/rucio/rucio/issues/1486>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: --allow-tape option not available in rucio get `#1484 <https://github.com/rucio/rucio/issues/1484>`_
+- Clients: If policy section not available in client config, no exception should be raised `#1485 <https://github.com/rucio/rucio/issues/1485>`_
+- Clients: Upload with --no-register --pfn does not work `#1487 <https://github.com/rucio/rucio/issues/1487>`_

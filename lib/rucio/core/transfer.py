@@ -65,7 +65,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
     transfer_id = None
 
     if transfertool == 'fts3':
-        ts = time.time()
+        start_time = time.time()
         job_files = []
         for file in files:
             job_file = {}
@@ -85,7 +85,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
         else:
             # if no valid USER TRANSFER cases --> go with std submission
             transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
-        record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000 / len(files))
+        record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
     return transfer_id
 
 
@@ -189,9 +189,8 @@ def set_transfers_state(transfers, submitted_at, session=None):
 
 
 @read_session
-def get_next_transfers_new(request_type, state, limit=100, older_than=None, rse=None, activity=None,
-                           total_workers=0, worker_number=0,
-                           activity_shares=None, session=None):  # TODO rename to get_next_transfers
+def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None, activity=None,
+                       total_workers=0, worker_number=0, activity_shares=None, session=None):
     """
     Retrieve the next transfers matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -200,9 +199,11 @@ def get_next_transfers_new(request_type, state, limit=100, older_than=None, rse=
     :param state:             State of the request as a string or list of strings.
     :param limit:             Integer of requests to retrieve.
     :param older_than:        Only select requests older than this DateTime.
+    :param rse:               The RSE to filter on.
+    :param activity:          The activity to filter on.
     :param total_workers:     Number of total workers.
     :param worker_number:     Id of the executing worker.
-    :param activity_shares:   Activity shares dictionary, with number of requests
+    :param activity_shares:   Activity shares dictionary, with number of requests.
     :param session:           Database session to use.
     :returns:                 List of a {external_host, external_id, request_id} dictionary.
     """
@@ -250,7 +251,7 @@ def get_next_transfers_new(request_type, state, limit=100, older_than=None, rse=
             elif session.bind.dialect.name == 'mysql':
                 query = query.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+                query = query.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
         if share:
             query = query.limit(activity_shares[share])
@@ -261,96 +262,6 @@ def get_next_transfers_new(request_type, state, limit=100, older_than=None, rse=
         if query_result:
             for t in query_result:
                 result.append({'request_id': t[0], 'external_host': t[1], 'external_id': t[2]})
-    return result
-
-
-@read_session
-def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None, activity=None,
-                       process=None, total_processes=None, thread=None, total_threads=None,
-                       activity_shares=None, session=None):   # TODO tobedeleted when get_next_transfers_new renamed to get_next_transfers
-    """
-    Retrieve the next transfers matching the request type and state.
-    Workers are balanced via hashing to reduce concurrency on database.
-
-    :param request_type:      Type of the request as a string or list of strings.
-    :param state:             State of the request as a string or list of strings.
-    :param limit:             Integer of requests to retrieve.
-    :param older_than:        Only select requests older than this DateTime.
-    :param process:           Identifier of the caller process as an integer.
-    :param total_processes:   Maximum number of processes as an integer.
-    :param thread:            Identifier of the caller thread as an integer.
-    :param total_threads:     Maximum number of threads as an integer.
-    :param activity_shares:   Activity shares dictionary, with number of requests
-    :param session:           Database session to use.
-    :returns:                 List of a {external_host, external_id} dictionary.
-    """
-
-    record_counter('core.request.get_next_transfers.%s-%s' % (request_type, state))
-
-    if total_processes > 1 and total_processes == total_threads:
-        raise RucioException("Total process %s is the same with total threads %s, will create potential same hash" % (total_processes, total_threads))
-
-    # lists of one element are not allowed by SQLA, so just duplicate the item
-    if type(request_type) is not list:
-        request_type = [request_type, request_type]
-    elif len(request_type) == 1:
-        request_type = [request_type[0], request_type[0]]
-    if type(state) is not list:
-        state = [state, state]
-    elif len(state) == 1:
-        state = [state[0], state[0]]
-
-    result = []
-    if not activity_shares:
-        activity_shares = [None]
-
-    for share in activity_shares:
-
-        query = session.query(models.Request.external_host, models.Request.external_id).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-                                                                                       .distinct()\
-                                                                                       .filter(models.Request.state.in_(state))\
-                                                                                       .filter(models.Request.request_type.in_(request_type))\
-                                                                                       .order_by(asc(models.Request.updated_at))
-
-        if isinstance(older_than, datetime.datetime):
-            query = query.filter(models.Request.updated_at < older_than)
-
-        if rse:
-            query = query.filter(models.Request.dest_rse_id == rse)
-
-        if share:
-            query = query.filter(models.Request.activity == share)
-        elif activity:
-            query = query.filter(models.Request.activity == activity)
-
-        if (total_processes - 1) > 0:
-            if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
-                query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
-            elif session.bind.dialect.name == 'mysql':
-                query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
-            elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
-
-        if (total_threads - 1) > 0:
-            if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-                query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
-            elif session.bind.dialect.name == 'mysql':
-                query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
-            elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
-
-        if share:
-            query = query.limit(activity_shares[share])
-        else:
-            query = query.limit(limit)
-
-        tmp = query.all()
-        if tmp:
-            for t in tmp:
-                t2 = {'external_host': t[0], 'external_id': t[1]}
-                result.append(t2)
     return result
 
 
@@ -368,9 +279,9 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
 
     if transfertool == 'fts3':
         try:
-            ts = time.time()
+            start_time = time.time()
             fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
-            record_timer('core.request.bulk_query_transfers', (time.time() - ts) * 1000 / len(transfer_ids))
+            record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfer_ids))
         except Exception:
             raise
 
@@ -426,9 +337,9 @@ def query_latest(external_host, state, last_nhours=1):
 
     record_counter('core.request.query_latest')
 
-    ts = time.time()
+    start_time = time.time()
     resps = FTS3Transfertool(external_host=external_host).query_latest(state=state, last_nhours=last_nhours)
-    record_timer('core.request.query_latest_fts3.%s.%s_hours' % (external_host, last_nhours), (time.time() - ts) * 1000)
+    record_timer('core.request.query_latest_fts3.%s.%s_hours' % (external_host, last_nhours), (time.time() - start_time) * 1000)
 
     if not resps:
         return
@@ -577,7 +488,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
     bring_online_local = bring_online
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], [], []
-    for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
+    for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
         transfer_src_type = "DISK"
         transfer_dst_type = "DISK"
         allow_tape_source = True
@@ -589,9 +500,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if previous_attempt_id and failover_schemes:
                 current_schemes = failover_schemes
 
-            if id not in transfers:
-                if id not in reqs_no_source:
-                    reqs_no_source.append(id)
+            if req_id not in transfers:
+                if req_id not in reqs_no_source:
+                    reqs_no_source.append(req_id)
 
                 # source_rse_id will be None if no source replicas
                 # rse will be None if rse is staging area
@@ -599,7 +510,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     continue
 
                 if link_ranking is None:
-                    logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
+                    logging.debug("Request %s: no link from %s to %s" % (req_id, source_rse_id, dest_rse_id))
                     continue
 
                 if source_rse_id in unavailable_read_rse_ids:
@@ -653,35 +564,36 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
                     logging.error('No matching schemes in %s for operation "third_party_copy" between %s and %s' % (current_schemes, rses_info[source_rse_id]['rse'], rses_info[dest_rse_id]['rse']))
-                    if id in reqs_no_source:
-                        reqs_no_source.remove(id)
-                    if id not in reqs_scheme_mismatch:
-                        reqs_scheme_mismatch.append(id)
+                    if req_id in reqs_no_source:
+                        reqs_no_source.remove(req_id)
+                    if req_id not in reqs_scheme_mismatch:
+                        reqs_scheme_mismatch.append(req_id)
                     continue
 
                 # Get destination protocol
-                if dest_rse_id not in protocols:
+                dest_rse_id_key = '%s_%s' % (dest_rse_id, matching_scheme[0])
+                if dest_rse_id_key not in protocols:
                     try:
-                        protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', matching_scheme[0])
+                        protocols[dest_rse_id_key] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', matching_scheme[0])
                     except RSEProtocolNotSupported:
                         logging.error('Operation "third_party_copy" not supported by dest_rse %s with schemes %s' % (rses_info[dest_rse_id]['rse'], current_schemes))
-                        if id in reqs_no_source:
-                            reqs_no_source.remove(id)
-                        if id not in reqs_scheme_mismatch:
-                            reqs_scheme_mismatch.append(id)
+                        if req_id in reqs_no_source:
+                            reqs_no_source.remove(req_id)
+                        if req_id not in reqs_scheme_mismatch:
+                            reqs_scheme_mismatch.append(req_id)
                         continue
 
                 # get dest space token
                 dest_spacetoken = None
-                if protocols[dest_rse_id].attributes and \
-                   'extended_attributes' in protocols[dest_rse_id].attributes and \
-                   protocols[dest_rse_id].attributes['extended_attributes'] and \
-                   'space_token' in protocols[dest_rse_id].attributes['extended_attributes']:
-                    dest_spacetoken = protocols[dest_rse_id].attributes['extended_attributes']['space_token']
+                if protocols[dest_rse_id_key].attributes and \
+                   'extended_attributes' in protocols[dest_rse_id_key].attributes and \
+                   protocols[dest_rse_id_key].attributes['extended_attributes'] and \
+                   'space_token' in protocols[dest_rse_id_key].attributes['extended_attributes']:
+                    dest_spacetoken = protocols[dest_rse_id_key].attributes['extended_attributes']['space_token']
 
                 # Compute the destination url
                 if rses_info[dest_rse_id]['deterministic']:
-                    dest_url = list(protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
+                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
                 else:
                     # compute dest url in case of non deterministic
                     # naming convention, etc.
@@ -702,7 +614,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                    dest_url = list(protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
+                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
 
                 # Get source protocol
                 source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join([matching_scheme[0], matching_scheme[1]]))
@@ -711,10 +623,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', matching_scheme[1])
                     except RSEProtocolNotSupported:
                         logging.error('Operation "third_party_copy" not supported by source_rse %s with schemes %s' % (rses_info[source_rse_id]['rse'], matching_scheme[1]))
-                        if id in reqs_no_source:
-                            reqs_no_source.remove(id)
-                        if id not in reqs_scheme_mismatch:
-                            reqs_scheme_mismatch.append(id)
+                        if req_id in reqs_no_source:
+                            reqs_no_source.remove(req_id)
+                        if req_id not in reqs_scheme_mismatch:
+                            reqs_scheme_mismatch.append(req_id)
                         continue
 
                 source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
@@ -725,10 +637,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     bring_online = bring_online_local
                     transfer_src_type = "TAPE"
                     if not allow_tape_source:
-                        if id not in reqs_only_tape_source:
-                            reqs_only_tape_source.append(id)
-                        if id in reqs_no_source:
-                            reqs_no_source.remove(id)
+                        if req_id not in reqs_only_tape_source:
+                            reqs_only_tape_source.append(req_id)
+                        if req_id in reqs_no_source:
+                            reqs_no_source.remove(req_id)
                         continue
 
                 if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
@@ -738,7 +650,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # get external_host
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
                 if not fts_hosts:
-                    logging.error('Source RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse, id))
+                    logging.error('Source RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse, req_id))
                     continue
                 if retry_count is None:
                     retry_count = 0
@@ -760,7 +672,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if retry_other_fts:
                     external_host = fts_list[retry_count % len(fts_list)]
 
-                file_metadata = {'request_id': id,
+                file_metadata = {'request_id': req_id,
                                  'scope': scope,
                                  'name': name,
                                  'activity': activity,
@@ -779,22 +691,22 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if previous_attempt_id:
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
-                transfers[id] = {'request_id': id,
-                                 'schemes': __add_compatible_schemes(schemes=[matching_scheme[0]], allowed_schemes=current_schemes),
-                                 # 'src_urls': [source_url],
-                                 'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
-                                 'dest_urls': [dest_url],
-                                 'src_spacetoken': None,
-                                 'dest_spacetoken': dest_spacetoken,
-                                 'overwrite': overwrite,
-                                 'bring_online': bring_online,
-                                 'copy_pin_lifetime': attr.get('lifetime', -1),
-                                 'external_host': external_host,
-                                 'selection_strategy': 'auto',
-                                 'rule_id': rule_id,
-                                 'file_metadata': file_metadata}
+                transfers[req_id] = {'request_id': req_id,
+                                     'schemes': __add_compatible_schemes(schemes=[matching_scheme[0]], allowed_schemes=current_schemes),
+                                     # 'src_urls': [source_url],
+                                     'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
+                                     'dest_urls': [dest_url],
+                                     'src_spacetoken': None,
+                                     'dest_spacetoken': dest_spacetoken,
+                                     'overwrite': overwrite,
+                                     'bring_online': bring_online,
+                                     'copy_pin_lifetime': attr.get('lifetime', -1),
+                                     'external_host': external_host,
+                                     'selection_strategy': 'auto',
+                                     'rule_id': rule_id,
+                                     'file_metadata': file_metadata}
             else:
-                current_schemes = transfers[id]['schemes']
+                current_schemes = transfers[req_id]['schemes']
 
                 # source_rse_id will be None if no source replicas
                 # rse will be None if rse is staging area
@@ -802,7 +714,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     continue
 
                 if link_ranking is None:
-                    logging.debug("Request %s: no link from %s to %s" % (id, source_rse_id, dest_rse_id))
+                    logging.debug("Request %s: no link from %s to %s" % (req_id, source_rse_id, dest_rse_id))
                     continue
 
                 if source_rse_id in unavailable_read_rse_ids:
@@ -854,11 +766,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     # current src_rse is Tape
                     if not allow_tape_source:
                         continue
-                    if not transfers[id]['bring_online']:
+                    if not transfers[req_id]['bring_online']:
                         # the sources already founded are disks.
 
                         avail_top_ranking = None
-                        founded_sources = transfers[id]['sources']
+                        founded_sources = transfers[req_id]['sources']
                         for founded_source in founded_sources:
                             if avail_top_ranking is None:
                                 avail_top_ranking = founded_source[3]
@@ -870,27 +782,27 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                             # current Tape source is not the highest ranking, will use disk sources
                             continue
                         else:
-                            transfers[id]['sources'] = []
-                            transfers[id]['bring_online'] = bring_online_local
+                            transfers[req_id]['sources'] = []
+                            transfers[req_id]['bring_online'] = bring_online_local
                             transfer_src_type = "TAPE"
-                            transfers[id]['file_metadata']['src_type'] = transfer_src_type
-                            transfers[id]['file_metadata']['src_rse'] = rse
+                            transfers[req_id]['file_metadata']['src_type'] = transfer_src_type
+                            transfers[req_id]['file_metadata']['src_rse'] = rse
                     else:
                         # the sources already founded is Tape too.
                         # multiple Tape source replicas are not allowed in FTS3.
-                        if transfers[id]['sources'][0][3] > ranking or (transfers[id]['sources'][0][3] == ranking and transfers[id]['sources'][0][4] <= link_ranking):
+                        if transfers[req_id]['sources'][0][3] > ranking or (transfers[req_id]['sources'][0][3] == ranking and transfers[req_id]['sources'][0][4] <= link_ranking):
                             continue
                         else:
-                            transfers[id]['sources'] = []
-                            transfers[id]['bring_online'] = bring_online_local
-                            transfers[id]['file_metadata']['src_rse'] = rse
+                            transfers[req_id]['sources'] = []
+                            transfers[req_id]['bring_online'] = bring_online_local
+                            transfers[req_id]['file_metadata']['src_rse'] = rse
                 else:
                     # current src_rse is Disk
-                    if transfers[id]['bring_online']:
+                    if transfers[req_id]['bring_online']:
                         # the founded sources are Tape
 
                         avail_top_ranking = None
-                        founded_sources = transfers[id]['sources']
+                        founded_sources = transfers[req_id]['sources']
                         for founded_source in founded_sources:
                             if avail_top_ranking is None:
                                 avail_top_ranking = founded_source[3]
@@ -901,28 +813,28 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         if ranking >= avail_top_ranking:
                             # current disk replica has higher ranking than founded sources
                             # remove founded Tape sources
-                            transfers[id]['sources'] = []
-                            transfers[id]['bring_online'] = None
+                            transfers[req_id]['sources'] = []
+                            transfers[req_id]['bring_online'] = None
                             transfer_src_type = "DISK"
-                            transfers[id]['file_metadata']['src_type'] = transfer_src_type
-                            transfers[id]['file_metadata']['src_rse'] = rse
+                            transfers[req_id]['file_metadata']['src_type'] = transfer_src_type
+                            transfers[req_id]['file_metadata']['src_rse'] = rse
                         else:
                             continue
 
                 # transfers[id]['src_urls'].append((source_rse_id, source_url))
-                transfers[id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
+                transfers[req_id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
 
         except Exception:
-            logging.critical("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
+            logging.critical("Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
             break
 
-    for id in transfers:
-        if id in reqs_no_source:
-            reqs_no_source.remove(id)
-        if id in reqs_only_tape_source:
-            reqs_only_tape_source.remove(id)
-        if id in reqs_scheme_mismatch:
-            reqs_scheme_mismatch.remove(id)
+    for req_id in transfers:
+        if req_id in reqs_no_source:
+            reqs_no_source.remove(req_id)
+        if req_id in reqs_only_tape_source:
+            reqs_only_tape_source.remove(req_id)
+        if req_id in reqs_scheme_mismatch:
+            reqs_scheme_mismatch.remove(req_id)
 
     return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
@@ -973,7 +885,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
         elif session.bind.dialect.name == 'mysql':
             sub_requests = sub_requests.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)

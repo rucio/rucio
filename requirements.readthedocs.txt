@@ -26,7 +26,7 @@ gcloud==0.18.3                                    # API Client library for Googl
 googleapis-common-protos==1.5.3                   # Common protobufs used in Google APIs - Dependency of gcloud
 httplib2==0.11.3                                  # A comprehensive HTTP client library
 pyOpenSSL==17.5.0                                 # Python wrapper module around the OpenSSL library
-cryptography==2.2.2                               # Cryptographic recipes and primitives - Dependency of pyOpenSSL
+cryptography==2.3.1                               # Cryptographic recipes and primitives - Dependency of pyOpenSSL
 oauth2client==4.1.2                               # OAuth 2.0 client library
 protobuf==3.5.2.post1                             # Protocol Buffers - Dependency of gcloud
 grpcio==1.11.0                                    # Package for gRPC Python.
@@ -55,7 +55,7 @@ tabulate>=0.8.2                                   # Pretty-print tabular data
 progressbar2>=3.37.1                              # Text progress bar
 bz2file>=0.98                                     # Read and write bzip2-compressed files.
 python-magic>=0.4.15                              # File type identification using libmagic
-futures>=3.2.0                                    # Clean single-source support for Python 3 and 2
+futures>=3.2.0; python_version < '3.0'            # Clean single-source support for Python 3 and 2
 six>=1.11.0                                       # Python 2 and 3 compatibility utilities
 # All dependencies needed to develop/test rucio should be defined here
 
@@ -82,3 +82,4 @@ pytz==2017.3                # World timezone definitions, modern and historical
 Babel==2.5.1                # Internationalization utilities - Dependency of sphinx
 subprocess32==3.2.7; python_version <= '3.0' # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
 pycodestyle==2.3.1          # New package replacing pep8
+mock==2.0.0                 # Mock package needed for readthedocs build for mocking pycurls
