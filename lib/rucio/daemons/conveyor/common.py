@@ -178,7 +178,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 'selection_strategy': fts_source_strategy,
                 'request_type': transfer['file_metadata'].get('request_type', None),
                 'activity': str(transfer['file_metadata']['activity'])}
-        if file['metadata'].get('verify_checksum', True):
+        if verify_checksum != 'none':
             if 'md5' in list(file['metadata'].keys()) and file['metadata']['md5']:
                 file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
             if 'adler32' in list(file['metadata'].keys()) and file['metadata']['adler32']:
