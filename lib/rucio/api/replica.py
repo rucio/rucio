@@ -89,7 +89,7 @@ def get_did_from_pfns(pfns, rse):
 
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, rse_expression=None,
-                  client_location=None, domain=None, signature_lifetime=None, resolve_archives=False, issuer=None):
+                  client_location=None, domain=None, signature_lifetime=None, resolve_archives=True, issuer=None):
     """
     List file replicas for a list of data identifiers.
 
