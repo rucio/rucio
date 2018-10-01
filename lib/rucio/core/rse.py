@@ -404,7 +404,7 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
     :returns: List of rse dictionaries with the rse_id and lookup_key/value pair
     """
 
-    result = REGION.get('%s-%s-%s' % (key, value, lookup_key))
+    result = REGION.get('av-%s-%s-%s' % (key, value, lookup_key))
     if result is NO_VALUE:
 
         rse_list = []
@@ -427,7 +427,7 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
                              'key': row[1],
                              'value': row[2]})
 
-        REGION.set('%s-%s-%s' % (key, value, lookup_key), rse_list)
+        REGION.set('av-%s-%s-%s' % (key, value, lookup_key), rse_list)
         return rse_list
 
     return result
@@ -445,18 +445,26 @@ def get_rse_attribute(key, rse_id=None, value=None, session=None):
 
     :returns: A list with RSE attribute values for a Key.
     """
-    rse_attrs = []
-    if rse_id:
-        query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).distinct()
-        if value:
-            query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key, value=value).distinct()
-    else:
-        query = session.query(models.RSEAttrAssociation.value).filter_by(key=key).distinct()
-        if value:
-            query = session.query(models.RSEAttrAssociation.value).filter_by(key=key, value=value).distinct()
-    for attr_value in query:
-        rse_attrs.append(attr_value[0])
-    return rse_attrs
+
+    result = REGION.get('%s-%s-%s' % (key, rse_id, value))
+    if result is NO_VALUE:
+
+        rse_attrs = []
+        if rse_id:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).distinct()
+            if value:
+                query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key, value=value).distinct()
+        else:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(key=key).distinct()
+            if value:
+                query = session.query(models.RSEAttrAssociation.value).filter_by(key=key, value=value).distinct()
+        for attr_value in query:
+            rse_attrs.append(attr_value[0])
+
+        REGION.set('%s-%s-%s' % (key, rse_id, value), rse_attrs)
+        return rse_attrs
+
+    return result
 
 
 @transactional_session
