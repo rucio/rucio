@@ -404,7 +404,7 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
     :returns: List of rse dictionaries with the rse_id and lookup_key/value pair
     """
 
-    result = REGION.get('%s-%s-%s' % (key, value, lookup_key))
+    result = REGION.get('av-%s-%s-%s' % (key, value, lookup_key))
     if result is NO_VALUE:
 
         rse_list = []
@@ -427,7 +427,7 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
                              'key': row[1],
                              'value': row[2]})
 
-        REGION.set('%s-%s-%s' % (key, value, lookup_key), rse_list)
+        REGION.set('av-%s-%s-%s' % (key, value, lookup_key), rse_list)
         return rse_list
 
     return result
