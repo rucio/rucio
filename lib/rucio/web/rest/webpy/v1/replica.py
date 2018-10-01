@@ -288,7 +288,7 @@ class ListReplicas(RucioController):
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
-        signature_lifetime, resolve_archives = None, False
+        signature_lifetime, resolve_archives = None, True
         client_location = {}
 
         json_data = data()
@@ -313,14 +313,12 @@ class ListReplicas(RucioController):
             if 'domain' in params:
                 domain = params['domain']
             if 'resolve_archives' in params:
-                resolve_archives = True
-
+                resolve_archives = params['resolve_archives']
             if 'signature_lifetime' in params:
                 signature_lifetime = params['signature_lifetime']
             else:
                 # hardcoded default of 10 minutes if config is not parseable
                 signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
-
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
