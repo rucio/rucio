@@ -1,0 +1,60 @@
+======
+1.18.1
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Transfers: Don't send checksum to FTS if verify_checksum is disabled `#1522 <https://github.com/rucio/rucio/issues/1522>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Site attribute check for lan/wan selection needs to be optional `#1528 <https://github.com/rucio/rucio/issues/1528>`_
+- Core & Internals: Wrong handling of RSE restriction which crashes judge-repairer `#1551 <https://github.com/rucio/rucio/issues/1551>`_
+- Life time model: Python exception when specifying an ID to list_exceptions() `#1561 <https://github.com/rucio/rucio/issues/1561>`_
+- Life time model: Cannot update the state of lifetime exceptions with multiple datasets `#1569 <https://github.com/rucio/rucio/issues/1569>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: New option for rucio list-rse-usage to list usage per account `#1218 <https://github.com/rucio/rucio/issues/1218>`_
+- Clients: Possibility to filter collection on empty state `#1273 <https://github.com/rucio/rucio/issues/1273>`_
+- Clients: Client should force xrdcp for zip content streaming `#1559 <https://github.com/rucio/rucio/issues/1559>`_
+- Clients: Resolve archives per default in clients `#1560 <https://github.com/rucio/rucio/issues/1560>`_
+- Clients: rucio list-dids -h should expose the list of available options `#509 <https://github.com/rucio/rucio/issues/509>`_
+
+****
+Bugs
+****
+
+- Clients: wrong error message in clients `#1223 <https://github.com/rucio/rucio/issues/1223>`_
+- Clients: Client fails if auth type is x509_proxy and X509_USER_PROXY is not set `#1579 <https://github.com/rucio/rucio/issues/1579>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Summary page for used quotas for users `#50 <https://github.com/rucio/rucio/issues/50>`_
+
+****
+Bugs
+****
+
+- WebUI: Problems with accessing the REST API and the WebUI in the development docker container `#1516 <https://github.com/rucio/rucio/issues/1516>`_
+- WebUI: Wrong z-index affecting top-bar drop-down menu `#1555 <https://github.com/rucio/rucio/issues/1555>`_`
