@@ -115,7 +115,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                                              total_workers=heart_beat['nr_threads'] - 1,
                                              worker_number=heart_beat['assign_thread'],
                                              mode_all=True,
-                                             hash_variable='id')  # Old behaviour was hashing on rule_id. Need to check if moving to request_id doesn't lead to contention when updating the locks/rules
+                                             hash_variable='rule_id')
                 record_timer('daemons.conveyor.finisher.000-get_next', (time.time() - time1) * 1000)
                 time2 = time.time()
                 if reqs:
