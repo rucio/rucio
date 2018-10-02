@@ -1,0 +1,13 @@
+============
+1.17.8.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Clients: Summary function crashes do to wrong dictionary entry `#1584 <https://github.com/rucio/rucio/issues/1584>`_
