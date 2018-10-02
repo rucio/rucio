@@ -406,6 +406,7 @@ class DownloadClient:
         trace.setdefault('filesize', item.get('bytes'))
 
         # if file already exists, set state, send trace, and return
+        temp_file_path = item['temp_file_path']
         dest_file_path = item['dest_file_path']
         if os.path.isfile(dest_file_path):
             logger.info('%sFile exists already locally: %s' % (log_prefix, did_str))
@@ -436,6 +437,59 @@ class DownloadClient:
             i += 1
             scheme = pfn.split(':')[0]
 
+            # this is a workaround to fix that gfal doesnt use root's -z option for archives
+            # this will be removed as soon as gfal has fixed this
+            unzip_arg_name = '?xrdcl.unzip='
+            if scheme == 'root' and unzip_arg_name in pfn:
+                logger.info('%sFound xrdcl.unzip in PFN. Using xrdcp overwrite.' % log_prefix)
+                filename_in_archive = ''
+                pfn_filename_start = pfn.find(unzip_arg_name) + len(unzip_arg_name)
+                for c in pfn[pfn_filename_start:]:
+                    if c == '&' or c == '?':
+                        break
+                    filename_in_archive += c
+
+                cmd = 'xrdcp -vf %s -z %s file://%s' % (pfn, filename_in_archive, temp_file_path)
+                start_time = time.time()
+                try:
+                    logger.debug('Executing: %s' % cmd)
+                    status, out, err = execute(cmd)
+                except Exception as error:
+                    logger.debug('xrdcp execution failed')
+                    logger.debug(error)
+                    continue
+                end_time = time.time()
+                success = (status == 0)
+                if success and not item.get('ignore_checksum', False):
+                    rucio_checksum = item.get('adler32')
+                    local_checksum = None
+                    if not rucio_checksum:
+                        rucio_checksum = item.get('md5')
+                        local_checksum = md5(temp_file_path)
+                    else:
+                        local_checksum = adler32(temp_file_path)
+
+                    if rucio_checksum != local_checksum:
+                        success = False
+                        os.unlink(temp_file_path)
+                        logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
+                        logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
+                        try:
+                            self.client.declare_suspicious_file_replicas([pfn], reason='Corrupted')
+                        except Exception:
+                            pass
+                        trace['clientState'] = 'FAIL_VALIDATE'
+                elif not success:
+                    logger.debug('xrdcp status: %s' % status)
+                    logger.debug('xrdcp stdout: %s' % out)
+                    logger.debug('xrdcp stderr: %s' % err)
+                    trace['clientState'] = ('%s' % err)
+                if not success:
+                    send_trace(trace, self.client.host, self.client.user_agent)
+                    continue
+                else:
+                    break
+
             try:
                 rse = rsemgr.get_rse_info(rse_name)
             except RSENotFound:
@@ -463,7 +517,6 @@ class DownloadClient:
                 attempt += 1
                 item['attemptnr'] = attempt
 
-                temp_file_path = item['temp_file_path']
                 if os.path.isfile(temp_file_path):
                     logger.debug('%sDeleting existing temporary file: %s' % (log_prefix, temp_file_path))
                     os.unlink(temp_file_path)
