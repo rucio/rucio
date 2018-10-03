@@ -889,7 +889,7 @@ class DownloadClient:
                     new_item['type'] = dids['did_type'].upper()
                     new_item['name'] = dids['name']
                     new_item['did'] = '%s:%s' % (did_scope, dids['name'])
-                    resolved_items.append(new_item)
+                    resolved_items.append(copy.deepcopy(new_item))
             else:
                 new_item['type'] = self.client.get_did(did_scope, did_name)['type'].upper()
                 new_item['name'] = did_name
