@@ -993,15 +993,13 @@ def download(args):
 
     if not result:
         raise RucioException('Download API failed')
-
+    import pprint
+    pprint.pprint(result)
     summary = {}
     for item in result:
-        ds_scope = item.get('dataset_scope')
-        ds_name = item.get('dataset_name')
-        if ds_scope and ds_name:
-            summary_key = '%s:%s' % (ds_scope, ds_name)
-        else:
-            summary_key = item['did']
+        scope = item.get('dataset_scope', item['scope'])
+        name = item.get('dataset_name', item['name'])
+        summary_key = '%s:%s' % (scope, name)
 
         summary.setdefault(summary_key, {'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
         summary[summary_key]['_total'] += 1
