@@ -29,6 +29,7 @@ import logging
 import os
 import os.path
 import random
+import shutil
 import signal
 import time
 
@@ -45,6 +46,38 @@ from rucio.common.exception import (InputValidationError, NoFilesDownloaded, Ser
 from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, send_trace, sizefmt, execute
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
+
+
+class BaseExtractionTool:
+    def __init__(self, program_name, useability_check_args, extract_args, logger):
+        self.program_name = program_name
+        self.useability_check_args = useability_check_args
+        self.extract_args = extract_args
+        self.logger = logger
+        self.is_useable_result = None
+
+    def is_useable(self):
+        if self.is_useable_result is not None:
+            return self.is_useable_result
+        self.is_usable_result = False
+        cmd = '%s %s' % (self.program_name, self.useability_check_args)
+        try:
+            exitcode, out, err = execute(cmd)
+            exitcode = int(exitcode)
+            self.logger.debug('"%s" returned with exitcode %d' % (cmd, exitcode))
+            self.is_usable_result = (exitcode == 0)
+        except Exception as error:
+            self.logger.debug('Failed to execute: "%s"' % exitcode)
+            self.logger.debug(error)
+        return self.is_usable_result
+
+    def try_extraction(self, archive_file_path, file_to_extract, dest_dir_path):
+        args_map = {'archive_file_path': archive_file_path,
+                    'file_to_extract': file_to_extract,
+                    'dest_dir_path': dest_dir_path}
+        extract_args = self.extract_args % args_map
+        cmd = '%s %s' % (self.program_name, extract_args)
+        return cmd
 
 
 class DownloadClient:
@@ -84,7 +117,18 @@ class DownloadClient:
         self.trace_tpl['localSite'] = self.client_location['site']
         self.trace_tpl['account'] = self.client.account
         self.trace_tpl['eventType'] = 'download'
-        self.trace_tpl['eventVersion'] = 'api_' + version.RUCIO_VERSION[0]
+        self.trace_tpl['eventVersion'] = 'api_%s' % version.RUCIO_VERSION[0]
+
+        self.use_cea_threshold = 10
+        self.extraction_tools = []
+
+        # unzip <archive_file_path> <did_name> -d <dest_dir_path>
+        extract_args = '%(archive_file_path)s %(file_to_extract)s -d %(dest_dir_path)s'
+        self.extraction_tools.append(BaseExtractionTool('unzip', '-v', extract_args, logger))
+
+        # tar -C <dest_dir_path> -xf <archive_file_path>  <did_name>
+        extract_args = '-C %(dest_dir_path)s -xf %(archive_file_path)s %(file_to_extract)s'
+        self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger))
 
     def download_file_from_archive(self, items, trace_custom_fields={}):
         """
@@ -266,7 +310,68 @@ class DownloadClient:
 
         return self._check_output(output_items)
 
-    def download_dids(self, items, num_threads=2, trace_custom_fields={}, filters={}):
+    def _resolve_and_merge_input_items(self, items):
+        logger = self.logger
+
+        distinct_keys = ['rse', 'no_resolve_archives', 'force_scheme', 'nrandom']
+        all_resolved_did_strs = set()
+        did_to_options = {}
+        merged_items = []
+        download_info = {'did_to_options': did_to_options,
+                         'merged_items': merged_items}
+        while len(items) > 0:
+            item = items.pop()
+            item_dids = item.pop('did')
+            item_dids = item_dids if isinstance(item_dids, list) else [item_dids]
+            resolved_dids = item.setdefault('dids', [])
+            for did_str in item_dids:
+                did_scope, did_name = self._split_did_str(did_str)
+                tmp_did_names = []
+                if '*' in did_name:
+                    tmp_did_names = [resolved_name for resolved_name in self.client.list_dids(did_scope, filters={'name': did_name}, type='all')]
+                else:
+                    tmp_did_names = [did_name]
+
+                for did_name in tmp_did_names:
+                    resolved_did_str = '%s:%s' % (did_scope, did_name)
+                    if resolved_did_str in all_resolved_did_strs:
+                        logger.warning('An input DID was given multiple times (implicitly or explicitly). '
+                                       'Considering only first occurrence. DID: %s' % resolved_did_str)
+                        continue
+                    resolved_dids.append({'scope': did_scope, 'name': did_name})
+                    all_resolved_did_strs.add(resolved_did_str)
+
+            if len(resolved_dids) == 0:
+                logger.warning('An item didnt have any DIDs after resolving the input. Ignoring it.')
+                logger.debug(item)
+                continue
+
+            ignore_checksum = item.pop('ignore_checksum', False)
+            base_dir = item.pop('base_dir', '.')
+            no_subdir = item.pop('no_subdir', False)
+            new_transfer_timeout = item.pop('transfer_timeout', None)
+            for resolved_did in resolved_dids:
+                resolved_did_str = '%s:%s' % (resolved_did['scope'], resolved_did['name'])
+                options = did_to_options.setdefault(resolved_did_str, {})
+                options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
+                options.setdefault('destinations', set()).add((base_dir, no_subdir))
+                cur_transfer_timeout = options.setdefault('transfer_timeout', None)
+                if cur_transfer_timeout is not None and new_transfer_timeout is not None:
+                    options['transfer_timeout'] = max(int(cur_transfer_timeout), int(new_transfer_timeout))
+                elif new_transfer_timeout is not None:
+                    options['transfer_timeout'] = int(new_transfer_timeout)
+
+            was_merged = False
+            for merged_item in merged_items:
+                if all(item.get(k) == merged_item.get(k) for k in distinct_keys):
+                    merged_item['dids'].extend(resolved_dids)
+                    was_merged = True
+                    break
+            if not was_merged:
+                merged_items.append(item)
+        return download_info
+
+    def download_dids(self, items, num_threads=2, trace_custom_fields={}):
         """
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
@@ -291,9 +396,21 @@ class DownloadClient:
         :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something unexpected went wrong during the download
         """
+        logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
-        input_items = self._prepare_items_for_download(items, filters)
+        logger.info('Validating input...')
+        if not all(len(item.get('did', '')) > 0 for item in items):
+            raise InputValidationError('At least one input item is missing a valid DID')
+
+        logger.info('Resolving and merging input DIDs...')
+        download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
+        did_to_options = download_info['did_to_options']
+        merged_items = download_info['merged_items']
+        self.logger.debug('num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
+
+        logger.info('Resolving DIDs...')
+        input_items = self._prepare_items_for_download(did_to_options, merged_items)
 
         num_files_in = len(input_items)
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
@@ -401,7 +518,6 @@ class DownloadClient:
         :returns: dictionary with all attributes from the input item and a clientState attribute
         """
         logger = self.logger
-
         did_scope = item['scope']
         did_name = item['name']
         did_str = '%s:%s' % (did_scope, did_name)
@@ -414,18 +530,23 @@ class DownloadClient:
         trace.setdefault('dataset', item.get('dataset_name', ''))
         trace.setdefault('filesize', item.get('bytes'))
 
-        # if file already exists, set state, send trace, and return
-        temp_file_path = item['temp_file_path']
-        dest_file_path = item['dest_file_path']
-        if os.path.isfile(dest_file_path):
-            logger.info('%sFile exists already locally: %s' % (log_prefix, did_str))
-            item['clientState'] = 'ALREADY_DONE'
+        # convert dest_file_paths from set to list since we're just going to iterate and need index access
+        dest_file_paths = list(item['dest_file_paths'])
+        temp_file_path = '%s.part' % dest_file_paths[0]
 
-            trace['transferStart'] = time.time()
-            trace['transferEnd'] = time.time()
-            trace['clientState'] = 'ALREADY_DONE'
-            self._send_trace(trace)
-            return item
+        # if file already exists, set state, send trace, and return
+        for dest_file_path in dest_file_paths:
+            if os.path.isfile(dest_file_path):
+                logger.info('%sFile exists already locally: %s' % (log_prefix, did_str))
+                for missing_file_path in dest_file_paths:
+                    if not os.path.isfile(missing_file_path):
+                        shutil.copy2(dest_file_path, missing_file_path)
+                item['clientState'] = 'ALREADY_DONE'
+                trace['transferStart'] = time.time()
+                trace['transferEnd'] = time.time()
+                trace['clientState'] = 'ALREADY_DONE'
+                send_trace(trace, self.client.host, self.client.user_agent)
+                return item
 
         # check if file has replicas
         sources = item.get('sources')
@@ -441,9 +562,10 @@ class DownloadClient:
         # try different PFNs until one succeeded
         i = 0
         while not success and i < len(sources):
-            pfn = sources[i]['pfn']
-            rse_name = sources[i]['rse']
+            source = sources[i]
             i += 1
+            pfn = source['pfn']
+            rse_name = source['rse']
             scheme = pfn.split(':')[0]
 
             # this is a workaround to fix that gfal doesnt use root's -z option for archives
@@ -525,6 +647,23 @@ class DownloadClient:
 
                 end_time = time.time()
 
+                # download successful; extract file from zip if needed
+                """
+                if success and source.get('client_extract', False):
+                    success = False
+                    try:
+                        cmd = 'unzip %s %s -d %s' % (temp_file_path, did_name, dest_dir_path)
+                        exitcode, output, error = execute('unzip %s' % temp_file_path)
+                        if exitcode != 0:
+                            logger.warning('%sUnzip failed with exitcode %d for file: %s' % (log_prefix, exitcode, did_str))
+                            logger.debug(error)
+                        else:
+                            success = True
+                    except Exception as error:
+                        logger.warning('%sCould not execute unzip for file: %s' % (log_prefix, temp_file_path))
+                        logger.debug(error)
+                """
+                # extract skipped or successful; validate checksums
                 if success and not item.get('ignore_checksum', False):
                     rucio_checksum = item.get('adler32')
                     local_checksum = None
@@ -555,8 +694,13 @@ class DownloadClient:
             item['clientState'] = 'FAILED'
             return item
 
-        logger.debug("renaming '%s' to '%s'" % (temp_file_path, dest_file_path))
-        os.rename(temp_file_path, dest_file_path)
+        first_dest_file_path = dest_file_paths.pop()
+        os.rename(temp_file_path, first_dest_file_path)
+        logger.debug("renaming '%s' to '%s'" % (temp_file_path, first_dest_file_path))
+        while len(dest_file_paths) > 0:
+            next_dest_file_path = dest_file_paths.pop()
+            logger.debug("copying '%s' to '%s'" % (first_dest_file_path, next_dest_file_path))
+            shutil.copy2(first_dest_file_path, next_dest_file_path)
 
         trace['transferStart'] = start_time
         trace['transferEnd'] = end_time
@@ -600,12 +744,12 @@ class DownloadClient:
         trace_custom_fields['uuid'] = generate_uuid()
 
         rpc_secret = '%x' % (random.getrandbits(64))
-        rpc_auth = 'token:' + rpc_secret
+        rpc_auth = 'token:%s' % rpc_secret
         rpcproc, aria_rpc = self._start_aria2c_rpc(rpc_secret)
 
         for item in items:
             item['force_scheme'] = ['https', 'davs']
-        input_items = self._prepare_items_for_download(items, filters)
+        input_items = self._prepare_items_for_download(items, None)
 
         try:
             output_items = self._download_items_aria2c(input_items, aria_rpc, rpc_auth, trace_custom_fields)
@@ -841,7 +985,7 @@ class DownloadClient:
 
         return items
 
-    def _prepare_items_for_download(self, items, filters={}):
+    def _prepare_items_for_download(self, did_to_options, merged_items):
         """
         Resolves wildcarded DIDs, get DID details (e.g. type), and collects
         the available replicas for each DID
@@ -856,65 +1000,33 @@ class DownloadClient:
         """
         logger = self.logger
 
-        logger.info('Processing %d item(s) for input' % len(items))
-        resolved_items = []
-        # resolve input: extend rse expression, resolve wildcards, get did type
-        for item in items:
-            did_str = item.get('did')
-            if not did_str and not filters:
-                raise InputValidationError('The key did is mandatory')
+        has_one_with_resolve_archives = any(item.get('no_resolve_archives') for item in merged_items)
+        if has_one_with_resolve_archives:
+            # perhaps we'll need an extraction tool so check what is installed
+            self.extraction_tools = [tool for tool in self.extraction_tools if tool.is_useable()]
+            if len(self.extraction_tools) < 1:
+                logger.warning('Archive resolution is enabled but no extraction tool is available. '
+                               'Sources whose protocol doesnt support extraction wont be considered for download.')
 
-            logger.debug('Processing item %s' % did_str)
+        # maps file item IDs (fiid) to the file item object
+        fiid_to_file_item = {}
 
-            new_item = copy.deepcopy(item)
+        # list of all file item objects
+        all_file_items = []
 
-            # extend RSE expression to exclude tape RSEs for non-admin accounts
-            if not self.is_admin:
-                rse = new_item.get('rse')
-                new_item['rse'] = 'istape=False' if not rse else '(%s)&istape=False' % rse
-                logger.debug('RSE-Expression: %s' % new_item['rse'])
+        # cea -> client_extract archives to avoid confusion with archives that dont need explicit extraction
+        # holds information for an archive id (num_files needed from archive, highest priority of all sources)
+        cea_ids_map = {}
 
-            if not did_str:
-                logger.debug('Resolving DIDs by using filter options.')
-                scope = filters['scope']
-                del filters['scope']
-                for dids in self.client.list_dids(scope, filters=filters, type='all', long=True):
-                    logger.debug('%s - %s:%s' % (dids['did_type'], scope, dids['name']))
-                    new_item['scope'] = scope
-                    new_item['type'] = dids['did_type'].upper()
-                    new_item['name'] = dids['name']
-                    new_item['did'] = '%s:%s' % (scope, dids['name'])
-                    resolved_items.append(copy.deepcopy(new_item))
-            else:
-                # resolve any wildcards in the input dids
-                did_scope, did_name = self._split_did_str(did_str)
-                logger.debug('Splitted DID: %s:%s' % (did_scope, did_name))
-                new_item['scope'] = did_scope
-                if '*' in did_name:
-                    logger.debug('Resolving wildcarded DID %s' % did_str)
-                    filters['name'] = did_name
-                    for dids in self.client.list_dids(did_scope, filters=filters, type='all', long=True):
-                        logger.debug('%s - %s:%s' % (dids['did_type'], did_scope, dids['name']))
-                        new_item['type'] = dids['did_type'].upper()
-                        new_item['name'] = dids['name']
-                        new_item['did'] = '%s:%s' % (did_scope, dids['name'])
-                        resolved_items.append(copy.deepcopy(new_item))
-                else:
-                    new_item['type'] = self.client.get_did(did_scope, did_name)['type'].upper()
-                    new_item['name'] = did_name
-                    resolved_items.append(new_item)
+        # this dict will contain all cea ids that will be definitely downloaded
+        cea_id_pure_to_fiids = {}
 
-        # this list will have one dict for each file to download
-        file_items = []
+        # this dict will contain cea ids that have higher prioritised non cea sources
+        cea_id_mixed_to_fiids = {}
+
         # get replicas for every file of the given dids
-        logger.debug('%d DIDs after processing input' % len(resolved_items))
-        for item in resolved_items:
-            did_scope = item['scope']
-            did_name = item['name']
-            did_str = item['did']
-
-            logger.debug('Processing: %s' % item)
-
+        logger.debug('num list_replicas calls: %d' % len(merged_items))
+        for item in merged_items:
             # since we are using metalink we need to explicitly
             # give all schemes (probably due to a bad server site implementation)
             force_scheme = item.get('force_scheme')
@@ -922,51 +1034,156 @@ class DownloadClient:
                 schemes = force_scheme if isinstance(force_scheme, list) else [force_scheme]
             else:
                 schemes = ['davs', 'gsiftp', 'https', 'root', 'srm', 'file']
+            logger.debug('schemes: %s' % schemes)
+
+            resolve_archives = item.get('force_resolve_archives', False)
+            if not resolve_archives and has_one_with_resolve_archives:
+                resolve_archives = True
+            elif resolve_archives:
+                resolve_archives = item.get('resolve_archives', False)
+
+            # extend RSE expression to exclude tape RSEs for non-admin accounts
+            rse_expression = item.get('rse')
+            if not self.is_admin:
+                rse_expression = 'istape=False' if not rse_expression else '(%s)&istape=False' % rse_expression
+            logger.debug('rse_expression: %s' % rse_expression)
 
             # get PFNs of files and datasets
-            metalink_str = self.client.list_replicas([{'scope': did_scope, 'name': did_name}],
+            logger.debug('num DIDs for call: %d' % len(item['dids']))
+            metalink_str = self.client.list_replicas(item['dids'],
                                                      schemes=schemes,
-                                                     rse_expression=item.get('rse'),
+                                                     rse_expression=rse_expression,
                                                      client_location=self.client_location,
-                                                     resolve_archives=item.get('resolve_archives', False),
+                                                     resolve_archives=resolve_archives,
                                                      metalink=True)
-            files_with_pfns = self._parse_list_replica_metalink(metalink_str)
+            file_items = self._parse_list_replica_metalink(metalink_str)
+            logger.debug('num files of DIDs: %s' % len(file_items))
+            all_file_items.extend(file_items)
 
             nrandom = item.get('nrandom')
             if nrandom:
-                logger.info('Selecting %d random replicas from dataset %s' % (nrandom, did_str))
-                random.shuffle(files_with_pfns)
-                files_with_pfns = files_with_pfns[0:nrandom]
+                logger.info('Selecting %d random replicas from DID(s): %s' % (nrandom, item['dids']))
+                random.shuffle(file_items)
+                file_items = file_items[0:nrandom]
 
-            for file_item in files_with_pfns:
+            for file_item in file_items:
+                dataset_did_strs = file_item.get('dataset_did_strs', [])
                 file_did_scope = file_item['scope']
                 file_did_name = file_item['name']
                 file_did_str = '%s:%s' % (file_did_scope, file_did_name)
 
+                # the file did str ist not an unique key for this dict because multiple calls of list_replicas
+                # could result in the same DID multiple times. So we're using the id of the dictionary objects
+                fiid = id(file_item)
+                fiid_to_file_item[fiid] = file_item
+
+                if resolve_archives:
+                    min_cea_priority = None
+                    num_non_cea_sources = 0
+                    cea_ids = []
+                    sources = []
+                    # go through sources and check how many (non-)cea sources there are,
+                    # index cea sources, and remove cea sources if there is no extraction tool
+                    for source in file_item['sources']:
+                        is_cea = source.get('client_extract', False)
+                        if is_cea and len(self.extraction_tools) > 0:
+                            priority = int(source['priority'])
+                            if min_cea_priority is None or priority < min_cea_priority:
+                                min_cea_priority = priority
+                            cea_id = source['pfn']
+                            cea_ids.append(cea_id)
+                            cea_id_item = cea_ids_map.setdefault(cea_id, {'priority': priority, 'num_files': 0})
+                            cea_id_item['priority'] = min(cea_id_item['priority'], priority)
+                            cea_id_item['num_files'] += 1
+                            sources.append(source)
+                        elif not is_cea:
+                            num_non_cea_sources += 1
+                            sources.append(source)
+                        else:
+                            logger.debug('client_extract=True; removing source: %s' % source['pfn'])
+                    file_item['sources'] = sources
+
+                    logger.debug('Prepared sources: num_sources=%d; num_non_cea_sources=%d; num_cea_ids=%d'
+                                 % (len(sources), num_non_cea_sources, len(cea_ids)))
+
+                    # if no non-archive src exists or the highest prio src is an archive src we put it in the pure map
+                    if num_non_cea_sources == 0 or min_cea_priority == 1:
+                        logger.debug('Adding fiid to cea pure map: '
+                                     'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
+                                     % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
+                        for cea_id in cea_ids:
+                            cea_id_pure_to_fiids.setdefault(cea_id, set()).add(fiid)
+                            file_item.setdefault('cea_ids_pure', set()).add(cea_id)
+                    # if there are non-archive sources and also archive sources we put it in the mixed map
+                    elif len(cea_ids) > 0:
+                        logger.debug('Adding fiid to cea mixed map: '
+                                     'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
+                                     % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
+                        for cea_id in cea_ids:
+                            cea_id_mixed_to_fiids.setdefault(cea_id, set()).add(fiid)
+                            file_item.setdefault('cea_ids_mixed', set()).add(cea_id)
+
                 logger.debug('Queueing file: %s' % file_did_str)
 
-                # put the input options from item into the file item
-                file_item.update(item)
+                dest_file_paths = file_item.setdefault('dest_file_paths', set())
+                for dataset_did_str in dataset_did_strs:
+                    # actually there should be options for each dataset_did_str but
+                    # we should check this anyway in case list_replicas did something wrong
+                    destinations = did_to_options[dataset_did_str]['destinations']
+                    dataset_scope, dataset_name = self._split_did_str(dataset_did_str)
+                    paths = [os.path.join(self._prepare_dest_dir(dst[0], dataset_name, file_did_name, dst[1]), file_did_name) for dst in destinations]
+                    dest_file_paths.update(paths)
 
-                dest_dir_name = file_did_scope
-                if item['type'] != 'FILE':
-                    # if the did is a dataset, scope and name were updated wrongly
-                    file_item['scope'] = file_did_scope
-                    file_item['name'] = file_did_name
-                    file_item['did'] = file_did_str
-                    file_item['dataset_scope'] = did_scope
-                    file_item['dataset_name'] = did_name
-                    dest_dir_name = did_name
+                if len(dataset_did_strs) == 0:
+                    destinations = did_to_options[file_did_str]['destinations']
+                    paths = [os.path.join(self._prepare_dest_dir(dst[0], file_did_scope, file_did_name, dst[1]), file_did_name) for dst in destinations]
+                    dest_file_paths.update(paths)
 
-                dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'),
-                                                       dest_dir_name, file_did_name,
-                                                       item.get('no_subdir'))
-                file_item['dest_dir_path'] = dest_dir_path
-                dest_file_path = os.path.join(dest_dir_path, file_did_name)
-                file_item['dest_file_path'] = dest_file_path
-                file_item['temp_file_path'] = dest_file_path + '.part'
+        # this loop will put all archives from the mixed list into the pure list
+        # if they meet certain conditions, e.g., an archive that is in both lists
+        for cea_id_mixed in cea_id_mixed_to_fiids:
+            fiids_mixed = cea_id_mixed_to_fiids[cea_id_mixed]
+            num_fiids_mixed = len(fiids_mixed)
+            if cea_id_mixed in cea_id_pure_to_fiids:
+                logger.debug('Mixed ID is already in cea pure map: '
+                             'cea_id_mixed=%s; num_fiids_mixed=%d; num_cea_pure_fiids=%d'
+                             % (cea_id_mixed, num_fiids_mixed, len(cea_id_pure_to_fiids[cea_id_mixed])))
+            elif num_fiids_mixed >= self.use_cea_threshold:
+                logger.debug('Number of needed files in cea reached threshold: '
+                             'cea_id_mixed=%s; num_fiids_mixed=%d; threshold=%d'
+                             % (cea_id_mixed, num_fiids_mixed, self.use_cea_threshold))
+            else:
+                continue
 
-                file_items.append(file_item)
+            for fiid_mixed in fiids_mixed:
+                file_item = fiid_to_file_item[fiid_mixed]
+                file_item.setdefault('cea_ids_pure', set()).add(cea_id_mixed)
+                file_item['cea_ids_mixed'].discard(cea_id_mixed)
+            cea_id_pure_to_fiids.setdefault(cea_id_mixed, set()).update(fiids_mixed)
+            del cea_id_mixed_to_fiids[cea_id_mixed]
+
+        for file_item in all_file_items:
+            fiid = id(file_item)
+            cea_ids_pure = file_item.get('cea_ids_pure', set())
+            cea_ids_mixed = file_item.get('cea_ids_mixed', set())
+
+            if len(cea_ids_pure) > 0:
+                # we have pure sources so we wont try the non-cea sources
+                while(len(cea_ids_mixed) > 0):
+                    cea_id_mixed_to_fiids[cea_ids_mixed.pop()].discard(fiid_mixed)
+            elif len(cea_ids_mixed) > 0:
+                # if file not in pure map cea download wont be used so remove all cea sources
+                sources = file_item['sources']
+                sources = [s for s in sources if not s.get('client_extract', False)]
+
+        for cea_id_pure in cea_id_pure_to_fiids:
+            for fiid_pure in cea_id_pure_to_fiids[cea_id_pure]:
+                cea_ids_pure = fiid_to_file_item[fiid_pure].get('cea_ids_pure', set())
+                for cea_id_pure_other in cea_ids_pure:
+                    if cea_id_pure != cea_id_pure_other:
+                        cea_id_pure_to_fiids[cea_id_pure_other].discard(fiid_pure)
+                        cea_ids_pure.discard(cea_id_pure_other)
+
         return file_items
 
     def _split_did_str(self, did_str):
