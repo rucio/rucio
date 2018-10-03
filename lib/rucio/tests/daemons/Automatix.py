@@ -24,6 +24,7 @@ import socket
 import random
 import tempfile
 import threading
+import traceback
 
 from json import load
 from math import exp
@@ -80,8 +81,10 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
     rse_info = rsemgr.get_rse_info(rse)
     try:
         success_upload = True
-        for cnt in xrange(0, 3):
-            global_status, ret = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
+        for cnt in range(0, 3):
+            rows = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
+            # temporary hack
+            global_status, ret = rows['success'], rows[1]
             logging.info(prepend_str + 'Returned global status : %s, Returned : %s' % (str(global_status), str(ret)))
             if not global_status:
                 for item in ret:
@@ -96,7 +99,8 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
             logging.error(prepend_str + 'Upload operation to %s failed, removing leftovers' % (rse))
             rsemgr.delete(rse_info, lfns=lfns)
             return False
-    except Exception, error:
+    except Exception as error:
+        logging.debug(traceback.format_exc())
         logging.error(prepend_str + '%s' % (str(error)))
         return False
     logging.info(prepend_str + 'Files successfully copied on %s' % (rse))
@@ -111,7 +115,8 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
             client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET', 'activity': 'Functional Test'}], meta=meta, lifetime=dataset_lifetime)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
             logging.info(prepend_str + 'Upload operation for %s:%s done' % (dsn['scope'], dsn['name']))
-        except Exception, error:
+        except Exception as error:
+            logging.debug(traceback.format_exc())
             logging.error(prepend_str + 'Failed to upload %(files)s' % locals())
             logging.error(prepend_str + '%s' % (str(error)))
             logging.error(prepend_str + 'Removing files from the Storage')
@@ -123,7 +128,8 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
             client.add_replicas(files=list_files, rse=rse)
             client.add_replication_rule(list_files, copies=1, rse_expression=rse, activity='Functional Test')
             logging.info(prepend_str + 'Upload operation for %s done' % (str(list_files)))
-        except Exception, error:
+        except Exception as error:
+            logging.debug(traceback.format_exc())
             logging.error(prepend_str + 'Failed to upload %(files)s' % locals())
             logging.error(prepend_str + '%s' % (str(error)))
             logging.error(prepend_str + 'Removing files from the Storage')
@@ -183,8 +189,10 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
         scope = 'tests'
         totretries = 3
         status = False
+
         for site in sites:
-            for retry in xrange(0, totretries):
+
+            for retry in range(0, totretries):
                 start_time = time()
                 tmpdir = tempfile.mkdtemp()
                 logging.info(prepend_str + 'Running on site %s' % (site))
@@ -207,7 +215,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                 dsn = 'tests:%s.%s.%s.%s.%s.%s' % (metadata['project'], metadata['run_number'], metadata['stream_name'], metadata['prod_step'], metadata['datatype'], metadata['version'])
                 fnames = []
                 lfns = []
-                for dummy_nbfile in xrange(nbfiles):
+                for dummy_nbfile in range(nbfiles):
                     fname = '%s.%s' % (metadata['datatype'], generate_uuid())
                     lfns.append(fname)
                     fname = '%s/%s' % (tmpdir, fname)
@@ -248,29 +256,29 @@ def run(total_workers=1, once=False, inputfile=None):
     """
     try:
         sites = [s.strip() for s in config_get('automatix', 'sites').split(',')]
-    except:
+    except Exception:
         raise Exception('Could not load sites from configuration')
     if not inputfile:
         inputfile = '/opt/rucio/etc/automatix.json'
     try:
         sleep_time = config_get_int('automatix', 'sleep_time')
-    except:
+    except Exception:
         sleep_time = 3600
     try:
         account = config_get_int('automatix', 'account')
-    except:
+    except Exception:
         account = 'root'
     try:
         dataset_lifetime = config_get_int('automatix', 'dataset_lifetime')
-    except:
+    except Exception:
         dataset_lifetime = None
     try:
         set_metadata = config_get_bool('automatix', 'set_metadata')
-    except:
+    except Exception:
         set_metadata = False
 
     threads = list()
-    for worker_number in xrange(0, total_workers):
+    for worker_number in range(0, total_workers):
         kwargs = {'worker_number': worker_number + 1,
                   'total_workers': total_workers,
                   'once': once,
@@ -281,10 +289,10 @@ def run(total_workers=1, once=False, inputfile=None):
                   'set_metadata': set_metadata,
                   'dataset_lifetime': dataset_lifetime}
         threads.append(threading.Thread(target=automatix, kwargs=kwargs))
-    [t.start() for t in threads]
+    [thread.start() for thread in threads]
     while threads[0].is_alive():
         logging.debug('Still %i active threads' % len(threads))
-        [t.join(timeout=3.14) for t in threads]
+        [thread.join(timeout=3.14) for thread in threads]
 
 
 def stop(signum=None, frame=None):
