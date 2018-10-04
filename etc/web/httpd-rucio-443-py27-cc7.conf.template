@@ -84,4 +84,7 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
   GridSiteACLPath /opt/rucio/etc/gacl
  </LocationMatch>
 
+ # This directive should be used if your DIDs need to contain slash characters
+ # AllowEncodedSlashes on
+
 </VirtualHost>
