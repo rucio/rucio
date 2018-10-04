@@ -83,6 +83,9 @@ Voila. You have a Rucio server up and running.
 Miscellaneous
 ~~~~~~~~~~~~~
 
+Creating alembic.ini
+--------------------
+
 The following is only needed if you didn’t bootstrap the database. First, enter the docker container:
 
 ``docker exec -i -t rucio-server /bin/bash``
@@ -147,3 +150,24 @@ Eventually, bootstrap the database and restart the webserver:
 
     python /usr/rucio/tools/bootstrap.py
     apachectl restart
+
+Special characters in DIDs
+--------------------------
+
+To allow DIDs to contain the slash (/) character, one must add the directive
+
+.. code-block:: html
+
+    AllowEncodedSlashes on
+
+to the
+
+.. code-block:: html
+
+    <VirtualHost>
+    ...
+    </VirtualHost>
+
+section of ``/etc/httpd/conf.d/rucio.conf``
+
+
