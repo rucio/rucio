@@ -115,7 +115,7 @@ def __exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
             path_clause.append(models.RSEFileAssociation.path == path[1:])
         else:
             path_clause.append(models.RSEFileAssociation.path == '/%s' % path)
-        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
             with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
             filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*path_clause))
     else:
@@ -906,7 +906,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 # is the RSE site-configured?
                                 rse_site_attr = get_rse_attribute('site', rse_info[rse]['id'], session=session)
                                 replica_site = ['']
-                                if isinstance(rse_site_attr, list) and len(rse_site_attr):
+                                if isinstance(rse_site_attr, list) and rse_site_attr:
                                     replica_site = rse_site_attr[0]
 
                                 # does it match with the client?
@@ -961,7 +961,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         file['pfns'][tmp[i][2]]['priority'] = i + 1
                         file['rses'] = {}
                         for t_rse, t_pfn in [(file['pfns'][t_pfn]['rse'], t_pfn) for t_pfn in file['pfns']]:
-                            if(t_rse in file['rses']):
+                            if t_rse in file['rses']:
                                 file['rses'][t_rse].append(t_pfn)
                             else:
                                 file['rses'][t_rse] = [t_pfn]
@@ -1002,7 +1002,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
             rse_pfns = sorted(rse_pfns)
 
         for t_rse, t_priority, t_pfn in rse_pfns:
-            if(t_rse in file['rses']):
+            if t_rse in file['rses']:
                 file['rses'][t_rse].append(t_pfn)
             else:
                 file['rses'][t_rse] = [t_pfn]
