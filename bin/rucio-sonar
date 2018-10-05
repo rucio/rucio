@@ -16,6 +16,8 @@
 # Authors:
 # - Vitjan Zavrtanik, <vitjan.zavrtanik@cern.ch>, 2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 '''
 Sonar is a daemon that tests inactive links.

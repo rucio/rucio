@@ -18,6 +18,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+#
+# PY3K COMPATIBLE
 
 from json import dumps, loads
 from requests.status_codes import codes

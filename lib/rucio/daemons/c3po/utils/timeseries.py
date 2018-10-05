@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2016
+#
+# PY3K COMPATIBLE
 
 """
 Redis time series abstraction

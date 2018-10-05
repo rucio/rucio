@@ -17,6 +17,8 @@
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+#
+# PY3K COMPATIBLE
 
 '''
 Transmogrifier (Replication Rule Resolver) Daemon

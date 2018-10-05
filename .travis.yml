@@ -45,6 +45,7 @@ before_script:
 
 script:
   - if [[ $SUITE == "syntax" ]]; then ./tools/travis/check_syntax.sh  ; fi
+  - if [[ $SUITE == "python3" ]]; then ./tools/travis/check_python_3.sh  ; fi
   - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" !=  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; fi
   - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" ==  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; nosetests -v lib/rucio/tests/test_bin_rucio.py ; fi
   - if [[ $SUITE == "all" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_tests_docker.sh -1q" ; fi
@@ -60,6 +61,8 @@ env:
 matrix:
   fast_finish: true
   exclude:
+  - python: 3.5
+    env: SUITE=python3
   - python: 2.6
     env: SUITE=all RDBMS=oracle
   - python: 2.6
