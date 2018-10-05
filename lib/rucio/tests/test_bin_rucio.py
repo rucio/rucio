@@ -769,7 +769,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
-        nose.tools.assert_not_equal(re.search("The file already exists", err), None)
+        nose.tools.assert_not_equal(re.search("Data identifier already attached", err), None)
 
     def test_detach_non_existing_file(self):
         """CLIENT(USER): Rucio detach a non existing file"""

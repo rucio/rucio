@@ -456,7 +456,7 @@ def attach(args):
     client = get_client(args)
     scope, name = extract_scope(args.todid)
     dids = args.dids
-    limit = 1000
+    limit = 499
 
     if args.fromfile:
         if len(dids) > 1:
