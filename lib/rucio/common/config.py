@@ -19,6 +19,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Get the configuration file from /opt/rucio/etc/rucio.cfg

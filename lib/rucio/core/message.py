@@ -10,6 +10,8 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
+
+  PY3K COMPATIBLE
 '''
 
 import json

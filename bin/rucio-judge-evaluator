@@ -16,6 +16,8 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Judge-Evaluator is a daemon to re-evaluate replication rules.

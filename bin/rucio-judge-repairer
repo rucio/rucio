@@ -16,6 +16,8 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Judge-Repairer is a daemon to repair stuck replication rules.

@@ -11,6 +11,8 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+#
+# PY3K COMPATIBLE
 
 from re import match
 from sqlalchemy.exc import IntegrityError

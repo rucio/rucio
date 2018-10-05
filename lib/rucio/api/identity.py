@@ -9,6 +9,8 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+#
+# PY3K COMPATIBLE
 
 """
 Interface for identity abstraction layer
