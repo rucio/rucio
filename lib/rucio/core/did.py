@@ -490,6 +490,18 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
     parent_did_condition = list()
     parent_dids = list()
     for attachment in attachments:
+        content = [{'scope': did['scope'], 'name': did['name']} for did in list_content(scope=attachment['scope'], name=attachment['name'], session=session)]
+        already_attached = []
+        not_attached = []
+        for did in attachment['dids']:
+            if {'name': did['name'], 'scope': did['scope']} in content:
+                already_attached.append(did)
+            else:
+                not_attached.append(did)
+        if len(not_attached) != 0:
+            attachment['dids'] = not_attached
+        else:
+            raise exception.DataIdentifierAlreadyAttached("Data Identifier already attached: {0}".format(','.join([did['scope'] + ':' + did['name'] for did in already_attached])))
         try:
             parent_did = session.query(models.DataIdentifier).filter_by(scope=attachment['scope'], name=attachment['name']).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
