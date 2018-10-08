@@ -70,6 +70,9 @@ find lib -iname "*.pyc" | xargs rm
 echo 'Cleaning old authentication tokens'
 rm -rf /tmp/.rucio_*/
 
+echo 'Cleaning RSEs'
+rm -rf /tmp/rucio_rse
+
 if test ${delete_sqlite+defined}; then
     echo 'Removing old sqlite databases'
     rm -f /tmp/rucio.db
