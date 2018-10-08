@@ -9,12 +9,14 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql import func, label
 from sqlalchemy.sql.expression import bindparam, text
 
 from rucio.common.exception import CounterNotFound
-from rucio.db.sqla import models
+from rucio.db.sqla import models, constants
 from rucio.db.sqla.session import read_session, transactional_session
 
 
@@ -130,13 +132,63 @@ def update_rse_counter(rse_id, session=None):
 
     updated_rse_counters = session.query(models.UpdatedRSECounter).\
         filter_by(rse_id=rse_id).all()
+    sum_bytes = sum([updated_rse_counter.bytes for updated_rse_counter in updated_rse_counters])
+    sum_files = sum([updated_rse_counter.files for updated_rse_counter in updated_rse_counters])
 
     try:
         rse_counter = session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
-        rse_counter.used += sum([updated_rse_counter.bytes for updated_rse_counter in updated_rse_counters])
-        rse_counter.files += sum([updated_rse_counter.files for updated_rse_counter in updated_rse_counters])
+        rse_counter.used += sum_bytes
+        rse_counter.files += sum_files
     except NoResultFound:
-        pass
+        models.RSEUsage(rse_id=rse_id,
+                        used=sum_bytes,
+                        files=sum_files,
+                        source='rucio').save(session=session)
 
     for update in updated_rse_counters:
         update.delete(flush=False, session=session)
+
+
+@read_session
+def get_rse_usage_from_unavailable_replicas(total_workers, worker_number, session=None):
+    """
+    Get rse usage from replicas that are unavailable or copying.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param session:            Database session in use.
+    :returns:                  List of rse_ids whose rse_counters need to be updated.
+    """
+    query = session.query(models.RSEFileAssociation.rse_id, label('bytes', func.sum(models.RSEFileAssociation.bytes)), label('files', func.count())).filter(((models.RSEFileAssociation.state == constants.ReplicaState.COPYING) | (models.RSEFileAssociation.state == constants.ReplicaState.UNAVAILABLE)) & (models.RSEFileAssociation.tombstone.is_(None))).group_by(models.RSEFileAssociation.rse_id)
+
+    if total_workers > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            query = query.filter(text('ORA_HASH(rse_id, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(rse_id), %s) = %s' % (total_workers + 1, worker_number))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(rse_id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+
+    results = query.all()
+    return [{'rse_id': result[0], 'bytes': result[1], 'files': result[2]} for result in results]
+
+
+@transactional_session
+def update_rse_usage_from_unavailable_replicas(rse_usage, session=None):
+    """
+    Update RSE Counters with usage from unavailable or copying replicas.
+
+    :param rse_usage: usage on a rse from unavailable or copying replicas.
+    :param session: Database session in use.
+    """
+    try:
+        usage = session.query(models.RSEUsage).filter_by(rse_id=rse_usage['rse_id'], source='unavailable').one()
+        usage.used = rse_usage['bytes']
+        usage.files = rse_usage['files']
+    except NoResultFound:
+        models.RSEUsage(rse_id=rse_usage['rse_id'],
+                        source='unavailable',
+                        files=rse_usage['files'],
+                        used=rse_usage['bytes']).save(session=session)
