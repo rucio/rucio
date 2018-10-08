@@ -21,11 +21,11 @@
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
-
 from collections import defaultdict
 from copy import deepcopy
 from curses.ascii import isprint
@@ -36,6 +36,7 @@ from traceback import format_exc
 
 from sqlalchemy import func, and_, or_, exists, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.sql import label
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql.expression import case, bindparam, select, text, false, true
 
@@ -2318,3 +2319,130 @@ def mark_unlocked_replicas(rse, bytes, session=None):
             total_bytes += bytes
             rows.append({'scope': scope, 'name': name})
     return rows
+
+
+@transactional_session
+def get_cleaned_updated_collection_replicas(total_workers, worker_number, session=None):
+    """
+    Get update request for collection replicas.
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param session:            Database session in use.
+    :returns:                  List of ids of update requests for collection replicas.
+    """
+    # Delete update requests which do not have collection_replicas and delete duplicates
+    replica_update_requests = session.query(models.UpdatedCollectionReplica).all()
+    update_requests_with_rse_id = []
+    update_requests_without_rse_id = []
+    for update_request in replica_update_requests:
+        if update_request.rse_id is not None:
+            small_request = {'name': update_request.name, 'scope': update_request.scope, 'rse_id': update_request.rse_id}
+            if small_request not in update_requests_with_rse_id:
+                update_requests_with_rse_id.append(small_request)
+            else:
+                update_request.delete(session=session)
+                continue
+            found_replicas = session.query(models.CollectionReplica).filter(models.CollectionReplica.rse_id == update_request.rse_id, models.CollectionReplica.scope == update_request.scope, models.CollectionReplica.name == update_request.name).all()
+            if len(found_replicas) == 0:
+                update_request.delete(session=session)
+        else:
+            small_request = {'name': update_request.name, 'scope': update_request.scope}
+            if small_request not in update_requests_without_rse_id:
+                update_requests_without_rse_id.append(small_request)
+            else:
+                update_request.delete(session=session)
+                continue
+            found_replicas = session.query(models.CollectionReplica).filter(models.CollectionReplica.scope == update_request.scope, models.CollectionReplica.name == update_request.name).all()
+            if len(found_replicas) == 0:
+                update_request.delete(session=session)
+
+    query = session.query(models.UpdatedCollectionReplica)
+
+    if total_workers > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            query = query.filter(text('ORA_HASH(rse_id, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(rse_id), %s) = %s' % (total_workers + 1, worker_number))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(rse_id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+    return [update_request.id for update_request in query.all()]
+
+
+@transactional_session
+def update_collection_replica(update_request_id, session=None):
+    """
+    Reads UpdatedCollectionReplicas and updates a collection replica.
+    :param update_request_id: update request from the upated_col_rep table.
+    """
+    update_request = session.query(models.UpdatedCollectionReplica).filter_by(id=update_request_id).one()
+    if update_request.rse_id is not None:
+        # Check one specific dataset replica
+        ds_length = None
+        old_available_replicas = None
+        ds_bytes = None
+        ds_replica_state = None
+        ds_available_bytes = None
+        available_replicas = None
+
+        try:
+            collection_replica = session.query(models.CollectionReplica).filter_by(scope=update_request.scope, name=update_request.name, rse_id=update_request.rse_id).one()
+            ds_length = collection_replica.length
+            old_available_replicas = collection_replica.available_replicas_cnt
+            ds_bytes = collection_replica.bytes
+        except NoResultFound:
+            pass
+
+        try:
+            file_replica = session.query(models.RSEFileAssociation, models.DataIdentifierAssociation).filter(models.RSEFileAssociation.scope == models.DataIdentifierAssociation.child_scope, models.RSEFileAssociation.name == models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.name == update_request.name, models.RSEFileAssociation.rse_id == update_request.rse_id, models.RSEFileAssociation.state == ReplicaState.AVAILABLE, update_request.scope == models.DataIdentifierAssociation.scope)
+            file_replica = file_replica.with_entities(label('ds_available_bytes', func.sum(models.RSEFileAssociation.bytes)), label('available_replicas', func.count())).one()
+
+            available_replicas = file_replica.available_replicas
+            ds_available_bytes = file_replica.ds_available_bytes
+        except NoResultFound:
+            pass
+
+        if available_replicas >= ds_length:
+            ds_replica_state = ReplicaState.AVAILABLE
+        else:
+            ds_replica_state = ReplicaState.UNAVAILABLE
+
+        if old_available_replicas > 0 and available_replicas == 0:
+            session.query(models.CollectionReplica).filter_by(scope=update_request.scope, name=update_request.name, rse_id=update_request.rse_id).delete()
+        else:
+            updated_replica = session.query(models.CollectionReplica).filter_by(scope=update_request.scope, name=update_request.name, rse_id=update_request.rse_id).one()
+            updated_replica.state = ds_replica_state
+            updated_replica.available_replicas_cnt = available_replicas
+            updated_replica.length = ds_length
+            updated_replica.bytes = ds_bytes
+            updated_replica.available_bytes = ds_available_bytes
+    else:
+        # Check all dataset replicas
+        association = session.query(models.DataIdentifierAssociation).filter_by(scope=update_request.scope, name=update_request.name).with_entities(label('ds_length', func.count()), label('ds_bytes', func.sum(models.DataIdentifierAssociation.bytes))).one()
+        ds_length = association.ds_length
+        ds_bytes = association.ds_bytes
+        ds_replica_state = None
+
+        for collection_replica in session.query(models.CollectionReplica).filter_by(scope=update_request.scope, name=update_request.name).all():
+            if ds_length:
+                collection_replica.length = ds_length
+            else:
+                collection_replica.length = 0
+            if ds_bytes:
+                collection_replica.bytes = ds_bytes
+            else:
+                collection_replica.bytes = 0
+
+        for file_replica in session.query(models.RSEFileAssociation, models.DataIdentifierAssociation).filter(models.RSEFileAssociation.scope == models.DataIdentifierAssociation.child_scope, models.RSEFileAssociation.name == models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.name == update_request.name, models.RSEFileAssociation.state == ReplicaState.AVAILABLE, update_request.scope == models.DataIdentifierAssociation.scope).with_entities(models.RSEFileAssociation.rse_id, label('ds_available_bytes', func.sum(models.RSEFileAssociation.bytes)), label('available_replicas', func.count())).group_by(models.RSEFileAssociation.rse_id).all():
+            if file_replica.available_replicas >= ds_length:
+                ds_replica_state = ReplicaState.AVAILABLE
+            else:
+                ds_replica_state = ReplicaState.UNAVAILABLE
+
+            collection_replica = session.query(models.CollectionReplica).filter_by(scope=update_request.scope, name=update_request.name, rse_id=file_replica.rse_id).first()
+            if collection_replica:
+                collection_replica.state = ds_replica_state
+                collection_replica.available_replicas_cnt = file_replica.available_replicas
+                collection_replica.available_bytes = file_replica.ds_available_bytes
+    update_request.delete(session=session)
