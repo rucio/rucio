@@ -1,0 +1,13 @@
+============
+1.17.8.post2
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Clients: rucio download wrongly resolves wildcarded DIDs `#1606 <https://github.com/rucio/rucio/issues/1606>`_
