@@ -439,6 +439,8 @@ class DownloadClient:
 
             # this is a workaround to fix that gfal doesnt use root's -z option for archives
             # this will be removed as soon as gfal has fixed this
+            temp_file_path = item['temp_file_path']
+            dest_file_path = item['dest_file_path']
             unzip_arg_name = '?xrdcl.unzip='
             if scheme == 'root' and unzip_arg_name in pfn:
                 logger.info('%sFound xrdcl.unzip in PFN. Using xrdcp overwrite.' % log_prefix)
@@ -449,6 +451,8 @@ class DownloadClient:
                         break
                     filename_in_archive += c
 
+                dest_file_path = os.path.join(os.path.dirname(dest_file_path), filename_in_archive)
+                temp_file_path = '%s.part' % dest_file_path
                 cmd = 'xrdcp -vf %s -z %s file://%s' % (pfn, filename_in_archive, temp_file_path)
                 start_time = time.time()
                 try:
@@ -460,31 +464,11 @@ class DownloadClient:
                     continue
                 end_time = time.time()
                 success = (status == 0)
-                if success and not item.get('ignore_checksum', False):
-                    rucio_checksum = item.get('adler32')
-                    local_checksum = None
-                    if not rucio_checksum:
-                        rucio_checksum = item.get('md5')
-                        local_checksum = md5(temp_file_path)
-                    else:
-                        local_checksum = adler32(temp_file_path)
-
-                    if rucio_checksum != local_checksum:
-                        success = False
-                        os.unlink(temp_file_path)
-                        logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
-                        logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
-                        try:
-                            self.client.declare_suspicious_file_replicas([pfn], reason='Corrupted')
-                        except Exception:
-                            pass
-                        trace['clientState'] = 'FAIL_VALIDATE'
-                elif not success:
+                if not success:
                     logger.debug('xrdcp status: %s' % status)
                     logger.debug('xrdcp stdout: %s' % out)
                     logger.debug('xrdcp stderr: %s' % err)
                     trace['clientState'] = ('%s' % err)
-                if not success:
                     send_trace(trace, self.client.host, self.client.user_agent)
                     continue
                 else:
@@ -562,6 +546,7 @@ class DownloadClient:
             item['clientState'] = 'FAILED'
             return item
 
+        logger.debug("renaming '%s' to '%s'" % (temp_file_path, dest_file_path))
         os.rename(temp_file_path, dest_file_path)
 
         trace['transferStart'] = start_time
