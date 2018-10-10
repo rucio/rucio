@@ -12,26 +12,32 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
 # - Diego Ciangottini <diego.ciangottini@pg.infn.it>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 
 from __future__ import absolute_import
 import datetime
 import json
+try:
+    from json.decoder import JSONDecodeError
+except ImportError:
+    JSONDecodeError = ValueError
 import logging
 import sys
 import time
 import urlparse
 import uuid
-import traceback
 
 import requests
+from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
-from fts3.rest.client.easy import Context, delegate
-from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError
+from fts3.rest.client.easy import Context, delegate  # pylint: disable=no-name-in-module,import-error
+from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError  # pylint: disable=no-name-in-module,import-error
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.sqla.constants import FTSState
 from rucio.transfertool.transfertool import Transfertool
@@ -115,6 +121,10 @@ class FTS3Transfertool(Transfertool):
             logging.error("Wrong FTS endpoint: %s", self.external_host)
             record_timer('transfertool.fts3.delegate_proxy.fail.%s' % proxy, (time.time() - start_time))
             raise
+        except ReadTimeout as error:
+            raise TransferToolTimeout(error)
+        except JSONDecodeError as error:
+            raise TransferToolWrongAnswer(error)
 
         logging.info("Delegated proxy %s", delegation_id)
 
@@ -174,8 +184,12 @@ class FTS3Transfertool(Transfertool):
                                         headers={'Content-Type': 'application/json'},
                                         timeout=timeout)
             record_timer('transfertool.fts3.submit_transfer.%s' % self.__extract_host(self.external_host), (time.time() - start_time) * 1000 / len(files))
-        except:
-            logging.warn('Could not submit transfer to %s - %s', self.external_host, str(traceback.format_exc()))
+        except ReadTimeout as error:
+            raise TransferToolTimeout(error)
+        except JSONDecodeError as error:
+            raise TransferToolWrongAnswer(error)
+        except Exception as error:
+            logging.warn('Could not submit transfer to %s - %s' % (self.external_host, str(error)))
 
         if post_result and post_result.status_code == 200:
             record_counter('transfertool.fts3.%s.submission.success' % self.__extract_host(self.external_host), len(files))
@@ -348,6 +362,10 @@ class FTS3Transfertool(Transfertool):
                                 verify=self.verify,
                                 cert=self.cert,
                                 headers={'Content-Type': 'application/json'})
+        except ReadTimeout as error:
+            raise TransferToolTimeout(error)
+        except JSONDecodeError as error:
+            raise TransferToolWrongAnswer(error)
         except Exception:
             logging.warn('Could not query latest terminal states from %s', self.external_host)
 
@@ -356,8 +374,12 @@ class FTS3Transfertool(Transfertool):
             try:
                 jobs_json = jobs.json()
                 return jobs_json
-            except:
-                logging.error("Failed to parse the jobs status %s", str(traceback.format_exc()))
+            except ReadTimeout as error:
+                raise TransferToolTimeout(error)
+            except JSONDecodeError as error:
+                raise TransferToolWrongAnswer(error)
+            except Exception as error:
+                logging.error("Failed to parse the jobs status %s" % (str(error)))
 
         record_counter('transfertool.fts3.%s.query.failure' % self.__extract_host(self.external_host))
 
@@ -392,6 +414,10 @@ class FTS3Transfertool(Transfertool):
                 record_counter('transfertool.fts3.%s.bulk_query.success' % self.__extract_host(self.external_host))
                 jobs_response = jobs.json()
                 responses = self.__bulk_query_responses(jobs_response)
+            except ReadTimeout as error:
+                raise TransferToolTimeout(error)
+            except JSONDecodeError as error:
+                raise TransferToolWrongAnswer(error)
             except Exception as error:
                 raise Exception("Failed to parse the job response: %s, error: %s" % (str(jobs), str(error)))
         else:
@@ -418,7 +444,7 @@ class FTS3Transfertool(Transfertool):
         try:
             key = 'voname: %s' % self.external_host
             result = REGION_SHORT.get(key)
-            if type(result) is NoValue:
+            if isinstance(result, NoValue):
                 logging.debug("Refresh transfer baseid and voname for %s", self.external_host)
 
                 get_result = None
@@ -428,8 +454,12 @@ class FTS3Transfertool(Transfertool):
                                               cert=self.cert,
                                               headers={'Content-Type': 'application/json'},
                                               timeout=5)
-                except:
-                    logging.warn('Could not get baseid and voname from %s - %s', self.external_host, str(traceback.format_exc()))
+                except ReadTimeout as error:
+                    raise TransferToolTimeout(error)
+                except JSONDecodeError as error:
+                    raise TransferToolWrongAnswer(error)
+                except Exception as error:
+                    logging.warn('Could not get baseid and voname from %s - %s' % (self.external_host, str(error)))
 
                 if get_result and get_result.status_code == 200:
                     baseid = str(get_result.json()['base_id'])
@@ -442,8 +472,8 @@ class FTS3Transfertool(Transfertool):
                 else:
                     logging.warn("Failed to get baseid and voname from %s, error: %s", self.external_host, get_result.text if get_result is not None else get_result)
                     result = (None, None)
-        except:
-            logging.warning("Failed to get baseid and voname from %s: %s", self.external_host, traceback.format_exc())
+        except Exception as error:
+            logging.warning("Failed to get baseid and voname from %s: %s" % (self.external_host, str(error)))
             result = (None, None)
         return result
 
