@@ -24,6 +24,7 @@ import requests
 from rucio.db.sqla.session import get_session
 from rucio.common.exception import RucioException, RSENotFound
 from rucio.core.rse import add_rse_attribute, get_rses_with_attribute, del_rse_attribute, get_rse_usage, get_rse
+from rucio.core.rse_expression_parser import parse_expression
 
 
 UNKNOWN = 3
@@ -56,7 +57,7 @@ if __name__ == '__main__':
         print("Failed to load info from AGIS: %s" % str(error))
         sys.exit(WARNING)
 
-    internal_proxy_mapping = {}
+    INTERNAL_PROXY_MAPPING = {}
     URL = 'http://atlas-agis-api.cern.ch/request/serviceobject/query/list/?json&state=ACTIVE'
     try:
         RESP = requests.get(url=URL)
@@ -66,15 +67,15 @@ if __name__ == '__main__':
                 if 'protocols' in DIC[rse][service]:
                     for protocol in DIC[rse][service]['protocols']:
                         if DIC[rse][service]['protocols'][protocol]['doortype'] == 'proxyinternal':
-                            internal_proxy_mapping[rse] = DIC[rse][service]['protocols'][protocol]['endpoint']
+                            INTERNAL_PROXY_MAPPING[rse] = DIC[rse][service]['protocols'][protocol]['endpoint']
     except Exception as error:
         print("Failed to load info from AGIS: %s" % str(error))
         sys.exit(WARNING)
 
-    SPACE_USAGE = get_rses_with_attribute('space_usage_method')
-    HAS_PROXY = get_rses_with_attribute('root-proxy-internal')
-    SPACE_USAGE = [rse['rse'] for rse in SPACE_USAGE]
-    HAS_PROXY = [rse['rse'] for rse in HAS_PROXY]
+    SPACE_USAGE = [rse['rse'] for rse in get_rses_with_attribute('space_usage_method')]
+    HAS_PROXY = [rse['rse'] for rse in get_rses_with_attribute('root-proxy-internal')]
+    NOT_FOR_EXTRA_COPY = [rse['rse'] for rse in get_rses_with_attribute('notforextracopy')]
+    SCRATCHDISK_WITHOUT_SPACE = [rse['rse'] for rse in parse_expression(expression='type=SCRATCHDISK&freespace<50')]
     for rse in DATA:
 
         name = rse['name']
@@ -89,11 +90,17 @@ if __name__ == '__main__':
         print('Working on %s' % name)
 
         try:
-            if rse['site'] in internal_proxy_mapping:
-                add_rse_attribute(name, 'root-proxy-internal', str(internal_proxy_mapping[rse['site']]), session=session)
-            elif rse['name'] in HAS_PROXY:
-                print('Will remove root-proxy-internal for site %s' % rse['name'])
+            if rse['site'] in INTERNAL_PROXY_MAPPING:
+                add_rse_attribute(name, 'root-proxy-internal', str(INTERNAL_PROXY_MAPPING[rse['site']]), session=session)
+            elif name in HAS_PROXY:
+                print('Will remove root-proxy-internal for site %s' % name)
                 del_rse_attribute(name, 'root-proxy-internal', session=session)
+
+            if name in SCRATCHDISK_WITHOUT_SPACE:
+                add_rse_attribute(name, 'notforextracopy', 1, session=session)
+            elif name in NOT_FOR_EXTRA_COPY:
+                print('Will remove notforextracopy for site %s' % rse['name'])
+                del_rse_attribute(name, 'notforextracopy', session=session)
 
             add_rse_attribute(name, 'ALL', '1', session=session)
             add_rse_attribute(name, 'tier', str(rse['tier_level']), session=session)
@@ -151,7 +158,7 @@ if __name__ == '__main__':
         except RucioException as error:
             print(error)
             sys.exit(CRITICAL)
-        except:
+        except Exception:
             print(traceback.format_exc())
             RESULT = WARNING
         finally:
