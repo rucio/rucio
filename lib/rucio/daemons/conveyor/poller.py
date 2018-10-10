@@ -27,13 +27,12 @@ import datetime
 import json
 import logging
 import os
+import re
 import socket
 import sys
 import threading
 import time
 import traceback
-
-from re import match
 
 from collections import defaultdict
 from ConfigParser import NoOptionError
@@ -41,7 +40,7 @@ from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException
+from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.utils import chunks
 from rucio.core import heartbeat, transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
@@ -111,15 +110,16 @@ def poller(once=False, activities=None, sleep_time=60,
 
                 start_time = time.time()
                 logging.debug(prepend_str + 'Start to poll transfers older than %i seconds for activity %s' % (older_than, activity))
-                transfs = transfer_core.get_next_transfers(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                                           state=[RequestState.SUBMITTED],
-                                                           limit=db_bulk,
-                                                           older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
-                                                           total_workers=heart_beat['nr_threads'] - 1, worker_number=heart_beat['assign_thread'],
-                                                           activity=activity,
-                                                           activity_shares=activity_shares)
+                transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                                state=[RequestState.SUBMITTED],
+                                                limit=db_bulk,
+                                                older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
+                                                total_workers=heart_beat['nr_threads'] - 1, worker_number=heart_beat['assign_thread'],
+                                                mode_all=False, hash_variable='id',
+                                                activity=activity,
+                                                activity_shares=activity_shares)
 
-                record_timer('daemons.conveyor.poller.000-get_next_transfers', (time.time() - start_time) * 1000)
+                record_timer('daemons.conveyor.poller.000-get_next', (time.time() - start_time) * 1000)
 
                 if transfs:
                     logging.debug(prepend_str + 'Polling %i transfers for activity %s' % (len(transfs), activity))
@@ -227,6 +227,8 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
             logging.info(prepend_str + 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
             resps = transfer_core.bulk_query_transfers(external_host, xfers, 'fts3', timeout)
             record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - tss) * 1000 / len(xfers))
+        except (TransferToolTimeout, TransferToolWrongAnswer) as error:
+            logging.error(prepend_str + str(error))
         except RequestException as error:
             logging.error(prepend_str + "Failed to contact FTS server: %s" % (str(error)))
             return
@@ -264,7 +266,7 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
                 # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
                 transfer_core.touch_transfer(external_host, transfer_id)
             except (DatabaseException, DatabaseError) as error:
-                if isinstance(error.args[0], tuple) and (match('.*ORA-00054.*', error.args[0][0]) or match('.*ORA-00060.*', error.args[0][0]) or ('ERROR 1205 (HY000)' in error.args[0][0])):
+                if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                     logging.warn(prepend_str + "Lock detected when handling request %s - skipping" % request_id)
                 else:
                     logging.error(traceback.format_exc())
