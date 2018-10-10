@@ -22,6 +22,7 @@ import logging
 import sys
 
 from datetime import datetime, date, timedelta
+from string import Template
 
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rule import get_rule, add_rule, update_rule
@@ -33,7 +34,7 @@ from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, Duplic
                                     InsufficientAccountLimit)
 from rucio.db.sqla.constants import RuleGrouping
 from rucio.db.sqla.session import transactional_session
-
+from requests import get
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
@@ -107,6 +108,33 @@ def rebalance_rule(parent_rule, activity, rse_expression, priority, source_repli
     return child_rule
 
 
+def __dump_url(rse):
+    """
+    getting rse dump with different methods according to settings
+
+    :param rse          RSE where the dump is released.
+    """
+
+    # get the date of the most recent dump
+    dump_production_day = config_get('bb8', 'dump_production_day', raise_exception=False, default='Sunday')
+    weekdays = {'Sunday': 6, 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5}
+    if dump_production_day not in weekdays:
+        print 'ERROR: please set the day of dump creation in bb8 config correctly, e.g. Monday'
+        return False
+    today = date.today()
+    today_idx = (today.weekday() - weekdays[dump_production_day]) % 7
+    dump_date = today - timedelta(today_idx)
+    date_dump = dump_date.strftime('%d-%m-%Y')
+
+    # getting structure (template) of url location of a dump
+    url_template_str = config_get('bb8', 'dump_url_template', raise_exception=False, default='http://rucio-analytix.cern.ch:8080/LOCKS/GetFileFromHDFS?date=${date}&rse=${rse}')
+    url_template = Template(url_template_str)
+
+    # populating url template
+    url = url_template.substitute({'date': date_dump, 'rse': rse})
+    return url
+
+
 def _list_rebalance_rule_candidates_dump(rse, mode=None):
     """
     Download dump to tmporary directory
@@ -115,21 +143,13 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
     :param mode:         Rebalancing mode.
     """
 
-    from requests import get
-
-    # get last sunday locks dump date:
-    today = date.today()
-    today_idx = (today.weekday() + 1) % 7
-    sun = today - timedelta(today_idx)
-    last_sunday_date = sun.strftime('%d-%m-%Y')
-
-    # expected location of a dump for given rse
-    dumps_location = config_get('bb8', 'dumps_location', raise_exception=False, default='http://rucio-analytix.cern.ch:8080/LOCKS/')
-    rse_dump = '%sGetFileFromHDFS?date=%s&rse=%s' % (dumps_location, str(last_sunday_date), rse)
-
     # fetching the dump
     candidates = []
     rules = {}
+    rse_dump = __dump_url(rse)
+    if not rse_dump:
+        print 'URL of the dump was not built from template.'
+        return candidates
     r = get(rse_dump, stream=True)
     if not r:
         print 'RSE dump not available: %s' % rse_dump
@@ -198,8 +218,7 @@ d.bytes is not NULL and
 d.is_open = 0 and
 d.did_type = 'D' and
 r.grouping IN ('D', 'A') and
-1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
-0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id IN (SELECT id FROM atlas_rucio.rses WHERE rse_type='TAPE'))
+1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id)
 ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
     elif mode == 'decommission':  # OBSOLETE
         sql = """SELECT r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
@@ -241,6 +260,7 @@ def select_target_rse(parent_rule, current_rse, rse_expression, subscription_id,
         target_rse = current_rse
 
     rses = parse_expression(expression=rse_expression, session=session)
+    # TODO: dest rse selection should be configurable, there might be cases when tier is not defined, or concept of DATADISKS is not present.
     # if subscription_id:
     #     pass
     #     # get_subscription_by_id(subscription_id, session)
@@ -262,7 +282,7 @@ def select_target_rse(parent_rule, current_rse, rse_expression, subscription_id,
         rses = parse_expression(expression='(tier=2&type=DATADISK)\\%s' % target_rse, filter={'availability_write': True}, session=session)
     elif int(rse_attributes['tier']) == 3:
         # Tier 3 will go to Tier 2, since we don't have enough t3s
-        rses = parse_expression(expression='(tier=2&type=DATADISK)\\%s' % target_rse, filter={'availability_write': True}, session=session)
+        rses = parse_expression(expression='((tier=2&type=DATADISK)\\datapolicynucleus=1)\\%s' % target_rse, filter={'availability_write': True}, session=session)
     rseselector = RSESelector(account='ddmadmin', rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
     return get_rse_name([rse_id for rse_id, _, _ in rseselector.select_rse(size=0, preferred_rse_ids=[], blacklist=other_rses)][0], session=session)
 
