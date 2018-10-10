@@ -243,7 +243,7 @@ def queue_requests(requests, session=None):
 
 @read_session
 def get_next(request_type, state, limit=100, older_than=None, rse=None, activity=None,
-             process=None, total_processes=None, thread=None, total_threads=None,
+             total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
              activity_shares=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
@@ -253,19 +253,18 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
     :param state:             State of the request as a string or list of strings.
     :param limit:             Integer of requests to retrieve.
     :param older_than:        Only select requests older than this DateTime.
-    :param process:           Identifier of the caller process as an integer.
-    :param total_processes:   Maximum number of processes as an integer.
-    :param thread:            Identifier of the caller thread as an integer.
-    :param total_threads:     Maximum number of threads as an integer.
+    :param rse:               The RSE to filter on.
+    :param activity:          The activity to filter on.
+    :param total_workers:     Number of total workers.
+    :param worker_number:     Id of the executing worker.
+    :param mode_all:          If set to True the function returns everything, if set to False returns list of dictionaries  {'request_id': x, 'external_host': y, 'external_id': z}.
+    :param hash_variable:     The variable to use to perform the partitioning. By default it uses the request id.
     :param activity_shares:   Activity shares dictionary, with number of requests
     :param session:           Database session to use.
     :returns:                 Request as a dictionary.
     """
 
     record_counter('core.request.get_next.%s-%s' % (request_type, state))
-
-    if total_processes > 1 and total_processes == total_threads:
-        raise RucioException("Total process %s is the same with total threads %s, will create potential same hash" % (total_processes, total_threads))
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
@@ -299,37 +298,34 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
         elif activity:
             query = query.filter(models.Request.activity == activity)
 
-        if (total_processes - 1) > 0:
+        if total_workers > 0:
             if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes - 1)]
-                query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+                bindparams = [bindparam('worker_number', worker_number),
+                              bindparam('total_workers', total_workers)]
+                query = query.filter(text('ORA_HASH(%s, :total_workers) = :worker_number' % (hash_variable), bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_processes - 1, process)))
+                query = query.filter(text('mod(md5(%s), %s) = %s' % (hash_variable, total_workers + 1, worker_number)))
             elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_processes - 1, process)))
-
-        if (total_threads - 1) > 0:
-            if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-                query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
-            elif session.bind.dialect.name == 'mysql':
-                query = query.filter(text('mod(md5(rule_id), %s) = %s' % (total_threads - 1, thread)))
-            elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(rule_id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+                query = query.filter(text('mod(abs((\'x\'||md5(%s::text))::bit(32)::int), %s) = %s' % (hash_variable, total_workers + 1, worker_number)))
 
         if share:
             query = query.limit(activity_shares[share])
         else:
             query = query.limit(limit)
 
-        tmp = query.all()
-        if tmp:
-            for t in tmp:
-                t2 = dict(t)
-                t2.pop('_sa_instance_state')
-                t2['request_id'] = t2['id']
-                t2['attributes'] = json.loads(str(t2['attributes']))
-                result.append(t2)
+        query_result = query.all()
+        if query_result:
+            if mode_all:
+                for res in query_result:
+                    res_dict = dict(res)
+                    res_dict.pop('_sa_instance_state')
+                    res_dict['request_id'] = res_dict['id']
+                    res_dict['attributes'] = json.loads(str(res_dict['attributes']))
+                    result.append(res_dict)
+            else:
+                for res in query_result:
+                    result.append({'request_id': res.id, 'external_host': res.external_host, 'external_id': res.external_id})
+
     return result
 
 
