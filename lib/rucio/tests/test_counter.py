@@ -78,22 +78,22 @@ class TestCoreRSECounter():
         db_session = session.get_session()
         db_session.query(models.RSEFileAssociation).delete()
 
-        models.DataIdentifier(name='file_1', scope=scope, account=account).save(session=db_session)
+        models.DataIdentifier(name='file_1', scope=scope, account=account, did_type=constants.DIDType.FILE).save(session=db_session)
         models.RSEFileAssociation(name='file_1', rse_id=rse_id, bytes=2, state=constants.ReplicaState.COPYING, scope=scope).save(session=db_session)
         unavailable_replicas = rse_counter.get_rse_usage_from_unavailable_replicas(0, 0, session=db_session)
         assert_equal(unavailable_replicas, [{'rse_id': rse_id, 'bytes': 2, 'files': 1}])
 
-        models.DataIdentifier(name='file_2', scope=scope, account=account).save(session=db_session)
+        models.DataIdentifier(name='file_2', scope=scope, account=account, did_type=constants.DIDType.FILE).save(session=db_session)
         models.RSEFileAssociation(name='file_2', rse_id=rse_id, bytes=2, tombstone=datetime.datetime.utcnow(), state=constants.ReplicaState.COPYING, scope=scope).save(session=db_session)
         unavailable_replicas = rse_counter.get_rse_usage_from_unavailable_replicas(0, 0, session=db_session)
         assert_equal(unavailable_replicas, [{'rse_id': rse_id, 'bytes': 2, 'files': 1}])
 
-        models.DataIdentifier(name='file_3', scope=scope, account=account).save(session=db_session)
+        models.DataIdentifier(name='file_3', scope=scope, account=account, did_type=constants.DIDType.FILE).save(session=db_session)
         models.RSEFileAssociation(name='file_3', rse_id=rse_id, bytes=2, state=constants.ReplicaState.UNAVAILABLE, scope=scope).save(session=db_session)
         unavailable_replicas = rse_counter.get_rse_usage_from_unavailable_replicas(0, 0, session=db_session)
         assert_equal(unavailable_replicas, [{'rse_id': rse_id, 'bytes': 4, 'files': 2}])
 
-        models.DataIdentifier(name='file_4', scope=scope, account=account).save(session=db_session)
+        models.DataIdentifier(name='file_4', scope=scope, account=account, did_type=constants.DIDType.FILE).save(session=db_session)
         models.RSEFileAssociation(name='file_4', rse_id=rse_id, bytes=2, state=constants.ReplicaState.AVAILABLE, scope=scope).save(session=db_session)
         unavailable_replicas = rse_counter.get_rse_usage_from_unavailable_replicas(0, 0, session=db_session)
         assert_equal(unavailable_replicas, [{'rse_id': rse_id, 'bytes': 4, 'files': 2}])
@@ -104,13 +104,7 @@ class TestCoreRSECounter():
         """ RSE COUNTER (CORE): Update rse usage from unavailable replicas """
         rse_id = get_rse('MOCK').id
         db_session = session.get_session()
-        usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='unavailable').first()
-        if usage:
-            usage.used = 0
-            usage.files = 0
-        else:
-            models.RSEUsage(rse_id=rse_id, source='unavailable').save(session=db_session)
-
+        db_session.query(models.RSEUsage).delete()
         rse_counter.update_rse_usage_from_unavailable_replicas({'rse_id': rse_id, 'bytes': 2, 'files': 2}, session=db_session)
         usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='unavailable').one()
         assert_equal(usage['used'], 2)
