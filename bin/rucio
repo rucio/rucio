@@ -506,57 +506,53 @@ def list_dids(args):
     type = 'all'
     table = []
     if args.filter:
-        if args.recursive:
-            logger.error('Option recursive and filter cannot be used together')
-            return FAILURE
-        else:
-            try:
-                filter_options = args.filter.split(',')
-                for option in filter_options:
-                    value = None
-                    key = None
+        try:
+            filter_options = args.filter.split(',')
+            for option in filter_options:
+                value = None
+                key = None
 
-                    if '>=' in option:
-                        key, value = option.split('>=')
-                        if key == 'length':
-                            key = 'length.gte'
-                    elif '>' in option:
-                        key, value = option.split('>')
-                        if key == 'length':
-                            key = 'length.gt'
-                    elif '<=' in option:
-                        key, value = option.split('<=')
-                        if key == 'length':
-                            key = 'length.lte'
-                    elif '<' in option:
-                        key, value = option.split('<')
-                        if key == 'length':
-                            key = 'length.lt'
-                    elif '=' in option:
-                        key, value = option.split('=')
+                if '>=' in option:
+                    key, value = option.split('>=')
+                    if key == 'length':
+                        key = 'length.gte'
+                elif '>' in option:
+                    key, value = option.split('>')
+                    if key == 'length':
+                        key = 'length.gt'
+                elif '<=' in option:
+                    key, value = option.split('<=')
+                    if key == 'length':
+                        key = 'length.lte'
+                elif '<' in option:
+                    key, value = option.split('<')
+                    if key == 'length':
+                        key = 'length.lt'
+                elif '=' in option:
+                    key, value = option.split('=')
 
-                    if key == 'type':
-                        if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
-                            type = value.lower()
-                        else:
-                            logger.error('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
-                            return FAILURE
-                    elif key == 'length.gt' or key == 'length.lt' or key == 'length.gte' or key == 'length.lte' or key == 'length':
-                        try:
-                            value = int(value)
-                            filters[key] = value
-                        except ValueError:
-                            logger.error('Length has to be an integer value.')
-                            return FAILURE
+                if key == 'type':
+                    if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
+                        type = value.lower()
                     else:
-                        if value.lower() == 'true':
-                            value = '1'
-                        elif value.lower() == 'false':
-                            value = '0'
+                        logger.error('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
+                        return FAILURE
+                elif key in ('length.gt', 'length.lt', 'length.gte', 'length.lte', 'length'):
+                    try:
+                        value = int(value)
                         filters[key] = value
-            except Exception:
-                logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
-                return FAILURE
+                    except ValueError:
+                        logger.error('Length has to be an integer value.')
+                        return FAILURE
+                else:
+                    if value.lower() == 'true':
+                        value = '1'
+                    elif value.lower() == 'false':
+                        value = '0'
+                    filters[key] = value
+        except Exception:
+            logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
+            return FAILURE
 
     try:
         scope, name = extract_scope(args.did[0])
@@ -569,7 +565,7 @@ def list_dids(args):
         logger.error('Scope not found')
         return FAILURE
 
-    if args.recursive:
+    if args.recursive and '*' in name:
         logger.error('Option recursive cannot be used with wildcards')
         return FAILURE
     elif ('name' in filters) and (name != '*'):
@@ -577,7 +573,7 @@ def list_dids(args):
         return FAILURE
     filters['name'] = name
 
-    for did in client.list_dids(scope, filters=filters, type=type, long=True):
+    for did in client.list_dids(scope, filters=filters, type=type, long=True, recursive=args.recursive):
         table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
 
     if args.short:

@@ -788,3 +788,33 @@ class TestBinRucio():
         print(out)
         print(err)
         nose.tools.assert_not_equal(re.search("Data identifier not found.", err), None)
+
+    def test_list_did_recursive(self):
+        """ CLIENT(USER): List did recursive """
+        # Setup nested collections
+        tmp_scope = 'mock'
+        tmp_container_1 = 'container_%s' % generate_uuid()
+        cmd = 'rucio add-container {0}:{1}'.format(tmp_scope, tmp_container_1)
+        exitcode, out, err = execute(cmd)
+        tmp_container_2 = 'container_%s' % generate_uuid()
+        cmd = 'rucio add-container {0}:{1}'.format(tmp_scope, tmp_container_2)
+        exitcode, out, err = execute(cmd)
+        tmp_container_3 = 'container_%s' % generate_uuid()
+        cmd = 'rucio add-container {0}:{1}'.format(tmp_scope, tmp_container_3)
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(tmp_scope, tmp_container_1, tmp_container_2)
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(tmp_scope, tmp_container_2, tmp_container_3)
+        exitcode, out, err = execute(cmd)
+
+        # All attached DIDs are expected
+        cmd = 'rucio list-dids {0}:{1} --recursive'.format(tmp_scope, tmp_container_1)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search(tmp_container_1, out), None)
+        nose.tools.assert_not_equal(re.search(tmp_container_2, out), None)
+        nose.tools.assert_not_equal(re.search(tmp_container_3, out), None)
+
+        # Wildcards are not allowed to use with --recursive
+        cmd = 'rucio list-dids {0}:* --recursive'.format(tmp_scope)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search("Option recursive cannot be used with wildcards", err), None)
