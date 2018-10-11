@@ -130,8 +130,7 @@ def update_rse_counter(rse_id, session=None):
     :param session:  Database session in use.
     """
 
-    updated_rse_counters = session.query(models.UpdatedRSECounter).\
-        filter_by(rse_id=rse_id).all()
+    updated_rse_counters = session.query(models.UpdatedRSECounter).filter_by(rse_id=rse_id).all()
     sum_bytes = sum([updated_rse_counter.bytes for updated_rse_counter in updated_rse_counters])
     sum_files = sum([updated_rse_counter.files for updated_rse_counter in updated_rse_counters])
 
@@ -159,7 +158,13 @@ def get_rse_usage_from_unavailable_replicas(total_workers, worker_number, sessio
     :param session:            Database session in use.
     :returns:                  List of rse_ids whose rse_counters need to be updated.
     """
-    query = session.query(models.RSEFileAssociation.rse_id, label('bytes', func.sum(models.RSEFileAssociation.bytes)), label('files', func.count())).filter(((models.RSEFileAssociation.state == constants.ReplicaState.COPYING) | (models.RSEFileAssociation.state == constants.ReplicaState.UNAVAILABLE)) & (models.RSEFileAssociation.tombstone.is_(None))).group_by(models.RSEFileAssociation.rse_id)
+    query = session.query(models.RSEFileAssociation.rse_id,
+                          label('bytes', func.sum(models.RSEFileAssociation.bytes)),
+                          label('files', func.count()))\
+                   .filter(((models.RSEFileAssociation.state == constants.ReplicaState.COPYING) |
+                            (models.RSEFileAssociation.state == constants.ReplicaState.UNAVAILABLE)) &
+                           (models.RSEFileAssociation.tombstone.is_(None)))\
+                   .group_by(models.RSEFileAssociation.rse_id)
 
     if total_workers > 0:
         if session.bind.dialect.name == 'oracle':
