@@ -24,6 +24,7 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
 # - Asket Agarwal <asket.agarwal96@gmail.com>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 try:
     from urllib import quote_plus
@@ -50,7 +51,7 @@ class DIDClient(BaseClient):
         super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                         auth_type, creds, timeout, user_agent)
 
-    def list_dids(self, scope, filters, type='collection', long=False):
+    def list_dids(self, scope, filters, type='collection', long=False, recursive=False):
         """
         List all data identifiers in a scope which match a given pattern.
 
@@ -58,6 +59,7 @@ class DIDClient(BaseClient):
         :param filters: A dictionary of key/value pairs like {'name': 'file_name','rse-expression': 'tier0'}.
         :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         :param long: Long format option to display more information for each DID.
+        :param recursive: Recursively list DIDs content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
         payload = {}
@@ -70,6 +72,7 @@ class DIDClient(BaseClient):
             else:
                 payload[k] = v
         payload['type'] = type
+        payload['recursive'] = recursive
 
         url = build_url(choice(self.list_hosts), path=path, params=payload)
 
