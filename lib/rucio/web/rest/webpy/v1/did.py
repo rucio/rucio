@@ -21,6 +21,7 @@
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from json import dumps, loads
 from traceback import format_exc
@@ -124,18 +125,21 @@ class Search(RucioController):
         header('Content-Type', 'application/x-json-stream')
         filters = {}
         long = False
+        recursive = False
         if ctx.query:
             params = parse_qs(ctx.query[1:])
             for k, v in params.items():
                 if k == 'type':
                     type = v[0]
                 elif k == 'long':
-                    long = bool(v[0])
+                    long = v[0] == '1'
+                elif k == 'recursive':
+                    recursive = v[0] == 'True'
                 else:
                     filters[k] = v[0]
 
         try:
-            for did in list_dids(scope=scope, filters=filters, type=type, long=long):
+            for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive):
                 yield dumps(did) + '\n'
         except UnsupportedOperation as error:
             raise generate_http_error(409, 'UnsupportedOperation', error.args[0])

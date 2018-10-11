@@ -244,12 +244,56 @@ class TestDIDClients:
         with assert_raises(UnsupportedOperation):
             self.did_client.list_dids(tmp_scope, {'name': 'file*'}, type='whateverytype')
 
+    def test_list_recursive(self):
+        """ DATA IDENTIFIERS (CLIENT): List did recursive """
+        # Create nested containers and datast
+        tmp_scope_1 = 'list-did-recursive'
+        tmp_scope_2 = 'list-did-recursive-2'
+        self.scope_client.add_scope('root', tmp_scope_1)
+        self.scope_client.add_scope('root', tmp_scope_2)
+
+        tmp_container_1 = 'container_%s' % generate_uuid()
+        self.did_client.add_container(scope=tmp_scope_1, name=tmp_container_1)
+
+        tmp_container_2 = 'container_%s' % generate_uuid()
+        self.did_client.add_container(scope=tmp_scope_1, name=tmp_container_2)
+
+        tmp_dataset_1 = 'dataset_%s' % generate_uuid()
+        self.did_client.add_dataset(scope=tmp_scope_2, name=tmp_dataset_1)
+
+        tmp_dataset_2 = 'dataset_%s' % generate_uuid()
+        self.did_client.add_dataset(scope=tmp_scope_1, name=tmp_dataset_2)
+
+        self.did_client.attach_dids(scope=tmp_scope_1, name=tmp_container_1, dids=[{'scope': tmp_scope_2, 'name': tmp_dataset_1}])
+        self.did_client.attach_dids(scope=tmp_scope_1, name=tmp_container_2, dids=[{'scope': tmp_scope_1, 'name': tmp_dataset_2}])
+        self.did_client.attach_dids(scope=tmp_scope_1, name=tmp_container_1, dids=[{'scope': tmp_scope_1, 'name': tmp_container_2}])
+
+        # List DIDs not recursive - only the first container is expected
+        dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=False, type='all', filters={'name': tmp_container_1})]
+        assert_equal(dids, [tmp_container_1])
+
+        # List DIDs recursive - first container and all attached collections are expected
+        dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=True, type='all', filters={'name': tmp_container_1})]
+        assert_true(tmp_container_1 in dids)
+        assert_true(tmp_container_2 in dids)
+        assert_true(tmp_dataset_1 in dids)
+        assert_true(tmp_dataset_2 in dids)
+        assert_equal(len(dids), 4)
+
+        # List DIDs recursive - only containers are expected
+        dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=True, type='container', filters={'name': tmp_container_1})]
+        assert_true(tmp_container_1 in dids)
+        assert_true(tmp_container_2 in dids)
+        assert_true(tmp_dataset_1 not in dids)
+        assert_true(tmp_dataset_2 not in dids)
+        assert_equal(len(dids), 2)
+
     def test_list_by_length(self):
         """ DATA IDENTIFIERS (CLIENT): List did with length """
         tmp_scope = 'mock'
 
-        tmp_dsn3 = 'dsn_%s' % generate_uuid()
-        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn3)
+        tmp_dsn = 'dsn_%s' % generate_uuid()
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn)
 
         dids = self.did_client.list_dids(tmp_scope, {'length.gt': 0})
         results = []
