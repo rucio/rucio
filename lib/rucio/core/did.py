@@ -1288,7 +1288,7 @@ def get_did_meta(scope, name, session=None):
     :param name: the name of the did
     """
     if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection.connection.version.split('.')[0])
+        oracle_version = int(session.connection().connection.version.split('.')[0])
         if oracle_version < 12:
             raise NotImplementedError
 
