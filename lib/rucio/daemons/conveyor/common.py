@@ -258,6 +258,9 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
             if policy == 'activity_dest':
                 policy_key = '%s %s' % (activity, file['metadata']['dst_rse'])
                 policy_key = "_".join(policy_key.split(' '))
+            if policy == 'activity_src_dest':
+                policy_key = '%s %s %s' % (activity, file['metadata']['src_rse'], file['metadata']['dst_rse'])
+                policy_key = "_".join(policy_key.split(' '))
             # maybe here we need to hash the key if it's too long
 
             if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
