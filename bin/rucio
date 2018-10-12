@@ -1314,7 +1314,7 @@ def info_rule(args):
         print("End of life:                %s" % rule['eol_at'])
         print("Child Rule Id:              %s" % rule['child_rule_id'])
         if args.estimate_ttc:
-            if result[0] > 0:
+            if 'estimated_start_in' in rule and 'estimated_end_in' in rule:
                 print("Expected transfer start in  %0.2f minutes." % (rule['estimated_start_in'] / 60.))
                 print("Expected transfer end in    %0.2f minutes." % (rule['estimated_end_in'] / 60.))
             else:
