@@ -31,6 +31,7 @@
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -1465,33 +1466,31 @@ def list_rse_usage(args):
 
     """
     client = get_client(args)
-    usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.show_accounts})
+    all_usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.show_accounts})
+    select_usages = [u for u in all_usages if u['source'] not in ('srm', 'gsiftp', 'webdav')]
     print('USAGE:')
-    for usage in usages:
-        if usage['source'] not in ['srm', 'gsiftp', 'webdav']:
-            print('------')
-            print_free = False
-            if usage['source'] in ['storage']:
-                print_free = True
-            for elem in usage:
-                if not (elem == 'free' or elem == 'total') or print_free:
-                    if elem == 'free' or elem == 'total' or elem == 'used':
-                        print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
-                    elif elem == 'account_usages':
-                        account_usages_title = '  per account:'
-                        if not usage[elem]:
-                            account_usages_title += ' no usage'
-                        print(account_usages_title)
-                        for account in usage[elem]:
-                            print('  ------')
-                            for account_elem in account:
-                                if account_elem == 'used':
-                                    print('    {0}: {1}'.format(account_elem, sizefmt(account[account_elem], args.human)))
-                                else:
-                                    print('    {0}: {1}'.format(account_elem, account[account_elem]))
-                            print('  ------')
-                    else:
-                        print('  {0}: {1}'.format(elem, usage[elem]))
+    for usage in select_usages:
+        print('------')
+        for elem in usage:
+            if elem in ['free', 'total'] and usage['source'] != 'storage':
+                continue
+            elif elem in ['used', 'free', 'total']:
+                print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
+            elif elem == 'account_usages':
+                account_usages_title = '  per account:'
+                if not usage[elem]:
+                    account_usages_title += ' no usage'
+                print(account_usages_title)
+                for account in usage[elem]:
+                    print('  ------')
+                    for account_elem in account:
+                        if account_elem == 'used':
+                            print('    {0}: {1}'.format(account_elem, sizefmt(account[account_elem], args.human)))
+                        else:
+                            print('    {0}: {1}'.format(account_elem, account[account_elem]))
+                    print('  ------')
+            else:
+                print('  {0}: {1}'.format(elem, usage[elem]))
     print('------')
     return SUCCESS
 
