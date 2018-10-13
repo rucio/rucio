@@ -22,6 +22,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 from re import match
 try:
@@ -519,6 +520,7 @@ def get_rse_usage(rse, source=None, rse_id=None, session=None, per_account=False
         rse_usage = {'rse': rse, 'source': row.source,
                      'used': row.used, 'free': row.free,
                      'total': total,
+                     'files': row.files,
                      'updated_at': row.updated_at}
         if per_account:
             query_account_usage = session.query(models.AccountUsage).filter_by(rse_id=rse_id)
