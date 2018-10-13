@@ -1472,8 +1472,8 @@ def list_rse_usage(args):
     for usage in select_usages:
         print('------')
         for elem in usage:
-            if (elem in ['free', 'total'] and usage['source'] != 'storage'
-                    or elem == 'files' and usage['source'] != 'rucio'):
+            if (elem in ['free', 'total'] and usage['source'] != 'storage' or
+                    elem == 'files' and usage['source'] != 'rucio'):
                 continue
             elif elem in ['used', 'free', 'total']:
                 print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
