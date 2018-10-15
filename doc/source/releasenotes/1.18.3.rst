@@ -1,0 +1,55 @@
+======
+1.18.3
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Transfers: Change conveyors to heartbeat `#58 <https://github.com/rucio/rucio/issues/58>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: Propagate the size of the file when declaring bad file `#1610 <https://github.com/rucio/rucio/issues/1610>`_
+- Core & Internals: Expose the number of files on an RSE `#1651 <https://github.com/rucio/rucio/issues/1651>`_
+- Documentation: Add comments to transmogrifier code `#1527 <https://github.com/rucio/rucio/issues/1527>`_
+- Documentation: Document AllowEncodedSlashes `#1601 <https://github.com/rucio/rucio/issues/1601>`_
+- Probes & Alarms: ATLAS: Dynamically change the list of SCRATCHDISK endpoints used for 2nd replication `#1625 <https://github.com/rucio/rucio/issues/1625>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Typo in oracle version check `#1639 <https://github.com/rucio/rucio/issues/1639>`_
+- Functional tests: automatix broken due to new rsemgr.upload function `#1582 <https://github.com/rucio/rucio/issues/1582>`_
+- Transfers: Timeout exceptions from FTS not properly handled `#1411 <https://github.com/rucio/rucio/issues/1411>`_
+- Transfers: group-policy option is not propagated properly to the conveyor `#1624 <https://github.com/rucio/rucio/issues/1624>`_
+- Transfers: Unhandled exception in conveyor submitter `#961 <https://github.com/rucio/rucio/issues/961>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: rucio list-dids --recursive does not work `#65 <https://github.com/rucio/rucio/issues/65>`_
+- Clients: Undefined name 'result' in def info_rule `#997 <https://github.com/rucio/rucio/issues/997>`_
+
+-----
+WebUI
+-----
+
+****
+Bugs
+****
+
+- WebUI: add protocol button on WebUI does not work `#1600 <https://github.com/rucio/rucio/issues/1600>`_
+- WebUI: Searching for a DID shows "Could not find the DID" but did was found `#1619 <https://github.com/rucio/rucio/issues/1619>`_
