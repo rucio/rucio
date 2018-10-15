@@ -57,11 +57,12 @@ env:
     - SUITE=all RDBMS=sqlite
     - SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
     - SUITE=syntax
+    - SUITE=python3
 
 matrix:
   fast_finish: true
   exclude:
-  - python: 3.5
+  - python: 2.6
     env: SUITE=python3
   - python: 2.6
     env: SUITE=all RDBMS=oracle
@@ -73,6 +74,8 @@ matrix:
     env: SUITE=all RDBMS=sqlite
   - python: 2.6
     env: SUITE=syntax
+  - python: 2.7
+    env: SUITE=python3
   - python: 3.4
     env:  SUITE=all RDBMS=oracle
   - python: 3.4
@@ -85,6 +88,14 @@ matrix:
     env: SUITE=syntax
   - python: 3.5
     env: SUITE=syntax
+  - python: 3.5
+    env:  SUITE=all RDBMS=oracle
+  - python: 3.5
+    env:  SUITE=all RDBMS=mysql
+  - python: 3.5
+    env:  SUITE=all RDBMS=postgres
+  - python: 3.5
+    env:  SUITE=all RDBMS=sqlite
   - python: 3.5
     env:  SUITE=all RDBMS=oracle
   - python: 3.5
@@ -94,15 +105,9 @@ matrix:
   - python: 3.5
     env:  SUITE=all RDBMS=sqlite
   - python: 3.6
+    env: SUITE=python3
+  - python: 3.6
     env: SUITE=all
-  - python: 3.5
-    env:  SUITE=all RDBMS=oracle
-  - python: 3.5
-    env:  SUITE=all RDBMS=mysql
-  - python: 3.5
-    env:  SUITE=all RDBMS=postgres
-  - python: 3.5
-    env:  SUITE=all RDBMS=sqlite
   - python: 3.6
     env:  SUITE=all RDBMS=oracle
   - python: 3.6
