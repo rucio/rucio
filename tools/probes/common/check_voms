@@ -32,12 +32,12 @@ CRITICAL = 2
 WARNING = 1
 OK = 0
 
-LDAP_HOSTS = [ 'ldaps://xldap.cern.ch' ]
+LDAP_HOSTS = ['ldaps://xldap.cern.ch']
 LDAP_OPTIONS = [
     # default configuration comes from /etc/openldap/ldap.conf
-    #(ldap.OPT_X_TLS_CACERTDIR, '/etc/pki/tls/certs'),
-    #(ldap.OPT_X_TLS_CACERTFILE, '/etc/pki/tls/certs/ca-bundle.crt'),
-    #(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER),
+    # (ldap.OPT_X_TLS_CACERTDIR, '/etc/pki/tls/certs'),
+    # (ldap.OPT_X_TLS_CACERTFILE, '/etc/pki/tls/certs/ca-bundle.crt'),
+    # (ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER),
     (ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND),
     (ldap.OPT_REFERRALS, 0),
 ]
@@ -45,7 +45,7 @@ LDAP_BASE = 'OU=Users,OU=Organic Units,DC=cern,DC=ch'
 LDAP_SCOPE = ldap.SCOPE_SUBTREE
 #LDAP_FILTER = '(&(objectClass=user)(cn=vokac))'
 LDAP_FILTER = '(&(objectClass=user)(!(memberOf=CN=cern-accounts-service,OU=e-groups,OU=Workgroups,DC=cern,DC=ch)))'
-LDAP_ATTRS = ['cn', 'mail', 'proxyAddresses', 'cernExternalMail' ] # , 'altSecurityIdentities'
+LDAP_ATTRS = ['cn', 'mail', 'proxyAddresses', 'cernExternalMail']
 LDAP_PAGE_SIZE = 1000
 
 
@@ -71,7 +71,7 @@ def get_ldap_identities():
     conn.simple_bind_s()
 
     paged_serverctrls = []
-    old_paged_search = [ int(x) for x in ldap.__version__.split('.') ] < [ 2, 4, 0 ]
+    old_paged_search = [int(x) for x in ldap.__version__.split('.')] < [2, 4, 0]
     if old_paged_search:
         paged_serverctrls.append(ldap.controls.SimplePagedResultsControl(ldap.LDAP_CONTROL_PAGE_OID, True, (LDAP_PAGE_SIZE, '')))
     else:
@@ -85,25 +85,21 @@ def get_ldap_identities():
             cn = attrs['cn'][0]
             user = {
                 'mails': [],
-                #'x509': [],
+                # 'x509': [],
             }
 
-            for attr in [ 'mail', 'cernExternalMail' ]:
-                if attr not in attrs: continue
-                user[attr] = attrs[attr][0]
+            for attr in ['mail', 'cernExternalMail']:
+                if attr in attrs:
+                    user[attr] = attrs[attr][0]
 
             for pmail in attrs.get('proxyAddresses', []):
-                if not pmail.lower().startswith('smtp:'): continue
-                mail = pmail[len('smtp:'):]
-                if mail.lower() in map(lambda x: x.lower(), user['mails']): continue
-                user['mails'].append(mail)
+                if pmail.lower().startswith('smtp:'):
+                    mail = pmail[len('smtp:'):]
+                    if mail.lower() not in map(lambda x: x.lower(), user['mails']):
+                        user['mails'].append(mail)
             for mail in attrs.get('mail', []):
-                if mail.lower() in map(lambda x: x.lower(), user['mails']): continue
-                user['mails'].append(mail)
-
-            #for altid in attrs.get('altSecurityIdentities', []):
-            #    if not altid.startswith('X509:'): continue
-            #    user['x509'].append(altid[altid.find('<S>')+4:])
+                if mail.lower() not in map(lambda x: x.lower(), user['mails']):
+                    user['mails'].append(mail)
 
             ret[cn] = user
 
