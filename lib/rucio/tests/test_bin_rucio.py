@@ -769,7 +769,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
-        nose.tools.assert_not_equal(re.search("Data identifier already attached", err), None)
+        nose.tools.assert_not_equal(re.search("The file already exists", err), None)
 
     def test_detach_non_existing_file(self):
         """CLIENT(USER): Rucio detach a non existing file"""
@@ -877,3 +877,40 @@ class TestBinRucio():
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[0]['name']), out), None)
         # last file must be in the dataset
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[-1]['name']), out), None)
+
+    def test_attach_many_dids_twice(self):
+        """ CLIENT(USER) Attach many (>1000) DIDs twice """
+        # Setup data for CLI check
+        container_name = 'container' + generate_uuid()
+        container = self.user + ':' + container_name
+        self.did_client.add_did(scope=self.user, name=container_name, type='CONTAINER')
+
+        datasets = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
+        self.did_client.add_dids(datasets[:1000])
+        self.did_client.add_dids(datasets[1000:])
+
+        # Attaching over 1000 DIDs with CLI
+        cmd = 'rucio attach {0}'.format(container)
+        for dataset in datasets:
+            cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
+        exitcode, out, err = execute(cmd)
+
+        # Attaching twice
+        cmd = 'rucio attach {0}'.format(container)
+        for dataset in datasets:
+            cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search("DIDs successfully attached", out), None)
+
+        # Attaching twice plus one DID that is not already attached
+        new_dataset = {'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'}
+        datasets.append(new_dataset)
+        self.did_client.add_did(scope=self.user, name=new_dataset['name'], type='DATASET')
+        cmd = 'rucio attach {0}'.format(container)
+        for dataset in datasets:
+            cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search("DIDs successfully attached", out), None)
+        cmd = 'rucio list-content {0}'.format(container)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, new_dataset['name']), out), None)

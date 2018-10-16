@@ -37,6 +37,7 @@ from __future__ import print_function
 
 import argparse
 import logging
+import math
 import os
 import signal
 import subprocess
@@ -469,12 +470,23 @@ def attach(args):
             logger.error("Can't open file '" + dids[0] + "'.")
             return FAILURE
 
-    for chunk in chunks(dids, limit):
-        dids = []
-        for did in chunk:
-            cscope, cname = extract_scope(did)
-            dids.append({'scope': cscope, 'name': cname})
+    dids = [{'scope': extract_scope(did)[0], 'name': extract_scope(did)[1]} for did in dids]
+    if len(dids) <= limit:
         client.attach_dids(scope=scope, name=name, dids=dids)
+    else:
+        logger.warning("You are trying to attach too much DIDs. Therefore they will be chunked and attached in multiple commands.")
+        missing_dids = []
+        for i, chunk in enumerate(chunks(dids, limit)):
+            logger.info("Try to attach chunk {0}/{1}".format(i, int(math.ceil(float(len(dids)) / float(limit)))))
+            try:
+                client.attach_dids(scope=scope, name=name, dids=chunk)
+            except Exception:
+                content = [{'scope': did['scope'], 'name': did['name']} for did in client.list_content(scope=scope, name=name)]
+                missing_dids += [did for did in chunk if did not in content]
+
+        if missing_dids:
+            for chunk in chunks(missing_dids, limit):
+                client.attach_dids(scope=scope, name=name, dids=chunk)
 
     print('DIDs successfully attached to %s:%s' % (scope, name))
     return SUCCESS

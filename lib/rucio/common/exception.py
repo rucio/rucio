@@ -157,16 +157,6 @@ class DatabaseException(RucioException):
         self.error_code = 10
 
 
-class DataIdentifierAlreadyAttached(RucioException):
-    """
-    RucioException
-    """
-    def __init__(self, *args, **kwargs):
-        super(DataIdentifierAlreadyAttached, self).__init__(*args, **kwargs)
-        self._message = "Data identifier already attached."
-        self.error_code = 11
-
-
 class DataIdentifierAlreadyExists(RucioException):
     """
     RucioException
