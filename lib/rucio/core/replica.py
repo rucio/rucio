@@ -21,6 +21,10 @@
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
+#
+# PY3K COMPATIBLE
+
+from __future__ import print_function
 
 from collections import defaultdict
 from copy import deepcopy
@@ -168,7 +172,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
             result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': badfile.rse, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
     if list_pfns:
         reps = []
-        for rep in list_replicas(result, schemes=['srm', ], unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
+        for rep in list_replicas(result, schemes=None, unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
             pfn = None
             if rse in rep['rses'] and rep['rses'][rse]:
                 pfn = rep['rses'][rse][0]
@@ -259,8 +263,8 @@ def update_bad_replicas_history(dids, rse_id, session=None):
                     final_state = BadFilesStatus.DELETED
                 else:
                     # For completness, it shouldn't happen.
+                    print('Houston we have a problem.')
                     final_state = BadFilesStatus.DELETED
-                    print 'Houston we have a problem.'
                 query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
                 query.update({'state': final_state, 'updated_at': datetime.utcnow()}, synchronize_session=False)
             except NoResultFound:
@@ -365,7 +369,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
             rowcount = query.update({'state': ReplicaState.BAD})
             if rowcount != len(declared_replicas):
                 # there shouldn't be any exceptions since all replicas exist
-                print rowcount, len(declared_replicas), declared_replicas
+                print(rowcount, len(declared_replicas), declared_replicas)
                 raise exception.ReplicaNotFound("One or several replicas don't exist.")
     try:
         session.flush()
@@ -438,7 +442,7 @@ def get_pfn_to_rse(pfns, session=None):
                 if surl.find(protocols[rse][0]) > -1 or surl.find(protocols[rse][1]) > -1:
                     mult_rse_match += 1
                     if mult_rse_match > 1:
-                        print 'ERROR, multiple matches : %s at %s' % (surl, rse)
+                        print('ERROR, multiple matches : %s at %s' % (surl, rse))
                         raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, rse))
                     hint = rse
                     if hint not in dict_rse:
@@ -851,7 +855,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                                           operation='read',
                                                                           domain=domain)['scheme'])
                         except Exception:
-                            print format_exc()
+                            print(format_exc())
 
                     protocols = []
                     for s in rse_schemes:
@@ -876,7 +880,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         except exception.RSEProtocolNotSupported:
                             pass  # no need to be verbose
                         except Exception:
-                            print format_exc()
+                            print(format_exc())
 
                     tmp_protocols[rse] = protocols
 
@@ -932,7 +936,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         pfns.append((pfn, tmp_protocol[0], tmp_protocol[2], False))
                     except Exception:
                         # never end up here
-                        print format_exc()
+                        print(format_exc())
 
                     if protocol.attributes['scheme'] == 'srm':
                         try:
@@ -957,7 +961,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
                     # and use 1-indexing to be compatible with metalink
                     tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
-                    for i in xrange(0, len(tmp)):
+                    for i in range(0, len(tmp)):
                         file['pfns'][tmp[i][2]]['priority'] = i + 1
                         file['rses'] = {}
                         for t_rse, t_pfn in [(file['pfns'][t_pfn]['rse'], t_pfn) for t_pfn in file['pfns']]:
@@ -989,7 +993,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     # and use 1-indexing to be compatible with metalink
     if 'pfns' in file:
         tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
-        for i in xrange(0, len(tmp)):
+        for i in range(0, len(tmp)):
             file['pfns'][tmp[i][2]]['priority'] = i + 1
 
     if 'scope' in file and 'name' in file:
@@ -1233,7 +1237,7 @@ def add_replicas(rse, files, account, rse_id=None, ignore_availability=True,
             expected_pfns = clean_surls(expected_pfns.values())
             pfns = clean_surls(pfns)
             if pfns != expected_pfns:
-                print 'ALERT: One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns))
+                print('ALERT: One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
                 raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=replica_rse.id, files=files, account=account, session=session)
