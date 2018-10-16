@@ -6,6 +6,8 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+#
+# PY3K COMPATIBLE
 
 from rucio.core import lock
 from rucio.core.rse import get_rse_id

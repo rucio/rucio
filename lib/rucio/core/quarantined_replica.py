@@ -8,6 +8,8 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
+
+  PY3K COMPATIBLE
 """
 
 import datetime

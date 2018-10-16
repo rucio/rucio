@@ -12,7 +12,8 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
-
+#
+# PY3K COMPATIBLE
 
 import rucio.api.permission
 import rucio.common.exception

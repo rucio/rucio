@@ -8,6 +8,8 @@
 
   Authors:
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+
+  PY3K COMPATIBLE
 '''
 
 from rucio.api import permission

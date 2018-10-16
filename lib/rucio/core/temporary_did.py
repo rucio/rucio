@@ -9,6 +9,8 @@
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+
+  PY3K COMPATIBLE
 """
 
 from datetime import datetime

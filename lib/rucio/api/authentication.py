@@ -16,6 +16,8 @@
 # - Mario Lassnig <mario@lassnig.net>, 2012-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+#
+# PY3K COMPATIBLE
 
 from rucio.api import permission
 from rucio.common import exception

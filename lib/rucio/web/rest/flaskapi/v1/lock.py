@@ -18,6 +18,8 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from logging import getLogger, StreamHandler, DEBUG
 from flask import Flask, Blueprint, Response, request

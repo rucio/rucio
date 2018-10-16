@@ -14,6 +14,8 @@
 #
 # Authors:
 # - dciangot <diego.ciangottini@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import absolute_import
 import logging

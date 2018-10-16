@@ -16,6 +16,8 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 C-3PO is a dynamic data placement daemon.
