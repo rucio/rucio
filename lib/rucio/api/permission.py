@@ -10,6 +10,8 @@
   - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+
+  PY3K COMPATIBLE
 '''
 
 from rucio.core import permission

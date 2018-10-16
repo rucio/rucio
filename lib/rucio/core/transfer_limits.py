@@ -8,6 +8,8 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 import logging
 import traceback

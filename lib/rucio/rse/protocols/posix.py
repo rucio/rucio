@@ -8,7 +8,8 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
-
+#
+# PY3K COMPATIBLE
 
 import os
 import os.path

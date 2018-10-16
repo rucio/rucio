@@ -7,6 +7,8 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+#
+# PY3K COMPATIBLE
 
 import uuid
 

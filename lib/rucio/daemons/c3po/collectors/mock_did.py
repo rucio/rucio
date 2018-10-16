@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015, 2017
+#
+# PY3K COMPATIBLE
 
 """
 Mock DID collector
