@@ -15,6 +15,8 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+#
+# PY3K COMPATIBLE
 
 import json
 import logging

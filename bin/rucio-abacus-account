@@ -16,6 +16,8 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Abacus account is a daemon to update account counters.

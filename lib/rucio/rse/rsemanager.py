@@ -25,6 +25,8 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 

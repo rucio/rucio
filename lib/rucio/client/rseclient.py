@@ -20,6 +20,8 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Wen Guan <wguan.icedew@gmail.com>, 2014
+#
+# PY3K COMPATIBLE
 
 from json import dumps, loads
 from requests.status_codes import codes

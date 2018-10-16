@@ -17,6 +17,8 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from json import loads
 from requests.status_codes import codes

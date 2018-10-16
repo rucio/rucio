@@ -15,6 +15,8 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from jsonschema import validate, ValidationError
 

@@ -13,6 +13,8 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
  - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+
+ PY3K COMPATIBLE
 '''
 
 from __future__ import print_function

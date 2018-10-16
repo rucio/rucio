@@ -15,6 +15,8 @@
 # Authors:
 # - Vitjan Zavrtanik <vitjan.zavrtanik@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+#
+# PY3K COMPATIBLE
 
 """
 Daemon for distributing sonar test files to available RSE's

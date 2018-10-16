@@ -19,6 +19,8 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import copy
 import json

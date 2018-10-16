@@ -6,6 +6,8 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+#
+# PY3K COMPATIBLE
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
