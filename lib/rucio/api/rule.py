@@ -9,6 +9,8 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+
+  PY3K COMPATIBLE
 '''
 
 from rucio.api.permission import has_permission

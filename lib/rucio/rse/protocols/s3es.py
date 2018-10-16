@@ -7,7 +7,8 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016
-
+#
+# PY3K COMPATIBLE
 
 from rucio.common import exception
 from rucio.common import objectstore

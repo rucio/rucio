@@ -17,6 +17,8 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+#
+# PY3K COMPATIBLE
 
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG

@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+#
+# PY3K COMPATIBLE
 
 """
 methods to get closeness between sites

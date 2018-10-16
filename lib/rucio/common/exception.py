@@ -22,6 +22,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Tobias Wegner <twegner@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
     Exceptions used with Rucio.

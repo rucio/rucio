@@ -16,6 +16,8 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Hermes is a daemon to deliver messages to an asynchronous broker.
