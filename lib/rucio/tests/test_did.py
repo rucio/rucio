@@ -39,7 +39,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
                                     InvalidPath, KeyNotFound, UnsupportedOperation,
-                                    UnsupportedStatus, ScopeNotFound, DataIdentifierAlreadyAttached)
+                                    UnsupportedStatus, ScopeNotFound, FileAlreadyExists, FileConsistencyMismatch)
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
@@ -477,22 +477,6 @@ class TestDIDClients:
         with assert_raises(UnsupportedOperation):
             self.did_client.attach_dids_to_dids([{'scope': 'mock', 'name': cnt_name, 'rse': tmp_rse, 'dids': attachment['dids']}])
 
-        # Attach one already attached did
-        with assert_raises(DataIdentifierAlreadyAttached):
-            self.did_client.attach_dids(scope=attachments[0]['scope'], name=attachments[0]['name'], dids=[attachments[0]['dids'][0]])
-
-        # Attach multiple already attached dids
-        with assert_raises(DataIdentifierAlreadyAttached):
-            self.did_client.attach_dids(scope=attachments[0]['scope'], name=attachments[0]['name'], dids=attachments[0]['dids'])
-
-        # Attach already attached and not yet attached dids
-        attachments[0]['dids'].append({'scope': tmp_scope, 'name': 'lfn.%s' % str(generate_uuid()),
-                                       'bytes': 724963570, 'adler32': '0cc737eb',
-                                       'meta': {'guid': str(generate_uuid()), 'events': 100}})
-        self.did_client.attach_dids_to_dids(attachments=[attachments[0]])
-        content = [{'scope': did['scope'], 'name': did['name']} for did in self.did_client.list_content(scope=tmp_scope, name=attachments[0]['name'])]
-        assert_true({'scope': tmp_scope, 'name': attachments[0]['dids'][-1]['name']} in content)
-
     def test_add_files_to_datasets(self):
         """ DATA IDENTIFIERS (CLIENT): Add files to Datasets"""
         tmp_scope = 'mock'
@@ -522,7 +506,7 @@ class TestDIDClients:
         files = [f for f in self.did_client.list_files(scope=tmp_scope, name=dsn1)]
         assert_equal(len(files), 10)
 
-        with assert_raises(DataIdentifierAlreadyAttached):
+        with assert_raises(FileAlreadyExists):
             self.did_client.add_files_to_datasets(attachments)
 
         for attachment in attachments:
@@ -546,7 +530,7 @@ class TestDIDClients:
                 file['bytes'] = 1000
                 break
 
-        with assert_raises(DataIdentifierAlreadyAttached):
+        with assert_raises(FileConsistencyMismatch):
             self.did_client.add_files_to_datasets(attachments, ignore_duplicate=True)
 
     def test_add_dataset(self):
