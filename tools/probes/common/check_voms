@@ -11,13 +11,13 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2016
 # - David Cameron, <david.cameron@cern.ch>, 2015
 
-import commands
 import os
 import re
 import sys
 import time
 import types
 
+import ldap
 
 from rucio.db.sqla.session import get_session
 from rucio.client import Client
@@ -32,11 +32,21 @@ CRITICAL = 2
 WARNING = 1
 OK = 0
 
-BADCHAR = 1
-CASEPROB = 2
-NOCERNACC = 3
-SERVICEACC = 4
-MAILMISMATCH = 5
+LDAP_HOSTS = [ 'ldaps://xldap.cern.ch' ]
+LDAP_OPTIONS = [
+    # default configuration comes from /etc/openldap/ldap.conf
+    #(ldap.OPT_X_TLS_CACERTDIR, '/etc/pki/tls/certs'),
+    #(ldap.OPT_X_TLS_CACERTFILE, '/etc/pki/tls/certs/ca-bundle.crt'),
+    #(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER),
+    (ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND),
+    (ldap.OPT_REFERRALS, 0),
+]
+LDAP_BASE = 'OU=Users,OU=Organic Units,DC=cern,DC=ch'
+LDAP_SCOPE = ldap.SCOPE_SUBTREE
+#LDAP_FILTER = '(&(objectClass=user)(cn=vokac))'
+LDAP_FILTER = '(&(objectClass=user)(!(memberOf=CN=cern-accounts-service,OU=e-groups,OU=Workgroups,DC=cern,DC=ch)))'
+LDAP_ATTRS = ['cn', 'mail', 'proxyAddresses', 'cernExternalMail' ] # , 'altSecurityIdentities'
+LDAP_PAGE_SIZE = 1000
 
 
 def get_accounts_identities():
@@ -52,55 +62,72 @@ def get_accounts_identities():
         print error
 
 
-def validate_nickname(nickname, email, dn, debug=False):
-    # Check bad characters
-    bad_characters = ['.', ' ', '@', '#', ' ']
-    for bad_char in bad_characters:
-        if bad_char in nickname:
-            reason = 'Bad Characters in nickname %(nickname)s for %(dn)s' % locals()
-            if debug:
-                print reason
-            return False, BADCHAR
+def get_ldap_identities():
+    """Get user account info from CERN AD/LDAP"""
+    for opt_key, opt_val in LDAP_OPTIONS:
+        ldap.set_option(opt_key, opt_val)
 
-    # Check lowercase
-    if nickname.lower() != nickname:
-        reason = 'VOMS nickname %(nickname)s should be lowercase for %(dn)s' % locals()
-        if debug:
-            print reason
-        return False, CASEPROB
+    conn = ldap.initialize(",".join(LDAP_HOSTS))
+    conn.simple_bind_s()
 
-    # Check CERN account
-    cmd = "/usr/bin/ldapsearch -x -h xldap.cern.ch -b 'OU=Users,OU=Organic Units,DC=cern,DC=ch' '(&(objectClass=user) (CN=%(nickname)s))'" % locals()
-    status, output = commands.getstatusoutput(cmd)
-    ad_email = re.search('mail: (.*)\n', output)
-    ad_name = re.search('displayName: (.*)\n', output)
-    ad_dn = re.search('dn: (.*)\n', output)
+    paged_serverctrls = []
+    old_paged_search = [ int(x) for x in ldap.__version__.split('.') ] < [ 2, 4, 0 ]
+    if old_paged_search:
+        paged_serverctrls.append(ldap.controls.SimplePagedResultsControl(ldap.LDAP_CONTROL_PAGE_OID, True, (LDAP_PAGE_SIZE, '')))
+    else:
+        paged_serverctrls.append(ldap.controls.SimplePagedResultsControl(True, size=LDAP_PAGE_SIZE, cookie=''))
 
-    if not ad_email:
-        reason = "VOMS nickname %(nickname)s for %(dn)s doesn't exist as CERN account" % locals()
-        if debug:
-            print reason
-        return False, NOCERNACC
+    ret = {}
+    while True:
+        msgid = conn.search_ext(LDAP_BASE, LDAP_SCOPE, filterstr=LDAP_FILTER, attrlist=LDAP_ATTRS, serverctrls=paged_serverctrls)
+        rtype, rdata, rmsgid, serverctrls = conn.result3(msgid=msgid)
+        for dn, attrs in rdata:
+            cn = attrs['cn'][0]
+            user = {
+                'mails': [],
+                #'x509': [],
+            }
 
-    # Check mail address
-    ad_email = ad_email.groups()[0]
-    ad_name = ad_name.groups()[0].replace(' ', '.') + '@cern.ch'
-    is_service_account = 'memberOf: CN=cern-accounts-service,OU=e-groups,OU=Workgroups,DC=cern,DC=ch' in output
+            for attr in [ 'mail', 'cernExternalMail' ]:
+                if attr not in attrs: continue
+                user[attr] = attrs[attr][0]
 
-    if is_service_account:
-        reason = "The %(nickname)s is a service account" % locals()
-        if debug:
-            print reason
-        return False, SERVICEACC
+            for pmail in attrs.get('proxyAddresses', []):
+                if not pmail.lower().startswith('smtp:'): continue
+                mail = pmail[len('smtp:'):]
+                if mail.lower() in map(lambda x: x.lower(), user['mails']): continue
+                user['mails'].append(mail)
+            for mail in attrs.get('mail', []):
+                if mail.lower() in map(lambda x: x.lower(), user['mails']): continue
+                user['mails'].append(mail)
 
-    if not is_service_account and email.lower().replace('@mail.cern.ch', '@cern.ch') not in (ad_email.lower(), ad_name.lower(), nickname + '@cern.ch'):
-        reason = "Mail mismatch for VOMS nickname %(nickname)s-%(dn)s: %(email)s vs. %(ad_email)s " % locals()
-        if debug:
-            print reason
-            print 'If you want to add manually the identity to the account : rucio-admin identity add --account %s --type X509 --id "%s" --email %s' % (nickname, dn, email)
-        return False, MAILMISMATCH
+            #for altid in attrs.get('altSecurityIdentities', []):
+            #    if not altid.startswith('X509:'): continue
+            #    user['x509'].append(altid[altid.find('<S>')+4:])
 
-    return True, OK
+            ret[cn] = user
+
+        cookie = None
+        for serverctrl in serverctrls:
+            if old_paged_search:
+                if serverctrl.controlType == ldap.LDAP_CONTROL_PAGE_OID:
+                    unused_est, cookie = serverctrl.controlValue
+                    if cookie:
+                        serverctrl.controlValue = (LDAP_PAGE_SIZE, cookie)
+                    break
+            else:
+                if serverctrl.controlType == ldap.controls.SimplePagedResultsControl.controlType:
+                    cookie = serverctrl.cookie
+                    if cookie:
+                        serverctrl.size = LDAP_PAGE_SIZE
+                    break
+
+        if not cookie:
+            break
+
+        paged_serverctrls = serverctrls
+
+    return ret
 
 
 if __name__ == '__main__':
@@ -122,6 +149,7 @@ if __name__ == '__main__':
     accounts = [i['account'] for i in client.list_accounts()]
     scopes = [i for i in client.list_scopes()]
     dns = get_accounts_identities()
+    ldap_accounts = get_ldap_identities()
     voms_identities = {}
     if isinstance(res, types.ListType):
         for user in res:
@@ -164,8 +192,10 @@ if __name__ == '__main__':
                                     scope = 'user.' + account
                                     break
                                 else:
-                                    valid_nickname, vstatus = validate_nickname(nickname=nickname, email=email, dn=dn, debug=True)
-                                    if valid_nickname:
+                                    if nickname in ldap_accounts:
+                                        if email.lower() not in map(lambda x: x.lower(), ldap_accounts[nickname]['mails']):
+                                            print 'Account %s does not exist. To create it : rucio-admin account add --type USER --email %s %s' % (nickname, email, nickname)
+                                            break
                                         account = nickname
                                         if account not in accounts:
                                             try:
@@ -175,10 +205,6 @@ if __name__ == '__main__':
                                                 print 'Account %(account)s added' % locals()
                                             except Exception:
                                                 pass
-                                    else:
-                                        if nickname not in accounts and vstatus in [MAILMISMATCH, ]:
-                                            print 'Account %s does not exist. To create it : rucio-admin account add --type USER --email %s %s' % (nickname, email, nickname)
-                                        break
                             elif user._DN not in nonicknames:
                                 nonicknames.append(user._DN)
                         except Exception as error:
