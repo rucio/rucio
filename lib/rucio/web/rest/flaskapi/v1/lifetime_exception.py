@@ -17,6 +17,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2018
+#
+# PY3K COMPATIBLE
 
 from json import loads, dumps
 

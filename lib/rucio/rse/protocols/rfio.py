@@ -10,7 +10,6 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 
-
 """
 RFIO protocol
 """

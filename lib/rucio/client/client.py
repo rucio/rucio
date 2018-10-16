@@ -19,6 +19,8 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
+#
+# PY3K COMPATIBLE
 
 """
 Client class for callers of the Rucio system

@@ -7,6 +7,8 @@
 
  Authors:
  - Fernando Lopez, <felopez@cern.ch>, 2015
+
+ PY3K COMPATIBLE
 '''
 
 from rucio.common.dumper import DUMPS_CACHE_DIR

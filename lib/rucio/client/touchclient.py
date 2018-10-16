@@ -16,6 +16,8 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from json import dumps
 from requests import post

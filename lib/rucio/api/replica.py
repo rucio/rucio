@@ -17,6 +17,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+#
+# PY3K COMPATIBLE
 
 from rucio.api import permission
 from rucio.db.sqla.constants import BadFilesStatus

@@ -22,6 +22,8 @@
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+#
+# PY3K COMPATIBLE
 
 from json import dumps
 from requests.status_codes import codes

@@ -16,6 +16,8 @@
 # Authors:
 # - Wen Guan, <wguan.icedew@gmail.com>, 2015-2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Conveyor is a daemon to manage file transfers.

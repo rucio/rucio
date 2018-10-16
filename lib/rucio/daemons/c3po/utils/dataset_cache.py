@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+#
+# PY3K COMPATIBLE
 
 from uuid import uuid4
 

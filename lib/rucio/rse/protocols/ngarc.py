@@ -17,7 +17,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
-
+#
+# PY3K COMPATIBLE
 
 import errno
 import os
