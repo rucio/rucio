@@ -12,7 +12,6 @@
 # - David Cameron, <david.cameron@cern.ch>, 2015
 
 import os
-import re
 import sys
 import time
 import types
@@ -43,7 +42,6 @@ LDAP_OPTIONS = [
 ]
 LDAP_BASE = 'OU=Users,OU=Organic Units,DC=cern,DC=ch'
 LDAP_SCOPE = ldap.SCOPE_SUBTREE
-#LDAP_FILTER = '(&(objectClass=user)(cn=vokac))'
 LDAP_FILTER = '(&(objectClass=user)(!(memberOf=CN=cern-accounts-service,OU=e-groups,OU=Workgroups,DC=cern,DC=ch)))'
 LDAP_ATTRS = ['cn', 'mail', 'proxyAddresses', 'cernExternalMail']
 LDAP_PAGE_SIZE = 1000
