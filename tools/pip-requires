@@ -37,7 +37,7 @@ retrying==1.3.3                                   # general-purpose retrying lib
 functools32==3.2.3.post2; python_version == '2.7'    # explicitly needed on CC7
 redis==2.10.6                                     # Python client for Redis key-value store
 numpy==1.14.2                                     # Numpy for forecasting T3C
-paramiko==2.4.1                                   # SSH2 protocol library
+paramiko==2.4.2                                   # SSH2 protocol library
 Flask==0.12.4                                     # Python web framework
 idna==2.6                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
 fts3-rest-API==3.7.1                              # FTS rest API
