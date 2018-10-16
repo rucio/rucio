@@ -38,4 +38,8 @@ elif [[ $SUITE == "all" ]]; then
 
     cp etc/docker/travis/Dockerfile Dockerfile
     docker build -t rucio/rucio .
+
+elif [[ $SUITE == 'python3' ]]; then 
+    pip install -r tools/pip-requires-test
+
 fi

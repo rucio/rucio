@@ -9,6 +9,8 @@
  Authors:
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+
+ PY3K COMPATIBLE
 '''
 
 from json import loads

@@ -16,6 +16,8 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import json
 from requests.status_codes import codes

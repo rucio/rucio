@@ -6,6 +6,8 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+
+  PY3K COMPATIBLE
 '''
 
 from __future__ import with_statement

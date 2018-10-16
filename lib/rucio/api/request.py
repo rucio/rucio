@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+#
+# PY3K COMPATIBLE
 
 """
 Interface for the requests abstraction layer

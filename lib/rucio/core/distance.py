@@ -9,6 +9,8 @@
  Authors:
  - Wen Guan, <wen.guan@cern.ch>, 2015-2016
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+
+ PY3K COMPATIBLE
 """
 
 from sqlalchemy.exc import DatabaseError, IntegrityError

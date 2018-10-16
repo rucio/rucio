@@ -21,6 +21,8 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2018
 # - Stefan Prenner <stefan.prenner@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from io import BytesIO
 from json import dumps

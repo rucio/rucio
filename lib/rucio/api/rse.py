@@ -13,6 +13,8 @@
   - Martin Barisits, <martin.barisits@cern.ch>, 2013
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+
+  PY3K COMPATIBLE
 '''
 
 from rucio.api import permission

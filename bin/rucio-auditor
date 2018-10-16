@@ -16,6 +16,8 @@
 # Authors:
 # - Fernando Lopez, <fernando.e.lopez@gmail.com>, 2015
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 from datetime import datetime
 from functools import partial

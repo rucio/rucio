@@ -8,7 +8,8 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
-
+#
+# PY3K COMPATIBLE
 
 from exceptions import NotImplementedError
 
