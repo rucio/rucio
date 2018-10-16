@@ -23,6 +23,7 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from re import match
 try:
@@ -59,7 +60,9 @@ REGION = make_region().configure('dogpile.cache.memcached',
 
 
 @transactional_session
-def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None, staging_area=False, session=None):
+def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
+            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7,
+            session=None):
     """
     Add a rse with the given location name.
 
@@ -73,11 +76,20 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     :param time_zone: Timezone.
     :param ISP: Internet service provider.
     :param staging_area: Staging area.
+    :param rse_type: RSE type.
+    :param latitude: Latitude coordinate of RSE.
+    :param longitude: Longitude coordinate of RSE.
+    :param ASN: Access service network.
+    :param availability: Availability.
     :param session: The database session in use.
     """
+    if isinstance(rse_type, str) or isinstance(rse_type, unicode):
+        rse_type = RSEType.from_string(str(rse_type))
+
     new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile, city=city,
                          region_code=region_code, country_name=country_name,
-                         continent=continent, time_zone=time_zone, staging_area=staging_area, ISP=ISP, availability=7)
+                         continent=continent, time_zone=time_zone, staging_area=staging_area, ISP=ISP, availability=availability,
+                         rse_type=rse_type, longitude=longitude, latitude=latitude, ASN=ASN)
     try:
         new_rse.save(session=session)
     except IntegrityError:
