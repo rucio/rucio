@@ -58,6 +58,8 @@ class DownloadClient:
 
         self.logger = logger
         self.tracing = tracing
+        if not self.tracing:
+            logger.debug('Tracing is turned off.')
         self.is_human_readable = True
         self.client = client if client else Client()
 
@@ -1097,8 +1099,5 @@ class DownloadClient:
 
         :param trace: the trace
         """
-        logger = self.logger
         if self.tracing:
             send_trace(trace, self.client.host, self.client.user_agent)
-        else:
-            logger.info('Tracing was turned off.')
