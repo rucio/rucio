@@ -20,16 +20,16 @@ echo '==============================='
 echo 'Running pylint                 '
 echo '==============================='
 
-for filename in $(find lib/rucio bin);
+for filename in $(cat changed_files.txt);
 do
     if grep -q "PY3K COMPATIBLE" $filename; then
         echo "Check if file" $filename "is compatible"
         pylint --py3k -d no-absolute-import $filename 
         if [ $? -ne 0 ]; then
             echo "PYLINT FAILED"
+            cat pylint.out
             exit 1
         fi
     fi
 done
 echo "PYLINT PASSED"
-tail -n 3 pylint.out
