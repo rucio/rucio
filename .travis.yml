@@ -16,6 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 sudo: required
 

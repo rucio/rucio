@@ -23,7 +23,7 @@ echo '==============================='
 for filename in $(cat changed_files.txt);
 do
     if grep -q "PY3K COMPATIBLE" $filename; then
-        echo "Check if file" $filename "is compatible"
+        echo "Check if file" $filename "is Python3 compatible"
         pylint --py3k -d no-absolute-import $filename 
         if [ $? -ne 0 ]; then
             echo "PYLINT FAILED"
