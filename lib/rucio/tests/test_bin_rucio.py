@@ -770,6 +770,25 @@ class TestBinRucio():
         print(err)
         nose.tools.assert_not_equal(re.search("The file already exists", err), None)
 
+    def test_attach_dataset_twice(self):
+        """ CLIENT(USER): Rucio attach a dataset twice """
+        container = 'container_%s' % generate_uuid()
+        dataset = 'dataset_%s' % generate_uuid()
+        self.did_client.add_container(scope=self.user, name=container)
+        self.did_client.add_dataset(scope=self.user, name=dataset)
+
+        # Attach dataset to container
+        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(self.user, container, dataset)
+        exitcode, out, err = execute(cmd)
+
+        # Attach again
+        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(self.user, container, dataset)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        nose.tools.assert_not_equal(re.search("Data identifier already added to the destination content", err), None)
+
     def test_detach_non_existing_file(self):
         """CLIENT(USER): Rucio detach a non existing file"""
         tmp_file1 = file_generator()

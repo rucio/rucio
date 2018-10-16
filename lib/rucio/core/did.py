@@ -457,7 +457,8 @@ def __add_collections_to_container(scope, name, collections, account, session):
             raise exception.DataIdentifierNotFound("Data identifier not found")
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
-                or match('.*columns scope, name, child_scope, child_name are not unique.*', error.args[0]):
+                or match('.*columns scope, name, child_scope, child_name are not unique.*', error.args[0]) \
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.DuplicateContent(error.args)
         raise exception.RucioException(error.args)
 
