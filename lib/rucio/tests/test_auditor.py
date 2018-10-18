@@ -24,12 +24,6 @@ import multiprocessing
 import tempfile
 
 
-def test_total_seconds():
-    """AUTHENTICATION (REST): Username and password (wrong credentials)."""
-    dif = timedelta(days=1, hours=1, minutes=1, seconds=1, microseconds=1)
-    ok_(abs(auditor.total_seconds(dif) - 90061) < 0.01)
-
-
 def test_auditor_download_dumps_with_expected_dates():
     def mock_fn_wrapper(return_value):
         calls = []
