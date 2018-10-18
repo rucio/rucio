@@ -42,7 +42,7 @@ from rucio import version
 
 class UploadClient:
 
-    def __init__(self, _client=None, logger=None):
+    def __init__(self, _client=None, logger=None, tracing=True):
         """
         Initialises the basic settings for an UploadClient object
 
@@ -55,7 +55,9 @@ class UploadClient:
 
         self.logger = logger
         self.client = _client if _client else Client()
-
+        self.tracing = tracing
+        if not self.tracing:
+            logger.debug('Tracing is turned off.')
         self.default_file_scope = 'user.' + self.client.account
         self.rses = {}
 
@@ -171,6 +173,7 @@ class UploadClient:
             protocols.reverse()
             success = False
             summary = []
+            state_reason = ''
             while not success and len(protocols):
                 protocol = protocols.pop()
                 cur_scheme = protocol['scheme']
@@ -196,6 +199,7 @@ class UploadClient:
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
                     logger.warning('Upload attempt failed')
                     logger.debug('Exception: %s' % str(error))
+                    state_reason = str(error)
 
             if success:
                 num_succeeded += 1
@@ -203,7 +207,7 @@ class UploadClient:
                 self.trace['clientState'] = 'DONE'
                 file['state'] = 'A'
                 logger.info('Successfully uploaded file %s' % basename)
-                send_trace(self.trace, self.client.host, self.client.user_agent)
+                self._send_trace(self.trace)
 
                 if summary_file_path:
                     summary.append(copy.deepcopy(file))
@@ -220,6 +224,9 @@ class UploadClient:
                     if not self.client.update_replicas_states(rse, files=[replica_for_api]):
                         logger.warning('Failed to update replica state')
             else:
+                self.trace['clientState'] = 'FAILED'
+                self.trace['stateReason'] = state_reason
+                self._send_trace(self.trace)
                 logger.error('Failed to upload file %s' % basename)
 
         if summary_file_path:
@@ -428,3 +435,12 @@ class UploadClient:
         if pfn:
             replica['pfn'] = pfn
         return replica
+
+    def _send_trace(self, trace):
+        """
+        Checks if sending trace is allowed and send the trace.
+
+        :param trace: the trace
+        """
+        if self.tracing:
+            send_trace(trace, self.client.host, self.client.user_agent)
