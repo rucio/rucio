@@ -1484,14 +1484,15 @@ def list_rse_usage(args):
                 if not usage[elem]:
                     account_usages_title += ' no usage'
                 print(account_usages_title)
+                print('  ------')
+                col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 9
                 for account in usage[elem]:
-                    print('  ------')
-                    for account_elem in account:
-                        if account_elem == 'used':
-                            print('    {0}: {1}'.format(account_elem, sizefmt(account[account_elem], args.human)))
-                        else:
-                            print('    {0}: {1}'.format(account_elem, account[account_elem]))
-                    print('  ------')
+                    base_string = '    '
+                    used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
+                    account_string = 'account: {0}'.format(account['account'])
+                    percentage_string = 'percentage: {0}'.format(account['percentage'])
+                    print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
+                print('  ------')
             else:
                 print('  {0}: {1}'.format(elem, usage[elem]))
     print('------')
