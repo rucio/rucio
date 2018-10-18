@@ -113,7 +113,7 @@ class Search(MethodView):
 
         .. sourcecode:: http
 
-            GET /dids/scope1/dids/search?type=collection1&long=True HTTP/1.1
+            GET /dids/scope1/dids/search?type=collection&long=True&length.lt=10 HTTP/1.1
             Host: rucio.cern.ch
 
         **Example response**:
@@ -131,7 +131,15 @@ class Search(MethodView):
 
         :query type: specify a DID type to search for
         :query long: set to True for long output, otherwise only name
-        :query recursive: recursively list DIDs content
+        :query recursive: set to True to recursively list DIDs content
+        :query created_before: Date string in RFC-1123 format where the creation date was earlier
+        :query created_after: Date string in RFC-1123 format where the creation date was later
+        :query length: Exact number of attached DIDs
+        :query length.gt: Number of attached DIDs greater than
+        :query length.lt: Number of attached DIDs less than
+        :query length.gte: Number of attached DIDs greater than or equal to
+        :query length.lte: Number of attached DIDs less than or equal to
+        :query name: Name or pattern of a DID name
         :resheader Content-Type: application/x-json-stream
         :status 200: DIDs found
         :status 401: Invalid Auth Token
