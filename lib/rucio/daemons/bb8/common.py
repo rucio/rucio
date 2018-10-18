@@ -110,29 +110,38 @@ def rebalance_rule(parent_rule, activity, rse_expression, priority, source_repli
 
 def __dump_url(rse):
     """
-    getting rse dump with different methods according to settings
+    getting potential urls of the dump over last week
 
-    :param rse          RSE where the dump is released.
+    :param rse:          RSE where the dump is released.
     """
 
     # get the date of the most recent dump
-    dump_production_day = config_get('bb8', 'dump_production_day', raise_exception=False, default='Sunday')
-    weekdays = {'Sunday': 6, 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5}
-    if dump_production_day not in weekdays:
-        print 'ERROR: please set the day of dump creation in bb8 config correctly, e.g. Monday'
-        return False
     today = date.today()
-    today_idx = (today.weekday() - weekdays[dump_production_day]) % 7
-    dump_date = today - timedelta(today_idx)
-    date_dump = dump_date.strftime('%d-%m-%Y')
+    dump_dates = []
+    dump_production_day = config_get('bb8', 'dump_production_day', raise_exception=False, default=None)
+    if dump_production_day is None:
+        for idx in range(0, 7):
+            dump_date = today - timedelta(idx)
+            dump_dates.append(dump_date.strftime('%d-%m-%Y'))
+    else:
+        weekdays = {'Sunday': 6, 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5}
+        if dump_production_day not in weekdays:
+            print 'ERROR: please set the day of a dump creation in bb8 config correctly, e.g. Monday'
+            return False
+        today_idx = (today.weekday() - weekdays[dump_production_day]) % 7
+        dump_date = today - timedelta(today_idx)
+        dump_dates = [dump_date.strftime('%d-%m-%Y')]
 
     # getting structure (template) of url location of a dump
     url_template_str = config_get('bb8', 'dump_url_template', raise_exception=False, default='http://rucio-analytix.cern.ch:8080/LOCKS/GetFileFromHDFS?date=${date}&rse=${rse}')
     url_template = Template(url_template_str)
 
     # populating url template
-    url = url_template.substitute({'date': date_dump, 'rse': rse})
-    return url
+    urls = []
+    for d in dump_dates:
+        url = url_template.substitute({'date': d, 'rse': rse})
+        urls.append(url)
+    return urls
 
 
 def _list_rebalance_rule_candidates_dump(rse, mode=None):
@@ -146,13 +155,21 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
     # fetching the dump
     candidates = []
     rules = {}
-    rse_dump = __dump_url(rse)
-    if not rse_dump:
+    rse_dump_urls = __dump_url(rse)
+    rse_dump_urls.reverse()
+    r = None
+    if not rse_dump_urls:
         print 'URL of the dump was not built from template.'
         return candidates
-    r = get(rse_dump, stream=True)
-    if not r:
-        print 'RSE dump not available: %s' % rse_dump
+    success = False
+    while not success and len(rse_dump_urls):
+        url = rse_dump_urls.pop()
+        print url
+        r = get(url, stream=True)
+        if r:
+            success = True
+    if not r or r is None:
+        print 'RSE dump not available.'
         return candidates
 
     # looping over the dump and selecting the rules
