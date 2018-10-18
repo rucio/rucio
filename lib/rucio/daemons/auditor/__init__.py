@@ -17,6 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 import Queue
 import glob
@@ -34,11 +35,6 @@ from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
 from rucio.daemons.auditor.hdfs import ReplicaFromHDFS
 from rucio.daemons.auditor import srmdumps
-
-
-def total_seconds(td):
-    '''timedelta.total_seconds() for Python < 2.7'''
-    return (td.microseconds + (td.seconds + td.days * 24 * 3600) * (10 ** 6)) / float(10 ** 6)
 
 
 def consistency(rse, delta, configuration, cache_dir, results_dir):
@@ -103,7 +99,7 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
         else:
             success = True
         finally:
-            elapsed = total_seconds(datetime.now() - start) / 60
+            elapsed = (datetime.now() - start).total_seconds() / 60
             if success:
                 logger.info('SUCCESS checking "%s" in %d minutes', rse, elapsed)
             else:
