@@ -171,6 +171,7 @@ class UploadClient:
             protocols.reverse()
             success = False
             summary = []
+            state_reason = ''
             while not success and len(protocols):
                 protocol = protocols.pop()
                 cur_scheme = protocol['scheme']
@@ -196,6 +197,7 @@ class UploadClient:
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
                     logger.warning('Upload attempt failed')
                     logger.debug('Exception: %s' % str(error))
+                    state_reason = str(error)
 
             if success:
                 num_succeeded += 1
@@ -221,6 +223,7 @@ class UploadClient:
                         logger.warning('Failed to update replica state')
             else:
                 self.trace['clientState'] = 'FAILED'
+                self.trace['stateReason'] = state_reason
                 self._send_trace(self.trace)
                 logger.error('Failed to upload file %s' % basename)
 

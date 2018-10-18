@@ -187,6 +187,7 @@ class DownloadClient:
                         trace['clientState'] = 'DONE'
                 except Exception as e:
                     trace['clientState'] = 'FAILED'
+                    trace['stateReason'] = str(ServiceUnavailable(e))
                     raise ServiceUnavailable(e)
                 self._send_trace(trace)
             if not success:
