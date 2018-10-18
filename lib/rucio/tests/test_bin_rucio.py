@@ -624,7 +624,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         # search for the file
-        cmd = "rucio list-dids {0}:{1}".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-dids --filter type=all {0}:{1}".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
