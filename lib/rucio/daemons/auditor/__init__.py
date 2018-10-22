@@ -62,6 +62,8 @@ def consistency(rse, delta, configuration, cache_dir, results_dir):
         for result in results:
             output.write('{0}\n'.format(result.csv()))
 
+    return results_path
+
 
 def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, delta_in_days):
     logger = logging.getLogger('auditor-worker')
@@ -93,7 +95,8 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
         start = datetime.now()
         try:
             logger.debug('Checking "%s"', rse)
-            consistency(rse, delta, configuration, cache_dir, results_dir)
+            output = consistency(rse, delta, configuration, cache_dir,
+                                 results_dir)
         except:
             success = False
         else:
