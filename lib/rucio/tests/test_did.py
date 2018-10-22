@@ -38,9 +38,8 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
-                                    FileAlreadyExists, FileConsistencyMismatch,
                                     InvalidPath, KeyNotFound, UnsupportedOperation,
-                                    UnsupportedStatus, ScopeNotFound)
+                                    UnsupportedStatus, ScopeNotFound, FileAlreadyExists, FileConsistencyMismatch)
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
