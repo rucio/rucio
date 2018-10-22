@@ -39,6 +39,7 @@ from __future__ import print_function
 
 import argparse
 import logging
+import math
 import os
 import signal
 import subprocess
@@ -66,7 +67,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import sizefmt, Color, detect_client_location
+from rucio.common.utils import sizefmt, Color, detect_client_location, chunks
 
 SUCCESS = 0
 FAILURE = 1
@@ -457,24 +458,38 @@ def attach(args):
     """
     client = get_client(args)
     scope, name = extract_scope(args.todid)
-    dids = []
+    dids = args.dids
+    limit = 499
+
     if args.fromfile:
-        if len(args.dids) > 1:
+        if len(dids) > 1:
             logger.error("If --fromfile option is active, only one file is supported. The file should contain a list of dids, one per line.")
             return FAILURE
         try:
-            f = open(args.dids[0], 'r')
-            for did in f.readlines():
-                cscope, cname = extract_scope(did.rstrip())
-                dids.append({'scope': cscope, 'name': cname})
+            f = open(dids[0], 'r')
+            dids = [did.rstrip() for did in f.readlines()]
         except IOError:
-            logger.error("Can't open file '" + args.dids[0] + "'.")
+            logger.error("Can't open file '" + dids[0] + "'.")
             return FAILURE
+
+    dids = [{'scope': extract_scope(did)[0], 'name': extract_scope(did)[1]} for did in dids]
+    if len(dids) <= limit:
+        client.attach_dids(scope=scope, name=name, dids=dids)
     else:
-        for did in args.dids:
-            cscope, cname = extract_scope(did)
-            dids.append({'scope': cscope, 'name': cname})
-    client.attach_dids(scope=scope, name=name, dids=dids)
+        logger.warning("You are trying to attach too much DIDs. Therefore they will be chunked and attached in multiple commands.")
+        missing_dids = []
+        for i, chunk in enumerate(chunks(dids, limit)):
+            logger.info("Try to attach chunk {0}/{1}".format(i, int(math.ceil(float(len(dids)) / float(limit)))))
+            try:
+                client.attach_dids(scope=scope, name=name, dids=chunk)
+            except Exception:
+                content = [{'scope': did['scope'], 'name': did['name']} for did in client.list_content(scope=scope, name=name)]
+                missing_dids += [did for did in chunk if did not in content]
+
+        if missing_dids:
+            for chunk in chunks(missing_dids, limit):
+                client.attach_dids(scope=scope, name=name, dids=chunk)
+
     print('DIDs successfully attached to %s:%s' % (scope, name))
     return SUCCESS
 
