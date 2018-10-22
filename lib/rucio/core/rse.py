@@ -23,6 +23,7 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from re import match
 try:
@@ -153,7 +154,10 @@ def del_rse(rse, session=None):
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
     old_rse.delete(session=session)
-    del_rse_attribute(rse=rse, key=rse, session=session)
+    try:
+        del_rse_attribute(rse=rse, key=rse, session=session)
+    except exception.RSEAttributeNotFound:
+        pass
 
 
 @read_session
@@ -323,9 +327,14 @@ def del_rse_attribute(rse, key, session=None):
     :return: True if RSE attribute was deleted.
     """
     rse_id = get_rse_id(rse, session=session)
-    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == key)
-    rse_attr = query.one()
-    rse_attr.delete(session=session)
+    rse_attr = None
+    try:
+        query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == key)
+        rse_attr = query.one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSEAttributeNotFound('RSE attribute \'%s\' cannot be found' % key)
+    if rse_attr:
+        rse_attr.delete(session=session)
     return True
 
 

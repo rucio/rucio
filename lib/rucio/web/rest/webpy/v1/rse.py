@@ -20,6 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 from json import dumps, loads
@@ -39,7 +40,8 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
 from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioException,
                                     RSEOperationNotSupported, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported,
-                                    RSEProtocolPriorityError, InvalidRSEExpression)
+                                    RSEProtocolPriorityError, InvalidRSEExpression,
+                                    RSEAttributeNotFound)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController
 from rucio.rse import rsemanager
@@ -304,12 +306,24 @@ class Attributes(RucioController):
         return dumps(rse_attr)
 
     def DELETE(self, rse, key):
+        """ delete RSE attribute
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 InternalError
+        """
         try:
             del_rse_attribute(rse=rse, key=key, issuer=ctx.env.get('issuer'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except RSEAttributeNotFound as error:
+            raise generate_http_error(404, 'RSEAttributeNotFound', error.args[0])
         except Exception as error:
             raise InternalError(error)
 
