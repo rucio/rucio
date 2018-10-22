@@ -33,6 +33,7 @@ from rucio.common.dumper import LogPipeHandler
 from rucio.common.dumper import mkdir
 from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
+from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.daemons.auditor.hdfs import ReplicaFromHDFS
 from rucio.daemons.auditor import srmdumps
 
@@ -63,6 +64,63 @@ def consistency(rse, delta, configuration, cache_dir, results_dir):
             output.write('{0}\n'.format(result.csv()))
 
     return results_path
+
+
+def guess_replica_info(path):
+    """Try to extract the scope and name from a path
+
+    ``path`` should be an ``str`` with the relative path to the file on
+    the RSE.
+
+    Returns a ``tuple`` of which the first element is the scope of the
+    replica and the second element is its name.
+    """
+    items = path.split('/')
+    if len(items) == 1:
+        return None, path
+    elif len(items) > 2 and items[0] in ['group', 'user']:
+        return '.'.join(items[0:2]), items[-1]
+    else:
+        return items[0], items[-1]
+
+
+def process_output(output):
+    """Perform post-consistency-check actions
+
+    DARK files are put in the quarantined-replica table so that they
+    may be deleted by the Dark Reaper.  LOST files are currently
+    ignored.
+
+    ``output`` should be an ``str`` with the absolute path to the file
+    produced by ``consistency()``.  It must maintain its naming
+    convention.
+    """
+    logger = logging.getLogger('auditor-worker')
+    dark_replicas = []
+    try:
+        with open(output) as f:
+            for line in f:
+                label, path = line.rstrip().split(',', 1)
+                if label == 'DARK':
+                    scope, name = guess_replica_info(path)
+                    dark_replicas.append({'path': path,
+                                          'scope': scope,
+                                          'name': name})
+                elif label == 'LOST':
+                    # TODO: Declare LOST files as suspicious.
+                    pass
+                else:
+                    raise ValueError('unexpected label')
+    # Since the file is read immediately after its creation, any error
+    # exposes a bug in the Auditor.
+    except Exception as error:
+        logger.critical('Error processing "%s"', output, exc_info=True)
+        raise error
+
+    rse = os.path.basename(output[:output.rfind('_')])
+    add_quarantined_replicas(rse, dark_replicas)
+    logger.debug('Processed %d DARK files from "%s"', len(dark_replicas),
+                 output)
 
 
 def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, delta_in_days):
@@ -97,6 +155,7 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
             logger.debug('Checking "%s"', rse)
             output = consistency(rse, delta, configuration, cache_dir,
                                  results_dir)
+            process_output(output)
         except:
             success = False
         else:

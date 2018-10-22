@@ -24,6 +24,22 @@ import multiprocessing
 import tempfile
 
 
+def test_auditor_guess_replica_info():
+    tests = {
+        'foo': (None, 'foo'),
+        'foo/bar': ('foo', 'bar'),
+        'foo/bar/baz': ('foo', 'baz'),
+        'user': (None, 'user'),
+        'user/foo': ('user', 'foo'),
+        'user/foo/bar': ('user.foo', 'bar'),
+        'group': (None, 'group'),
+        'group/foo': ('group', 'foo'),
+        'group/foo/bar': ('group.foo', 'bar'),
+    }
+    for input_, output in tests.items():
+        eq_(auditor.guess_replica_info(input_), output)
+
+
 def test_auditor_download_dumps_with_expected_dates():
     def mock_fn_wrapper(return_value):
         calls = []
