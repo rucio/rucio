@@ -39,7 +39,8 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
 from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioException,
                                     RSEOperationNotSupported, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported,
-                                    RSEProtocolPriorityError, InvalidRSEExpression)
+                                    RSEProtocolPriorityError, InvalidRSEExpression,
+                                    RSEAttributeNotFound)
 from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 from rucio.rse import rsemanager
@@ -310,6 +311,7 @@ class Attributes(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
+        :status 404: RSE attribute not found.
         :status 500: Internal Error.
 
         """
@@ -319,6 +321,8 @@ class Attributes(MethodView):
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except RSEAttributeNotFound as error:
+            raise generate_http_error_flask(404, 'RSEAttributeNotFound', error.args[0])
         except Exception as error:
             return error, 500
 
