@@ -20,6 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 from json import dumps, loads
@@ -119,7 +120,9 @@ class RSE(RucioController):
         kwargs = {'deterministic': True,
                   'volatile': False, 'city': None, 'staging_area': False,
                   'region_code': None, 'country_name': None,
-                  'continent': None, 'time_zone': None, 'ISP': None}
+                  'continent': None, 'time_zone': None, 'ISP': None,
+                  'rse_type': None, 'latitude': None, 'longitude': None,
+                  'ASN': None, 'availability': None}
         try:
             parameters = json_data and loads(json_data)
             if parameters:
