@@ -21,6 +21,8 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 from json import dumps, loads
@@ -272,7 +274,7 @@ class Attributes(MethodView):
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error[0])
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
         except Exception as error:
             return error, 500
 
@@ -322,7 +324,7 @@ class Attributes(MethodView):
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except RSEAttributeNotFound as error:
-            raise generate_http_error_flask(404, 'RSEAttributeNotFound', error.args[0])
+            return generate_http_error_flask(404, 'RSEAttributeNotFound', error.args[0])
         except Exception as error:
             return error, 500
 

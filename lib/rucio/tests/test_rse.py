@@ -23,6 +23,8 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -113,8 +115,8 @@ class TestRSECoreApi(object):
         rse_id = add_rse(rse)
         add_rse_attribute(rse=rse, key='tier', value='1')
         attr = list_rse_attributes(rse=None, rse_id=rse_id)
-        assert_in('tier', attr.keys())
-        assert_in(rse, attr.keys())
+        assert_in('tier', list(attr.keys()))
+        assert_in(rse, list(attr.keys()))
 
     def test_create_and_check_rse_transfer_limits(self):
         """ RSE (CORE): Test the creation, query, and deletion of a RSE transfer limit"""
@@ -128,7 +130,7 @@ class TestRSECoreApi(object):
 
         set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
         limits = get_rse_transfer_limits(rse=rse, activity=activity)
-        assert_in(activity, limits.keys())
+        assert_in(activity, list(limits.keys()))
         assert_in(rse_id, limits[activity])
         assert_equal(max_transfers, limits[activity][rse_id]['max_transfers'])
         assert_equal(transfers, limits[activity][rse_id]['transfers'])
@@ -136,7 +138,7 @@ class TestRSECoreApi(object):
 
         set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
         limits = get_rse_transfer_limits(rse=rse, activity=activity)
-        assert_in(activity, limits.keys())
+        assert_in(activity, list(limits.keys()))
         assert_in(rse_id, limits[activity])
         assert_equal(max_transfers + 1, limits[activity][rse_id]['max_transfers'])
         assert_equal(transfers + 1, limits[activity][rse_id]['transfers'])

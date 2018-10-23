@@ -24,7 +24,11 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import division
+from builtins import round
 from re import match
 try:
     from StringIO import StringIO
@@ -278,7 +282,7 @@ def list_rses(filters={}, session=None):
                 query = query.filter(t.value == v)
 
         condition1, condition2 = [], []
-        for i in xrange(0, 8):
+        for i in range(0, 8):
             if i | availability_mask1 == i:
                 condition1.append(models.RSE.availability == i)
             if i & availability_mask2 == i:

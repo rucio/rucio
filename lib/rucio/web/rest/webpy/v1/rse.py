@@ -21,11 +21,16 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 from json import dumps, loads
 from traceback import format_exc
-from urlparse import parse_qs, parse_qsl
+try:
+    from urlparse import parse_qs, parse_qsl
+except ImportError:
+    from urllib.parse import parse_qs, parse_qsl
 from web import (application, ctx, data, header, Created, InternalError, OK,
                  input, loadhook)
 
@@ -212,7 +217,7 @@ class RSE(RucioController):
             rse_prop = get_rse(rse=rse)
             return render_json(**rse_prop)
         except RSENotFound as error:
-            raise generate_http_error(404, 'RSENotFound', error[0])
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
 
