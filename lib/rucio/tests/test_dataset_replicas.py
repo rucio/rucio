@@ -16,11 +16,12 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from nose.tools import assert_equal
 
 from rucio.core.replica import list_datasets_per_rse
-from rucio.core.rse import add_rse, del_rse, add_protocol
+from rucio.core.rse import add_rse, add_protocol
 
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
@@ -122,5 +123,3 @@ class TestDatasetReplicaClient:
         assert_equal(res[0]['state'], 'AVAILABLE')
         assert_equal(res[1]['state'], 'AVAILABLE')
         assert_equal(res[2]['state'], 'AVAILABLE')
-
-        del_rse(rse)

@@ -238,6 +238,8 @@ class RSE(RucioController):
             del_rse(rse=rse, issuer=ctx.env.get('issuer'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except RSEOperationNotSupported as error:
+            raise generate_http_error(404, 'RSEOperationNotSupported', error.args[0])
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
 
