@@ -139,7 +139,7 @@ class AMQConsumer(object):
         for report in self.__reports:
             try:
                 # Identify suspicious files
-                if self.__bad_files_patterns and report['eventType'] in ('get_sm', 'sm_get', 'get_sm_a', 'sm_get_a') and report['clientState'].find('FAILED') > -1:
+                if self.__bad_files_patterns and report['eventType'] in ['get_sm', 'get_sm_a', 'get'] and report['clientState'] not in ['DONE', 'FOUND_ROOT', 'ALREADY_DONE']:
                     for pattern in self.__bad_files_patterns:
                         if pattern.match(report['stateReason']):
                             reason = report['stateReason'][:255]
