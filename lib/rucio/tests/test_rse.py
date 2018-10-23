@@ -30,6 +30,7 @@ from json import dumps
 from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
 from paste.fixture import TestApp
 
+from rucio.db.sqla.constants import RSEType
 from rucio.client.rseclient import RSEClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
@@ -37,7 +38,7 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     ResourceTemporaryUnavailable)
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes,
-                            set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits,
+                            set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits, get_rse,
                             get_rse_protocols)
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import rse_name_generator
@@ -49,15 +50,47 @@ class TestRSECoreApi(object):
 
     def test_create_and_check_for_rse(self):
         """ RSE (CORE): Test the creation, query, and deletion of a RSE """
-        rse = rse_name_generator()
+        rse_name = rse_name_generator()
         invalid_rse = 'BLAHBLAH'
-        add_rse(rse)
-        assert_equal(rse_exists(rse), True)
+        properties = {
+            'ASN': 'ASN',
+            'availability': 2,
+            'deterministic': True,
+            'volatile': True,
+            'city': 'city',
+            'region_code': 'DE',
+            'country_name': 'country_name',
+            'continent': 'EU',
+            'time_zone': 'time_zone',
+            'ISP': 'ISP',
+            'staging_area': True,
+            'rse_type': 'DISK',
+            'longitude': 1.0,
+            'latitude': 2.0
+        }
+        add_rse(rse_name, **properties)
+        assert_equal(rse_exists(rse_name), True)
+        rse = get_rse(rse_name)
+        assert_equal(rse.rse, rse_name)
+        assert_equal(rse.deterministic, properties['deterministic'])
+        assert_equal(rse.volatile, properties['volatile'])
+        assert_equal(rse.city, properties['city'])
+        assert_equal(rse.region_code, properties['region_code'])
+        assert_equal(rse.country_name, properties['country_name'])
+        assert_equal(rse.continent, properties['continent'])
+        assert_equal(rse.time_zone, properties['time_zone'])
+        assert_equal(rse.ISP, properties['ISP'])
+        assert_equal(rse.staging_area, properties['staging_area'])
+        assert_equal(rse.rse_type, RSEType.DISK)
+        assert_equal(rse.longitude, properties['longitude'])
+        assert_equal(rse.latitude, properties['latitude'])
+        assert_equal(rse.ASN, properties['ASN'])
+        assert_equal(rse.availability, properties['availability'])
         assert_equal(rse_exists(invalid_rse), False)
 
         with assert_raises(Duplicate):
-            add_rse(rse)
-        del_rse(rse)
+            add_rse(rse_name)
+        del_rse(rse_name)
 
     def test_list_rses(self):
         """ RSE (CORE): Test the listing of all RSEs """
@@ -128,13 +161,45 @@ class TestRSE(object):
 
         assert_equal(r1.status, 200)
         token = str(r1.header('X-Rucio-Auth-Token'))
-        rse = rse_name_generator()
+        rse_name = rse_name_generator()
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r2 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse, headers=headers2, expect_errors=True)
+        properties = {
+            'ASN': 'ASN',
+            'availability': 2,
+            'deterministic': True,
+            'volatile': True,
+            'city': 'city',
+            'region_code': 'DE',
+            'country_name': 'country_name',
+            'continent': 'EU',
+            'time_zone': 'time_zone',
+            'ISP': 'ISP',
+            'staging_area': True,
+            'rse_type': 'DISK',
+            'longitude': 1.0,
+            'latitude': 2.0
+        }
+        r2 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse_name, headers=headers2, expect_errors=True, params=dumps(properties))
         assert_equal(r2.status, 201)
+        rse = get_rse(rse_name)
+        assert_equal(rse.rse, rse_name)
+        assert_equal(rse.deterministic, properties['deterministic'])
+        assert_equal(rse.volatile, properties['volatile'])
+        assert_equal(rse.city, properties['city'])
+        assert_equal(rse.region_code, properties['region_code'])
+        assert_equal(rse.country_name, properties['country_name'])
+        assert_equal(rse.continent, properties['continent'])
+        assert_equal(rse.time_zone, properties['time_zone'])
+        assert_equal(rse.ISP, properties['ISP'])
+        assert_equal(rse.staging_area, properties['staging_area'])
+        assert_equal(rse.rse_type, RSEType.DISK)
+        assert_equal(rse.longitude, properties['longitude'])
+        assert_equal(rse.latitude, properties['latitude'])
+        assert_equal(rse.ASN, properties['ASN'])
+        assert_equal(rse.availability, properties['availability'])
 
         headers3 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r3 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse, headers=headers3, expect_errors=True)
+        r3 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse_name, headers=headers3, expect_errors=True)
         assert_equal(r3.status, 409)
 
     def xtest_tag_rses(self):
@@ -201,12 +266,44 @@ class TestRSEClient(object):
 
     def test_add_rse(self):
         """ RSE (CLIENTS): add a new rse."""
-        rse = rse_name_generator()
-        ret = self.client.add_rse(rse)
+        rse_name = rse_name_generator()
+        properties = {
+            'ASN': 'ASN',
+            'availability': 2,
+            'deterministic': True,
+            'volatile': True,
+            'city': 'city',
+            'region_code': 'DE',
+            'country_name': 'country_name',
+            'continent': 'EU',
+            'time_zone': 'time_zone',
+            'ISP': 'ISP',
+            'staging_area': True,
+            'rse_type': 'TAPE',
+            'longitude': 1.0,
+            'latitude': 2.0
+        }
+        ret = self.client.add_rse(rse_name, **properties)
         assert_true(ret)
+        rse = get_rse(rse_name)
+        assert_equal(rse.rse, rse_name)
+        assert_equal(rse.deterministic, properties['deterministic'])
+        assert_equal(rse.volatile, properties['volatile'])
+        assert_equal(rse.city, properties['city'])
+        assert_equal(rse.region_code, properties['region_code'])
+        assert_equal(rse.country_name, properties['country_name'])
+        assert_equal(rse.continent, properties['continent'])
+        assert_equal(rse.time_zone, properties['time_zone'])
+        assert_equal(rse.ISP, properties['ISP'])
+        assert_equal(rse.staging_area, properties['staging_area'])
+        assert_equal(rse.rse_type, RSEType.TAPE)
+        assert_equal(rse.longitude, properties['longitude'])
+        assert_equal(rse.latitude, properties['latitude'])
+        assert_equal(rse.ASN, properties['ASN'])
+        assert_equal(rse.availability, properties['availability'])
 
         with assert_raises(Duplicate):
-            self.client.add_rse(rse)
+            self.client.add_rse(rse_name)
 
         bad_rse = 'MOCK_$*&##@!'
         with assert_raises(InvalidObject):

@@ -101,6 +101,11 @@ class RSE(MethodView):
         :<json string continent: The continent.
         :<json string time_zone: Timezone.
         :<json string ISP: Internet Service Provider.
+        :<json string rse_type: RSE type.
+        :<json number latitude: Latitude coordinate of RSE.
+        :<json number longitude: Longitude coordinate of RSE.
+        :<json string ASN: Access service network.
+        :<json integer availability: Availability.
         :status 201: RSE created successfully.
         :status 400: Cannot decode json parameter dictionary.
         :status 401: Invalid Auth Token.
@@ -113,7 +118,9 @@ class RSE(MethodView):
         kwargs = {'deterministic': True,
                   'volatile': False, 'city': None, 'staging_area': False,
                   'region_code': None, 'country_name': None,
-                  'continent': None, 'time_zone': None, 'ISP': None}
+                  'continent': None, 'time_zone': None, 'ISP': None,
+                  'rse_type': None, 'latitude': None, 'longitude': None,
+                  'ASN': None, 'availability': None}
         try:
             parameters = json_data and loads(json_data)
             if parameters:
