@@ -164,6 +164,9 @@ def del_rse(rse, session=None):
     :param session: The database session in use.
     """
 
+    old_rse = None
+    if not rse_is_empty(rse=rse, session=session):
+        raise exception.RSEOperationNotSupported('RSE \'%s\' is not empty' % rse)
     try:
         old_rse = session.query(models.RSE).filter_by(rse=rse).one()
     except sqlalchemy.orm.exc.NoResultFound:
@@ -173,6 +176,19 @@ def del_rse(rse, session=None):
         del_rse_attribute(rse=rse, key=rse, session=session)
     except exception.RSEAttributeNotFound:
         pass
+
+
+@read_session
+def rse_is_empty(rse, session=None):
+    """
+    Check if no file replica belongs to the RSE.
+
+    :param rse: the rse name.
+    :param session: the database session in use.
+    """
+
+    rse_id = get_rse(rse).id
+    return session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id).count() == 0
 
 
 @read_session

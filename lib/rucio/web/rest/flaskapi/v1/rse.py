@@ -235,6 +235,8 @@ class RSE(MethodView):
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RSEOperationNotSupported as error:
+            return generate_http_error_flask(404, 'RSEOperationNotsupported', error.args[0])
 
         return "OK", 200
 
