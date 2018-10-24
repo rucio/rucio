@@ -167,8 +167,8 @@ class TestDatasetReplicaUpdate:
 
         cleaned_collection_replica_updates = get_cleaned_updated_collection_replicas(total_workers=0, worker_number=0, session=self.db_session)
         assert_equal(len(cleaned_collection_replica_updates), 2)
-        for update_request_id in cleaned_collection_replica_updates:
-            update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(id=update_request_id).one()
+        for update_request in cleaned_collection_replica_updates:
+            update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(id=update_request['id']).one()
             assert_equal(update_request.scope, self.scope)
             assert_true(update_request.name in (dataset_name_with_collection_replica, dataset_name_without_collection_replica))
 
@@ -186,7 +186,7 @@ class TestDatasetReplicaUpdate:
         # First update -> dataset replica should be available
         models.UpdatedCollectionReplica(rse_id=self.rse_id, scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(rse_id=self.rse_id, scope=self.scope, name=dataset_name).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(id=update_request.id).first()
         assert_equal(update_request, None)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name).one()
@@ -199,7 +199,7 @@ class TestDatasetReplicaUpdate:
         # Delete one file replica -> dataset replica should be unavailable
         delete_replicas(rse=self.rse, files=[files[0]], session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(rse_id=self.rse_id, scope=self.scope, name=dataset_name).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name).one()
         assert_equal(dataset_replica['bytes'], len(files) * file_size)
         assert_equal(dataset_replica['length'], len(files))
@@ -212,7 +212,7 @@ class TestDatasetReplicaUpdate:
         attach_dids(scope=self.scope, name=dataset_name, dids=[files[0]], account='root', session=self.db_session)
         models.UpdatedCollectionReplica(rse_id=self.rse_id, scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(rse_id=self.rse_id, scope=self.scope, name=dataset_name).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name).one()
         assert_equal(dataset_replica['bytes'], len(files) * file_size)
         assert_equal(dataset_replica['length'], len(files))
@@ -223,7 +223,7 @@ class TestDatasetReplicaUpdate:
         # Delete all file replicas -> dataset replica should be deleted
         delete_replicas(rse=self.rse, files=files, session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(rse_id=self.rse_id, scope=self.scope, name=dataset_name).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name).all()
         assert_equal(len(dataset_replica), 0)
 
@@ -237,7 +237,7 @@ class TestDatasetReplicaUpdate:
         # First update -> replicas should be available
         models.UpdatedCollectionReplica(scope=self.scope, name=dataset_name).save(session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(scope=self.scope, name=dataset_name).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         for dataset_replica in self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name).all():
             assert_equal(dataset_replica['bytes'], len(files) * file_size)
             assert_equal(dataset_replica['length'], len(files))
@@ -250,7 +250,7 @@ class TestDatasetReplicaUpdate:
         models.UpdatedCollectionReplica(scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=self.db_session)
         # delete_replica creates also update object but with rse_id -> extra filter for rse_id is NULL
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == self.scope, models.UpdatedCollectionReplica.name == dataset_name, models.UpdatedCollectionReplica.rse_id.is_(None)).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse_id).one()
         assert_equal(dataset_replica['bytes'], len(files) * file_size)
         assert_equal(dataset_replica['length'], len(files))
@@ -269,7 +269,7 @@ class TestDatasetReplicaUpdate:
         file_replica.state = constants.ReplicaState.UNAVAILABLE
         models.UpdatedCollectionReplica(scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == self.scope, models.UpdatedCollectionReplica.name == dataset_name, models.UpdatedCollectionReplica.rse_id.is_(None)).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse_id).one()
         assert_equal(dataset_replica['bytes'], len(files) * file_size)
         assert_equal(dataset_replica['length'], len(files))
@@ -287,7 +287,7 @@ class TestDatasetReplicaUpdate:
         delete_replicas(rse=self.rse2, files=[files[0]], session=self.db_session)
         models.UpdatedCollectionReplica(scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == self.scope, models.UpdatedCollectionReplica.name == dataset_name, models.UpdatedCollectionReplica.rse_id.is_(None)).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse_id).one()
         assert_equal(dataset_replica['bytes'], (len(files) - 1) * file_size)
         assert_equal(dataset_replica['length'], len(files) - 1)
@@ -306,7 +306,7 @@ class TestDatasetReplicaUpdate:
         attach_dids(scope=self.scope, name=dataset_name, dids=[files[0]], account='root', session=self.db_session)
         models.UpdatedCollectionReplica(scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == self.scope, models.UpdatedCollectionReplica.name == dataset_name, models.UpdatedCollectionReplica.rse_id.is_(None)).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse_id).one()
         assert_equal(dataset_replica['bytes'], len(files) * file_size)
         assert_equal(dataset_replica['length'], len(files))
@@ -324,7 +324,7 @@ class TestDatasetReplicaUpdate:
         add_replicas(rse=self.rse2, files=[files[0]], account='root', session=self.db_session)
         models.UpdatedCollectionReplica(scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == self.scope, models.UpdatedCollectionReplica.name == dataset_name, models.UpdatedCollectionReplica.rse_id.is_(None)).one()
-        update_collection_replica(update_request_id=update_request.id, session=self.db_session)
+        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse_id).one()
         assert_equal(dataset_replica['bytes'], len(files) * file_size)
         assert_equal(dataset_replica['length'], len(files))
