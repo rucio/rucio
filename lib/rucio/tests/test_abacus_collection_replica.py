@@ -14,6 +14,8 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from nose.tools import assert_equal
 
