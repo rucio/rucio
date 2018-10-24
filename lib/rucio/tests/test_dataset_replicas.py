@@ -16,7 +16,13 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+<<<<<<< HEAD
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+=======
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
+>>>>>>> Core & Internals: added python3 compatibility
 
 from nose.tools import assert_equal, assert_true
 
@@ -101,7 +107,7 @@ class TestDatasetReplicaClient:
         replica_client.add_replicas(rse=rse2, files=[archive])
 
         archived_files = [{'scope': scope, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
-                           'bytes': 4322, 'adler32': 'deaddead'} for i in xrange(2)]
+                           'bytes': 4322, 'adler32': 'deaddead'} for i in range(2)]
         replica_client.add_replicas(rse=rse2, files=archived_files)
         did_client.add_files_to_archive(scope=scope, name=archive['name'], files=archived_files)
 
@@ -125,8 +131,6 @@ class TestDatasetReplicaClient:
         assert_equal(res[0]['state'], 'AVAILABLE')
         assert_equal(res[1]['state'], 'AVAILABLE')
         assert_equal(res[2]['state'], 'AVAILABLE')
-<<<<<<< HEAD
-=======
 
         del_rse(rse)
 
@@ -337,4 +341,3 @@ class TestDatasetReplicaUpdate:
         assert_equal(dataset_replica['available_bytes'], len(files) * file_size)
         assert_equal(dataset_replica['available_replicas_cnt'], len(files))
         assert_equal(str(dataset_replica['state']), 'AVAILABLE')
->>>>>>> Core & Internals: Porting PL/SQL procedure to abacus daemon; Fix #524
