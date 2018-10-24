@@ -49,6 +49,7 @@ def rse_update(once=False, process=0, total_processes=1, thread=0, threads_per_p
 
     logging.info('rse_update: started')
 
+    last_unavailable_replicas_usage = None
     while not graceful_stop.is_set():
         try:
             # Select a bunch of rses for to update for this worker
@@ -59,19 +60,18 @@ def rse_update(once=False, process=0, total_processes=1, thread=0, threads_per_p
             logging.debug('Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
 
             # If the list is empty, sent the worker to sleep
-            if not rse_ids and not unavailable_replicas_usage and not once:
+            if not rse_ids and unavailable_replicas_usage != last_unavailable_replicas_usage and not once:
                 logging.info('rse_update[%s/%s] did not get any work' % (process * threads_per_process + thread, total_processes * threads_per_process - 1))
                 time.sleep(10)
             else:
+                last_unavailable_replicas_usage = unavailable_replicas_usage
+                if graceful_stop.is_set():
+                    break
                 for rse_id in rse_ids:
-                    if graceful_stop.is_set():
-                        break
                     start_time = time.time()
                     update_rse_counter(rse_id=rse_id)
                     logging.debug('rse_update[%s/%s]: update of usage from available replicas of rse "%s" took %f' % (process * threads_per_process + thread, total_processes * threads_per_process - 1, rse_id, time.time() - start_time))
                 for usage in unavailable_replicas_usage:
-                    if graceful_stop.is_set():
-                        break
                     start_time = time.time()
                     update_rse_usage_from_unavailable_replicas(usage)
                     logging.debug('rse_update[%s/%s]: update of usage from unavailable replicas of rse "%s" took %f' % (process * threads_per_process + thread, total_processes * threads_per_process - 1, usage['rse_id'], time.time() - start_time))
