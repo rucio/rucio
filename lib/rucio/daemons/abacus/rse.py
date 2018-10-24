@@ -61,8 +61,8 @@ def rse_update(once=False, process=0, total_processes=1, thread=0, threads_per_p
             unavailable_replicas_usage = get_rse_usage_from_unavailable_replicas(total_workers=total_processes * threads_per_process - 1, worker_number=process * threads_per_process + thread)
             logging.debug('Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
 
-            # If the list is empty, sent the worker to sleep
-            if not rse_ids and unavailable_replicas_usage != last_unavailable_replicas_usage and not once:
+            # If the list of RSESs is empty or there is no change in the usage of unavailable replicas, sent the worker to sleep
+            if not rse_ids and unavailable_replicas_usage == last_unavailable_replicas_usage and not once:
                 logging.info('rse_update[%s/%s] did not get any work' % (process * threads_per_process + thread, total_processes * threads_per_process - 1))
                 time.sleep(10)
             else:
