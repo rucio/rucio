@@ -32,6 +32,7 @@ from curses.ascii import isprint
 from datetime import datetime, timedelta
 from json import dumps
 from re import match
+import six
 from traceback import format_exc
 
 from sqlalchemy import func, and_, or_, exists, not_
@@ -1638,7 +1639,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
             # remember scope, name and rse_id
             raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse_id: %s" % (replica['scope'], replica['name'], replica['rse_id']))
 
-        if isinstance(replica['state'], str) or isinstance(replica['state'], unicode):
+        if isinstance(replica['state'], six.string_types):
             replica['state'] = ReplicaState.from_string(replica['state'])
 
         values = {'state': replica['state']}
