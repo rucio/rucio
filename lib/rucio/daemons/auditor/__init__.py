@@ -46,7 +46,7 @@ def consistency(rse, delta, configuration, cache_dir, results_dir):
 
     if os.path.exists(results_path):
         logger.warn('Consistency check for "%s" (dump dated %s) already done, skipping check', rse, rsedate.strftime('%Y%m%d'))  # pylint: disable=no-member
-        return
+        return None
 
     rrdump_prev = ReplicaFromHDFS.download(rse, rsedate - delta, cache_dir=cache_dir)
     rrdump_next = ReplicaFromHDFS.download(rse, rsedate + delta, cache_dir=cache_dir)
@@ -168,7 +168,8 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
             logger.debug('Checking "%s"', rse)
             output = consistency(rse, delta, configuration, cache_dir,
                                  results_dir)
-            process_output(output)
+            if output:
+                process_output(output)
         except:
             success = False
         else:
