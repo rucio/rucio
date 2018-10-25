@@ -120,11 +120,12 @@ def process_output(output):
 
     rse = os.path.basename(output[:output.rfind('_')])
     usage = get_rse_usage(rse, source='rucio')[0]
+    threshold = config.config_get('auditor', 'threshold', False, 0.2)
 
     # Perform a basic sanity check by comparing the number of entries
     # with the total number of files on the RSE.  If the percentage is
     # significant, there is most likely an issue with the site dump.
-    if len(dark_replicas) > 0.2 * usage['files']:
+    if len(dark_replicas) > threshold * usage['files']:
         raise AssertionError('number of DARK files is exceeding threshold')
 
     add_quarantined_replicas(rse, dark_replicas)
