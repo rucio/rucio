@@ -18,6 +18,8 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Conveyor stager is a daemon to manage stagein file transfers.
@@ -32,7 +34,10 @@ import time
 import traceback
 
 from collections import defaultdict
-from ConfigParser import NoOptionError
+try:
+    from ConfigParser import NoOptionError  # py2
+except Exception:
+    from configparser import NoOptionError  # py3
 
 from rucio.common.config import config_get
 from rucio.core import heartbeat
