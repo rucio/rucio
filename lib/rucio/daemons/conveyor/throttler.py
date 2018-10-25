@@ -16,6 +16,9 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Conveyor throttler is a daemon to manage rucio internal queue.
@@ -88,7 +91,7 @@ def throttler(once=False, sleep_time=600):
             if time.time() < current_time + sleep_time:
                 graceful_stop.wait(int((current_time + sleep_time) - time.time()))
             current_time = time.time()
-        except:
+        except Exception:
             logging.critical('Throtter thread %s - %s' % (hb['assign_thread'], traceback.format_exc()))
 
         if once:
@@ -224,5 +227,5 @@ def __schedule_requests():
                     delete_rse_transfer_limits(rse=None, activity=activity, rse_id=dest_rse_id)
                     release_waiting_requests(rse=None, activity=activity, rse_id=dest_rse_id)
                     record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
-    except:
+    except Exception:
         logging.critical("Failed to schedule requests, error: %s" % (traceback.format_exc()))

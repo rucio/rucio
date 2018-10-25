@@ -18,6 +18,8 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+#
+# PY3K COMPATIBLE
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -35,7 +37,10 @@ import time
 import traceback
 
 from collections import defaultdict
-from ConfigParser import NoOptionError
+try:
+    from ConfigParser import NoOptionError  # py2
+except Exception:
+    from configparser import NoOptionError  # py3
 from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
 
