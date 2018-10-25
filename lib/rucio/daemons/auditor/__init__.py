@@ -43,7 +43,7 @@ from rucio.daemons.auditor import srmdumps
 def consistency(rse, delta, configuration, cache_dir, results_dir):
     logger = logging.getLogger('auditor-worker')
     rsedump, rsedate = srmdumps.download_rse_dump(rse, configuration, destdir=cache_dir)
-    results_path = '{0}/{1}_{2}'.format(results_dir, rse, rsedate.strftime('%Y%m%d'))  # pylint: disable=no-member
+    results_path = os.path.join(results_dir, '{0}_{1}'.format(rse, rsedate.strftime('%Y%m%d')))  # pylint: disable=no-member
 
     if os.path.exists(results_path + '.bz2') or os.path.exists(results_path):
         logger.warn('Consistency check for "%s" (dump dated %s) already done, skipping check', rse, rsedate.strftime('%Y%m%d'))  # pylint: disable=no-member
