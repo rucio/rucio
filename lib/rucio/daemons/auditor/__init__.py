@@ -85,7 +85,7 @@ def guess_replica_info(path):
         return items[0], items[-1]
 
 
-def process_output(output):
+def process_output(output, sanity_check=True):
     """Perform post-consistency-check actions
 
     DARK files are put in the quarantined-replica table so that they
@@ -95,6 +95,9 @@ def process_output(output):
     ``output`` should be an ``str`` with the absolute path to the file
     produced by ``consistency()``.  It must maintain its naming
     convention.
+
+    If ``sanity_check`` is ``True`` (default) and the number of entries
+    in the output file is deemed excessive, the actions are aborted.
     """
     logger = logging.getLogger('auditor-worker')
     dark_replicas = []
@@ -125,7 +128,7 @@ def process_output(output):
     # Perform a basic sanity check by comparing the number of entries
     # with the total number of files on the RSE.  If the percentage is
     # significant, there is most likely an issue with the site dump.
-    if len(dark_replicas) > threshold * usage['files']:
+    if sanity_check and len(dark_replicas) > threshold * usage['files']:
         raise AssertionError('number of DARK files is exceeding threshold')
 
     add_quarantined_replicas(rse, dark_replicas)
