@@ -36,11 +36,9 @@ def add_quarantined_replicas(rse, replicas, session=None):
     """
     Bulk add quarantined file replicas.
 
-    :param rse:     The rse name.
-    :param files:   The list of files.
-    :param session: The database session in use.
-
-    :returns: True is successful.
+    :param rse:      The rse name.
+    :param replicas: A list of dicts with the replica information.
+    :param session:  The database session in use.
     """
     rse_id = get_rse_id(rse, session=session)
 
