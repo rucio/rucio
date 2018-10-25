@@ -43,21 +43,32 @@ def add_quarantined_replicas(rse, replicas, session=None):
     rse_id = get_rse_id(rse, session=session)
 
     for chunk in chunks(replicas, 100):
+        # Exlude files that have a registered replica.  This is a
+        # safeguard against potential issues in the Auditor.
         file_clause = []
         for replica in chunk:
             file_clause.append(and_(models.RSEFileAssociation.scope == replica.get('scope', None),
                                     models.RSEFileAssociation.name == replica.get('name', None),
                                     models.RSEFileAssociation.rse_id == rse_id))
-
         file_query = session.query(models.RSEFileAssociation.scope,
                                    models.RSEFileAssociation.name,
                                    models.RSEFileAssociation.rse_id).\
             with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
             filter(or_(*file_clause))
-
         existing_replicas = [(scope, name, rseid) for scope, name, rseid in file_query]
-
         chunk = [replica for replica in chunk if (replica.get('scope', None), replica.get('name', None), rse_id) not in existing_replicas]
+
+        # Exclude files that have already been added to the quarantined
+        # replica table.
+        quarantine_clause = []
+        for replica in chunk:
+            quarantine_clause.append(and_(models.QuarantinedReplica.path == replica['path'],
+                                          models.QuarantinedReplica.rse_id == rse_id))
+        quarantine_query = session.query(models.QuarantinedReplica.path,
+                                         models.QuarantinedReplica.rse_id).\
+            filter(or_(*quarantine_clause))
+        quarantine_replicas = [(path, rseid) for path, rseid in quarantine_query]
+        chunk = [replica for replica in chunk if (replica['path'], rse_id) not in quarantine_replicas]
 
         session.bulk_insert_mappings(
             models.QuarantinedReplica,
