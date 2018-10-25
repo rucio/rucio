@@ -34,6 +34,7 @@ from rucio.common.dumper import mkdir
 from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
 from rucio.core.quarantined_replica import add_quarantined_replicas
+from rucio.core.rse import get_rse_usage
 from rucio.daemons.auditor.hdfs import ReplicaFromHDFS
 from rucio.daemons.auditor import srmdumps
 
@@ -118,6 +119,14 @@ def process_output(output):
         raise error
 
     rse = os.path.basename(output[:output.rfind('_')])
+    usage = get_rse_usage(rse, source='rucio')[0]
+
+    # Perform a basic sanity check by comparing the number of entries
+    # with the total number of files on the RSE.  If the percentage is
+    # significant, there is most likely an issue with the site dump.
+    if len(dark_replicas) > 0.2 * usage['files']:
+        raise AssertionError('number of DARK files is exceeding threshold')
+
     add_quarantined_replicas(rse, dark_replicas)
     logger.debug('Processed %d DARK files from "%s"', len(dark_replicas),
                  output)
