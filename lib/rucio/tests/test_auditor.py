@@ -19,8 +19,10 @@ from rucio.daemons import auditor
 from rucio.daemons.auditor import srmdumps
 from rucio.daemons.auditor import hdfs
 from rucio.tests.common import stubbed
+import bz2
 import collections
 import multiprocessing
+import os
 import tempfile
 
 
@@ -38,6 +40,33 @@ def test_auditor_guess_replica_info():
     }
     for input_, output in tests.items():
         eq_(auditor.guess_replica_info(input_), output)
+
+
+class TestBz2CompressFile(object):
+
+    def setup(self):
+        self.source = tempfile.mktemp()
+        self.destination = self.source + '.bz2'
+
+    def teardown(self):
+        for path in [self.source, self.destination]:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+    def test_auditor_bz2_compress_file(self):
+        test_data = 'foo'
+        with open(self.source, 'w') as f:
+            f.write(test_data)
+
+        destination = auditor.bz2_compress_file(self.source)
+
+        eq_(destination, self.destination)
+        ok_(os.path.exists(self.destination))
+        ok_(not os.path.exists(self.source))
+        with bz2.BZ2File(self.destination) as f:
+            eq_(f.read(), test_data)
 
 
 def test_auditor_download_dumps_with_expected_dates():
