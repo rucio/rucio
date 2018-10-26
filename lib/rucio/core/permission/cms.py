@@ -11,6 +11,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -32,7 +33,7 @@ def has_permission(issuer, action, kwargs):
     """
     perm = {'add_account': perm_add_account,
             'del_account': perm_del_account,
-            'set_account_status': perm_set_account_status,
+            'update_account': perm_update_account,
             'add_rule': perm_add_rule,
             'add_subscription': perm_add_subscription,
             'add_scope': perm_add_scope,
@@ -219,9 +220,9 @@ def perm_del_account(issuer, kwargs):
     return issuer == 'root'
 
 
-def perm_set_account_status(issuer, kwargs):
+def perm_update_account(issuer, kwargs):
     """
-    Checks if an account can ban/unban an account.
+    Checks if an account can update an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
