@@ -18,6 +18,8 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
+#
+# PY3K COMPATIBLE
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.
@@ -66,14 +68,10 @@ graceful_stop = threading.Event()
 region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
 
 
-def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
+def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
     """
     Main loop to update the replicas and rules based on finished requests.
     """
-
-    logging.info('finisher starting - process (%i/%i) thread (%i/%i) db_bulk(%i) bulk (%i)' % (process, total_processes,
-                                                                                               thread, total_threads,
-                                                                                               db_bulk, bulk))
     try:
         suspicious_patterns = []
         pattern = get(section='conveyor', option='suspicious_pattern', session=None)
@@ -93,6 +91,8 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
     # Make an initial heartbeat so that all finishers have the correct worker number on the next try
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    logging.info(prepend_str + 'Finisher starting - db_bulk(%i) bulk (%i)' % (db_bulk, bulk))
+
     graceful_stop.wait(10)
     while not graceful_stop.is_set():
 
@@ -163,7 +163,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
+def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
     """
     Starts up the conveyer threads.
     """
@@ -175,14 +175,10 @@ def run(once=False, process=0, total_processes=1, total_threads=1, sleep_time=60
     else:
 
         logging.info('starting finisher threads')
-        threads = [threading.Thread(target=finisher, kwargs={'process': process,
-                                                             'total_processes': total_processes,
-                                                             'thread': i,
-                                                             'total_threads': total_threads,
-                                                             'sleep_time': sleep_time,
+        threads = [threading.Thread(target=finisher, kwargs={'sleep_time': sleep_time,
                                                              'activities': activities,
                                                              'db_bulk': db_bulk,
-                                                             'bulk': bulk}) for i in range(0, total_threads)]
+                                                             'bulk': bulk}) for _ in range(0, total_threads)]
 
         [thread.start() for thread in threads]
 
