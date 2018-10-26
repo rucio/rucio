@@ -168,13 +168,18 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             # 3.1 If the did is a constituent, relay the rule to the archive
             if did.did_type == DIDType.FILE and did.constituent:
-                # Check if a single replica of this DID exists
-                replica_cnt = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == did.scope,
-                                                                              models.RSEFileAssociation.name == did.name,
-                                                                              models.RSEFileAssociation.state == ReplicaState.AVAILABLE).count()
+                # Check if a single replica of this DID exists; Do not put rule on file if there are only replicas on TAPE
+                replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
+                    .filter(models.RSEFileAssociation.scope == did.scope,
+                            models.RSEFileAssociation.name == did.name,
+                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                            models.RSE.rse_type != RSEType.TAPE).count()
                 if replica_cnt == 0:  # Put the rule on the archive
-                    archive = session.query(models.ConstituentAssociation).filter(models.ConstituentAssociation.child_scope == did.scope,
-                                                                                  models.ConstituentAssociation.child_name == did.name).first()
+                    archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
+                                                                                and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope,
+                                                                                     models.ConstituentAssociation.name == models.RSEFileAssociation.name))\
+                        .filter(models.ConstituentAssociation.child_scope == did.scope,
+                                models.ConstituentAssociation.child_name == did.name).first()
                     if archive is not None:
                         elem['name'] = archive.name
                         elem['scope'] = archive.scope
@@ -378,12 +383,17 @@ def add_rules(dids, rules, session=None):
 
             # 2.1 If the did is a constituent, relay the rule to the archive
             if did.did_type == DIDType.FILE and did.constituent:  # Check if a single replica of this DID exists
-                replica_cnt = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == did.scope,
-                                                                              models.RSEFileAssociation.name == did.name,
-                                                                              models.RSEFileAssociation.state == ReplicaState.AVAILABLE).count()
+                replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
+                    .filter(models.RSEFileAssociation.scope == did.scope,
+                            models.RSEFileAssociation.name == did.name,
+                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                            models.RSE.rse_type != RSEType.TAPE).count()
                 if replica_cnt == 0:  # Put the rule on the archive
-                    archive = session.query(models.ConstituentAssociation).filter(models.ConstituentAssociation.child_scope == did.scope,
-                                                                                  models.ConstituentAssociation.child_name == did.name).first()
+                    archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
+                                                                                and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope,
+                                                                                     models.ConstituentAssociation.name == models.RSEFileAssociation.name))\
+                        .filter(models.ConstituentAssociation.child_scope == did.scope,
+                                models.ConstituentAssociation.child_name == did.name).first()
                     if archive is not None:
                         elem['name'] = archive.name
                         elem['scope'] = archive.scope
