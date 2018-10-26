@@ -893,6 +893,7 @@ def upload(args):
                       'pfn': args.pfn,
                       'no_register': args.no_register,
                       'lifetime': args.lifetime,
+                      'register_after_upload': args.register_after_upload,
                       'transfer_timeout': args.transfer_timeout,
                       'guid': args.guid})
 
@@ -1976,6 +1977,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
+    upload_parser.add_argument('--register-after-upload', dest='register_after_upload', action='store_true', default=False, help='Register the file only after successful upload.')
     upload_parser.add_argument('--summary', dest='summary', action='store_true', default=False, help='Create rucio_upload.json summary file')
     upload_parser.add_argument('--guid', dest='guid', action='store', help='Manually specify the GUID for the file.')
     upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
