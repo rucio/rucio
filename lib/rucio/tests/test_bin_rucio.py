@@ -24,6 +24,8 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -231,6 +233,52 @@ class TestBinRucio():
         nose.tools.assert_true((self.upload_success_str % path.basename(tmp_file2)) in out)
         nose.tools.assert_true((self.upload_success_str % path.basename(tmp_file3)) in out)
 
+    def test_upload_file_register_after_upload(self):
+        """CLIENT(USER): Rucio upload files with registration after upload"""
+        # normal upload
+        tmp_file1 = file_generator()
+        tmp_file2 = file_generator()
+        tmp_file3 = file_generator()
+        tmp_file1_name = path.basename(tmp_file1)
+        cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4} --register-after-upload'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        remove(tmp_file1)
+        remove(tmp_file2)
+        remove(tmp_file3)
+        nose.tools.assert_true((self.upload_success_str % tmp_file1_name) in out)
+        nose.tools.assert_true((self.upload_success_str % path.basename(tmp_file2)) in out)
+        nose.tools.assert_true((self.upload_success_str % path.basename(tmp_file3)) in out)
+
+        # removing replica -> file on RSE should be overwritten
+        # (simulating an upload error, where a part of the file is uploaded but the replica is not registered)
+        db_session = session.get_session()
+        db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=self.user).delete()
+        db_session.query(models.ReplicaLock).delete()
+        db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=self.user).delete()
+        db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=self.user).delete()
+        db_session.commit()
+        tmp_file4 = file_generator()
+        checksum_tmp_file4 = md5(tmp_file4)
+        cmd = 'rucio -v upload --rse {0} --scope {1} --name {2} {3} --register-after-upload'.format(self.def_rse, self.user, tmp_file1_name, tmp_file4)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        nose.tools.assert_true((self.upload_success_str % path.basename(tmp_file4)) in out)
+        nose.tools.assert_equal(checksum_tmp_file4, [replica for replica in self.replica_client.list_replicas(dids=[{'name': tmp_file1_name, 'scope': self.user}])][0]['md5'])
+
+        # try to upload file that already exists on RSE and is already registered -> no overwrite
+        cmd = 'rucio -v upload --rse {0} --scope {1} --name {2} {3} --register-after-upload'.format(self.def_rse, self.user, tmp_file1_name, tmp_file4)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        remove(tmp_file4)
+        nose.tools.assert_true('File already registered' in out)
+
     def test_upload_file_guid(self):
         """CLIENT(USER): Rucio upload file with guid"""
         tmp_file1 = file_generator()
@@ -325,6 +373,30 @@ class TestBinRucio():
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
         cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        remove(tmp_file1)
+        remove(tmp_file2)
+        remove(tmp_file3)
+        # searching for the file in the new dataset
+        cmd = 'rucio list-files {0}'.format(tmp_dsn)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1_name), out), None)
+
+    def test_upload_file_dataset_register_after_upload(self):
+        """CLIENT(USER): Rucio upload files to dataset with file registration after upload"""
+        tmp_file1 = file_generator()
+        tmp_file2 = file_generator()
+        tmp_file3 = file_generator()
+        tmp_file1_name = path.basename(tmp_file1)
+        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        # Adding files to a new dataset
+        cmd = 'rucio -v upload --register-after-upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
