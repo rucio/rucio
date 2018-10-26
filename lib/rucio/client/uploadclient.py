@@ -19,6 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -71,18 +72,19 @@ class UploadClient:
         """
 
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
-            path             - path of the file that will be uploaded
-            rse              - rse name (e.g. 'CERN-PROD_DATADISK') where to upload the file
-            did_scope        - Optional: custom did scope (Default: user.<account>)
-            did_name         - Optional: custom did name (Default: name of the file)
-            dataset_scope    - Optional: custom dataset scope
-            dataset_name     - Optional: custom dataset name
-            force_scheme     - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
-            pfn              - Optional: use a given PFN (this sets no_register to True, and no_register becomes mandatory)
-            no_register      - Optional: if True, the file will not be registered in the rucio catalogue
-            lifetime         - Optional: the lifetime of the file after it was uploaded
-            transfer_timeout - Optional: time after the upload will be aborted
-            guid             - Optional: guid of the file
+            path                  - path of the file that will be uploaded
+            rse                   - rse name (e.g. 'CERN-PROD_DATADISK') where to upload the file
+            did_scope             - Optional: custom did scope (Default: user.<account>)
+            did_name              - Optional: custom did name (Default: name of the file)
+            dataset_scope         - Optional: custom dataset scope
+            dataset_name          - Optional: custom dataset name
+            force_scheme          - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
+            pfn                   - Optional: use a given PFN (this sets no_register to True, and no_register becomes mandatory)
+            no_register           - Optional: if True, the file will not be registered in the rucio catalogue
+            register_after_upload - Optional: if True, the file will be registered after successful upload
+            lifetime              - Optional: the lifetime of the file after it was uploaded
+            transfer_timeout      - Optional: time after the upload will be aborted
+            guid                  - Optional: guid of the file
         :param summary_file_path: Optional: a path where a summary in form of a json file will be stored
 
         :returns: 0 on success
@@ -131,6 +133,7 @@ class UploadClient:
             logger.info('Preparing upload for file %s' % basename)
 
             no_register = file.get('no_register')
+            register_after_upload = file.get('register_after_upload')
             pfn = file.get('pfn')
             force_scheme = file.get('force_scheme')
 
@@ -153,11 +156,23 @@ class UploadClient:
                 logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic RSEs')
                 no_register = True
 
-            if not no_register:
+            if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
 
-            # if file already exists on RSE we're done
-            if not is_deterministic and not no_register:
+            # if register_after_upload, file should be overwritten if it is not registered
+            # otherwise if file already exists on RSE we're done
+            if register_after_upload:
+                if rsemgr.exists(rse_settings, file_did):
+                    logger.debug([replica for replica in self.client.list_replicas(dids=[{'name': file['did_name'], 'scope': file['did_scope']}])])
+
+                    if not [replica for replica in self.client.list_replicas(dids=[{'name': file['did_name'], 'scope': file['did_scope']}])]:
+                        logger.info('File already exists on RSE. Existing replica will be removed first.')
+                        rsemgr.delete(rse_settings, [{'name': file['did_name'], 'scope': file['did_scope']}])
+                        logger.info('Successfully removed replica from RSE')
+                    else:
+                        logger.info('File already registered. Skipping upload.')
+                        continue
+            elif not is_deterministic and not no_register and not register_after_upload:
                 if rsemgr.exists(rse_settings, pfn):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     continue
@@ -168,7 +183,6 @@ class UploadClient:
                 if rsemgr.exists(rse_settings, pfn if pfn else file_did):
                     logger.info('File already exists on RSE. Skipping upload')
                     continue
-
             protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
             protocols.reverse()
             success = False
@@ -212,6 +226,13 @@ class UploadClient:
                 if summary_file_path:
                     summary.append(copy.deepcopy(file))
 
+                if not no_register:
+                    if register_after_upload:
+                        self._register_file(file, registered_dataset_dids)
+                    replica_for_api = self._convert_file_for_api(file)
+                    if not self.client.update_replicas_states(rse, files=[replica_for_api]):
+                        logger.warning('Failed to update replica state')
+
                 # add file to dataset if needed
                 if dataset_did_str and not no_register:
                     try:
@@ -219,10 +240,6 @@ class UploadClient:
                     except Exception as error:
                         logger.warning('Failed to attach file to the dataset')
                         logger.debug(error)
-                if not no_register:
-                    replica_for_api = self._convert_file_for_api(file)
-                    if not self.client.update_replicas_states(rse, files=[replica_for_api]):
-                        logger.warning('Failed to update replica state')
             else:
                 self.trace['clientState'] = 'FAILED'
                 self.trace['stateReason'] = state_reason
