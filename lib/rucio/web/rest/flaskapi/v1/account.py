@@ -21,7 +21,11 @@
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from datetime import datetime
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
@@ -29,7 +33,7 @@ from traceback import format_exc
 from flask import Flask, Blueprint, Response, request, redirect
 from flask.views import MethodView
 
-from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, set_account_status
+from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account
 from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
 from rucio.api.rule import list_replication_rules
@@ -67,7 +71,7 @@ class Attributes(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return Response(dumps(attribs), content_type="application/json")
 
@@ -110,7 +114,7 @@ class Attributes(MethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Exception as error:
-            print str(format_exc())
+            print(str(format_exc()))
             return error, 500
 
         return "Created", 201
@@ -161,7 +165,7 @@ class Scopes(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         if not len(scopes):
@@ -193,7 +197,7 @@ class Scopes(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         return "Created", 201
@@ -231,7 +235,7 @@ class AccountParameter(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         dict = acc.to_dict()
@@ -245,7 +249,7 @@ class AccountParameter(MethodView):
         return Response(render_json(**dict), content_type="application/json")
 
     def put(self, account):
-        """ update the status for a given account name
+        """ update a parameter for a given account name
 
         .. :quickref: AccountParameter; Update account information.
 
@@ -261,17 +265,17 @@ class AccountParameter(MethodView):
             parameter = loads(json_data)
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
-        status = parameter.get('status', 'ACTIVE')
-        try:
-            set_account_status(account, status=status, issuer=request.environ.get('issuer'))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Unknown status %s' % status)
-        except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except Exception as error:
-            return error, 500
+        for key, value in parameter.items():
+            try:
+                update_account(account, key=key, value=value, issuer=request.environ.get('issuer'))
+            except ValueError:
+                return generate_http_error_flask(400, 'ValueError', 'Unknown value %s' % value)
+            except AccessDenied as error:
+                return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            except AccountNotFound as error:
+                return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+            except Exception as error:
+                return error, 500
 
         return "OK", 200
 
@@ -319,7 +323,7 @@ class AccountParameter(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         return "Created", 201
@@ -440,7 +444,7 @@ class Identities(MethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Exception as error:
-            print str(format_exc())
+            print(str(format_exc()))
             return error, 500
 
         return "Created", 201
@@ -468,7 +472,7 @@ class Identities(MethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Exception as error:
-            print str(format_exc())
+            print(str(format_exc()))
             return error, 500
 
     def delete(self, account):
@@ -508,7 +512,7 @@ class Identities(MethodView):
         except IdentityError as error:
             return generate_http_error_flask(404, 'IdentityError', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         return "OK", 200
@@ -543,7 +547,7 @@ class Rules(MethodView):
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -574,7 +578,7 @@ class Usage1(MethodView):
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -608,7 +612,7 @@ class Usage2(MethodView):
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
