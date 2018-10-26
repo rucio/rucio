@@ -13,6 +13,8 @@
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
 # - Diego Ciangottini <diego.ciangottini@pg.infn.it>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import absolute_import
 import datetime
@@ -24,7 +26,11 @@ except ImportError:
 import logging
 import sys
 import time
-import urlparse
+import traceback
+try:
+    from urlparse import urlparse  # py2
+except ImportError:
+    from urllib.parse import urlparse  # py3
 import uuid
 
 import requests
@@ -393,7 +399,7 @@ class FTS3Transfertool(Transfertool):
 
         jobs = None
 
-        if type(transfer_ids) is not list:
+        if not isinstance(transfer_ids, list):
             transfer_ids = [transfer_ids]
 
         responses = {}
@@ -426,6 +432,56 @@ class FTS3Transfertool(Transfertool):
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s', jobs.content)
 
         return responses
+
+    def set_se_status(self, storage_element, message, ban=True, timeout=None):
+        """
+        Ban a Storage Element. Used when a site is in downtime.
+        One can use a timeout in seconds. In that case the jobs will wait before being cancel.
+        If no timeout is specified, the jobs are canceled immediately
+
+        :param se: The Storage Element that will be banned.
+        :param message: The reason of the ban.
+        :param timeout: if None, send to FTS status 'cancel' else 'waiting' + the corresponding timeout.
+
+        :returns: 0 in case of success, -1 otherwise
+        """
+
+        params_dict = {'storage': storage_element, 'message': message}
+        status = 'CANCEL'
+        if timeout:
+            params_dict['timeout'] = timeout
+            status = 'WAIT'
+        params_dict['status'] = status
+        params_str = json.dumps(params_dict)
+
+        result = None
+        if ban:
+            try:
+                result = requests.post('%s/ban/se' % self.external_host,
+                                       verify=self.verify,
+                                       cert=self.cert,
+                                       data=params_str,
+                                       headers={'Content-Type': 'application/json'},
+                                       timeout=None)
+            except Exception:
+                logging.warn('Could not ban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+            if result and result.status_code == 200:
+                return 0
+            return -1
+        else:
+
+            try:
+                result = requests.delete('%s/ban/se?storage=%s' % (self.external_host, storage_element),
+                                         verify=self.verify,
+                                         cert=self.cert,
+                                         data=params_str,
+                                         headers={'Content-Type': 'application/json'},
+                                         timeout=None)
+            except Exception:
+                logging.warn('Could not unban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+            if result and result.status_code == 204:
+                return 0
+            return -1
 
     # Private methods unique to the FTS3 Transfertool
 
@@ -617,7 +673,7 @@ class FTS3Transfertool(Transfertool):
         return resps
 
     def __bulk_query_responses(self, jobs_response):
-        if type(jobs_response) is not list:
+        if not isinstance(jobs_response, list):
             jobs_response = [jobs_response]
 
         responses = {}
