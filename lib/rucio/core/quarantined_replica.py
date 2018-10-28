@@ -1,16 +1,24 @@
-"""
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
-
-  PY3K COMPATIBLE
-"""
+#!/usr/bin/env python
+# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2016-2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import datetime
 
@@ -28,37 +36,45 @@ def add_quarantined_replicas(rse, replicas, session=None):
     """
     Bulk add quarantined file replicas.
 
-    :param rse:     The rse name.
-    :param files:   The list of files.
-    :param session: The database session in use.
-
-    :returns: True is successful.
+    :param rse:      The rse name.
+    :param replicas: A list of dicts with the replica information.
+    :param session:  The database session in use.
     """
     rse_id = get_rse_id(rse, session=session)
 
-    file_clause = []
-    for replica in replicas:
-        file_clause.append(and_(models.RSEFileAssociation.scope == replica.get('scope', None),
-                                models.RSEFileAssociation.name == replica.get('name', None),
-                                models.RSEFileAssociation.rse_id == rse_id))
-
-    if file_clause:
+    for chunk in chunks(replicas, 100):
+        # Exlude files that have a registered replica.  This is a
+        # safeguard against potential issues in the Auditor.
+        file_clause = []
+        for replica in chunk:
+            file_clause.append(and_(models.RSEFileAssociation.scope == replica.get('scope', None),
+                                    models.RSEFileAssociation.name == replica.get('name', None),
+                                    models.RSEFileAssociation.rse_id == rse_id))
         file_query = session.query(models.RSEFileAssociation.scope,
                                    models.RSEFileAssociation.name,
                                    models.RSEFileAssociation.rse_id).\
             with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
             filter(or_(*file_clause))
-
         existing_replicas = [(scope, name, rseid) for scope, name, rseid in file_query]
+        chunk = [replica for replica in chunk if (replica.get('scope', None), replica.get('name', None), rse_id) not in existing_replicas]
 
-        replicas = [replica for replica in replicas if (replica.get('scope', None), replica.get('name', None), rse_id) not in existing_replicas]
+        # Exclude files that have already been added to the quarantined
+        # replica table.
+        quarantine_clause = []
+        for replica in chunk:
+            quarantine_clause.append(and_(models.QuarantinedReplica.path == replica['path'],
+                                          models.QuarantinedReplica.rse_id == rse_id))
+        quarantine_query = session.query(models.QuarantinedReplica.path,
+                                         models.QuarantinedReplica.rse_id).\
+            filter(or_(*quarantine_clause))
+        quarantine_replicas = [(path, rseid) for path, rseid in quarantine_query]
+        chunk = [replica for replica in chunk if (replica['path'], rse_id) not in quarantine_replicas]
 
-        for files in chunks(replicas, 1000):
-            session.bulk_insert_mappings(
-                models.QuarantinedReplica,
-                [{'rse_id': rse_id, 'path': file['path'],
-                  'scope': file.get('scope'), 'name': file.get('name'),
-                  'bytes': file.get('bytes')} for file in files])
+        session.bulk_insert_mappings(
+            models.QuarantinedReplica,
+            [{'rse_id': rse_id, 'path': file['path'],
+              'scope': file.get('scope'), 'name': file.get('name'),
+              'bytes': file.get('bytes')} for file in chunk])
 
 
 @transactional_session
