@@ -1,0 +1,41 @@
+======
+1.18.4
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Cannot specify rse_type in add_rse `#1647 <https://github.com/rucio/rucio/issues/1647>`_
+- Documentation: Outdated flask api doc string `#1686 <https://github.com/rucio/rucio/issues/1686>`_
+- Probes & Alarms: Rucio user account synchronization improvements (python paged search) `#1664 <https://github.com/rucio/rucio/issues/1664>`_
+- Rebalancing: Rebalancing breaks in decomissioning mode `#312 <https://github.com/rucio/rucio/issues/312>`_
+- Release management: Force urllib3 version to 1.23 to unblock tests `#1682 <https://github.com/rucio/rucio/issues/1682>`_
+- Rules: Rule forward from constituent to archive should be enforced if there is only a constituent-tape-replica available `#1663 <https://github.com/rucio/rucio/issues/1663>`_
+- Testing: Python3 compatibility test `#1505 <https://github.com/rucio/rucio/issues/1505>`_
+- Traces: Extract the suspicious files from the traces `#1623 <https://github.com/rucio/rucio/issues/1623>`_
+- Transfers: Fix options for rucio-conveyor-finisher `#1701 <https://github.com/rucio/rucio/issues/1701>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Exception not catched for PostgreSQL when attaching DIDs twice. `#1668 <https://github.com/rucio/rucio/issues/1668>`_
+- Recovery: list_bad_replicas_status implicitely uses SRM `#1635 <https://github.com/rucio/rucio/issues/1635>`_
+- Release management: Requests 2.20.0 not Python 2.6 compatible `#1698 <https://github.com/rucio/rucio/issues/1698>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Change list-dids to type collection, only ALL if --filter is given `#1422 <https://github.com/rucio/rucio/issues/1422>`_
+- Clients: Output of list-rse-usage --show-accounts should be one line per account `#1672 <https://github.com/rucio/rucio/issues/1672>`_
+- Clients: Rucio attach should chunk the DIDSs array up accordingly to the 1000 server limits `#30 <https://github.com/rucio/rucio/issues/30>`_
