@@ -39,84 +39,106 @@ DRYRUN = '-n' in sys.argv
 
 if __name__ == '__main__':
 
-    WORST_RETVALUE = OK
+    STATUS = OK
     try:
         FTSHOSTS = config_get('conveyor', 'ftshosts')
         FTSHOSTS = FTSHOSTS.split(',')
     except Exception as error:
         print("Failed to get ftshosts")
-        WORST_RETVALUE = WARNING
+        STATUS = WARNING
 
-    status = OK
     URL = 'http://atlas-agis-api.cern.ch/request/ddmendpointstatus/query/list/?json'
-    resp = requests.get(url=URL)
-    DATA = json.loads(resp.content)
-    mapping = {'r': 'availability_read', 'w': 'availability_write', 'd': 'availability_delete'}
-    blacklisted_sites = {'availability_read': [], 'availability_write': [], 'availability_delete': []}
+    RESP = requests.get(url=URL)
+    DATA = json.loads(RESP.content)
+    MAPPING = {'r': 'availability_read', 'w': 'availability_write', 'd': 'availability_delete'}
+    BLACKLISTED_SITES = {'availability_read': [], 'availability_write': [], 'availability_delete': []}
     DOWNTIMES = {}
     for site in DATA:
         for activity in DATA[site]:
             if activity in ['r', 'w', 'd']:
                 try:
                     if DATA[site][activity]['status']['value'] == 'OFF':
-                        blacklisted_sites[mapping[activity]].append(site)
+                        BLACKLISTED_SITES[MAPPING[activity]].append(site)
                         if DATA[site][activity]['status']['provider'] == 'AGIS' and DATA[site][activity]['status']['reason'].find('https://goc.egi.eu/portal/index.php?Page_Type=Downtime') > -1:
                             DOWNTIMES[site] = DATA[site][activity]['status']['reason']
                 except KeyError as error:
                     print(error)
 
     URL = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
-    resp = requests.get(url=URL)
-    DATA = json.loads(resp.content)
-    agis_rses = []
+    RESP = requests.get(url=URL)
+    DATA = json.loads(RESP.content)
+    AGIS_RSES = []
     for rse in DATA:
-        if (rse['name'] not in agis_rses) and not (rse['state'] == 'DISABLED' or rse['site_state'] == 'DISABLED'):
-            agis_rses.append(rse['name'])
+        if (rse['name'] not in AGIS_RSES) and not (rse['state'] == 'DISABLED' or rse['site_state'] == 'DISABLED'):
+            AGIS_RSES.append(rse['name'])
 
     # Blacklisting
-    for activity in blacklisted_sites:
+    for activity in BLACKLISTED_SITES:
         for site in list_rses({activity: True}):
-            if site['rse'] in blacklisted_sites[activity]:
+            if site['rse'] in BLACKLISTED_SITES[activity]:
                 print('%s will be blacklisted for %s' % (site['rse'], activity))
                 try:
                     if not DRYRUN:
                         update_rse(site['rse'], {activity: False})
-                        if activity in ['availability_write']:
-                            for rse in blacklisted_sites[activity]:
-                                if rse in DOWNTIMES:
-                                    protocols = get_rse_protocols(rse)
-                                    for prot in protocols['protocols']:
-                                        if 'third_party_copy' in prot['domains']['wan']:
-                                            se = '%s://%s' % (prot['scheme'], prot['hostname'])
-                                            for fts_host in FTSHOSTS:
-                                                print("FTS3Transfertool(external_host='%s').set_se_status(storage_element='%s', message='%s', ban=True, timeout=60)" % (fts_host, se, DOWNTIMES[rse]))
-                                                FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=se, message=DOWNTIMES[rse], ban=True, timeout=60)
                 except Exception as error:
                     print(error)
-                    if status == OK:
-                        status = WARNING
+                    if STATUS == OK:
+                        STATUS = WARNING
 
     # Whitelisting
-    for activity in blacklisted_sites:
+    for activity in BLACKLISTED_SITES:
         for site in list_rses({activity: False}):
             rse = site['rse']
-            if rse not in agis_rses:
+            if rse not in AGIS_RSES:
                 print('%s does not exist in AGIS' % (rse))
                 continue
-            if rse not in blacklisted_sites[activity]:
+            if rse not in BLACKLISTED_SITES[activity]:
                 print('%s will be whitelisted for %s' % (rse, activity))
                 try:
                     if not DRYRUN:
                         update_rse(rse, {activity: True})
-                        protocols = get_rse_protocols(rse)
-                        for prot in protocols['protocols']:
-                            if 'third_party_copy' in prot['domains']['wan']:
-                                se = '%s://%s' % (prot['scheme'], prot['hostname'])
-                                for fts_host in FTSHOSTS:
-                                    print("FTS3Transfertool(external_host='%s').set_se_status(storage_element='%s', message='%s', ban=False, timeout=60)" % (fts_host, se, DOWNTIMES[rse]))
-                                    FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=se, message=DOWNTIMES[rse], ban=False, timeout=60)
                 except Exception as error:
                     print(error)
-                    if status == OK:
-                        status = WARNING
-    sys.exit(status)
+                    if STATUS == OK:
+                        STATUS = WARNING
+
+    FTS_BAN_SES = {}
+    for fts_host in FTSHOSTS:
+        try:
+            ban_ses = FTS3Transfertool(external_host=fts_host).list_se_status()
+            FTS_BAN_SES[fts_host] = ban_ses
+        except Exception as error:
+            print(error)
+
+    # Banning SEs in FTS
+    SES = []
+    for rse in DOWNTIMES:
+        protocols = get_rse_protocols(rse)
+        for prot in protocols['protocols']:
+            if 'third_party_copy' in prot['domains']['wan']:
+                se = '%s://%s' % (prot['scheme'], prot['hostname'])
+                if not se in SES:
+                    SES.append(se)
+                    for fts_host in FTS_BAN_SES:
+                        if not se in [storage['se'] for storage in FTS_BAN_SES[fts_host]]:
+                            print("FTS3Transfertool(external_host='%s').set_se_status(storage_element='%s', message='%s', ban=True, timeout=60)" % (fts_host, se, DOWNTIMES[rse]))
+                            try:
+                                FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=se, message=DOWNTIMES[rse], ban=True, timeout=60)
+                            except Exception as error:
+                                print(error)
+                                if STATUS == OK:
+                                    STATUS = WARNING
+    # Unbanning SEs in FTS
+    FTS_BAN_SES = {}
+    for fts_host in FTS_BAN_SES:
+        try:
+            ban_ses = FTS_BAN_SES[fts_host]
+            for banned_se in ban_ses:
+                if not banned_se['se'] in SES and banned_se['admin_dn'] == '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=ddmadmin/CN=531497/CN=Robot: ATLAS Data Management':
+                    print('%s is banned but is not in downtime. Removing the ban' % (banned_se))
+                    FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=banned_se['se'], message='', ban=False, timeout=60)
+        except Exception as error:
+            print(error)
+            if STATUS == OK:
+                 STATUS = WARNING
+    sys.exit(STATUS)

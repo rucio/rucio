@@ -433,17 +433,37 @@ class FTS3Transfertool(Transfertool):
 
         return responses
 
+    def list_se_status(self):
+        """
+        Get the list of banned Storage Elements.
+
+        :returns: Detailed dictionnary of banned Storage Elements.
+        """
+
+        try:
+            result = requests.get('%s/ban/se' % self.external_host,
+                                  verify=self.verify,
+                                  cert=self.cert,
+                                  headers={'Content-Type': 'application/json'},
+                                  timeout=None)
+        except Exception as error:
+            raise Exception('Could not retrieve transfer information: %s', error)
+        if result and result.status_code == 200:
+            return result.json()
+        raise Exception('Could not retrieve transfer information: %s', result.content)
+
     def set_se_status(self, storage_element, message, ban=True, timeout=None):
         """
         Ban a Storage Element. Used when a site is in downtime.
         One can use a timeout in seconds. In that case the jobs will wait before being cancel.
         If no timeout is specified, the jobs are canceled immediately
 
-        :param se: The Storage Element that will be banned.
+        :param storage_element: The Storage Element that will be banned.
         :param message: The reason of the ban.
+        :param ban: Boolean. If set to True, ban the SE, if set to False unban the SE.
         :param timeout: if None, send to FTS status 'cancel' else 'waiting' + the corresponding timeout.
 
-        :returns: 0 in case of success, -1 otherwise
+        :returns: 0 in case of success, otherwise raise Exception
         """
 
         params_dict = {'storage': storage_element, 'message': message}
@@ -467,7 +487,7 @@ class FTS3Transfertool(Transfertool):
                 logging.warn('Could not ban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
             if result and result.status_code == 200:
                 return 0
-            return -1
+            raise Exception('Could not ban the storage %s , status code returned : %s', (storage_element, result.status_code if result else None))
         else:
 
             try:
@@ -481,7 +501,7 @@ class FTS3Transfertool(Transfertool):
                 logging.warn('Could not unban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
             if result and result.status_code == 204:
                 return 0
-            return -1
+            raise Exception('Could not unban the storage %s , status code returned : %s', (storage_element, result.status_code if result else None))
 
     # Private methods unique to the FTS3 Transfertool
 
