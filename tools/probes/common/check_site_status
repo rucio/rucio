@@ -117,10 +117,10 @@ if __name__ == '__main__':
         for prot in protocols['protocols']:
             if 'third_party_copy' in prot['domains']['wan']:
                 se = '%s://%s' % (prot['scheme'], prot['hostname'])
-                if not se in SES:
+                if se not in SES:
                     SES.append(se)
                     for fts_host in FTS_BAN_SES:
-                        if not se in [storage['se'] for storage in FTS_BAN_SES[fts_host]]:
+                        if se not in [storage['se'] for storage in FTS_BAN_SES[fts_host]]:
                             print("FTS3Transfertool(external_host='%s').set_se_status(storage_element='%s', message='%s', ban=True, timeout=60)" % (fts_host, se, DOWNTIMES[rse]))
                             try:
                                 FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=se, message=DOWNTIMES[rse], ban=True, timeout=60)
@@ -134,11 +134,11 @@ if __name__ == '__main__':
         try:
             ban_ses = FTS_BAN_SES[fts_host]
             for banned_se in ban_ses:
-                if not banned_se['se'] in SES and banned_se['admin_dn'] == '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=ddmadmin/CN=531497/CN=Robot: ATLAS Data Management':
+                if banned_se['se'] not in SES and banned_se['admin_dn'] == '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=ddmadmin/CN=531497/CN=Robot: ATLAS Data Management':
                     print('%s is banned but is not in downtime. Removing the ban' % (banned_se))
                     FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=banned_se['se'], message='', ban=False, timeout=60)
         except Exception as error:
             print(error)
             if STATUS == OK:
-                 STATUS = WARNING
+                STATUS = WARNING
     sys.exit(STATUS)
