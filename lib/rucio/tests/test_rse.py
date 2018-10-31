@@ -23,6 +23,8 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -35,11 +37,11 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError,
-                                    ResourceTemporaryUnavailable)
+                                    ResourceTemporaryUnavailable, RSEAttributeNotFound)
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes,
-                            set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits, get_rse,
-                            get_rse_protocols)
+                            set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits,
+                            get_rse_protocols, del_rse_attribute, get_rse_attribute, get_rse)
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import rse_name_generator
 from rucio.web.rest.rse import APP as rse_app
@@ -113,8 +115,8 @@ class TestRSECoreApi(object):
         rse_id = add_rse(rse)
         add_rse_attribute(rse=rse, key='tier', value='1')
         attr = list_rse_attributes(rse=None, rse_id=rse_id)
-        assert_in('tier', attr.keys())
-        assert_in(rse, attr.keys())
+        assert_in('tier', list(attr.keys()))
+        assert_in(rse, list(attr.keys()))
 
     def test_create_and_check_rse_transfer_limits(self):
         """ RSE (CORE): Test the creation, query, and deletion of a RSE transfer limit"""
@@ -128,7 +130,7 @@ class TestRSECoreApi(object):
 
         set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
         limits = get_rse_transfer_limits(rse=rse, activity=activity)
-        assert_in(activity, limits.keys())
+        assert_in(activity, list(limits.keys()))
         assert_in(rse_id, limits[activity])
         assert_equal(max_transfers, limits[activity][rse_id]['max_transfers'])
         assert_equal(transfers, limits[activity][rse_id]['transfers'])
@@ -136,7 +138,7 @@ class TestRSECoreApi(object):
 
         set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
         limits = get_rse_transfer_limits(rse=rse, activity=activity)
-        assert_in(activity, limits.keys())
+        assert_in(activity, list(limits.keys()))
         assert_in(rse_id, limits[activity])
         assert_equal(max_transfers + 1, limits[activity][rse_id]['max_transfers'])
         assert_equal(transfers + 1, limits[activity][rse_id]['transfers'])
@@ -148,6 +150,16 @@ class TestRSECoreApi(object):
         assert_equal(deleted, True)
 
         del_rse(rse)
+
+    def test_delete_rse_attribute(self):
+        """ RSE (CORE): Test the deletion of a RSE attribute. """
+        rse_name = rse_name_generator()
+        add_rse(rse_name)
+        del_rse_attribute(rse=rse_name, key=rse_name)
+        assert_equal(get_rse_attribute(key=rse_name, rse_id=get_rse_id(rse_name)), [])
+
+        with assert_raises(RSEAttributeNotFound):
+            del_rse_attribute(rse=rse_name, key=rse_name)
 
 
 class TestRSE(object):
@@ -257,6 +269,22 @@ class TestRSE(object):
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r2 = TestApp(rse_app.wsgifunc(*mw)).get('/MOCK/accounts/usage', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 200)
+
+    def test_delete_rse_attribute(self):
+        """ RSE (REST): Test the deletion of a RSE attribute """
+        mw = []
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        token = str(r1.header('X-Rucio-Auth-Token'))
+
+        rse_name = rse_name_generator()
+        add_rse(rse_name)
+        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
+        r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}/attr/{0}'.format(rse_name), headers=headers2, expect_errors=True)
+        assert_equal(r2.status, 200)
+
+        r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}/attr/{0}'.format(rse_name), headers=headers2, expect_errors=True)
+        assert_equal(r2.status, 404)
 
 
 class TestRSEClient(object):
@@ -1390,3 +1418,13 @@ class TestRSEClient(object):
         assert_equal(info['verify_checksum'], True)
 
         del_rse(rse)
+
+    def test_delete_rse_attribute(self):
+        """ RSE (CLIENT): Test the deletion of a RSE attribute. """
+        rse_name = rse_name_generator()
+        self.client.add_rse(rse_name)
+        self.client.delete_rse_attribute(rse=rse_name, key=rse_name)
+        assert_equal(get_rse_attribute(key=rse_name, rse_id=get_rse_id(rse_name)), [])
+
+        with assert_raises(RSEAttributeNotFound):
+            self.client.delete_rse_attribute(rse=rse_name, key=rse_name)
