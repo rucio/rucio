@@ -22,6 +22,7 @@
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -102,13 +103,14 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def set_account_status(self, account, status):
-        """ Set the status of an account.
+    def update_account(self, account, key, value):
+        """ Update a property of an account.
 
         :param account: Name of the account.
-        :param status: The status for the account.
+        :param key: Account property like status.
+        :param value: Property value.
         """
-        data = dumps({'status': status})
+        data = dumps({key: value})
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
         url = build_url(choice(self.list_hosts), path=path)
 
