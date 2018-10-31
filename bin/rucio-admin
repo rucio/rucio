@@ -249,6 +249,20 @@ def delete_account(args):
 
 
 @exception_handler
+def update_account(args):
+    """
+    %(prog)s update [options] <field1=value1 field2=value2 ...>
+
+    Update an account.
+
+    """
+    client = get_client(args)
+    client.update_account(account=args.account, key=args.key, value=args.value)
+    print('%s of account %s changed to %s' % (args.key, args.account, args.value))
+    return SUCCESS
+
+
+@exception_handler
 def ban_account(args):
     """
     %(prog)s ban [options] <field1=value1 field2=value2 ...>
@@ -257,7 +271,7 @@ def ban_account(args):
 
     """
     client = get_client(args)
-    client.set_account_status(account=args.account, status='SUSPENDED')
+    client.update_account(account=args.account, key='status', value='SUSPENDED')
     print('Account %s banned' % args.account)
     return SUCCESS
 
@@ -271,7 +285,7 @@ def unban_account(args):
 
     """
     client = get_client(args)
-    client.set_account_status(account=args.account, status='ACTIVE')
+    client.update_account(account=args.account, key='status', value='ACTIVE')
     print('Account %s unbanned' % args.account)
     return SUCCESS
 
@@ -1196,6 +1210,22 @@ def get_parser():
     unban_account_limits_parser.set_defaults(which='unban_account')
     unban_account_limits_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
 
+    # Update account subparser
+    update_account_parser = account_subparser.add_parser('update',
+                                                         help='Update an account.',
+                                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                         epilog='Usage example\n'
+                                                                '"""""""""""""\n'
+                                                                '::\n'
+                                                                '\n'
+                                                                '    $ rucio-admin account update --account jdoe --key email --value test\n'
+                                                                '    Account jdoe updated\n'
+                                                                '\n')
+    update_account_parser.set_defaults(which='update_account')
+    update_account_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    update_account_parser.add_argument('--key', dest='key', action='store', help='Account parameter', required=True)
+    update_account_parser.add_argument('--value', dest='value', action='store', help='Account parameter value', required=True)
+
     # The identity subparser
     identity_parser = subparsers.add_parser('identity', help='Identity methods')
     identity_subparser = identity_parser.add_subparsers()
@@ -1779,6 +1809,7 @@ if __name__ == '__main__':
                 'info_account': info_account,
                 'ban_account': ban_account,
                 'unban_account': unban_account,
+                'update_account': update_account,
                 'get_limits': get_limits,
                 'set_limits': set_limits,
                 'delete_limits': delete_limits,

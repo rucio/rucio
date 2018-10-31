@@ -12,6 +12,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -70,26 +71,18 @@ def get_account_info(account):
     return account_core.get_account(account)
 
 
-def get_account_status(account):
-    """
-    Returns the state of the account_core.
+def update_account(account, key, value, issuer='root'):
+    """ Update a property of an account_core.
 
     :param account: Name of the account_core.
-    """
-    return account_core.get_account_status(account)
-
-
-def set_account_status(account, status, issuer='root'):
-    """ Set the status of an account_core.
-
-    :param account: Name of the account_core.
-    :param status: The status for the account_core.
+    :param key: Account property like status.
+    :param value: Property value.
     """
     validate_schema(name='account', obj=account)
     kwargs = {}
-    if not rucio.api.permission.has_permission(issuer=issuer, action='set_account_status', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('Account %s can not change the status of the account' % (issuer))
-    return account_core.set_account_status(account, status)
+    if not rucio.api.permission.has_permission(issuer=issuer, action='update_account', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not change %s  of the account' % (issuer, key))
+    return account_core.update_account(account, key, value)
 
 
 def list_accounts(filter={}):
