@@ -24,7 +24,11 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import division
+from builtins import round
 from re import match
 try:
     from StringIO import StringIO
@@ -165,7 +169,10 @@ def del_rse(rse, session=None):
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
     old_rse.delete(session=session)
-    del_rse_attribute(rse=rse, key=rse, session=session)
+    try:
+        del_rse_attribute(rse=rse, key=rse, session=session)
+    except exception.RSEAttributeNotFound:
+        pass
 
 
 @read_session
@@ -275,7 +282,7 @@ def list_rses(filters={}, session=None):
                 query = query.filter(t.value == v)
 
         condition1, condition2 = [], []
-        for i in xrange(0, 8):
+        for i in range(0, 8):
             if i | availability_mask1 == i:
                 condition1.append(models.RSE.availability == i)
             if i & availability_mask2 == i:
@@ -335,8 +342,12 @@ def del_rse_attribute(rse, key, session=None):
     :return: True if RSE attribute was deleted.
     """
     rse_id = get_rse_id(rse, session=session)
-    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == key)
-    rse_attr = query.one()
+    rse_attr = None
+    try:
+        query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == key)
+        rse_attr = query.one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSEAttributeNotFound('RSE attribute \'%s\' cannot be found' % key)
     rse_attr.delete(session=session)
     return True
 

@@ -22,6 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Tobias Wegner <twegner@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -891,3 +892,13 @@ class TransferToolWrongAnswer(RucioException):
         super(TransferToolWrongAnswer, self).__init__(args, kwargs)
         self._message = "Wrong answer returned by the transfer tool."
         self.error_code = 84
+
+
+class RSEAttributeNotFound(RucioException):
+    """
+    RSE attribute not found.
+    """
+    def __init__(self, *args, **kwargs):
+        super(RSEAttributeNotFound, self).__init__(*args, **kwargs)
+        self._message = "RSE attribute not found."
+        self.error_code = 85
