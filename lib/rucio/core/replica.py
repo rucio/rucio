@@ -39,6 +39,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql.expression import case, bindparam, select, text, false, true
 
+import rucio.core.did
 import rucio.core.lock
 
 from rucio.common import exception
@@ -783,14 +784,27 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 # then yield and continue as the replica does not exist and we don't want to return
                 # an additional empty pfn to the client
                 if rse is None:
-                    for archive in archive_result:
 
+                    # retrieve the constituents metadata so we can downport it later
+                    # otherwise the zip meta will be used which won't match the actual file
+                    # full name used due to circular import dependency between modules
+                    constituent_meta = rucio.core.did.get_metadata(scope, name, session=session)
+
+                    for archive in archive_result:
                         # RSE expression might limit the archives we're allowed to use
                         # if it's empty due to non-matching RSE expression we must skip
                         if archive['pfns'] == {}:
                             continue
 
+                        # downport the constituents meta, we are not interested in the archives meta
+                        archive['scope'] = scope
+                        archive['name'] = name
+                        archive['adler32'] = constituent_meta['adler32']
+                        archive['md5'] = constituent_meta['md5']
+                        archive['bytes'] = constituent_meta['bytes']
+
                         for tmp_archive in archive['pfns']:
+                            # declare the constituent as being in a zip file
                             archive['pfns'][tmp_archive]['domain'] = 'zip'
                             # at this point we don't know the protocol of the parent, so we have to peek
                             if tmp_archive.startswith('root://') and 'xrdcl.unzip' not in tmp_archive:
@@ -1010,6 +1024,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 file['rses'][t_rse].append(t_pfn)
             else:
                 file['rses'][t_rse] = [t_pfn]
+
         yield file
         file = {}
 
