@@ -55,7 +55,8 @@ import tabulate
 from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
-                                    RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate)
+                                    RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate,
+                                    Duplicate)
 from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
@@ -165,6 +166,10 @@ def exception_handler(function):
             logger.error(error)
             logger.debug('This means that the method is not implemented yet.')
             return FAILURE
+        except Duplicate as error:
+            logger.error(error)
+            logger.debug('This means that you are trying to add something that already exists.')
+            return error.error_code
         except Exception as error:
             logger.error(error)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
