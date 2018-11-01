@@ -9,8 +9,12 @@
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+
+  PY3K COMPATIBLE
 '''
 
+from __future__ import print_function
 from re import match
 
 from sqlalchemy.exc import IntegrityError
@@ -19,9 +23,9 @@ from sqlalchemy.orm.exc import NoResultFound
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.common.exception import (Duplicate, RucioException,
                                     KeyNotFound, InvalidValueForKey, UnsupportedValueType,
-                                    InvalidObject)
+                                    InvalidObject, UnsupportedKeyType)
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.constants import DIDType, KeyType
 from rucio.db.sqla.session import read_session, transactional_session
 
 
@@ -40,6 +44,20 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
     # Check if value_type is supported
     if value_type and value_type not in [str(t) for t in AUTHORIZED_VALUE_TYPES]:
         raise UnsupportedValueType('The type \'%(value_type)s\' is not supported for values!' % locals())
+
+    # Convert key_type
+    key_type = str(key_type)
+    if key_type == 'F':
+        key_type = 'FILE'
+    elif key_type == 'D':
+        key_type = 'DATASET'
+    elif key_type == 'C':
+        key_type = 'CONTAINER'
+
+    try:
+        key_type = KeyType.from_string(key_type)
+    except ValueError as error:
+        raise UnsupportedKeyType('The type \'%s\' is not supported for keys!' % str(key_type))
 
     new_key = models.DIDKey(key=key, value_type=value_type and str(value_type), value_regexp=value_regexp, key_type=key_type)
     try:
@@ -151,5 +169,5 @@ def validate_meta(meta, did_type, session=None):
                 filter_by(value=meta[key]).\
                 one()
         except NoResultFound:
-            print "The value '%s' for the key '%s' is not valid" % (meta[key], key)
+            print("The value '%s' for the key '%s' is not valid" % (meta[key], key))
             raise InvalidObject("The value '%s' for the key '%s' is not valid" % (meta[key], key))
