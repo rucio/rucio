@@ -17,9 +17,16 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from traceback import format_exc
-from urlparse import parse_qs
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 from web import application, ctx, header, seeother, InternalError
 
 from logging import getLogger, StreamHandler, DEBUG
@@ -155,7 +162,7 @@ class MetaLinkRedirector(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -294,7 +301,7 @@ class HeaderRedirector(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 

@@ -21,7 +21,11 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 import base64
 
 from re import search
@@ -114,7 +118,7 @@ class UserPass(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         if not result:
@@ -269,14 +273,14 @@ class x509(RucioController):
         try:
             result = get_auth_token_x509(account, dn, appid, ip)
         except AccessDenied:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print('Cannot Authenticate', account, dn, appid, ip)
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except IdentityError:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print('Cannot Authenticate', account, dn, appid, ip)
             raise generate_http_error(401, 'CannotAuthenticate', 'No default account set for %(dn)s' % locals())
 
         if not result:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print('Cannot Authenticate', account, dn, appid, ip)
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
         header('X-Rucio-Auth-Token', result)
@@ -350,7 +354,7 @@ class SSH(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         if not result:
@@ -417,7 +421,7 @@ class SSHChallengeToken(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         if not result:

@@ -17,7 +17,11 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 import json
 
 from traceback import format_exc
@@ -152,8 +156,8 @@ class Accounts(MethodView):
         try:
             return Response(json.dumps(list_accounts_for_identity(identity_key, type)), content_type="application/json")
         except Exception, error:
-            print error
-            print str(format_exc())
+            print(error)
+            print(str(format_exc()))
             return error, 500
 
 
