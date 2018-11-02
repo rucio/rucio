@@ -18,9 +18,14 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from datetime import datetime
 from json import dumps
+from six import string_types
 from traceback import format_exc
 
 from flask import Flask, Blueprint, Response, request
@@ -145,7 +150,7 @@ class Replicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
     def post(self):
@@ -188,7 +193,7 @@ class Replicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return 'Created', 201
 
@@ -220,7 +225,7 @@ class Replicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return 'OK', 200
 
@@ -259,7 +264,7 @@ class Replicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return 'OK', 200
 
@@ -403,7 +408,7 @@ class ListReplicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -443,7 +448,7 @@ class ReplicasDIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -485,7 +490,7 @@ class BadReplicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return Response(dumps(not_declared_files), status=201, content_type='application/x-json-stream')
 
@@ -527,7 +532,7 @@ class SuspiciousReplicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return Response(dumps(not_declared_files), status=201, content_type='application/x-json-stream')
 
@@ -560,7 +565,7 @@ class BadReplicasStates(MethodView):
         limit = request.args.get('limit', None)
         list_pfns = request.args.get('list_pfns', None)
 
-        if type(state) is str or type(state) is unicode:
+        if isinstance(state, string_types):
             state = BadFilesStatus.from_string(state)
         if younger_than:
             younger_than = datetime.strptime(younger_than, "%Y-%m-%dT%H:%M:%S.%f")
@@ -576,7 +581,7 @@ class BadReplicasStates(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         data = ""
         for row in result:
@@ -617,7 +622,7 @@ class BadReplicasSummary(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         data = ""
         for row in result:
@@ -650,7 +655,7 @@ class DatasetReplicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -668,7 +673,6 @@ class ReplicasRSE(MethodView):
         :status 500: Internal Error.
         :returns: A dictionary containing all replicas on the RSE.
         """
-        print rse
         try:
             data = ""
             for row in list_datasets_per_rse(rse=rse):
@@ -677,7 +681,7 @@ class ReplicasRSE(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 

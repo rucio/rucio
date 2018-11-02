@@ -15,10 +15,16 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from traceback import format_exc
-from urlparse import parse_qs
-
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 from web import application, ctx, OK, header, InternalError
 
 from rucio.api.authentication import validate_auth_token
@@ -81,7 +87,7 @@ class SignURL(RucioController):
         except RucioException as e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception as e:
-            print format_exc()
+            print(format_exc())
             raise InternalError(e)
 
         svc, operation, url = None, None, None
@@ -108,7 +114,7 @@ class SignURL(RucioController):
         except RucioException as e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception as e:
-            print format_exc()
+            print(format_exc())
             raise InternalError(e)
 
         if not result:

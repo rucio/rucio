@@ -476,7 +476,7 @@ class Protocol(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(error)
-            print (format_exc())
+            print(format_exc())
             return error, 500
         return "Created", 201
 

@@ -20,7 +20,11 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
 from traceback import format_exc
@@ -169,7 +173,7 @@ class AllRule(MethodView):
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
     def post(self):
@@ -314,8 +318,8 @@ class AllRule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception, error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             return error, 500
 
         return Response(dumps(rule_ids), status=201)
@@ -386,8 +390,8 @@ class ReduceRule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             return error, 500
 
         return Response(dumps(rule_ids), status=201)
@@ -427,8 +431,8 @@ class MoveRule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print error
-            print format_exc()
+            print(error)
+            print(format_exc())
             return error, 500
 
         return Response(dumps(rule_ids), status=201)
