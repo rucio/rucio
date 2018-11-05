@@ -164,14 +164,11 @@ class UploadClient:
             if register_after_upload:
                 if rsemgr.exists(rse_settings, file_did):
                     try:
-                        dids = self.client.get_did(file['did_scope'], file['did_name'])
+                        self.client.get_did(file['did_scope'], file['did_name'])
                         logger.info('File already registered. Skipping upload.')
-                        logger.debug(dids)
                         continue
                     except DataIdentifierNotFound:
-                        logger.info('File already exists on RSE. Existing replica will be removed first.')
-                        rsemgr.delete(rse_settings, [{'name': file['did_name'], 'scope': file['did_scope']}])
-                        logger.info('Successfully removed replica from RSE')
+                        logger.info('File already exists on RSE. Previous left overs  will be overwritten.')
             elif not is_deterministic and not no_register:
                 if rsemgr.exists(rse_settings, pfn):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
