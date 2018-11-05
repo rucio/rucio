@@ -34,9 +34,9 @@ from requests.exceptions import Timeout, RequestException, ConnectionError, SSLE
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
-from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError
-import fts3.rest.client.easy as fts
-from myproxy.client import MyProxyClient, MyProxyClientGetError, MyProxyClientRetrieveError
+from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError  # pylint: disable=no-name-in-module,import-error
+import fts3.rest.client.easy as fts  # pylint: disable=no-name-in-module,import-error
+from myproxy.client import MyProxyClient, MyProxyClientGetError, MyProxyClientRetrieveError  # pylint: disable=no-name-in-module,import-error
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.core.monitor import record_counter
@@ -128,7 +128,7 @@ class FTS3MyProxyTransfertool(FTS3Transfertool):
             logging.error("SiteDB request exception")
             raise
 
-        if resp.status_code == requests.codes.ok:
+        if resp.status_code == requests.codes.ok:  # pylint: disable=no-member
             resp_json = resp.json()
         else:
             logging.error("Bad SiteDB request status code")
@@ -195,8 +195,7 @@ class FTS3MyProxyTransfertool(FTS3Transfertool):
             cert = myproxy_client.logon(key,
                                         None,
                                         sslCertFile=cert,
-                                        sslKeyFile=ckey
-                                        )
+                                        sslKeyFile=ckey)
         except MyProxyClientGetError:
             logging.error("MyProxy client exception during GET proxy")
             raise
