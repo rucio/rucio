@@ -133,7 +133,7 @@ class UploadClient:
             logger.info('Preparing upload for file %s' % basename)
 
             no_register = file.get('no_register')
-            register_after_upload = file.get('register_after_upload')
+            register_after_upload = file.get('register_after_upload') and not no_register
             pfn = file.get('pfn')
             force_scheme = file.get('force_scheme')
 
@@ -163,16 +163,16 @@ class UploadClient:
             # otherwise if file already exists on RSE we're done
             if register_after_upload:
                 if rsemgr.exists(rse_settings, file_did):
-                    logger.debug([replica for replica in self.client.list_replicas(dids=[{'name': file['did_name'], 'scope': file['did_scope']}])])
-
-                    if not [replica for replica in self.client.list_replicas(dids=[{'name': file['did_name'], 'scope': file['did_scope']}])]:
+                    try:
+                        dids = self.client.get_did(file['did_scope'], file['did_name'])
+                        logger.info('File already registered. Skipping upload.')
+                        logger.debug(dids)
+                        continue
+                    except DataIdentifierNotFound:
                         logger.info('File already exists on RSE. Existing replica will be removed first.')
                         rsemgr.delete(rse_settings, [{'name': file['did_name'], 'scope': file['did_scope']}])
                         logger.info('Successfully removed replica from RSE')
-                    else:
-                        logger.info('File already registered. Skipping upload.')
-                        continue
-            elif not is_deterministic and not no_register and not register_after_upload:
+            elif not is_deterministic and not no_register:
                 if rsemgr.exists(rse_settings, pfn):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     continue
