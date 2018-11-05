@@ -85,7 +85,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
         transfer_core.prepare_sources_for_transfers(xfers_ret)
         logging.debug(prepend_str + 'Finished to prepare transfer')
     except RequestNotFound as error:
-        logging.error(prepend_str + error)
+        logging.error(prepend_str + str(error))
         return
     except Exception:
         logging.error(prepend_str + 'Failed to prepare requests %s state to SUBMITTING (Will not submit jobs but return directly) with error: %s' % (list(xfers_ret.keys()), traceback.format_exc()))
