@@ -16,7 +16,11 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from json import loads
 from traceback import format_exc
 from web import application, ctx, data, Created, InternalError, loadhook
@@ -44,7 +48,7 @@ class BulkDIDS(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created()
 

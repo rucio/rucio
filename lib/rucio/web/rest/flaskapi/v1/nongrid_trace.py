@@ -16,7 +16,11 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2018
 # - Mario Lassnig <mario.lassnig>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 import json
 import time
 import traceback
@@ -58,7 +62,7 @@ class XAODTrace(MethodView):
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json data')
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             return error, 500
 
         return "Created", 201

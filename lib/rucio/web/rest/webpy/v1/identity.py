@@ -17,7 +17,11 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 import json
 
 from traceback import format_exc
@@ -165,7 +169,7 @@ class Accounts(RucioController):
         try:
             return json.dumps(list_accounts_for_identity(identity_key, type))
         except Exception as error:
-            print str(format_exc())
+            print(str(format_exc()))
             raise InternalError(error)
 
 
