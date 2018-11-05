@@ -18,7 +18,11 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 import traceback
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
@@ -60,7 +64,7 @@ class ObjectStoreGet(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             return error, 500
         return "OK"
 
@@ -98,7 +102,7 @@ class ObjectStore(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             return error, 500
 
 
@@ -134,7 +138,7 @@ class ObjectStoreInfo(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             return error, 500
 
 
@@ -169,7 +173,7 @@ class ObjectStoreRename(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             return error, 500
 
         return "OK", 200

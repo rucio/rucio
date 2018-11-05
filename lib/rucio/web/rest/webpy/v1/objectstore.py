@@ -17,7 +17,11 @@
 # - Wen Guan <wen.guan@cern.ch>, 2016
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 import traceback
 from web import application, header, data, loadhook, unloadhook, InternalError, OK
 # from web import application, ctx, header, data, loadhook, unloadhook, InternalError, found, OK
@@ -69,7 +73,7 @@ class ObjectStoreGet(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             raise InternalError(error)
         raise OK()
 
@@ -103,7 +107,7 @@ class ObjectStore(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             raise InternalError(error)
 
 
@@ -136,7 +140,7 @@ class ObjectStoreInfo(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             raise InternalError(error)
 
 
@@ -167,7 +171,7 @@ class ObjectStoreRename(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             raise InternalError(error)
 
         raise OK()

@@ -18,7 +18,11 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from json import loads
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
@@ -76,7 +80,7 @@ class AccountLimit(MethodView):
         except AccountNotFound as exception:
             return generate_http_error_flask(404, 'AccountNotFound', exception.args[0])
         except Exception as exception:
-            print format_exc()
+            print(format_exc())
             return exception, 500
 
         return "Created", 201
@@ -102,7 +106,7 @@ class AccountLimit(MethodView):
         except RSENotFound as exception:
             return generate_http_error_flask(404, 'RSENotFound', exception.args[0])
         except Exception as exception:
-            print format_exc()
+            print(format_exc())
             return exception, 500
         return "OK", 200
 

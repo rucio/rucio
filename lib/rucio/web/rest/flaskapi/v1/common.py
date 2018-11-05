@@ -15,7 +15,11 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from flask import request
 from time import time
 from traceback import format_exc
@@ -27,7 +31,7 @@ from rucio.common.utils import generate_http_error_flask, generate_uuid
 
 def before_request():
     if request.environ.get('REQUEST_METHOD') == 'OPTIONS':
-        raise "", 200
+        return '', 200
 
     auth_token = request.environ.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
@@ -36,7 +40,7 @@ def before_request():
     except RucioException as error:
         return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
     except Exception as error:
-        print format_exc()
+        print(format_exc())
         return error, 500
 
     if auth is None:
