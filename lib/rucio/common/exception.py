@@ -902,3 +902,13 @@ class RSEAttributeNotFound(RucioException):
         super(RSEAttributeNotFound, self).__init__(*args, **kwargs)
         self._message = "RSE attribute not found."
         self.error_code = 85
+
+
+class UnsupportedKeyType(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedKeyType, self).__init__(*args, **kwargs)
+        self._message = "Unsupported type for the key."
+        self.error_code = 86
