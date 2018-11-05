@@ -116,14 +116,14 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
 @read_session
 def rse_exists(rse, session=None):
     """
-    Checks to see if RSE exists. This procedure does not check its status.
+    Checks to see if RSE exists.
 
     :param rse: Name of the rse.
     :param session: The database session in use.
 
     :returns: True if found, otherwise false.
     """
-    return True if session.query(models.RSE).filter_by(rse=rse).first() else False
+    return True if session.query(models.RSE).filter_by(rse=rse, deleted=False).first() else False
 
 
 @read_session
