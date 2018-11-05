@@ -19,7 +19,11 @@
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2012
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 import base64
 from re import search
 from traceback import format_exc
@@ -99,7 +103,7 @@ class UserPass(MethodView):
         if ip is None:
             ip = request.remote_addr
 
-        print account, username, password, appid
+        print(account, username, password, appid)
         try:
             result = get_auth_token_user_pass(account, username, password, appid, ip)
         except AccessDenied:
@@ -107,7 +111,7 @@ class UserPass(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         if not result:
@@ -276,14 +280,14 @@ class x509(MethodView):
         try:
             result = get_auth_token_x509(account, dn, appid, ip)
         except AccessDenied:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print('Cannot Authenticate', account, dn, appid, ip)
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except IdentityError:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print('Cannot Authenticate', account, dn, appid, ip)
             return generate_http_error_flask(401, 'CannotAuthenticate', 'No default account set for %(dn)s' % locals())
 
         if not result:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print('Cannot Authenticate', account, dn, appid, ip)
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
         response.headers['X-Rucio-Auth-Token'] = result
@@ -365,7 +369,7 @@ class SSH(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         if not result:
@@ -440,7 +444,7 @@ class SSHChallengeToken(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         if not result:
