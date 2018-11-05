@@ -116,8 +116,9 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     token = '%(account)s-%(username)s-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=db_account, token=token, ip=ip)
     new_token.save(session=session)
+    session.expunge(new_token)
 
-    return token
+    return new_token
 
 
 @transactional_session
@@ -149,8 +150,9 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     token = '%(account)s-%(dn)s-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
+    session.expunge(new_token)
 
-    return token
+    return new_token
 
 
 @transactional_session
@@ -182,8 +184,9 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     token = '%(account)s-%(gsstoken)s-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
+    session.expunge(new_token)
 
-    return token
+    return new_token
 
 
 @transactional_session
@@ -242,10 +245,10 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     tuid = generate_uuid()  # NOQA
     token = '%(account)s-ssh:pubkey-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=account, token=token, ip=ip)
-
     new_token.save(session=session)
+    session.expunge(new_token)
 
-    return token
+    return new_token
 
 
 @transactional_session
@@ -279,8 +282,9 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
     new_challenge_token = models.Token(account=account, token=challenge_token, ip=ip,
                                        expired_at=expiration)
     new_challenge_token.save(session=session)
+    session.expunge(new_challenge_token)
 
-    return challenge_token
+    return new_challenge_token
 
 
 def validate_auth_token(token):
