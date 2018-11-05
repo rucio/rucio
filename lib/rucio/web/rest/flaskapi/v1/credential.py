@@ -15,10 +15,16 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from traceback import format_exc
-from urlparse import parse_qs
-
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 from rucio.api.authentication import validate_auth_token
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import AccessDenied, RucioException
@@ -98,7 +104,7 @@ class SignURL(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         svc, operation, url = None, None, None
@@ -125,7 +131,7 @@ class SignURL(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         if not result:

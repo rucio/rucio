@@ -18,7 +18,11 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from traceback import format_exc
 from flask import Flask, Blueprint, Response, request, redirect
 from flask.views import MethodView
@@ -147,7 +151,7 @@ class MetaLinkRedirector(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -272,7 +276,7 @@ class HeaderRedirector(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 

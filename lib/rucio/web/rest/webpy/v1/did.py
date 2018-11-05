@@ -22,10 +22,16 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from json import dumps, loads
 from traceback import format_exc
-from urlparse import parse_qs
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 from web import application, ctx, data, Created, header, InternalError, OK, loadhook
 
 from rucio.api.did import (add_did, add_dids, list_content, list_content_history,
@@ -101,7 +107,7 @@ class Scope(RucioController):
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -146,7 +152,7 @@ class Search(RucioController):
         except KeyNotFound as error:
             raise generate_http_error(404, 'KeyNotFound', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -175,7 +181,7 @@ class BulkDIDS(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created()
 
@@ -212,7 +218,7 @@ class Attachments(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         raise Created()
@@ -250,7 +256,7 @@ class DIDs(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
     def POST(self, scope, name):
@@ -305,7 +311,7 @@ class DIDs(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created()
 
@@ -342,7 +348,7 @@ class DIDs(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         raise OK()
@@ -375,7 +381,7 @@ class Attachment(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
     def POST(self, scope, name):
@@ -412,7 +418,7 @@ class Attachment(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         raise Created()
@@ -447,7 +453,7 @@ class Attachment(RucioController):
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         raise OK()
@@ -480,7 +486,7 @@ class AttachmentHistory(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -518,7 +524,7 @@ class Files(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -545,7 +551,7 @@ class Parents(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -577,7 +583,7 @@ class Meta(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
     def POST(self, scope, name, key):
@@ -622,7 +628,7 @@ class Meta(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         raise Created()
@@ -746,7 +752,7 @@ class Sample(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created()
 
@@ -819,7 +825,7 @@ class Resurrect(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created()
 
@@ -854,7 +860,7 @@ class ListByMeta(RucioController):
         except NotImplementedError:
             raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -895,7 +901,7 @@ class DidMeta(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created()
 
@@ -921,7 +927,7 @@ class DidMeta(RucioController):
         except NotImplementedError:
             raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
     def DELETE(self, scope, name):
@@ -953,7 +959,7 @@ class DidMeta(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise OK()
 
