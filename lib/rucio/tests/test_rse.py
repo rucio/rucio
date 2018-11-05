@@ -93,6 +93,7 @@ class TestRSECoreApi(object):
         with assert_raises(Duplicate):
             add_rse(rse_name)
         del_rse(rse_name)
+        assert_equal(rse_exists(rse_name), False)
 
     def test_list_rses(self):
         """ RSE (CORE): Test the listing of all RSEs """
