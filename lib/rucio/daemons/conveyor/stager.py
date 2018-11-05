@@ -110,6 +110,7 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
 
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
 
             if activities is None:
                 activities = [None]
