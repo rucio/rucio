@@ -140,7 +140,7 @@ class Rule(MethodView):
             return generate_http_error_flask(401, 'UnsupportedOperation', error.args[0])
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except Exception, error:
+        except Exception as error:
             return error, 500
         return "OK", 200
 
@@ -317,7 +317,7 @@ class AllRule(MethodView):
             return generate_http_error_flask(409, 'InvalidObject', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
+        except Exception as error:
             print(error)
             print(format_exc())
             return error, 500

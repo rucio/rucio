@@ -66,13 +66,13 @@ class UserPass(MethodView):
 
         try:
             add_identity(username, 'userpass', password)
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
         try:
             add_account_identity(username, 'userpass', account,
                                  email=None, issuer=request.environ.get('issuer'))
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
         return "Created", 201
@@ -95,13 +95,13 @@ class X509(MethodView):
         dn = request.environ.get('SSL_CLIENT_S_DN')
         try:
             add_identity(dn, 'x509', email=None)
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
         try:
             add_account_identity(dn, 'x509', account,
                                  email=None, issuer=request.environ.get('issuer'))
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
         return "Created", 201
@@ -124,13 +124,13 @@ class GSS(MethodView):
         gsscred = request.environ.get('REMOTE_USER')
         try:
             add_identity(gsscred, 'gss', email=None)
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
         try:
             add_account_identity(gsscred, 'gss', account,
                                  email=None, issuer=request.environ.get('issuer'))
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
         return "Created", 201
@@ -155,7 +155,7 @@ class Accounts(MethodView):
         """
         try:
             return Response(json.dumps(list_accounts_for_identity(identity_key, type)), content_type="application/json")
-        except Exception, error:
+        except Exception as error:
             print(error)
             print(str(format_exc()))
             return error, 500
