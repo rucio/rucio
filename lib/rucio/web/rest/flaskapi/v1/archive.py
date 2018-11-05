@@ -57,7 +57,7 @@ class Archive(MethodView):
             for file in list_archive_content(scope=scope, name=name):
                 data += dumps(file) + '\n'
             return Response(data, content_type="application/x-json-stream")
-        except Exception, error:
+        except Exception as error:
             print(format_exc())
             return error, 500
 
