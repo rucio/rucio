@@ -34,7 +34,7 @@ from hashlib import md5
 from re import match
 
 from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
-from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
+from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError, InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
 from sqlalchemy.sql.expression import bindparam, case, text, Insert, select, true
@@ -1237,6 +1237,8 @@ def set_metadata(scope, name, key, value, type=None, did=None,
                 update({key: value}, synchronize_session='fetch')
         except CompileError as error:
             raise exception.InvalidMetadata(error)
+        except InvalidRequestError as error:
+	    raise exception.InvalidMetadata("Key %s is not accepted" % key)
 
         # propagate metadata updates to child content
         if recursive:
@@ -1254,6 +1256,8 @@ def set_metadata(scope, name, key, value, type=None, did=None,
                         update({key: value}, synchronize_session='fetch')
                 except CompileError as error:
                     raise exception.InvalidMetadata(error)
+		except InvalidRequestError as error:
+		    raise exception.InvalidMetadata("Key %s is not accepted" % key)
 
     if not rowcount:
         # check for did presence
