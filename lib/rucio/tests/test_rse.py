@@ -32,6 +32,7 @@ from json import dumps
 from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
 from paste.fixture import TestApp
 
+from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType
 from rucio.client.rseclient import RSEClient
 from rucio.client.replicaclient import ReplicaClient
@@ -39,7 +40,6 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError,
                                     ResourceTemporaryUnavailable, RSEAttributeNotFound, RSEOperationNotSupported)
 from rucio.common.utils import generate_uuid
-from rucio.core.replica import add_replica
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes,
                             set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits,
                             get_rse_protocols, del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty)
@@ -168,7 +168,11 @@ class TestRSECoreApi(object):
         # Deletion of not empty RSE
         rse_name = rse_name_generator()
         add_rse(rse_name)
-        add_replica(rse=rse_name, scope='mock', bytes=10, name='file_%s' % generate_uuid(), account='root')
+        rse_id = get_rse_id(rse_name)
+        db_session = session.get_session()
+        rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
+        rse_usage.used = 1
+        db_session.commit()
         with assert_raises(RSEOperationNotSupported):
             del_rse(rse_name)
 
@@ -181,9 +185,13 @@ class TestRSECoreApi(object):
         """ RSE (CORE): Test if RSE is empty """
         rse_name = rse_name_generator()
         add_rse(rse_name)
+        rse_id = get_rse_id(rse_name)
         assert_equal(rse_is_empty(rse_name), True)
 
-        add_replica(rse=rse_name, scope='mock', bytes=10, name='file_%s' % generate_uuid(), account='root')
+        db_session = session.get_session()
+        rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
+        rse_usage.used = 1
+        db_session.commit()
         assert_equal(rse_is_empty(rse_name), False)
 
 
@@ -299,6 +307,11 @@ class TestRSE(object):
         """ RSE (REST): Test the deletion of a RSE attribute """
         rse_name = rse_name_generator()
         add_rse(rse_name)
+        mw = []
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        token = str(r1.header('X-Rucio-Auth-Token'))
+
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}/attr/{0}'.format(rse_name), headers=headers2, expect_errors=True)
         assert_equal(r2.status, 200)
@@ -334,7 +347,11 @@ class TestRSE(object):
         # Deletion of not empty RSE
         rse_name = rse_name_generator()
         add_rse(rse_name)
-        add_replica(rse=rse_name, scope='mock', bytes=10, name='file_%s' % generate_uuid(), account='root')
+        rse_id = get_rse_id(rse_name)
+        db_session = session.get_session()
+        rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
+        rse_usage.used = 1
+        db_session.commit()
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}'.format(rse_name), headers=headers2, expect_errors=True)
 
@@ -1468,7 +1485,6 @@ class TestRSEClient(object):
 
         assert_in('verify_checksum', info)
         assert_equal(info['verify_checksum'], True)
-
         del_rse(rse)
 
     def test_delete_rse_attribute(self):
@@ -1486,7 +1502,13 @@ class TestRSEClient(object):
         # Deletion of not empty RSE
         rse_name = rse_name_generator()
         add_rse(rse_name)
-        add_replica(rse=rse_name, scope='mock', bytes=10, name='file_%s' % generate_uuid(), account='root')
+        rse_id = get_rse_id(rse_name)
+        db_session = session.get_session()
+        rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
+        rse_usage.used = 1
+        db_session.commit()
+        db_session = session.get_session()
+        print(db_session.query(models.RSEUsage).filter_by(rse_id=rse_id).one())
         with assert_raises(RSEOperationNotSupported):
             self.client.delete_rse(rse=rse_name)
 
