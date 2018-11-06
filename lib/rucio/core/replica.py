@@ -868,6 +868,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse],
                                                                           operation='read',
                                                                           domain=domain)['scheme'])
+                        except exception.RSEProtocolNotSupported:
+                            pass  # no need to be verbose
                         except Exception:
                             print(format_exc())
 
