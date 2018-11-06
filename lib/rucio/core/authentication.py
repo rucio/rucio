@@ -86,7 +86,9 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     :param ip: IP address of the client a a string.
     :param session: The database session in use.
 
-    :returns: Authentication token as a variable-length string.
+    :returns: Authentication token as a Python struct
+              .token string
+              .expired_at datetime
     """
 
     # Make sure the account exists
@@ -134,7 +136,9 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     :param ipaddr: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: Authentication token as a variable-length string.
+    :returns: Authentication token as a Python struct
+              .token string
+              .expired_at datetime
     """
 
     # Make sure the account exists
@@ -168,7 +172,9 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: Authentication token as a variable-length string.
+    :returns: Authentication token as a Python struct
+              .token string
+              .expired_at datetime
     """
 
     # Make sure the account exists
@@ -202,7 +208,9 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: Authentication token as a variable-length string.
+    :returns: Authentication token as a Python struct
+              .token string
+              .expired_at datetime
     """
 
     # Make sure the account exists
@@ -261,7 +269,10 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
     :param account: Account identifier as a string.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
-    :returns: Challenge as a variable-length string.
+
+    :returns: Challenge token token as a Python struct
+              .token string
+              .expired_at datetime
     """
 
     # Make sure the account exists
