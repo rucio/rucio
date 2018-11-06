@@ -1238,7 +1238,7 @@ def set_metadata(scope, name, key, value, type=None, did=None,
         except CompileError as error:
             raise exception.InvalidMetadata(error)
         except InvalidRequestError as error:
-	    raise exception.InvalidMetadata("Key %s is not accepted" % key)
+            raise exception.InvalidMetadata("Key %s is not accepted" % key)
 
         # propagate metadata updates to child content
         if recursive:
@@ -1256,8 +1256,8 @@ def set_metadata(scope, name, key, value, type=None, did=None,
                         update({key: value}, synchronize_session='fetch')
                 except CompileError as error:
                     raise exception.InvalidMetadata(error)
-		except InvalidRequestError as error:
-		    raise exception.InvalidMetadata("Key %s is not accepted" % key)
+                except InvalidRequestError as error:
+                    raise exception.InvalidMetadata("Key %s is not accepted" % key)
 
     if not rowcount:
         # check for did presence
