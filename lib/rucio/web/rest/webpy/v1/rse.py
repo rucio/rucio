@@ -46,7 +46,7 @@ from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioE
                                     RSEOperationNotSupported, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported,
                                     RSEProtocolPriorityError, InvalidRSEExpression,
-                                    RSEAttributeNotFound)
+                                    RSEAttributeNotFound, CounterNotFound)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController
 from rucio.rse import rsemanager
@@ -242,6 +242,8 @@ class RSE(RucioController):
             raise generate_http_error(404, 'RSEOperationNotSupported', error.args[0])
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except CounterNotFound as error:
+            raise generate_http_error(404, 'CounterNotFound', error.args[0])
 
         raise OK()
 
