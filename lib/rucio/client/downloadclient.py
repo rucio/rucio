@@ -648,21 +648,7 @@ class DownloadClient:
                 end_time = time.time()
 
                 # download successful; extract file from zip if needed
-                """
-                if success and source.get('client_extract', False):
-                    success = False
-                    try:
-                        cmd = 'unzip %s %s -d %s' % (temp_file_path, did_name, dest_dir_path)
-                        exitcode, output, error = execute('unzip %s' % temp_file_path)
-                        if exitcode != 0:
-                            logger.warning('%sUnzip failed with exitcode %d for file: %s' % (log_prefix, exitcode, did_str))
-                            logger.debug(error)
-                        else:
-                            success = True
-                    except Exception as error:
-                        logger.warning('%sCould not execute unzip for file: %s' % (log_prefix, temp_file_path))
-                        logger.debug(error)
-                """
+
                 # extract skipped or successful; validate checksums
                 if success and not item.get('ignore_checksum', False):
                     rucio_checksum = item.get('adler32')
