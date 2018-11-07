@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
@@ -257,11 +257,14 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                              heartbeat['nr_threads'],
                                              host_and_ports)
                                 conn.connect(wait=True)
+
                         conn.send(body=json.dumps({'event_type': str(message['event_type']).lower(),
                                                    'payload': message['payload'],
                                                    'created_at': str(message['created_at'])}),
                                   destination=destination,
-                                  headers={'persistent': 'true'})
+                                  headers={'persistent': 'true',
+                                           'event_type': str(message['event_type']).lower()})
+
                         to_delete.append({'id': message['id'],
                                           'created_at': message['created_at'],
                                           'updated_at': message['created_at'],
