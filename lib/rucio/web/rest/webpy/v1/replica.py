@@ -380,8 +380,11 @@ class ListReplicas(RucioController):
                         yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
-                    yield '</glfn>\n'
+                    yield '  <glfn name="/%s/rucio/%s:%s"></glfn>\n' % (config_get('policy', 'schema',
+                                                                                   raise_exception=False,
+                                                                                   default='generic'),
+                                                                        rfile['scope'],
+                                                                        rfile['name'])
 
                     # TODO: deprecate this
                     if select == 'geoip':
