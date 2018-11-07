@@ -272,15 +272,16 @@ def datetime_parser(dct):
 
 
 def parse_response(data):
-   """ JSON render function
-   """
-   ret_obj = None
-   try:
-       ret_obj = data.decode('utf-8')
-   except AttributeError:
-       ret_obj = data
+    """
+    JSON render function
+    """
+    ret_obj = None
+    try:
+        ret_obj = data.decode('utf-8')
+    except AttributeError:
+        ret_obj = data
 
-   return json.loads(ret_obj, object_hook=datetime_parser)
+    return json.loads(ret_obj, object_hook=datetime_parser)
 
 
 def generate_http_error(status_code, exc_cls, exc_msg):
