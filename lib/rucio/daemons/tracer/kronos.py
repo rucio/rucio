@@ -147,7 +147,7 @@ class AMQConsumer(object):
                                 declare_bad_file_replicas(report['url'], reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
                                 logging.info('Declare suspicious file %s with reason %s' % (report['url'], reason))
                             except Exception as error:
-                                logging.error('Failed to declare suspicious file' + error)
+                                logging.error('Failed to declare suspicious file' + str(error))
 
                 # check if scope in report. if not skip this one.
                 if 'scope' not in report:
@@ -258,7 +258,7 @@ class AMQConsumer(object):
         logging.info('(kronos_file) updated %d replicas' % len(replicas))
 
 
-def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None):
+def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None, sleep_time=60):
     """
     Main loop to consume tracer reports.
     """
@@ -280,6 +280,9 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None)
         for pat in patterns:
             bad_files_patterns.append(re.compile(pat.strip()))
     except ConfigNotFound:
+        bad_files_patterns = []
+    except Exception as error:
+        logging.error('(kronos_file) Failed to get bad_file_patterns' + str(error))
         bad_files_patterns = []
 
     use_ssl = True
@@ -312,6 +315,7 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None)
 
     sanity_check(executable='kronos-file', hostname=hostname)
     while not graceful_stop.is_set():
+        start_time = time()
         live(executable='kronos-file', hostname=hostname, pid=pid, thread=thread)
         for conn in conns:
             if not conn.is_connected():
@@ -331,7 +335,10 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None)
                 else:
                     conn.connect()
                 conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
-        sleep(1)
+        tottime = time() - start_time
+        if tottime < sleep_time:
+            logging.info('(kronos_file) Will sleep for %s seconds' % (sleep_time - tottime))
+            sleep(sleep_time - tottime)
 
     logging.info('(kronos_file) graceful stop requested')
 
@@ -345,7 +352,7 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None)
     logging.info('(kronos_file) graceful stop done')
 
 
-def kronos_dataset(once=False, thread=0, dataset_queue=None):
+def kronos_dataset(once=False, thread=0, dataset_queue=None, sleep_time=60):
     logging.info('(kronos_dataset) starting')
 
     hostname = gethostname()
@@ -356,11 +363,15 @@ def kronos_dataset(once=False, thread=0, dataset_queue=None):
     start = datetime.now()
     sanity_check(executable='kronos-dataset', hostname=hostname)
     while not graceful_stop.is_set():
+        start_time = time()
         live(executable='kronos-dataset', hostname=hostname, pid=pid, thread=thread)
         if (datetime.now() - start).seconds > dataset_wait:
             __update_datasets(dataset_queue)
             start = datetime.now()
-        sleep(10)
+        tottime = time() - start_time
+        if tottime < sleep_time:
+            logging.info('(kronos_file) Will sleep for %s seconds' % (sleep_time - tottime))
+            sleep(sleep_time - tottime)
     # once again for the backlog
     die(executable='kronos-dataset', hostname=hostname, pid=pid, thread=thread)
     logging.info('(kronos_dataset) cleaning dataset backlog before shutdown...')
@@ -435,7 +446,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1):
+def run(once=False, threads=1, sleep_time=60):
     """
     Starts up the consumer threads
     """
@@ -463,9 +474,11 @@ def run(once=False, threads=1):
     thread_list = []
     for thread in range(0, threads):
         thread_list.append(Thread(target=kronos_file, kwargs={'thread': thread,
+                                                              'sleep_time': sleep_time,
                                                               'brokers_resolved': brokers_resolved,
                                                               'dataset_queue': dataset_queue}))
         thread_list.append(Thread(target=kronos_dataset, kwargs={'thread': thread,
+                                                                 'sleep_time': sleep_time,
                                                                  'dataset_queue': dataset_queue}))
 
     [thread.start() for thread in thread_list]
