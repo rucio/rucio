@@ -29,6 +29,8 @@ Client class for callers of the Rucio system
 from rucio.client.accountclient import AccountClient
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.didclient import DIDClient
+from rucio.client.exportclient import ExportClient
+from rucio.client.importclient import ImportClient
 from rucio.client.lockclient import LockClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
@@ -41,7 +43,7 @@ from rucio.client.configclient import ConfigClient
 from rucio.client.touchclient import TouchClient
 
 
-class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient, SubscriptionClient, LockClient, ConfigClient, TouchClient):
+class Client(AccountClient, AccountLimitClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient, SubscriptionClient, LockClient, ConfigClient, TouchClient, ImportClient, ExportClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
