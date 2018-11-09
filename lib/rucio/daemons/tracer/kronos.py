@@ -370,7 +370,7 @@ def kronos_dataset(once=False, thread=0, dataset_queue=None, sleep_time=60):
             start = datetime.now()
         tottime = time() - start_time
         if tottime < sleep_time:
-            logging.info('(kronos_file) Will sleep for %s seconds' % (sleep_time - tottime))
+            logging.info('(kronos_dataset) Will sleep for %s seconds' % (sleep_time - tottime))
             sleep(sleep_time - tottime)
     # once again for the backlog
     die(executable='kronos-dataset', hostname=hostname, pid=pid, thread=thread)
@@ -446,7 +446,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1, sleep_time=60):
+def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
     """
     Starts up the consumer threads
     """
@@ -474,11 +474,11 @@ def run(once=False, threads=1, sleep_time=60):
     thread_list = []
     for thread in range(0, threads):
         thread_list.append(Thread(target=kronos_file, kwargs={'thread': thread,
-                                                              'sleep_time': sleep_time,
+                                                              'sleep_time': sleep_time_files,
                                                               'brokers_resolved': brokers_resolved,
                                                               'dataset_queue': dataset_queue}))
         thread_list.append(Thread(target=kronos_dataset, kwargs={'thread': thread,
-                                                                 'sleep_time': sleep_time,
+                                                                 'sleep_time': sleep_time_datasets,
                                                                  'dataset_queue': dataset_queue}))
 
     [thread.start() for thread in thread_list]
