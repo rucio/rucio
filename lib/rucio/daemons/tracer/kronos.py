@@ -139,9 +139,9 @@ class AMQConsumer(object):
         for report in self.__reports:
             try:
                 # Identify suspicious files
-                if self.__bad_files_patterns and report['eventType'] in ['get_sm', 'get_sm_a', 'get'] and report['clientState'] not in ['DONE', 'FOUND_ROOT', 'ALREADY_DONE']:
+                if self.__bad_files_patterns and report['eventType'] in ['get_sm', 'get_sm_a', 'get'] and 'clientState' in report and report['clientState'] not in ['DONE', 'FOUND_ROOT', 'ALREADY_DONE']:
                     for pattern in self.__bad_files_patterns:
-                        if pattern.match(report['stateReason']):
+                        if 'stateReason' in report and pattern.match(report['stateReason']):
                             reason = report['stateReason'][:255]
                             try:
                                 declare_bad_file_replicas(report['url'], reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
