@@ -1,0 +1,53 @@
+======
+1.18.5
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Clients: Implement missing update_account method `#1685 <https://github.com/rucio/rucio/issues/1685>`_
+
+************
+Enhancements
+************
+
+- Authentication & Authorisation: please provide expiration time of the token in HTTP header `#1731 <https://github.com/rucio/rucio/issues/1731>`_
+- Consistency checks: Automatically add dark data to quarantine table `#368 <https://github.com/rucio/rucio/issues/368>`_
+- Core & Internals: metalink: make glfn optional `#1535 <https://github.com/rucio/rucio/issues/1535>`_
+- Core & Internals: REST API migration to python3  `#1738 <https://github.com/rucio/rucio/issues/1738>`_
+- Core & Internals: Protection in rucio-admin rse delete `#26 <https://github.com/rucio/rucio/issues/26>`_
+- Messaging: Add top-level attribute EVENT_TYPE to messages `#1281 <https://github.com/rucio/rucio/issues/1281>`_
+- Probes & Alarms: Probe to cancel FTS jobs for site in long downtime `#543 <https://github.com/rucio/rucio/issues/543>`_
+- Transfers: Throttler must not release WAITING requests on blacklisted sites `#1710 <https://github.com/rucio/rucio/issues/1710>`_
+
+****
+Bugs
+****
+
+- Clients: parse_json not python3 compatible `#1490 <https://github.com/rucio/rucio/issues/1490>`_
+- Clients: set_metadata exception handler broken `#942 <https://github.com/rucio/rucio/issues/942>`_
+- Core & Internals: metalink: glfn for xcache should point to the file `#1483 <https://github.com/rucio/rucio/issues/1483>`_
+- Core & Internals:  listing archived replicas returns wrong filemeta if RSE expression `#1613 <https://github.com/rucio/rucio/issues/1613>`_
+- Core & Internals: Problem with deleting RSE after deleting attribute `#1689 <https://github.com/rucio/rucio/issues/1689>`_
+- Core & Internals: RSE existence check should consider deleted flag `#1703 <https://github.com/rucio/rucio/issues/1703>`_
+- Core & Internals: adler32 function should open file in "with" env and propagate the exception correctly `#1718 <https://github.com/rucio/rucio/issues/1718>`_
+- Core & Internals: Scope name validation regex allows single quotes `#1739 <https://github.com/rucio/rucio/issues/1739>`_
+- Core & Internals: add_key broken on mySQL `#705 <https://github.com/rucio/rucio/issues/705>`_
+- Core & Internals: Unhandled exception in list_replicas `#730 <https://github.com/rucio/rucio/issues/730>`_
+- Subscriptions: transmogrifier misbehaving with zero subscriptions `#1765 <https://github.com/rucio/rucio/issues/1765>`_
+- Traces: Add a protection against bad regular expression for suspicious files in Kronos `#1755 <https://github.com/rucio/rucio/issues/1755>`
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: set-distance exeption not handled correctly `#1725 <https://github.com/rucio/rucio/issues/1725>`_
