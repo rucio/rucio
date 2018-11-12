@@ -141,7 +141,7 @@ def is_matching_subscription(subscription, did, metadata):
     return True
 
 
-def transmogrifier(bulk=5, once=False):
+def transmogrifier(bulk=5, once=False, sleep_time=60):
     """
     Creates a Transmogrifier Worker that gets a list of new DIDs for a given hash,
     identifies the subscriptions matching the DIDs and
@@ -150,6 +150,7 @@ def transmogrifier(bulk=5, once=False):
     :param thread: Thread number at startup.
     :param bulk: The number of requests to process.
     :param once: Run only once.
+    :param sleep_time: Time between two cycles.
     """
 
     executable = ' '.join(argv)
@@ -378,14 +379,15 @@ def transmogrifier(bulk=5, once=False):
             monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
         if once is True:
             break
-        if tottime < 10:
-            time.sleep(10 - tottime)
+        if tottime < sleep_time:
+            logging.info(prepend_str + 'Will sleep for %s seconds' % (sleep_time - tottime))
+            time.sleep(sleep_time - tottime)
     heartbeat.die(executable, hostname, pid, hb_thread)
     logging.info(prepend_str + 'Graceful stop requested')
     logging.info(prepend_str + 'Graceful stop done')
 
 
-def run(threads=1, bulk=100, once=False):
+def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the transmogrifier threads.
     """
@@ -396,6 +398,7 @@ def run(threads=1, bulk=100, once=False):
     else:
         logging.info('starting transmogrifier threads')
         thread_list = [threading.Thread(target=transmogrifier, kwargs={'once': once,
+                                                                       'sleep_time': sleep_time,
                                                                        'bulk': bulk}) for _ in range(0, threads)]
         [thread.start() for thread in thread_list]
         logging.info('waiting for interrupts')
