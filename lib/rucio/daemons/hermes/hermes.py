@@ -13,11 +13,13 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+#
+# PY3K COMPATIBLE
 
 '''
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
@@ -257,11 +259,14 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                              heartbeat['nr_threads'],
                                              host_and_ports)
                                 conn.connect(wait=True)
+
                         conn.send(body=json.dumps({'event_type': str(message['event_type']).lower(),
                                                    'payload': message['payload'],
                                                    'created_at': str(message['created_at'])}),
                                   destination=destination,
-                                  headers={'persistent': 'true'})
+                                  headers={'persistent': 'true',
+                                           'event_type': str(message['event_type']).lower()})
+
                         to_delete.append({'id': message['id'],
                                           'created_at': message['created_at'],
                                           'updated_at': message['created_at'],
@@ -411,9 +416,9 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
                                                                          'bulk': bulk,
                                                                          'delay': delay,
                                                                          'broker_timeout': broker_timeout,
-                                                                         'broker_retry': broker_retry}) for i in xrange(0, threads)]
+                                                                         'broker_retry': broker_retry}) for i in range(0, threads)]
 
-        for thrd in xrange(0, 1):
+        for thrd in range(0, 1):
             thread_list.append(threading.Thread(target=deliver_emails, kwargs={'thread': thrd,
                                                                                'bulk': bulk,
                                                                                'delay': delay}))
