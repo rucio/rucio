@@ -42,7 +42,7 @@ from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioE
                                     RSEOperationNotSupported, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported,
                                     RSEProtocolPriorityError, InvalidRSEExpression,
-                                    RSEAttributeNotFound)
+                                    RSEAttributeNotFound, CounterNotFound)
 from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 from rucio.rse import rsemanager
@@ -235,6 +235,10 @@ class RSE(MethodView):
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RSEOperationNotSupported as error:
+            return generate_http_error_flask(404, 'RSEOperationNotsupported', error.args[0])
+        except CounterNotFound as error:
+            return generate_http_error_flask(404, 'CounterNotFound', error.args[0])
 
         return "OK", 200
 

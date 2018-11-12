@@ -17,6 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from nose.tools import assert_equal, assert_in, assert_not_in
 
@@ -24,7 +25,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import add_replicas
-from rucio.core.rse import add_rse, del_rse, add_protocol
+from rucio.core.rse import add_rse, add_protocol
 from rucio.tests.common import rse_name_generator
 
 
@@ -107,8 +108,6 @@ class TestArchive(object):
         for r in res:
             assert_in('weighted.storage.cube.zip?xrdcl.unzip=norep-', r.keys()[0])
 
-        del_rse(rse)
-
     def test_list_archive_contents_at_rse(self):
         """ ARCHIVE (CORE): Transparent archive listing at RSE """
 
@@ -159,6 +158,3 @@ class TestArchive(object):
         res = self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in archived_file], metalink=True, rse_expression=rse2, resolve_archives=True)
         assert_in('BLACKMESA', res)
         assert_not_in('APERTURE', res)
-
-        del_rse(rse1)
-        del_rse(rse2)
