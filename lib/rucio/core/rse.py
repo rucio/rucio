@@ -48,7 +48,7 @@ from sqlalchemy.sql.expression import or_, false
 
 import rucio.core.account_counter
 
-from rucio.core.rse_counter import add_counter
+from rucio.core.rse_counter import add_counter, get_counter
 
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default
@@ -164,8 +164,11 @@ def del_rse(rse, session=None):
     :param session: The database session in use.
     """
 
+    old_rse = None
     try:
         old_rse = session.query(models.RSE).filter_by(rse=rse).one()
+        if not rse_is_empty(rse=rse, session=session):
+            raise exception.RSEOperationNotSupported('RSE \'%s\' is not empty' % rse)
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
     old_rse.delete(session=session)
@@ -173,6 +176,19 @@ def del_rse(rse, session=None):
         del_rse_attribute(rse=rse, key=rse, session=session)
     except exception.RSEAttributeNotFound:
         pass
+
+
+@read_session
+def rse_is_empty(rse, session=None):
+    """
+    Check if a RSE is empty.
+
+    :param rse: the rse name.
+    :param session: the database session in use.
+    """
+
+    rse_id = get_rse(rse, session=session)['id']
+    return get_counter(rse_id, session=session)['bytes'] == 0
 
 
 @read_session
