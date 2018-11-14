@@ -508,7 +508,7 @@ class FTS3Transfertool(Transfertool):
     @staticmethod
     def __extract_host(external_host):
         # graphite does not like the dots in the FQDN
-        return urlparse.urlparse(external_host).hostname.replace('.', '_')
+        return urlparse(external_host).hostname.replace('.', '_')
 
     def __get_transfer_baseid_voname(self):
         """
