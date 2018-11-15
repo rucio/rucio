@@ -1,0 +1,13 @@
+============
+1.18.5.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: urlparse.urlparse call in transfertool interface is wrong `#1782 <https://github.com/rucio/rucio/issues/1782>`_
