@@ -8,7 +8,8 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
-
+#
+# PY3K COMPATIBLE
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol

@@ -16,7 +16,11 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from json import loads
 from time import time
 from traceback import format_exc
@@ -54,7 +58,7 @@ def rucio_loadhook():
     except RucioException as error:
         raise generate_http_error(500, error.__class__.__name__, error.args[0])
     except Exception as error:
-        print format_exc()
+        print(format_exc())
         raise InternalError(error)
 
     if auth is None:
@@ -76,7 +80,7 @@ def rucio_unloadhook():
     # print ctx.env.get('request_id'), ctx.env.get('REQUEST_METHOD'), ctx.env.get('REQUEST_URI'), ctx.data, duration, ctx.env.get('issuer'), ip
     # Record a time serie for each REST operations
     time_serie_name = '.'.join(('http', 'methods', ctx.env.get('REQUEST_METHOD'), 'resources.'))
-    time_serie_name += '.'.join(filter(None, ctx.env.get('SCRIPT_NAME').split('/'))[:4])
+    time_serie_name += '.'.join(list(filter(None, ctx.env.get('SCRIPT_NAME').split('/')))[:4])
     if ctx.path == '/list':
         time_serie_name += '.list'
     time_serie_name = time_serie_name.replace('..', '.').lower()
@@ -102,8 +106,8 @@ def exception_wrapper(f):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print type(error)
-            print format_exc()
+            print(type(error))
+            print(format_exc())
             raise InternalError(error)
     return decorated
 

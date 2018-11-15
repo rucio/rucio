@@ -10,6 +10,8 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2016
 # - Wen Guan, <wen.guan>, 2016
+#
+# PY3K COMPATIBLE
 
 """
 Constants.

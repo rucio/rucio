@@ -20,12 +20,21 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from datetime import datetime
 from json import dumps, loads
+from six import string_types
 from traceback import format_exc
-from urllib import unquote
-from urlparse import parse_qs
+try:
+    from urllib import unquote
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import unquote
+    from urllib.parse import parse_qs
 from web import application, ctx, Created, data, header, InternalError, loadhook, OK, unloadhook
 
 from geoip2.errors import AddressNotFoundError
@@ -152,7 +161,7 @@ class Replicas(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
     def POST(self):
@@ -190,7 +199,7 @@ class Replicas(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created()
 
@@ -220,7 +229,7 @@ class Replicas(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise OK()
 
@@ -255,7 +264,7 @@ class Replicas(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise OK()
 
@@ -288,7 +297,7 @@ class ListReplicas(RucioController):
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
-        signature_lifetime, resolve_archives = None, False
+        signature_lifetime, resolve_archives = None, True
         client_location = {}
 
         json_data = data()
@@ -313,14 +322,12 @@ class ListReplicas(RucioController):
             if 'domain' in params:
                 domain = params['domain']
             if 'resolve_archives' in params:
-                resolve_archives = True
-
+                resolve_archives = params['resolve_archives']
             if 'signature_lifetime' in params:
                 signature_lifetime = params['signature_lifetime']
             else:
                 # hardcoded default of 10 minutes if config is not parseable
                 signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
-
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -373,8 +380,11 @@ class ListReplicas(RucioController):
                         yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
-                    yield '</glfn>\n'
+                    yield '  <glfn name="/%s/rucio/%s:%s"></glfn>\n' % (config_get('policy', 'schema',
+                                                                                   raise_exception=False,
+                                                                                   default='generic'),
+                                                                        rfile['scope'],
+                                                                        rfile['name'])
 
                     # TODO: deprecate this
                     if select == 'geoip':
@@ -411,7 +421,7 @@ class ListReplicas(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -449,7 +459,7 @@ class ReplicasDIDs(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -487,7 +497,7 @@ class BadReplicas(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created(dumps(not_declared_files))
 
@@ -526,7 +536,7 @@ class SuspiciousReplicas(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         raise Created(dumps(not_declared_files))
 
@@ -554,7 +564,7 @@ class BadReplicasStates(RucioController):
                 params = parse_qs(ctx.query[1:])
             if 'state' in params:
                 state = params['state'][0]
-            if type(state) is str or type(state) is unicode:
+            if isinstance(state, string_types):
                 state = BadFilesStatus.from_string(state)
             if 'rse' in params:
                 rse = params['rse'][0]
@@ -572,7 +582,7 @@ class BadReplicasStates(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         for row in result:
             yield dumps(row, cls=APIEncoder) + '\n'
@@ -611,7 +621,7 @@ class BadReplicasSummary(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
         for row in result:
             yield dumps(row, cls=APIEncoder) + '\n'
@@ -647,7 +657,7 @@ class DatasetReplicas(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 
@@ -673,7 +683,7 @@ class ReplicasRSE(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 

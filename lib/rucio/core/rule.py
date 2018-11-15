@@ -166,7 +166,34 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 except TypeError as error:
                     raise InvalidObject(error.args)
 
-            # 3.5 Get the lifetime
+            # 3.1 If the did is a constituent, relay the rule to the archive
+            if did.did_type == DIDType.FILE and did.constituent:
+                # Check if a single replica of this DID exists; Do not put rule on file if there are only replicas on TAPE
+                replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
+                    .filter(models.RSEFileAssociation.scope == did.scope,
+                            models.RSEFileAssociation.name == did.name,
+                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                            models.RSE.rse_type != RSEType.TAPE).count()
+                if replica_cnt == 0:  # Put the rule on the archive
+                    archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
+                                                                                and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope,
+                                                                                     models.ConstituentAssociation.name == models.RSEFileAssociation.name))\
+                        .filter(models.ConstituentAssociation.child_scope == did.scope,
+                                models.ConstituentAssociation.child_name == did.name).first()
+                    if archive is not None:
+                        elem['name'] = archive.name
+                        elem['scope'] = archive.scope
+                        try:
+                            did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == elem['scope'],
+                                                                              models.DataIdentifier.name == elem['name']).one()
+                        except NoResultFound:
+                            raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+                        except TypeError as error:
+                            raise InvalidObject(error.args)
+                else:  # Put the rule on the constituent directly
+                    pass
+
+            # 3.2 Get the lifetime
             eol_at = define_eol(elem['scope'], elem['name'], rses, session=session)
 
             # 4. Create the replication rule
@@ -343,7 +370,6 @@ def add_rules(dids, rules, session=None):
             all_source_rses = list(set([rse['id'] for rse in all_source_rses]))
 
         for elem in dids:
-            rule_ids[(elem['scope'], elem['name'])] = []
             # 2. Get the did
             with record_timer_block('rule.add_rules.get_did'):
                 try:
@@ -354,6 +380,34 @@ def add_rules(dids, rules, session=None):
                     raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
                 except TypeError as error:
                     raise InvalidObject(error.args)
+
+            # 2.1 If the did is a constituent, relay the rule to the archive
+            if did.did_type == DIDType.FILE and did.constituent:  # Check if a single replica of this DID exists
+                replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
+                    .filter(models.RSEFileAssociation.scope == did.scope,
+                            models.RSEFileAssociation.name == did.name,
+                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                            models.RSE.rse_type != RSEType.TAPE).count()
+                if replica_cnt == 0:  # Put the rule on the archive
+                    archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
+                                                                                and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope,
+                                                                                     models.ConstituentAssociation.name == models.RSEFileAssociation.name))\
+                        .filter(models.ConstituentAssociation.child_scope == did.scope,
+                                models.ConstituentAssociation.child_name == did.name).first()
+                    if archive is not None:
+                        elem['name'] = archive.name
+                        elem['scope'] = archive.scope
+                        try:
+                            did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == elem['scope'],
+                                                                              models.DataIdentifier.name == elem['name']).one()
+                        except NoResultFound:
+                            raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+                        except TypeError as error:
+                            raise InvalidObject(error.args)
+                else:  # Put the rule on the constituent directly
+                    pass
+
+            rule_ids[(elem['scope'], elem['name'])] = []
 
             # 3. Resolve the did into its contents
             with record_timer_block('rule.add_rules.resolve_dids_to_locks_replicas'):
@@ -2394,6 +2448,7 @@ def __evaluate_did_attach(eval_did, session=None):
                             #     possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
                         except (InvalidRSEExpression, RSEBlacklisted):
                             possible_rses = []
+                            break
 
                     source_rses = list(set([rse['id'] for rse in source_rses]))
                     possible_rses = list(set([rse['id'] for rse in possible_rses]))

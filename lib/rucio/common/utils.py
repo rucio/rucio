@@ -23,6 +23,9 @@
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -38,13 +41,13 @@ import re
 import requests
 import socket
 import subprocess
-import urllib
 import zlib
 
 from getpass import getuser
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
+from six import string_types
 
 try:
     # Python 2
@@ -179,11 +182,11 @@ def adler32(file):
     adler = 1
 
     try:
-        openFile = open(file, 'rb')
-        for line in openFile:
-            adler = zlib.adler32(line, adler)
-    except Exception:
-        raise Exception('FATAL - could not get checksum of file %s' % file)
+        with open(file, 'rb') as openFile:
+            for line in openFile:
+                adler = zlib.adler32(line, adler)
+    except Exception as e:
+        raise Exception('FATAL - could not get Adler32 checksum of file %s - %s' % (file, e))
 
     # backflip on 32bit
     if adler < 0:
@@ -202,9 +205,9 @@ def md5(file):
     hash_md5 = hashlib.md5()
     try:
         with open(file, "rb") as f:
-            map(hash_md5.update, iter(lambda: f.read(4096), b""))
-    except Exception:
-        raise Exception('FATAL - could not get MD5 checksum of file %s' % file)
+            list(map(hash_md5.update, iter(lambda: f.read(4096), b"")))
+    except Exception as e:
+        raise Exception('FATAL - could not get MD5 checksum of file %s - %s' % (file, e))
 
     return hash_md5.hexdigest()
 
@@ -259,12 +262,8 @@ def render_json_list(l):
 def datetime_parser(dct):
     """ datetime parser
     """
-    try:
-        varType = basestring
-    except NameError:
-        varType = str
     for k, v in list(dct.items()):
-        if isinstance(v, varType) and re.search(" UTC", v):
+        if isinstance(v, string_types) and re.search(" UTC", v):
             try:
                 dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
             except Exception:
@@ -273,9 +272,16 @@ def datetime_parser(dct):
 
 
 def parse_response(data):
-    """ JSON render function
     """
-    return json.loads(data.decode('utf-8'), object_hook=datetime_parser)
+    JSON render function
+    """
+    ret_obj = None
+    try:
+        ret_obj = data.decode('utf-8')
+    except AttributeError:
+        ret_obj = data
+
+    return json.loads(ret_obj, object_hook=datetime_parser)
 
 
 def generate_http_error(status_code, exc_cls, exc_msg):
@@ -721,5 +727,35 @@ def add_url_query(url, query):
     url_parts = list(urlparse.urlparse(url))
     mod_query = dict(urlparse.parse_qsl(url_parts[4]))
     mod_query.update(query)
-    url_parts[4] = urllib.urlencode(mod_query)
+    url_parts[4] = urlencode(mod_query)
     return urlparse.urlunparse(url_parts)
+
+
+def get_bytes_value_from_string(input_string):
+    """
+    Get bytes from a string that represents a storage value and unit
+
+    :param input_string: String containing a value and an unit
+    :return: Integer value representing the value in bytes
+    """
+    result = re.findall('^([0-9]+)([A-Za-z]+)$', input_string)
+    if result:
+        value = int(result[0][0])
+        unit = result[0][1].lower()
+        if unit == 'b':
+            value = value
+        elif unit == 'kb':
+            value = value * 1000
+        elif unit == 'mb':
+            value = value * 1000000
+        elif unit == 'gb':
+            value = value * 1000000000
+        elif unit == 'tb':
+            value = value * 1000000000000
+        elif unit == 'pb':
+            value = value * 1000000000000000
+        else:
+            return False
+        return value
+    else:
+        return False

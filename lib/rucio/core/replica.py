@@ -21,6 +21,10 @@
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
+#
+# PY3K COMPATIBLE
+
+from __future__ import print_function
 
 from collections import defaultdict
 from copy import deepcopy
@@ -35,6 +39,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql.expression import case, bindparam, select, text, false, true
 
+import rucio.core.did
 import rucio.core.lock
 
 from rucio.common import exception
@@ -115,23 +120,23 @@ def __exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
             path_clause.append(models.RSEFileAssociation.path == path[1:])
         else:
             path_clause.append(models.RSEFileAssociation.path == '/%s' % path)
-        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
             with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
             filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*path_clause))
     else:
-        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
             filter_by(rse_id=rse_id, scope=scope, name=name)
     if query.count():
         result = query.first()
-        path, scope, name, rse_id = result[0], result[1], result[2], result[3]
+        path, scope, name, rse_id, size = result
         # Now we check that the replica is not already declared bad
         query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id, models.BadReplicas.state).\
             filter_by(rse_id=rse_id, scope=scope, name=name, state=BadFilesStatus.BAD)
         if query.count():
             already_declared = True
-        return True, scope, name, already_declared
+        return True, scope, name, already_declared, size
     else:
-        return False, None, None, already_declared
+        return False, None, None, already_declared, None
 
 
 @read_session
@@ -168,7 +173,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
             result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': badfile.rse, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
     if list_pfns:
         reps = []
-        for rep in list_replicas(result, schemes=['srm', ], unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
+        for rep in list_replicas(result, schemes=None, unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
             pfn = None
             if rse in rep['rses'] and rep['rses'][rse]:
                 pfn = rep['rses'][rse][0]
@@ -259,8 +264,8 @@ def update_bad_replicas_history(dids, rse_id, session=None):
                     final_state = BadFilesStatus.DELETED
                 else:
                     # For completness, it shouldn't happen.
+                    print('Houston we have a problem.')
                     final_state = BadFilesStatus.DELETED
-                    print 'Houston we have a problem.'
                 query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
                 query.update({'state': final_state, 'updated_at': datetime.utcnow()}, synchronize_session=False)
             except NoResultFound:
@@ -301,10 +306,10 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
             else:
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
-            __exists, scope, name, already_declared = __exists_replicas(rse_id, scope, name, path=None, session=session)
+            __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None, session=session)
             if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
-                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
+                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
                 session.query(models.Source).filter_by(scope=scope, name=name, rse_id=rse_id).delete(synchronize_session=False)
                 declared_replicas.append(pfn)
@@ -332,10 +337,10 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
         parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
-            __exists, scope, name, already_declared = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
+            __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
             if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
-                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
+                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
                 session.query(models.Source).filter_by(scope=scope, name=name, rse_id=rse_id).delete(synchronize_session=False)
                 declared_replicas.append(pfn)
@@ -365,15 +370,15 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
             rowcount = query.update({'state': ReplicaState.BAD})
             if rowcount != len(declared_replicas):
                 # there shouldn't be any exceptions since all replicas exist
-                print rowcount, len(declared_replicas), declared_replicas
+                print(rowcount, len(declared_replicas), declared_replicas)
                 raise exception.ReplicaNotFound("One or several replicas don't exist.")
     try:
         session.flush()
-    except IntegrityError, error:
+    except IntegrityError as error:
         raise exception.RucioException(error.args)
-    except DatabaseError, error:
+    except DatabaseError as error:
         raise exception.RucioException(error.args)
-    except FlushError, error:
+    except FlushError as error:
         raise exception.RucioException(error.args)
 
     return unknown_replicas
@@ -438,7 +443,7 @@ def get_pfn_to_rse(pfns, session=None):
                 if surl.find(protocols[rse][0]) > -1 or surl.find(protocols[rse][1]) > -1:
                     mult_rse_match += 1
                     if mult_rse_match > 1:
-                        print 'ERROR, multiple matches : %s at %s' % (surl, rse)
+                        print('ERROR, multiple matches : %s at %s' % (surl, rse))
                         raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, rse))
                     hint = rse
                     if hint not in dict_rse:
@@ -753,7 +758,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
         if client_location and 'site' in client_location and client_location['site']:
             try:
                 local_rses = [rse['rse'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
-            except:
+            except Exception:
                 pass  # do not hard fail if site cannot be resolved or is empty
 
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
@@ -779,14 +784,27 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 # then yield and continue as the replica does not exist and we don't want to return
                 # an additional empty pfn to the client
                 if rse is None:
-                    for archive in archive_result:
 
+                    # retrieve the constituents metadata so we can downport it later
+                    # otherwise the zip meta will be used which won't match the actual file
+                    # full name used due to circular import dependency between modules
+                    constituent_meta = rucio.core.did.get_metadata(scope, name, session=session)
+
+                    for archive in archive_result:
                         # RSE expression might limit the archives we're allowed to use
                         # if it's empty due to non-matching RSE expression we must skip
                         if archive['pfns'] == {}:
                             continue
 
+                        # downport the constituents meta, we are not interested in the archives meta
+                        archive['scope'] = scope
+                        archive['name'] = name
+                        archive['adler32'] = constituent_meta['adler32']
+                        archive['md5'] = constituent_meta['md5']
+                        archive['bytes'] = constituent_meta['bytes']
+
                         for tmp_archive in archive['pfns']:
+                            # declare the constituent as being in a zip file
                             archive['pfns'][tmp_archive]['domain'] = 'zip'
                             # at this point we don't know the protocol of the parent, so we have to peek
                             if tmp_archive.startswith('root://') and 'xrdcl.unzip' not in tmp_archive:
@@ -850,8 +868,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse],
                                                                           operation='read',
                                                                           domain=domain)['scheme'])
-                        except:
-                            print format_exc()
+                        except exception.RSEProtocolNotSupported:
+                            pass  # no need to be verbose
+                        except Exception:
+                            print(format_exc())
 
                     protocols = []
                     for s in rse_schemes:
@@ -875,8 +895,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                   rse_info[rse]['priority_%s' % domain][s]))
                         except exception.RSEProtocolNotSupported:
                             pass  # no need to be verbose
-                        except:
-                            print format_exc()
+                        except Exception:
+                            print(format_exc())
 
                     tmp_protocols[rse] = protocols
 
@@ -900,8 +920,16 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         # cannot be pushed into protocols because we need to lookup rse attributes.
                         # ultra-conservative implementation.
                         if domain == 'wan' and protocol.attributes['scheme'] == 'root' and client_location:
+
                             if 'site' in client_location and client_location['site']:
-                                replica_site = get_rse_attribute('site', rse_info[rse]['id'], session=session)[0]
+
+                                # is the RSE site-configured?
+                                rse_site_attr = get_rse_attribute('site', rse_info[rse]['id'], session=session)
+                                replica_site = ['']
+                                if isinstance(rse_site_attr, list) and rse_site_attr:
+                                    replica_site = rse_site_attr[0]
+
+                                # does it match with the client?
                                 if client_location['site'] != replica_site:
                                     root_proxy_internal = get_rses_with_attribute_value('site', client_location['site'],
                                                                                         'root-proxy-internal',
@@ -922,9 +950,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')
                         pfns.append((pfn, tmp_protocol[0], tmp_protocol[2], False))
-                    except:
+                    except Exception:
                         # never end up here
-                        print format_exc()
+                        print(format_exc())
 
                     if protocol.attributes['scheme'] == 'srm':
                         try:
@@ -949,11 +977,11 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
                     # and use 1-indexing to be compatible with metalink
                     tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
-                    for i in xrange(0, len(tmp)):
+                    for i in range(0, len(tmp)):
                         file['pfns'][tmp[i][2]]['priority'] = i + 1
                         file['rses'] = {}
                         for t_rse, t_pfn in [(file['pfns'][t_pfn]['rse'], t_pfn) for t_pfn in file['pfns']]:
-                            if(t_rse in file['rses']):
+                            if t_rse in file['rses']:
                                 file['rses'][t_rse].append(t_pfn)
                             else:
                                 file['rses'][t_rse] = [t_pfn]
@@ -981,7 +1009,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     # and use 1-indexing to be compatible with metalink
     if 'pfns' in file:
         tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
-        for i in xrange(0, len(tmp)):
+        for i in range(0, len(tmp)):
             file['pfns'][tmp[i][2]]['priority'] = i + 1
 
     if 'scope' in file and 'name' in file:
@@ -994,10 +1022,11 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
             rse_pfns = sorted(rse_pfns)
 
         for t_rse, t_priority, t_pfn in rse_pfns:
-            if(t_rse in file['rses']):
+            if t_rse in file['rses']:
                 file['rses'][t_rse].append(t_pfn)
             else:
                 file['rses'][t_rse] = [t_pfn]
+
         yield file
         file = {}
 
@@ -1006,7 +1035,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
                   rse_expression=None, client_location=None, domain=None,
-                  sign_urls=False, signature_lifetime=None, resolve_archives=False,
+                  sign_urls=False, signature_lifetime=None, resolve_archives=True,
                   session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
@@ -1066,11 +1095,11 @@ def __bulk_add_new_file_dids(files, account, dataset_meta=None, session=None):
         new_did.save(session=session, flush=False)
     try:
         session.flush()
-    except IntegrityError, error:
+    except IntegrityError as error:
         raise exception.RucioException(error.args)
-    except DatabaseError, error:
+    except DatabaseError as error:
         raise exception.RucioException(error.args)
-    except FlushError, error:
+    except FlushError as error:
         if match('New instance .* with identity key .* conflicts with persistent instance', error.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
         raise exception.RucioException(error.args)
@@ -1161,14 +1190,14 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
                                                       new_replicas)
         session.flush()
         return nbfiles, bytes
-    except IntegrityError, error:
+    except IntegrityError as error:
         if match('.*IntegrityError.*ORA-00001: unique constraint .*REPLICAS_PK.*violated.*', error.args[0]) \
            or match('.*IntegrityError.*1062.*Duplicate entry.*', error.args[0]) \
            or error.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique' \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.Duplicate("File replica already exists!")
         raise exception.RucioException(error.args)
-    except DatabaseError, error:
+    except DatabaseError as error:
         raise exception.RucioException(error.args)
 
 
@@ -1225,7 +1254,7 @@ def add_replicas(rse, files, account, rse_id=None, ignore_availability=True,
             expected_pfns = clean_surls(expected_pfns.values())
             pfns = clean_surls(pfns)
             if pfns != expected_pfns:
-                print 'ALERT: One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns))
+                print('ALERT: One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
                 raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=replica_rse.id, files=files, account=account, session=session)

@@ -17,12 +17,16 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Conveyor is a daemon to manage file transfers.
 """
 
 import datetime
+import json
 import logging
 import os
 import socket
@@ -33,7 +37,6 @@ import time
 import traceback
 
 import dns.resolver
-import json
 import stomp
 
 from rucio.common.config import config_get, config_get_int
@@ -73,7 +76,7 @@ class Receiver(object):
 
         try:
             msg = json.loads(message)
-        except Exception, e:
+        except Exception:
             msg = json.loads(message[:-1])  # Note: I am not sure if this is needed anymore, this was due to an unparsable EOT character
 
         if 'vo' not in msg or msg['vo'] != get_policy():
@@ -164,9 +167,9 @@ class Receiver(object):
                                 logging.debug("Update request %s update time" % response['request_id'])
                                 set_transfer_update_time(response['external_host'], response['transfer_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
                                 record_counter('daemons.conveyor.receiver.set_transfer_update_time')
-                            except Exception, e:
-                                logging.debug("Failed to update transfer's update time: %s" % str(e))
-                except:
+                            except Exception as error:
+                                logging.debug("Failed to update transfer's update time: %s" % str(error))
+                except Exception:
                     logging.critical(traceback.format_exc())
 
 
@@ -190,7 +193,7 @@ def receiver(id, total_threads=1, full_mode=False):
     brokers_resolved = []
     try:
         brokers_alias = [b.strip() for b in config_get('messaging-fts3', 'brokers').split(',')]
-    except:
+    except Exception:
         raise Exception('Could not load brokers from configuration')
 
     logging.info('resolving broker dns alias: %s' % brokers_alias)
@@ -237,7 +240,7 @@ def receiver(id, total_threads=1, full_mode=False):
     for conn in conns:
         try:
             conn.disconnect()
-        except:
+        except Exception:
             pass
 
     heartbeat.die(executable, hostname, pid, hb_thread)
@@ -261,12 +264,12 @@ def run(once=False, total_threads=1, full_mode=False):
     logging.info('starting receiver thread')
     threads = [threading.Thread(target=receiver, kwargs={'id': i,
                                                          'full_mode': full_mode,
-                                                         'total_threads': total_threads}) for i in xrange(0, total_threads)]
+                                                         'total_threads': total_threads}) for i in range(0, total_threads)]
 
-    [t.start() for t in threads]
+    [thread.start() for thread in threads]
 
     logging.info('waiting for interrupts')
 
     # Interruptible joins require a timeout.
-    while len(threads) > 0:
-        threads = [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+    while threads:
+        threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]

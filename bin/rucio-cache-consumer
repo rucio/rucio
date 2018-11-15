@@ -16,6 +16,8 @@
 # Authors:
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Rucio Cache Consumer is a daemon to add/delete cache replicas to Rucio catalog.

@@ -21,7 +21,11 @@
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from json import dumps, loads
 from traceback import format_exc
 
@@ -96,7 +100,7 @@ class Scope(MethodView):
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -112,7 +116,7 @@ class Search(MethodView):
 
         .. sourcecode:: http
 
-            GET /dids/scope1/dids/search?type=collection1&long=True HTTP/1.1
+            GET /dids/scope1/dids/search?type=collection&long=True&length.lt=10 HTTP/1.1
             Host: rucio.cern.ch
 
         **Example response**:
@@ -130,6 +134,15 @@ class Search(MethodView):
 
         :query type: specify a DID type to search for
         :query long: set to True for long output, otherwise only name
+        :query recursive: set to True to recursively list DIDs content
+        :query created_before: Date string in RFC-1123 format where the creation date was earlier
+        :query created_after: Date string in RFC-1123 format where the creation date was later
+        :query length: Exact number of attached DIDs
+        :query length.gt: Number of attached DIDs greater than
+        :query length.lt: Number of attached DIDs less than
+        :query length.gte: Number of attached DIDs greater than or equal to
+        :query length.lte: Number of attached DIDs less than or equal to
+        :query name: Name or pattern of a DID name
         :resheader Content-Type: application/x-json-stream
         :status 200: DIDs found
         :status 401: Invalid Auth Token
@@ -140,19 +153,21 @@ class Search(MethodView):
 
         filters = {}
         long = False
-
+        recursive = False
         type = 'collection'
         for k, v in request.args.items():
             if k == 'type':
                 type = v
             elif k == 'long':
-                long = bool(v)
+                long = v == '1'
+            elif k == 'recursive':
+                recursive = v == 'True'
             else:
-                filters[k] = v[0]
+                filters[k] = v
 
         try:
             data = ""
-            for did in list_dids(scope=scope, filters=filters, type=type, long=long):
+            for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive):
                 data += dumps(did) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except UnsupportedOperation as error:
@@ -160,7 +175,7 @@ class Search(MethodView):
         except KeyNotFound as error:
             return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -211,7 +226,7 @@ class BulkDIDS(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            print json_data
+            print(json_data)
             add_dids(json_data, issuer=request.environ.get('issuer'))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
@@ -228,7 +243,7 @@ class BulkDIDS(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return "Created", 201
 
@@ -270,7 +285,7 @@ class Attachments(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         return "Created", 201
@@ -323,7 +338,7 @@ class DIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
     def post(self, scope, name):
@@ -399,7 +414,7 @@ class DIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return "Created", 201
 
@@ -452,7 +467,7 @@ class DIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         return "Ok", 200
@@ -502,7 +517,7 @@ class Attachment(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
     def post(self, scope, name):
@@ -559,7 +574,7 @@ class Attachment(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         return "Created", 201
@@ -595,7 +610,7 @@ class Attachment(MethodView):
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         return "OK", 200
@@ -628,7 +643,7 @@ class AttachmentHistory(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -663,7 +678,7 @@ class Files(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -693,7 +708,7 @@ class Parents(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
 
@@ -722,7 +737,7 @@ class Meta(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
     def post(self, scope, name, key):
@@ -769,7 +784,7 @@ class Meta(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
 
         return "Created", 201
@@ -904,7 +919,7 @@ class Sample(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return "Created", 201
 
@@ -980,7 +995,7 @@ class Resurrect(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return "Created", 201
 

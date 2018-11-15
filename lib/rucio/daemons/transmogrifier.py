@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
@@ -68,11 +68,11 @@ def _retrial(func, *args, **kwargs):
     delay = 0
     while True:
         try:
-            return apply(func, args, kwargs)
-        except DataIdentifierNotFound, error:
+            return func(*args, **kwargs)
+        except DataIdentifierNotFound as error:
             logging.warning(error)
             return 1
-        except DatabaseException, error:
+        except DatabaseException as error:
             logging.error(error)
             if exp(delay) > 600:
                 logging.error('Cannot execute %s after %i attempt. Failing the job.' % (func.__name__, delay))
@@ -81,7 +81,7 @@ def _retrial(func, *args, **kwargs):
                 logging.error('Failure to execute %s. Retrial will be done in %d seconds ' % (func.__name__, exp(delay)))
             time.sleep(exp(delay))
             delay += 1
-        except:
+        except Exception:
             exc_type, exc_value, exc_traceback = exc_info()
             logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
             raise
@@ -99,13 +99,13 @@ def is_matching_subscription(subscription, did, metadata):
     if metadata['hidden']:
         return False
     try:
-        filter = loads(subscription['filter'])
-    except ValueError, error:
+        filter_string = loads(subscription['filter'])
+    except ValueError as error:
         logging.error('%s : Subscription will be skipped' % error)
         return False
-    # Loop over the keys of filter for subscription
-    for key in filter:
-        values = filter[key]
+    # Loop over the keys of filter_string for subscription
+    for key in filter_string:
+        values = filter_string[key]
         if key == 'pattern':
             if not re.match(values, did['name']):
                 return False
@@ -123,7 +123,7 @@ def is_matching_subscription(subscription, did, metadata):
             if not match_scope:
                 return False
         else:
-            if type(values) is not list:
+            if not isinstance(values, list):
                 values = [values, ]
             has_metadata = False
             for meta in metadata:
@@ -141,7 +141,7 @@ def is_matching_subscription(subscription, did, metadata):
     return True
 
 
-def transmogrifier(bulk=5, once=False):
+def transmogrifier(bulk=5, once=False, sleep_time=60):
     """
     Creates a Transmogrifier Worker that gets a list of new DIDs for a given hash,
     identifies the subscriptions matching the DIDs and
@@ -150,6 +150,7 @@ def transmogrifier(bulk=5, once=False):
     :param thread: Thread number at startup.
     :param bulk: The number of requests to process.
     :param once: Run only once.
+    :param sleep_time: Time between two cycles.
     """
 
     executable = ' '.join(argv)
@@ -167,10 +168,13 @@ def transmogrifier(bulk=5, once=False):
         prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
 
         try:
+            #  Get the new DIDs based on the is_new flag
             for did in list_new_dids(thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'], chunk_size=bulk):
                 dids.append({'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']})
 
             sub_dict = {3: []}
+            #  Get the list of subscriptions. The default priority of the subscription is 3. 0 is the highest priority, 5 the lowest
+            #  The priority is defined as 'policyid'
             for sub in list_subscriptions(None, None):
                 if sub['state'] != SubscriptionState.INACTIVE and sub['lifetime'] and (datetime.now() > sub['lifetime']):
                     update_subscription(name=sub['name'], account=sub['account'], metadata={'state': SubscriptionState.INACTIVE}, issuer='root')
@@ -184,6 +188,7 @@ def transmogrifier(bulk=5, once=False):
                     sub_dict[priority].append(sub)
             priorities = sub_dict.keys()
             priorities.sort()
+            #  Order the subscriptions according to their priority
             for priority in priorities:
                 subscriptions.extend(sub_dict[priority])
         except SubscriptionNotFound as error:
@@ -193,27 +198,25 @@ def transmogrifier(bulk=5, once=False):
         except Exception as error:
             logging.error(prepend_str + 'Failed to get list of new DIDs or subscriptions: %s' % (str(error)))
 
-            if once:
-                break
-            else:
-                continue
-
         try:
             results = {}
             start_time = time.time()
             blacklisted_rse_id = [rse['id'] for rse in list_rses({'availability_write': False})]
             logging.debug(prepend_str + 'In transmogrifier worker')
             identifiers = []
+            #  Loop over all the new dids
             for did in dids:
                 did_success = True
                 if did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER):
                     results['%s:%s' % (did['scope'], did['name'])] = []
                     try:
                         metadata = get_metadata(did['scope'], did['name'])
+                        # Loop over all the subscriptions
                         for subscription in subscriptions:
+                            #  Check if the DID match the subscription
                             if is_matching_subscription(subscription, did, metadata) is True:
-                                filter = loads(subscription['filter'])
-                                split_rule = filter.get('split_rule', False)
+                                filter_string = loads(subscription['filter'])
+                                split_rule = filter_string.get('split_rule', False)
                                 if split_rule == 'true':
                                     split_rule = True
                                 elif split_rule == 'false':
@@ -221,29 +224,29 @@ def transmogrifier(bulk=5, once=False):
                                 stime = time.time()
                                 results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
                                 logging.info(prepend_str + '%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['name']))
-                                for rule in loads(subscription['replication_rules']):
+                                for rule_string in loads(subscription['replication_rules']):
                                     # Get all the rule and subscription parameters
-                                    grouping = rule.get('grouping', 'DATASET')
-                                    lifetime = rule.get('lifetime', None)
-                                    ignore_availability = rule.get('ignore_availability', None)
-                                    weight = rule.get('weight', None)
-                                    source_replica_expression = rule.get('source_replica_expression', None)
-                                    locked = rule.get('locked', None)
+                                    grouping = rule_string.get('grouping', 'DATASET')
+                                    lifetime = rule_string.get('lifetime', None)
+                                    ignore_availability = rule_string.get('ignore_availability', None)
+                                    weight = rule_string.get('weight', None)
+                                    source_replica_expression = rule_string.get('source_replica_expression', None)
+                                    locked = rule_string.get('locked', None)
                                     if locked == 'True':
                                         locked = True
                                     else:
                                         locked = False
-                                    purge_replicas = rule.get('purge_replicas', False)
+                                    purge_replicas = rule_string.get('purge_replicas', False)
                                     if purge_replicas == 'True':
                                         purge_replicas = True
                                     else:
                                         purge_replicas = False
-                                    rse_expression = str(rule['rse_expression'])
+                                    rse_expression = str(rule_string['rse_expression'])
                                     comment = str(subscription['comments'])
                                     subscription_id = str(subscription['id'])
                                     account = subscription['account']
-                                    copies = int(rule['copies'])
-                                    activity = rule.get('activity', 'User Subscriptions')
+                                    copies = int(rule_string['copies'])
+                                    activity = rule_string.get('activity', 'User Subscriptions')
                                     try:
                                         validate_schema(name='activity', obj=activity)
                                     except InputValidationError as error:
@@ -293,9 +296,10 @@ def transmogrifier(bulk=5, once=False):
                                                 did_success = did_success and True
                                                 continue
 
-                                    for attempt in xrange(0, nattempt):
+                                    for attempt in range(0, nattempt):
                                         attemptnr = attempt
                                         nb_rule = 0
+                                        #  Try to create the rule
                                         try:
                                             if split_rule:
                                                 if not skip_rule_creation:
@@ -356,6 +360,7 @@ def transmogrifier(bulk=5, once=False):
 
             time1 = time.time()
 
+            #  Mark the DIDs as processed
             for identifier in chunks(identifiers, 100):
                 _retrial(set_new_dids, identifier, None)
 
@@ -374,14 +379,15 @@ def transmogrifier(bulk=5, once=False):
             monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
         if once is True:
             break
-        if tottime < 10:
-            time.sleep(10 - tottime)
+        if tottime < sleep_time:
+            logging.info(prepend_str + 'Will sleep for %s seconds' % (sleep_time - tottime))
+            time.sleep(sleep_time - tottime)
     heartbeat.die(executable, hostname, pid, hb_thread)
     logging.info(prepend_str + 'Graceful stop requested')
     logging.info(prepend_str + 'Graceful stop done')
 
 
-def run(threads=1, bulk=100, once=False):
+def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the transmogrifier threads.
     """
@@ -392,12 +398,13 @@ def run(threads=1, bulk=100, once=False):
     else:
         logging.info('starting transmogrifier threads')
         thread_list = [threading.Thread(target=transmogrifier, kwargs={'once': once,
-                                                                       'bulk': bulk}) for _ in xrange(0, threads)]
-        [t.start() for t in thread_list]
+                                                                       'sleep_time': sleep_time,
+                                                                       'bulk': bulk}) for _ in range(0, threads)]
+        [thread.start() for thread in thread_list]
         logging.info('waiting for interrupts')
         # Interruptible joins require a timeout.
-        while len(thread_list) > 0:
-            thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
+        while thread_list:
+            thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.isAlive()]
 
 
 def stop(signum=None, frame=None):

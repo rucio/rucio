@@ -18,6 +18,9 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from logging import getLogger, StreamHandler, DEBUG
 from flask import Flask, Blueprint, Response, request
@@ -60,9 +63,9 @@ class LockByRSE(MethodView):
                 return 'Wrong did_type specified', 500
         except RSENotFound as error:
             return generate_http_error_flask(404, error.__class__.__name__, error.args[0])
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
 
@@ -91,9 +94,9 @@ class LockByScopeName(MethodView):
                 return Response(data, content_type="application/x-json-stream")
             else:
                 return 'Wrong did_type specified', 500
-        except RucioException, error:
+        except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception, error:
+        except Exception as error:
             return error, 500
 
 

@@ -16,6 +16,9 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -62,7 +65,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
 
     logging.info('polling latest %s hours on hosts: %s' % (last_nhours, external_hosts))
     if external_hosts:
-        if type(external_hosts) == str:
+        if isinstance(external_hosts, str):
             external_hosts = [external_hosts]
 
     while not graceful_stop.is_set():
@@ -78,7 +81,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                 state = [str(FTSState.FINISHED), str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY), str(FTSState.CANCELED)]
                 try:
                     resps = transfer.query_latest(external_host, state=state, last_nhours=last_nhours)
-                except:
+                except Exception:
                     logging.error(traceback.format_exc())
                 record_timer('daemons.conveyor.poller_latest.000-query_latest', (time.time() - ts) * 1000)
 
@@ -96,7 +99,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                         ret = request.update_request_state(resp)
                         # if True, really update request content; if False, only touch request
                         record_counter('daemons.conveyor.poller_latest.update_request_state.%s' % ret)
-                    except:
+                    except Exception:
                         logging.error(traceback.format_exc())
             if once:
                 break
@@ -105,9 +108,9 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
             if time_left > 0:
                 logging.debug("Waiting %s seconds until next FTS terminal state retrieval" % time_left)
                 graceful_stop.wait(time_left)
-        except RequestException, e:
-            logging.error("Failed to contact FTS server: %s" % (str(e)))
-        except:
+        except RequestException as error:
+            logging.error("Failed to contact FTS server: %s" % (str(error)))
+        except Exception:
             logging.critical(traceback.format_exc())
 
         if once:
@@ -145,12 +148,12 @@ def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_thr
 
         threads = [threading.Thread(target=poller_latest, kwargs={'external_hosts': external_hosts,
                                                                   'fts_wait': fts_wait,
-                                                                  'last_nhours': last_nhours}) for i in xrange(0, total_threads)]
+                                                                  'last_nhours': last_nhours}) for _ in range(0, total_threads)]
 
-        [t.start() for t in threads]
+        [thread.start() for thread in threads]
 
         logging.info('waiting for interrupts')
 
         # Interruptible joins require a timeout.
-        while len(threads) > 0:
-            threads = [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+        while threads:
+            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]

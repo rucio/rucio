@@ -14,6 +14,9 @@
  - Martin Barisits, <martin.barisits@cern.ch>, 2014
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015, 2017
  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+
+ PY3K COMPATIBLE
 """
 
 from datetime import datetime
@@ -30,6 +33,8 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType
 from rucio.db.sqla.enum import EnumSymbol
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+
+from six import string_types
 
 
 @transactional_session
@@ -100,27 +105,13 @@ def del_account(account, session=None):
     account.update({'status': AccountStatus.DELETED, 'deleted_at': datetime.utcnow()})
 
 
-@read_session
-def get_account_status(account, session=None):
-    """ Returns the state of the account.
-
-    :param account: Name of the account.
-    :param session: the database session in use.
-
-    """
-
-    query = session.query(models.Account).filter_by(account=account)
-
-    acc_details = query.one()
-    return acc_details.status
-
-
 @transactional_session
-def set_account_status(account, status, session=None):
-    """ Set the status of an account.
+def update_account(account, key, value, session=None):
+    """ Update a property of an account.
 
     :param account: Name of the account.
-    :param status: The status for the account.
+    :param key: Account property like status.
+    :param value: Property value.
     :param session: the database session in use.
     """
     query = session.query(models.Account).filter_by(account=account)
@@ -128,12 +119,15 @@ def set_account_status(account, status, session=None):
         account = query.one()
     except exc.NoResultFound:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
-    if (isinstance(status, str) or isinstance(status, unicode)):
-        status = AccountStatus.from_sym(status)
-    if status == AccountStatus.SUSPENDED:
-        query.update({'status': status, 'suspended_at': datetime.utcnow()})
-    elif status == AccountStatus.ACTIVE:
-        query.update({'status': status, 'suspended_at': None})
+    if key == 'status':
+        if isinstance(value, string_types):
+            value = AccountStatus.from_sym(value)
+        if value == AccountStatus.SUSPENDED:
+            query.update({'status': value, 'suspended_at': datetime.utcnow()})
+        elif value == AccountStatus.ACTIVE:
+            query.update({'status': value, 'suspended_at': None})
+    else:
+        query.update({key: value})
 
 
 @stream_session
@@ -149,7 +143,7 @@ def list_accounts(filter={}, session=None):
                           models.Account.email).filter_by(status=AccountStatus.ACTIVE)
     for filter_type in filter:
         if filter_type == 'account_type':
-            if (isinstance(filter['account_type'], str) or isinstance(filter['account_type'], unicode)):
+            if isinstance(filter['account_type'], string_types):
                 query = query.filter_by(account_type=AccountType.from_sym(filter['account_type']))
             elif isinstance(filter['account_type'], EnumSymbol):
                 query = query.filter_by(account_type=filter['account_type'])

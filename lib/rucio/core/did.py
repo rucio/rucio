@@ -22,7 +22,9 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
+import json
 import logging
 import random
 import sys
@@ -31,8 +33,8 @@ from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
 
-from sqlalchemy import and_, or_, exists
-from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
+from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
+from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError, InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
 from sqlalchemy.sql.expression import bindparam, case, text, Insert, select, true
@@ -455,7 +457,8 @@ def __add_collections_to_container(scope, name, collections, account, session):
             raise exception.DataIdentifierNotFound("Data identifier not found")
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
-                or match('.*columns scope, name, child_scope, child_name are not unique.*', error.args[0]):
+                or match('.*columns scope, name, child_scope, child_name are not unique.*', error.args[0]) \
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.DuplicateContent(error.args)
         raise exception.RucioException(error.args)
 
@@ -1234,6 +1237,8 @@ def set_metadata(scope, name, key, value, type=None, did=None,
                 update({key: value}, synchronize_session='fetch')
         except CompileError as error:
             raise exception.InvalidMetadata(error)
+        except InvalidRequestError as error:
+            raise exception.InvalidMetadata("Key %s is not accepted" % key)
 
         # propagate metadata updates to child content
         if recursive:
@@ -1251,6 +1256,8 @@ def set_metadata(scope, name, key, value, type=None, did=None,
                         update({key: value}, synchronize_session='fetch')
                 except CompileError as error:
                     raise exception.InvalidMetadata(error)
+                except InvalidRequestError as error:
+                    raise exception.InvalidMetadata("Key %s is not accepted" % key)
 
     if not rowcount:
         # check for did presence
@@ -1275,6 +1282,143 @@ def get_metadata(scope, name, session=None):
         return d
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@read_session
+def get_did_meta(scope, name, session=None):
+    """
+    Get all metadata for a given did
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    """
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection().connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
+    try:
+        row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+        meta = getattr(row, 'meta')
+        return json.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@transactional_session
+def add_did_meta(scope, name, meta, session=None):
+    """
+    Add or update the given metadata to the given did
+
+    :param scope: the scope of the did
+    :param name: the name of the did
+    :param meta: the metadata to be added or updated
+    """
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
+    try:
+        row_did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+        row_did_meta = session.query(models.DidMeta).filter_by(scope=scope, name=name).scalar()
+        if row_did_meta is None:
+            # Add metadata column to new table (if not already present)
+            row_did_meta = models.DidMeta(scope=scope, name=name)
+            row_did_meta.save(session=session, flush=True)
+
+        existing_meta = getattr(row_did_meta, 'meta')
+
+        # Oracle returns a string instead of a dict
+        if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:
+            existing_meta = json.loads(existing_meta)
+
+        if existing_meta is None:
+            existing_meta = {}
+
+        for k, v in meta.iteritems():
+            existing_meta[k] = v
+
+        row_did_meta.meta = None
+        session.flush()
+
+        # Oracle insert takes a string as input
+        if session.bind.dialect.name in ['oracle', 'sqlite']:
+            existing_meta = json.dumps(existing_meta)
+
+        row_did_meta.meta = existing_meta
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@transactional_session
+def delete_did_meta(scope, name, key, session=None):
+    """
+    Delete a key from the metadata column
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    :param key: the key to be deleted
+    """
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
+    try:
+        row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+        existing_meta = getattr(row, 'meta')
+        # Oracle returns a string instead of a dict
+        if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:
+            existing_meta = json.loads(existing_meta)
+
+        if key not in existing_meta:
+            raise exception.KeyNotFound(key)
+
+        existing_meta.pop(key, None)
+
+        row.meta = None
+        session.flush()
+
+        # Oracle insert takes a string as input
+        if session.bind.dialect.name in ['oracle', 'sqlite']:
+            existing_meta = json.dumps(existing_meta)
+
+        row.meta = existing_meta
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@read_session
+def list_dids_by_meta(scope, select, session=None):
+    """
+    Add or update the given metadata to the given did
+
+    :param scope: the scope of the did
+    :param name: the name of the did
+    :param meta: the metadata to be added or updated
+    """
+    # Currently for sqlite only add, get and delete is implemented.
+    if session.bind.dialect.name == 'sqlite':
+        raise NotImplementedError
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection.connection.version.split('.')[0])
+        if oracle_version < 12:
+            raise NotImplementedError
+
+    query = session.query(models.DidMeta)
+    if scope is not None:
+        query = query.filter(models.DidMeta.scope == scope)
+
+    for k, v in select.iteritems():
+        if session.bind.dialect.name == 'oracle':
+            query = query.filter(text("json_exists(meta,'$.%s?(@==''%s'')')" % (k, v)))
+        else:
+            query = query.filter(cast(models.DidMeta.meta[k], String) == type_coerce(v, JSON))
+    dids = list()
+    for row in query.yield_per(10):
+        dids.append({'scope': row.scope, 'name': row.name})
+    return dids
 
 
 @transactional_session
@@ -1336,8 +1480,8 @@ def set_status(scope, name, session=None, **kwargs):
 
 @stream_session
 def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
-              offset=None, long=False, session=None):
-    """0
+              offset=None, long=False, recursive=False, session=None):
+    """
     Search data identifiers
 
     :param scope: the scope name.
@@ -1348,6 +1492,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
     :param offset: offset number.
     :param long: Long format option to display more information for each DID.
     :param session: The database session in use.
+    :param recursive: Recursively list DIDs content.
     """
     types = ['all', 'collection', 'container', 'dataset', 'file']
     if type not in types:
@@ -1379,7 +1524,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
 
     for (k, v) in filters.items():
 
-        if k not in ['created_before', 'created_after'] \
+        if k not in ['created_before', 'created_after', 'length.gt', 'length.lt', 'length.lte', 'length.gte', 'length'] \
            and not hasattr(models.DataIdentifier, k):
             raise exception.KeyNotFound(k)
 
@@ -1402,6 +1547,16 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
         elif k == 'guid':
             query = query.filter_by(guid=v).\
                 with_hint(models.ReplicaLock, "INDEX(DIDS_GUIDS_IDX)", 'oracle')
+        elif k == 'length.gt':
+            query = query.filter(models.DataIdentifier.length > v)
+        elif k == 'length.lt':
+            query = query.filter(models.DataIdentifier.length < v)
+        elif k == 'length.gte':
+            query = query.filter(models.DataIdentifier.length >= v)
+        elif k == 'length.lte':
+            query = query.filter(models.DataIdentifier.length <= v)
+        elif k == 'length':
+            query = query.filter(models.DataIdentifier.length == v)
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
 
@@ -1415,6 +1570,20 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
 
     if limit:
         query = query.limit(limit)
+
+    if recursive:
+        # Get attachted DIDs and save in list because query has to be finished before starting a new one in the recursion
+        collections_content = []
+        parent_scope = scope
+        for scope, name, did_type, bytes, length in query.yield_per(100):
+            if (did_type == DIDType.CONTAINER or did_type == DIDType.DATASET):
+                collections_content += [did for did in list_content(scope=scope, name=name)]
+
+        # List DIDs again to use filter
+        for did in collections_content:
+            filters['name'] = did['name']
+            for result in list_dids(scope=did['scope'], filters=filters, recursive=True, type=type, limit=limit, offset=offset, long=long, session=session):
+                yield result
 
     if long:
         for scope, name, did_type, bytes, length in query.yield_per(5):

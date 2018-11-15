@@ -11,6 +11,8 @@
   - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
   - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+
+  PY3K COMPATIBLE
 '''
 
 import os

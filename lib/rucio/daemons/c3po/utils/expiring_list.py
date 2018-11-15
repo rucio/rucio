@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+#
+# PY3K COMPATIBLE
 
 """
 Utility classes for C3PO

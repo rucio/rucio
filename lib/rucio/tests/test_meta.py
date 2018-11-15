@@ -7,13 +7,16 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
-from nose.tools import assert_true, assert_in, raises, assert_is_instance
+from nose.tools import assert_in, assert_is_instance, assert_true, raises, assert_raises
 
-from rucio.db.sqla.constants import DIDType
 from rucio.client.metaclient import MetaClient
-from rucio.common.exception import KeyNotFound, InvalidValueForKey, UnsupportedValueType
+from rucio.common.exception import InvalidValueForKey, KeyNotFound, UnsupportedValueType, UnsupportedKeyType
 from rucio.common.utils import generate_uuid as uuid
+from rucio.core.meta import add_key
+from rucio.db.sqla import session, models
+from rucio.db.sqla.constants import DIDType, KeyType
 
 
 class TestMetaClient():
@@ -57,7 +60,7 @@ class TestMetaClient():
 
     @raises(InvalidValueForKey)
     def xtest_add_value_with_regexp(self):
-        """ META (CORE):  Add a new value to a key with a regexp constraint"""
+        """ META (CLIENTS):  Add a new value to a key with a regexp constraint"""
         key = 'guid' + str(uuid())[:20]
         value = str(uuid())
         # regexp for uuid
@@ -80,6 +83,58 @@ class TestMetaClient():
         value = 'value_' + str(uuid())
         self.meta_client.add_value(key="Nimportnawak", value=value)
 
-    def xtest_add_key_mysql(self):
-        """ META (CORE): Add a new key to test conversions on MySQL"""
-        self.meta_client.add_key('datatype', DIDType.FILE)
+    def test_add_key(self):
+        """ META (CLIENTS): Add a new key """
+        types = [{'type': 'FILE', 'expected': KeyType.FILE},
+                 {'type': 'ALL', 'expected': KeyType.ALL},
+                 {'type': 'COLLECTION', 'expected': KeyType.COLLECTION},
+                 {'type': 'DATASET', 'expected': KeyType.DATASET},
+                 {'type': 'D', 'expected': KeyType.DATASET},
+                 {'type': 'FILE', 'expected': KeyType.FILE},
+                 {'type': 'F', 'expected': KeyType.FILE},
+                 {'type': 'DERIVED', 'expected': KeyType.DERIVED},
+                 {'type': 'C', 'expected': KeyType.CONTAINER}]
+
+        for key_type in types:
+            key_name = 'datatype%s' % str(uuid())
+            self.meta_client.add_key(key_name, key_type['type'])
+            stored_key_type = session.get_session().query(models.DIDKey).filter_by(key=key_name).one()['key_type']
+            assert_true(stored_key_type, key_type['expected'])
+
+        with assert_raises(UnsupportedKeyType):
+            self.meta_client.add_key('datatype', 'A')
+
+
+class TestMetaCore():
+    def test_add_key(self):
+        """ META (CORE): Add a new key """
+        types = [{'type': DIDType.FILE, 'expected': KeyType.FILE},
+                 {'type': DIDType.CONTAINER, 'expected': KeyType.CONTAINER},
+                 {'type': DIDType.DATASET, 'expected': KeyType.DATASET},
+                 {'type': KeyType.ALL, 'expected': KeyType.ALL},
+                 {'type': KeyType.DERIVED, 'expected': KeyType.DERIVED},
+                 {'type': KeyType.FILE, 'expected': KeyType.FILE},
+                 {'type': KeyType.COLLECTION, 'expected': KeyType.COLLECTION},
+                 {'type': KeyType.CONTAINER, 'expected': KeyType.CONTAINER},
+                 {'type': KeyType.DATASET, 'expected': KeyType.DATASET},
+                 {'type': 'FILE', 'expected': KeyType.FILE},
+                 {'type': 'ALL', 'expected': KeyType.ALL},
+                 {'type': 'COLLECTION', 'expected': KeyType.COLLECTION},
+                 {'type': 'DATASET', 'expected': KeyType.DATASET},
+                 {'type': 'D', 'expected': KeyType.DATASET},
+                 {'type': 'FILE', 'expected': KeyType.FILE},
+                 {'type': 'F', 'expected': KeyType.FILE},
+                 {'type': 'DERIVED', 'expected': KeyType.DERIVED},
+                 {'type': 'C', 'expected': KeyType.CONTAINER}]
+
+        for key_type in types:
+            key_name = 'datatype%s' % str(uuid())
+            add_key(key_name, key_type['type'])
+            stored_key_type = session.get_session().query(models.DIDKey).filter_by(key=key_name).one()['key_type']
+            assert_true(stored_key_type, key_type['expected'])
+
+        with assert_raises(UnsupportedKeyType):
+            add_key('datatype', DIDType.ARCHIVE)
+
+        with assert_raises(UnsupportedKeyType):
+            add_key('datatype', 'A')

@@ -21,7 +21,8 @@
 import logging
 import sys
 
-from datetime import datetime
+from datetime import datetime, date, timedelta
+from string import Template
 
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rule import get_rule, add_rule, update_rule
@@ -33,7 +34,7 @@ from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, Duplic
                                     InsufficientAccountLimit)
 from rucio.db.sqla.constants import RuleGrouping
 from rucio.db.sqla.session import transactional_session
-
+from requests import get
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
@@ -43,11 +44,11 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-def rebalance_rule(parent_rule_id, activity, rse_expression, priority, source_replica_expression=None, comment=None):
+def rebalance_rule(parent_rule, activity, rse_expression, priority, source_replica_expression=None, comment=None):
     """
     Rebalance a replication rule to a new RSE
 
-    :param parent_rule_id:             Replication rule to be rebalanced.
+    :param parent_rule:                Replication rule to be rebalanced.
     :param activity:                   Activity to be used for the rebalancing.
     :param rse_expression:             RSE expression of the new rule.
     :param priority:                   Priority of the newly created rule.
@@ -55,7 +56,6 @@ def rebalance_rule(parent_rule_id, activity, rse_expression, priority, source_re
     :param comment:                    Comment to set on the new rules.
     :returns:                          The new child rule id.
     """
-    parent_rule = get_rule(rule_id=parent_rule_id)
 
     if parent_rule['expires_at'] is None:
         lifetime = None
@@ -101,10 +101,113 @@ def rebalance_rule(parent_rule_id, activity, rse_expression, priority, source_re
                           comment=parent_rule['comments'] if not comment else comment,
                           ask_approval=False,
                           asynchronous=False,
+                          ignore_account_limit=True,
                           priority=priority)[0]
 
-    update_rule(rule_id=parent_rule_id, options={'child_rule_id': child_rule, 'lifetime': 0})
+    update_rule(rule_id=parent_rule['id'], options={'child_rule_id': child_rule, 'lifetime': 0})
     return child_rule
+
+
+def __dump_url(rse):
+    """
+    getting potential urls of the dump over last week
+
+    :param rse:          RSE where the dump is released.
+    """
+
+    # get the date of the most recent dump
+    today = date.today()
+    dump_dates = []
+    dump_production_day = config_get('bb8', 'dump_production_day', raise_exception=False, default=None)
+    if dump_production_day is None:
+        for idx in range(0, 7):
+            dump_date = today - timedelta(idx)
+            dump_dates.append(dump_date.strftime('%d-%m-%Y'))
+    else:
+        weekdays = {'Sunday': 6, 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5}
+        if dump_production_day not in weekdays:
+            print 'ERROR: please set the day of a dump creation in bb8 config correctly, e.g. Monday'
+            return False
+        today_idx = (today.weekday() - weekdays[dump_production_day]) % 7
+        dump_date = today - timedelta(today_idx)
+        dump_dates = [dump_date.strftime('%d-%m-%Y')]
+
+    # getting structure (template) of url location of a dump
+    url_template_str = config_get('bb8', 'dump_url_template', raise_exception=False, default='http://rucio-analytix.cern.ch:8080/LOCKS/GetFileFromHDFS?date=${date}&rse=${rse}')
+    url_template = Template(url_template_str)
+
+    # populating url template
+    urls = []
+    for d in dump_dates:
+        url = url_template.substitute({'date': d, 'rse': rse})
+        urls.append(url)
+    return urls
+
+
+def _list_rebalance_rule_candidates_dump(rse, mode=None):
+    """
+    Download dump to tmporary directory
+
+    :param rse:          RSE of the source.
+    :param mode:         Rebalancing mode.
+    """
+
+    # fetching the dump
+    candidates = []
+    rules = {}
+    rse_dump_urls = __dump_url(rse)
+    rse_dump_urls.reverse()
+    r = None
+    if not rse_dump_urls:
+        print 'URL of the dump was not built from template.'
+        return candidates
+    success = False
+    while not success and len(rse_dump_urls):
+        url = rse_dump_urls.pop()
+        print url
+        r = get(url, stream=True)
+        if r:
+            success = True
+    if not r or r is None:
+        print 'RSE dump not available.'
+        return candidates
+
+    # looping over the dump and selecting the rules
+    for l in r.iter_lines():
+        if l:
+            file_scope, file_name, rule_id, rse_expression, account, file_size, state = l.split('\t')
+            if rule_id not in rules:
+                rule_info = {}
+                try:
+                    rule_info = get_rule(rule_id=rule_id)
+                except Exception as e:
+                    rules[rule_id] = {'state': 'DELETED'}
+                    print e
+                    continue
+                rules[rule_id] = {'scope': rule_info['scope'],
+                                  'name': rule_info['name'],
+                                  'rse_expression': rse_expression,
+                                  'subscription_id': rule_info['subscription_id'],
+                                  'length': 1,
+                                  'state': 'ACTIVE',
+                                  'bytes': int(file_size)}
+            elif rules[rule_id]['state'] == 'ACTIVE':
+                rules[rule_id]['length'] += 1
+                rules[rule_id]['bytes'] += int(file_size)
+
+    # looping over agragated rules collected from dump
+    for r_id in rules:
+        if mode == 'decommission':  # other modes can be added later
+            if rules[r_id]['state'] == 'DELETED':
+                continue
+            candidates.append((rules[r_id]['scope'],
+                               rules[r_id]['name'],
+                               r_id,
+                               rules[r_id]['rse_expression'],
+                               rules[r_id]['subscription_id'],
+                               rules[r_id]['bytes'],
+                               rules[r_id]['length']))
+    return candidates
 
 
 @transactional_session
@@ -132,24 +235,27 @@ d.bytes is not NULL and
 d.is_open = 0 and
 d.did_type = 'D' and
 r.grouping IN ('D', 'A') and
-1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id) and
-0 < (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id IN (SELECT id FROM atlas_rucio.rses WHERE rse_type='TAPE'))
+1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id)
 ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
-    elif mode == 'decomission':
+    elif mode == 'decommission':  # OBSOLETE
         sql = """SELECT r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
 WHERE
 r.id IN (SELECT rule_id FROM atlas_rucio.locks WHERE rse_id = atlas_rucio.rse2id(:rse) GROUP BY rule_id) and
 r.state = 'O' and
 r.child_rule_id is NULL"""  # NOQA
 
-    return session.execute(sql, {'rse': rse}).fetchall()
+    if mode != 'decommission':
+        return session.execute(sql, {'rse': rse}).fetchall()
+    else:  # can be applied only for decommission since the dumps doesn't contain info from dids and rules tables.
+        return _list_rebalance_rule_candidates_dump(rse, mode)
 
 
 @transactional_session
-def select_target_rse(current_rse, rse_expression, subscription_id, rse_attributes, other_rses=[], exclude_expression=None, force_expression=None, session=None):
+def select_target_rse(parent_rule, current_rse, rse_expression, subscription_id, rse_attributes, other_rses=[], exclude_expression=None, force_expression=None, session=None):
     """
     Select a new target RSE for a rebalanced rule.
 
+    :param parent_rule           rule that is rebalanced.
     :param current_rse:          RSE of the source.
     :param rse_expression:       RSE Expression of the source rule.
     :param subscription_id:      Subscription ID of the source rule.
@@ -161,27 +267,39 @@ def select_target_rse(current_rse, rse_expression, subscription_id, rse_attribut
     :returns:                    New RSE expression
     """
 
+    if rse_attributes['type'] != 'DATADISK' and force_expression is None:
+        print 'WARNING: dest RSE(s) has to be provided with --force-expression for rebalancing of non-datadisk RSES.'
+        raise InsufficientTargetRSEs
+
     if exclude_expression:
         target_rse = '(%s)\\%s' % (exclude_expression, current_rse)
     else:
         target_rse = current_rse
 
     rses = parse_expression(expression=rse_expression, session=session)
+    # TODO: dest rse selection should be configurable, there might be cases when tier is not defined, or concept of DATADISKS is not present.
     # if subscription_id:
     #     pass
     #     # get_subscription_by_id(subscription_id, session)
     if force_expression is not None:
-        rses = parse_expression(expression='(%s)\\%s' % (force_expression, target_rse), filter={'availability_write': True}, session=session)
+        if parent_rule['grouping'] != RuleGrouping.NONE:
+            rses = parse_expression(expression='(%s)\\%s' % (force_expression, target_rse), filter={'availability_write': True}, session=session)
+        else:
+            # in order to avoid replication of the part of distributed dataset not present at rabalanced rse -> rses in force_expression
+            # this will be extended with development of delayed rule
+            rses = parse_expression(expression='((%s)|(%s))\\%s' % (force_expression, rse_expression, target_rse), filter={'availability_write': True}, session=session)
     elif len(rses) > 1:
         # Just define the RSE Expression without the current_rse
         return '(%s)\\%s' % (rse_expression, target_rse)
-    elif rse_attributes['tier'] is True or rse_attributes['tier'] == '1':
+    elif rse_attributes['tier'] is True or int(rse_attributes['tier']) == 1:
         # Tier 1 should go to another Tier 1
         rses = parse_expression(expression='(tier=1&type=DATADISK)\\%s' % target_rse, filter={'availability_write': True}, session=session)
-    elif rse_attributes['tier'] == 2 or rse_attributes['tier'] == '2':
+    elif int(rse_attributes['tier']) == 2:
         # Tier 2 should go to another Tier 2
         rses = parse_expression(expression='(tier=2&type=DATADISK)\\%s' % target_rse, filter={'availability_write': True}, session=session)
-
+    elif int(rse_attributes['tier']) == 3:
+        # Tier 3 will go to Tier 2, since we don't have enough t3s
+        rses = parse_expression(expression='((tier=2&type=DATADISK)\\datapolicynucleus=1)\\%s' % target_rse, filter={'availability_write': True}, session=session)
     rseselector = RSESelector(account='ddmadmin', rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
     return get_rse_name([rse_id for rse_id, _, _ in rseselector.select_rse(size=0, preferred_rse_ids=[], blacklist=other_rses)][0], session=session)
 
@@ -228,11 +346,12 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
                 continue
 
         try:
+            rule = get_rule(rule_id=rule_id)
             other_rses = [r['rse_id'] for r in get_dataset_locks(scope, name, session=session)]
-
             # Select the target RSE for this rule
             try:
-                target_rse_exp = select_target_rse(current_rse=rse,
+                target_rse_exp = select_target_rse(parent_rule=rule,
+                                                   current_rse=rse,
                                                    rse_expression=rse_expression,
                                                    subscription_id=subscription_id,
                                                    rse_attributes=rse_attributes,
@@ -242,7 +361,7 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
                                                    session=session)
                 # Rebalance this rule
                 if not dry_run:
-                    child_rule_id = rebalance_rule(parent_rule_id=rule_id,
+                    child_rule_id = rebalance_rule(parent_rule=rule,
                                                    activity='Data rebalancing',
                                                    rse_expression=target_rse_exp,
                                                    priority=priority,
@@ -263,5 +382,5 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
             print 'Exception %s occured while rebalancing %s:%s, rule_id: %s!' % (str(error), scope, name, str(rule_id))
             raise error
 
-    print 'BB8 is rebalancing %d GB of data (%d rules)' % (int(rebalanced_bytes / 1E9), len(rebalanced_datasets))
+    print 'BB8 is rebalancing %d Gb of data (%d rules)' % (int(rebalanced_bytes / 1E9), len(rebalanced_datasets))
     return rebalanced_datasets

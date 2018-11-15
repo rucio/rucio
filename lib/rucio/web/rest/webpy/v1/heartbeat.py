@@ -16,6 +16,8 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+#
+# PY3K COMPATIBLE
 
 import json
 

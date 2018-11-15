@@ -20,6 +20,9 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Wen Guan <wguan.icedew@gmail.com>, 2014
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -78,6 +81,11 @@ class RSEClient(BaseClient):
         :param time_zone: Timezone.
         :param staging_area: Staging area.
         :param ISP: Internet service provider.
+        :param rse_type: RSE type.
+        :param latitude: Latitude coordinate of RSE.
+        :param longitude: Longitude coordinate of RSE.
+        :param ASN: Access service network.
+        :param availability: Availability.
 
         :return: True if location was created successfully else False.
         :raises Duplicate: if rse already exists.

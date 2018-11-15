@@ -45,7 +45,7 @@ from rucio import version
 
 class DownloadClient:
 
-    def __init__(self, client=None, logger=None, check_admin=False):
+    def __init__(self, client=None, logger=None, tracing=True, check_admin=False):
         """
         Initialises the basic settings for an DownloadClient object
 
@@ -57,6 +57,9 @@ class DownloadClient:
             logger.disabled = True
 
         self.logger = logger
+        self.tracing = tracing
+        if not self.tracing:
+            logger.debug('Tracing is turned off.')
         self.is_human_readable = True
         self.client = client if client else Client()
 
@@ -155,7 +158,7 @@ class DownloadClient:
                 trace['clientState'] = 'ALREADY_DONE'
                 trace['transferStart'] = time.time()
                 trace['transferEnd'] = time.time()
-                send_trace(trace, self.client.host, self.client.user_agent)
+                self._send_trace(trace)
                 success = True
 
             # DOWNLOAD, iteration over different rses unitl success
@@ -184,8 +187,9 @@ class DownloadClient:
                         trace['clientState'] = 'DONE'
                 except Exception as e:
                     trace['clientState'] = 'FAILED'
+                    trace['stateReason'] = str(ServiceUnavailable(e))
                     raise ServiceUnavailable(e)
-                send_trace(trace, self.client.host, self.client.user_agent)
+                self._send_trace(trace)
             if not success:
                 raise RucioException('Failed to download file %s after %d retries' % (file_extract_name, retry_counter))
         return self._check_output(items)
@@ -406,6 +410,7 @@ class DownloadClient:
         trace.setdefault('filesize', item.get('bytes'))
 
         # if file already exists, set state, send trace, and return
+        temp_file_path = item['temp_file_path']
         dest_file_path = item['dest_file_path']
         if os.path.isfile(dest_file_path):
             logger.info('%sFile exists already locally: %s' % (log_prefix, did_str))
@@ -414,7 +419,7 @@ class DownloadClient:
             trace['transferStart'] = time.time()
             trace['transferEnd'] = time.time()
             trace['clientState'] = 'ALREADY_DONE'
-            send_trace(trace, self.client.host, self.client.user_agent)
+            self._send_trace(trace)
             return item
 
         # check if file has replicas
@@ -424,7 +429,7 @@ class DownloadClient:
             item['clientState'] = 'FILE_NOT_FOUND'
 
             trace['clientState'] = 'FILE_NOT_FOUND'
-            send_trace(trace, self.client.host, self.client.user_agent)
+            self._send_trace(trace)
             return item
 
         success = False
@@ -435,6 +440,43 @@ class DownloadClient:
             rse_name = sources[i]['rse']
             i += 1
             scheme = pfn.split(':')[0]
+
+            # this is a workaround to fix that gfal doesnt use root's -z option for archives
+            # this will be removed as soon as gfal has fixed this
+            temp_file_path = item['temp_file_path']
+            dest_file_path = item['dest_file_path']
+            unzip_arg_name = '?xrdcl.unzip='
+            if scheme == 'root' and unzip_arg_name in pfn:
+                logger.info('%sFound xrdcl.unzip in PFN. Using xrdcp overwrite.' % log_prefix)
+                filename_in_archive = ''
+                pfn_filename_start = pfn.find(unzip_arg_name) + len(unzip_arg_name)
+                for c in pfn[pfn_filename_start:]:
+                    if c == '&' or c == '?':
+                        break
+                    filename_in_archive += c
+
+                dest_file_path = os.path.join(os.path.dirname(dest_file_path), filename_in_archive)
+                temp_file_path = '%s.part' % dest_file_path
+                cmd = 'xrdcp -vf %s -z %s file://%s' % (pfn, filename_in_archive, temp_file_path)
+                start_time = time.time()
+                try:
+                    logger.debug('Executing: %s' % cmd)
+                    status, out, err = execute(cmd)
+                except Exception as error:
+                    logger.debug('xrdcp execution failed')
+                    logger.debug(error)
+                    continue
+                end_time = time.time()
+                success = (status == 0)
+                if not success:
+                    logger.debug('xrdcp status: %s' % status)
+                    logger.debug('xrdcp stdout: %s' % out)
+                    logger.debug('xrdcp stderr: %s' % err)
+                    trace['clientState'] = ('%s' % err)
+                    self._send_trace(trace)
+                    continue
+                else:
+                    break
 
             try:
                 rse = rsemgr.get_rse_info(rse_name)
@@ -463,7 +505,6 @@ class DownloadClient:
                 attempt += 1
                 item['attemptnr'] = attempt
 
-                temp_file_path = item['temp_file_path']
                 if os.path.isfile(temp_file_path):
                     logger.debug('%sDeleting existing temporary file: %s' % (log_prefix, temp_file_path))
                     os.unlink(temp_file_path)
@@ -500,7 +541,7 @@ class DownloadClient:
                         trace['clientState'] = 'FAIL_VALIDATE'
                 if not success:
                     logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
-                    send_trace(trace, self.client.host, self.client.user_agent)
+                    self._send_trace(trace)
 
             protocol.close()
 
@@ -509,13 +550,14 @@ class DownloadClient:
             item['clientState'] = 'FAILED'
             return item
 
+        logger.debug("renaming '%s' to '%s'" % (temp_file_path, dest_file_path))
         os.rename(temp_file_path, dest_file_path)
 
         trace['transferStart'] = start_time
         trace['transferEnd'] = end_time
         trace['clientState'] = 'DONE'
         item['clientState'] = 'DONE'
-        send_trace(trace, self.client.host, self.client.user_agent)
+        self._send_trace(trace)
 
         duration = round(end_time - start_time, 2)
         size = item.get('bytes')
@@ -526,41 +568,6 @@ class DownloadClient:
         else:
             logger.info('%sFile %s successfully downloaded in %s seconds' % (log_prefix, did_str, duration))
         return item
-
-    def download(self, dids, rse=None, archive=None, protocol=None, pfn=None, nrandom=None, nprocs=3, user_agent='rucio_clients', dir='.', no_subd=False, transfer_timeout=None):
-        """
-        OBSOLETE! This function is kept for compability reasons and will be removed in a future release!
-        """
-        item_tpl = {'rse': rse,
-                    'force_scheme': protocol,
-                    'nrandom': nrandom,
-                    'base_dir': dir,
-                    'no_subdir': no_subd,
-                    'transfer_timeout': transfer_timeout}
-        if pfn:
-            item_tpl['pfn'] = pfn
-        input_items = []
-        for did in dids:
-            item = {}
-            item.update(item_tpl)
-            item['did'] = did
-            if archive:
-                item['archive'] = archive
-            input_items.append(item)
-
-        trace_pattern = {'appid': os.environ.get('RUCIO_TRACE_APPID', None),
-                         'dataset': os.environ.get('RUCIO_TRACE_DATASET', None),
-                         'datasetScope': os.environ.get('RUCIO_TRACE_DATASETSCOPE', None),
-                         'pq': os.environ.get('RUCIO_TRACE_PQ', None),
-                         'taskid': os.environ.get('RUCIO_TRACE_TASKID', None),
-                         'usrdn': os.environ.get('RUCIO_TRACE_USRDN', None)}
-
-        if pfn:
-            return self.download_pfns(input_items, nprocs, trace_pattern)
-        elif archive:
-            self.download_file_from_archive(input_items, trace_pattern)
-        else:
-            return self.download_dids(input_items, nprocs, trace_pattern)
 
     def download_aria2c(self, items, trace_custom_fields={}):
         """
@@ -730,12 +737,12 @@ class DownloadClient:
                     logger.info('File exists already locally: %s' % file_did_str)
                     item['clientState'] = 'ALREADY_DONE'
                     trace['clientState'] = 'ALREADY_DONE'
-                    send_trace(trace, self.client.host, self.client.user_agent)
+                    self._send_trace(trace)
                 elif len(pfns) == 0:
                     logger.warning('No available source found for file: %s' % file_did_str)
                     item['clientState'] = 'FILE_NOT_FOUND'
                     trace['clientState'] = 'FILE_NOT_FOUND'
-                    send_trace(trace, self.client.host, self.client.user_agent)
+                    self._send_trace(trace)
                 else:
                     item['trace'] = trace
                     options = {'dir': item['dest_dir_path'],
@@ -817,7 +824,7 @@ class DownloadClient:
                     item['clientState'] = 'FAILED'
                     trace['clientState'] = 'DOWNLOAD_ATTEMPT'
 
-                send_trace(trace, self.client.host, self.client.user_agent)
+                self._send_trace(trace)
                 del item['trace']
 
                 aria_rpc.aria2.removeDownloadResult(rpc_auth, gid)
@@ -1086,3 +1093,12 @@ class DownloadClient:
             raise NotAllFilesDownloaded()
 
         return output_items
+
+    def _send_trace(self, trace):
+        """
+        Checks if sending trace is allowed and send the trace.
+
+        :param trace: the trace
+        """
+        if self.tracing:
+            send_trace(trace, self.client.host, self.client.user_agent)

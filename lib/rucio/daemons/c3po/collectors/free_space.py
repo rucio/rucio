@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016-2017
+#
+# PY3K COMPATIBLE
 
 """
 Collector to get the SRM free and used information for DATADISK RSEs.

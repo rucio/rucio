@@ -17,7 +17,11 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from json import loads
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
@@ -81,7 +85,7 @@ class AccountLimit(RucioController):
         except AccountNotFound as exception:
             raise generate_http_error(404, 'AccountNotFound', exception.args[0])
         except Exception as exception:
-            print format_exc()
+            print(format_exc())
             raise InternalError(exception)
 
         raise Created()
@@ -110,7 +114,7 @@ class AccountLimit(RucioController):
         except RSENotFound as exception:
             raise generate_http_error(404, 'RSENotFound', exception.args[0])
         except Exception as exception:
-            print format_exc()
+            print(format_exc())
             raise InternalError(exception)
         raise OK()
 

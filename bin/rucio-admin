@@ -26,6 +26,9 @@
 # - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -52,8 +55,9 @@ import tabulate
 from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
-                                    RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate)
-from rucio.common.utils import chunks, construct_surl, sizefmt
+                                    RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate,
+                                    Duplicate)
+from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
 
@@ -162,6 +166,10 @@ def exception_handler(function):
             logger.error(error)
             logger.debug('This means that the method is not implemented yet.')
             return FAILURE
+        except Duplicate as error:
+            logger.error(error)
+            logger.debug('This means that you are trying to add something that already exists.')
+            return error.error_code
         except Exception as error:
             logger.error(error)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
@@ -246,6 +254,20 @@ def delete_account(args):
 
 
 @exception_handler
+def update_account(args):
+    """
+    %(prog)s update [options] <field1=value1 field2=value2 ...>
+
+    Update an account.
+
+    """
+    client = get_client(args)
+    client.update_account(account=args.account, key=args.key, value=args.value)
+    print('%s of account %s changed to %s' % (args.key, args.account, args.value))
+    return SUCCESS
+
+
+@exception_handler
 def ban_account(args):
     """
     %(prog)s ban [options] <field1=value1 field2=value2 ...>
@@ -254,7 +276,7 @@ def ban_account(args):
 
     """
     client = get_client(args)
-    client.set_account_status(account=args.account, status='SUSPENDED')
+    client.update_account(account=args.account, key='status', value='SUSPENDED')
     print('Account %s banned' % args.account)
     return SUCCESS
 
@@ -268,7 +290,7 @@ def unban_account(args):
 
     """
     client = get_client(args)
-    client.set_account_status(account=args.account, status='ACTIVE')
+    client.update_account(account=args.account, key='status', value='ACTIVE')
     print('Account %s unbanned' % args.account)
     return SUCCESS
 
@@ -329,8 +351,22 @@ def set_limits(args):
     Set account limit for an account and rse.
     """
     client = get_client(args)
-    client.set_account_limit(account=args.account, rse=args.rse, bytes=args.bytes)
-    print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(args.bytes, True)))
+    byte_limit = None
+    limit_input = args.bytes.lower()
+
+    if limit_input == 'inf' or limit_input == 'infinity':
+        byte_limit = -1
+    else:
+        byte_limit = get_bytes_value_from_string(limit_input)
+        if not byte_limit:
+            try:
+                byte_limit = int(limit_input)
+            except ValueError:
+                logger.error('The limit could not be set. Either you misspelled infinity or your input could not be converted to integer or you used a wrong pattern. Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensistive)')
+                return FAILURE
+
+    client.set_account_limit(account=args.account, rse=args.rse, bytes=byte_limit)
+    print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(byte_limit, True)))
     return SUCCESS
 
 
@@ -1114,7 +1150,7 @@ def get_parser():
     set_account_limits_parser.set_defaults(which='set_limits')
     set_account_limits_parser.add_argument('account', action='store', help='Account name')
     set_account_limits_parser.add_argument('rse', action='store', help='RSE boolean expression')
-    set_account_limits_parser.add_argument('bytes', action='store', type=int, help='The total number of bytes that can be stored')
+    set_account_limits_parser.add_argument('bytes', action='store', help='Value can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"')
 
     # The account-limit subparser
     get_account_limits_parser = account_subparser.add_parser('get-limits',
@@ -1178,6 +1214,22 @@ def get_parser():
                                                                       '\n')
     unban_account_limits_parser.set_defaults(which='unban_account')
     unban_account_limits_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+
+    # Update account subparser
+    update_account_parser = account_subparser.add_parser('update',
+                                                         help='Update an account.',
+                                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                         epilog='Usage example\n'
+                                                                '"""""""""""""\n'
+                                                                '::\n'
+                                                                '\n'
+                                                                '    $ rucio-admin account update --account jdoe --key email --value test\n'
+                                                                '    Account jdoe updated\n'
+                                                                '\n')
+    update_account_parser.set_defaults(which='update_account')
+    update_account_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    update_account_parser.add_argument('--key', dest='key', action='store', help='Account parameter', required=True)
+    update_account_parser.add_argument('--value', dest='value', action='store', help='Account parameter value', required=True)
 
     # The identity subparser
     identity_parser = subparsers.add_parser('identity', help='Identity methods')
@@ -1762,6 +1814,7 @@ if __name__ == '__main__':
                 'info_account': info_account,
                 'ban_account': ban_account,
                 'unban_account': unban_account,
+                'update_account': update_account,
                 'get_limits': get_limits,
                 'set_limits': set_limits,
                 'delete_limits': delete_limits,

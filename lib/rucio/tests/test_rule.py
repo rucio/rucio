@@ -38,7 +38,7 @@ from rucio.core.request import get_request_by_did
 from rucio.core.replica import add_replica, get_replica
 from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse, get_rse_id, del_rse_attribute
 from rucio.core.rse_counter import get_counter as get_rse_counter
-from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule
+from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule, list_rules
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.db.sqla import models
@@ -868,6 +868,35 @@ class TestReplicationRuleCore():
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE',
                            weight='fakeweight', lifetime=None, locked=False, meta={'task_id': 55, 'job_ids': [1, 2, 3, 4]}, subscription_id=None)[0]
         assert(get_rule(rule_id)['meta'] == json.dumps({'task_id': 55, 'job_ids': [1, 2, 3, 4]}))
+
+    def test_rule_on_archive(self):
+        """ REPLICATION RULE (CORE): Test to add a rule on a constituent should add rule on archive"""
+        scope = 'mock'
+        archive = {'scope': scope, 'name': '%s.zip' % str(uuid()), 'type': 'FILE',
+                   'bytes': 2596, 'adler32': 'beefdead'}
+        add_replica(rse=self.rse1, scope=scope, name=archive['name'], bytes=2596, account='jdoe')
+        files_in_archive = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(uuid())), 'type': 'FILE',
+                             'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+        attach_dids(scope, archive['name'], files_in_archive, 'jdoe')
+
+        add_rule(dids=[{'scope': scope, 'name': files_in_archive[1]['name']}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='NONE',
+                 weight=None, lifetime=None, locked=False, subscription_id=None)
+        assert(len(list(list_rules(filters={'scope': scope, 'name': archive['name']}))) == 1)
+
+        # Check the same but now a replica of the constituent exists as well
+        scope = 'mock'
+        archive = {'scope': scope, 'name': '%s.zip' % str(uuid()), 'type': 'FILE',
+                   'bytes': 2596, 'adler32': 'beefdead'}
+        add_replica(rse=self.rse1, scope=scope, name=archive['name'], bytes=2596, account='jdoe')
+        files_in_archive = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(uuid())), 'type': 'FILE',
+                             'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+        attach_dids(scope, archive['name'], files_in_archive, 'jdoe')
+        add_replica(rse=self.rse1, scope=scope, name=files_in_archive[1]['name'], bytes=2596, account='jdoe')
+
+        add_rule(dids=[{'scope': scope, 'name': files_in_archive[1]['name']}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='NONE',
+                 weight=None, lifetime=None, locked=False, subscription_id=None)
+        assert(len(list(list_rules(filters={'scope': scope, 'name': archive['name']}))) == 0)
+        assert(len(list(list_rules(filters={'scope': scope, 'name': files_in_archive[1]['name']}))) == 1)
 
 
 class TestReplicationRuleClient():

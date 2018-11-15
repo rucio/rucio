@@ -16,7 +16,6 @@ $var title: Data Identifier
 $var script: <script src="/static/did.js"></script><link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css"><script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
 
 <div id="result" class="row" data-equalizer>
-
   <div id="metadata" class="columns panel">
     <h4>DID Metadata</h4>
     <div id="loading">Loading, please wait...</div>
@@ -24,6 +23,12 @@ $var script: <script src="/static/did.js"></script><link rel="stylesheet" href="
     </table>
   </div>
 
+  <div id="generic_metadata" class="columns panel" style="display: none;">
+    <h4>Generic DID Metadata</h4>
+    <div id="loading">Loading, please wait...</div>
+    <table id="t_generic_metadata" style="word-wrap: break-word;">
+    </table>
+  </div>
 </div>
 
 <div id="result_contents" class="row">
@@ -38,7 +43,7 @@ $var script: <script src="/static/did.js"></script><link rel="stylesheet" href="
 <div id="infomodalmeta" class="reveal-modal" data-reveal aria-labelledby="modalTitle2" aria-hidden="true" role="dialog">
 	<h2>Dataset Download</h2>
 	<p>Rucio UI creates metalinks for datasets with a maximum of 500 files files within the dataset (Download icon next to this info button). Triggering the download will give you .meta4 file that can be opened with a suitable metalink downloader (or browser plugin) like <a href='https://addons.mozilla.org/de/firefox/addon/downthemall/' target='_blank'>DownThemAll!</a>. To open the metalink file with DownThemAll! follow <a href ='http://hdfeos.org/examples/docs/vertex/asf_vertex_bulk_download_mac.pdf' target='_blank'>this</a> guideline.</p>
-	<p>Note: If there are no available RSEs that store the dataset no download icon will appear.</p>    
+	<p>Note: If there are no available RSEs that store the dataset no download icon will appear.</p>
 	<a class="close-reveal-modal" aria-label="Close">&#215;</a>
 </div>
 
@@ -49,5 +54,5 @@ $var script: <script src="/static/did.js"></script><link rel="stylesheet" href="
 
 <div id="infomodal" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
 	<h2>No Data</h2>
-	<a class="close-reveal-modal" aria-label="Close">&#215;</a>   
+	<a class="close-reveal-modal" aria-label="Close">&#215;</a>
 </div>

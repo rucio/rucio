@@ -17,6 +17,9 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from json import dumps, loads
 
@@ -181,7 +184,7 @@ class Rules(MethodView):
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error[0])
+            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:

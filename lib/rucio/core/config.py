@@ -9,6 +9,8 @@
   Authors:
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+
+  PY3K COMPATIBLE
 '''
 
 from rucio.common.exception import ConfigNotFound

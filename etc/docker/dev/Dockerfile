@@ -81,7 +81,8 @@ RUN mkdir /var/log/rucio /var/log/rucio/trace && chmod 777 /var/log/rucio
 
 COPY etc/docker/dev/rucio.cfg etc/rucio.cfg
 COPY etc/alembic.ini.template etc/alembic.ini
-COPY etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
+COPY etc/docker/dev/aliases-py27.conf etc/web/aliases-py27.conf
+COPY etc/docker/dev/ui-aliases-py27.conf etc/web/ui-aliases-py27.conf
 COPY etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 COPY etc/docker/dev/httpd.conf /etc/httpd/conf/httpd.conf
 COPY etc/docker/dev/rucio.conf /etc/httpd/conf.d/rucio.conf

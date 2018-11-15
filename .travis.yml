@@ -16,6 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 sudo: required
 
@@ -45,6 +46,7 @@ before_script:
 
 script:
   - if [[ $SUITE == "syntax" ]]; then ./tools/travis/check_syntax.sh  ; fi
+  - if [[ $SUITE == "python3" ]]; then ./tools/travis/check_python_3.sh  ; fi
   - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" !=  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; fi
   - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" ==  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; nosetests -v lib/rucio/tests/test_bin_rucio.py ; fi
   - if [[ $SUITE == "all" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_tests_docker.sh -1q" ; fi
@@ -56,10 +58,13 @@ env:
     - SUITE=all RDBMS=sqlite
     - SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
     - SUITE=syntax
+    - SUITE=python3
 
 matrix:
   fast_finish: true
   exclude:
+  - python: 2.6
+    env: SUITE=python3
   - python: 2.6
     env: SUITE=all RDBMS=oracle
   - python: 2.6
@@ -70,6 +75,8 @@ matrix:
     env: SUITE=all RDBMS=sqlite
   - python: 2.6
     env: SUITE=syntax
+  - python: 2.7
+    env: SUITE=python3
   - python: 3.4
     env:  SUITE=all RDBMS=oracle
   - python: 3.4
@@ -82,6 +89,14 @@ matrix:
     env: SUITE=syntax
   - python: 3.5
     env: SUITE=syntax
+  - python: 3.5
+    env:  SUITE=all RDBMS=oracle
+  - python: 3.5
+    env:  SUITE=all RDBMS=mysql
+  - python: 3.5
+    env:  SUITE=all RDBMS=postgres
+  - python: 3.5
+    env:  SUITE=all RDBMS=sqlite
   - python: 3.5
     env:  SUITE=all RDBMS=oracle
   - python: 3.5
@@ -91,15 +106,9 @@ matrix:
   - python: 3.5
     env:  SUITE=all RDBMS=sqlite
   - python: 3.6
+    env: SUITE=python3
+  - python: 3.6
     env: SUITE=all
-  - python: 3.5
-    env:  SUITE=all RDBMS=oracle
-  - python: 3.5
-    env:  SUITE=all RDBMS=mysql
-  - python: 3.5
-    env:  SUITE=all RDBMS=postgres
-  - python: 3.5
-    env:  SUITE=all RDBMS=sqlite
   - python: 3.6
     env:  SUITE=all RDBMS=oracle
   - python: 3.6

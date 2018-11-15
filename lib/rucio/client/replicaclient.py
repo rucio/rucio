@@ -19,6 +19,8 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 try:
     from urllib import quote_plus
@@ -93,7 +95,7 @@ class ReplicaClient(BaseClient):
     def list_replicas(self, dids, schemes=None, unavailable=False,
                       all_states=False, metalink=False, rse_expression=None,
                       client_location=None, sort=None, domain=None,
-                      resolve_archives=False):
+                      resolve_archives=True):
         """
         List file replicas for a list of data identifiers (DIDs).
 
@@ -132,8 +134,7 @@ class ReplicaClient(BaseClient):
         if sort:
             data['sort'] = sort
 
-        if resolve_archives:
-            data['resolve_archives'] = True
+        data['resolve_archives'] = resolve_archives
 
         url = build_url(choice(self.list_hosts),
                         path='/'.join([self.REPLICAS_BASEURL, 'list']))
