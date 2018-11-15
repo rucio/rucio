@@ -21,6 +21,8 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
+#
+# PY3K COMPATIBLE
 
 """
 Conveyor transfer submitter is a daemon to manage non-tape file transfers.
@@ -36,7 +38,10 @@ import time
 import traceback
 
 from collections import defaultdict
-from ConfigParser import NoOptionError
+try:
+    from ConfigParser import NoOptionError  # py2
+except Exception:
+    from configparser import NoOptionError  # py3
 
 from rucio.common.config import config_get
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
@@ -119,6 +124,7 @@ def submitter(once=False, rses=None, mock=False,
 
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
 
             if activities is None:
                 activities = [None]

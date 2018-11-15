@@ -17,13 +17,16 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, Created, InternalError, loadhook, header
 
 from rucio.api.meta import add_key, add_value, list_keys, list_values
-from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException
+from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException, UnsupportedKeyType
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
@@ -87,6 +90,8 @@ class Meta(RucioController):
             raise generate_http_error(409, 'Duplicate', error.args[0])
         except UnsupportedValueType as error:
             raise generate_http_error(400, 'UnsupportedValueType', error.args[0])
+        except UnsupportedKeyType as error:
+            raise generate_http_error(400, 'UnsupportedKeyType', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:

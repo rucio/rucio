@@ -17,7 +17,9 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
@@ -25,7 +27,7 @@ from flask import Flask, Blueprint, request, Response
 from flask.views import MethodView
 
 from rucio.api.meta import add_key, add_value, list_keys, list_values
-from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException
+from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException, UnsupportedKeyType
 from rucio.common.utils import generate_http_error_flask
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 
@@ -90,6 +92,8 @@ class Meta(MethodView):
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
         except UnsupportedValueType as error:
             return generate_http_error_flask(400, 'UnsupportedValueType', error.args[0])
+        except UnsupportedKeyType as error:
+            return generate_http_error_flask(400, 'UnsupportedKeyType', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:

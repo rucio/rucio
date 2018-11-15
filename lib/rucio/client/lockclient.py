@@ -17,7 +17,8 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-
+#
+# PY3K COMPATIBLE
 
 try:
     from urllib import quote_plus

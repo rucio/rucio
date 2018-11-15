@@ -16,7 +16,11 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
@@ -48,7 +52,7 @@ class Archive(RucioController):
             for file in list_archive_content(scope=scope, name=name):
                 yield dumps(file) + '\n'
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
 

@@ -37,7 +37,7 @@ from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability
                                      ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState)
 from rucio.db.sqla.history import Versioned
 from rucio.db.sqla.session import BASE
-from rucio.db.sqla.types import GUID, BooleanString
+from rucio.db.sqla.types import GUID, BooleanString, JSON
 
 
 # Recipe to for str instead if unicode
@@ -63,6 +63,14 @@ def _psql_rename_type(target, connection, **kw):
         target.columns.path.type = String(255)
     elif connection.dialect.name == 'mysql' and target.name == 'quarantined_replicas':
         target.columns.path.type = String(255)
+
+
+@event.listens_for(Table, "before_create")
+def _oracle_json_constraint(target, connection, **kw):
+    if connection.dialect.name == 'oracle' and target.name == 'did_meta':
+        oracle_version = int(connection.connection.version.split('.')[0])
+        if oracle_version >= 12:
+            target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
 
 
 @event.listens_for(Engine, "before_execute", retval=True)
@@ -367,6 +375,15 @@ class DataIdentifier(BASE, ModelBase):
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
 
 
+class DidMeta(BASE, ModelBase):
+    __tablename__ = 'did_meta'
+    scope = Column(String(SCOPE_LENGTH))
+    name = Column(String(NAME_LENGTH))
+    meta = Column(JSON())
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_META_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_META_FK'),)
+
+
 class DeletedDataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'deleted_dids'
@@ -437,6 +454,7 @@ class BadReplicas(BASE, ModelBase):
     reason = Column(String(255))
     state = Column(BadFilesStatus.db_type(name='BAD_REPLICAS_STATE_CHK'), default=BadFilesStatus.SUSPICIOUS)
     account = Column(String(25))
+    bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'created_at', name='BAD_REPLICAS_STATE_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='BAD_REPLICAS_NAME_NN'),
@@ -1211,6 +1229,7 @@ def register_models(engine):
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
+              DidMeta,
               DeletedDataIdentifier,
               Heartbeats,
               Identity,
@@ -1265,6 +1284,7 @@ def unregister_models(engine):
               DataIdentifierAssociationHistory,
               DIDKey,
               DIDKeyValueAssociation,
+              DidMeta,
               DataIdentifier,
               DeletedDataIdentifier,
               Heartbeats,

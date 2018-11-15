@@ -20,6 +20,8 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 try:
     from urllib import quote_plus

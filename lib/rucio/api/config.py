@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+#
+# PY3K COMPATIBLE
 
 from rucio.api import permission
 from rucio.common import exception

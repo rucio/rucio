@@ -21,7 +21,11 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 import base64
 
 from re import search
@@ -36,7 +40,7 @@ from rucio.api.authentication import (get_auth_token_user_pass,
                                       get_ssh_challenge_token,
                                       validate_auth_token)
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
-from rucio.common.utils import generate_http_error
+from rucio.common.utils import generate_http_error, date_to_str
 from rucio.web.rest.common import RucioController
 
 
@@ -114,13 +118,14 @@ class UserPass(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         if not result:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        header('X-Rucio-Auth-Token', result)
+        header('X-Rucio-Auth-Token', result.token)
+        header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
         return str()
 
 
@@ -186,7 +191,8 @@ class GSS(RucioController):
         if result is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         else:
-            header('X-Rucio-Auth-Token', result)
+            header('X-Rucio-Auth-Token', result.token)
+            header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
             return str()
 
         raise BadRequest()
@@ -269,17 +275,18 @@ class x509(RucioController):
         try:
             result = get_auth_token_x509(account, dn, appid, ip)
         except AccessDenied:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print('Cannot Authenticate', account, dn, appid, ip)
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except IdentityError:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print('Cannot Authenticate', account, dn, appid, ip)
             raise generate_http_error(401, 'CannotAuthenticate', 'No default account set for %(dn)s' % locals())
 
         if not result:
-            print 'Cannot Authenticate', account, dn, appid, ip
+            print('Cannot Authenticate', account, dn, appid, ip)
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        header('X-Rucio-Auth-Token', result)
+        header('X-Rucio-Auth-Token', result.token)
+        header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
         return str()
 
 
@@ -350,13 +357,14 @@ class SSH(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         if not result:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        header('X-Rucio-Auth-Token', result)
+        header('X-Rucio-Auth-Token', result.token)
+        header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
         return str()
 
 
@@ -417,13 +425,14 @@ class SSHChallengeToken(RucioController):
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             raise InternalError(error)
 
         if not result:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot generate challenge for account %(account)s' % locals())
 
-        header('X-Rucio-SSH-Challenge-Token', result)
+        header('X-Rucio-SSH-Challenge-Token', result.token)
+        header('X-Rucio-SSH-Challenge-Token-Expires', date_to_str(result.expired_at))
         return str()
 
 

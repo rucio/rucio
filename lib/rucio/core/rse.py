@@ -22,7 +22,13 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import division
+from builtins import round
 from re import match
 try:
     from StringIO import StringIO
@@ -42,7 +48,7 @@ from sqlalchemy.sql.expression import or_, false
 
 import rucio.core.account_counter
 
-from rucio.core.rse_counter import add_counter
+from rucio.core.rse_counter import add_counter, get_counter
 
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default
@@ -58,7 +64,9 @@ REGION = make_region().configure('dogpile.cache.memcached',
 
 
 @transactional_session
-def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None, staging_area=False, session=None):
+def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
+            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7,
+            session=None):
     """
     Add a rse with the given location name.
 
@@ -72,11 +80,20 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     :param time_zone: Timezone.
     :param ISP: Internet service provider.
     :param staging_area: Staging area.
+    :param rse_type: RSE type.
+    :param latitude: Latitude coordinate of RSE.
+    :param longitude: Longitude coordinate of RSE.
+    :param ASN: Access service network.
+    :param availability: Availability.
     :param session: The database session in use.
     """
+    if isinstance(rse_type, str) or isinstance(rse_type, unicode):
+        rse_type = RSEType.from_string(str(rse_type))
+
     new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile, city=city,
                          region_code=region_code, country_name=country_name,
-                         continent=continent, time_zone=time_zone, staging_area=staging_area, ISP=ISP, availability=7)
+                         continent=continent, time_zone=time_zone, staging_area=staging_area, ISP=ISP, availability=availability,
+                         rse_type=rse_type, longitude=longitude, latitude=latitude, ASN=ASN)
     try:
         new_rse.save(session=session)
     except IntegrityError:
@@ -99,14 +116,14 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
 @read_session
 def rse_exists(rse, session=None):
     """
-    Checks to see if RSE exists. This procedure does not check its status.
+    Checks to see if RSE exists.
 
     :param rse: Name of the rse.
     :param session: The database session in use.
 
     :returns: True if found, otherwise false.
     """
-    return True if session.query(models.RSE).filter_by(rse=rse).first() else False
+    return True if session.query(models.RSE).filter_by(rse=rse, deleted=False).first() else False
 
 
 @read_session
@@ -147,12 +164,31 @@ def del_rse(rse, session=None):
     :param session: The database session in use.
     """
 
+    old_rse = None
     try:
         old_rse = session.query(models.RSE).filter_by(rse=rse).one()
+        if not rse_is_empty(rse=rse, session=session):
+            raise exception.RSEOperationNotSupported('RSE \'%s\' is not empty' % rse)
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
     old_rse.delete(session=session)
-    del_rse_attribute(rse=rse, key=rse, session=session)
+    try:
+        del_rse_attribute(rse=rse, key=rse, session=session)
+    except exception.RSEAttributeNotFound:
+        pass
+
+
+@read_session
+def rse_is_empty(rse, session=None):
+    """
+    Check if a RSE is empty.
+
+    :param rse: the rse name.
+    :param session: the database session in use.
+    """
+
+    rse_id = get_rse(rse, session=session)['id']
+    return get_counter(rse_id, session=session)['bytes'] == 0
 
 
 @read_session
@@ -262,7 +298,7 @@ def list_rses(filters={}, session=None):
                 query = query.filter(t.value == v)
 
         condition1, condition2 = [], []
-        for i in xrange(0, 8):
+        for i in range(0, 8):
             if i | availability_mask1 == i:
                 condition1.append(models.RSE.availability == i)
             if i & availability_mask2 == i:
@@ -322,8 +358,12 @@ def del_rse_attribute(rse, key, session=None):
     :return: True if RSE attribute was deleted.
     """
     rse_id = get_rse_id(rse, session=session)
-    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == key)
-    rse_attr = query.one()
+    rse_attr = None
+    try:
+        query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == key)
+        rse_attr = query.one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSEAttributeNotFound('RSE attribute \'%s\' cannot be found' % key)
     rse_attr.delete(session=session)
     return True
 
@@ -404,7 +444,7 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
     :returns: List of rse dictionaries with the rse_id and lookup_key/value pair
     """
 
-    result = REGION.get('%s-%s-%s' % (key, value, lookup_key))
+    result = REGION.get('av-%s-%s-%s' % (key, value, lookup_key))
     if result is NO_VALUE:
 
         rse_list = []
@@ -427,7 +467,7 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
                              'key': row[1],
                              'value': row[2]})
 
-        REGION.set('%s-%s-%s' % (key, value, lookup_key), rse_list)
+        REGION.set('av-%s-%s-%s' % (key, value, lookup_key), rse_list)
         return rse_list
 
     return result
@@ -445,18 +485,26 @@ def get_rse_attribute(key, rse_id=None, value=None, session=None):
 
     :returns: A list with RSE attribute values for a Key.
     """
-    rse_attrs = []
-    if rse_id:
-        query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).distinct()
-        if value:
-            query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key, value=value).distinct()
-    else:
-        query = session.query(models.RSEAttrAssociation.value).filter_by(key=key).distinct()
-        if value:
-            query = session.query(models.RSEAttrAssociation.value).filter_by(key=key, value=value).distinct()
-    for attr_value in query:
-        rse_attrs.append(attr_value[0])
-    return rse_attrs
+
+    result = REGION.get('%s-%s-%s' % (key, rse_id, value))
+    if result is NO_VALUE:
+
+        rse_attrs = []
+        if rse_id:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).distinct()
+            if value:
+                query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key, value=value).distinct()
+        else:
+            query = session.query(models.RSEAttrAssociation.value).filter_by(key=key).distinct()
+            if value:
+                query = session.query(models.RSEAttrAssociation.value).filter_by(key=key, value=value).distinct()
+        for attr_value in query:
+            rse_attrs.append(attr_value[0])
+
+        REGION.set('%s-%s-%s' % (key, rse_id, value), rse_attrs)
+        return rse_attrs
+
+    return result
 
 
 @transactional_session
@@ -485,7 +533,7 @@ def set_rse_usage(rse, source, used, free, session=None):
 
 
 @read_session
-def get_rse_usage(rse, source=None, rse_id=None, session=None):
+def get_rse_usage(rse, source=None, rse_id=None, session=None, per_account=False):
     """
     get rse usage information.
 
@@ -493,22 +541,35 @@ def get_rse_usage(rse, source=None, rse_id=None, session=None):
     :param source: The information source, e.g. srm.
     :param rse_id:  The RSE id.
     :param session: The database session in use.
+    :param per_account: Boolean whether the usage should be also calculated per account or not.
 
-    :returns: True if successful, otherwise false.
+    :returns: List of RSE usage data.
     """
     if not rse_id:
         rse_id = get_rse_id(rse, session=session)
 
-    query = session.query(models.RSEUsage).filter_by(rse_id=rse_id)
-    if source:
-        query = query.filter_by(source=source)
-
+    query_rse_usage = session.query(models.RSEUsage).filter_by(rse_id=rse_id)
     usage = list()
-    for row in query:
-        usage.append({'rse': rse, 'source': row.source,
-                      'used': row.used, 'free': row.free,
-                      'total': (row.free or 0) + (row.used or 0),
-                      'updated_at': row.updated_at})
+
+    if source:
+        query_rse_usage = query_rse_usage.filter_by(source=source)
+
+    for row in query_rse_usage:
+        total = (row.free or 0) + (row.used or 0)
+        rse_usage = {'rse': rse, 'source': row.source,
+                     'used': row.used, 'free': row.free,
+                     'total': total,
+                     'files': row.files,
+                     'updated_at': row.updated_at}
+        if per_account:
+            query_account_usage = session.query(models.AccountUsage).filter_by(rse_id=rse_id)
+            account_usages = []
+            for row in query_account_usage:
+                if row.bytes != 0:
+                    account_usages.append({'used': row.bytes, 'account': row.account, 'percentage': round(float(row.bytes) / float(total) * 100, 2)})
+            account_usages.sort(key=lambda x: x['used'], reverse=True)
+            rse_usage['account_usages'] = account_usages
+        usage.append(rse_usage)
     return usage
 
 

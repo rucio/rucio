@@ -30,21 +30,28 @@ class TestCredential(object):
     def setup(self):
 
         self.rc = client.ReplicaClient()
-        self.rse = rse_name_generator()
-        add_rse(self.rse)
-        add_protocol(self.rse, {'scheme': 'https',
-                                'hostname': 'storage.googleapis.com',
-                                'port': 443,
-                                'prefix': '/atlas-europe-west1/',
-                                'impl': 'rucio.rse.protocols.gfal.Default',
-                                'domains': {
-                                    'lan': {'read': 1,
-                                            'write': 1,
-                                            'delete': 1},
-                                    'wan': {'read': 1,
-                                            'write': 1,
-                                            'delete': 1,
-                                            'third_party_copy': 1}}})
+        self.rse1 = rse_name_generator()
+        self.rse2 = rse_name_generator()
+        add_rse(self.rse1)
+        add_rse(self.rse2)
+
+        add_protocol(self.rse1, {'scheme': 'https',
+                                 'hostname': 'storage.googleapis.com',
+                                 'port': 443,
+                                 'prefix': '/atlas-europe-west1/',
+                                 'impl': 'rucio.rse.protocols.gfal.Default',
+                                 'domains': {
+                                     'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                     'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
+
+        add_protocol(self.rse2, {'scheme': 'https',
+                                 'hostname': 'storage.googleapis.com',
+                                 'port': 443,
+                                 'prefix': '/atlas-europe-east1/',
+                                 'impl': 'rucio.rse.protocols.gfal.Default',
+                                 'domains': {
+                                     'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                     'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
 
         # register some files there
         self.files = [{'scope': 'mock',
@@ -52,14 +59,20 @@ class TestCredential(object):
                        'bytes': 1234,
                        'adler32': 'deadbeef',
                        'meta': {'events': 666}} for i in range(0, 3)]
-        add_replicas(rse=self.rse,
+        add_replicas(rse=self.rse1,
+                     files=self.files,
+                     account='root',
+                     ignore_availability=True)
+        add_replicas(rse=self.rse2,
                      files=self.files,
                      account='root',
                      ignore_availability=True)
 
         def tearDown(self):
-            delete_replicas(rse=self.rse, files=self.files)
-            del_rse(self.rse)
+            delete_replicas(rse=self.rse1, files=self.files)
+            delete_replicas(rse=self.rse2, files=self.files)
+            del_rse(self.rse1)
+            del_rse(self.rse2)
 
     def test_sign_url_gcs(self):
         """ CREDENTIAL: Sign a URL for Google Cloud Storage """
@@ -100,22 +113,22 @@ class TestCredential(object):
     def test_list_replicas_sign_url(self):
         """ CREDENTIAL: List replicas for an RSE where signature is enabled """
 
+        add_rse_attribute(rse=self.rse1, key='sign_url', value='gcs')
         replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
                                                             'name': f['name'],
                                                             'type': 'FILE'} for f in self.files],
-                                                     rse_expression=self.rse)]
-        found_pfns = [replica['pfns'].keys()[0] for replica in replicas]
-        expected_pfns = ['https://storage.googleapis.com:443/atlas-europe-west1/mock/04/92/file-on-gcs_0',
-                         'https://storage.googleapis.com:443/atlas-europe-west1/mock/c6/5f/file-on-gcs_1',
-                         'https://storage.googleapis.com:443/atlas-europe-west1/mock/03/eb/file-on-gcs_2']
-        assert_equal(sorted(found_pfns), sorted(expected_pfns))
-
-        add_rse_attribute(rse=self.rse, key='sign_url', value='gcs')
-        replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
-                                                            'name': f['name'],
-                                                            'type': 'FILE'} for f in self.files],
-                                                     rse_expression=self.rse)]
+                                                     rse_expression=self.rse1)]
         found_pfns = [replica['pfns'].keys()[0] for replica in replicas]
         for pfn in found_pfns:
             assert_in('&Signature=', pfn)
             assert_greater(len(pfn), 120)
+
+        replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
+                                                            'name': f['name'],
+                                                            'type': 'FILE'} for f in self.files],
+                                                     rse_expression=self.rse2)]
+        found_pfns = [replica['pfns'].keys()[0] for replica in replicas]
+        expected_pfns = ['https://storage.googleapis.com:443/atlas-europe-east1/mock/04/92/file-on-gcs_0',
+                         'https://storage.googleapis.com:443/atlas-europe-east1/mock/c6/5f/file-on-gcs_1',
+                         'https://storage.googleapis.com:443/atlas-europe-east1/mock/03/eb/file-on-gcs_2']
+        assert_equal(sorted(found_pfns), sorted(expected_pfns))

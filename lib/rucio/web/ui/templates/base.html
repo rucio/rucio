@@ -77,6 +77,7 @@ $def with (token, account, rucio_ui_version, policy, content)
                 <li><a href="/subscriptions">Subscriptions &amp; Rules</a></li>
                 <li><a href="/rse_locks">RSE Locks</a></li>
                 <li><a href="/rse_usage">Rucio Storage Elements (RSE)</a></li>
+                <li><a href="/account_rse_usage">Account Usage</a></li>
                 $if policy == 'atlas': <li><a href="/account_usage">Group Account Usage</a></li>
                 <!--<li><a href="/api_usage">API Usage</a></li>-->
                 $if policy == 'atlas': <li><a href="/rule_backlog_monitor">Rule Backlog</a></li>
@@ -107,6 +108,7 @@ $def with (token, account, rucio_ui_version, policy, content)
               <a>Admin</a>
               <ul class="dropdown">
                 <li><a href="/list_accounts">Account management</a></li>
+                <li><a href="/rses">RSE management</a></li>
               </ul>
             </li>
 

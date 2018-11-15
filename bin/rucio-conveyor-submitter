@@ -18,6 +18,8 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014-2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2016-2018
+#
+# PY3K COMPATIBLE
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -43,7 +45,7 @@ def get_parser():
     parser.add_argument("--group-bulk", action="store", default=1, type=int,
                         help='Group control: number of requests per group')
     parser.add_argument("--group-policy", action="store", default='rule', type=str,
-                        help='Group control: policy used to group. enum{rule, dest, src_dest, rule_src_dest}')
+                        help='Group control: policy used to group. enum{rule, dest, src_dest, rule_src_dest, activity_dest, activity_src_dest}')
     parser.add_argument("--mock", action="store_true", default=False,
                         help='Fake source replicas for requests')
     parser.add_argument('--fts-source-strategy', action="store", default='auto', type=str,
@@ -74,6 +76,7 @@ if __name__ == "__main__":
         run(once=args.run_once,
             bulk=args.bulk,
             group_bulk=args.group_bulk,
+            group_policy=args.group_policy,
             mock=args.mock,
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,

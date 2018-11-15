@@ -30,11 +30,16 @@
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
 import argparse
 import logging
+import math
 import os
 import signal
 import subprocess
@@ -62,7 +67,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import sizefmt, Color, detect_client_location
+from rucio.common.utils import sizefmt, Color, detect_client_location, chunks
 
 SUCCESS = 0
 FAILURE = 1
@@ -262,7 +267,9 @@ def get_client(args):
                 except (NoOptionError, NoSectionError):
                     logger.error('Cannot get AUTH_TYPE')
                     sys.exit(FAILURE)
-        if auth_type == 'x509_proxy':
+        if 'alert certificate expired' in error:
+            logger.error('The server certificate expired.')
+        elif auth_type == 'x509_proxy':
             logger.error('Please verify that your proxy is still valid and renew it if needed.')
         sys.exit(FAILURE)
     return client
@@ -365,7 +372,7 @@ def list_file_replicas(args):
                                     metalink=args.metalink,
                                     client_location=detect_client_location(),
                                     sort=args.sort, domain=args.domain,
-                                    resolve_archives=args.resolve_archives)
+                                    resolve_archives=not args.no_resolve_archives)
 
     if args.metalink:
         print(replicas[:-1])  # last character is newline, no need to print that
@@ -451,24 +458,38 @@ def attach(args):
     """
     client = get_client(args)
     scope, name = extract_scope(args.todid)
-    dids = []
+    dids = args.dids
+    limit = 499
+
     if args.fromfile:
-        if len(args.dids) > 1:
+        if len(dids) > 1:
             logger.error("If --fromfile option is active, only one file is supported. The file should contain a list of dids, one per line.")
             return FAILURE
         try:
-            f = open(args.dids[0], 'r')
-            for did in f.readlines():
-                cscope, cname = extract_scope(did.rstrip())
-                dids.append({'scope': cscope, 'name': cname})
+            f = open(dids[0], 'r')
+            dids = [did.rstrip() for did in f.readlines()]
         except IOError:
-            logger.error("Can't open file '" + args.dids[0] + "'.")
+            logger.error("Can't open file '" + dids[0] + "'.")
             return FAILURE
+
+    dids = [{'scope': extract_scope(did)[0], 'name': extract_scope(did)[1]} for did in dids]
+    if len(dids) <= limit:
+        client.attach_dids(scope=scope, name=name, dids=dids)
     else:
-        for did in args.dids:
-            cscope, cname = extract_scope(did)
-            dids.append({'scope': cscope, 'name': cname})
-    client.attach_dids(scope=scope, name=name, dids=dids)
+        logger.warning("You are trying to attach too much DIDs. Therefore they will be chunked and attached in multiple commands.")
+        missing_dids = []
+        for i, chunk in enumerate(chunks(dids, limit)):
+            logger.info("Try to attach chunk {0}/{1}".format(i, int(math.ceil(float(len(dids)) / float(limit)))))
+            try:
+                client.attach_dids(scope=scope, name=name, dids=chunk)
+            except Exception:
+                content = [{'scope': did['scope'], 'name': did['name']} for did in client.list_content(scope=scope, name=name)]
+                missing_dids += [did for did in chunk if did not in content]
+
+        if missing_dids:
+            for chunk in chunks(missing_dids, limit):
+                client.attach_dids(scope=scope, name=name, dids=chunk)
+
     print('DIDs successfully attached to %s:%s' % (scope, name))
     return SUCCESS
 
@@ -500,30 +521,56 @@ def list_dids(args):
     """
     client = get_client(args)
     filters = {}
-    type = 'all'
+    type = 'collection'
     table = []
     if args.filter:
-        if args.recursive:
-            logger.error('Option recursive and filter cannot be used together')
-            return FAILURE
-        else:
-            try:
-                for key, value in [(a.split('=')[0], a.split('=')[1]) for a in args.filter.split(',')]:
-                    if key == 'type':
-                        if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
-                            type = value.lower()
-                        else:
-                            logger.error('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
-                            return FAILURE
+        try:
+            filter_options = args.filter.split(',')
+            for option in filter_options:
+                value = None
+                key = None
+
+                if '>=' in option:
+                    key, value = option.split('>=')
+                    if key == 'length':
+                        key = 'length.gte'
+                elif '>' in option:
+                    key, value = option.split('>')
+                    if key == 'length':
+                        key = 'length.gt'
+                elif '<=' in option:
+                    key, value = option.split('<=')
+                    if key == 'length':
+                        key = 'length.lte'
+                elif '<' in option:
+                    key, value = option.split('<')
+                    if key == 'length':
+                        key = 'length.lt'
+                elif '=' in option:
+                    key, value = option.split('=')
+
+                if key == 'type':
+                    if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
+                        type = value.lower()
                     else:
-                        if value.lower() == 'true':
-                            value = '1'
-                        elif value.lower() == 'false':
-                            value = '0'
+                        logger.error('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
+                        return FAILURE
+                elif key in ('length.gt', 'length.lt', 'length.gte', 'length.lte', 'length'):
+                    try:
+                        value = int(value)
                         filters[key] = value
-            except Exception:
-                logger.error("Invalid Filter. Filter must be 'key=value'")
-                return FAILURE
+                    except ValueError:
+                        logger.error('Length has to be an integer value.')
+                        return FAILURE
+                else:
+                    if value.lower() == 'true':
+                        value = '1'
+                    elif value.lower() == 'false':
+                        value = '0'
+                    filters[key] = value
+        except Exception:
+            logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
+            return FAILURE
 
     try:
         scope, name = extract_scope(args.did[0])
@@ -536,7 +583,7 @@ def list_dids(args):
         logger.error('Scope not found')
         return FAILURE
 
-    if args.recursive:
+    if args.recursive and '*' in name:
         logger.error('Option recursive cannot be used with wildcards')
         return FAILURE
     elif ('name' in filters) and (name != '*'):
@@ -544,7 +591,7 @@ def list_dids(args):
         return FAILURE
     filters['name'] = name
 
-    for did in client.list_dids(scope, filters=filters, type=type, long=True):
+    for did in client.list_dids(scope, filters=filters, type=type, long=True, recursive=args.recursive):
         table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
 
     if args.short:
@@ -903,7 +950,7 @@ def download(args):
     item_defaults['base_dir'] = args.dir
     item_defaults['no_subdir'] = args.no_subdir
     item_defaults['transfer_timeout'] = args.transfer_timeout
-    item_defaults['resolve_archives'] = args.resolve_archives
+    item_defaults['resolve_archives'] = not args.no_resolve_archives
     archive_did = args.archive_did
     if not args.pfn and not archive_did:
         item_defaults['force_scheme'] = args.protocol
@@ -1025,6 +1072,67 @@ def delete_metadata(args):
     """
     # For the moment..
     raise NotImplementedError
+
+
+@exception_handler
+def get_did_meta(args):
+    """
+    %(prog)s get-did-meta [options] <field1=value1 field2=value2 ...>
+
+    Get data identifier metadata
+    """
+    client = get_client(args)
+    for did in args.dids:
+        scope, name = extract_scope(did)
+        meta = client.get_did_meta(scope=scope, name=name)
+        for k in meta:
+            print('%s: %s' % (k, meta[k]))
+    return SUCCESS
+
+
+@exception_handler
+def add_did_meta(args):
+    """
+    %(prog)s add-did-meta [options] <field1=value1 field2=value2 ...>
+
+    Add or update data identifier metadata
+    """
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    client.add_did_meta(scope=scope, name=name, key=args.key, value=args.value)
+    return SUCCESS
+
+
+@exception_handler
+def delete_did_meta(args):
+    """
+    %(prog)s delete-did-meta [options] <field1=value1 field2=value2 ...>
+
+    Add or update data identifier metadata
+    """
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    client.delete_did_meta(scope=scope, name=name, key=args.key)
+    return SUCCESS
+
+
+@exception_handler
+def list_dids_by_meta(args):
+    """
+    %(prog)s list-dids-by-meta [options] <field1=value1 field2=value2 ...>
+
+    List dids by metadata key values
+    """
+    client = get_client(args)
+    select = {}
+    for key_value in args.key_values:
+        if len(key_value.split('=')) != 2:
+            logger.error("Usage: rucio list-dids-by-meta key1=value1 key2=value2 ......")
+        else:
+            key, value = key_value.split('=')
+            select[key] = value
+    client.list_dids_by_meta(select=select)
+    return SUCCESS
 
 
 @exception_handler
@@ -1224,7 +1332,7 @@ def info_rule(args):
         print("End of life:                %s" % rule['eol_at'])
         print("Child Rule Id:              %s" % rule['child_rule_id'])
         if args.estimate_ttc:
-            if result[0] > 0:
+            if 'estimated_start_in' in rule and 'estimated_end_in' in rule:
                 print("Expected transfer start in  %0.2f minutes." % (rule['estimated_start_in'] / 60.))
                 print("Expected transfer end in    %0.2f minutes." % (rule['estimated_end_in'] / 60.))
             else:
@@ -1375,20 +1483,33 @@ def list_rse_usage(args):
 
     """
     client = get_client(args)
-    usages = client.get_rse_usage(rse=args.rse)
+    all_usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.show_accounts})
+    select_usages = [u for u in all_usages if u['source'] not in ('srm', 'gsiftp', 'webdav')]
     print('USAGE:')
-    for usage in usages:
-        if usage['source'] not in ['srm', 'gsiftp', 'webdav']:
-            print('------')
-            print_free = False
-            if usage['source'] in ['storage']:
-                print_free = True
-            for elem in usage:
-                if not (elem == 'free' or elem == 'total') or print_free:
-                    if elem == 'free' or elem == 'total' or elem == 'used':
-                        print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
-                    else:
-                        print('  {0}: {1}'.format(elem, usage[elem]))
+    for usage in select_usages:
+        print('------')
+        for elem in usage:
+            if (elem in ['free', 'total'] and usage['source'] != 'storage' or
+                    elem == 'files' and usage['source'] != 'rucio'):
+                continue
+            elif elem in ['used', 'free', 'total']:
+                print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
+            elif elem == 'account_usages':
+                account_usages_title = '  per account:'
+                if not usage[elem]:
+                    account_usages_title += ' no usage'
+                print(account_usages_title)
+                print('  ------')
+                col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 9
+                for account in usage[elem]:
+                    base_string = '    '
+                    used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
+                    account_string = 'account: {0}'.format(account['account'])
+                    percentage_string = 'percentage: {0}'.format(account['percentage'])
+                    print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
+                print('  ------')
+            else:
+                print('  {0}: {1}'.format(elem, usage[elem]))
     print('------')
     return SUCCESS
 
@@ -1581,7 +1702,7 @@ To list the missing replica of a dataset of a given RSE::
     list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False).completer = rse_completer
     list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE. Must be used with --rse option', required=False)
     list_file_replicas_parser.add_argument('--metalink', dest='metalink', default=False, action='store_true', help='Output available replicas as metalink.', required=False)
-    list_file_replicas_parser.add_argument('--resolve-archives', dest='resolve_archives', default=False, action='store_true', help='Also resolve archives which may contain the files.', required=False)
+    list_file_replicas_parser.add_argument('--no-resolve-archives', dest='no_resolve_archives', default=False, action='store_true', help='Do not resolve archives which may contain the files.', required=False)
     list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: random (default), geoip', required=False)
     list_file_replicas_parser.add_argument('--expression', dest='rse_expression', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
             can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
@@ -1713,8 +1834,7 @@ You can filter by key/value, e.g.::
     ls_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     ls_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern.')
 
-    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata (synonym for ls).', description='List the Data IDentifiers matching certain pattern. \
-Only the collections (i.e. dataset or container) are returned by default. With the filter option, you can specify a list of metadata that the Data IDentifier should match.',
+    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata (synonym for ls).', description='List the Data IDentifiers matching certain pattern. Only the collections (i.e. dataset or container) are returned by default. With the filter option, you can specify a list of metadata that the Data IDentifier should match. Please use the filter option `--filter type=all` to find all types of Data IDentifiers.',
                                         formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Usage example
 """""""""""""
 
@@ -1737,7 +1857,7 @@ You can query the DIDs matching a certain pattern. It always requires to specify
 
 You can filter by key/value, e.g.::
 
-    $ rucio list-dids --filter type=CONTAINER
+    $ rucio list-dids --filter 'type=CONTAINER'
     +-------------------------------------------+--------------+
     | SCOPE:NAME                                | [DID TYPE]   |
     |-------------------------------------------+--------------|
@@ -1748,7 +1868,7 @@ You can filter by key/value, e.g.::
 
     list_parser.set_defaults(which='list_dids')
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
-    list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
+    list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key>=next_value`. Valid keys are type and length. Use `type` to specify a DID type to search for. Valid values are `ALL`, `COLLECTION`, `CONTAINER`, `DATASET`, `FILE`. Use `length` to filter for an amount of corresponding Data IDentifiers. Valid operators are `=`, `>`, `>=`, `<`, `<=`.')  # noqa: E501
     list_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     list_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 
@@ -1879,7 +1999,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
         selected_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
         selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="DID of an archive from where to extract the files.")
-        selected_parser.add_argument('--resolve-archives', action='store_true', default=False, help="If set archives will be considered for download.")
+        selected_parser.add_argument('--no-resolve-archives', action='store_true', default=False, help="If set archives will not be considered for download.")
         selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
         selected_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
@@ -1906,11 +2026,35 @@ You can filter by key/value, e.g.::
     # delete_metadata_parser = subparsers.add_parser('delete-metadata', help='Delete metadata')
     # delete_metadata_parser.set_defaults(which='delete_metadata')
 
+    # The get-did-meta subparser
+    get_did_meta_parser = subparsers.add_parser('get-did-meta', help='Get generic metadata for DIDs.')
+    get_did_meta_parser.set_defaults(which='get_did_meta')
+    get_did_meta_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+
+    # Add add-did-meta subparser
+    add_did_meta_parser = subparsers.add_parser('add-did-meta', help='Add or update metadata')
+    add_did_meta_parser.set_defaults(which='add_did_meta')
+    add_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add', required=True)
+    add_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    add_did_meta_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
+
+    # delete-did-meta subparser
+    delete_did_meta_parser = subparsers.add_parser('delete-did-meta', help='delete metadata')
+    delete_did_meta_parser.set_defaults(which='delete_did_meta')
+    delete_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to delete', required=True)
+    delete_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+
+    # Get dids by metadata key value
+    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-meta', help='list dids by a key value pair')
+    list_dids_by_meta_parser.set_defaults(which='list_dids_by_meta')
+    list_dids_by_meta_parser.add_argument(dest='key_values', nargs='+', action='store', help='KeyValue pairs')
+
     # The list-rse-usage subparser
     list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='Shows the total/free/used space for a given RSE. This values can differ for different RSE source.')
     list_rse_usage_parser.set_defaults(which='list_rse_usage')
     list_rse_usage_parser.add_argument(dest='rse', action='store', help='Rucio Storage Element (RSE) name.').completer = rse_completer
     list_rse_usage_parser.add_argument('--history', dest='history', default=False, action='store', help='List RSE usage history. [Unimplemented]')
+    list_rse_usage_parser.add_argument('--show-accounts', dest='show_accounts', action='store_true', default=False, help='List accounts usages of RSE')
 
     # The list-account-usage subparser
     list_account_usage_parser = subparsers.add_parser('list-account-usage', help='Shows the space used, the quota limit and the quota left for an account for every RSE where the user have quota.')

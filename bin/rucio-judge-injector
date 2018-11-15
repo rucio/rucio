@@ -16,6 +16,8 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Judge-Injector is a daemon to asynchronously inject replication rules.

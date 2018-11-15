@@ -4,7 +4,7 @@ Meta-data attributes
 
 
 Meta-data associated with a dataset/file is represented using attribute/value pairs. 
-The set of available attributes is restricted. Meta-data attributes are classified into four categories:
+Meta-data attributes are classified into four categories:
 
 * ``System-defined attributes``: size (bytes), checksums (adler32, md5), creationtime, modificationtime, status, length (datasets/containers)
 

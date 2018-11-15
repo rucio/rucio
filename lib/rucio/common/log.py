@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2013
+#
+# PY3K COMPATIBLE
 
 from logging import getLogger, Formatter, DEBUG
 from logging.config import fileConfig

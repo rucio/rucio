@@ -6,6 +6,9 @@
 #
 # Authors:
 # - Fernando Lopez, <felopez@cern.ch>, 2015
+#
+# PY3K COMPATIBLE
+
 from rucio.common import dumper
 from rucio.common.dumper import error, DUMPS_CACHE_DIR
 import data_models

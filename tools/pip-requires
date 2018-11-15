@@ -19,13 +19,12 @@ pygeoip==0.3.2                                    # GeoIP API
 geoip2==2.8.0                                     # GeoIP2 API (for IPv6 support)
 ipaddress==1.0.22                                 # IPv4/IPv6 manipulation library - Dependency of geoip2
 maxminddb==1.3.0                                  # extension for reading the MaxMind DB format - Dependency of geoip2
-threadpool==1.3.2                                 # threadpool
 cffi==1.11.5                                      # Foreign Function Interface for Python calling C code
 pycparser==2.18                                   # C parser in Python - Dependency of cffi
 gcloud==0.18.3                                    # API Client library for Google Cloud
 googleapis-common-protos==1.5.3                   # Common protobufs used in Google APIs - Dependency of gcloud
 httplib2==0.11.3                                  # A comprehensive HTTP client library
-pyOpenSSL==17.5.0                                 # Python wrapper module around the OpenSSL library
+pyOpenSSL==18.0.0                                 # Python wrapper module around the OpenSSL library - Dependency of MyProxyClient
 cryptography==2.3.1                               # Cryptographic recipes and primitives - Dependency of pyOpenSSL
 oauth2client==4.1.2                               # OAuth 2.0 client library
 protobuf==3.5.2.post1                             # Protocol Buffers - Dependency of gcloud
@@ -39,7 +38,7 @@ functools32==3.2.3.post2; python_version == '2.7'    # explicitly needed on CC7
 redis==2.10.6                                     # Python client for Redis key-value store
 numpy==1.14.2                                     # Numpy for forecasting T3C
 paramiko==2.4.1                                   # SSH2 protocol library
-Flask==0.12.2                                     # Python web framework
+Flask==0.12.4                                     # Python web framework
 idna==2.6                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
 fts3-rest-API==3.7.1                              # FTS rest API
 MyProxyClient==2.0.1                              # myproxy client bindings

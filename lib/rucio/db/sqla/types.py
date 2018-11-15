@@ -7,13 +7,16 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+#
+# PY3K COMPATIBLE
 
 import uuid
 
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.dialects.oracle import RAW
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.oracle import RAW, CLOB
 from sqlalchemy.dialects.mysql import BINARY
 from sqlalchemy.types import TypeDecorator, CHAR, String
+import sqlalchemy.types as types
 
 
 class GUID(TypeDecorator):
@@ -96,3 +99,23 @@ class BooleanString(TypeDecorator):
             return False
         else:
             return value
+
+
+class JSON(TypeDecorator):
+    """
+    Platform independent json type
+
+    JSONB for postgres , JSON for the rest
+    """
+
+    impl = types.JSON
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(JSONB())
+        elif dialect.name == 'mysql':
+            return dialect.type_descriptor(types.JSON())
+        elif dialect.name == 'oracle':
+            return dialect.type_descriptor(CLOB())
+        else:
+            return dialect.type_descriptor(String())

@@ -20,7 +20,8 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
-
+#
+# PY3K COMPATIBLE
 
 import pysftp
 from subprocess import call

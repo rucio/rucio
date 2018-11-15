@@ -16,7 +16,11 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 import calendar
 import datetime
 import json
@@ -64,7 +68,7 @@ class Trace(RucioController):
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         except Exception as error:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             raise InternalError(error)
 
         raise Created()

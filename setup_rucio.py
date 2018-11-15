@@ -15,7 +15,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2014
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2012-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 
@@ -164,7 +164,7 @@ def write_requirements():
         req_file.close()
 
 
-oracle_extras = ['cx_oracle===6.3.1']
+oracle_extras = ['cx_oracle==6.3.1']
 postgresql_extras = ['psycopg2>=2.4.2']
 mysql_extras = ['PyMySQL']
 kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']
@@ -220,7 +220,6 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Natural Language :: English',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Environment :: No Input/Output (Daemon)', ],
     install_requires=requires,

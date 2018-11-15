@@ -12,14 +12,16 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from json import dumps, loads
 
 from nose.tools import assert_equal, assert_true, assert_raises, raises
 from paste.fixture import TestApp
 
-from rucio.api.account import add_account, account_exists, del_account
-from rucio.api.account import get_account_status, set_account_status
+from rucio.api.account import add_account, account_exists, del_account, update_account, get_account_info
 from rucio.client.accountclient import AccountClient
 from rucio.common.config import config_get
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
@@ -41,15 +43,18 @@ class TestAccountCoreApi():
         assert_equal(account_exists(invalid_usr), False)
         del_account(usr, 'root')
 
-    def test_account_status(self):
-        """ ACCOUNT (CORE): Test changing and quering account status """
+    def test_update_account(self):
+        """ ACCOUNT (CORE): Test changing and quering account parameters """
         usr = account_name_generator()
         add_account(usr, 'USER', 'rucio@email.com', 'root')
-        assert_equal(get_account_status(usr), AccountStatus.ACTIVE)  # Should be active by default
-        set_account_status(usr, AccountStatus.SUSPENDED)
-        assert_equal(get_account_status(usr), AccountStatus.SUSPENDED)
-        set_account_status(usr, AccountStatus.ACTIVE)
-        assert_equal(get_account_status(usr), AccountStatus.ACTIVE)
+        assert_equal(get_account_info(usr)['status'], AccountStatus.ACTIVE)  # Should be active by default
+        update_account(account=usr, key='status', value=AccountStatus.SUSPENDED)
+        assert_equal(get_account_info(usr)['status'], AccountStatus.SUSPENDED)
+        update_account(account=usr, key='status', value=AccountStatus.ACTIVE)
+        assert_equal(get_account_info(usr)['status'], AccountStatus.ACTIVE)
+        update_account(account=usr, key='email', value='test')
+        email = get_account_info(account=usr)['email']
+        assert_equal(email, 'test')
         del_account(usr, 'root')
 
 
@@ -250,6 +255,33 @@ class TestAccountRestApi():
         res5 = TestApp(account_app.wsgifunc(*mw)).delete('/{0}/attr/{1}'.format(acntusr, key), headers=headers2, params=data, expect_errors=True)
         assert_equal(res5.status, 200)
 
+    def test_update_account(self):
+        """ ACCOUNT (REST): send a PUT to update an account."""
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        acntusr = account_name_generator()
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
+
+        data = dumps({'status': 'SUSPENDED', 'email': 'test'})
+        headers3 = {'X-Rucio-Auth-Token': str(token)}
+        res3 = TestApp(account_app.wsgifunc(*mw)).put('/' + acntusr, headers=headers3, params=data, expect_errors=True)
+        assert_equal(res3.status, 200)
+
+        headers4 = {'X-Rucio-Auth-Token': str(token)}
+        res4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
+        body = loads(res4.body)
+        assert_equal(body['status'], 'SUSPENDED')
+        assert_equal(body['email'], 'test')
+        assert_equal(res4.status, 200)
+
 
 class TestAccountClient():
 
@@ -295,15 +327,18 @@ class TestAccountClient():
         for account in acc_list:
             assert_true(account in svr_list)
 
-    def test_ban_unban_account(self):
-        """ ACCOUNT (CLIENTS): create a new account and ban/unban it."""
+    def test_update_account(self):
+        """ ACCOUNT (CLIENTS): create a new account and update it."""
         account = account_name_generator()
         type, email = 'USER', 'rucio@email.com'
         ret = self.client.add_account(account, type, email)
         assert_true(ret)
-        self.client.set_account_status(account=account, status='SUSPENDED')
+        self.client.update_account(account=account, key='status', value='SUSPENDED')
         status = self.client.get_account(account=account)['status']
         assert_equal(status, 'SUSPENDED')
-        self.client.set_account_status(account=account, status='ACTIVE')
+        self.client.update_account(account=account, key='status', value='ACTIVE')
         status = self.client.get_account(account=account)['status']
         assert_equal(status, 'ACTIVE')
+        self.client.update_account(account=account, key='email', value='test')
+        email = self.client.get_account(account=account)['email']
+        assert_equal(email, 'test')

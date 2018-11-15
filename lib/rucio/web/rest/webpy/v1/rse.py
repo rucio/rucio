@@ -20,11 +20,17 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 from json import dumps, loads
 from traceback import format_exc
-from urlparse import parse_qs, parse_qsl
+try:
+    from urlparse import parse_qs, parse_qsl
+except ImportError:
+    from urllib.parse import parse_qs, parse_qsl
 from web import (application, ctx, data, header, Created, InternalError, OK,
                  input, loadhook)
 
@@ -39,7 +45,8 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
 from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioException,
                                     RSEOperationNotSupported, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported,
-                                    RSEProtocolPriorityError, InvalidRSEExpression)
+                                    RSEProtocolPriorityError, InvalidRSEExpression,
+                                    RSEAttributeNotFound, CounterNotFound)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController
 from rucio.rse import rsemanager
@@ -119,7 +126,9 @@ class RSE(RucioController):
         kwargs = {'deterministic': True,
                   'volatile': False, 'city': None, 'staging_area': False,
                   'region_code': None, 'country_name': None,
-                  'continent': None, 'time_zone': None, 'ISP': None}
+                  'continent': None, 'time_zone': None, 'ISP': None,
+                  'rse_type': None, 'latitude': None, 'longitude': None,
+                  'ASN': None, 'availability': None}
         try:
             parameters = json_data and loads(json_data)
             if parameters:
@@ -208,7 +217,7 @@ class RSE(RucioController):
             rse_prop = get_rse(rse=rse)
             return render_json(**rse_prop)
         except RSENotFound as error:
-            raise generate_http_error(404, 'RSENotFound', error[0])
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
 
@@ -229,8 +238,12 @@ class RSE(RucioController):
             del_rse(rse=rse, issuer=ctx.env.get('issuer'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except RSEOperationNotSupported as error:
+            raise generate_http_error(404, 'RSEOperationNotSupported', error.args[0])
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except CounterNotFound as error:
+            raise generate_http_error(404, 'CounterNotFound', error.args[0])
 
         raise OK()
 
@@ -304,12 +317,22 @@ class Attributes(RucioController):
         return dumps(rse_attr)
 
     def DELETE(self, rse, key):
+        """ delete RSE attribute
+         HTTP Success:
+            200 OK
+         HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 InternalError
+        """
         try:
             del_rse_attribute(rse=rse, key=key, issuer=ctx.env.get('issuer'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except RSEAttributeNotFound as error:
+            raise generate_http_error(404, 'RSEAttributeNotFound', error.args[0])
         except Exception as error:
             raise InternalError(error)
 
@@ -579,13 +602,16 @@ class Usage(RucioController):
         header('Content-Type', 'application/x-json-stream')
         usage = None
         source = None
+        per_account = False
         if ctx.query:
             params = parse_qs(ctx.query[1:])
             if 'source' in params:
                 source = params['source'][0]
+            if 'per_account' in params:
+                per_account = params['per_account'][0] == 'True'
 
         try:
-            usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=source)
+            usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=source, per_account=per_account)
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RucioException as error:

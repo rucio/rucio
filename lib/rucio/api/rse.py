@@ -12,6 +12,9 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2013
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+
+  PY3K COMPATIBLE
 '''
 
 from rucio.api import permission
@@ -24,7 +27,8 @@ from rucio.core.rse_expression_parser import parse_expression
 
 def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_code=None,
             country_name=None, continent=None, time_zone=None, ISP=None,
-            staging_area=False):
+            staging_area=False, rse_type=None, latitude=None, longitude=None, ASN=None,
+            availability=None):
     """
     Creates a new Rucio Storage Element(RSE).
 
@@ -39,6 +43,11 @@ def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_c
     :param time_zone: Timezone.
     :param staging_area: staging area.
     :param ISP: Internet service provider.
+    :param rse_type: RSE type.
+    :param latitude: Latitude coordinate of RSE.
+    :param longitude: Longitude coordinate of RSE.
+    :param ASN: Access service network.
+    :param availability: Availability.
     """
     validate_schema(name='rse', obj=rse)
     kwargs = {'rse': rse}
@@ -47,7 +56,8 @@ def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_c
 
     return rse_module.add_rse(rse, deterministic=deterministic, volatile=volatile, city=city,
                               region_code=region_code, country_name=country_name, staging_area=staging_area,
-                              continent=continent, time_zone=time_zone, ISP=ISP)
+                              continent=continent, time_zone=time_zone, ISP=ISP, rse_type=rse_type, latitude=latitude,
+                              longitude=longitude, ASN=ASN, availability=availability)
 
 
 def get_rse(rse):
@@ -233,8 +243,7 @@ def set_rse_usage(rse, source, used, free, issuer):
     :param free: the free space in bytes.
     :param issuer: The issuer account.
 
-
-    :returns: True if successful, otherwise false.
+    :returns: List of RSE usage data.
     """
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='set_rse_usage', kwargs=kwargs):
@@ -243,7 +252,7 @@ def set_rse_usage(rse, source, used, free, issuer):
     return rse_module.set_rse_usage(rse=rse, source=source, used=used, free=free)
 
 
-def get_rse_usage(rse, issuer, source=None):
+def get_rse_usage(rse, issuer, source=None, per_account=False):
     """
     get RSE usage information.
 
@@ -253,7 +262,7 @@ def get_rse_usage(rse, issuer, source=None):
 
     :returns: True if successful, otherwise false.
     """
-    return rse_module.get_rse_usage(rse=rse, source=source)
+    return rse_module.get_rse_usage(rse=rse, source=source, per_account=per_account)
 
 
 def list_rse_usage_history(rse, issuer, source=None):

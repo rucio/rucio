@@ -18,6 +18,8 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 try:
     from urllib import quote_plus
@@ -25,6 +27,7 @@ except ImportError:
     from urllib.parse import quote_plus
 
 from json import dumps, loads
+
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient

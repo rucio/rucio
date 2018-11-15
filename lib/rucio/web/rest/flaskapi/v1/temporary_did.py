@@ -17,7 +17,11 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from json import loads
 from traceback import format_exc
 from flask import Flask, Blueprint, request
@@ -55,7 +59,7 @@ class BulkDIDS(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print format_exc()
+            print(format_exc())
             return error, 500
         return "Created", 201
 

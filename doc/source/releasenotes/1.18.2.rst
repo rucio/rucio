@@ -1,0 +1,13 @@
+=====================
+1.18.2 (clients only)
+=====================
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: ignore checksum for forced xrdcp download `#1614 <https://github.com/rucio/rucio/issues/1614>`_

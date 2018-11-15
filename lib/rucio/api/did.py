@@ -12,6 +12,7 @@
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
   - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 '''
 
 import rucio.api.permission
@@ -22,7 +23,7 @@ from rucio.common.schema import validate_schema
 from rucio.db.sqla.constants import DIDType
 
 
-def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False):
+def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False):
     """
     List dids in a scope.
 
@@ -33,10 +34,11 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param limit: The maximum number of DIDs returned.
     :param offset: Offset number.
     :param long: Long format option to display more information for each DID.
+    :param recursive: Recursively list DIDs content.
     """
     validate_schema(name='did_filters', obj=filters)
     return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case,
-                         limit=limit, offset=offset, long=long)
+                         limit=limit, offset=offset, long=long, recursive=recursive)
 
 
 def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None):
@@ -251,6 +253,48 @@ def get_metadata(scope, name):
     :param name: The data identifier name.
     """
     return did.get_metadata(scope=scope, name=name)
+
+
+def get_did_meta(scope, name):
+    """
+    Get all metadata for a given did
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    """
+    return did.get_did_meta(scope=scope, name=name)
+
+
+def add_did_meta(scope, name, meta):
+    """
+    Add or update the given metadata to the given did
+
+    :param scope: the scope of the did
+    :param name: the name of the did
+    :param meta: the metadata to be added or updated
+    """
+    return did.add_did_meta(scope=scope, name=name, meta=meta)
+
+
+def delete_did_meta(scope, name, key):
+    """
+    Delete a key from the metadata column
+
+    :param scope: the scope of did
+    :param name: the name of the did
+    :param key: the key to be deleted
+    """
+    return did.delete_did_meta(scope=scope, name=name, key=key)
+
+
+def list_dids_by_meta(scope, select):
+    """
+    List all data identifiers in a scope(optional) which match a given metadata.
+
+    :param scope: the scope to search in(optional)
+    :param select: the list of key value pairs to filter on
+    """
+    return did.list_dids_by_meta(scope=scope, select=select)
 
 
 def set_status(scope, name, issuer, **kwargs):

@@ -75,7 +75,12 @@ class TestJudgeCleaner():
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
-        child_rule = rebalance_rule(rule_id, 'Rebalance', self.rse3, priority=3)
+        rule = {}
+        try:
+            rule = get_rule(rule_id)
+        except:
+            assert_raises(RuleNotFound, get_rule, rule_id)
+        child_rule = rebalance_rule(rule, 'Rebalance', self.rse3, priority=3)
 
         rule_cleaner(once=True)
 
@@ -93,5 +98,4 @@ class TestJudgeCleaner():
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
 
         rule_cleaner(once=True)
-        assert_raises(RuleNotFound, get_rule, rule_id)
         assert(get_rule(child_rule)['state'] == RuleState.OK)

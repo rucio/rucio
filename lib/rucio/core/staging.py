@@ -8,7 +8,8 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
-
+#
+# PY3K COMPATIBLE
 
 """
 The core staging.py is specifically for handling staging-requests, thus requests

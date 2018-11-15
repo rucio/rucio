@@ -22,6 +22,9 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Tobias Wegner <twegner@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
     Exceptions used with Rucio.
@@ -869,3 +872,43 @@ class UndefinedPolicy(RucioException):
         super(UndefinedPolicy, self).__init__(args, kwargs)
         self._message = "No policy is defined."
         self.error_code = 82
+
+
+class TransferToolTimeout(RucioException):
+    """
+    Timeout from the transfer tool
+    """
+    def __init__(self, *args, **kwargs):
+        super(TransferToolTimeout, self).__init__(args, kwargs)
+        self._message = "Timeout from the transfer tool."
+        self.error_code = 83
+
+
+class TransferToolWrongAnswer(RucioException):
+    """
+    Wrong answer returned by the transfer tool
+    """
+    def __init__(self, *args, **kwargs):
+        super(TransferToolWrongAnswer, self).__init__(args, kwargs)
+        self._message = "Wrong answer returned by the transfer tool."
+        self.error_code = 84
+
+
+class RSEAttributeNotFound(RucioException):
+    """
+    RSE attribute not found.
+    """
+    def __init__(self, *args, **kwargs):
+        super(RSEAttributeNotFound, self).__init__(*args, **kwargs)
+        self._message = "RSE attribute not found."
+        self.error_code = 85
+
+
+class UnsupportedKeyType(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedKeyType, self).__init__(*args, **kwargs)
+        self._message = "Unsupported type for the key."
+        self.error_code = 86

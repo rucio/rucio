@@ -13,6 +13,8 @@
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
   - Martin Barisits, <martin.barisits@cern.ch>, 2016
   - Eric Vaandering, <ewv@fnal.gov>, 2018
+
+  PY3K COMPATIBLE
 '''
 
 from jsonschema import validate, ValidationError

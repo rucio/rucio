@@ -23,6 +23,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 
 from __future__ import print_function
 
@@ -624,7 +625,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         # search for the file
-        cmd = "rucio list-dids {0}:{1}".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-dids --filter type=all {0}:{1}".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -770,6 +771,25 @@ class TestBinRucio():
         print(err)
         nose.tools.assert_not_equal(re.search("The file already exists", err), None)
 
+    def test_attach_dataset_twice(self):
+        """ CLIENT(USER): Rucio attach a dataset twice """
+        container = 'container_%s' % generate_uuid()
+        dataset = 'dataset_%s' % generate_uuid()
+        self.did_client.add_container(scope=self.user, name=container)
+        self.did_client.add_dataset(scope=self.user, name=dataset)
+
+        # Attach dataset to container
+        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(self.user, container, dataset)
+        exitcode, out, err = execute(cmd)
+
+        # Attach again
+        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(self.user, container, dataset)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        nose.tools.assert_not_equal(re.search("Data identifier already added to the destination content", err), None)
+
     def test_detach_non_existing_file(self):
         """CLIENT(USER): Rucio detach a non existing file"""
         tmp_file1 = file_generator()
@@ -788,3 +808,128 @@ class TestBinRucio():
         print(out)
         print(err)
         nose.tools.assert_not_equal(re.search("Data identifier not found.", err), None)
+
+    def test_list_did_recursive(self):
+        """ CLIENT(USER): List did recursive """
+        # Setup nested collections
+        tmp_scope = 'mock'
+        tmp_container_1 = 'container_%s' % generate_uuid()
+        cmd = 'rucio add-container {0}:{1}'.format(tmp_scope, tmp_container_1)
+        exitcode, out, err = execute(cmd)
+        tmp_container_2 = 'container_%s' % generate_uuid()
+        cmd = 'rucio add-container {0}:{1}'.format(tmp_scope, tmp_container_2)
+        exitcode, out, err = execute(cmd)
+        tmp_container_3 = 'container_%s' % generate_uuid()
+        cmd = 'rucio add-container {0}:{1}'.format(tmp_scope, tmp_container_3)
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(tmp_scope, tmp_container_1, tmp_container_2)
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(tmp_scope, tmp_container_2, tmp_container_3)
+        exitcode, out, err = execute(cmd)
+
+        # All attached DIDs are expected
+        cmd = 'rucio list-dids {0}:{1} --recursive'.format(tmp_scope, tmp_container_1)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search(tmp_container_1, out), None)
+        nose.tools.assert_not_equal(re.search(tmp_container_2, out), None)
+        nose.tools.assert_not_equal(re.search(tmp_container_3, out), None)
+
+        # Wildcards are not allowed to use with --recursive
+        cmd = 'rucio list-dids {0}:* --recursive'.format(tmp_scope)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search("Option recursive cannot be used with wildcards", err), None)
+
+    def test_attach_many_dids(self):
+        """ CLIENT(USER): Rucio attach many (>1000) DIDs """
+        # Setup data for CLI check
+        tmp_dsn_name = 'Container' + rse_name_generator()
+        tmp_dsn_did = self.user + ':' + tmp_dsn_name
+        self.did_client.add_did(scope=self.user, name=tmp_dsn_name, type='CONTAINER')
+
+        files = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
+        self.did_client.add_dids(files[:1000])
+        self.did_client.add_dids(files[1000:])
+
+        # Attaching over 1000 DIDs with CLI
+        cmd = 'rucio attach {0}'.format(tmp_dsn_did)
+        for tmp_file in files:
+            cmd += ' {0}:{1}'.format(tmp_file['scope'], tmp_file['name'])
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+
+        # Checking if the execution was successfull and if the DIDs belong together
+        nose.tools.assert_not_equal(re.search('DIDs successfully attached', out), None)
+        cmd = 'rucio list-content {0}'.format(tmp_dsn_did)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        # first dataset must be in the container
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[0]['name']), out), None)
+        # last dataset must be in the container
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[-1]['name']), out), None)
+
+        # Setup data with file
+        did_file_path = 'list_dids.txt'
+        files = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
+        self.did_client.add_dids(files[:1000])
+        self.did_client.add_dids(files[1000:])
+
+        with open(did_file_path, 'w') as did_file:
+            for file in files:
+                did_file.write(file['scope'] + ':' + file['name'] + '\n')
+            did_file.close()
+
+        # Attaching over 1000 files per file
+        cmd = 'rucio attach {0} -f {1}'.format(tmp_dsn_did, did_file_path)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        remove(did_file_path)
+
+        # Checking if the execution was successfull and if the DIDs belong together
+        nose.tools.assert_not_equal(re.search('DIDs successfully attached', out), None)
+        cmd = 'rucio list-content {0}'.format(tmp_dsn_did)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        # first file must be in the dataset
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[0]['name']), out), None)
+        # last file must be in the dataset
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[-1]['name']), out), None)
+
+    def test_attach_many_dids_twice(self):
+        """ CLIENT(USER) Attach many (>1000) DIDs twice """
+        # Setup data for CLI check
+        container_name = 'container' + generate_uuid()
+        container = self.user + ':' + container_name
+        self.did_client.add_did(scope=self.user, name=container_name, type='CONTAINER')
+
+        datasets = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
+        self.did_client.add_dids(datasets[:1000])
+        self.did_client.add_dids(datasets[1000:])
+
+        # Attaching over 1000 DIDs with CLI
+        cmd = 'rucio attach {0}'.format(container)
+        for dataset in datasets:
+            cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
+        exitcode, out, err = execute(cmd)
+
+        # Attaching twice
+        cmd = 'rucio attach {0}'.format(container)
+        for dataset in datasets:
+            cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search("DIDs successfully attached", out), None)
+
+        # Attaching twice plus one DID that is not already attached
+        new_dataset = {'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'}
+        datasets.append(new_dataset)
+        self.did_client.add_did(scope=self.user, name=new_dataset['name'], type='DATASET')
+        cmd = 'rucio attach {0}'.format(container)
+        for dataset in datasets:
+            cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search("DIDs successfully attached", out), None)
+        cmd = 'rucio list-content {0}'.format(container)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, new_dataset['name']), out), None)

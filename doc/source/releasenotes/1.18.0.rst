@@ -1,0 +1,63 @@
+=========================
+1.18.0 "Invisible Donkey"
+=========================
+
+-------------------
+Update Instructions
+-------------------
+
+This feature release requires a database schema update. Please consult the documentation about updating your database schema.
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Generic metadata support `#1195 <https://github.com/rucio/rucio/issues/1195>`_
+- Core & Internals: Extend the bad_replicas table with bytes `#1370 <https://github.com/rucio/rucio/issues/1370>`_
+- Rules: add_rule on a constituent should make rule on archive `#1376 <https://github.com/rucio/rucio/issues/1376>`_
+
+************
+Enhancements
+************
+
+- Release management: Change urllib3 version to >=1.23 `#1523 <https://github.com/rucio/rucio/issues/1523>`_
+- Release management: Change flask version to >=0.12.3 due to CVE-2018-1000656 `#1524 <https://github.com/rucio/rucio/issues/1524>`_
+
+****
+Bugs
+****
+
+- Release management: pip install rucio fails with newer versions of pip `#1463 <https://github.com/rucio/rucio/issues/1463>`_
+
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: removing download() method from downloadclient `#1378 <https://github.com/rucio/rucio/issues/1378>`_
+- Clients: Human friendly limit setting `#1529 <https://github.com/rucio/rucio/issues/1529>`_
+
+****
+Bugs
+****
+
+- Clients: Using summary file in upload API will crash `#1532 <https://github.com/rucio/rucio/issues/1532>`_
+
+
+-----
+WebUI
+-----
+
+********
+Features
+********
+
+- WebUI: Rucio UI RSE admin view `#80 <https://github.com/rucio/rucio/issues/80>`_
