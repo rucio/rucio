@@ -221,7 +221,7 @@ def list_rebalance_rule_candidates(rse, mode=None, session=None):
     """
 
     if mode is None:
-        sql = """SELECT dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
+        sql = """SELECT dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length, (case when d.length < 1 then 0 else d.bytes/d.length end) as fsize FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
 WHERE
 dsl.rse_id = atlas_rucio.rse2id(:rse) and
 (r.expires_at > sysdate+60 or r.expires_at is NULL) and
@@ -236,7 +236,7 @@ d.is_open = 0 and
 d.did_type = 'D' and
 r.grouping IN ('D', 'A') and
 1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id)
-ORDER BY dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
+ORDER BY fsize DESC, dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
     elif mode == 'decommission':  # OBSOLETE
         sql = """SELECT r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
 WHERE
