@@ -17,7 +17,8 @@ import tempfile
 
 from nose.tools import assert_raises, assert_equal, assert_is_instance, assert_is_not_none
 from re import match
-from rucio.common.utils import md5, adler32
+from rucio.common.exception import InvalidType
+from rucio.common.utils import md5, adler32, parse_did_filter_from_string
 
 
 class TestUtils(unittest.TestCase):
@@ -55,3 +56,28 @@ class TestUtils(unittest.TestCase):
         with assert_raises(Exception) as e:
             adler32('no_file')
         assert_equal('FATAL - could not get Adler32 checksum of file no_file - [Errno 2] No such file or directory: \'no_file\'', e.exception.message)
+
+    def test_parse_did_filter_string(self):
+        """(COMMON/UTILS): test parsing of did filter string"""
+        test_cases = [{
+            'input': 'type=all,length=3,length>4,length>=6,length<=7,  test=b',
+            'expected_filter': {'length': 3, 'length.gt': 4, 'length.gte': 6, 'length.lte': 7, 'test': 'b'},
+            'expected_type': 'all'
+        }, {
+            'input': 'type=FILE',
+            'expected_filter': {},
+            'expected_type': 'file'
+        }, {
+            'input': '',
+            'expected_filter': {},
+            'expected_type': 'collection'
+        }]
+
+        for test_case in test_cases:
+            filters, type = parse_did_filter_from_string(test_case['input'])
+            assert_equal(test_case['expected_filter'], filters)
+            assert_equal(test_case['expected_type'], type)
+
+        with assert_raises(InvalidType):
+            input = 'type=g'
+            parse_did_filter_from_string(input)
