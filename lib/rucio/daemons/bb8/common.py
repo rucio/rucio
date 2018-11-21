@@ -335,7 +335,7 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
 
     print 'scope:name rule_id bytes(Gb) target_rse child_rule_id'
 
-    for scope, name, rule_id, rse_expression, subscription_id, bytes, length in list_rebalance_rule_candidates(rse=rse, mode=mode):
+    for scope, name, rule_id, rse_expression, subscription_id, bytes, length, fsize in list_rebalance_rule_candidates(rse=rse, mode=mode):
         if force_expression is not None and subscription_id is not None:
             continue
 
