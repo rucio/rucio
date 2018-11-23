@@ -40,7 +40,7 @@ def get_token():
         token = authentication.get_auth_token_x509(account,
                                                    dn,
                                                    'webui',
-                                                   ctx.env.get('REMOTE_ADDR'))
+                                                   ctx.env.get('REMOTE_ADDR')).token
         return token
     except:
         return False
@@ -94,7 +94,7 @@ def check_token(rendered_tpl):
                 token = authentication.get_auth_token_x509(ui_account,
                                                            dn,
                                                            'webui',
-                                                           ctx.env.get('REMOTE_ADDR'))
+                                                           ctx.env.get('REMOTE_ADDR')).token
             except:
                 return render.problem(msg)
 
@@ -126,7 +126,7 @@ def check_token(rendered_tpl):
                 token = authentication.get_auth_token_x509(def_account,
                                                            dn,
                                                            'webui',
-                                                           ctx.env.get('REMOTE_ADDR'))
+                                                           ctx.env.get('REMOTE_ADDR')).token
             except:
                 return render.problem(msg)
 
