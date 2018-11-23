@@ -235,6 +235,7 @@ d.bytes is not NULL and
 d.is_open = 0 and
 d.did_type = 'D' and
 r.grouping IN ('D', 'A') and
+(case when d.length < 1 then 0 else d.bytes/d.length end) > 1000*1000*1000 and
 1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id)
 ORDER BY fsize DESC, dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
     elif mode == 'decommission':  # OBSOLETE
