@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
@@ -728,7 +728,6 @@ def detach_dids(scope, name, dids, session=None):
                                                              created_at=associ_did.created_at,
                                                              updated_at=associ_did.updated_at,
                                                              deleted_at=datetime.utcnow())
-        new_detach = session.merge(new_detach)
         new_detach.save(session=session, flush=False)
 
         # Send message for AMI. To be removed in the future when they use the DETACH messages
@@ -864,9 +863,11 @@ def list_content_history(scope, name, session=None):
     :param session: The database session in use.
     """
     try:
+        # query = session.query(models.DataIdentifierAssociationHistory).\
+        #    with_hint(models.DataIdentifierAssociationHistory,
+        #              "INDEX(CONTENTS_HISTORY CONTENTS_HIST_PK)", 'oracle').\
+        #    filter_by(scope=scope, name=name)
         query = session.query(models.DataIdentifierAssociationHistory).\
-            with_hint(models.DataIdentifierAssociationHistory,
-                      "INDEX(CONTENTS_HISTORY CONTENTS_HIST_PK)", 'oracle').\
             filter_by(scope=scope, name=name)
         for tmp_did in query.yield_per(5):
             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
