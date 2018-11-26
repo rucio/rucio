@@ -32,6 +32,7 @@ from os import remove, unlink, listdir, rmdir, stat, path
 import nose.tools
 import re
 
+from rucio.db.sqla import session, models
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
@@ -412,12 +413,143 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
+
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # download files
+        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:-2] + '*')  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # search for the files with ls
+        cmd = 'ls /tmp/'    # search in /tmp/
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
+
         try:
             for i in listdir('data13_hip'):
                 unlink('data13_hip/%s' % i)
             rmdir('data13_hip')
         except Exception:
             pass
+
+    def test_download_filter(self):
+        """CLIENT(USER): Rucio download with filter options"""
+        # Use filter option to download file with wildcarded name
+        tmp_file1 = file_generator()
+        uuid = generate_uuid()
+        cmd = 'rucio upload --rse {0} --scope {1} --guid {2} {3}'.format(self.def_rse, self.user, uuid, tmp_file1)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        remove(tmp_file1)
+        wrong_guid = generate_uuid()
+        cmd = 'rucio -v download --dir /tmp {0}:{1} --filter guid={2}'.format(self.user, '*', wrong_guid)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        cmd = 'ls /tmp/{0}'.format(self.user)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_equal(re.search(tmp_file1[5:], out), None)
+        cmd = 'rucio -v download --dir /tmp {0}:{1} --filter guid={2}'.format(self.user, '*', uuid)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        cmd = 'ls /tmp/{0}'.format(self.user)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
+
+        # Only use filter option to download file
+        tmp_file1 = file_generator()
+        uuid = generate_uuid()
+        cmd = 'rucio upload --rse {0} --scope {1} --guid {2} {3}'.format(self.def_rse, self.user, uuid, tmp_file1)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        remove(tmp_file1)
+        wrong_guid = generate_uuid()
+        cmd = 'rucio -v download --dir /tmp --scope {0} --filter guid={1}'.format(self.user, wrong_guid)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        cmd = 'ls /tmp/{0}'.format(self.user)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_equal(re.search(tmp_file1[5:], out), None)
+        cmd = 'rucio -v download --dir /tmp --scope {0} --filter guid={1}'.format(self.user, uuid)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        cmd = 'ls /tmp/{0}'.format(self.user)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
+
+        # Only use filter option to download dataset
+        tmp_file1 = file_generator()
+        dataset_name = 'dataset_%s' % generate_uuid()
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {1}:{3}'.format(self.def_rse, self.user, tmp_file1, dataset_name)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        remove(tmp_file1)
+        db_session = session.get_session()
+        db_session.query(models.DataIdentifier).filter_by(scope=self.user, name=dataset_name).one().length = 15
+        db_session.commit()
+        cmd = 'rucio download --dir /tmp --scope {0} --filter length=100'.format(self.user)
+        exitcode, out, err = execute(cmd)
+        cmd = 'ls /tmp/{0}'.format(dataset_name)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_equal(re.search(tmp_file1[5:], out), None)
+        cmd = 'rucio download --dir /tmp --scope {0} --filter length=15'.format(self.user)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        cmd = 'ls /tmp/{0}'.format(dataset_name)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
+
+        # Use filter option to download dataset with wildcarded name
+        tmp_file1 = file_generator()
+        dataset_name = 'dataset_%s' % generate_uuid()
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {1}:{3}'.format(self.def_rse, self.user, tmp_file1, dataset_name)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        remove(tmp_file1)
+        db_session = session.get_session()
+        db_session.query(models.DataIdentifier).filter_by(scope=self.user, name=dataset_name).one().length = 1
+        db_session.commit()
+        cmd = 'rucio download --dir /tmp {0}:{1} --filter length=10'.format(self.user, dataset_name[0:-1] + '*')
+        exitcode, out, err = execute(cmd)
+        cmd = 'ls /tmp/{0}'.format(dataset_name)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_equal(re.search(tmp_file1[5:], out), None)
+        cmd = 'rucio download --dir /tmp {0}:{1} --filter length=1'.format(self.user, dataset_name[0:-1] + '*')
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        cmd = 'ls /tmp/{0}'.format(dataset_name)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
 
     def test_download_succeeds_md5only(self):
         """CLIENT(USER): Rucio download succeeds MD5 only"""
