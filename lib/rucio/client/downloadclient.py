@@ -18,7 +18,11 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Tobias Wegner <tobias.wegner@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
+from __future__ import division
 
 import copy
 import logging
@@ -28,6 +32,7 @@ import random
 import signal
 import time
 
+from builtins import round
 try:
     from Queue import Queue, Empty, deque
 except ImportError:
@@ -262,7 +267,7 @@ class DownloadClient:
 
         return self._check_output(output_items)
 
-    def download_dids(self, items, num_threads=2, trace_custom_fields={}):
+    def download_dids(self, items, num_threads=2, trace_custom_fields={}, filters={}):
         """
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
@@ -277,7 +282,8 @@ class DownloadClient:
             ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
             transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
-        :param trace_custom_fields: Custom key value pairs to send with the traces
+        :param trace_custom_fields: Custom key value pairs to send with the traces.
+        :param filters: dictionary containing filter options.
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -288,7 +294,7 @@ class DownloadClient:
         """
         trace_custom_fields['uuid'] = generate_uuid()
 
-        input_items = self._prepare_items_for_download(items)
+        input_items = self._prepare_items_for_download(items, filters)
 
         num_files_in = len(input_items)
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
@@ -569,7 +575,7 @@ class DownloadClient:
             logger.info('%sFile %s successfully downloaded in %s seconds' % (log_prefix, did_str, duration))
         return item
 
-    def download_aria2c(self, items, trace_custom_fields={}):
+    def download_aria2c(self, items, trace_custom_fields={}, filters={}):
         """
         Uses aria2c to download the items with given DIDs. This function can also download datasets and wildcarded DIDs.
         It only can download files that are available via https/davs.
@@ -583,6 +589,7 @@ class DownloadClient:
             nrandom             - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
             ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
         :param trace_custom_fields: Custom key value pairs to send with the traces
+        :param filters: dictionary containing filter options
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -599,7 +606,7 @@ class DownloadClient:
 
         for item in items:
             item['force_scheme'] = ['https', 'davs']
-        input_items = self._prepare_items_for_download(items)
+        input_items = self._prepare_items_for_download(items, filters)
 
         try:
             output_items = self._download_items_aria2c(input_items, aria_rpc, rpc_auth, trace_custom_fields)
@@ -835,13 +842,14 @@ class DownloadClient:
 
         return items
 
-    def _prepare_items_for_download(self, items):
+    def _prepare_items_for_download(self, items, filters={}):
         """
         Resolves wildcarded DIDs, get DID details (e.g. type), and collects
         the available replicas for each DID
         (This function is meant to be used as class internal only)
 
         :param items: list of dictionaries containing the items to prepare
+        :param filters: dictionary containing filters
 
         :returns: list of dictionaries, one dict for each file to download
 
@@ -854,7 +862,7 @@ class DownloadClient:
         # resolve input: extend rse expression, resolve wildcards, get did type
         for item in items:
             did_str = item.get('did')
-            if not did_str:
+            if not did_str and not filters:
                 raise InputValidationError('The key did is mandatory')
 
             logger.debug('Processing item %s' % did_str)
@@ -867,26 +875,38 @@ class DownloadClient:
                 new_item['rse'] = 'istape=False' if not rse else '(%s)&istape=False' % rse
                 logger.debug('RSE-Expression: %s' % new_item['rse'])
 
-            # resolve any wildcards in the input dids
-            did_scope, did_name = self._split_did_str(did_str)
-            logger.debug('Splitted DID: %s:%s' % (did_scope, did_name))
-            new_item['scope'] = did_scope
-            if '*' in did_name:
-                logger.debug('Resolving wildcarded DID %s' % did_str)
-                for dids in self.client.list_dids(did_scope, filters={'name': did_name}, type='all', long=True):
-                    logger.debug('%s - %s:%s' % (dids['did_type'], did_scope, dids['name']))
+            if not did_str:
+                logger.debug('Resolving DIDs by using filter options.')
+                scope = filters['scope']
+                del filters['scope']
+                for dids in self.client.list_dids(scope, filters=filters, type='all', long=True):
+                    logger.debug('%s - %s:%s' % (dids['did_type'], scope, dids['name']))
+                    new_item['scope'] = scope
                     new_item['type'] = dids['did_type'].upper()
                     new_item['name'] = dids['name']
-                    new_item['did'] = '%s:%s' % (did_scope, dids['name'])
+                    new_item['did'] = '%s:%s' % (scope, dids['name'])
                     resolved_items.append(copy.deepcopy(new_item))
             else:
-                new_item['type'] = self.client.get_did(did_scope, did_name)['type'].upper()
-                new_item['name'] = did_name
-                resolved_items.append(new_item)
+                # resolve any wildcards in the input dids
+                did_scope, did_name = self._split_did_str(did_str)
+                logger.debug('Splitted DID: %s:%s' % (did_scope, did_name))
+                new_item['scope'] = did_scope
+                if '*' in did_name:
+                    logger.debug('Resolving wildcarded DID %s' % did_str)
+                    filters['name'] = did_name
+                    for dids in self.client.list_dids(did_scope, filters=filters, type='all', long=True):
+                        logger.debug('%s - %s:%s' % (dids['did_type'], did_scope, dids['name']))
+                        new_item['type'] = dids['did_type'].upper()
+                        new_item['name'] = dids['name']
+                        new_item['did'] = '%s:%s' % (did_scope, dids['name'])
+                        resolved_items.append(copy.deepcopy(new_item))
+                else:
+                    new_item['type'] = self.client.get_did(did_scope, did_name)['type'].upper()
+                    new_item['name'] = did_name
+                    resolved_items.append(new_item)
 
         # this list will have one dict for each file to download
         file_items = []
-
         # get replicas for every file of the given dids
         logger.debug('%d DIDs after processing input' % len(resolved_items))
         for item in resolved_items:
@@ -948,7 +968,6 @@ class DownloadClient:
                 file_item['temp_file_path'] = dest_file_path + '.part'
 
                 file_items.append(file_item)
-
         return file_items
 
     def _split_did_str(self, did_str):
