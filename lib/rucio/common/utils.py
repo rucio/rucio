@@ -75,7 +75,7 @@ except ImportError:
     import urllib.parse as urlparse
 
 from rucio.common.config import config_get
-from rucio.common.exception import MissingModuleException
+from rucio.common.exception import MissingModuleException, InvalidType
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'web': False,
@@ -759,3 +759,58 @@ def get_bytes_value_from_string(input_string):
         return value
     else:
         return False
+
+
+def parse_did_filter_from_string(input_string):
+    """
+    Parse DID filter options in format 'length<3,type=all' from string.
+
+    :param input_string: String containing the filter options.
+    :return: filter dictionary and type as string.
+    """
+    filters = {}
+    type = 'collection'
+    if input_string:
+        filter_options = input_string.replace(' ', '').split(',')
+        for option in filter_options:
+            value = None
+            key = None
+
+            if '>=' in option:
+                key, value = option.split('>=')
+                if key == 'length':
+                    key = 'length.gte'
+            elif '>' in option:
+                key, value = option.split('>')
+                if key == 'length':
+                    key = 'length.gt'
+            elif '<=' in option:
+                key, value = option.split('<=')
+                if key == 'length':
+                    key = 'length.lte'
+            elif '<' in option:
+                key, value = option.split('<')
+                if key == 'length':
+                    key = 'length.lt'
+            elif '=' in option:
+                key, value = option.split('=')
+
+            if key == 'type':
+                if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
+                    type = value.lower()
+                else:
+                    raise InvalidType('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
+            elif key in ('length.gt', 'length.lt', 'length.gte', 'length.lte', 'length'):
+                try:
+                    value = int(value)
+                    filters[key] = value
+                except ValueError:
+                    raise ValueError('Length has to be an integer value.')
+                filters[key] = value
+            else:
+                if value.lower() == 'true':
+                    value = '1'
+                elif value.lower() == 'false':
+                    value = '0'
+                filters[key] = value
+    return filters, type
