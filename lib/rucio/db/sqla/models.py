@@ -579,8 +579,11 @@ class DataIdentifierAssociationHistory(BASE, ModelBase):
     rule_evaluation = Column(Boolean(name='CONTENTS_HIST_RULE_EVAL_CHK'))
     did_created_at = Column(DateTime)
     deleted_at = Column(DateTime)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_HIST_PK'),
-                   CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_HIST_DID_TYPE_NN'),
+    __mapper_args__ = {
+        'primary_key': [scope, name, child_scope, child_name]
+    }
+    # _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_HIST_PK'),
+    _table_args = (CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_HIST_DID_TYPE_NN'),
                    CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_HIST_CHILD_TYPE_NN'),
                    Index('CONTENTS_HISTORY_IDX', 'scope', 'name'))
 
