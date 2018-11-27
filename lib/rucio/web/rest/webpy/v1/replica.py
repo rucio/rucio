@@ -297,7 +297,7 @@ class ListReplicas(RucioController):
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
-        signature_lifetime, resolve_archives = None, True
+        signature_lifetime, resolve_archives, resolve_parents = None, True, False
         client_location = {}
 
         json_data = data()
@@ -323,6 +323,8 @@ class ListReplicas(RucioController):
                 domain = params['domain']
             if 'resolve_archives' in params:
                 resolve_archives = params['resolve_archives']
+            if 'resolve_parents' in params:
+                resolve_parents = params['resolve_parents']
             if 'signature_lifetime' in params:
                 signature_lifetime = params['signature_lifetime']
             else:
@@ -358,6 +360,7 @@ class ListReplicas(RucioController):
                                        client_location=client_location,
                                        domain=domain, signature_lifetime=signature_lifetime,
                                        resolve_archives=resolve_archives,
+                                       resolve_parents=resolve_parents,
                                        issuer=ctx.env.get('issuer')):
                 if not metalink:
                     yield dumps(rfile, cls=APIEncoder) + '\n'
@@ -373,6 +376,13 @@ class ListReplicas(RucioController):
                                                 rfile['pfns'][replica]['client_extract'])
 
                     yield ' <file name="' + rfile['name'] + '">\n'
+
+                    if 'parents' in rfile and rfile['parents']:
+                        yield '  <parents>\n'
+                        for parent in rfile['parents']:
+                            yield '   <did>' + parent + '</did>\n'
+                        yield '  </parents>\n'
+
                     yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
                     if rfile['adler32'] is not None:
                         yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
@@ -402,7 +412,7 @@ class ListReplicas(RucioController):
 
                     idx = 0
                     for replica in replicas:
-                        yield '   <url location="' + str(dictreplica[replica][2]) \
+                        yield '  <url location="' + str(dictreplica[replica][2]) \
                             + '" domain="' + str(dictreplica[replica][0]) \
                             + '" priority="' + str(dictreplica[replica][1]) \
                             + '" client_extract="' + str(dictreplica[replica][3]).lower() \
