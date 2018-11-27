@@ -431,8 +431,8 @@ def touch_dataset_locks(dataset_locks, session=None):
         try:
             session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
                 update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
-            for rule_id in session.query(models.DatasetLock.rule_id).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']):
-                session.query(models.ReplicationRule).filter_by(id=rule_id).update({'eol_at': eol_at}, synchronize_session=False)
+            for res in session.query(models.DatasetLock.rule_id).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']):
+                session.query(models.ReplicationRule).filter_by(id=res[0]).update({'eol_at': eol_at}, synchronize_session=False)
         except DatabaseError:
             return False
 

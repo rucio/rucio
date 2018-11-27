@@ -1,0 +1,43 @@
+======
+1.18.6
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Improve error message for PFN mismatch `#483 <https://github.com/rucio/rucio/issues/483>`_
+
+****
+Bugs
+****
+
+- Dataset deletion: Undertaker crash when a DID is attach/detached many times `#1772 <https://github.com/rucio/rucio/issues/1772>`_
+- Documentation: Typo in Client API reference `#935 <https://github.com/rucio/rucio/issues/935>`_
+- Rebalancing: bb8 is failing with division by 0 `#1792 <https://github.com/rucio/rucio/issues/1792>`_
+
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Possibility to download DIDs by giving metadata filter `#782 <https://github.com/rucio/rucio/issues/782>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: fix webui authentication to work with new token generation `#1811 <https://github.com/rucio/rucio/issues/1811>`_
+- WebUI: fix dashboard link in webui `#1814 <https://github.com/rucio/rucio/issues/1814>`_
