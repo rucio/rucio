@@ -66,8 +66,9 @@ from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
-                                    RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded)
-from rucio.common.utils import sizefmt, Color, detect_client_location, chunks
+                                    RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded,
+                                    InvalidType)
+from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string
 
 SUCCESS = 0
 FAILURE = 1
@@ -525,49 +526,13 @@ def list_dids(args):
     table = []
     if args.filter:
         try:
-            filter_options = args.filter.split(',')
-            for option in filter_options:
-                value = None
-                key = None
-
-                if '>=' in option:
-                    key, value = option.split('>=')
-                    if key == 'length':
-                        key = 'length.gte'
-                elif '>' in option:
-                    key, value = option.split('>')
-                    if key == 'length':
-                        key = 'length.gt'
-                elif '<=' in option:
-                    key, value = option.split('<=')
-                    if key == 'length':
-                        key = 'length.lte'
-                elif '<' in option:
-                    key, value = option.split('<')
-                    if key == 'length':
-                        key = 'length.lt'
-                elif '=' in option:
-                    key, value = option.split('=')
-
-                if key == 'type':
-                    if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
-                        type = value.lower()
-                    else:
-                        logger.error('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
-                        return FAILURE
-                elif key in ('length.gt', 'length.lt', 'length.gte', 'length.lte', 'length'):
-                    try:
-                        value = int(value)
-                        filters[key] = value
-                    except ValueError:
-                        logger.error('Length has to be an integer value.')
-                        return FAILURE
-                else:
-                    if value.lower() == 'true':
-                        value = '1'
-                    elif value.lower() == 'false':
-                        value = '0'
-                    filters[key] = value
+            filters, type = parse_did_filter_from_string(args.filter)
+        except InvalidType as error:
+            logger.error(error)
+            return FAILURE
+        except ValueError as error:
+            logger.error(error)
+            return FAILURE
         except Exception:
             logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
             return FAILURE
@@ -924,6 +889,14 @@ def download(args):
 
     Download files from Rucio using new threaded model and RSE expression support
     """
+    # Input validation
+    if not args.dids and not args.filter:
+        logger.error('At least one did is mandatory')
+        return FAILURE
+    elif not args.dids and args.filter and not args.scope:
+        logger.error('The argument scope is mandatory')
+        return FAILURE
+
     trace_pattern = {}
 
     if args.trace_appid:
@@ -952,20 +925,42 @@ def download(args):
     item_defaults['transfer_timeout'] = args.transfer_timeout
     item_defaults['resolve_archives'] = not args.no_resolve_archives
     archive_did = args.archive_did
+
+    filters = {}
+    type = 'all'
+    if args.filter:
+        try:
+            filters, type = parse_did_filter_from_string(args.filter)
+            if args.scope:
+                filters['scope'] = args.scope
+        except InvalidType as error:
+            logger.error(error)
+            return FAILURE
+        except ValueError as error:
+            logger.error(error)
+            return FAILURE
+        except Exception as error:
+            logger.error(error)
+            logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
+            return FAILURE
+
     if not args.pfn and not archive_did:
         item_defaults['force_scheme'] = args.protocol
         item_defaults['nrandom'] = args.nrandom
 
         items = []
-        for did in args.dids:
-            item = {'did': did}
-            item.update(item_defaults)
-            items.append(item)
+        if args.dids:
+            for did in args.dids:
+                item = {'did': did}
+                item.update(item_defaults)
+                items.append(item)
+        else:
+            items.append(item_defaults)
 
         if args.aria:
-            result = download_client.download_aria2c(items, trace_pattern)
+            result = download_client.download_aria2c(items, trace_pattern, filters)
         else:
-            result = download_client.download_dids(items, args.ndownloader, trace_pattern)
+            result = download_client.download_dids(items, args.ndownloader, trace_pattern, filters)
     elif archive_did:
         if args.aria:
             logger.warning('Ignoring --aria option because --archive_did option given')
@@ -1990,7 +1985,7 @@ You can filter by key/value, e.g.::
     for selected_parser in [get_parser, download_parser]:
         selected_parser.set_defaults(which='download')
         selected_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
-        selected_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+        selected_parser.add_argument(dest='dids', nargs='*', action='store', help='List of space separated data identifiers.')
         selected_parser.add_argument('--allow-tape', action='store_true', default=False, help="Also consider tape endpoints as source of the download.")
         selected_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')
         selected_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
@@ -2009,6 +2004,8 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--trace_pq', dest='trace_pq', action='store', default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--trace_taskid', dest='trace_taskid', action='store', default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--filter', dest='filter', action='store', help='Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.')
+        selected_parser.add_argument('--scope', dest='scope', action='store', help='Scope if you are using the filter option and no full DID.')
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
