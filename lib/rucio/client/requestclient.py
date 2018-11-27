@@ -43,7 +43,7 @@ class RequestClient(BaseClient):
         :type name: str
         :param rse: Destination RSE name
         :type rse: str
-        :param scope: rucio scome, defaults to None
+        :param scope: rucio scope, defaults to None
         :param scope: str, optional
         :raises exc_cls: from BaseClient._get_exception
         :return: request information
