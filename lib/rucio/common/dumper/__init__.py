@@ -247,7 +247,7 @@ def to_datetime(str_or_datetime):
 def agis_endpoints_data(cache=True):
     '''
     Returns the result of querying the ddmendpoints list from AGIS
-    and parsing the results with json.lads().
+    and parsing the results with json.loads().
 
     :param cache: If True only makes one query to AGIS and returns
     the same result for subsequent invocations. Consider the effects
