@@ -433,7 +433,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 valid = None
                 try:  # Get metadata of file to verify if upload was successful
                     try:
-                        stats = protocol.stat('%s.rucio.upload' % pfn)
+                        stats = _retry_protocol_stat(protocol, '%s.rucio.upload' % pfn)
                         if ('adler32' in stats) and ('adler32' in lfn):
                             valid = stats['adler32'] == lfn['adler32']
                         if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
@@ -475,7 +475,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 valid = None
                 try:  # Get metadata of file to verify if upload was successful
                     try:
-                        stats = protocol.stat(pfn)
+                        stats = _retry_protocol_stat(protocol, pfn)
                         if ('adler32' in stats) and ('adler32' in lfn):
                             valid = stats['adler32'] == lfn['adler32']
                         if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
@@ -711,6 +711,26 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
                 return (dest_protocol['scheme'], src_protocol['scheme'])
 
     raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
+
+
+def _retry_protocol_stat(protocol, pfn):
+    """
+    try to stat file, on fail try again 1s, 2s, 4s, 8s, 16s, 32s later. Fail is all ail
+
+    :param protocol     The protocol to use to reach this file
+    :param pfn          Physical file name of the target for the protocol stat
+    """
+    from time import sleep
+    for attempt in range(6):
+        try:
+            stats = protocol.stat(pfn)
+            return stats
+        except exception.RSEChecksumUnavailable as e:
+            # The stat succeeded here, but the checksum failed
+            raise e
+        except Exception as e:
+            sleep(2**attempt)
+    return protocol.stat(pfn)
 
 
 def __check_compatible_scheme(dest_scheme, src_scheme):
