@@ -2598,7 +2598,6 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     :param state: One of the possible states : BAD, SUSPICIOUS, TEMPORARY_UNAVAILABLE.
     :param reason: A string describing the reason of the loss.
     :param expires_at: Specify a timeout for the TEMPORARY_UNAVAILABLE replicas. None for BAD files.
-
     :param session: The database session in use.
 
     :returns: True is successful.
