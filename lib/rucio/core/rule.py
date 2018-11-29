@@ -180,7 +180,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
                     .filter(models.RSEFileAssociation.scope == did.scope,
                             models.RSEFileAssociation.name == did.name,
-                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                            or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE),
                             models.RSE.rse_type != RSEType.TAPE).count()
                 if replica_cnt == 0:  # Put the rule on the archive
                     archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
@@ -265,29 +266,29 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     elif did.length < int(rse_attr.get('auto_approve_files', -1)):
                         auto_approve = True
                     if auto_approve:
-                        logging.debug("Auto approving rule %s" % str(new_rule.id))
-                        logging.debug("Created rule %s for injection" % str(new_rule.id))
+                        logging.debug("Auto approving rule %s", str(new_rule.id))
+                        logging.debug("Created rule %s for injection", str(new_rule.id))
                         approve_rule(rule_id=new_rule.id, notify_approvers=False, session=session)
                         continue
-                logging.debug("Created rule %s in waiting for approval" % (str(new_rule.id)))
+                logging.debug("Created rule %s in waiting for approval", str(new_rule.id))
                 __create_rule_approval_email(rule=new_rule, session=session)
                 continue
 
             # Force ASYNC mode for large rules
             if did.length is not None and (did.length * copies) >= 10000:
                 asynchronous = True
-                logging.debug("Forced injection of rule %s" % (str(new_rule.id)))
+                logging.debug("Forced injection of rule %s", str(new_rule.id))
 
             if asynchronous:
                 # TODO: asynchronous mode only available for closed dids (on the whole tree?)
                 new_rule.state = RuleState.INJECT
-                logging.debug("Created rule %s for injection" % (str(new_rule.id)))
+                logging.debug("Created rule %s for injection", str(new_rule.id))
                 continue
 
             # If Split Container is chosen, the rule will be processed ASYNC
             if split_container and did.did_type == DIDType.CONTAINER:
                 new_rule.state = RuleState.INJECT
-                logging.debug("Created rule %s for injection due to Split Container mode" % (str(new_rule.id)))
+                logging.debug("Created rule %s for injection due to Split Container mode", str(new_rule.id))
                 continue
 
             # 5. Resolve the did to its contents
@@ -301,7 +302,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             sumfiles = sum([len(x['files']) for x in datasetfiles])
             if sumfiles > 30000:
-                logging.warning('Rule %s for %s:%s involves %d files' % (str(new_rule.id), new_rule.scope, new_rule.name, sumfiles))
+                logging.warning('Rule %s for %s:%s involves %d files', str(new_rule.id), new_rule.scope, new_rule.name, sumfiles)
 
             # 6. Apply the replication rule to create locks, replicas and transfers
             with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
@@ -339,7 +340,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             # Add rule to History
             insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
 
-            logging.info("Created rule %s [%d/%d/%d] for did %s:%s in state %s" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state)))
+            logging.info("Created rule %s [%d/%d/%d] for did %s:%s in state %s", str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state))
 
     return rule_ids
 
@@ -394,7 +395,8 @@ def add_rules(dids, rules, session=None):
                 replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
                     .filter(models.RSEFileAssociation.scope == did.scope,
                             models.RSEFileAssociation.name == did.name,
-                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                            or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                models.RSEFileAssociation.state == ReplicaState.AVAILABLE),
                             models.RSE.rse_type != RSEType.TAPE).count()
                 if replica_cnt == 0:  # Put the rule on the archive
                     archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
@@ -538,18 +540,18 @@ def add_rules(dids, rules, session=None):
                                 logging.debug("Created rule %s for injection" % str(new_rule.id))
                                 approve_rule(rule_id=new_rule.id, notify_approvers=False, session=session)
                                 continue
-                        logging.debug("Created rule %s in waiting for approval" % str(new_rule.id))
+                        logging.debug("Created rule %s in waiting for approval", str(new_rule.id))
                         __create_rule_approval_email(rule=new_rule, session=session)
                         continue
 
                     if rule.get('asynchronous', False):
                         new_rule.state = RuleState.INJECT
-                        logging.debug("Created rule %s for injection" % str(new_rule.id))
+                        logging.debug("Created rule %s for injection", str(new_rule.id))
                         continue
 
                     if rule.get('split_container', False) and did.did_type == DIDType.CONTAINER:
                         new_rule.state = RuleState.INJECT
-                        logging.debug("Created rule %s for injection due to Split Container mode" % str(new_rule.id))
+                        logging.debug("Created rule %s for injection due to Split Container mode", str(new_rule.id))
                         continue
 
                     # 5. Apply the replication rule to create locks, replicas and transfers
@@ -2857,8 +2859,6 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
             models.RSEFileAssociation.name == lock.name,
             models.RSEFileAssociation.rse_id == lock.rse_id).with_for_update(nowait=nowait).one()
         replica.lock_cnt -= 1
-        if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
-            replica.state = ReplicaState.UNAVAILABLE
         if replica.lock_cnt == 0:
             if purge_replicas:
                 replica.tombstone = OBSOLETE
@@ -2868,8 +2868,9 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
                 replica.tombstone = replica.accessed_at
             else:
                 replica.tombstone = replica.created_at
-        if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
-            return True
+            if lock.state == LockState.REPLICATING:
+                replica.state = ReplicaState.UNAVAILABLE
+                return True
     except NoResultFound:
         logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found" % (lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session)))
     return False
