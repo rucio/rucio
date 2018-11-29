@@ -2574,5 +2574,5 @@ def bulk_delete_bad_pfn(pfns, session=None):
 
     for chunk in chunks(pfn_clause, 100):
         session.query(models.BadPFNs.filter(or_(*chunk))).\
-                      delete(synchronize_session=False)
+            delete(synchronize_session=False)
     return True
