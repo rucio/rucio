@@ -38,7 +38,8 @@ from rucio.common.schema import NAME_LENGTH, SCOPE_LENGTH
 from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
                                      KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
                                      RuleState, ReplicaState, RequestState, RequestType, RSEType,
-                                     ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState)
+                                     ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState,
+                                     BadPFNStatus)
 from rucio.db.sqla.history import Versioned
 from rucio.db.sqla.session import BASE
 from rucio.db.sqla.types import GUID, BooleanString, JSON
@@ -463,12 +464,26 @@ class BadReplicas(BASE, ModelBase):
     state = Column(BadFilesStatus.db_type(name='BAD_REPLICAS_STATE_CHK'), default=BadFilesStatus.SUSPICIOUS)
     account = Column(String(25))
     bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'created_at', name='BAD_REPLICAS_STATE_PK'),
+    expires_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'state', 'created_at', name='BAD_REPLICAS_STATE_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='BAD_REPLICAS_NAME_NN'),
                    CheckConstraint('RSE_ID IS NOT NULL', name='BAD_REPLICAS_RSE_ID_NN'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_REPLICAS_ACCOUNT_FK'),
-                   Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state'))
+                   Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state'),
+                   Index('BAD_REPLICAS_EXPIRES_AT_IDX', 'expires_at'))
+
+
+class BadPFNs(BASE, ModelBase):
+    """Represents bad, suspicious or temporary unavailable PFNs which have to be processed and added to BadReplicas Table"""
+    __tablename__ = 'bad_pfns'
+    path = Column(String(2048))  # PREFIX + PFN
+    state = Column(BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS)
+    reason = Column(String(255))
+    account = Column(String(25))
+    expires_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('path', 'state', name='BAD_PFNS_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_PFNS_ACCOUNT_FK'))
 
 
 class QuarantinedReplica(BASE, ModelBase, Versioned):
