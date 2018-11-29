@@ -225,9 +225,9 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
             if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
                 # Nothing to do as the file already has the requested amount of locks
                 continue
-            if len(preferred_rse_ids) == 0:
+            if not preferred_rse_ids:
                 rse_tuples = rseselector.select_rse(size=file['bytes'],
-                                                    preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
+                                                    preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state in [ReplicaState.AVAILABLE, ReplicaState.COPYING, ReplicaState.TEMPORARY_UNAVAILABLE]],
                                                     blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED])
             else:
                 rse_tuples = rseselector.select_rse(size=file['bytes'],
@@ -307,13 +307,13 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
                 if replica.state == ReplicaState.BEING_DELETED:
                     blacklist.add(replica.rse_id)
                     continue
-                if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING:
+                if replica.state in [ReplicaState.AVAILABLE, ReplicaState.COPYING, ReplicaState.TEMPORARY_UNAVAILABLE]:
                     if replica.rse_id in rse_coverage:
                         rse_coverage[replica.rse_id] += file['bytes']
                     else:
                         rse_coverage[replica.rse_id] = file['bytes']
 
-    if len(preferred_rse_ids) == 0:
+    if not preferred_rse_ids:
         rse_tuples = rseselector.select_rse(size=bytes,
                                             preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
                                             blacklist=list(blacklist),
@@ -423,13 +423,13 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
                 if replica.state == ReplicaState.BEING_DELETED:
                     blacklist.add(replica.rse_id)
                     continue
-                if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING:
+                if replica.state in [ReplicaState.AVAILABLE, ReplicaState.COPYING, ReplicaState.TEMPORARY_UNAVAILABLE]:
                     if replica.rse_id in rse_coverage:
                         rse_coverage[replica.rse_id] += file['bytes']
                     else:
                         rse_coverage[replica.rse_id] = file['bytes']
 
-        if len(preferred_rse_ids) == 0:
+        if not preferred_rse_ids:
             rse_tuples = rseselector.select_rse(size=bytes,
                                                 preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
                                                 blacklist=list(blacklist),
@@ -541,7 +541,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                 # Check if there are actually already enough locks
                 if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
                     # Remove the lock
-                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock' % (file['scope'], file['name'], str(rule.id)))
+                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock', file['scope'], file['name'], str(rule.id))
                     if lock.rse_id in locks_to_delete:
                         locks_to_delete[lock.rse_id].append(lock)
                     else:
@@ -549,12 +549,12 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                     rule.locks_stuck_cnt -= 1
                     continue
                 # Check if the replica is AVAILABLE now
-                if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id]:
+                if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state in [ReplicaState.AVAILABLE, ReplicaState.TEMPORARY_UNAVAILABLE] and replica.rse_id == lock.rse_id]:
                     lock.state = LockState.OK
                     rule.locks_stuck_cnt -= 1
                     rule.locks_ok_cnt += 1
                     # Recalculate the replica_lock_cnt
-                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id][0]
+                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.state in [ReplicaState.AVAILABLE, ReplicaState.TEMPORARY_UNAVAILABLE] and replica.rse_id == lock.rse_id][0]
                     associated_replica.tombstone = None
                     associated_replica.lock_cnt = session.query(func.count(models.ReplicaLock.rule_id)).filter_by(scope=associated_replica.scope, name=associated_replica.name, rse_id=lock.rse_id).one()[0]
                     continue
@@ -573,7 +573,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                     blacklist_rses = [bl_lock.rse_id for bl_lock in locks[(file['scope'], file['name'])] if bl_lock.rule_id == rule.id]
                     try:
                         rse_tuples = rseselector.select_rse(size=file['bytes'],
-                                                            preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
+                                                            preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state in [ReplicaState.AVAILABLE, ReplicaState.COPYING, ReplicaState.TEMPORARY_UNAVAILABLE]],
                                                             copies=1,
                                                             blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
                         for rse_tuple in rse_tuples:
@@ -645,7 +645,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                 # Check if there are actually already enough locks
                 if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
                     # Remove the lock
-                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock' % (file['scope'], file['name'], str(rule.id)))
+                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock', file['scope'], file['name'], str(rule.id))
                     if lock.rse_id in locks_to_delete:
                         locks_to_delete[lock.rse_id].append(lock)
                     else:
@@ -653,12 +653,12 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                     rule.locks_stuck_cnt -= 1
                     continue
                 # Check if the replica is AVAILABLE now
-                if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id]:
+                if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state in [ReplicaState.AVAILABLE, ReplicaState.TEMPORARY_UNAVAILABLE] and replica.rse_id == lock.rse_id]:
                     lock.state = LockState.OK
                     rule.locks_stuck_cnt -= 1
                     rule.locks_ok_cnt += 1
                     # Recalculate the replica_lock_cnt
-                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id][0]
+                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.state in [ReplicaState.AVAILABLE, ReplicaState.TEMPORARY_UNAVAILABLE] and replica.rse_id == lock.rse_id][0]
                     associated_replica.tombstone = None
                     associated_replica.lock_cnt = session.query(func.count(models.ReplicaLock.rule_id)).filter_by(scope=associated_replica.scope, name=associated_replica.name, rse_id=lock.rse_id).one()[0]
                     continue
@@ -720,7 +720,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                 # Check if there are actually already enough locks
                 if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
                     # Remove the lock
-                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock' % (file['scope'], file['name'], str(rule.id)))
+                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock', file['scope'], file['name'], str(rule.id))
                     if lock.rse_id in locks_to_delete:
                         locks_to_delete[lock.rse_id].append(lock)
                     else:
@@ -728,12 +728,12 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                     rule.locks_stuck_cnt -= 1
                     continue
                 # Check if the replica is AVAILABLE now
-                if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id]:
+                if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state in [ReplicaState.AVAILABLE, ReplicaState.TEMPORARY_UNAVAILABLE] and replica.rse_id == lock.rse_id]:
                     lock.state = LockState.OK
                     rule.locks_stuck_cnt -= 1
                     rule.locks_ok_cnt += 1
                     # Recalculate the replica_lock_cnt
-                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id][0]
+                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.state in [ReplicaState.AVAILABLE, ReplicaState.TEMPORARY_UNAVAILABLE] and replica.rse_id == lock.rse_id][0]
                     associated_replica.tombstone = None
                     associated_replica.lock_cnt = session.query(func.count(models.ReplicaLock.rule_id)).filter_by(scope=associated_replica.scope, name=associated_replica.name, rse_id=lock.rse_id).one()[0]
                     continue
@@ -836,11 +836,11 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
 
     existing_replicas = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == rse_id]
 
-    if len(existing_replicas) > 0:  # A replica already exists (But could be UNAVAILABLE)
+    if existing_replicas:  # A replica already exists (But could be UNAVAILABLE)
         existing_replica = existing_replicas[0]
 
         # Replica is fully available -- AVAILABLE
-        if existing_replica.state == ReplicaState.AVAILABLE:
+        if existing_replica.state in [ReplicaState.AVAILABLE, ReplicaState.TEMPORARY_UNAVAILABLE]:
             new_lock = __create_lock(rule=rule,
                                      rse_id=rse_id,
                                      scope=file['scope'],
@@ -975,18 +975,18 @@ def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica):
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_ok_cnt += 1
-        logging.debug('Creating OK Lock %s:%s for rule %s' % (scope, name, str(rule.id)))
+        logging.debug('Creating OK Lock %s:%s for rule %s', scope, name, str(rule.id))
     elif state == LockState.REPLICATING:
         existing_replica.state = ReplicaState.COPYING
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_replicating_cnt += 1
-        logging.debug('Creating REPLICATING Lock %s:%s for rule %s' % (scope, name, str(rule.id)))
+        logging.debug('Creating REPLICATING Lock %s:%s for rule %s', scope, name, str(rule.id))
     elif state == LockState.STUCK:
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_stuck_cnt += 1
-        logging.debug('Creating STUCK Lock %s:%s for rule %s' % (scope, name, str(rule.id)))
+        logging.debug('Creating STUCK Lock %s:%s for rule %s', scope, name, str(rule.id))
     return new_lock
 
 
@@ -1029,7 +1029,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
     :attention:                  This method modifies the contents of the transfers_to_create input parameters.
     """
 
-    logging.debug('Updating Lock %s:%s for rule %s' % (lock.scope, lock.name, str(rule.id)))
+    logging.debug('Updating Lock %s:%s for rule %s', lock.scope, lock.name, str(rule.id))
     lock.state = LockState.REPLICATING
     rule.locks_stuck_cnt -= 1
     rule.locks_replicating_cnt += 1
