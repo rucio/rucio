@@ -30,9 +30,9 @@ from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
 from rucio.db.sqla.session import get_session
 from rucio.common.config import config_get
 from rucio.common.utils import chunks
-from rucio.core.replica import get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,\
-                               get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,\
-                               bulk_delete_bad_pfn
+from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
+                                get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,
+                                bulk_delete_bad_pfn)
 from rucio.core.rse import get_rse_id
 
 from rucio.core import heartbeat
