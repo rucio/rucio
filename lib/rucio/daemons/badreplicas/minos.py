@@ -132,7 +132,6 @@ def minos(bulk=1000, once=False, sleep_time=60):
                 if unknown_replicas:
                     logging.info(prepend_str + 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
                     bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
-
                 for rse in dict_rse:
                     replicas = []
                     rse_id = get_rse_id(rse=rse, session=None)
@@ -157,7 +156,6 @@ def minos(bulk=1000, once=False, sleep_time=60):
                     except Exception:
                         session.rollback()  # pylint: disable=no-member
                         logging.critical(traceback.format_exc())
-
         except Exception as error:
             logging.error(prepend_str + '%s' % (str(error)))
 
