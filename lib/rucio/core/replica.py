@@ -1024,6 +1024,11 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     if 'scope' in file and 'name' in file:
         file['rses'] = {}
 
+        # also do it for the last replica if necessary
+        if resolve_parents and 'parents' not in file:
+            file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+                               for parent in rucio.core.did.list_parent_dids(file['scope'], file['name'], session=session)]
+
         # also sort the pfns inside the rse structure
         rse_pfns = []
         for t_rse, t_priority, t_pfn in [(file['pfns'][t_pfn]['rse'], file['pfns'][t_pfn]['priority'], t_pfn) for t_pfn in file['pfns']]:
