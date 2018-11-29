@@ -47,7 +47,7 @@ before_script:
 script:
   - if [[ $SUITE == "syntax" ]]; then ./tools/travis/check_syntax.sh  ; fi
   - if [[ $SUITE == "python3" ]]; then ./tools/travis/check_python_3.sh  ; fi
-  - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" !=  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; fi
+  - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" !=  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; nosetests -v lib/rucio/tests/test_module_import.py ; fi
   - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" ==  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; nosetests -v lib/rucio/tests/test_bin_rucio.py ; fi
   - if [[ $SUITE == "all" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_tests_docker.sh -1q" ; fi
 
