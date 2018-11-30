@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
@@ -43,9 +43,10 @@ from rucio.core.replica import (add_replica, add_replicas, delete_replicas,
                                 update_replica_lock_counter, get_replica, list_replicas,
                                 declare_bad_file_replicas, list_bad_replicas,
                                 update_replicas_paths, update_replica_state,
-                                get_replica_atime, touch_replica)
+                                get_replica_atime, touch_replica, get_bad_pfns)
 from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_attribute
-from rucio.daemons.necromancer import run
+from rucio.daemons.badreplicas.necromancer import run as necromancer_run
+from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, rse_name_generator
 from rucio.web.rest.authentication import APP as auth_app
@@ -414,7 +415,7 @@ class TestReplicaClients:
         assert_equal(len(replicas), nbbadrep)
 
         # Run necromancer once
-        run(threads=1, bulk=10000, once=True)
+        necromancer_run(threads=1, bulk=10000, once=True)
 
         # Try to attach a lost file
         tmp_dsn = 'dataset_%s' % generate_uuid()
@@ -588,13 +589,45 @@ class TestReplicaClients:
         """ REPLICA (CLIENT): Add and delete file replicas """
         tmp_scope = 'mock'
         nbfiles = 5
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK', files=files)
         with assert_raises(AccessDenied):
             self.replica_client.delete_replicas(rse='MOCK', files=files)
 
         # replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])]
         # assert_equal(len(replicas), 0)
+
+    def test_add_bad_pfns(self):
+        """ REPLICA (CLIENT): Add bad replicas"""
+        tmp_scope = 'mock'
+        nbfiles = 5
+        # Adding replicas to deterministic RSE
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        self.replica_client.add_replicas(rse='MOCK', files=files)
+
+        # Listing replicas on deterministic RSE
+        list_rep = []
+        for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+            list_rep.append(replica)
+
+        # Submit bad PFNs
+        now = datetime.now()
+        self.replica_client.add_bad_pfns(pfns='replicas', reason='Lost pool', state='TEMPORARY_UNAVAILABLE', expires_at=now)
+        result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
+        pfns = [res['pfn'] for res in result]
+        state, reason, expires_at = result[0]['state'], result[0]['reason'], result[0]['expires_at']
+        pfns.sort()
+        list_rep.sort()
+        assert_equal(pfns, list_rep)
+        assert_equal(state, 'TEMPORARY_UNAVAILABLE')
+        assert_equal(reason, 'Lost pool')
+        assert_equal(expires_at, now)
+
+        # Run minos once
+        minos_run(threads=1, bulk=10000, once=True)
+        result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
+        pfns = [res['pfn'] for res in result]
+        assert_equal(pfns, [])
 
 
 class TestReplicaMetalink:
