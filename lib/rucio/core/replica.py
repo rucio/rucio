@@ -749,6 +749,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
 
+
     # we need to retain knowledge of the original domain selection by the user
     # in case we have to loop over replicas with a potential outgoing proxy
     original_domain = deepcopy(domain)
@@ -822,12 +823,16 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 tmp_archive = new_pfn
                             if 'xrdcl.unzip' not in tmp_archive:
                                 archive['pfns'][tmp_archive]['client_extract'] = True
-                        yield archive
-                    continue
+
+                            pfns.append((tmp_archive, 'zip',
+                                         archive['pfns'][tmp_archive]['priority'],
+                                         archive['pfns'][tmp_archive]['client_extract'],
+                                         archive['pfns'][tmp_archive]))
 
                 # now, repeat the procedure slightly different in case if there are replicas available
                 # and make the archive just an additional available PFN
                 available_archives = [r['pfns'] for r in archive_result if r['pfns'] != {}]
+
                 for archive in available_archives:
                     for archive_pfn in archive:
                         # at this point we don't know the protocol of the parent, so we have to peek
@@ -1009,6 +1014,15 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         file['pfns'][tmp_pfn[0]] = {'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
                                                     'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
                                                     'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
+                                                    'domain': tmp_pfn[1],
+                                                    'priority': tmp_pfn[2],
+                                                    'client_extract': tmp_pfn[3]}
+                else:
+                    # extract properly the pfn from the tuple of the rse-expression restricted archive
+                    for tmp_pfn in pfns:
+                        file['pfns'][tmp_pfn[0]] = {'rse': tmp_pfn[4]['rse'],
+                                                    'type': tmp_pfn[4]['type'],
+                                                    'volatile': tmp_pfn[4]['volatile'],
                                                     'domain': tmp_pfn[1],
                                                     'priority': tmp_pfn[2],
                                                     'client_extract': tmp_pfn[3]}
