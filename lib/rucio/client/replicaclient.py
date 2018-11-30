@@ -279,3 +279,24 @@ class ReplicaClient(BaseClient):
 
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
+
+    def add_bad_pfns(self, pfns, reason, state, expires_at):
+        """
+        Declare a list of bad replicas.
+
+        :param pfns: The list of PFNs.
+        :param reason: The reason of the loss.
+        :param state: The state of the replica. Either BAD, SUSPICIOUS, TEMPORARY_UNAVAILABLE
+        :param expires_at: Specify a timeout for the TEMPORARY_UNAVAILABLE replicas. None for BAD files.
+
+        :return: True if PFNs were created successfully.
+
+        """
+        data = {'reason': reason, 'pfns': pfns, 'state': state, 'expires_at': expires_at}
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad/pfns']))
+        headers = {}
+        r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
+        if r.status_code == codes.created:
+            return True
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)

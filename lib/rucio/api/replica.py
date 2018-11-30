@@ -212,3 +212,23 @@ def list_datasets_per_rse(rse, filters=None, limit=None):
     :returns: A list of dict dataset replicas
     """
     return replica.list_datasets_per_rse(rse, filters=filters, limit=limit)
+
+
+def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None):
+    """
+    Add bad PFNs.
+
+    :param pfns: the list of new files.
+    :param issuer: The issuer account.
+    :param state: One of the possible states : BAD, SUSPICIOUS, TEMPORARY_UNAVAILABLE.
+    :param reason: A string describing the reason of the loss.
+    :param expires_at: Specify a timeout for the TEMPORARY_UNAVAILABLE replicas. None for BAD files.
+
+    :param session: The database session in use.
+
+    :returns: True is successful.
+    """
+    kwargs = {'state': state}
+    if not permission.has_permission(issuer=issuer, action='add_bad_pfns', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not declare bad PFNs' % (issuer))
+    return replica.add_bad_pfns(pfns=pfns, account=issuer, state=state, reason=reason, expires_at=expires_at)
