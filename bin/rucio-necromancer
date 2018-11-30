@@ -28,7 +28,7 @@ Necromancer Daemon : Bring the dead files back to life
 import argparse
 import signal
 
-from rucio.daemons.badreplicas..necromancer import run, stop
+from rucio.daemons.badreplicas.necromancer import run, stop
 
 
 def get_parser():
