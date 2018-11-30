@@ -2589,6 +2589,29 @@ def bulk_delete_bad_replicas(bad_replicas, session=None):
 
 
 @transactional_session
+def bulk_delete_bad_replicas(bad_replicas, session=None):
+    """
+    Bulk delete bad replica.
+
+    :param bad_replicas:    The list of bad replicas to delete (Dictionaries).
+    :param session:         The database session in use.
+
+    :returns: True is successful.
+    """
+    replica_clause = []
+    for replica in bad_replicas:
+        replica_clause.append(and_(models.BadReplicas.scope == replica['scope'],
+                                   models.BadReplicas.name == replica['name'],
+                                   models.BadReplicas.rse_id == replica['rse_id'],
+                                   models.BadReplicas.state == replica['state']))
+
+    for chunk in chunks(replica_clause, 100):
+        session.query(models.BadReplicas.filter(or_(*chunk))).\
+            delete(synchronize_session=False)
+    return True
+
+
+@transactional_session
 def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=None):
     """
     Add bad PFNs.
