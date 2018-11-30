@@ -30,10 +30,11 @@ import time
 from sys import exc_info, stdout, argv
 from traceback import format_exception
 
+from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
 from rucio.core import monitor, heartbeat
-from rucio.core.replica import list_bad_replicas, list_replicas, list_bad_replicas_history, update_bad_replicas_history
+from rucio.core.replica import list_bad_replicas, get_replicas_state, list_bad_replicas_history, update_bad_replicas_history
 from rucio.core.rule import update_rules_for_lost_replica, update_rules_for_bad_replica
 
 
@@ -80,9 +81,9 @@ def necromancer(thread=0, bulk=5, once=False):
                 scope, name, rse_id, rse = replica['scope'], replica['name'], replica['rse_id'], replica['rse']
                 logging.info(prepend_str + 'Working on %s:%s on %s' % (scope, name, rse))
 
-                rep = [r for r in list_replicas([{'scope': scope, 'name': name}, ])]
-                if (not rep[0]['rses']) or (rep[0]['rses'].keys() == [rse]):
-                    logging.info(prepend_str + 'File %s:%s has no other replicas, it will be marked as lost' % (scope, name))
+                replicas = get_replicas_state(scope=scope, name=name)
+                if ReplicaState.AVAILABLE not in replicas and ReplicaState.TEMPORARY_UNAVAILABLE not in replicas:
+                    logging.info(prepend_str + 'File %s:%s has no other available or temporary available replicas, it will be marked as lost' % (scope, name))
                     try:
                         update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                         monitor.record_counter(counters='necromancer.badfiles.lostfile', delta=1)
@@ -90,7 +91,9 @@ def necromancer(thread=0, bulk=5, once=False):
                         logging.info(prepend_str + '%s' % (str(error)))
 
                 else:
-                    logging.info(prepend_str + 'File %s:%s can be recovered. Available sources : %s' % (scope, name, str(rep[0]['rses'])))
+                    rep = replicas.get(ReplicaState.AVAILABLE, [])
+                    unavailable_rep = replicas.get(ReplicaState.TEMPORARY_UNAVAILABLE, [])
+                    logging.info(prepend_str + 'File %s:%s can be recovered. Available sources : %s + Unavailable sources : %s' % (scope, name, str(rep), str(unavailable_rep)))
                     try:
                         update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                         monitor.record_counter(counters='necromancer.badfiles.recovering', delta=1)
@@ -145,8 +148,8 @@ def run(threads=1, bulk=100, once=False):
         logging.info('waiting for interrupts')
 
         # Interruptible joins require a timeout.
-        while len(thread_list) > 0:
-            thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
+        while thread_list:
+            thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.isAlive()]
 
 
 def stop(signum=None, frame=None):

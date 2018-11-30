@@ -612,7 +612,7 @@ class TestReplicaClients:
 
         # Submit bad PFNs
         now = datetime.now()
-        self.replica_client.add_bad_pfns(pfns='replicas', reason='Lost pool', state='TEMPORARY_UNAVAILABLE', expires_at=now)
+        self.replica_client.add_bad_pfns(pfns='replicas', reason='Lost pool', state='TEMPORARY_UNAVAILABLE', expires_at=now.isoformat())
         result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
         pfns = [res['pfn'] for res in result]
         state, reason, expires_at = result[0]['state'], result[0]['reason'], result[0]['expires_at']
