@@ -722,7 +722,7 @@ class BadPFNs(MethodView):
             if 'state' in params:
                 reason = params['state']
             if 'expires_at' in params:
-                expires_at = params['expires_at']
+                expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 

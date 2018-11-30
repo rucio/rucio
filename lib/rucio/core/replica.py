@@ -2648,3 +2648,23 @@ def list_expired_temporary_unavailable_replicas(total_workers, worker_number, li
     query = query.limit(limit)
 
     return query.all()
+
+
+@read_session
+def get_replicas_state(scope=None, name=None, session=None):
+    """
+    Method used by the necromancer to get all the replicas of a DIDs
+    :param scope: The scope of the file.
+    :param name: The name of the file.
+
+    :param session: The database session in use.
+    """
+
+    query = session.query(models.RSEFileAssociation.rse_id, models.RSEFileAssociation.state).filter_by(scope=scope, name=name)
+    states = {}
+    for res in query.all():
+        rse_id, state = res
+        if state not in states:
+            states[state] = []
+        states[state].append(rse_id)
+    return states
