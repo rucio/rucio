@@ -2565,6 +2565,29 @@ def bulk_delete_bad_pfn(pfns, session=None):
 
 
 @transactional_session
+def bulk_delete_bad_replicas(bad_replicas, session=None):
+    """
+    Bulk delete bad replica.
+
+    :param bad_replicas:    The list of bad replicas to delete (Dictionaries).
+    :param session:         The database session in use.
+
+    :returns: True is successful.
+    """
+    replica_clause = []
+    for replica in bad_replicas:
+        replica_clause.append(and_(models.BadReplicas.scope == replica['scope'],
+                                   models.BadReplicas.name == replica['name'],
+                                   models.BadReplicas.rse_id == replica['rse_id'],
+                                   models.BadReplicas.state == replica['state']))
+
+    for chunk in chunks(replica_clause, 100):
+        session.query(models.BadReplicas.filter(or_(*chunk))).\
+            delete(synchronize_session=False)
+    return True
+
+
+@transactional_session
 def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=None):
     """
     Add bad PFNs.
@@ -2594,3 +2617,34 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
             raise exception.Duplicate('One PFN already exists!')
         raise exception.RucioException(error.args)
     return True
+
+
+@read_session
+def list_expired_temporary_unavailable_replicas(total_workers, worker_number, limit=10000, session=None):
+    """
+    List the expired temporary unavailable replicas
+
+    :param total_workers:   Number of total workers.
+    :param worker_number:   id of the executing worker.
+    :param limit:           The maximum number of replicas returned.
+    :param session:         The database session in use.
+    """
+
+    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
+        filter(models.BadReplicas.state == BadFilesStatus.TEMPORARY_UNAVAILABLE).\
+        filter(models.BadReplicas.expires_at < datetime.utcnow()).\
+        with_hint(models.ReplicationRule, "index(bad_replicas BAD_REPLICAS_EXPIRES_AT_IDX)", 'oracle').\
+        order_by(models.BadReplicas.expires_at)
+
+    if session.bind.dialect.name == 'oracle':
+        bindparams = [bindparam('worker_number', worker_number),
+                      bindparam('total_workers', total_workers)]
+        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+    elif session.bind.dialect.name == 'mysql':
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
+    elif session.bind.dialect.name == 'postgresql':
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+
+    query = query.limit(limit)
+
+    return query.all()
