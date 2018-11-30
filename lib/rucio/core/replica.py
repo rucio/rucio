@@ -2545,20 +2545,6 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
 
 
 @transactional_session
-def bulk_add_bad_pfn(pfns, account, reason=None, session=None):
-    """
-    Bulk add bad PFNs.
-
-    :param pfns: the list of new files.
-    :param account: The account who declared the bad replicas.
-    :param session: The database session in use.
-
-    :returns: True is successful.
-    """
-    raise NotImplementedError
-
-
-@transactional_session
 def bulk_delete_bad_pfn(pfns, session=None):
     """
     Bulk delete bad PFNs.
@@ -2575,4 +2561,36 @@ def bulk_delete_bad_pfn(pfns, session=None):
     for chunk in chunks(pfn_clause, 100):
         session.query(models.BadPFNs.filter(or_(*chunk))).\
             delete(synchronize_session=False)
+    return True
+
+
+@transactional_session
+def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=None):
+    """
+    Add bad PFNs.
+
+    :param pfns: the list of new files.
+    :param account: The account who declared the bad replicas.
+    :param state: One of the possible states : BAD, SUSPICIOUS, TEMPORARY_UNAVAILABLE.
+    :param reason: A string describing the reason of the loss.
+    :param expires_at: Specify a timeout for the TEMPORARY_UNAVAILABLE replicas. None for BAD files.
+
+    :param session: The database session in use.
+
+    :returns: True is successful.
+    """
+
+    for pfn in pfns:
+        new_pfn = models.BadPFNs(path=pfn, account=account, state=state, expires_at=expires_at)
+        new_pfn.save(session=session, flush=False)
+    try:
+        session.flush()
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+    except DatabaseError as error:
+        raise exception.RucioException(error.args)
+    except FlushError as error:
+        if match('New instance .* with identity key .* conflicts with persistent instance', error.args[0]):
+            raise exception.Duplicate('One PFN already exists!')
+        raise exception.RucioException(error.args)
     return True
