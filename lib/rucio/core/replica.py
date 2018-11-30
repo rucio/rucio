@@ -749,7 +749,6 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
 
-
     # we need to retain knowledge of the original domain selection by the user
     # in case we have to loop over replicas with a potential outgoing proxy
     original_domain = deepcopy(domain)
