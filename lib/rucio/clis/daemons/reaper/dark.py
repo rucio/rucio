@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vgaronne@gmail.com>, 2016-2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
 """
 Reaper is a daemon to manage file on disk but not in Rucio(dark data) deletion
@@ -29,7 +30,7 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="The Dark-Reaper daemon is responsible for the deletion of quarantined replicas.")
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--all-rses", action="store_true", default=False, help='Select RSEs from the quarantined queues')
     parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers per process')
