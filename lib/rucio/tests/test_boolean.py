@@ -44,10 +44,10 @@ class TestBoolean:
 
     def test_booleanstring_account_attribute(self):
         self.account_client.add_account_attribute(self.account, 'teststringtrue', 'true')
-        self.account_client.add_account_attribute(self.account, 'testinttrue',  '1')
+        self.account_client.add_account_attribute(self.account, 'testinttrue', '1')
 
         self.account_client.add_account_attribute(self.account, 'teststringfalse', 'false')
-        self.account_client.add_account_attribute(self.account, 'testintfalse',  '0')
+        self.account_client.add_account_attribute(self.account, 'testintfalse', '0')
 
         result = {}
         for account in self.account_client.list_account_attributes(self.account):
@@ -61,10 +61,10 @@ class TestBoolean:
 
     def test_booleanstring_rse_attribute(self):
         self.rse_client.add_rse_attribute(self.rse, 'teststringtrue', 'true')
-        self.rse_client.add_rse_attribute(self.rse, 'testinttrue',  '1')
+        self.rse_client.add_rse_attribute(self.rse, 'testinttrue', '1')
 
         self.rse_client.add_rse_attribute(self.rse, 'teststringfalse', 'false')
-        self.rse_client.add_rse_attribute(self.rse, 'testintfalse',  '0')
+        self.rse_client.add_rse_attribute(self.rse, 'testintfalse', '0')
 
         result = self.rse_client.list_rse_attributes(self.rse)
 
