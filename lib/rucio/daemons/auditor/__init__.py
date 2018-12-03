@@ -69,7 +69,7 @@ def consistency(rse, delta, configuration, cache_dir, results_dir):
 
 
 def guess_replica_info(path):
-    """Try to extract the scope and name from a path
+    """Try to extract the scope and name from a path.
 
     ``path`` should be an ``str`` with the relative path to the file on
     the RSE.
@@ -87,7 +87,7 @@ def guess_replica_info(path):
 
 
 def bz2_compress_file(source, chunk_size=65000):
-    """Compress a file with bzip2
+    """Compress a file with bzip2.
 
     The destination is the path passed through ``source`` extended with
     '.bz2'.  The original file is deleted.
@@ -115,7 +115,7 @@ def bz2_compress_file(source, chunk_size=65000):
 
 
 def process_output(output, sanity_check=True, compress=True):
-    """Perform post-consistency-check actions
+    """Perform post-consistency-check actions.
 
     DARK files are put in the quarantined-replica table so that they
     may be deleted by the Dark Reaper.  LOST files are currently
