@@ -7,11 +7,13 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 
 '''
 Probe to check the queues of messages to submit by Hermes to the broker
 '''
 
+from __future__ import print_function
 import sys
 
 from rucio.db.sqla.session import get_session
@@ -22,11 +24,34 @@ OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 if __name__ == "__main__":
     try:
-        session = get_session()
-        query = '''BEGIN
-        FOR u in (SELECT  rse_id, count(1) as files, sum(bytes) as bytes, sys_extract_utc(localtimestamp) as updated_at
-                  FROM ATLAS_RUCIO.ADG_ONLY_SCAN_REPLICAS
-                  WHERE tombstone is not null AND tombstone < sys_extract_utc(localtimestamp) GROUP BY rse_id)
+        SESSION = get_session()
+        QUERY = '''BEGIN
+        FOR u in (SELECT
+                      a.rse_id                        AS rse_id,
+                      NVL(b.files, 0)                 AS files,
+                      NVL(b.bytes, 0)                 AS bytes,
+                      sys_extract_utc(localtimestamp) AS updated_at
+                  FROM
+                      (
+                          SELECT
+                              id AS rse_id
+                          FROM
+                              atlas_rucio.rses
+                          WHERE
+                              deleted=0) a
+                  LEFT OUTER JOIN
+                      (
+                          SELECT
+                              rse_id,
+                              COUNT(1)   AS files,
+                              SUM(bytes) AS bytes
+                          FROM
+                              ATLAS_RUCIO.ADG_ONLY_SCAN_REPLICAS
+                          WHERE
+                                  tombstone IS NOT NULL
+                              AND tombstone < sys_extract_utc(localtimestamp) GROUP BY rse_id) b
+                          ON
+                              a.rse_id=b.rse_id)
         LOOP
                 MERGE INTO atlas_rucio.RSE_USAGE
                 USING DUAL
@@ -45,8 +70,8 @@ if __name__ == "__main__":
         END LOOP;
 END;
 '''
-        result = session.execute(query)
-    except Exception, e:
-        print e
+        SESSION.execute(QUERY)
+    except Exception as error:
+        print(error)
         sys.exit(UNKNOWN)
     sys.exit(OK)
