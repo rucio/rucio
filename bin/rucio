@@ -780,11 +780,13 @@ def stat(args):
     List attributes and statuses about data identifiers..
     """
     client = get_client(args)
-    for did in args.dids:
+    for i, did in enumerate(args.dids):
+        if i > 0:
+            print('------')
         scope, name = extract_scope(did)
         info = client.get_did(scope=scope, name=name)
-        for key, val in info.items():
-            print('%(key)s: %(val)s' % locals())
+        table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
+        print(tabulate.tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
@@ -1035,11 +1037,13 @@ def get_metadata(args):
     Get data identifier metadata
     """
     client = get_client(args)
-    for did in args.dids:
+    for i, did in enumerate(args.dids):
+        if i > 0:
+            print('------')
         scope, name = extract_scope(did)
         meta = client.get_metadata(scope=scope, name=name)
-        for k in meta:
-            print('%s: %s' % (k, meta[k]))
+        table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
+        print(tabulate.tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
@@ -1464,8 +1468,8 @@ def list_rse_attributes(args):
     """
     client = get_client(args)
     attributes = client.list_rse_attributes(rse=args.rse)
-    for k in attributes:
-        print('  ' + k + ': ' + str(attributes[k]))
+    table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]
+    print(tabulate.tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
