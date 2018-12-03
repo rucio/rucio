@@ -16,6 +16,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
 
 """
 Fax consumer is a daemon to retrieve rucio cache operation information to synchronize rucio catalog.
@@ -24,12 +25,11 @@ Fax consumer is a daemon to retrieve rucio cache operation information to synchr
 from traceback import format_exc
 
 import logging
-import ssl
 import sys
 import threading
 import time
 
-import dns.resolver
+import socket
 import json
 import stomp
 
@@ -106,8 +106,8 @@ def consumer(id, num_thread=1):
 
     brokers_resolved = []
     for broker in brokers_alias:
-        brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
-    brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+        brokers_resolved.extend(ai[4][0] for ai in addrinfos)
 
     logging.debug('Rucio cache brokers resolved to %s', brokers_resolved)
 
@@ -117,7 +117,8 @@ def consumer(id, num_thread=1):
                                 use_ssl=True,
                                 ssl_key_file=config_get('messaging-cache', 'ssl_key_file'),
                                 ssl_cert_file=config_get('messaging-cache', 'ssl_cert_file'),
-                                ssl_version=ssl.PROTOCOL_TLSv1)
+                                vhost=config_get('messaging-cache', 'broker_virtual_host', raise_exception=False)
+                                )
         conns[conn] = Consumer(conn.transport._Transport__host_and_ports[0], account=config_get('messaging-cache', 'account'), id=id, num_thread=num_thread)
 
     logging.info('consumer started')
