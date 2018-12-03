@@ -32,7 +32,6 @@ import random
 import signal
 import time
 
-from builtins import round
 try:
     from Queue import Queue, Empty, deque
 except ImportError:
