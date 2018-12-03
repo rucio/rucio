@@ -13,7 +13,6 @@ pysftp==0.2.9                                     # forces installation of param
 pycrypto==2.6.1                                   # Cryptographic modules
 s3cmd==2.0.1                                      # Package built from http://s3tools.org/download
 stomp.py==4.1.20                                  # ActiveMQ Messaging Protocol
-dnspython==1.15.0                                 # To resolve ActiveMQ broker alias
 pystatsd==0.1.10; python_version == '2.7'         # Needed to log into graphite with more than 1 Hz
 pygeoip==0.3.2                                    # GeoIP API
 geoip2==2.8.0                                     # GeoIP2 API (for IPv6 support)

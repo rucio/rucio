@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Cedric Serfon <cedric.serfon@cern,ch>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -28,6 +29,7 @@ This daemon consumes tracer messages from ActiveMQ and updates the atime for rep
 
 import logging
 import re
+import socket
 
 from datetime import datetime
 from json import loads as jloads, dumps as jdumps
@@ -36,14 +38,11 @@ try:
     from Queue import Queue  # py2
 except ImportError:
     from queue import Queue  # py3
-from socket import gethostname
-from ssl import PROTOCOL_TLSv1
 from sys import stdout
 from threading import Event, Thread, current_thread
 from time import sleep, time
 from traceback import format_exc
 
-from dns import resolver
 from stomp import Connection
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
@@ -265,7 +264,7 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
 
     logging.info('tracer consumer starting')
 
-    hostname = gethostname()
+    hostname = socket.gethostname()
     pid = getpid()
     thread = current_thread()
 
@@ -296,19 +295,21 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
         password = config_get('tracer-kronos', 'password')
 
     excluded_usrdns = set(config_get('tracer-kronos', 'excluded_usrdns').split(','))
+    vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
 
     conns = []
     for broker in brokers_resolved:
         if not use_ssl:
             conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
                                     use_ssl=False,
+                                    vhost=vhost,
                                     reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
         else:
             conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
                                     use_ssl=True,
                                     ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'),
                                     ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file'),
-                                    ssl_version=PROTOCOL_TLSv1,
+                                    vhost=vhost,
                                     reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
 
     logging.info('(kronos_file) tracer consumer started')
@@ -355,7 +356,7 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
 def kronos_dataset(once=False, thread=0, dataset_queue=None, sleep_time=60):
     logging.info('(kronos_dataset) starting')
 
-    hostname = gethostname()
+    hostname = socket.gethostname()
     pid = getpid()
     thread = current_thread()
 
@@ -463,8 +464,8 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
 
     brokers_resolved = []
     for broker in brokers_alias:
-        brokers_resolved.append([str(tmp_broker) for tmp_broker in resolver.query(broker, 'A')])
-    brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+        brokers_resolved.extend(ai[4][0] for ai in addrinfos)
 
     logging.debug('brokers resolved to %s', brokers_resolved)
 

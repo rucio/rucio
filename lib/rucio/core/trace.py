@@ -16,6 +16,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
 
 """
 Core tracer module
@@ -26,8 +27,8 @@ import logging
 import logging.handlers
 import random
 import sys
+import socket
 
-import dns.resolver
 import stomp
 
 from rucio.common.config import config_get, config_get_int
@@ -61,6 +62,7 @@ try:
     TOPIC = config_get('trace', 'topic')
     USERNAME = config_get('trace', 'username')
     PASSWORD = config_get('trace', 'password')
+    VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
 except:
     if 'sphinx' not in sys.modules:
         raise
@@ -69,15 +71,15 @@ logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 for broker in BROKERS_ALIAS:
     try:
-        BROKERS_RESOLVED.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
-        BROKERS_RESOLVED = [item for sublist in BROKERS_RESOLVED for item in sublist]
+        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+        BROKERS_RESOLVED = [ai[4][0] for ai in addrinfos]
     except:
         pass
 
 CONNS = []
 
 for broker in BROKERS_RESOLVED:
-    CONNS.append(stomp.Connection(host_and_ports=[(broker, PORT)], reconnect_attempts_max=3))
+    CONNS.append(stomp.Connection(host_and_ports=[(broker, PORT)], vhost=VHOST, reconnect_attempts_max=3))
 
 
 def date_handler(obj):
