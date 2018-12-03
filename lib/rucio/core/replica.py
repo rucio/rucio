@@ -2606,7 +2606,7 @@ def bulk_delete_bad_replicas(bad_replicas, session=None):
                                    models.BadReplicas.state == replica['state']))
 
     for chunk in chunks(replica_clause, 100):
-        session.query(models.BadReplicas.filter(or_(*chunk))).\
+        session.query(models.BadReplicas).filter(or_(*chunk)).\
             delete(synchronize_session=False)
     return True
 
