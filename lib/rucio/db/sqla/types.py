@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2018
 #
 # PY3K COMPATIBLE
 
@@ -93,9 +93,9 @@ class BooleanString(TypeDecorator):
         if value is None:
             return value
 
-        if value == '1':
+        if value.lower() in ['1', 'true']:
             return True
-        elif value == '0':
+        elif value.lower() in ['0', 'false']:
             return False
         else:
             return value
