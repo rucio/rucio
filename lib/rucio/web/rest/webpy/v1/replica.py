@@ -47,7 +47,7 @@ from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replica
                                get_bad_replicas_summary, list_datasets_per_rse)
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.common.config import config_get
-from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
+from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
@@ -713,6 +713,7 @@ class BadPFNs(RucioController):
             200 OK
 
         HTTP Error:
+            400 BadRequest
             401 Unauthorized
             409 Conflict
             500 InternalError
@@ -731,7 +732,7 @@ class BadPFNs(RucioController):
             if 'reason' in params:
                 reason = params['reason']
             if 'state' in params:
-                reason = params['state']
+                state = params['state']
             if 'expires_at' in params:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
 
@@ -740,6 +741,8 @@ class BadPFNs(RucioController):
 
         try:
             add_bad_pfns(pfns=pfns, issuer=ctx.env.get('issuer'), state=state, reason=reason, expires_at=expires_at)
+        except (ValueError, InvalidType) as error:
+            raise generate_http_error(400, 'ValueError', error.args[0])
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except ReplicaNotFound as error:

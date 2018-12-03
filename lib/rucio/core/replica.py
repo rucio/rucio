@@ -2512,7 +2512,7 @@ def get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None):
     query.order_by(models.BadPFNs.created_at)
     query = query.limit(limit)
     for path, state, reason, account, expires_at in query.yield_per(1000):
-        result.append({'pfn': path, 'state': state, 'reason': reason, 'account': account, 'expires_at': expires_at})
+        result.append({'pfn': clean_surls([str(path)])[0], 'state': state, 'reason': reason, 'account': account, 'expires_at': expires_at})
     return result
 
 
@@ -2529,7 +2529,7 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
     :returns: True is successful.
     """
     for replica in replicas:
-        new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['nam'], rse_id=replica['rse_id'], reason=reason, state=state, account=account, bytes=None)
+        new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason, state=state, account=account, bytes=None)
         new_bad_replica.save(session=session, flush=False)
     try:
         session.flush()
@@ -2545,7 +2545,7 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
 
 
 @transactional_session
-def bulk_delete_bad_pfn(pfns, session=None):
+def bulk_delete_bad_pfns(pfns, session=None):
     """
     Bulk delete bad PFNs.
 
@@ -2559,8 +2559,9 @@ def bulk_delete_bad_pfn(pfns, session=None):
         pfn_clause.append(models.BadPFNs.path == pfn)
 
     for chunk in chunks(pfn_clause, 100):
-        session.query(models.BadPFNs.filter(or_(*chunk))).\
-            delete(synchronize_session=False)
+        query = session.query(models.BadPFNs).filter(or_(*chunk))
+        query.delete(synchronize_session=False)
+
     return True
 
 
@@ -2582,7 +2583,7 @@ def bulk_delete_bad_replicas(bad_replicas, session=None):
                                    models.BadReplicas.state == replica['state']))
 
     for chunk in chunks(replica_clause, 100):
-        session.query(models.BadReplicas.filter(or_(*chunk))).\
+        session.query(models.BadReplicas).filter(or_(*chunk)).\
             delete(synchronize_session=False)
     return True
 
@@ -2602,9 +2603,12 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
 
     :returns: True is successful.
     """
+    if isinstance(state, str) or isinstance(state, unicode):
+        rep_state = ReplicaState.from_sym(state)
 
+    pfns = clean_surls(pfns)
     for pfn in pfns:
-        new_pfn = models.BadPFNs(path=pfn, account=account, state=state, expires_at=expires_at)
+        new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
         new_pfn.save(session=session, flush=False)
     try:
         session.flush()
