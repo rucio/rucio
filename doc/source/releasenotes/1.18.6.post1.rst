@@ -1,0 +1,13 @@
+============
+1.18.6.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Traces: Kronos crashes when updating eol_at `#1825 <https://github.com/rucio/rucio/issues/1825>`_
