@@ -39,7 +39,7 @@ from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replica
                                declare_suspicious_file_replicas, list_bad_replicas_status,
                                get_bad_replicas_summary, list_datasets_per_rse)
 from rucio.db.sqla.constants import BadFilesStatus
-from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
+from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
@@ -728,6 +728,8 @@ class BadPFNs(MethodView):
 
         try:
             add_bad_pfns(pfns=pfns, issuer=request.environ.get('issuer'), state=state, reason=reason, expires_at=expires_at)
+        except (ValueError, InvalidType) as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except ReplicaNotFound as error:
