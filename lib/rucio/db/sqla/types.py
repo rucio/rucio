@@ -84,8 +84,13 @@ class BooleanString(TypeDecorator):
 
         if isinstance(value, bool):
             if value:
-                return '1'
-            return '0'
+                return 'true'
+            return 'false'
+        elif isinstance(value, str):
+            if value.lower() == 'true':
+                return 'true'
+            elif value.lower() == 'false':
+                return 'false'
 
         return str(value)
 
@@ -93,6 +98,7 @@ class BooleanString(TypeDecorator):
         if value is None:
             return value
 
+        # be backward compatible for now
         if value.lower() in ['1', 'true']:
             return True
         elif value.lower() in ['0', 'false']:
