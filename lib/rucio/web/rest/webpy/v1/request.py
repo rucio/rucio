@@ -26,6 +26,7 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, loadhook, header
 
 from rucio.api import request
+from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
 
@@ -35,7 +36,7 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('/(.+)/(.+)/(.+)', 'RequestGet',)
+URLS = ('%s/(.+)' % SCOPE_NAME_REGEXP, 'RequestGet',)
 
 
 class RequestGet(RucioController):
