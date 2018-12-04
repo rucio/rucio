@@ -24,7 +24,7 @@ Automatix (Dataset injector) Daemon
 import argparse
 import signal
 
-from rucio.tests.daemons.Automatix import run, stop
+from rucio.daemons.automatix.automatix import run, stop
 
 
 def get_parser():

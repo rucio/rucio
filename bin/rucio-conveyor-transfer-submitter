@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014-2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2016-2018
@@ -72,6 +72,9 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, stop)
     parser = get_parser()
     args = parser.parse_args()
+
+    print('\n\n\n\n\nDEPRECATION WARNING: This daemon will be deprecated, switch to rucio-conveyor-submitter!\n\n\n\n\n')
+
     try:
         run(once=args.run_once,
             bulk=args.bulk,
