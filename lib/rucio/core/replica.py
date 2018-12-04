@@ -743,7 +743,8 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
 
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    schemes, files, rse_clause, rse_expression, client_location, domain,
-                   sign_urls, signature_lifetime, constituents, session):
+                   sign_urls, signature_lifetime, constituents, resolve_parents,
+                   session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
              file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
@@ -762,6 +763,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 pass  # do not hard fail if site cannot be resolved or is empty
 
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
+
     for replicas in filter(None, files):
         for scope, name, bytes, md5, adler32, path, state, rse, rse_type, volatile in replicas:
 
@@ -769,6 +771,12 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
             # reset the domain selection to original user's choice (as this could get overwritten each iteration)
             domain = deepcopy(original_domain)
+
+            # resolve the parents only once per file, not per replica
+            # full name used due to circular import dependency between modules
+            if resolve_parents and 'parents' not in file:
+                file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+                                   for parent in rucio.core.did.list_parent_dids(scope, name, session=session)]
 
             # if the file is a constituent, find the available archives and add them to the list of possible PFNs
             # taking into account the original rse_expression
@@ -814,12 +822,16 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 tmp_archive = new_pfn
                             if 'xrdcl.unzip' not in tmp_archive:
                                 archive['pfns'][tmp_archive]['client_extract'] = True
-                        yield archive
-                    continue
+
+                            pfns.append((tmp_archive, 'zip',
+                                         archive['pfns'][tmp_archive]['priority'],
+                                         archive['pfns'][tmp_archive]['client_extract'],
+                                         archive['pfns'][tmp_archive]))
 
                 # now, repeat the procedure slightly different in case if there are replicas available
                 # and make the archive just an additional available PFN
                 available_archives = [r['pfns'] for r in archive_result if r['pfns'] != {}]
+
                 for archive in available_archives:
                     for archive_pfn in archive:
                         # at this point we don't know the protocol of the parent, so we have to peek
@@ -989,10 +1001,11 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     file = {}
 
             if not ('scope' in file and 'name' in file):
-                file = {'scope': scope, 'name': name, 'bytes': bytes,
-                        'md5': md5, 'adler32': adler32,
-                        'pfns': {}, 'rses': defaultdict(list),
-                        'states': {rse: str(state)}}
+                file['scope'], file['name'] = scope, name
+                file['bytes'], file['md5'], file['adler32'] = bytes, md5, adler32
+                file['pfns'], file['rses'] = {}, defaultdict(list)
+                file['states'] = {rse: str(state)}
+
                 if rse:
                     # extract properly the pfn from the tuple
                     file['rses'][rse] = list(set([tmp_pfn[0] for tmp_pfn in pfns]))
@@ -1000,6 +1013,15 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         file['pfns'][tmp_pfn[0]] = {'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
                                                     'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
                                                     'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
+                                                    'domain': tmp_pfn[1],
+                                                    'priority': tmp_pfn[2],
+                                                    'client_extract': tmp_pfn[3]}
+                else:
+                    # extract properly the pfn from the tuple of the rse-expression restricted archive
+                    for tmp_pfn in pfns:
+                        file['pfns'][tmp_pfn[0]] = {'rse': tmp_pfn[4]['rse'],
+                                                    'type': tmp_pfn[4]['type'],
+                                                    'volatile': tmp_pfn[4]['volatile'],
                                                     'domain': tmp_pfn[1],
                                                     'priority': tmp_pfn[2],
                                                     'client_extract': tmp_pfn[3]}
@@ -1014,6 +1036,11 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
     if 'scope' in file and 'name' in file:
         file['rses'] = {}
+
+        # also do it for the last replica if necessary
+        if resolve_parents and 'parents' not in file:
+            file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+                               for parent in rucio.core.did.list_parent_dids(file['scope'], file['name'], session=session)]
 
         # also sort the pfns inside the rse structure
         rse_pfns = []
@@ -1036,7 +1063,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
                   rse_expression=None, client_location=None, domain=None,
                   sign_urls=False, signature_lifetime=None, resolve_archives=True,
-                  session=None):
+                  resolve_parents=False, session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -1052,6 +1079,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param sign_urls: If set, will sign the PFNs if necessary.
     :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
     :param resolve_archives: When set to true, find archives which contain the replicas.
+    :param resolve_parents: When set to true, find all parent datasets which contain the replicas.
     :param session: The database session in use.
     """
 
@@ -1067,7 +1095,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
     for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
                             schemes, files, rse_clause, rse_expression, client_location, domain,
-                            sign_urls, signature_lifetime, constituents, session):
+                            sign_urls, signature_lifetime, constituents, resolve_parents, session):
         yield f
 
 
