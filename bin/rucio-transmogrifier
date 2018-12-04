@@ -27,7 +27,7 @@ Transmogrifier (Replication Rule Resolver) Daemon
 import argparse
 import signal
 
-from rucio.daemons.transmogrifier import run, stop
+from rucio.daemons.transmogrifier.transmogrifier import run, stop
 
 
 def get_parser():

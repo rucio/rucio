@@ -16,6 +16,7 @@
 # Authors:
 # - Vitjan Zavrtanik, <vitjan.zavrtanik@cern.ch>, 2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -25,7 +26,7 @@ Sonar is a daemon that tests inactive links.
 
 import signal
 
-from rucio.daemons.sonar_v3.sonar.sonar_v3_dev_daemon import run, stop
+from rucio.daemons.sonar.sonar.sonar_v3_dev_daemon import run, stop
 
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, stop)
