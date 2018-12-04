@@ -20,6 +20,7 @@
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 import json
 import logging
@@ -2892,13 +2893,9 @@ def __create_rule_approval_email(rule, session=None):
         free_space_after = 'undefined'
 
         try:
-            for usage in get_rse_usage(rse=target_rse, session=session):
-                if usage['source'] == 'storage':
-                    free_space = sizefmt(usage['free'])
-                    if did['bytes'] is None:
-                        free_space_after = 'undefined'
-                    else:
-                        free_space_after = sizefmt(usage['free'] - did['bytes'])
+            usage = get_rse_usage(rse=target_rse, source='storage', session=session)[0]
+            free_space = sizefmt(usage['free'])
+            free_space_after = sizefmt(usage['free'] - did['bytes'])
         except:
             pass
 
