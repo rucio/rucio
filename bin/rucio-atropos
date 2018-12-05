@@ -16,6 +16,7 @@
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+#
 # PY3K COMPATIBLE
 
 '''
@@ -25,7 +26,7 @@ Atropos Daemon : End the life of the rules according to the Lifetime Model
 import argparse
 import signal
 
-from rucio.daemons.atropos import run, stop
+from rucio.daemons.atropos.atropos import run, stop
 
 
 def get_parser():

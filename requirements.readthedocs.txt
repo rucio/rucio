@@ -1,4 +1,4 @@
-# All dependencies needed to run rucio should be defined here
+# All dependencies needed to run rucio are defined here
 
 SQLAlchemy==1.2.7                                 # db backend
 alembic==0.9.9                                    # Lightweight database migration tool for SQLAlchemy
