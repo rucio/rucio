@@ -2893,9 +2893,16 @@ def __create_rule_approval_email(rule, session=None):
         free_space_after = 'undefined'
 
         try:
+            replicas = rucio.core.replica.list_replicas(dids=[{'scope': rule.scope,
+                                                               'name': rule.name}],
+                                                        rse_expression=target_rse)
+            available_bytes = sum([r['bytes'] for r in replicas])
+        except:
+            available_bytes = 0
+        try:
             usage = get_rse_usage(rse=target_rse, source='storage', session=session)[0]
             free_space = sizefmt(usage['free'])
-            free_space_after = sizefmt(usage['free'] - did['bytes'])
+            free_space_after = sizefmt(usage['free'] - did['bytes'] + available_bytes)
         except:
             pass
 
