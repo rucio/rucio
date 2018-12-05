@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,24 +13,6 @@
 # limitations under the License.
 #
 # Authors:
-# - Vitjan Zavrtanik, <vitjan.zavrtanik@cern.ch>, 2017
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
-
-'''
-Sonar distribution daemon makes sure the datasets are at their respective RSE's.
-'''
-
-import signal
-
-from rucio.daemons.sonar.distribution.distribution_daemon import run, stop
-
-if __name__ == "__main__":
-
-    signal.signal(signal.SIGTERM, stop)
-    try:
-        run()
-    except KeyboardInterrupt:
-        stop()

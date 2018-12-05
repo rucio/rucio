@@ -7,6 +7,7 @@ Contributor Guide
 * The issue should contain the motivation, modification and expected results (discussions usually happen there).
 * No pull request will be merged without an associated issue (release notes are generated from issues).
 * You should make sure to add your name (and organisation) to `AUTHORS <AUTHORS.rst>`_.
+* If you have questions, you can reach the core development team on our `Slack <https://rucio.slack.com/>`_ channel, or send an email to our development mailing list `rucio-dev@cern.ch <mailto:rucio-dev@cern.ch>`_.
 
 A contribution can be either be a **patch**, **feature**, or **hotfix**:
  * **Patches** include bugfixes and minor changes to the code and are included in patch releases usually made on a bi-weekly schedule.
@@ -18,13 +19,7 @@ Accordingly, the `repository <https://github.com/rucio/rucio/>`_  consists of th
  * the **next** branch includes the development for the next major version.
  * the **hotfix** branch includes the patch for hotfix releases.
 
-Thus, on release day of a feature release both master and next are the same,
-afterwards they diverge until the next feature release.
-Pull requests for **features** are only made against the **next** branch.
-Pull requests for **patches** are made against the **next** and **master** branch, as
-these bugfixes need to be represented in both branches. Thus two
-pull requests are needed for patches, and the helper scripts do it
-automatically for you.
+Thus, on release day of a feature release both master and next are the same, afterwards they diverge until the next feature release. Pull requests for **features** are only made against the **next** branch. Pull requests for **patches** are made against the **next** and **master** branch, as these bugfixes need to be in both branches. Thus two pull requests are needed for patches, and the helper scripts do it automatically for you. Pull requests for **hotfixes** are made against the **master**, **next**, and **hotfix** branches.
 
 Setting up the repository
 -------------------------
@@ -43,9 +38,7 @@ Contributing
 ------------
 
 
-**Step 1**: Create an `issue <https://github.com/rucio/rucio/issues/new>`_ with the description
-of the contribution (motivation, modification and expected results).
-Every issue will get a **unique issue number**.
+**Step 1**: Create an `issue <https://github.com/rucio/rucio/issues/new>`_ with the description of the contribution (motivation, modification and expected results). Every issue will get a **unique issue number**.
 
 **Step 2**: Create a local branch that corresponds to the issue. There are utility scripts to help you with this::
 
@@ -58,8 +51,9 @@ git commit -m "<component>: <change_message> #<issue number>"
 
 Valid component names are listed in the `label list <https://github.com/rucio/rucio/labels>`_.
 
-If you add a `github-recognised keyword <https://help.github.com/articles/closing-issues-using-keywords/>`_ then
-the associated issue can be closed automatically once the pull request is merged, e.g.::
+If you use the default commit message template, make sure you edit it.
+
+If you add a `github-recognised keyword <https://help.github.com/articles/closing-issues-using-keywords/>`_ then the associated issue can be closed automatically once the pull request is merged, e.g.::
 
     <component>: <change_message> Fix #<issue number>
 
@@ -79,8 +73,7 @@ The format of the pull request title must be:
 
     <component>: <short_change_message> #<issue number>
 
-If you add a `github-recognised keyword <https://help.github.com/articles/closing-issues-using-keywords/>`_ then
-the associated issue can be closed automatically once the pull request is merged, e.g.::
+If you add a `github-recognised keyword <https://help.github.com/articles/closing-issues-using-keywords/>`_ then the associated issue can be closed automatically once the pull request is merged, e.g.::
 
 <component>: <short_change_message> Fix #<issue number>
 
@@ -93,30 +86,25 @@ and for a new **feature**::
 
   $  git pull-request  -m  '<short_change_message> #<issue number>' -b next
 
-**Step 5**: Watch the pull request for comments and reviews. For any pull requests update,
-please try to squash/amend your commits to avoid "in-between" commits.
+**Step 5**: Watch the pull request for comments and reviews. For any pull requests update, please try to squash/amend your commits to avoid "in-between" commits.
 
 Automatic Review
 ----------------
 
-Every submitted pull request will automatically be run through automated review and
-testing(nosetests) with Travis.
+Every submitted pull request will automatically be run through automated review and testing with Travis.
 
 Human Review
 ------------
 
 Anyone is welcome to review merge requests and make comments!
 
-All collaborators, thus the Rucio core development team can approve, request
-changes or close pull requests. Merging of approved pull requests is done by the Rucio
-development lead.
+The Rucio development team can approve, request changes, or close pull requests. Merging of approved pull requests is done by the Rucio development lead.
 
 
 Coding Style and testing
 ------------------------
 
-We use flake8 and pylint to sanitize our code. Please do the same before
-submitting a pull request.
+We use flake8 and pylint to sanitize our code. Please do the same before submitting a pull request.
 
 
 Git Hooks
