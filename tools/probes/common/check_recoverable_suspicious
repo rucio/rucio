@@ -31,8 +31,6 @@ CRITICAL = 2
 WARNING = 1
 OK = 0
 
-
-
 if __name__ == '__main__':
 
     try:
@@ -93,7 +91,7 @@ GROUP BY
     rse_id
 HAVING
     COUNT(*)>%s
-''' %(NB_DAYS, NB_DAYS, CNT_THRESHOLD)
+''' % (NB_DAYS, NB_DAYS, CNT_THRESHOLD)
 
     BAD_SURLS = {}
     try:
@@ -102,7 +100,7 @@ HAVING
             if rse not in BAD_SURLS:
                 BAD_SURLS[rse] = []
             for rep in list_replicas([{'scope': scope, 'name': name}]):
-                for site in  rep['rses']:
+                for site in rep['rses']:
                     if site == rse:
                         BAD_SURLS[rse].append(rep['rses'][site][0])
     except Exception as error:
