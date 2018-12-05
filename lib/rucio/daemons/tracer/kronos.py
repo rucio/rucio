@@ -142,11 +142,15 @@ class AMQConsumer(object):
                     for pattern in self.__bad_files_patterns:
                         if 'stateReason' in report and pattern.match(report['stateReason']):
                             reason = report['stateReason'][:255]
-                            try:
-                                declare_bad_file_replicas(report['url'], reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
-                                logging.info('Declare suspicious file %s with reason %s' % (report['url'], reason))
-                            except Exception as error:
-                                logging.error('Failed to declare suspicious file' + str(error))
+                            if 'url' not in report or not report['url']:
+                                logging.error('Missing url in the following trace : ' + str(report))
+                            else:
+                                try:
+                                    surl = report['url']
+                                    declare_bad_file_replicas([surl, ], reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
+                                    logging.info('Declare suspicious file %s with reason %s' % (report['url'], reason))
+                                except Exception as error:
+                                    logging.error('Failed to declare suspicious file' + str(error))
 
                 # check if scope in report. if not skip this one.
                 if 'scope' not in report:
