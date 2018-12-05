@@ -59,6 +59,7 @@ FROM
 WHERE
     state='S'
 AND created_at>SYSDATE-%s
+AND atlas_rucio.id2rse(rse_id) like '%%DATADISK'
 AND EXISTS
     (
         SELECT
