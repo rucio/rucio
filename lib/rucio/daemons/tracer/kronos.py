@@ -141,7 +141,6 @@ class AMQConsumer(object):
                 # Identify suspicious files
                 try:
                     if self.__bad_files_patterns and report['eventType'] in ['get_sm', 'get_sm_a', 'get'] and 'clientState' in report and report['clientState'] not in ['DONE', 'FOUND_ROOT', 'ALREADY_DONE']:
-                        logging.debug('report' + str(report))
                         for pattern in self.__bad_files_patterns:
                             if 'stateReason' in report and report['stateReason'] and isinstance(report['stateReason'], str) and pattern.match(report['stateReason']):
                                 reason = report['stateReason'][:255]
