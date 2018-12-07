@@ -136,6 +136,7 @@ class UploadClient:
             register_after_upload = file.get('register_after_upload') and not no_register
             pfn = file.get('pfn')
             force_scheme = file.get('force_scheme')
+            delete_existing = False
 
             self.trace['scope'] = file['did_scope']
             self.trace['datasetScope'] = file.get('dataset_scope', '')
@@ -168,7 +169,8 @@ class UploadClient:
                         logger.info('File already registered. Skipping upload.')
                         continue
                     except DataIdentifierNotFound:
-                        logger.info('File already exists on RSE. Previous left overs  will be overwritten.')
+                        logger.info('File already exists on RSE. Previous left overs will be overwritten.')
+                        delete_existing = True
             elif not is_deterministic and not no_register:
                 if rsemgr.exists(rse_settings, pfn):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
@@ -204,7 +206,8 @@ class UploadClient:
                                           source_dir=file['dirname'],
                                           force_scheme=cur_scheme,
                                           force_pfn=pfn,
-                                          transfer_timeout=file.get('transfer_timeout'))
+                                          transfer_timeout=file.get('transfer_timeout'),
+                                          delete_existing=delete_existing)
                     success = state['success']
                     file['upload_result'] = state
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
