@@ -573,7 +573,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # get external_host
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
                 if not fts_hosts:
-                    logging.error('Source RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse, req_id))
+                    logging.error('Destination RSE %s FTS attribute not defined - SKIP REQUEST %s' % (dest_rse, req_id))
                     continue
                 if retry_count is None:
                     retry_count = 0
