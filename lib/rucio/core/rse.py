@@ -28,17 +28,21 @@
 # PY3K COMPATIBLE
 
 from __future__ import division
+
+import json
+
 from re import match
+
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
-import json
-import sqlalchemy
-import sqlalchemy.orm
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
+
+import sqlalchemy
+import sqlalchemy.orm
 
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
@@ -48,7 +52,6 @@ from sqlalchemy.sql.expression import or_, false
 import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter, get_counter
-
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.db.sqla import models
@@ -294,7 +297,13 @@ def list_rses(filters={}, session=None):
                 t = aliased(models.RSEAttrAssociation)
                 query = query.join(t, t.rse_id == models.RSEAttrAssociation.rse_id)
                 query = query.filter(t.key == k)
-                query = query.filter(t.value == v)
+
+                # FIXME
+                # ATLAS RSE listing workaround (since booleans are capital 'True'/'False')
+                # remove elif branch after appropriate database fix has been applied
+                # see also db/types.py
+                query = query.filter(or_(t.value == v,
+                                         t.value == 'tmp_atlas_%s' % v))
 
         condition1, condition2 = [], []
         for i in range(0, 8):
