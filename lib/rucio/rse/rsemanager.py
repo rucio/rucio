@@ -345,7 +345,7 @@ def exists(rse_settings, files):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None):
+def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -402,7 +402,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         if protocol.renaming:
 
             # Check if file replica is already on the storage system
-            if protocol.overwrite is False and protocol.exists(pfn):
+            if protocol.overwrite is False and protocol.exists(pfn) and delete_existing is False:
                 ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))
                 gs = False
             else:
@@ -451,7 +451,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         else:
 
             # Check if file replica is already on the storage system
-            if protocol.overwrite is False and protocol.exists(pfn):
+            if protocol.overwrite is False and protocol.exists(pfn) and delete_existing is False:
                 ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))
                 gs = False
             else:
