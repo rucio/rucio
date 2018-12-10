@@ -16,6 +16,7 @@ $var script: <script src="/static/bad_replicas_summary.js"></script>
 <div id="result" class="row" data-equalizer>
     <div id="State" class="columns panel">
         <h4>Bad replica Summary</h4>
+        <div id="loader"></div>
         <table id="datepicker" style="table-layout:fixed; width:auto;">
             <thead>
                 <tr>
@@ -30,32 +31,13 @@ $var script: <script src="/static/bad_replicas_summary.js"></script>
                 <tr>
             </tfoot>
         </table>
+        <input id="show_suspicious" type="checkbox">
+        <label for="check_sample">Show suspicious</label>
+
         <input id="submit_button" type="button" value="Retrieve results">
-        <table id="badreplicasummary" style="word-wrap: break-word;">
-            <thead>
-                <tr>
-                    <th>RSE</th>
-                    <th>Reason</th>
-                    <th>Created_at</th>
-                    <th>Bad (transient)</th>
-                    <th>Deleted</th>
-                    <th>Lost</th>
-                    <th>Recovered</th>
-                    <th>Suspicious</th>
-                </tr>
-            </thead>
-            <tfoot>
-                <tr>
-                    <th>RSE</th>
-                    <th>Reason</th>
-                    <th>Created_at</th>
-                    <th>Bad (transient)</th>
-                    <th>Deleted</th>
-                    <th>Lost</th>
-                    <th>Recovered</th>
-                    <th>Suspicious</th>
-                </tr>
-            </tfoot>
+
+
+        <div id="badreplicasummary2"></div>
         </table>
         <div id="downloader"></div>
         <div id="results_pie"></div>
