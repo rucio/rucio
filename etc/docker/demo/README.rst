@@ -1,24 +1,19 @@
-..  Copyright 2018 CERN for the benefit of the ATLAS collaboration.
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
+Rucio - Scientific Data Management
+---
+(Demo Container)
+===
 
-        http://www.apache.org/licenses/LICENSE-2.0
+Rucio is a software framework that provides functionality to organize, manage, and access large volumes of scientific data using customisable policies. The data can be spread across globally distributed locations and across heterogeneous data centers, uniting different storage and network technologies as a single federated entity. Rucio offers advanced features such as distributed data recovery or adaptive replication, and is highly scalable, modular, and extensible. Rucio has been originally developed to meet the requirements of the high-energy physics experiment ATLAS, and is continuously extended to support LHC experiments and other diverse scientific communities.
 
-     Unless required by applicable law or agreed to in writing, software
-     distributed under the License is distributed on an "AS IS" BASIS,
-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language governing permissions and
-     limitations under the License.
+Documentation
+-------------
 
-     Authors:
-   - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-   - Cedric Serfon <cedric.serfon@cern.ch>, 2018
-   - Vincent Garonne <vgaronne@gmail.com>, 2018
+General information and latest documentation about Rucio can be found at [readthedocs](<http://rucio.readthedocs.io>).
 
-===================================
-Setting up a Rucio demo environment
-===================================
+Developers
+----------
+
+For information on how to contribute to Rucio, please refer and follow our [CONTRIBUTING](<https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst>) guidelines.
 
 Prerequisites
 --------------
