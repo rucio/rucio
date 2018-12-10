@@ -21,9 +21,9 @@ from rucio.db.sqla.session import get_session
 from rucio.db.sqla.constants import RuleState
 
 
-tolerance = 0.1
+tolerance = 0.15
 max_total_rebalance_volume = 200 * 1E12
-max_rse_rebalance_volume = 40 * 1E12
+max_rse_rebalance_volume = 20 * 1E12
 min_total = 50 * 1E12
 total_rebalance_volume = 0
 
