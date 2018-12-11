@@ -269,7 +269,7 @@ ATTACHMENT = {"description": "Attachement",
                              "name": NAME,
                              "rse": {"description": "RSE name",
                                      "type": ["string", "null"],
-                                     "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"},
+                                     "pattern": "^T[0-3]_[A-Z]{2}((_[A-Za-z0-9]+)+)$"},
                              "dids": DIDS},
               "required": ["dids"],
               "additionalProperties": False}
