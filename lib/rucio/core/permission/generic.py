@@ -18,6 +18,8 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -541,7 +543,7 @@ def perm_declare_bad_file_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    is_cloud_admin = bool(filter(lambda x: (x['key'].startswith('cloud-')) and (x['value'] == 'admin'), list_account_attributes(account=issuer)))
+    is_cloud_admin = bool(list(filter(lambda x: (x['key'].startswith('cloud-')) and (x['value'] == 'admin'), list_account_attributes(account=issuer))))
     return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
 
 

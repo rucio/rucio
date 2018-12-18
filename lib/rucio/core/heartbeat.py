@@ -8,6 +8,9 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import datetime
 import hashlib
@@ -120,7 +123,7 @@ def live(executable, hostname, pid, thread, older_than=600, hash_executable=None
     # there is no universally applicable rownumber in SQLAlchemy
     # so we have to do it in Python
     assign_thread = 0
-    for r in xrange(len(result)):
+    for r in range(len(result)):
         if result[r][0] == hostname and result[r][1] == pid and result[r][2] == thread.ident:
             assign_thread = r
             break

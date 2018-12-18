@@ -13,12 +13,17 @@
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import datetime
 import json
 import logging
 import time
 import traceback
+
+from six import string_types
 
 from sqlalchemy import and_, or_, func
 from sqlalchemy.exc import IntegrityError
@@ -112,9 +117,9 @@ def queue_requests(requests, session=None):
     transfer_limits, rses = {}, {}
     for req in requests:
 
-        if isinstance(req['attributes'], (str, unicode)):
+        if isinstance(req['attributes'], string_types):
             req['attributes'] = json.loads(req['attributes'])
-            if isinstance(req['attributes'], (str, unicode)):
+            if isinstance(req['attributes'], string_types):
                 req['attributes'] = json.loads(req['attributes'])
 
         if req['request_type'] == RequestType.TRANSFER:

@@ -21,6 +21,7 @@
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -32,6 +33,7 @@ from curses.ascii import isprint
 from datetime import datetime, timedelta
 from json import dumps
 from re import match
+from six import string_types
 from traceback import format_exc
 
 from sqlalchemy import func, and_, or_, exists, not_
@@ -1637,7 +1639,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
             # remember scope, name and rse_id
             raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse_id: %s" % (replica['scope'], replica['name'], replica['rse_id']))
 
-        if isinstance(replica['state'], str) or isinstance(replica['state'], unicode):
+        if isinstance(replica['state'], string_types):
             replica['state'] = ReplicaState.from_string(replica['state'])
 
         values = {'state': replica['state']}
@@ -1947,7 +1949,7 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
             if replica is not None:
                 replicas[(child_scope, child_name)].append(replica)
 
-    return (files.values(), replicas)
+    return (list(files.values()), replicas)
 
 
 @transactional_session

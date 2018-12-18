@@ -12,7 +12,12 @@
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+
+ PY3K COMPATIBLE
 """
+
+from __future__ import print_function
 
 import datetime
 import re

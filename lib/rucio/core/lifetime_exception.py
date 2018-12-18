@@ -8,9 +8,15 @@
 #  Authors:
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
 #  - Dimitrios Christidis, <dimitrios.christidis@cern.ch> 2018
+#  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
+
+from __future__ import division
 
 from re import match
 from datetime import datetime, timedelta
+from six import string_types
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -81,7 +87,7 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
     text += 'It represents %s datasets\n' % len(dids)
     if volume:
         text += 'The estimated physical volume is %s\n' % volume
-    if expires_at and (isinstance(expires_at, str) or isinstance(expires_at, unicode)):
+    if expires_at and isinstance(expires_at, string_types):
         lifetime = str_to_date(expires_at)
         text += 'The lifetime exception should expires on %s\n' % str(expires_at)
     elif isinstance(expires_at, datetime):
@@ -95,7 +101,7 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
     for did in dids:
         did_type = None
         if 'did_type' in did:
-            if isinstance(did['did_type'], str) or isinstance(did['did_type'], unicode):
+            if isinstance(did['did_type'], string_types):
                 did_type = DIDType.from_sym(did['did_type'])
             else:
                 did_type = did['did_type']

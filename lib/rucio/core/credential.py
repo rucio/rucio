@@ -14,12 +14,22 @@
 #
 # Authors:
 # - Mario Lassnig <mario@lassnig.net>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import base64
 import datetime
 import time
-import urllib
-import urlparse
+
+from six import integer_types
+try:
+    # Python 2
+    from urlparse import urlparse
+    from urllib import urlencode
+except ImportError:
+    # Python 3
+    from urllib.parse import urlparse, urlencode
 
 from rucio.common.config import config_get
 from rucio.common.exception import UnsupportedOperation
@@ -59,9 +69,9 @@ def get_signed_url(service, operation, url, lifetime=600):
         raise UnsupportedOperation('URL must not be empty')
 
     if lifetime:
-        if not isinstance(lifetime, (int, long)):
+        if not isinstance(lifetime, integer_types):
             try:
-                lifetime = long(lifetime)
+                lifetime = int(lifetime)
             except:
                 raise UnsupportedOperation('Lifetime must be convertible to numeric.')
 
@@ -82,14 +92,14 @@ def get_signed_url(service, operation, url, lifetime=600):
             lifetime = int(time.mktime(lifetime.timetuple()))
 
         # sign the path only
-        path = urlparse.urlparse(url).path
+        path = urlparse(url).path
 
         # assemble message to sign
         to_sign = "%s\n\n\n%s\n%s" % (operation, lifetime, path)
 
         # create URL-capable signature
         # first character is always a '=', remove it
-        signature = urllib.urlencode({'': base64.b64encode(CREDS_GCS.sign_blob(to_sign)[1])})[1:]
+        signature = urlencode({'': base64.b64encode(CREDS_GCS.sign_blob(to_sign)[1])})[1:]
 
         # assemble final signed URL
         signed_url = 'https://storage.googleapis.com%s?GoogleAccessId=%s&Expires=%s&Signature=%s' % (path,
