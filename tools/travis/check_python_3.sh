@@ -24,7 +24,7 @@ for filename in $(cat changed_files.txt);
 do
     if grep -q "PY3K COMPATIBLE" $filename; then
         echo "Check if file" $filename "is Python3 compatible"
-        pylint --py3k -d no-absolute-import -d round-builtin $filename 
+        pylint --py3k -d no-absolute-import -d round-builtin -d long-builtin $filename 
         if [ $? -ne 0 ]; then
             echo "PYLINT FAILED"
             cat pylint.out
