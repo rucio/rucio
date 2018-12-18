@@ -10,10 +10,15 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Vincent Garonne vgaronne@gmail.com, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Graphite counters
 """
+
+from __future__ import division
 
 import time
 

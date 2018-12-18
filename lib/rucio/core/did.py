@@ -23,6 +23,8 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import json
 import logging
@@ -32,6 +34,7 @@ import sys
 from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
+from six import string_types
 
 from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError, InvalidRequestError
@@ -152,7 +155,7 @@ def add_dids(dids, account, session=None):
         for did in dids:
             try:
 
-                if isinstance(did['type'], str) or isinstance(did['type'], unicode):
+                if isinstance(did['type'], string_types):
                     did['type'] = DIDType.from_sym(did['type'])
 
                 if did['type'] == DIDType.FILE:
@@ -798,7 +801,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
         filter(~exists(stmt))
 
     if did_type:
-        if isinstance(did_type, str) or isinstance(did_type, unicode):
+        if isinstance(did_type, string_types):
             query = query.filter_by(did_type=DIDType.from_sym(did_type))
         elif isinstance(did_type, EnumSymbol):
             query = query.filter_by(did_type=did_type)
@@ -1547,7 +1550,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
            and not hasattr(models.DataIdentifier, k):
             raise exception.KeyNotFound(k)
 
-        if (isinstance(v, unicode) or isinstance(v, str)) and ('*' in v or '%' in v):
+        if isinstance(v, string_types) and ('*' in v or '%' in v):
             if v in ('*', '%', u'*', u'%'):
                 continue
             if session.bind.dialect.name == 'postgresql':

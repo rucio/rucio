@@ -10,6 +10,9 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import logging
 import sys
@@ -534,7 +537,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
     for dataset in datasetfiles:
         for file in dataset['files']:
             # Iterate and try to repair STUCK locks
-            for lock in [lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.state == LockState.STUCK]:
+            for lock in [stucked_lock for stucked_lock in locks[(file['scope'], file['name'])] if stucked_lock.rule_id == rule.id and stucked_lock.state == LockState.STUCK]:
                 # Check if there are actually already enough locks
                 if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
                     # Remove the lock
@@ -638,7 +641,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
     for dataset in datasetfiles:
         for file in dataset['files']:
             # Iterate and try to repair STUCK locks
-            for lock in [lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.state == LockState.STUCK]:
+            for lock in [stucked_lock for stucked_lock in locks[(file['scope'], file['name'])] if stucked_lock.rule_id == rule.id and stucked_lock.state == LockState.STUCK]:
                 # Check if there are actually already enough locks
                 if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
                     # Remove the lock
@@ -713,7 +716,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
     for dataset in datasetfiles:
         for file in dataset['files']:
             # Iterate and try to repair STUCK locks
-            for lock in [lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.state == LockState.STUCK]:
+            for lock in [stucked_lock for stucked_lock in locks[(file['scope'], file['name'])] if stucked_lock.rule_id == rule.id and stucked_lock.state == LockState.STUCK]:
                 # Check if there are actually already enough locks
                 if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
                     # Remove the lock

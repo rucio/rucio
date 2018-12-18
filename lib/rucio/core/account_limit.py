@@ -16,6 +16,9 @@
 #  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 #  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+#  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
@@ -81,7 +84,7 @@ def get_account_limits(account, rse_ids=None, session=None):
         rse_id_clauses = []
         for rse_id in rse_ids:
             rse_id_clauses.append(and_(models.AccountLimit.rse_id == rse_id, models.AccountLimit.account == account))
-        rse_id_clause_chunks = [rse_id_clauses[x:x + 10] for x in xrange(0, len(rse_id_clauses), 10)]
+        rse_id_clause_chunks = [rse_id_clauses[x:x + 10] for x in range(0, len(rse_id_clauses), 10)]
         for rse_id_chunk in rse_id_clause_chunks:
             tmp_limits = session.query(models.AccountLimit).filter(or_(*rse_id_chunk)).all()
             for limit in tmp_limits:
