@@ -15,6 +15,7 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 
 import datetime
 import logging
@@ -45,7 +46,8 @@ logging.basicConfig(stream=stdout,
 GRACEFUL_STOP = threading.Event()
 
 
-def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=True):
+def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
+            once=True, unlock=False):
     """
     Creates an Atropos Worker that gets a list of rules which have an eol_at expired and delete them.
 
@@ -136,8 +138,12 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
                             logging.warning(prepend_str + 'Cannot find a lock for rule %s on DID %s' % (rule.id, did))
                         if not dry_run:
                             logging.info(prepend_str + 'Setting %s seconds lifetime for rule %s' % (grace_period, rule.id))
+                            options = {'lifetime': grace_period}
+                            if rule.locked and unlock:
+                                logging.info(prepend_str + 'Unlocking rule %s', rule.id)
+                                options['locked'] = False
                             try:
-                                update_rule(rule.id, options={'lifetime': grace_period})
+                                update_rule(rule.id, options=options)
                             except RuleNotFound:
                                 logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
             except Exception:
@@ -166,7 +172,8 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400, once=Tru
         logging.info(prepend_str + 'Graceful stop done')
 
 
-def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400, once=True):
+def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
+        once=True, unlock=False):
     """
     Starts up the atropos threads.
     """
