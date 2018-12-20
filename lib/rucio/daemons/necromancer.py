@@ -17,6 +17,9 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import logging
 import os
@@ -136,7 +139,7 @@ def run(threads=1, bulk=100, once=False):
         logging.info('starting necromancer threads')
         thread_list = [threading.Thread(target=necromancer, kwargs={'once': once,
                                                                     'thread': i,
-                                                                    'bulk': bulk}) for i in xrange(0, threads)]
+                                                                    'bulk': bulk}) for i in range(0, threads)]
         [t.start() for t in thread_list]
 
         logging.info('waiting for interrupts')

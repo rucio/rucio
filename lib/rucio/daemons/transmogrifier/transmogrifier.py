@@ -19,6 +19,9 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import logging
 import os
@@ -186,7 +189,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                             sub_dict[int(sub['policyid'])] = []
                         priority = int(sub['policyid'])
                     sub_dict[priority].append(sub)
-            priorities = sub_dict.keys()
+            priorities = list(sub_dict.keys())
             priorities.sort()
             #  Order the subscriptions according to their priority
             for priority in priorities:

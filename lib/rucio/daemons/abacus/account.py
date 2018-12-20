@@ -15,6 +15,9 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Abacus-Account is a daemon to update Account counters.
@@ -95,7 +98,7 @@ def run(once=False, process=0, total_processes=1, threads_per_process=11):
         account_update(once)
     else:
         logging.info('main: starting threads')
-        threads = [threading.Thread(target=account_update, kwargs={'process': process, 'total_processes': total_processes, 'once': once, 'thread': i, 'threads_per_process': threads_per_process}) for i in xrange(0, threads_per_process)]
+        threads = [threading.Thread(target=account_update, kwargs={'process': process, 'total_processes': total_processes, 'once': once, 'thread': i, 'threads_per_process': threads_per_process}) for i in range(0, threads_per_process)]
         [t.start() for t in threads]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.

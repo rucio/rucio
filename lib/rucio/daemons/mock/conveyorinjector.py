@@ -17,6 +17,9 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 ConveyorInjector is a daemon to queue file transfers for testing purposes.
@@ -94,8 +97,8 @@ def request_transfer(loop=1, src=None, dst=None,
     logging.info('request: starting')
 
     session = get_session()
-    src_rse = generate_rse(src, ''.join(random.sample(string.letters.upper(), 8)))
-    dst_rse = generate_rse(dst, ''.join(random.sample(string.letters.upper(), 8)))
+    src_rse = generate_rse(src, ''.join(random.sample(string.ascii_letters.upper(), 8)))
+    dst_rse = generate_rse(dst, ''.join(random.sample(string.ascii_letters.upper(), 8)))
 
     logging.info('request: started')
 
@@ -108,10 +111,10 @@ def request_transfer(loop=1, src=None, dst=None,
         try:
 
             if not same_src:
-                src_rse = generate_rse(src, ''.join(random.sample(string.letters.upper(), 8)))
+                src_rse = generate_rse(src, ''.join(random.sample(string.ascii_letters.upper(), 8)))
 
             if not same_dst:
-                dst_rse = generate_rse(dst, ''.join(random.sample(string.letters.upper(), 8)))
+                dst_rse = generate_rse(dst, ''.join(random.sample(string.ascii_letters.upper(), 8)))
 
             tmp_name = generate_uuid()
 

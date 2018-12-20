@@ -7,10 +7,15 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
 # - Tomas Javurek, <tomas.javurek@cern.ch>, 2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 This script is to be used to background rebalance ATLAS t2 datadisks
 """
+from __future__ import print_function, division
+
 from sqlalchemy import or_
 
 from rucio.core.rse_expression_parser import parse_expression
@@ -44,9 +49,9 @@ for rse in rses:
     rse['receive_volume'] = 0  # Already rebalanced volume in this run
 
 global_ratio = float(total_primary) / float(total_total)
-print 'Global ratio: %f' % (global_ratio)
+print('Global ratio: %f' % (global_ratio))
 for rse in sorted(rses, key=lambda k: k['ratio']):
-    print '  %s (%f)' % (rse['rse'], rse['ratio'])
+    print('  %s (%f)' % (rse['rse'], rse['ratio']))
 
 rses_over_ratio = sorted([rse for rse in rses if rse['ratio'] > global_ratio + global_ratio * tolerance], key=lambda k: k['ratio'], reverse=True)
 rses_under_ratio = sorted([rse for rse in rses if rse['ratio'] < global_ratio - global_ratio * tolerance], key=lambda k: k['ratio'], reverse=False)
@@ -56,36 +61,36 @@ active_rses = session.query(models.ReplicationRule.rse_expression).filter(or_(mo
                                                                           models.ReplicationRule.comments == 'T2 Background rebalancing').group_by(models.ReplicationRule.rse_expression).all()
 
 # Excluding RSEs
-print 'Excluding RSEs as destination which have active Background Rebalancing rules:'
+print('Excluding RSEs as destination which have active Background Rebalancing rules:')
 for rse in active_rses:
-    print '  %s' % (rse[0])
+    print('  %s' % (rse[0]))
     for des in rses_under_ratio:
         if des['rse'] == rse[0]:
             rses_under_ratio.remove(des)
             break
 
-print 'Excluding RSEs as destination which are too small by size:'
+print('Excluding RSEs as destination which are too small by size:')
 for des in rses_under_ratio:
     if des['total'] < min_total:
-        print '  %s' % (des['rse'])
+        print('  %s' % (des['rse']))
         rses_under_ratio.remove(des)
 
-print 'Excluding RSEs as sources which are too small by size:'
+print('Excluding RSEs as sources which are too small by size:')
 for src in rses_over_ratio:
     if src['total'] < min_total:
-        print '  %s' % (src['rse'])
+        print('  %s' % (src['rse']))
         rses_over_ratio.remove(src)
 
-print 'Excluding RSEs as desetinations which are blacklisted:'
+print('Excluding RSEs as desetinations which are blacklisted:')
 for des in rses_under_ratio:
     if des['availability'] != 7:
-        print '  %s' % (des['rse'])
+        print('  %s' % (des['rse']))
         rses_under_ratio.remove(des)
 
-print 'Excluding RSEs as sources which are blacklisted:'
+print('Excluding RSEs as sources which are blacklisted:')
 for src in rses_over_ratio:
     if src['availability'] != 7:
-        print '  %s' % (src['rse'])
+        print('  %s' % (src['rse']))
         rses_over_ratio.remove(src)
 
 # Loop over RSEs over the ratio
@@ -107,7 +112,7 @@ for source_rse in rses_over_ratio:
             if available_target_rebalance_volume >= available_source_rebalance_volume:
                 available_target_rebalance_volume = available_source_rebalance_volume
 
-            print 'Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'])
+            print('Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio']))
             rebalance_rse(source_rse['rse'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=destination_rse['rse'])
 
             destination_rse['receive_volume'] += available_target_rebalance_volume
