@@ -90,9 +90,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
             try:
                 rules = get_rules_beyond_eol(date_check, thread, hb['nr_threads'] - 1, session=None)
                 logging.info(prepend_str + '%s rules to process' % (len(rules)))
-                rule_idx = 0
-                for rule in rules:
-                    rule_idx += 1
+                for rule_idx, rule in enumerate(rules, start=1):
                     did = '%s:%s' % (rule.scope, rule.name)
                     logging.debug(prepend_str + 'Working on rule %s on DID %s on %s' % (rule.id, did, rule.rse_expression))
 
