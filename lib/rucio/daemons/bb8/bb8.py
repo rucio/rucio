@@ -87,7 +87,7 @@ def run(once=False, threads=1):
         rule_rebalancer(once)
     else:
         logging.info('BB8 starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_rebalancer, kwargs={'once': once}) for _ in xrange(0, threads)]
+        threads = [threading.Thread(target=rule_rebalancer, kwargs={'once': once}) for _ in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

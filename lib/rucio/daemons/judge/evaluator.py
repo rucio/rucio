@@ -17,6 +17,9 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
@@ -33,6 +36,7 @@ import traceback
 from datetime import datetime, timedelta
 from re import match
 from random import randint
+from six import iteritems
 
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm.exc import FlushError
@@ -76,7 +80,7 @@ def re_evaluator(once=False):
             start = time.time()  # NOQA
 
             # Refresh paused dids
-            paused_dids = dict((k, v) for k, v in paused_dids.iteritems() if datetime.utcnow() < v)
+            paused_dids = dict((k, v) for k, v in iteritems(paused_dids) if datetime.utcnow() < v)
 
             # Select a bunch of dids for re evaluation for this worker
             dids = get_updated_dids(total_workers=heartbeat['nr_threads'] - 1,
@@ -172,7 +176,7 @@ def run(once=False, threads=1):
         re_evaluator(once)
     else:
         logging.info('Evaluator starting %s threads' % str(threads))
-        threads = [threading.Thread(target=re_evaluator, kwargs={'once': once}) for i in xrange(0, threads)]
+        threads = [threading.Thread(target=re_evaluator, kwargs={'once': once}) for i in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():
