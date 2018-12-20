@@ -9,14 +9,21 @@
  Authors:
  - Tomas Javurek, <tomas.javurek@cern.ch>, 2017
  - Vitjan Zavrtanik, <vitjan.zavrtanik@gmail.com>, 2017
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
-Gets current traffic for all the links.
+ PY3K COMPATIBLE
 """
+
+from __future__ import print_function
 
 import sys
 
 from rucio.client import Client
 from rucio.db.sqla.session import get_session
+
+"""
+Gets current traffic for all the links.
+"""
 
 
 def get_traffic_from_db():
@@ -43,7 +50,7 @@ def get_traffic_from_db():
             collector.append(link)
 
     except Exception, exception:
-        print exception
+        print(exception)
         sys.exit()
 
     return collector

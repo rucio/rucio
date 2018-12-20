@@ -18,8 +18,16 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
-import Queue
+from __future__ import division
+
+try:
+    import Queue
+except ImportError:
+    import queue as Queue
 import bz2
 import glob
 import logging

@@ -8,6 +8,9 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from json import loads
 
@@ -33,7 +36,7 @@ class NetworkMetricsCollector(object):
 
         vals = self._r.mget(keys)
 
-        for i in xrange(len(keys)):
+        for i in range(len(keys)):
             dst = keys[i].split(':')[1]
             mbps_all = loads(vals[i]).get('mbps', {}).get(type, {})
 

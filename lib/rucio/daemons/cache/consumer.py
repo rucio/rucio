@@ -17,6 +17,9 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Fax consumer is a daemon to retrieve rucio cache operation information to synchronize rucio catalog.
@@ -165,12 +168,12 @@ def run(num_thread=1):
     """
 
     logging.info('starting consumer thread')
-    threads = [threading.Thread(target=consumer, kwargs={'id': i, 'num_thread': num_thread}) for i in xrange(0, num_thread)]
+    threads = [threading.Thread(target=consumer, kwargs={'id': i, 'num_thread': num_thread}) for i in range(0, num_thread)]
 
     [t.start() for t in threads]
 
     logging.info('waiting for interrupts')
 
     # Interruptible joins require a timeout.
-    while t.isAlive():
-        t.join(timeout=3.14)
+    while threads[0].isAlive():
+        [t.join(timeout=3.14) for t in threads]
