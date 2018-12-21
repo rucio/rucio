@@ -50,7 +50,7 @@ Run the daemon::
     parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
     parser.add_argument("--delay", action="store", default=10, type=int, help='Delay control: second control per cycle')
     parser.add_argument("--broker-timeout", action="store", default=3, type=int, help='Broker control: timeout second per cycle')
-    parser.add_argument("--broker-retry", action="store", default=3, type=int, help='Broker control: number of retries per cycle')   
+    parser.add_argument("--broker-retry", action="store", default=3, type=int, help='Broker control: number of retries per cycle')
     return parser
 
 
