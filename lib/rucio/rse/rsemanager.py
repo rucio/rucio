@@ -345,7 +345,7 @@ def exists(rse_settings, files):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None):
+def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -402,7 +402,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         if protocol.renaming:
 
             # Check if file replica is already on the storage system
-            if protocol.overwrite is False and protocol.exists(pfn):
+            if protocol.overwrite is False and delete_existing is False and protocol.exists(pfn):
                 ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))
                 gs = False
             else:
@@ -413,6 +413,16 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                         ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
                         gs = False
                         continue
+
+                if delete_existing:
+                    if protocol.exists('%s' % pfn):  # Check for previous completed uploads that have to be removed before upload
+                        try:
+                            protocol_delete.delete('%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
+                        except Exception as e:
+                            ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove file %s: %s' % (pfn, str(e)))
+                            gs = False
+                            continue
+
                 try:  # Try uploading file
                     protocol.put(base_name, '%s.rucio.upload' % pfn, source_dir, transfer_timeout=transfer_timeout)
                 except Exception as e:
@@ -451,7 +461,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         else:
 
             # Check if file replica is already on the storage system
-            if protocol.overwrite is False and protocol.exists(pfn):
+            if protocol.overwrite is False and delete_existing is False and protocol.exists(pfn):
                 ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))
                 gs = False
             else:
