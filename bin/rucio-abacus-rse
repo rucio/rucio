@@ -16,6 +16,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -33,7 +34,39 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="The Abacus-RSE daemon is responsible for updating RSE usages. It checks if there are new entries in the UpdatedRSECounter table and updates the RSE counter in the RSECounter table by adding or substrating the amount of files and the size.", epilog='''
+Upload a file to your RSE::
+
+  $ rucio upload --rse MOCK --scope mock filename.txt
+
+Check RSE usage::
+
+  $ rucio list-rse-usage MOCK
+  USAGE:
+  ------
+     files: 0
+     used: 0.000 B
+     rse: MOCK
+     updated_at: 2018-11-30 14:28:34
+     source: rucio
+  ------
+
+Run the daemon::
+
+  $ rucio-abacus-rse --run-once
+
+Check RSE usage again::
+
+  $ rucio list-rse-usage MOCK
+  USAGE:
+  ------
+      files: 1
+      used: 213.481 kB
+      rse: MOCK
+      updated_at: 2018-12-03 08:58:33
+      source: rucio
+  ------
+''')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--process", action="store", default=0, type=int, help='Concurrency control: current processes number')
     parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')
