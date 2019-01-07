@@ -16,6 +16,7 @@
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -40,6 +41,7 @@ def get_parser():
     parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
     parser.add_argument("--grace-period", action="store", default=86400, type=int, help='Grace period for the rules. In seconds !!!')
     parser.add_argument("--date-check", action="store", help='Date when the lifetime model will be applied. Cannot be used for a date in the future if dry-run is not enabled')
+    parser.add_argument("--unlock-rules", action="store_true", default=False, help='Automatically unlock affected rules')
     return parser
 
 
@@ -52,6 +54,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         run(threads=args.threads, bulk=args.bulk, date_check=args.date_check,
-            dry_run=args.dry_run, grace_period=args.grace_period, once=args.run_once)
+            dry_run=args.dry_run, grace_period=args.grace_period,
+            once=args.run_once, unlock=args.unlock_rules)
     except KeyboardInterrupt:
         stop()
