@@ -33,6 +33,7 @@ Individual contributors to the source code
 - Igor Mandrichenko <ivm@fnal.gov>, 2018
 - Shreyansh Khajanchi <shreyansh_k@live.com>, 2018
 - Robert Illingworth <illingwo@fnal.gov>, 2018
+- Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 
 Organisations employing contributors
 ------------------------------------

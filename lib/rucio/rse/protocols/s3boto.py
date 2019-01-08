@@ -9,9 +9,17 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 import os
-import urlparse
+try:
+    # PY2
+    import urlparse
+except ImportError:
+    # PY3
+    import urllib.parse as urlparse
 import logging
 
 import boto

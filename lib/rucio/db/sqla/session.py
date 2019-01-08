@@ -16,6 +16,11 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
+
+from __future__ import print_function
 
 import os
 import sys

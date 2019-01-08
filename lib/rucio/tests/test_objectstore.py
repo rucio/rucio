@@ -7,9 +7,18 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2016
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
-import commands
+try:
+    # PY2
+    import commands
+except ImportError:
+    # PY3
+    import subprocess as commands
 from nose.tools import raises
+from six import string_types
 
 from rucio.client.objectstoreclient import ObjectStoreClient
 from rucio.common import objectstore
@@ -187,7 +196,7 @@ class TestObjectStoreClients:
     def test_get_signed_url_read(self):
         """ OBJECTSTORE (CLIENT): Get signed url for read """
         ret = self.os_client.get_signed_url(self.url, rse=self.rse, operation='read')
-        if type(ret) not in [str, unicode]:
+        if not isinstance(ret, string_types):
             raise Exception("Return %s is not as expected.")
 
         # read
@@ -207,7 +216,7 @@ class TestObjectStoreClients:
     def test_get_signed_url_write(self):
         """ OBJECTSTORE (CLIENT): Get signed url for write """
         ret = self.os_client.get_signed_url(self.url, rse=self.rse, operation='write')
-        if type(ret) not in [str, unicode]:
+        if not isinstance(ret, string_types):
             raise Exception("Return %s is not as expected.")
 
         # write

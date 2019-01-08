@@ -15,16 +15,12 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
+from six import string_types
 
 # List of authorized value types for key
-try:
-    AUTHORIZED_VALUE_TYPES = (float, int, unicode)
-except NameError:
-    AUTHORIZED_VALUE_TYPES = (float, int, str)
-
-# unicode no longer exists in python3, hence this workaround
-try:
-    STRING_TYPES = (str, unicode,)
-except NameError:
-    STRING_TYPES = (str,)
+AUTHORIZED_VALUE_TYPES = (float, int, string_types)
+STRING_TYPES = string_types
