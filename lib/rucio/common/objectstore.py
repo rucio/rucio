@@ -16,6 +16,9 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2016-2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 """
 methods of objectstore
@@ -25,7 +28,12 @@ import boto
 import boto.s3.connection
 import logging
 import traceback
-import urlparse
+try:
+    # PY2
+    import urlparse
+except ImportError:
+    # PY3
+    import urllib.parse as urlparse
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue

@@ -17,9 +17,11 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
-
-from __future__ import print_function
+from __future__ import print_function, division
 
 import os
 import requests

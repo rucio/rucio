@@ -11,6 +11,9 @@
  - Martin Barisits <martin.barisits@cern.ch>, 2017-2018
  - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
  - Brian Bockelman <bbockelm@cse.unl.edu>, 2017
+ - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+
+ PY3K COMPATIBLE
 """
 
 import json
@@ -20,7 +23,12 @@ import sys
 
 from functools import wraps
 
-from ConfigParser import NoOptionError, NoSectionError
+try:
+    # PY2
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    # PY3
+    from configparser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 

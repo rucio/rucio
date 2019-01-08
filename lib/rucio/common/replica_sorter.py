@@ -17,10 +17,14 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
+#
 # This product includes GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
 
-from __future__ import print_function
+from __future__ import print_function, division
 
 import gzip
 import os
@@ -182,7 +186,7 @@ def sort_geoip(replicas, client_ip):
         se = replica.split('/')[2].split(':')[0]
         distance = __get_distance(se, client_ip)
         distances[replica] = distance
-    tmp = map(lambda x: x[0], sorted(list(distances.items()), key=lambda x: x[1]))
+    tmp = list(map(lambda x: x[0], sorted(list(distances.items()), key=lambda x: x[1])))
 
     return tmp
 
