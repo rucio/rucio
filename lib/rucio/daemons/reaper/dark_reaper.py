@@ -16,6 +16,9 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 '''
 Dark Reaper is a daemon to manage quarantined file deletion.
@@ -186,7 +189,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
         rses = [rse['rse'] for rse in rse_core.list_rses()]
 
     threads = []
-    for worker in xrange(total_workers):
+    for worker in range(total_workers):
             kwargs = {'worker_number': worker,
                       'total_workers': total_workers,
                       'rses': rses,

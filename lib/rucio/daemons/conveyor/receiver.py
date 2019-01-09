@@ -19,12 +19,15 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
 """
 Conveyor is a daemon to manage file transfers.
 """
+
+from __future__ import division
 
 import datetime
 import json
