@@ -9,6 +9,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import bindparam, text
@@ -57,8 +60,8 @@ def create_counters_for_new_rse(rse_id, session=None):
     :param session: The database session in use.models.RSECounter
     """
 
-    for account in [account['account'] for account in rucio.core.account.list_accounts(session=session)]:
-        add_counter(rse_id=rse_id, account=account, session=session)
+    for account in rucio.core.account.list_accounts(session=session):
+        add_counter(rse_id=rse_id, account=account['account'], session=session)
 
 
 @transactional_session
