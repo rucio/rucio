@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -112,7 +113,10 @@ def get(section, option, issuer=None):
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
     if not permission.has_permission(issuer=issuer, action='config_get', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot retrieve option %s from section %s' % (issuer, option, section))
-    return config.get(section, option)
+    value = config.get(section, option)
+    if not value:
+        raise exception.ConfigNotFound
+    return value
 
 
 def items(section, issuer=None):
