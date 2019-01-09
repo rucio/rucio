@@ -18,7 +18,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2019
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
 # - David Cameron, <d.g.cameron@gmail.com>, 2014-2015
@@ -57,7 +57,8 @@ from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate,
                                     Duplicate)
-from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response
+from rucio.common.utils import chunks, sizefmt, get_bytes_value_from_string, render_json, parse_response
+from rucio.common.policy import construct_surl
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
 
