@@ -15,6 +15,9 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 '''
 Dynamic data placement daemon.
@@ -24,7 +27,10 @@ import logging
 from datetime import datetime
 from hashlib import md5
 from json import dumps
-from Queue import Queue
+try:
+    from Queue import Queue
+except ImportError:
+    from queue import Queue
 from sys import stdout
 from time import sleep
 from threading import Event, Thread
@@ -204,7 +210,7 @@ def place_replica(once=False,
             else:
                 logging.debug('(%s) no dids in queue' % (instance_id))
 
-            for _ in xrange(0, len_dids):
+            for _ in range(0, len_dids):
                 did = did_queue.get()
                 for algorithm, instance in instances.items():
                     logging.info('(%s:%s) Retrieved %s:%s from queue. Run placement algorithm' % (algorithm, instance_id, did[0], did[1]))

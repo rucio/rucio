@@ -18,12 +18,15 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.
 """
+
+from __future__ import division
 
 import datetime
 import logging

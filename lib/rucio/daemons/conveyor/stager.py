@@ -18,12 +18,15 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
 """
 Conveyor stager is a daemon to manage stagein file transfers.
 """
+
+from __future__ import division
 
 import logging
 import os
