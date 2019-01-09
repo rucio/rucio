@@ -28,11 +28,14 @@
 # PY3K COMPATIBLE
 
 from __future__ import division
+
 from re import match
+from six import string_types
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
+
 import json
 import sqlalchemy
 import sqlalchemy.orm
@@ -86,7 +89,7 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     :param availability: Availability.
     :param session: The database session in use.
     """
-    if isinstance(rse_type, str) or isinstance(rse_type, unicode):
+    if isinstance(rse_type, string_types):
         rse_type = RSEType.from_string(str(rse_type))
 
     new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile, city=city,

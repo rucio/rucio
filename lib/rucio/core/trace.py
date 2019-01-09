@@ -17,6 +17,9 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Core tracer module
@@ -101,7 +104,7 @@ def trace(payload):
     t_conns = CONNS[:]
 
     try:
-        for i in xrange(len(t_conns)):
+        for i in range(len(t_conns)):
             try:
                 conn = random.sample(t_conns, 1)[0]
                 if not conn.is_connected():

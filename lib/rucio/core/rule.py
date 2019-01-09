@@ -20,15 +20,23 @@
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import json
 import logging
 import sys
 
-from ConfigParser import NoOptionError
+try:
+    from ConfigParser import NoOptionError
+except ImportError:
+    from configparser import NoOptionError
+
 from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
+from six import string_types
 from string import Template
 
 from sqlalchemy.exc import IntegrityError, StatementError
@@ -736,16 +744,16 @@ def list_rules(filters={}, session=None):
                 query = query.filter(models.ReplicationRule.updated_at >= str_to_date(value))
                 continue
             elif key == 'state':
-                if isinstance(value, basestring):
+                if isinstance(value, string_types):
                     value = RuleState.from_string(value)
                 else:
                     try:
                         value = RuleState.from_sym(value)
                     except ValueError:
                         pass
-            elif key == 'did_type' and isinstance(value, basestring):
+            elif key == 'did_type' and isinstance(value, string_types):
                 value = DIDType.from_string(value)
-            elif key == 'grouping' and isinstance(value, basestring):
+            elif key == 'grouping' and isinstance(value, string_types):
                 value = RuleGrouping.from_string(value)
             query = query.filter(getattr(models.ReplicationRule, key) == value)
 
@@ -2634,7 +2642,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
         for dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
             files = []
             tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, only_stuck=True, session=session)
-            locks = dict(locks.items() + tmp_locks.items())
+            locks = dict(list(locks.items()) + list(tmp_locks.items()))
             for file in tmp_locks:
                 file_did = rucio.core.did.get_did(scope=file[0], name=file[1], session=session)
                 files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32']})
@@ -2651,13 +2659,13 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
             files, tmp_replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             if source_rses:
                 tmp_source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], source_rses=source_rses, session=session)
-                source_replicas = dict(source_replicas.items() + tmp_source_replicas.items())
+                source_replicas = dict(list(source_replicas.items()) + list(tmp_source_replicas.items()))
             tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             datasetfiles.append({'scope': dataset['scope'],
                                  'name': dataset['name'],
                                  'files': files})
-            replicas = dict(replicas.items() + tmp_replicas.items())
-            locks = dict(locks.items() + tmp_locks.items())
+            replicas = dict(list(replicas.items()) + list(tmp_replicas.items()))
+            locks = dict(list(locks.items()) + list(tmp_locks.items()))
 
     else:
         raise InvalidReplicationRule('The did \"%s:%s\" has been deleted.' % (did.scope, did.name))
@@ -2707,8 +2715,8 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                                      models.ReplicaLock.name == did.child_name))
             replica_clauses.append(and_(models.RSEFileAssociation.scope == did.child_scope,
                                         models.RSEFileAssociation.name == did.child_name))
-        lock_clause_chunks = [lock_clauses[x:x + 10] for x in xrange(0, len(lock_clauses), 10)]
-        replica_clause_chunks = [replica_clauses[x:x + 10] for x in xrange(0, len(replica_clauses), 10)]
+        lock_clause_chunks = [lock_clauses[x:x + 10] for x in range(0, len(lock_clauses), 10)]
+        replica_clause_chunks = [replica_clauses[x:x + 10] for x in range(0, len(replica_clauses), 10)]
 
         replicas_rse_clause = []
         source_replicas_rse_clause = []
@@ -2771,9 +2779,9 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                                                                                                                  source_rses=source_rses,
                                                                                                                  session=session)
             datasetfiles.extend(tmp_datasetfiles)
-            locks = dict(locks.items() + tmp_locks.items())
-            replicas = dict(replicas.items() + tmp_replicas.items())
-            source_replicas = dict(source_replicas.items() + tmp_source_replicas.items())
+            locks = dict(list(locks.items()) + list(tmp_locks.items()))
+            replicas = dict(list(replicas.items()) + list(tmp_replicas.items()))
+            source_replicas = dict(list(source_replicas.items()) + list(tmp_source_replicas.items()))
     return datasetfiles, locks, replicas, source_replicas
 
 
