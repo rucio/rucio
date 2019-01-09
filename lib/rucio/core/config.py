@@ -9,11 +9,11 @@
   Authors:
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
   PY3K COMPATIBLE
 '''
 
-from rucio.common.exception import ConfigNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
 
@@ -98,7 +98,7 @@ def has_option(section, option, session=None):
 
 
 @read_session
-def get(section, option, session=None):
+def get(section, option, default=None, session=None):
     """
     Get an option value for the named section. Value can be auto-coerced to string, int, float, bool, None.
 
@@ -107,6 +107,7 @@ def get(section, option, session=None):
 
     :param section: The name of the section.
     :param option: The name of the option.
+    :param default: The default value if no value is found.
     :param session: The database session in use.
     :returns: The auto-coerced value.
     """
@@ -116,7 +117,7 @@ def get(section, option, session=None):
     if tmp is not None:
         return __convert_type(tmp[0])
     else:
-        raise ConfigNotFound()
+        return default
 
 
 @read_session
