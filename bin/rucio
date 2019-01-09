@@ -993,8 +993,6 @@ def download(args):
 
     if not result:
         raise RucioException('Download API failed')
-    import pprint
-    pprint.pprint(result)
     summary = {}
     for item in result:
         scope = item.get('dataset_scope', item['scope'])
