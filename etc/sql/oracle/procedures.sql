@@ -380,8 +380,7 @@ CREATE OR REPLACE PROCEDURE RUCIO_ACCOUNT_LOGICAL_BYTES
 AS
 BEGIN
 
-  -- 22nd August 2017, ver 1.2, reads from the DIDS table directly on the ADCR4
-  -- 4th Sept 2017, ver 1.3, reads from the DIDS table directly on the ADCR4 with parallelism 2
+  -- 4th Sept 2017, ver 1.3, reads from the DIDS table with parallelism 2
   -- Procedure for computing the logical bytes (based on the catalog only, not on the real file replicas on the Grid) based on the information in the DIDS table
 
   -- Special condition in the FOR query to get only the SCOPEs that have not been computed within the same day. This is for case when the job fails for some reason and is re-started again
@@ -470,8 +469,7 @@ AS
 BEGIN
 
 -- 28th May 2018, version 1.6, added check for the number or rows when the CURRTIME is null
--- 10th Oct 2017, version 1.5, The CURRTIME is populated only at the end of the work becuase of the Monit Flume JDBCsorce  
--- 5th Sept 2017, version 1.4.1, Computation happens on the ADCR4 reading directly from the tables
+-- 10th Oct 2017, version 1.5, The CURRTIME is populated only at the end of the work because of the Monit Flume JDBC sorce  
 -- Direct select - insert instead of passing data via collection.
 -- Added 3 more metrics (columns to the RUCIO_ACCOUNTING_TAB and HIST tables) on which is based the computation TIER, SPACETOKEN, GRP_DATATYPE
 
@@ -922,3 +920,28 @@ END;
 
 
 -------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+CREATE OR REPLACE PROCEDURE ADD_ACCOUNT_USAGE_HISTORY 
+AS
+BEGIN
+
+	/* 9th Jan 2019: A PLSQL procedure for insertion of the changed (since the previous execution) rows from the ACCOUNT_USAGE into the ACCOUNT_USAGE_HISTORY table */
+
+	MERGE INTO ACCOUNT_USAGE_HISTORY h 
+	USING 
+	( SELECT   account_usage.account,
+                         account_usage.rse_id, 
+                         account_usage.bytes,                          
+                         account_usage.files, 
+                         account_usage.updated_at
+                  FROM   account_usage, rses
+                  WHERE  account_usage.rse_id = rses.id AND deleted = '0') u 
+	ON (h.rse_id = u.rse_id and h.account = u.account and h.updated_at = u.updated_at)
+	WHEN NOT MATCHED THEN INSERT(account, rse_id, bytes, files,  updated_at, created_at)
+	VALUES (u.account, u.rse_id, u.bytes, u.files, u.updated_at, CAST(SYS_EXTRACT_UTC(LOCALTIMESTAMP) AS DATE) );
+        
+COMMIT;
+
+END;
+/
