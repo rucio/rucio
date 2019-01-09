@@ -343,5 +343,32 @@ comments=>'Every two minutes remove the duplicates from the UPDATED_COL_REP tabl
 END; 
 /
 
-------- -------------------------------------------------------------------------------------------------------------------------------------------------
+--- 17 -------------------------------------------------------------------------------------------------------------------------------------------------
+
+exec dbms_scheduler.drop_job('RUCIO_ACCOUNT_USAGE_HIST_JOB');
+
+
+BEGIN 
+
+dbms_scheduler.create_job
+(
+'RUCIO_ACCOUNT_USAGE_HIST_JOB',
+job_type=>'PLSQL_BLOCK', 
+job_action=> 'BEGIN ADD_ACCOUNT_USAGE_HISTORY;  END; ',
+number_of_arguments=> 0,
+start_date=>TO_TIMESTAMP_TZ('10-JAN-2019 08.00.00 EUROPE/ZURICH','DD-MON-YYYY HH24:MI:SS TZR'), 
+repeat_interval=> 'FREQ=DAILY; BYHOUR=08; BYMINUTE=0; BYSECOND=0;', 
+job_class=>'RUCIO_JOB_CLASS', 
+enabled=> TRUE, 
+auto_drop=> FALSE,
+comments=> 'Job for regular insertion of the changed (since the previous execution rows) from the ACCOUNT_USAGE into the ACCOUNT_USAGE_HISTORY table.'
+);
+
+END; 
+/
+
+
+
+
+
 
