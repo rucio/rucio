@@ -45,7 +45,7 @@ import rucio.core.replica  # import add_replicas
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.utils import str_to_date, is_archive, chunks
-from rucio.core import account_counter, rse_counter
+from rucio.core import account_counter, rse_counter, config as config_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.naming_convention import validate_name
@@ -635,7 +635,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
                     purge_replicas = False
                 else:
                     purge_replicas = True
-                if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > 10000:
+                if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_core.get('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
                     # Expire the rule (soft=True)
                     rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
                     # Update expiration of did
