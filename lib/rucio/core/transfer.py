@@ -14,7 +14,6 @@
 # PY3K COMPATIBLE
 
 from __future__ import division
-
 import datetime
 import json
 import logging
@@ -27,21 +26,21 @@ from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import bindparam, text, false
 
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
+from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common import constants
-from rucio.common.exception import RucioException, UnsupportedOperation, InvalidRSEExpression, RSEProtocolNotSupported, RequestNotFound
+from rucio.common.exception import RucioException, UnsupportedOperation, InvalidRSEExpression, RSEProtocolNotSupported, RequestNotFound, UndefinedPolicy
+from rucio.common.policy import policy_filter, construct_surl
 from rucio.common.rse_attributes import get_rse_attributes
-from rucio.common.utils import construct_surl
+from rucio.common.config import config_get
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, list_rses
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
-from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.fts3_myproxy import FTS3MyProxyTransfertool
-from rucio.common.config import config_get
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
 where the external_id is already known.
@@ -52,6 +51,15 @@ REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
                                        arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
+
+
+@policy_filter
+def get_dest_path(dsn, filename, naming_convention=None, is_tape=None, retry_count=None, activity=None):
+    dest_path = construct_surl(dsn, filename, naming_convention)
+    if is_tape:
+        if retry_count or activity == 'Recovery':
+            dest_path = '%s_%i' % (dest_path, int(time.time()))
+    return dest_path
 
 
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
@@ -460,7 +468,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 attr = None
                 if attributes:
-                    if type(attributes) is dict:
+                    if isinstance(attributes, dict):
                         attr = json.loads(json.dumps(attributes))
                     else:
                         attr = json.loads(str(attributes))
@@ -527,8 +535,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     # naming convention, etc.
                     dsn = 'other'
                     if attr and 'ds_name' in attr:
-                        dsn = attr["ds_name"]
-
+                        dsn = attr.get('ds_name', 'other')
+                        if not dsn:
+                            dsn = 'other'
                     else:
                         # select a containing dataset
                         for parent in did.list_parent_dids(scope, name):
@@ -537,12 +546,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                 break
                     # DQ2 path always starts with /, but prefix might not end with /
                     naming_convention = rse_attrs[dest_rse_id].get('naming_convention', None)
-                    dest_path = construct_surl(dsn, name, naming_convention)
-                    if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
-                        if retry_count or activity == 'Recovery':
-                            dest_path = '%s_%i' % (dest_path, int(time.time()))
-
-                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
+                    is_tape = rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE'
+                    try:
+                        dest_path = get_dest_path(dsn, name, naming_convention=naming_convention, is_tape=is_tape, retry_count=retry_count, activity=activity)
+                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
+                    except UndefinedPolicy:
+                        logging.error('RSE %s is defined has non-deterministic, but no naming convention is specified' % (rses_info[dest_rse_id]['rse']))
+                        break
 
                 # Get source protocol
                 source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join([matching_scheme[0], matching_scheme[1]]))
@@ -650,7 +660,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 attr = None
                 if attributes:
-                    if type(attributes) is dict:
+                    if isinstance(attributes, dict):
                         attr = json.loads(json.dumps(attributes))
                     else:
                         attr = json.loads(str(attributes))
@@ -862,8 +872,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
             if dest_rse_id in rses:
                 result.append(item)
         return result
-    else:
-        return query.all()
+    return query.all()
 
 
 @transactional_session
@@ -896,7 +905,7 @@ def __get_unavailable_read_rse_ids(session=None):
 
     key = 'unavailable_read_rse_ids'
     result = REGION_SHORT.get(key)
-    if type(result) is NoValue:
+    if isinstance(result, NoValue):
         try:
             logging.debug("Refresh unavailable read rses")
             unavailable_read_rses = list_rses(filters={'availability_read': False}, session=session)
