@@ -48,7 +48,16 @@ from rucio import version
 
 
 class BaseExtractionTool:
+
     def __init__(self, program_name, useability_check_args, extract_args, logger):
+        """
+        Initialises a extraction tool object
+
+        :param program_name: the name of the archive extraction program, e.g., unzip
+        :param useability_check_args: the arguments of the extraction program to test if its installed, e.g., --version
+        :param extract_args: the arguments that will be passed to the program for extraction
+        :param logger: logging.Logger object
+        """
         self.program_name = program_name
         self.useability_check_args = useability_check_args
         self.extract_args = extract_args
@@ -56,6 +65,11 @@ class BaseExtractionTool:
         self.is_useable_result = None
 
     def is_useable(self):
+        """
+        Checks if the extraction tool is installed and usable
+
+        :returns: True if it is usable otherwise False
+        """
         if self.is_useable_result is not None:
             return self.is_useable_result
         self.is_usable_result = False
@@ -71,6 +85,15 @@ class BaseExtractionTool:
         return self.is_usable_result
 
     def try_extraction(self, archive_file_path, file_to_extract, dest_dir_path):
+        """
+        Calls the extraction program to extract a file from an archive
+
+        :param archive_file_path: path to the archive
+        :param file_to_extract: file name to extract from the archive
+        :param dest_dir_path: destination directory where the extracted file will be stored
+
+        :returns: True on success otherwise False
+        """
         if not self.is_useable():
             return False
         args_map = {'archive_file_path': archive_file_path,
@@ -1261,7 +1284,7 @@ class DownloadClient:
                     if not len(cea_id_mixed_to_fiids[cea_id_mixed]):
                         cea_id_mixed_to_fiids.pop(cea_id_mixed)
 
-        for file_item in file_items:
+        for file_item in all_file_items:
             cea_ids_pure = file_item.get('cea_ids_pure', set())
             cea_ids_mixed = file_item.get('cea_ids_mixed', set())
 
@@ -1294,7 +1317,7 @@ class DownloadClient:
 
         download_packs = []
         cea_id_to_pack = {}
-        for file_item in file_items:
+        for file_item in all_file_items:
             cea_ids = file_item.get('cea_ids_pure', set())
             if len(cea_ids) > 0:
                 cea_id = next(iter(cea_ids))
