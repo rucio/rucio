@@ -125,7 +125,6 @@ class TestSchemaCMS(object):
 
     def test_scopes(self):
         """ CMS SCHEMA (COMMON): Test CMS scopes"""
-
         validate_schema('scope', 'cms')
         validate_schema('scope', 'user.ewv')
         validate_schema('scope', 'user.ewv2')
@@ -138,3 +137,37 @@ class TestSchemaCMS(object):
             validate_schema('scope', 'higgs')  # Not user.higgs
         with assert_raises(InvalidObject):
             validate_schema('scope', 'csm')  # Anagram
+
+    def test_attachment(self):
+        """ CMS SCHEMA (COMMON): Test CMS attachment"""
+
+        # no need to re-test did pattrens
+        dids = [{
+            'scope': 'cms', 'name': '/store/mc/Fall10/DYToMuMu_M-20_TuneZ2_7TeV-pythia6/AODSIM/START38_V12-v1/0003/C0F3344F-6EC8-DF11-8ED6-E41F13181020.root'
+        }]
+
+        dataset = '/DoubleMu/aburgmei-Run2012A_22Jan2013_v1_RHembedded_trans1_tau121_ptelec1_17elec2_8_v4/USER#1f1eee22-cdee-0f1b-271b-77a7f559e7dd'
+
+        scope = 'cms'
+
+        # RSE pattern is defined independently so we want to re-test
+        good_rses = [None, 'T2_FR_GRIF_LLR', 'T1_IT_CNAF_Disk']
+        bad_rses = ['T2_FR_GRIF-LLR', 'T4_FR_GRIF_LLR']
+
+        with assert_raises(InvalidObject):   # missing dids
+            validate_schema('attachment', {'rse': 'T1_FR_CCIN2P3'})
+
+        args = {'dids': dids}
+        validate_schema('attachment', args)
+        args['scope'] = scope
+        args['name'] = dataset
+        validate_schema('attachment', args)
+
+        for rse in good_rses:
+            args['rse'] = rse
+            validate_schema('attachment', args)
+
+        for rse in bad_rses:
+            args['rse'] = rse
+            with assert_raises(InvalidObject):
+                validate_schema('attachment', args)
