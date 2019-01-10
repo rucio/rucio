@@ -892,7 +892,7 @@ def parse_replicas_metalink(root):
         parent_dids_tag_obj = file_tag_obj.find(ns + 'parents')
         if ElementTree.iselement(parent_dids_tag_obj):
             for did_tag_obj in parent_dids_tag_obj.findall(ns + 'did'):
-                parent_dids.add(parent_dids.add(did_tag_obj.text))
+                parent_dids.add(did_tag_obj.text)
         cur_file['parent_dids'] = parent_dids
 
         size_tag_obj = file_tag_obj.find(ns + 'size')
