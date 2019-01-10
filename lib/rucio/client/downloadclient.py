@@ -373,9 +373,6 @@ class DownloadClient:
         trace_custom_fields['uuid'] = generate_uuid()
 
         logger.info('Processing %d item(s) for input' % len(items))
-        if not all(len(item.get('did', item.get('dids', []))) > 0 for item in items):
-            raise InputValidationError('At least one input item is missing a valid DID')
-
         download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
         did_to_options = download_info['did_to_options']
         merged_items = download_info['merged_items']
@@ -727,6 +724,7 @@ class DownloadClient:
         :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something went wrong during the download (e.g. aria2c could not be started)
         """
+        logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
         rpc_secret = '%x' % (random.getrandbits(64))
@@ -735,7 +733,17 @@ class DownloadClient:
 
         for item in items:
             item['force_scheme'] = ['https', 'davs']
-        input_items = self._prepare_items_for_download(items, None)
+            item['no_resolve_archives'] = True
+
+        logger.info('Processing %d item(s) for input' % len(items))
+        download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
+        did_to_options = download_info['did_to_options']
+        merged_items = download_info['merged_items']
+
+        self.logger.debug('num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
+
+        logger.info('Getting sources of DIDs')
+        input_items = self._prepare_items_for_download(did_to_options, merged_items)
 
         try:
             output_items = self._download_items_aria2c(input_items, aria_rpc, rpc_auth, trace_custom_fields)
