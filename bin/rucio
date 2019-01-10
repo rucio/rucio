@@ -201,10 +201,6 @@ def exception_handler(function):
             logger.error(error)
             logger.debug('This means one dependency is missing.')
             return error.error_code
-        except NoFilesDownloaded as error:
-            return error.error_code
-        except NotAllFilesDownloaded as error:
-            return error.error_code
         except KeyError as error:
             if 'x-rucio-auth-token' in error:
                 used_account = None
@@ -926,7 +922,7 @@ def download(args):
     item_defaults['base_dir'] = args.dir
     item_defaults['no_subdir'] = args.no_subdir
     item_defaults['transfer_timeout'] = args.transfer_timeout
-    item_defaults['resolve_archives'] = not args.no_resolve_archives
+    item_defaults['no_resolve_archives'] = args.no_resolve_archives
     archive_did = args.archive_did
 
     filters = {}
@@ -946,6 +942,7 @@ def download(args):
             logger.error(error)
             logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
             return FAILURE
+        item_defaults['filters'] = filters
 
     if not args.pfn and not archive_did:
         item_defaults['force_scheme'] = args.protocol
@@ -961,9 +958,9 @@ def download(args):
             items.append(item_defaults)
 
         if args.aria:
-            result = download_client.download_aria2c(items, trace_pattern, filters)
+            result = download_client.download_aria2c(items, trace_pattern)
         else:
-            result = download_client.download_dids(items, args.ndownloader, trace_pattern, filters)
+            result = download_client.download_dids(items, args.ndownloader, trace_pattern)
     elif archive_did:
         if args.aria:
             logger.warning('Ignoring --aria option because --archive_did option given')
@@ -993,6 +990,7 @@ def download(args):
 
     if not result:
         raise RucioException('Download API failed')
+
     summary = {}
     for item in result:
         scope = item.get('dataset_scope', item['scope'])
