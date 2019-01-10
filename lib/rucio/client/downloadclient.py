@@ -1025,7 +1025,7 @@ class DownloadClient:
 
             filters = item.get('filters')
             item_dids = item.pop('did')
-            if item_dids is None:
+            if item_dids[0] is None:
                 logger.debug('Resolving DIDs by using filter options')
                 item_dids = []
                 scope = filters.pop('scope')
