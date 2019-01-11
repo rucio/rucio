@@ -18,7 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 from __future__ import print_function
@@ -47,6 +47,7 @@ from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_
 from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
 from rucio.daemons.badreplicas.minos import run as minos_run
+from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, rse_name_generator
 from rucio.web.rest.authentication import APP as auth_app
@@ -606,8 +607,8 @@ class TestReplicaClients:
         # replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])]
         # assert_equal(len(replicas), 0)
 
-    def test_add_bad_pfns(self):
-        """ REPLICA (CLIENT): Add bad PFNs"""
+    def test_add_temporary_unavailable_pfns(self):
+        """ REPLICA (CLIENT): Add temporary unavailable PFNs"""
         tmp_scope = 'mock'
         nbfiles = 5
         # Adding replicas to deterministic RSE
@@ -621,7 +622,7 @@ class TestReplicaClients:
             list_rep.append(pfn)
 
         # Submit bad PFNs
-        now = datetime.now()
+        now = datetime.utcnow()
         reason_str = generate_uuid()
         self.replica_client.add_bad_pfns(pfns=list_rep, reason=str(reason_str), state='TEMPORARY_UNAVAILABLE', expires_at=now.isoformat())
         result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
@@ -658,6 +659,13 @@ class TestReplicaClients:
         for did in files:
             did['state'] = ReplicaState.from_sym('TEMPORARY_UNAVAILABLE')
             rep.append(did)
+
+        # Run the minos expiration
+        minos_temp_run(threads=1, once=True)
+        # Check the state in the replica table
+        for did in files:
+            rep = get_replicas_state(scope=did['scope'], name=did['name'])
+            assert_equal(str(rep.keys()[0]), 'AVAILABLE')
 
 
 class TestReplicaMetalink:
