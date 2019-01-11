@@ -1114,9 +1114,6 @@ class DownloadClient:
         all_file_items = []
 
         # cea -> client_extract archives to avoid confusion with archives that dont need explicit extraction
-        # holds information for an archive id (num_files needed from archive, highest priority of all sources)
-        cea_ids_map = {}
-
         # this dict will contain all ids of cea's that definitely will be downloaded
         cea_id_pure_to_fiids = {}
 
@@ -1246,10 +1243,6 @@ class DownloadClient:
                             cea_id = cea_id[-1] if len(cea_id[-1]) > 0 else cea_id[-2]
                             cea_ids.append(cea_id)
 
-                            cea_id_item = cea_ids_map.setdefault(cea_id, {'pfns': set(), 'priority': priority, 'num_files': 0})
-                            cea_id_item['pfns'].add(source['pfn'])
-                            cea_id_item['priority'] = min(cea_id_item['priority'], priority)
-                            cea_id_item['num_files'] += 1
                             sources.append(source)
                         elif not is_cea:
                             num_non_cea_sources += 1

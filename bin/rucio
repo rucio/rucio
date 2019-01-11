@@ -66,8 +66,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
-                                    RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded,
-                                    InvalidType)
+                                    RucioException, DuplicateRule, InvalidType)
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string
 
 SUCCESS = 0
