@@ -1029,8 +1029,8 @@ class DownloadClient:
                 logger.debug('Resolving DIDs by using filter options')
                 item_dids = []
                 scope = filters.pop('scope')
-                for did in self.client.list_dids(scope, filters=filters, type='all'):
-                    item_dids.append('%s:%s' % (scope, did['name']))
+                for did_name in self.client.list_dids(scope, filters=filters, type='all'):
+                    item_dids.append('%s:%s' % (scope, did_name))
 
             base_dir = item.pop('base_dir', '.')
             no_subdir = item.pop('no_subdir', False)
