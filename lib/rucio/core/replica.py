@@ -1663,6 +1663,8 @@ def update_replicas_states(replicas, nowait=False, session=None):
                                             broken_rule_id=replica.get('broken_rule_id', None),
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
+        elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
+            query = query.filter_by(state=ReplicaState.AVAILABLE)
 
         if 'path' in replica and replica['path']:
             values['path'] = replica['path']
@@ -2517,7 +2519,7 @@ def get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None):
 
 
 @transactional_session
-def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=None, session=None):
+def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=None, expires_at=None, session=None):
     """
     Bulk add new bad replicas.
 
@@ -2529,7 +2531,8 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
     :returns: True is successful.
     """
     for replica in replicas:
-        new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason, state=state, account=account, bytes=None)
+        new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
+                                             state=state, account=account, bytes=None, expires_at=expires_at)
         new_bad_replica.save(session=session, flush=False)
     try:
         session.flush()

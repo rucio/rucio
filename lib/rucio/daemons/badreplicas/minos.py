@@ -150,7 +150,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                     try:
                         for chunk in chunks(replicas, chunk_size):
                             update_replicas_states(chunk, nowait=False, session=session)
-                            bulk_add_bad_replicas(chunk, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=None, session=session)
+                            bulk_add_bad_replicas(chunk, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=None, expires_at=expires_at, session=session)
                             pfns = [entry['pfn'] for entry in chunk]
                             bulk_delete_bad_pfns(pfns=pfns, session=session)
                             session.commit()  # pylint: disable=no-member
