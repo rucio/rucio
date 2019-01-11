@@ -23,6 +23,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Robert Illingworth, <illingwo@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -656,7 +657,6 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, sessio
                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).\
         join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id).\
         filter(models.RSE.deleted == false()).\
-        filter(models.RSE.staging_area == false()).\
         filter(or_(*dataset_clause)).\
         order_by(models.DataIdentifierAssociation.child_scope,
                  models.DataIdentifierAssociation.child_name)
@@ -683,25 +683,21 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
             if rse_clause is None:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
-                                   models.RSE.staging_area == false(),
                                    or_(*replica_condition))
             else:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
-                                   models.RSE.staging_area == false(),
                                    or_(*replica_condition),
                                    or_(*rse_clause))
         else:
             if rse_clause is None:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
-                                   models.RSE.staging_area == false(),
                                    state_clause,
                                    or_(*replica_condition))
             else:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
-                                   models.RSE.staging_area == false(),
                                    state_clause,
                                    or_(*replica_condition),
                                    or_(*rse_clause))
