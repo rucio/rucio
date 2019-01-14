@@ -222,7 +222,7 @@ def __handle_requests(reqs, suspicious_patterns, prepend_str=''):
                 replica['archived'] = False
 
                 # for TAPE, replica path is needed
-                if req['request_type'] == RequestType.TRANSFER and req['dest_rse_id'] in undeterministic_rses:
+                if req['request_type'] in (RequestType.TRANSFER, RequestType.STAGEIN) and req['dest_rse_id'] in undeterministic_rses:
                     if req['dest_rse_id'] not in rses_info:
                         dest_rse = get_rse_name(rse_id=req['dest_rse_id'])
                         rses_info[req['dest_rse_id']] = rsemanager.get_rse_info(dest_rse)
