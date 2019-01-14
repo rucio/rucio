@@ -43,6 +43,8 @@ import sqlalchemy.orm
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
+from six import string_types
+
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
@@ -618,6 +620,23 @@ def get_rse_limits(rse, name=None, rse_id=None, session=None):
 
 
 @transactional_session
+def delete_rse_limit(rse, name=None, rse_id=None, session=None):
+    """
+    Delete RSE limit.
+
+    :param rse: The RSE name.
+    :param name: The name of the limit.
+    :param rse_id: The RSE id.
+    """
+    try:
+        if not rse_id:
+            rse_id = get_rse_id(rse=rse, session=session)
+        session.query(models.RSELimit).filter_by(rse_id=rse_id, name=name).delete()
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+
+
+@transactional_session
 def set_rse_transfer_limits(rse, activity, rse_id=None, rse_expression=None, max_transfers=0, transfers=0, waitings=0, session=None):
     """
     Set RSE transfer limits.
@@ -1108,7 +1127,7 @@ def export_rse(rse, rse_id=None, session=None):
     if not rse_id:
         rse_id = get_rse_id(rse=rse, session=session)
 
-    query = session.query(models.RSE).filter_by(rse_id=rse_id)
+    query = session.query(models.RSE).filter_by(id=rse_id)
 
     rse_data = {}
     for _rse in query:

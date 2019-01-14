@@ -31,6 +31,7 @@ from __future__ import print_function
 
 from os import remove, unlink, listdir, rmdir, stat, path
 
+import json
 import nose.tools
 import re
 
@@ -1137,3 +1138,23 @@ class TestBinRucio():
         cmd = 'rucio list-content {0}'.format(container)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, new_dataset['name']), out), None)
+
+    def test_import_data(self):
+        """ CLIENT(ADMIN): Import data into rucio"""
+        file_path = 'data_import.json'
+        data = {'rses': [{'rse': rse_name_generator()}]}
+        with open(file_path, 'w+') as file:
+            file.write(json.dumps(data))
+        cmd = 'rucio-admin data import {0}'.format(file_path)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search('Data successfully imported', out), None)
+        remove(file_path)
+
+    def test_export_data(self):
+        """ CLIENT(ADMIN): Export data from rucio"""
+        file_path = 'data_export.json'
+        cmd = 'rucio-admin data export {0}'.format(file_path)
+        exitcode, out, err = execute(cmd)
+        print(re.search('Data successfully exported', out))
+        nose.tools.assert_not_equal(re.search('Data successfully exported', out), None)
+        remove(file_path)
