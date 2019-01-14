@@ -57,7 +57,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate,
                                     Duplicate)
-from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string
+from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
 
@@ -970,6 +970,64 @@ def list_pfns(args):
     return SUCCESS
 
 
+@exception_handler
+def import_data(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    Import data from JSON file to Rucio.
+
+    """
+    client = get_client(args)
+    import_file_path = args.file_path
+    data = None
+    print('Start reading file.')
+    try:
+        with open(import_file_path) as import_file:
+            data_string = import_file.read()
+            data = parse_response(data_string)
+    except ValueError as error:
+        print('There was problem with decoding your file.')
+        print(error)
+        return FAILURE
+    except IOError as error:
+        print('There was a problem with reading your file.')
+        print(error)
+        return FAILURE
+
+    if data:
+        client.import_data(data)
+        print('Data successfully imported.')
+        return SUCCESS
+    else:
+        print('Nothing to import.')
+        return FAILURE
+
+
+@exception_handler
+def export_data(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    Export data from Rucio to JSON file.
+
+    """
+    client = get_client(args)
+    destination_file_path = args.file_path
+    print('Start querying data.')
+    data = client.export_data()
+    try:
+        with open(destination_file_path, 'w+') as destination_file:
+            destination_file.write(render_json(**data))
+            print('File successfully written.')
+        print('Data successfully exported to %s' % args.file_path)
+        return SUCCESS
+    except IOError as error:
+        print('There was a problem with reading your file.')
+        print(error)
+        return FAILURE
+
+
 def get_parser():
     """
     Returns the argparse parser.
@@ -993,6 +1051,36 @@ def get_parser():
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file')
     oparser.add_argument('--ca-certificate', dest='ca_certificate', default=None, help='CA certificate to verify peer against (SSL)')
+
+    # The import export subparser
+    data_parser = subparsers.add_parser('data', help='Import and export data')
+    data_subparsers = data_parser.add_subparsers()
+
+    # The import command
+    import_parser = data_subparsers.add_parser('import',
+                                               help='Import data to Rucio from JSON file.',
+                                               formatter_class=argparse.RawDescriptionHelpFormatter,
+                                               epilog='Usage example\n'
+                                                      '"""""""""""""\n'
+                                                      'Import data from the file file.json::\n'
+                                                      '\n'
+                                                      '    $ rucio-admin data import file.json\n'
+                                                      '\n')
+    import_parser.add_argument('file_path', action='store', help='File path.')
+    import_parser.set_defaults(which='import')
+
+    # The export command
+    export_parser = data_subparsers.add_parser('export',
+                                               help='Export data from  Rucio to JSON file.',
+                                               formatter_class=argparse.RawDescriptionHelpFormatter,
+                                               epilog='Usage example\n'
+                                                      '"""""""""""""\n'
+                                                      'Export data to the file file.json::\n'
+                                                      '\n'
+                                                      '    $ rucio-admin data export file.json\n'
+                                                      '\n')
+    export_parser.add_argument('file_path', action='store', help='File path.')
+    export_parser.set_defaults(which='export')
 
     # The account subparser
     account_parser = subparsers.add_parser('account', help='Account methods')
@@ -1843,7 +1931,9 @@ if __name__ == '__main__':
                 'update_subscription': update_subscription,
                 'reevaluate_did_for_subscription': reevaluate_did_for_subscription,
                 'declare_bad_file_replicas': declare_bad_file_replicas,
-                'list_pfns': list_pfns}
+                'list_pfns': list_pfns,
+                'import': import_data,
+                'export': export_data}
 
     try:
         if args.verbose:
