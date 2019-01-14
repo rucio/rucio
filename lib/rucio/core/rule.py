@@ -123,7 +123,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
-                    raise StagingAreaRuleRequiresLifetime()
+                    raise StagingAreaRuleRequiresLifetime('Rules for a staging area must include a lifetime')
 
             # Check SCRATCHDISK Policy
             try:
