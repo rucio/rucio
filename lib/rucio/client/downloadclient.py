@@ -18,7 +18,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Tobias Wegner <tobias.wegner@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -42,7 +42,7 @@ from threading import Thread
 from rucio.client.client import Client
 from rucio.common.exception import (InputValidationError, NoFilesDownloaded, ServiceUnavailable,
                                     NotAllFilesDownloaded, RSENotFound, RucioException, SourceNotFound)
-from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, send_trace, sizefmt, execute
+from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, send_trace, sizefmt, execute, parse_replicas_from_file
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
@@ -380,7 +380,53 @@ class DownloadClient:
         self.logger.debug('num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
 
         logger.info('Getting sources of DIDs')
-        input_items = self._prepare_items_for_download(did_to_options, merged_items)
+        # if one item wants to resolve archives we enable it for all items
+        resolve_archives = not all(item.get('no_resolve_archives') for item in merged_items)
+        merged_items_with_sources = self._get_sources(merged_items, resolve_archives=resolve_archives)
+        input_items = self._prepare_items_for_download(did_to_options, merged_items_with_sources, resolve_archives=resolve_archives)
+
+        num_files_in = len(input_items)
+        output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
+        num_files_out = len(output_items)
+
+        if num_files_in != num_files_out:
+            raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
+
+        return self._check_output(output_items)
+
+    def download_from_metalink_file(self, item, metalink_file_path, num_threads=2, trace_custom_fields={}):
+        """
+        Download items using a given metalink file.
+
+        :param item: dictionary describing an item to download. Keys:
+            base_dir            - Optional: base directory where the downloaded files will be stored. (Default: '.')
+            no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
+            ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
+            transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
+        :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
+        :param trace_custom_fields: Custom key value pairs to send with the traces.
+
+        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+
+        :raises InputValidationError: if one of the input items is in the wrong format
+        :raises NoFilesDownloaded: if no files could be downloaded
+        :raises NotAllFilesDownloaded: if not all files could be downloaded
+        :raises RucioException: if something unexpected went wrong during the download
+        """
+        logger = self.logger
+
+        logger.info('Getting sources from metalink file')
+        metalinks = parse_replicas_from_file(metalink_file_path)
+
+        trace_custom_fields['uuid'] = generate_uuid()
+
+        did_to_options = {}
+        item.setdefault('destinations', set()).add((item['base_dir'], item['no_subdir']))
+        for metalink in metalinks:
+            did_to_options[metalink['did']] = item
+
+        metalinks = [metalinks]
+        input_items = self._prepare_items_for_download(did_to_options, metalinks)
 
         num_files_in = len(input_items)
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
@@ -491,7 +537,6 @@ class DownloadClient:
         did_scope = item['scope']
         did_name = item['name']
         did_str = '%s:%s' % (did_scope, did_name)
-
         logger.info('%sPreparing download of %s' % (log_prefix, did_str))
 
         trace['scope'] = did_scope
@@ -733,7 +778,6 @@ class DownloadClient:
 
         for item in items:
             item['force_scheme'] = ['https', 'davs']
-            item['no_resolve_archives'] = True
 
         logger.info('Processing %d item(s) for input' % len(items))
         download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
@@ -743,7 +787,8 @@ class DownloadClient:
         self.logger.debug('num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
 
         logger.info('Getting sources of DIDs')
-        input_items = self._prepare_items_for_download(did_to_options, merged_items)
+        merged_items_with_sources = self._get_sources(merged_items)
+        input_items = self._prepare_items_for_download(did_to_options, merged_items_with_sources, resolve_archives=False)
 
         try:
             output_items = self._download_items_aria2c(input_items, aria_rpc, rpc_auth, trace_custom_fields)
@@ -1084,22 +1129,67 @@ class DownloadClient:
                 merged_items.append(item)
         return download_info
 
-    def _prepare_items_for_download(self, did_to_options, merged_items):
+    def _get_sources(self, merged_items, resolve_archives=True):
         """
-        Get sources (PFNs) of the DIDs and optimises the amount of files to download
+        Get sources (PFNs) of the DIDs.
+
+        :param merged_items: list of dictionaries. Each dictionary describes a bunch of DIDs to download
+
+        :returns: list of list of dictionaries.
+        """
+        logger = self.logger
+        merged_items_with_sources = []
+        for item in merged_items:
+            # since we're using metalink we need to explicitly give all schemes
+            force_scheme = item.get('force_scheme')
+            if force_scheme:
+                schemes = force_scheme if isinstance(force_scheme, list) else [force_scheme]
+            else:
+                schemes = ['davs', 'gsiftp', 'https', 'root', 'srm', 'file']
+            logger.debug('schemes: %s' % schemes)
+
+            # extend RSE expression to exclude tape RSEs for non-admin accounts
+            rse_expression = item.get('rse')
+            if self.is_tape_excluded:
+                rse_expression = 'istape=False' if not rse_expression else '(%s)&istape=False' % rse_expression
+            logger.debug('rse_expression: %s' % rse_expression)
+
+            # get PFNs of files and datasets
+            logger.debug('num DIDs for list_replicas call: %d' % len(item['dids']))
+
+            metalink_str = self.client.list_replicas(item['dids'],
+                                                     schemes=schemes,
+                                                     rse_expression=rse_expression,
+                                                     client_location=self.client_location,
+                                                     resolve_archives=resolve_archives,
+                                                     resolve_parents=True,
+                                                     metalink=True)
+            file_items = parse_replicas_from_string(metalink_str)
+            logger.debug('num resolved files: %s' % len(file_items))
+
+            nrandom = item.get('nrandom')
+            if nrandom:
+                logger.info('Selecting %d random replicas from DID(s): %s' % (nrandom, item['dids']))
+                random.shuffle(file_items)
+                file_items = file_items[0:nrandom]
+                merged_items_with_sources.append(file_items)
+            else:
+                merged_items_with_sources.append(file_items)
+        return merged_items_with_sources
+
+    def _prepare_items_for_download(self, did_to_options, merged_items_with_sources, resolve_archives=True):
+        """
+        Optimises the amount of files to download
         (This function is meant to be used as class internal only)
 
         :param did_to_options: dictionary that maps each input DID to some input options
-        :param merged_items: list of dictionaries. Each dictionary describes a bunch of DIDs to download
+        :param merged_items_with_sources: list of dictionaries. Each dictionary describes a bunch of DIDs to download
 
         :returns: list of dictionaries. Each dictionary describes an element to download
 
         :raises InputValidationError: if the given input is not valid or incomplete
         """
         logger = self.logger
-
-        # if one item wants to resolve archives we enable it for all items
-        resolve_archives = not all(item.get('no_resolve_archives') for item in merged_items)
         if resolve_archives:
             # perhaps we'll need an extraction tool so check what is installed
             self.extraction_tools = [tool for tool in self.extraction_tools if tool.is_useable()]
@@ -1124,43 +1214,9 @@ class DownloadClient:
         all_dest_file_paths = set()
 
         # get replicas for every file of the given dids
-        logger.debug('num list_replicas calls: %d' % len(merged_items))
-        for item in merged_items:
-            # since we're using metalink we need to explicitly give all schemes
-            force_scheme = item.get('force_scheme')
-            if force_scheme:
-                schemes = force_scheme if isinstance(force_scheme, list) else [force_scheme]
-            else:
-                schemes = ['davs', 'gsiftp', 'https', 'root', 'srm', 'file']
-            logger.debug('schemes: %s' % schemes)
-
-            # extend RSE expression to exclude tape RSEs for non-admin accounts
-            rse_expression = item.get('rse')
-            if self.is_tape_excluded:
-                rse_expression = 'istape=False' if not rse_expression else '(%s)&istape=False' % rse_expression
-            logger.debug('rse_expression: %s' % rse_expression)
-
-            # get PFNs of files and datasets
-            logger.debug('num DIDs for list_replicas call: %d' % len(item['dids']))
-            metalink_str = self.client.list_replicas(item['dids'],
-                                                     schemes=schemes,
-                                                     rse_expression=rse_expression,
-                                                     client_location=self.client_location,
-                                                     resolve_archives=resolve_archives,
-                                                     resolve_parents=True,
-                                                     metalink=True)
-            file_items = parse_replicas_from_string(metalink_str)
-
-            logger.debug('num resolved files: %s' % len(file_items))
-
-            nrandom = item.get('nrandom')
-            if nrandom:
-                logger.info('Selecting %d random replicas from DID(s): %s' % (nrandom, item['dids']))
-                random.shuffle(file_items)
-                file_items = file_items[0:nrandom]
-
+        logger.debug('num list_replicas calls: %d' % len(merged_items_with_sources))
+        for file_items in merged_items_with_sources:
             all_file_items.extend(file_items)
-
             for file_item in file_items:
                 # parent_dids contains all parents, so we take the intersection with the input dids
                 dataset_did_strs = file_item.setdefault('parent_dids', set())
