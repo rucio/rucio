@@ -14,6 +14,7 @@
   PY3K COMPATIBLE
 '''
 
+from rucio.common.exception import ConfigNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
 
@@ -116,6 +117,8 @@ def get(section, option, default=None, session=None):
 
     if tmp is not None:
         return __convert_type(tmp[0])
+    elif default is None:
+        raise ConfigNotFound
     else:
         return default
 
