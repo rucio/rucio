@@ -13,6 +13,9 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
   - Wen Guan, <wen.guan@cern.ch>, 2015
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+
+  PY3K COMPATIBLE
 
 SQLAlchemy models for rucio data
 '''
@@ -20,6 +23,7 @@ SQLAlchemy models for rucio data
 import datetime
 import uuid
 
+from builtins import object
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, SmallInteger, String as _String, event, UniqueConstraint
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
@@ -212,18 +216,22 @@ class ModelBase(object):
         self._i = iter(object_mapper(self).columns)
         return self
 
+    def __next__(self):
+        n = next(self._i).name
+        return n, getattr(self, n)
+
     def next(self):
-        n = self._i.next().name
+        n = next(self._i).name
         return n, getattr(self, n)
 
     def keys(self):
-        return self.__dict__.keys()
+        return list(self.__dict__.keys())
 
     def values(self):
-        return self.__dict__.values()
+        return list(self.__dict__.values())
 
     def items(self):
-        return self.__dict__.items()
+        return list(self.__dict__.items())
 
     def to_dict(self):
         return self.__dict__.copy()

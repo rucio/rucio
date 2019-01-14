@@ -6,6 +6,9 @@
 #
 # Authors:
 # - Fernando Lopez, <felopez@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 """
 Download dumps via HTTP
@@ -293,7 +296,7 @@ class Filter(object):
             key, expected = expr.split('=')
             # Better checks required
             assert key in record_class.get_fieldnames()
-            parser = filter(lambda t: t[0] == key, record_class.SCHEMA)[0][1]
+            parser = list(filter(lambda t: t[0] == key, record_class.SCHEMA))[0][1]
             self.conditions.append(self._Condition(
                 comparator=operator.eq,
                 attribute=key,

@@ -11,8 +11,12 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
   - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
   - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+
+  PY3K COMPATIBLE
 '''
 
+from __future__ import print_function, division
 import os
 import ssl
 import sys
