@@ -38,7 +38,7 @@ def sections(use_cache=True, expiration_time=3600, session=None):
     :returns: ['section_name', ...]
     """
 
-    sections_key = 'all_sections'
+    sections_key = 'sections'
     all_sections = NoValue()
     if use_cache:
         all_sections = REGION.get(sections_key, expiration_time=expiration_time)
@@ -72,7 +72,7 @@ def has_section(section, use_cache=True, expiration_time=3600, session=None):
     :param session: The database session in use.
     :returns: True/False
     """
-    has_section_key = 'has_%s' % section
+    has_section_key = 'has_section_%s' % section
     has_section = NoValue()
     if use_cache:
         has_section = REGION.get(has_section_key, expiration_time=expiration_time)
@@ -94,13 +94,14 @@ def options(section, use_cache=True, expiration_time=3600, session=None):
     :param session: The database session in use.
     :returns: ['option', ...]
     """
+    options_key = 'options'
     options = NoValue()
     if use_cache:
-        options = REGION.get(section, expiration_time=expiration_time)
+        options = REGION.get(options_key, expiration_time=expiration_time)
     if isinstance(options, NoValue):
         query = session.query(models.Config.opt).filter_by(section=section).distinct().all()
         options = [option[0] for option in query]
-        REGION.set(section, options)
+        REGION.set(options_key, options)
     return options
 
 
@@ -116,7 +117,7 @@ def has_option(section, option, use_cache=True, expiration_time=3600, session=No
     :param session: The database session in use.
     :returns: True/False
     """
-    has_option_key = 'has_%s_%s' % (section, option)
+    has_option_key = 'has_option_%s_%s' % (section, option)
     has_option = NoValue()
     if use_cache:
         has_option = REGION.get(has_option_key, expiration_time=expiration_time)
@@ -143,7 +144,7 @@ def get(section, option, default=None, use_cache=True, expiration_time=3600, ses
     :param session: The database session in use.
     :returns: The auto-coerced value.
     """
-    value_key = 'value_%s_%s' % (section, option)
+    value_key = 'get_%s_%s' % (section, option)
     value = NoValue()
     if use_cache:
         value = REGION.get(value_key, expiration_time=expiration_time)
