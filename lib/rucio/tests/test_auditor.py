@@ -8,8 +8,12 @@
  Authors:
  - Vincent Garonne,  <vincent.garonne@cern.ch> , 2017
  - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+ - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+
+ PY3K COMPATIBLE
 '''
 
+from __future__ import division
 from datetime import datetime
 from datetime import timedelta
 from nose.tools import eq_

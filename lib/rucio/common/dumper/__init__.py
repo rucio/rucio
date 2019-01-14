@@ -330,7 +330,7 @@ def gfal_download_to_file(url, file_):
     try:
         chunk = infile.read(CHUNK_SIZE)
     except GError as e:
-        if e[1] == 70:
+        if e.code == 70:
             logger.debug('GError(70) raised, using GRIDFTP PLUGIN:STAT_ON_OPEN=False workarround to download %s', url)
             ctx.set_opt_boolean('GRIDFTP PLUGIN', 'STAT_ON_OPEN', False)
             infile = ctx.open(url, 'r')

@@ -16,7 +16,9 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
 
 from nose.tools import assert_equal
 
@@ -99,7 +101,7 @@ class TestDatasetReplicaClient:
         replica_client.add_replicas(rse=rse2, files=[archive])
 
         archived_files = [{'scope': scope, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
-                           'bytes': 4322, 'adler32': 'deaddead'} for i in xrange(2)]
+                           'bytes': 4322, 'adler32': 'deaddead'} for i in range(2)]
         replica_client.add_replicas(rse=rse2, files=archived_files)
         did_client.add_files_to_archive(scope=scope, name=archive['name'], files=archived_files)
 

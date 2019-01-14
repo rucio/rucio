@@ -9,6 +9,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 """
 RFIO protocol
@@ -17,8 +20,12 @@ RFIO protocol
 import os
 
 from os.path import dirname
-from urlparse import urlparse
-
+try:
+    # PY2
+    from urlparse import urlparse
+except ImportError:
+    # PY3
+    from urllib.parse import urlparse
 from rucio.common.utils import execute
 from rucio.common import exception
 from rucio.rse.protocols import protocol

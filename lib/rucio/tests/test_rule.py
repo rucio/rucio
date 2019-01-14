@@ -10,6 +10,9 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 import string
 import random
@@ -675,7 +678,7 @@ class TestReplicationRuleCore():
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
         for file in files:
             for l in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
-                assert(lock['state'] == LockState.STUCK)
+                assert(l['state'] == LockState.STUCK)
 
     def test_delete_rule_country_admin(self):
         """ REPLICATION RULE (CORE): Delete a rule with a country admin account"""
@@ -876,7 +879,7 @@ class TestReplicationRuleCore():
                    'bytes': 2596, 'adler32': 'beefdead'}
         add_replica(rse=self.rse1, scope=scope, name=archive['name'], bytes=2596, account='jdoe')
         files_in_archive = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(uuid())), 'type': 'FILE',
-                             'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+                             'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
         attach_dids(scope, archive['name'], files_in_archive, 'jdoe')
 
         add_rule(dids=[{'scope': scope, 'name': files_in_archive[1]['name']}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='NONE',
@@ -889,7 +892,7 @@ class TestReplicationRuleCore():
                    'bytes': 2596, 'adler32': 'beefdead'}
         add_replica(rse=self.rse1, scope=scope, name=archive['name'], bytes=2596, account='jdoe')
         files_in_archive = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(uuid())), 'type': 'FILE',
-                             'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+                             'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
         attach_dids(scope, archive['name'], files_in_archive, 'jdoe')
         add_replica(rse=self.rse1, scope=scope, name=files_in_archive[1]['name'], bytes=2596, account='jdoe')
 
