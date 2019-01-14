@@ -113,10 +113,7 @@ def get(section, option, issuer=None):
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
     if not permission.has_permission(issuer=issuer, action='config_get', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot retrieve option %s from section %s' % (issuer, option, section))
-    value = config.get(section, option)
-    if not value:
-        raise exception.ConfigNotFound
-    return value
+    return config.get(section, option)
 
 
 def items(section, issuer=None):
