@@ -1,459 +1,340 @@
--- 23th October 2013 , Gancho Dimitrov
--- Version of the Rucio database schema with tables being categorised in 4 categories, changed physical implementation and distributed on several tablespaces.
-
-/* explanations
-
-Table categories:
-1. Small tables that host attribute data
-2. Large partitioned fact tables
-3. Tables with highly transient data (high insert and delete activity). Index rebuild would or shrink operations be needed.
-4. Historical data - once written the content does not change. OLTP compression is activated for them to safe space.
-
-Tablespace names created on the INTR database
-
-ATLAS_RUCIO_ATTRIBUTE_DATA01
-ATLAS_RUCIO_FACT_DATA01
-ATLAS_RUCIO_TRANSIENT_DATA01
-ATLAS_RUCIO_HIST_DATA01
-
-
--- ============================================== section ATTRIBUTES data ========================================================================
--- to reside in tablespace ATLAS_RUCIO_ATTRIBUTE_DATA01
-
-ACCOUNTS
-ACCOUNT_MAP
-ACCOUNT_ATTR_MAP
-SCOPES
-RSES
-RSE_ATTR_MAP
-IDENTITIES
-DID_KEYS
-DID_KEY_MAP
-SUBSCRIPTIONS
-
-
--- ============================================== section FACT data ==============================================================================
--- to reside in tablespace ATLAS_RUCIO_FACT_DATA01
-
-DIDS
-REPLICAS
-RULES
-LOCKS
-DATASET_LOCKS
-ACCOUNT_LIMITS
-RSE_COUNTERS
-RSE_LIMITS
-RSE_PROTOCOLS
-COLLECTION_REPLICAS
-
-
--- ============================================== section TRANSIENT data  ==========================================================================
--- to reside in tablespace ATLAS_RUCIO_TRANSIENT_DATA01
-
-CONTENTS
-REQUESTS
-CALLBACKS
-TOKENS
-ACCOUNT_USAGE
-RSE_USAGE
--- MOCK_FTS_TRANSFERS (obsolete)
-UPDATED_DIDS
-UPDATED_RSE_COUNTERS
-UPDATED_ACCOUNT_COUNTERS
-REPLICAS_HISTORY
-UPDATED_COL_REP
-
-
--- ============================================== section HISTORICAL data =========================================================================
--- to reside in tablespace ATLAS_RUCIO_HIST_DATA01
-
-DELETED_DIDS
-REQUESTS_HISTORY
-SUBSCRIPTIONS_HISTORY
-RSE_USAGE_HISTORY
-ACCOUNT_USAGE_HISTORY
-LOGGING_TABPARTITIONS
-RULES_HIST_RECENT
-RULES_HISTORY
-
-as total 31 tables (+ one obsolete)
-
---===================================================================================================
--- for dropping the existing tables
--- SELECT 'DROP TABLE ATLAS_RUCIO_RND.' || object_name || ';'
--- FROM dba_objects WHERE owner = 'ATLAS_RUCIO_RND'AND object_type = 'TABLE'
--- ORDER BY created desc;
-
-*/
-
-
-
-
-
-
-
---==============================================================================================================================================================================
---===================================================== DB tables creation section =============================================================================================
---==============================================================================================================================================================================
-
-
-
--- ============================================== section ATTRIBUTES data ========================================================================
--- to reside in tablespace ATLAS_RUCIO_ATTRIBUTE_DATA01
---================================================================================================================================================
-
--- ========================================= ACCOUNTS (IOT type) =========================================
--- Desc: Table to store the list of accounts
--- Estimated volume: ~2000
--- Access pattern: By account
-
-CREATE TABLE accounts (
-    account VARCHAR2(25 CHAR),
-    account_type VARCHAR2(7 CHAR),
-    status VARCHAR2(9 CHAR),
-    email VARCHAR2(255 CHAR),
-    suspended_at DATE,
-    deleted_at DATE,
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "ACCOUNTS_PK" PRIMARY KEY (account),
-    CONSTRAINT "ACCOUNTS_TYPE_NN" CHECK ("ACCOUNT_TYPE" IS NOT NULL),
-    CONSTRAINT "ACCOUNTS_STATUS_NN" CHECK ("STATUS" IS NOT NULL),
-    CONSTRAINT "ACCOUNTS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "ACCOUNTS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "ACCOUNTS_TYPE_CHK" CHECK (account_type IN ('GROUP', 'USER', 'SERVICE')),
-    CONSTRAINT "ACCOUNTS_STATUS_CHK" CHECK (status IN ('ACTIVE', 'DELETED', 'SUSPENDED')),
-    CONSTRAINT "ACCOUNTS_NAME_LOWERCASE_CHK" CHECK (account=LOWER(account))
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
-
--- ========================================= IDENTITIES =========================================
--- Description: Table to store the identities of the users
--- Estimated volume: ~2000 users * gss + x509 credentials : ~4000 rows
--- Access pattern: By identity, type
--- Because of the BLOB column, it is not appropriate to be an IOT structure
-
-CREATE TABLE identities (
-    identity VARCHAR2(2048 CHAR),
-    identity_type VARCHAR2(8 CHAR),
-    username VARCHAR2(255 CHAR),
-    password VARCHAR2(255 CHAR),
-    email VARCHAR2(255 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    deleted NUMBER(1),
-    deleted_at DATE,
-    salt BLOB,
-    CONSTRAINT "IDENTITIES_PK" PRIMARY KEY (identity, identity_type),
-    CONSTRAINT "IDENTITIES_TYPE_NN" CHECK ("IDENTITY_TYPE" IS NOT NULL),
-    CONSTRAINT "IDENTITIES_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "IDENTITIES_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "IDENTITIES_DELETED_NN" CHECK (DELETED IS NOT NULL),
-    CONSTRAINT "IDENTITIES_EMAIL_NN" CHECK (EMAIL IS NOT NULL),
-    CONSTRAINT "IDENTITIES_TYPE_CHK" CHECK (identity_type IN ('X509', 'GSS', 'USERPASS', 'SSH')),
-    CONSTRAINT "IDENTITIES_DELETED_CHK" CHECK (deleted IN (0, 1))
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
-
-
--- ========================================= ACCOUNT_MAP (IOT type) =========================================
--- Desc: table to store the mapping account-identity
--- Estimated volume: ~2000 accounts * 4000 identities
--- Access pattern: by identity, type
-
-CREATE TABLE account_map (
-    identity VARCHAR2(2048 CHAR),
-    identity_type VARCHAR2(8 CHAR),
-    account VARCHAR2(25 CHAR),
-    is_default NUMBER(1),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "ACCOUNT_MAP_PK" PRIMARY KEY (identity, identity_type, account),
-    CONSTRAINT "ACCOUNT_MAP_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "ACCOUNT_MAP_ID_TYPE_FK" FOREIGN KEY(identity, identity_type) REFERENCES identities (identity, identity_type),
-    CONSTRAINT "ACCOUNT_MAP_IS_DEFAULT_NN" CHECK (is_default IS NOT NULL),
-    CONSTRAINT "ACCOUNT_MAP_IS_TYPE_NN" CHECK ("IDENTITY_TYPE" IS NOT NULL),
-    CONSTRAINT "ACCOUNT_MAP_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "ACCOUNT_MAP_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "ACCOUNT_MAP_IS_TYPE_CHK" CHECK (identity_type IN ('X509', 'GSS', 'USERPASS', 'SSH')),
-    CONSTRAINT "ACCOUNT_MAP_DEFAULT_CHK" CHECK (is_default IN (0, 1))
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
--- ========================================= ACCOUNT_ATTR_MAP (IOT type) =========================================
--- Description: Table to mapping between account attributes and account
--- Estimated volume: ~4000 * 2 account attributes
--- Access pattern: by account. By key or by "key/value"
-
-CREATE TABLE atlas_rucio.account_attr_map (
-	account VARCHAR2(25 CHAR) NOT NULL,
-	key VARCHAR2(255 CHAR) NOT NULL,
-	value VARCHAR2(255 CHAR),
-	updated_at DATE,
-	created_at DATE,
-	CONSTRAINT "ACCOUNT_ATTR_MAP_PK" PRIMARY KEY (account, key),
-	CONSTRAINT "ACCOUNT_ATTR_MAP_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-	CONSTRAINT "ACCOUNT_ATTR_MAP_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
-	CONSTRAINT "ACCOUNT_ATTR_MAP_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-CREATE INDEX atlas_rucio."ACCOUNT_ATTR_MAP_KEY_VALUE_IDX" ON atlas_rucio.account_attr_map (key, value) COMPRESS 2 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
--- ========================================= SCOPES (IOT type) =========================================
--- Description: Table to store the scopes
--- Estimated volume: ~4000
--- Access pattern: by scope
-
-CREATE TABLE scopes (
-    scope VARCHAR2(25 CHAR),
-    account VARCHAR2(25 CHAR),
-    is_default NUMBER(1),
-    status CHAR(1 CHAR),
-    closed_at DATE,
-    deleted_at DATE,
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "SCOPES_PK" PRIMARY KEY (scope),
-    CONSTRAINT "SCOPES_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "SCOPES_IS_DEFAULT_NN" CHECK (is_default IS NOT NULL),
-    CONSTRAINT "SCOPES_STATUS_NN" CHECK (STATUS IS NOT NULL),
-    CONSTRAINT "SCOPES_ACCOUNT_NN" CHECK ("ACCOUNT" IS NOT NULL),
-    CONSTRAINT "SCOPES_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "SCOPES_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "SCOPES_DEFAULT_CHK" CHECK (is_default IN (0, 1)),
-    CONSTRAINT "SCOPES_STATUS_CHK" CHECK (status IN ('C', 'D', 'O'))
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-CREATE UNIQUE INDEX SCOPES_SCOPE_UQ ON SCOPES(UPPER(scope)) tablespace ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
--- ========================================= RSES (IOT structure) =========================================
--- Description: Table to store the list of RSEs
--- Estimated volume: ~700 which can be reduced to ~200
--- Access pattern: By rse/id
-
-CREATE TABLE rses (
-    id RAW(16),
-    rse VARCHAR2(255 CHAR),
-    rse_type VARCHAR2(4 CHAR),
-    deterministic NUMBER(1),
-    volatile NUMBER(1),
-    staging_area NUMBER(1),
-    city VARCHAR2(255 CHAR),
-    region_code VARCHAR2(2 CHAR),
-    country_name VARCHAR2(255 CHAR),
-    continent VARCHAR2(2 CHAR),
-    time_zone VARCHAR2(255 CHAR),
-    ISP VARCHAR2(255 CHAR),
-    ASN VARCHAR2(255 CHAR),
-    longitude FLOAT,
-    latitude FLOAT,
-    availability NUMBER(3,0) DEFAULT 7,
-    updated_at DATE,
-    created_at DATE,
-    deleted NUMBER(1),
-    deleted_at DATE,
-    CONSTRAINT "RSES_PK" PRIMARY KEY (id),
-    CONSTRAINT "RSES_RSE_UQ" UNIQUE (rse),
-    CONSTRAINT "RSES_RSE_NN" CHECK ("RSE" IS NOT NULL),
-    CONSTRAINT "RSES_TYPE_NN" CHECK ("RSE_TYPE" IS NOT NULL),
-    CONSTRAINT "RSES_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "RSES_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "RSES_DELETED_NN" CHECK (DELETED IS NOT NULL),
-    CONSTRAINT "RSES_TYPE_CHK" CHECK (rse_type IN ('DISK', 'TAPE')),
-    CONSTRAINT "RSE_DETERMINISTIC_CHK" CHECK (deterministic IN (0, 1)),
-    CONSTRAINT "RSE_VOLATILE_CHK" CHECK (volatile IN (0, 1)),
-    CONSTRAINT "RSE_STAGING_AREA_CHK" CHECK (staging_area IN (0,1)),
-    CONSTRAINT "RSES_DELETED_CHK" CHECK (deleted IN (0, 1))
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
-
-
--- ========================================= RSE_ATTR_MAP (IOT structure) =========================================
--- Description: Table to mapping between rse attributes and rse
--- Estimated volume: ~700 * 10 rse attributes (t1, t0, etc.)
--- Access pattern: by rse_id. By key or by "key/value"
-
-CREATE TABLE rse_attr_map (
-    rse_id RAW(16),
-    key VARCHAR2(255 CHAR),
-    value VARCHAR2(255 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "RSE_ATTR_MAP_PK" PRIMARY KEY (rse_id, key),
-    CONSTRAINT "RSE_ATTR_MAP_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "RSE_ATTR_MAP_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "RSE_ATTR_MAP_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-CREATE INDEX RSE_ATTR_MAP_KEY_VALUE_IDX ON rse_attr_map (key, value) COMPRESS 2 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
--- ========================================= DID_KEYS =========================================
--- Description: Table to store the list of values for a key
--- Estimated volume: ~1000 (campaign ~20, datatype ~400, group,  ~20, prod_step ~30, project ~200, provenance ~10)
--- Access pattern: by key
-
-CREATE TABLE did_keys (
-    key VARCHAR2(255 CHAR),
-    key_type VARCHAR2(10 CHAR),
-    value_type VARCHAR2(255 CHAR),
-    value_regexp VARCHAR2(255 CHAR),
-    is_enum NUMBER(1),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "DID_KEYS_PK" PRIMARY KEY (key),
-    CONSTRAINT "DID_KEYS_TYPE_NN" CHECK (key_type IS NOT NULL),
-    CONSTRAINT "DID_KEYS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "DID_KEYS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "DID_KEYS_TYPE_CHK" CHECK (key_type IN ('ALL', 'DERIVED', 'COLLECTION', 'FILE'))
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
-
-
--- ========================================= DID_KEY_MAP =========================================
--- Description: Table to store the list of values for a key
--- Estimated volume: ~1000 (campaign ~20, datatype ~400, group,  ~20, prod_step ~30, project ~200, provenance ~10)
--- Access pattern: by key. by key value.
-
-CREATE TABLE did_key_map (
-    key VARCHAR2(255 CHAR),
-    value VARCHAR2(255 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "DID_KEY_MAP_PK" PRIMARY KEY (key, value),
-    CONSTRAINT "DID_MAP_KEYS_FK" FOREIGN KEY(key) REFERENCES did_keys (key),
-    CONSTRAINT "DID_KEY_MAP_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "DID_KEY_MAP_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
-
--- ========================================= SUBSCRIPTIONS (not IOT table as otherwise an overflow segment has to be defined) =========================================
--- Description: Table to store subscriptions
--- Estimated volume: ~1000
--- Access pattern: by state. by name
-
-
-CREATE TABLE subscriptions (
-    id RAW(16),
-    name VARCHAR2(64 CHAR),
-    account VARCHAR2(25 CHAR),
-    state CHAR(1 CHAR),
-    policyid NUMBER(3),
-    last_processed DATE,
-    lifetime DATE,
-    retroactive NUMBER(1),
-    filter VARCHAR2(2048 CHAR),
-    replication_rules VARCHAR2(1024 CHAR),
-    comments VARCHAR2(4000 CHAR),
-    expired_at DATE,
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "SUBSCRIPTIONS_PK" PRIMARY KEY (id),
-    CONSTRAINT "SUBSCRIPTIONS_NAME_ACCOUNT_UQ" UNIQUE (name, account),
-    CONSTRAINT "SUBSCRIPTIONS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "SUBSCRIPTIONS_ACCOUNT_NN" CHECK ("ACCOUNT" IS NOT NULL),
-    CONSTRAINT "SUBSCRIPTIONS_RETROACTIVE_NN" CHECK ("RETROACTIVE" IS NOT NULL),
-    CONSTRAINT "SUBSCRIPTIONS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "SUBSCRIPTIONS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "SUBSCRIPTIONS_STATE_CHK" CHECK (state IN ('I', 'A', 'B', 'U', 'N')),
-    CONSTRAINT "SUBSCRIPTIONS_RETROACTIVE_CHK" CHECK (retroactive IN (0, 1))
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01 ;
-
-CREATE INDEX SUBSCRIPTIONS_STATE_IDX ON subscriptions (STATE) COMPRESS 1 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01 ;
-CREATE INDEX SUBSCRIPTIONS_NAME_IDX ON subscriptions (NAME) TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01 ;
-
-
--- ============================================== section FACT data ==============================================================================
--- to reside in tablespace ATLAS_RUCIO_FACT_DATA01
--- ===============================================================================================================================================
-
-
-
--- ========================================= DIDS (list partitioned and list sub-partitioned) =========================================
--- Description: Table to store data identifiers
--- Estimated volume: 0.5 Billion
--- uniqueness constraint on scope,name over all types and deleted data
--- Access pattern:
---                 - by scope, name (type)
---                 - by scope, pattern, type (wildcard queries)
---                 - by expired_at to get the expired datasets
---                 - by new to get the new datasets
-
-
-
-
-CREATE TABLE dids (
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    account VARCHAR2(25 CHAR),
-    did_type CHAR(1 CHAR),
-    is_open NUMBER(1),
-    monotonic NUMBER(1) DEFAULT '0',
-    hidden NUMBER(1) DEFAULT '0',
-    obsolete NUMBER(1) DEFAULT '0',
-    complete NUMBER(1),
-    is_new NUMBER(1) DEFAULT '1',
-    availability CHAR(1 CHAR),
-    suppressed NUMBER(1) DEFAULT '0',
-    bytes NUMBER(19),
-    length NUMBER(19),
-    md5 VARCHAR2(32 CHAR),
-    adler32 VARCHAR2(8 CHAR),
-    expired_at DATE,
-    deleted_at DATE,
-    events NUMBER(19),
-    guid RAW(16),
-    project VARCHAR2(50 CHAR),
-    datatype VARCHAR2(50 CHAR),
-    run_number NUMBER(10,0),
-    stream_name VARCHAR2(70 CHAR),
-    prod_step VARCHAR2(50 CHAR),
-    version VARCHAR2(50 CHAR),
-    task_id NUMBER(11),
-    panda_id NUMBER(11),
-    purge_replicas NUMBER(1) DEFAULT 1,
-    campaign VARCHAR2(50 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    lumiblocknr NUMBER(10,0),
-    provenance VARCHAR2(2 CHAR),
-    phys_group VARCHAR2(25 CHAR),
-    transient NUMBER(1,0),
-    accessed_at DATE,
-    closed_at DATE,
-    eol_at DATE,
-    is_archive NUMBER(1),
-    constituent  NUMBER(1),
-    access_cnt NUMBER(11),
-    CONSTRAINT "DIDS_PK" PRIMARY KEY (scope, name) USING INDEX COMPRESS 1,
-    CONSTRAINT "DIDS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "DIDS_SCOPE_FK" FOREIGN KEY(scope) REFERENCES scopes (scope),
-    CONSTRAINT "DIDS_PHYS_GROUP_FK" FOREIGN KEY(phys_group) REFERENCES accounts (account),
-    CONSTRAINT "DIDS_MONOTONIC_NN" CHECK ("MONOTONIC" IS NOT NULL),
-    CONSTRAINT "DIDS_OBSOLETE_NN" CHECK ("OBSOLETE" IS NOT NULL),
-    CONSTRAINT "DIDS_SUPP_NN" CHECK ("SUPPRESSED" IS NOT NULL),
-    CONSTRAINT "DIDS_ACCOUNT_NN" CHECK ("ACCOUNT" IS NOT NULL),
-    CONSTRAINT "DIDS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "DIDS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "DIDS_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
-    CONSTRAINT "DIDS_IS_OPEN_CHK" CHECK (is_open IN (0, 1)),
-    CONSTRAINT "DIDS_MONOTONIC_CHK" CHECK (monotonic IN (0, 1)),
-    CONSTRAINT "DIDS_HIDDEN_CHK" CHECK (hidden IN (0, 1)),
-    CONSTRAINT "DIDS_OBSOLETE_CHK" CHECK (obsolete IN (0, 1)),
-    CONSTRAINT "DIDS_COMPLETE_CHK" CHECK (complete IN (0, 1)),
-    CONSTRAINT "DIDS_PURGE_REPLICAS_CHK" CHECK (purge_replicas IN (0, 1)),
-    CONSTRAINT "DIDS_IS_NEW_CHK" CHECK (is_new IN (0, 1)),
-    CONSTRAINT "DIDS_AVAILABILITY_CHK" CHECK (availability IN ('A', 'D', 'L')),
-    CONSTRAINT "FILES_SUPP_CHK" CHECK (suppressed IN (0, 1)),
-    CONSTRAINT "DIDS_TRANSIENT_CHK" CHECK (transient IN (0, 1)),
-    CONSTRAINT "DIDS_ARCHIVE_CHK" CHECK (IS_ARCHIVE IN (0, 1)),
-    CONSTRAINT "DIDS_CONSTITUENT_CHK" CHECK (CONSTITUENT IN (0, 1)),
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_FACT_DATA01
+-- Rucio's DB table definitions for Oracle RDBMS  
+-- Authors: Rucio team and Gancho Dimitrov 
+
+
+
+
+-- 1) ========================================= ACCOUNTS table ========================================= 
+
+  CREATE TABLE ACCOUNTS 
+   (	ACCOUNT VARCHAR2(25), 
+	ACCOUNT_TYPE VARCHAR2(7), 
+	STATUS VARCHAR2(9), 
+	EMAIL VARCHAR2(255), 
+	SUSPENDED_AT DATE, 
+	DELETED_AT DATE, 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT ACCOUNTS_PK PRIMARY KEY (ACCOUNT), 
+	 CONSTRAINT ACCOUNTS_TYPE_NN CHECK (ACCOUNT_TYPE IS NOT NULL), 
+	 CONSTRAINT ACCOUNTS_STATUS_NN CHECK (STATUS IS NOT NULL), 
+	 CONSTRAINT ACCOUNTS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT ACCOUNTS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT ACCOUNTS_TYPE_CHK CHECK (account_type IN ('GROUP', 'USER', 'SERVICE')), 
+	 CONSTRAINT ACCOUNTS_STATUS_CHK CHECK (status IN ('ACTIVE', 'DELETED', 'SUSPENDED')), 
+	 CONSTRAINT ACCOUNTS_NAME_LOWERCASE_CHK CHECK (account=LOWER(account)) 
+   ) ORGANIZATION INDEX;
+
+
+-- 2) ========================================= IDENTITIES table ========================================= 
+
+  CREATE TABLE IDENTITIES 
+   (	IDENTITY VARCHAR2(2048), 
+	IDENTITY_TYPE VARCHAR2(8), 
+	USERNAME VARCHAR2(255), 
+	PASSWORD VARCHAR2(255), 
+	EMAIL VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	DELETED NUMBER(1,0), 
+	DELETED_AT DATE, 
+	SALT BLOB, 
+	 CONSTRAINT IDENTITIES_PK PRIMARY KEY (IDENTITY, IDENTITY_TYPE), 
+	 CONSTRAINT IDENTITIES_TYPE_NN CHECK (IDENTITY_TYPE IS NOT NULL), 
+	 CONSTRAINT IDENTITIES_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT IDENTITIES_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT IDENTITIES_DELETED_NN CHECK (DELETED IS NOT NULL), 
+	 CONSTRAINT IDENTITIES_EMAIL_NN CHECK (EMAIL IS NOT NULL), 
+	 CONSTRAINT IDENTITIES_TYPE_CHK CHECK (identity_type IN ('X509', 'GSS', 'USERPASS', 'SSH')), 
+	 CONSTRAINT IDENTITIES_DELETED_CHK CHECK (deleted IN (0, 1))
+   ) PCTFREE 0;
+
+
+-- 3) ========================================= ACCOUNT_MAP table ========================================= 
+
+  CREATE TABLE ACCOUNT_MAP 
+   (	IDENTITY VARCHAR2(2048), 
+	IDENTITY_TYPE VARCHAR2(8), 
+	ACCOUNT VARCHAR2(25), 
+	IS_DEFAULT NUMBER(1,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT ACCOUNT_MAP_PK PRIMARY KEY (IDENTITY, IDENTITY_TYPE, ACCOUNT), 
+	 CONSTRAINT ACCOUNT_MAP_IS_DEFAULT_NN CHECK (is_default IS NOT NULL), 
+	 CONSTRAINT ACCOUNT_MAP_IS_TYPE_NN CHECK (IDENTITY_TYPE IS NOT NULL), 
+	 CONSTRAINT ACCOUNT_MAP_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT ACCOUNT_MAP_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT ACCOUNT_MAP_DEFAULT_CHK CHECK (is_default IN (0, 1)), 
+	 CONSTRAINT ACCOUNT_MAP_IS_TYPE_CHK CHECK (identity_type IN ('X509', 'GSS', 'USERPASS', 'SSH')) , 
+	 CONSTRAINT ACCOUNT_MAP_ACCOUNT_FK FOREIGN KEY(ACCOUNT)  REFERENCES ACCOUNTS (ACCOUNT), 
+	 CONSTRAINT ACCOUNT_MAP_ID_TYPE_FK FOREIGN KEY(IDENTITY, IDENTITY_TYPE)  REFERENCES IDENTITIES(IDENTITY, IDENTITY_TYPE) 
+   ) ORGANIZATION INDEX COMPRESS 1;
+
+
+-- 4) ========================================= ACCOUNT_ATTR_MAP table ========================================= 
+
+  CREATE TABLE ACCOUNT_ATTR_MAP 
+   (	ACCOUNT VARCHAR2(25), 
+	KEY VARCHAR2(255), 
+	VALUE VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT ACCOUNT_ATTR_MAP_PK PRIMARY KEY (ACCOUNT, KEY), 
+	 CONSTRAINT ACCOUNT_ATTR_MAP_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS(ACCOUNT), 
+	 CONSTRAINT ACCOUNT_ATTR_MAP_ACCOUNT_NN CHECK (ACCOUNT IS NOT NULL), 
+	 CONSTRAINT ACCOUNT_ATTR_MAP_KEY_NN CHECK (KEY IS NOT NULL), 
+	 CONSTRAINT ACCOUNT_ATTR_MAP_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT ACCOUNT_ATTR_MAP_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL) 
+   ) ORGANIZATION INDEX;
+
+  CREATE INDEX ACCOUNT_ATTR_MAP_KEY_VALUE_IDX ON ACCOUNT_ATTR_MAP (KEY, VALUE) COMPRESS 2;
+
+
+
+-- 5) ========================================= SCOPES table ========================================= 
+
+  CREATE TABLE SCOPES 
+   (	SCOPE VARCHAR2(25), 
+	ACCOUNT VARCHAR2(25), 
+	IS_DEFAULT NUMBER(1,0), 
+	STATUS CHAR(1), 
+	CLOSED_AT DATE, 
+	DELETED_AT DATE, 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT SCOPES_PK PRIMARY KEY (SCOPE), 
+	 CONSTRAINT SCOPES_IS_DEFAULT_NN CHECK (is_default IS NOT NULL), 
+	 CONSTRAINT SCOPES_STATUS_NN CHECK (STATUS IS NOT NULL), 
+	 CONSTRAINT SCOPES_ACCOUNT_NN CHECK (ACCOUNT IS NOT NULL), 
+	 CONSTRAINT SCOPES_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT SCOPES_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT SCOPES_DEFAULT_CHK CHECK (is_default IN (0, 1)), 
+	 CONSTRAINT SCOPES_STATUS_CHK CHECK (status IN ('C', 'D', 'O')), 
+	 CONSTRAINT SCOPES_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS(ACCOUNT) 
+   ) ORGANIZATION INDEX;
+
+  CREATE UNIQUE INDEX SCOPES_SCOPE_UQ ON SCOPES (UPPER(SCOPE));
+
+
+
+-- 6) ========================================= RSES table ========================================= 
+
+  CREATE TABLE RSES 
+   (	ID RAW(16), 
+	RSE VARCHAR2(255), 
+	RSE_TYPE VARCHAR2(4), 
+	DETERMINISTIC NUMBER(1,0), 
+	VOLATILE NUMBER(1,0), 
+	CITY VARCHAR2(255), 
+	REGION_CODE VARCHAR2(2), 
+	COUNTRY_NAME VARCHAR2(255), 
+	CONTINENT VARCHAR2(2), 
+	TIME_ZONE VARCHAR2(255), 
+	ISP VARCHAR2(255), 
+	LONGITUDE FLOAT(126), 
+	LATITUDE FLOAT(126), 
+	ASN VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	DELETED NUMBER(1,0), 
+	DELETED_AT DATE, 
+	AVAILABILITY NUMBER(3,0) DEFAULT 7, 
+	STAGING_AREA NUMBER(1,0), 
+	 CONSTRAINT RSES_PK PRIMARY KEY (ID), 
+	 CONSTRAINT RSES_RSE_UQ UNIQUE (RSE), 
+	 CONSTRAINT RSES_RSE_NN CHECK (RSE IS NOT NULL), 
+	 CONSTRAINT RSES_TYPE_NN CHECK (RSE_TYPE IS NOT NULL), 
+	 CONSTRAINT RSES_TYPE_CHK CHECK (RSE_TYPE IN ('DISK', 'TAPE')), 
+	 CONSTRAINT RSE_DETERMINISTIC_CHK CHECK (deterministic IN (0, 1)), 
+	 CONSTRAINT RSE_VOLATILE_CHK CHECK (VOLATILE IN (0, 1)), 
+	 CONSTRAINT RSE_STAGING_AREA_CHK CHECK (STAGING_AREA IN (0, 1)) 
+   ) ORGANIZATION INDEX ;
+
+
+
+
+-- 7) ========================================= RSE_ATTR_MAP table ========================================= 
+
+  CREATE TABLE RSE_ATTR_MAP 
+   (	RSE_ID RAW(16), 
+	KEY VARCHAR2(255), 
+	VALUE VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT RSE_ATTR_MAP_PK PRIMARY KEY (RSE_ID, KEY), 
+	 CONSTRAINT RSE_ATTR_MAP_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT RSE_ATTR_MAP_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT RSE_ATTR_MAP_RSE_ID_FK FOREIGN KEY(RSE_ID) REFERENCES RSES(ID) 
+   ) ORGANIZATION INDEX;
+
+  CREATE INDEX RSE_ATTR_MAP_KEY_VALUE_IDX ON RSE_ATTR_MAP(KEY, VALUE) COMPRESS 1;
+
+
+
+-- 8) =========================================  DID_KEYS table ========================================= 
+
+  CREATE TABLE DID_KEYS 
+   (	KEY VARCHAR2(255), 
+	KEY_TYPE VARCHAR2(10), 
+	VALUE_TYPE VARCHAR2(255), 
+	VALUE_REGEXP VARCHAR2(255), 
+	IS_ENUM NUMBER(1,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT DID_KEYS_PK PRIMARY KEY (KEY), 
+	 CONSTRAINT DID_KEYS_TYPE_NN CHECK (key_type IS NOT NULL), 
+	 CONSTRAINT DID_KEYS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT DID_KEYS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT DID_KEYS_TYPE_CHK CHECK (key_type IN ('ALL', 'DERIVED', 'COLLECTION', 'FILE')) 
+   ) ORGANIZATION INDEX  ;
+
+
+-- 9) ========================================= DID_KEY_MAP table ========================================= 
+
+  CREATE TABLE DID_KEY_MAP 
+   (	KEY VARCHAR2(255), 
+	VALUE VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT DID_KEY_MAP_PK PRIMARY KEY (KEY, VALUE), 
+	 CONSTRAINT DID_KEY_MAP_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT DID_KEY_MAP_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT DID_MAP_KEYS_FK FOREIGN KEY(KEY)  REFERENCES DID_KEYS(KEY) 
+   ) ORGANIZATION INDEX  ;
+
+
+-- 10) ========================================= SUBSCRIPTIONS table ========================================= 
+
+  CREATE TABLE SUBSCRIPTIONS 
+   (	ID RAW(16), 
+	NAME VARCHAR2(64), 
+	ACCOUNT VARCHAR2(25), 
+	STATE CHAR(1), 
+	POLICYID NUMBER(3,0), 
+	LAST_PROCESSED DATE, 
+	LIFETIME DATE, 
+	RETROACTIVE NUMBER(1,0), 
+	FILTER VARCHAR2(2048), 
+	REPLICATION_RULES VARCHAR2(1024), 
+	EXPIRED_AT DATE, 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	COMMENTS VARCHAR2(4000), 
+	 CONSTRAINT SUBSCRIPTIONS_PK PRIMARY KEY(ID), 
+	 CONSTRAINT SUBSCRIPTIONS_NAME_ACCOUNT_UQ UNIQUE (NAME, ACCOUNT), 
+	 CONSTRAINT SUBSCRIPTIONS_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS(ACCOUNT), 
+	 CONSTRAINT SUBSCRIPTIONS_ACCOUNT_NN CHECK (ACCOUNT IS NOT NULL), 
+	 CONSTRAINT SUBSCRIPTIONS_RETROACTIVE_NN CHECK (RETROACTIVE IS NOT NULL), 
+	 CONSTRAINT SUBSCRIPTIONS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT SUBSCRIPTIONS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT SUBSCRIPTIONS_STATE_CHK CHECK (state IN ('I', 'A', 'B', 'U', 'N')), 
+	 CONSTRAINT SUBSCRIPTIONS_RETROACTIVE_CHK CHECK (retroactive IN (0, 1)) 
+   ) PCTFREE 0;
+
+  CREATE INDEX SUBSCRIPTIONS_STATE_IDX ON SUBSCRIPTIONS (STATE) COMPRESS 1;
+--   CREATE INDEX SUBSCRIPTIONS_NAME_IDX ON SUBSCRIPTIONS (NAME); /* the SUBSCRIPTIONS_NAME_ACCOUNT_UQ is already prefixed with NAME*/
+
+
+
+-- 11) =========================================  SUBSCRIPTIONS_HISTORY table ========================================= 
+
+  CREATE TABLE SUBSCRIPTIONS_HISTORY 
+   (	ID RAW(16), 
+	NAME VARCHAR2(64), 
+	FILTER VARCHAR2(2048), 
+	REPLICATION_RULES VARCHAR2(1024), 
+	POLICYID NUMBER(2,0), 
+	STATE CHAR(1), 
+	LAST_PROCESSED DATE, 
+	ACCOUNT VARCHAR2(25), 
+	LIFETIME DATE, 
+	RETROACTIVE NUMBER(1,0), 
+	EXPIRED_AT DATE, 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	CONSTRAINT SUBSCRIPTIONS_HISTORY_PK PRIMARY KEY (ID, UPDATED_AT) USING INDEX LOCAL, 
+	CONSTRAINT SUBS_HISTORY_RETROACTIVE_CHK CHECK (retroactive IN (0, 1)), 
+	CONSTRAINT SUBS_HISTORY_STATE_CHK CHECK (state IN ('I', 'A', 'B', 'U', 'N')) 
+   ) 
+PCTFREE 0 COMPRESS FOR OLTP
+PARTITION BY RANGE (updated_at) INTERVAL (NUMTOYMINTERVAL(1,'MONTH')) 
+(
+PARTITION "DATA_BEFORE_01092013" VALUES LESS THAN (TO_DATE('01-09-2013', 'DD-MM-YYYY'))
+);
+
+
+
+-- 12) ==========================  DIDS table (Data IDentifierS) List-type partitioned and sub-partitioned ========================= 
+
+  CREATE TABLE DIDS 
+   (	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	ACCOUNT VARCHAR2(25), 
+	DID_TYPE CHAR(1), 
+	IS_OPEN NUMBER(1,0), 
+	MONOTONIC NUMBER(1,0) DEFAULT 0, 
+	HIDDEN NUMBER(1,0) DEFAULT 0, 
+	OBSOLETE NUMBER(1,0) DEFAULT 0, 
+	COMPLETE NUMBER(1,0), 
+	IS_NEW NUMBER(1,0) DEFAULT 1, 
+	AVAILABILITY CHAR(1), 
+	SUPPRESSED NUMBER(1,0) DEFAULT 0, 
+	BYTES NUMBER(19,0), 
+	LENGTH NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	ADLER32 VARCHAR2(8), 
+	EXPIRED_AT DATE, 
+	DELETED_AT DATE, 
+	EVENTS NUMBER(19,0), 
+	GUID RAW(16), 
+	PROJECT VARCHAR2(50), 
+	DATATYPE VARCHAR2(50), 
+	RUN_NUMBER NUMBER(10,0), 
+	STREAM_NAME VARCHAR2(70), 
+	PROD_STEP VARCHAR2(50), 
+	VERSION VARCHAR2(50), 
+	TASK_ID NUMBER(11,0), 
+	PANDA_ID NUMBER(11,0), 
+	CAMPAIGN VARCHAR2(50), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	LUMIBLOCKNR NUMBER(10,0), 
+	PROVENANCE VARCHAR2(2), 
+	PHYS_GROUP VARCHAR2(25), 
+	TRANSIENT NUMBER(1,0), 
+	ACCESSED_AT DATE, 
+	CLOSED_AT DATE, 
+	PURGE_REPLICAS NUMBER(1,0) DEFAULT 1, 
+	EOL_AT DATE, 
+	IS_ARCHIVE NUMBER(1,0), 
+	CONSTITUENT NUMBER(1,0), 
+	ACCESS_CNT NUMBER(10,0), 
+	 CONSTRAINT DIDS_PK PRIMARY KEY (SCOPE, NAME) USING INDEX COMPRESS 1, 
+	 CONSTRAINT DIDS_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS(ACCOUNT), 
+	 CONSTRAINT DIDS_SCOPE_FK FOREIGN KEY(SCOPE) REFERENCES SCOPES (SCOPE), 
+	 CONSTRAINT DIDS_PHYS_GROUP_FK FOREIGN KEY(PHYS_GROUP) REFERENCES ACCOUNTS(ACCOUNT),
+	 CONSTRAINT DIDS_MONOTONIC_NN CHECK (MONOTONIC IS NOT NULL), 
+	 CONSTRAINT DIDS_OBSOLETE_NN CHECK (OBSOLETE IS NOT NULL), 
+	 CONSTRAINT DIDS_SUPP_NN CHECK (SUPPRESSED IS NOT NULL), 
+	 CONSTRAINT DIDS_ACCOUNT_NN CHECK (ACCOUNT IS NOT NULL), 
+	 CONSTRAINT DIDS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT DIDS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT DIDS_TYPE_CHK CHECK (did_type IN ('C', 'D', 'F')), 
+	 CONSTRAINT DIDS_IS_OPEN_CHK CHECK (is_open IN (0, 1)), 
+	 CONSTRAINT DIDS_MONOTONIC_CHK CHECK (monotonic IN (0, 1)), 
+	 CONSTRAINT DIDS_HIDDEN_CHK CHECK (hidden IN (0, 1)), 
+	 CONSTRAINT DIDS_OBSOLETE_CHK CHECK (obsolete IN (0, 1)), 
+	 CONSTRAINT DIDS_COMPLETE_CHK CHECK (complete IN (0, 1)), 
+	 CONSTRAINT DIDS_IS_NEW_CHK CHECK (is_new IN (0, 1)), 
+	 CONSTRAINT DIDS_AVAILABILITY_CHK CHECK (availability IN ('A', 'D', 'L')), 
+	 CONSTRAINT FILES_SUPP_CHK CHECK (suppressed IN (0, 1)), 
+	 CONSTRAINT DIDS_TRANSIENT_CHK CHECK (transient in (0, 1)), 
+	 CONSTRAINT DIDS_PURGE_REPLICAS_CHK CHECK (purge_replicas IN (0, 1)) , 
+	 CONSTRAINT DIDS_PURGE_REPLICAS_NN CHECK (purge_replicas IS NOT NULL), 
+	 CONSTRAINT DIDS_IS_ARCHIVE_CHK CHECK (IS_ARCHIVE IN (0, 1)) , 
+	 CONSTRAINT DIDS_CONSTITUENT_CHK CHECK (CONSTITUENT IN (0, 1)) 
+   )
+PCTFREE 0 
 PARTITION BY LIST(SCOPE)
 SUBPARTITION BY LIST(DID_TYPE)
 SUBPARTITION TEMPLATE
@@ -466,1431 +347,1383 @@ SUBPARTITION TEMPLATE
 PARTITION INITIAL_PARTITION VALUES ('INITIAL_PARTITION')
 );
 
--- indices
-CREATE INDEX DIDS_IS_NEW_IDX ON dids (is_new) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01 ;
-CREATE INDEX DIDS_EXPIRED_AT_IDX ON dids (expired_at) TABLESPACE ATLAS_RUCIO_FACT_DATA01 ;
-CREATE UNIQUE INDEX DIDS_GUID_IDX ON DIDS(guid) TABLESPACE ATLAS_RUCIO_FACT_DATA01;
--- commented out as it is not clear whether it is needed
--- CREATE INDEX DIDS_run_number_IDX ON DIDS(run_number, name) LOCAL compress 1;
+  CREATE UNIQUE INDEX DIDS_GUID_IDX ON DIDS(GUID) ;
+  CREATE INDEX DIDS_IS_NEW_IDX ON DIDS(IS_NEW) COMPRESS 1;
+  CREATE INDEX DIDS_EXPIRED_AT_IDX ON DIDS(EXPIRED_AT) ;
 
 
 
-
--- ========================================= REPLICAS =========================================
--- Description: Table to store file replicas
--- Estimated volume: ~ Billions
--- Access pattern:
---                 - by scope, name
---                 - by rse_id for data dumps - to be issued on the ADG
---                 - by tombstone not null
+-- 13) ===========================  DELETED_DIDS table (List-type partitioned + OLTP compression) ================================
 
 
-CREATE TABLE replicas (
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    rse_id RAW(16),
-    bytes NUMBER(19),
-    md5 VARCHAR2(32 CHAR),
-    adler32 VARCHAR2(8 CHAR),
-    state CHAR(1 CHAR),
-    lock_cnt NUMBER(5),
-    accessed_at DATE,
-    tombstone DATE,
-    path VARCHAR2(1024 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "REPLICAS_PK" PRIMARY KEY (scope, name, rse_id) USING INDEX LOCAL COMPRESS 1,
-    CONSTRAINT "REPLICAS_LFN_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
-    CONSTRAINT "REPLICAS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "REPLICAS_STATE_NN" CHECK ("STATE" IS NOT NULL),
-    CONSTRAINT "REPLICAS_BYTES_NN" CHECK (bytes IS NOT NULL),
-    CONSTRAINT "REPLICAS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "REPLICAS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-	CONSTRAINT "REPLICAS_LOCK_CNT_NN" CHECK (lock_cnt IS NOT NULL),
-    CONSTRAINT "REPLICAS_STATE_CHK" CHECK (state IN ('A', 'C', 'B', 'U', 'D', 'S'))
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_FACT_DATA01
-PARTITION BY LIST (SCOPE)
+  CREATE TABLE DELETED_DIDS 
+   (	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	ACCOUNT VARCHAR2(25), 
+	DID_TYPE CHAR(1), 
+	IS_OPEN NUMBER(1,0), 
+	MONOTONIC NUMBER(1,0) DEFAULT 0, 
+	HIDDEN NUMBER(1,0) DEFAULT 0, 
+	OBSOLETE NUMBER(1,0) DEFAULT 0, 
+	COMPLETE NUMBER(1,0), 
+	IS_NEW NUMBER(1,0) DEFAULT 1, 
+	AVAILABILITY CHAR(1), 
+	SUPPRESSED NUMBER(1,0) DEFAULT 0, 
+	BYTES NUMBER(19,0), 
+	LENGTH NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	ADLER32 VARCHAR2(8), 
+	RULE_EVALUATION_REQUIRED DATE, 
+	RULE_EVALUATION_ACTION CHAR(1), 
+	EXPIRED_AT DATE, 
+	DELETED_AT DATE, 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	EVENTS NUMBER(22,0), 
+	GUID RAW(16), 
+	PROJECT VARCHAR2(50), 
+	DATATYPE VARCHAR2(50), 
+	RUN_NUMBER NUMBER(10,0), 
+	STREAM_NAME VARCHAR2(70), 
+	PROD_STEP VARCHAR2(50), 
+	VERSION VARCHAR2(50), 
+	TASK_ID NUMBER(11,0), 
+	PANDA_ID NUMBER(11,0), 
+	CAMPAIGN VARCHAR2(50), 
+	LUMIBLOCKNR NUMBER(10,0), 
+	PROVENANCE VARCHAR2(2), 
+	PHYS_GROUP VARCHAR2(25), 
+	TRANSIENT NUMBER(1,0), 
+	ACCESSED_AT DATE, 
+	CLOSED_AT DATE, 
+	PURGE_REPLICAS NUMBER(1,0), 
+	EOL_AT DATE, 
+	IS_ARCHIVE NUMBER(1,0), 
+	CONSTITUENT NUMBER(1,0), 
+	ACCESS_CNT NUMBER(10,0), 
+	 CONSTRAINT DELETED_DIDS_PK PRIMARY KEY (SCOPE, NAME) USING INDEX LOCAL COMPRESS 1, 
+	 CONSTRAINT DIDS_HIST_PURGE_RPLCS_CHK CHECK (purge_replicas IN (0, 1)), 
+	 CONSTRAINT DIDS_HIST_SCOPE_NN CHECK (SCOPE IS NOT NULL), 
+	 CONSTRAINT DIDS_HIST_NAME_NN CHECK (NAME IS NOT NULL), 
+	 CONSTRAINT DIDS_HIST_DID_TYPE_NN CHECK (DID_TYPE IS NOT NULL) 
+   ) PCTFREE 0 
+COMPRESS FOR OLTP 
+PARTITION BY LIST (SCOPE) 
 (
-    PARTITION INITIAL_PARTITION VALUES ('Initial_partition')
+    PARTITION INITIAL_PARTITION VALUES ('INITIAL_PARTITION') 
 );
 
-CREATE INDEX REPLICAS_TOMBSTONE_IDX ON replicas (case when TOMBSTONE is not NULL then RSE_ID END, TOMBSTONE) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
-CREATE INDEX REPLICAS_LOCK_CNT_IDX ON replicas (case when TOMBSTONE is NULL and lock_cnt=0 then RSE_ID END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
-CREATE INDEX REPLICAS_STATE_IDX ON replicas (case when STATE != 'A' then RSE_ID END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
-CREATE INDEX REPLICAS_PATH_IDX ON replicas (path) TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
--- ========================================= REPLICAS_HISTORY =========================================
--- Description: Table to store recent file deletion replicas
--- Estimated volume: 20Hz
--- Access pattern:
---      get everything
---      update rucio
---      delete
-
-CREATE TABLE REPLICAS_HISTORY (
-    SCOPE VARCHAR2(25 CHAR),
-    NAME VARCHAR2(255 CHAR),
-    RSE_ID RAW(16),
-    BYTES NUMBER(19),
-    UPDATED_AT DATE,
-    CREATED_AT DATE,
-    CONSTRAINT "REPLICAS_HIST_PK" PRIMARY KEY (SCOPE, NAME, RSE_ID),
-    --CONSTRAINT "REPLICAS_HIST_LFN_FK" FOREIGN KEY(SCOPE, NAME) REFERENCES DIDS (SCOPE, NAME),
-    CONSTRAINT "REPLICAS_HIST_RSE_ID_FK" FOREIGN KEY(RSE_ID) REFERENCES RSES (ID),
-    CONSTRAINT "REPLICAS_HIST_BYTES_NN" CHECK (BYTES IS NOT NULL),
-    CONSTRAINT "REPLICAS_HIST_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "REPLICAS_HIST_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
-COMMENT ON TABLE REPLICAS_HISTORY IS 'Recent history of deleted replicas';
-
-
--- ========================================= COLLECTION_REPLICAS =========================================
--- Description: Table to store dataset/container replicas
--- Estimated volume: Hundreds of Million
--- Access pattern:
---                 - by scope, name
---                 - by rse_id
-
-
-CREATE TABLE collection_replicas (
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    did_type CHAR(1 CHAR),
-    rse_id RAW(16),
-    bytes NUMBER(19),
-    length NUMBER(19),
-    available_bytes NUMBER(19),
-    available_replicas_cnt NUMBER(19),
-    state CHAR(1 CHAR),
-    accessed_at DATE,
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "COLLECTION_REPLICAS_PK" PRIMARY KEY (scope, name, rse_id),
-    CONSTRAINT "COLLECTION_REPLICAS_LFN_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
-    CONSTRAINT "COLLECTION_REPLICAS_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
-    CONSTRAINT "COLLECTION_REPLICAS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "COLLECTION_REPLICAS_STATE_NN" CHECK ("STATE" IS NOT NULL),
-    CONSTRAINT "COLLECTION_REPLICAS_BYTES_NN" CHECK (bytes IS NOT NULL),
-    CONSTRAINT "COLLECTION_REPLICAS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "COLLECTION_REPLICAS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "COLLECTION_REPLICAS_STATE_CHK" CHECK (state IN ('A', 'C', 'B', 'U', 'D', 'S'))
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-CREATE INDEX COLLECTION_REPLICAS_RSE_ID_IDX ON collection_replicas (rse_id) TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-
--- ========================================= UPDATED_COLLECTION_REPLICAS =========================================
--- Description: Table to store updates on dataset/container replicas
--- Estimated volume: Small, used as a queue table
--- Access pattern:
---                 - by scope, name, rse_id
---                 - by id
-
-
-CREATE TABLE updated_col_rep (
-    id RAW(16),
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    did_type CHAR(1 CHAR),
-    rse_id RAW(16),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "UPDATED_COL_REP_PK" PRIMARY KEY (id),
-    CONSTRAINT "UPDATED_COL_REP_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
-    CONSTRAINT "UPDATED_COL_REP_SCOPE_NN" CHECK ("scope" IS NOT NULL),
-    CONSTRAINT "UPDATED_COL_REP_NAME_NN" CHECK (name IS NOT NULL),
-    CONSTRAINT "UPDATED_COL_REP_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "UPDATED_COL_REP_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
-CREATE INDEX UPDATED_COL_REP_SNR_IDX ON updated_col_rep ("scope", name, rse_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-CREATE INDEX ATLAS_RUCIO.UPDATED_COL_REP_SCOPE_NAME_IDX on ATLAS_RUCIO.UPDATED_COL_REP(scope, name) COMPRESS 2 tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
--- ========================================= RULES ==============================================
--- Description: Table to store rules
--- Estimated volume:  ~25 millions (versus 1 billion)
--- Access pattern: -- By scope, name
---                 -- By rule_id
-                   -- By subscription_id
-
-
-CREATE TABLE rules (
-    id RAW(16),
-    subscription_id RAW(16),
-    account VARCHAR2(25 CHAR),
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    did_type CHAR(1 CHAR),
-    state CHAR(1 CHAR),
-    rse_expression VARCHAR2(3000 CHAR),
-    copies NUMBER(4) DEFAULT 1,
-    expires_at DATE,
-    weight VARCHAR2(255 CHAR),
-    locked NUMBER(1) DEFAULT 0,
-    grouping CHAR(1 CHAR),
-    error VARCHAR2(255 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    source_replica_expression VARCHAR2(255 CHAR),
-    activity VARCHAR2(50 CHAR),
-    locks_ok_cnt NUMBER(10) DEFAULT 0,
-    locks_replicating_cnt NUMBER(10) DEFAULT 0,
-    locks_stuck_cnt NUMBER(10) DEFAULT 0,
-    notification CHAR(1 CHAR),
-    stuck_at DATE,
-    purge_replicas NUMBER(1) DEFAULT 0,
-    ignore_availability NUMBER(1) DEFAULT 0,
-    ignore_account_limit NUMBER(1) DEFAULT 0,
-    comments VARCHAR2(255 CHAR),
-    child_rule_id RAW(16),
-    priority NUMBER(1),
-    eol_at DATE,
-    split_container NUMBER(1) DEFAULT 0,
-    meta VARCHAR2(4000 CHAR),
-    CONSTRAINT "RULES_PK" PRIMARY KEY (id),   -- id, scope, name
-    CONSTRAINT "RULES_SCOPE_NAME_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
-    CONSTRAINT "RULES_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "RULES_SUBS_ID_FK" FOREIGN KEY(subscription_id) REFERENCES subscriptions (id),
-    CONSTRAINT "RULES_CHILD_RULE_ID_FK" FOREIGN KEY(child_rule_id) REFERENCES rules(id),
-    CONSTRAINT "RULES_STATE_NN" CHECK ("STATE" IS NOT NULL),
-    CONSTRAINT "RULES_SCOPE_NN" CHECK ("SCOPE" IS NOT NULL),
-    CONSTRAINT "RULES_NAME_NN" CHECK ("NAME" IS NOT NULL),
-    CONSTRAINT "RULES_GROUPING_NN" CHECK ("GROUPING" IS NOT NULL),
-    CONSTRAINT "RULES_COPIES_NN" CHECK ("COPIES" IS NOT NULL),
-    CONSTRAINT "RULES_LOCKED_NN" CHECK ("LOCKED" IS NOT NULL),
-    CONSTRAINT "RULES_PURGE_REPLICAS_NN" CHECK ("PURGE_REPLICAS" IS NOT NULL),
-    CONSTRAINT "RULES_ACCOUNT_NN" CHECK ("ACCOUNT" IS NOT NULL),
-    CONSTRAINT "RULES_LOCKS_OK_CNT_NN" CHECK ("LOCKS_OK_CNT" IS NOT NULL),
-    CONSTRAINT "RULES_LOCKS_REPLICATING_CNT_NN" CHECK ("LOCKS_REPLICATING_CNT" IS NOT NULL),
-    CONSTRAINT "RULES_LOCKS_STUCK_CNT_NN" CHECK ("LOCKS_STUCK_CNT" IS NOT NULL),
-    CONSTRAINT "RULES_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "RULES_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "RULES_DID_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
-    CONSTRAINT "RULES_STATE_CHK" CHECK (state IN ('S', 'R', 'U', 'O', 'W', 'I')),
-    CONSTRAINT "RULES_LOCKED_CHK" CHECK (locked IN (0, 1)),
-    CONSTRAINT "RULES_PURGE_REPLICAS_CHK" CHECK (purge_replicas IN (0, 1)),
-    CONSTRAINT "RULES_IGNORE_AVAILABILITY_CHK" CHECK (ignore_availability IN (0, 1)),
-    CONSTRAINT "RULES_IGNORE_ACCOUNT_LIMIT_CHK" CHECK (ignore_account_limit IN (0, 1)),
-    CONSTRAINT "RULES_GROUPING_CHK" CHECK (grouping IN ('A', 'D', 'N')),
-    CONSTRAINT "RULES_NOTIFICATION_CHK" CHECK (state IN('Y', 'N', 'C')),
-    CONSTRAINT "RULES_SPLIT_CONTAINER_CHK" CHECK (split_container IN (0, 1))
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-
-
-CREATE INDEX RULES_SCOPE_NAME_IDX ON rules (scope, name) COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-CREATE INDEX RULES_EXPIRES_AT_IDX ON rules (expires_at, name) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
--- function based index for the "S" value of the STATE column
-CREATE INDEX RULES_STUCKSTATE_IDX ON rules (CASE when state='S' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-CREATE UNIQUE INDEX "RULES_SC_NA_AC_RS_CO_UQ_IDX" ON "RULES" ("SCOPE", "NAME", "ACCOUNT", "RSE_EXPRESSION", "COPIES") COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-CREATE INDEX RULES_INJECTSTATE_IDX ON rules (CASE when state='I' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-CREATE INDEX RULES_APPROVALSTATE_IDX ON rules (CASE when state='W' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-CREATE INDEX RULES_CHILD_RULE_ID_IDX on ATLAS_RUCIO.rules(child_rule_id) tablespace ATLAS_RUCIO_FACT_DATA01;
-
-
--- ========================================= LOCKS (List partitioned table) =========================================
--- Description: Table to store locks
--- Estimated volume: 1.7 billion
--- Access pattern: By scope, name
---                 By scope, name, rule_id (By rule_id AND state, rule_id)
-
-
-CREATE TABLE locks (
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    rule_id RAW(16),
-    rse_id RAW(16),
-    account VARCHAR2(25 CHAR),
-    bytes NUMBER(19),
-    state CHAR(1 CHAR),
-    repair_cnt NUMBER(19),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "LOCKS_PK" PRIMARY KEY (scope, name, rule_id, rse_id) USING INDEX LOCAL COMPRESS 1,
-    -- CONSTRAINT "LOCKS_REPLICAS_FK" FOREIGN KEY(rse_id, scope, name) REFERENCES replicas (rse_id, scope, name),
-    CONSTRAINT "LOCKS_RULE_ID_FK" FOREIGN KEY(rule_id) REFERENCES rules (id),
-    CONSTRAINT "LOCKS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "LOCKS_STATE_NN" CHECK ("STATE" IS NOT NULL),
-    CONSTRAINT "LOCKS_ACCOUNT_NN" CHECK ("ACCOUNT" IS NOT NULL),
-    CONSTRAINT "LOCKS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "LOCKS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "LOCKS_STATE_CHK" CHECK (state IN ('S', 'R', 'O'))
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_FACT_DATA01
-PARTITION BY LIST (SCOPE)
-(
-    PARTITION INITIAL_PARTITION VALUES ('Initial_partition')
-);
-
-CREATE INDEX "LOCKS_RULE_ID_IDX" ON locks(rule_id)  COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01 ;
-
-
-
-
-
--- ========================================= DATASET_LOCKS =========================================
--- Description: Table to store locks
--- Estimated volume: 1 million (???)
--- Access pattern: By scope, name
---                 By rse_id
---                 By rule_id
-
-
-CREATE TABLE dataset_locks (
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    rule_id RAW(16),
-    rse_id RAW(16),
-    account VARCHAR2(25 CHAR),
-    state CHAR(1 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    length NUMBER(19),
-    bytes NUMBER(19),
-    accessed_at DATE,
-    CONSTRAINT "DATASET_LOCKS_PK" PRIMARY KEY (scope, name, rule_id, rse_id) USING INDEX COMPRESS 1,
-    CONSTRAINT "DATASET_LOCKS_DID_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
-    CONSTRAINT "DATASET_LOCKS_RULE_ID_FK" FOREIGN KEY(rule_id) REFERENCES rules (id),
-    CONSTRAINT "DATASET_LOCKS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "DATASET_LOCKS_STATE_NN" CHECK ("STATE" IS NOT NULL),
-    CONSTRAINT "DATASET_LOCKS_ACCOUNT_NN" CHECK ("ACCOUNT" IS NOT NULL),
-    CONSTRAINT "DATASET_LOCKS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "DATASET_LOCKS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "DATASET_LOCKS_STATE_CHK" CHECK (state IN ('S', 'R', 'O'))
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-CREATE INDEX "DATASET_LOCKS_RULE_ID_IDX" ON dataset_locks(rule_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01 ;
-CREATE INDEX "DATASET_LOCKS_RSE_ID_IDX" ON dataset_locks(rse_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01 ;
-
-
-
-
--- ========================================= UPDATED_ACCOUNT_COUNTERS =========================================
-
-CREATE TABLE UPDATED_ACCOUNT_COUNTERS
-(
-    ID RAW(16) NOT NULL,
-    account VARCHAR2(25 CHAR),
-    rse_id RAW(16),
-    files NUMBER(19),
-    bytes NUMBER(19),
-    UPDATED_AT DATE,
-    CREATED_AT DATE,
-    CONSTRAINT "UPDATED_ACCNT_CNTRS_PK" PRIMARY KEY (ID),
-    CONSTRAINT "UPDATED_ACCNT_CNTRS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "UPDATED_ACCNT_CNTRS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "UPDATED_ACCNT_CNTRS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "UPDATED_ACCNT_CNTRS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
-CREATE INDEX "UPDATED_ACCNT_CNTRS_RSE_IDX" ON updated_account_counters (account, rse_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
--- ========================================= ACCOUNT_LIMITS (physical structure IOT) =========================================
--- Description: Table to store the limits for an account.
--- Estimated volume: ~2000 accounts * 700 RSE * 1 limits (MaxBytes)
--- Access pattern: by account
-
-CREATE TABLE account_limits (
- account VARCHAR2(25 CHAR),
- rse_id RAW(16),
- bytes NUMBER(19),
- updated_at DATE,
- created_at DATE,
- CONSTRAINT ACCOUNT_LIMITS_PK PRIMARY KEY (account, rse_id),
- CONSTRAINT ACCOUNT_LIMITS_created_nn CHECK (created_at is not null),
- CONSTRAINT ACCOUNT_LIMITS_updated_nn CHECK (updated_at is not null),
- CONSTRAINT ACCOUNT_LIMITS_ACCOUNT_FK FOREIGN KEY(account) REFERENCES accounts (account),
- CONSTRAINT ACCOUNT_LIMITS_RSE_ID_FK FOREIGN KEY(rse_id) REFERENCES rses(id)
-) ORGANIZATION INDEX tablespace ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
-
--- ========================================= UPDATED_RSE_COUNTERS =========================================
-
-CREATE TABLE UPDATED_RSE_COUNTERS
-(
-	ID RAW(16) NOT NULL,
-        rse_id RAW(16),
-        files NUMBER(19),
-        bytes NUMBER(19),
-	UPDATED_AT DATE,
-	CREATED_AT DATE,
-	CONSTRAINT "UPDATED_RSE_CNTRS_PK" PRIMARY KEY (ID),
-        CONSTRAINT "UPDATED_RSE_CNTRS_RSE_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-	CONSTRAINT "UPDATED_RSE_CNTRS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-	CONSTRAINT "UPDATED_RSE_CNTRS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX "UPDATED_RSE_CNTRS_RSE_IDX" ON updated_rse_counters (rse_id) TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
-
--- ========================================= RSE_LIMITS (physical structure IOT) =========================================
--- Description: Table to store the limits of a a RSE
--- Estimated volume: ~700 RSEs *  ~2 limits (MinFreeSpace, MaxBeingDeletedFiles)
--- Access pattern: by rse_id, name
-
-CREATE TABLE rse_limits (
-    rse_id RAW(16),
-    name VARCHAR2(255 CHAR),
-    value NUMBER(19),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "RSE_LIMITS_PK" PRIMARY KEY (rse_id, name),
-    CONSTRAINT "RSE_LIMIT_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "RSE_LIMITS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "RSE_LIMITS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-
-
--- ========================================= RSE_TRANSFER_LIMITS (physical structure IOT) =========================================
--- Description: Table to store the transfer limits of a RSE
--- Estimated volume: ~700 RSEs *  ~10 activities
--- Access pattern: by rse_id, activity
-
-CREATE TABLE rse_transfer_limits (
-  rse_id RAW(16),
-  activity VARCHAR2(50 CHAR),
-  rse_expression VARCHAR2(3000 CHAR),
-  max_transfers NUMBER(19),
-  transfers NUMBER(19),
-  waitings NUMBER(19),
-  updated_at DATE,
-  created_at DATE,
-  CONSTRAINT "RSE_TRANSFER_LIMITS_PK" PRIMARY KEY (rse_id, activity),
-  CONSTRAINT "RSE_TRANSFER_LIMITS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-  CONSTRAINT "RSE_TRANSFER_LIMITS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-  CONSTRAINT "RSE_TRANSFER_LIMITS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01 ;
-
-
-
--- ========================================= RSE_PROTOCOLS (physical structure IOT) =========================================
--- Description: Table to store the list of protocols per RSE
--- Estimated volume: ~700 RSEs *  ~3 protocols = ~ ~2100
--- Access pattern: by rse_id. by rse_id, scheme
-
-
-CREATE TABLE rse_protocols (
-    rse_id RAW(16),
-    scheme VARCHAR2(255 CHAR),
-    hostname VARCHAR2(255 CHAR),
-    port NUMBER(6),
-    prefix VARCHAR2(1024 CHAR),
-    impl VARCHAR2(255 CHAR) NOT NULL,
-    read_LAN NUMBER(1),
-    write_LAN NUMBER(1),
-    delete_LAN NUMBER(1),
-    read_WAN NUMBER(1),
-    write_WAN NUMBER(1),
-    delete_WAN NUMBER(1),
-    third_party_copy NUMBER(1),
-    extended_attributes VARCHAR2(1024 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "RSE_PROTOCOLS_PK" PRIMARY KEY (rse_id, scheme, hostname, port),
-    CONSTRAINT "RSE_PROTOCOL_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "RSE_PROTOCOLS_IMPL_NN" CHECK ("IMPL" IS NOT NULL),
-    CONSTRAINT "RSE_PROTOCOLS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "RSE_PROTOCOLS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-)  ORGANIZATION INDEX COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-
-
-
--- ============================================== section TRANSIENT data  ==========================================================================
--- to reside in tablespace ATLAS_RUCIO_TRANSIENT_DATA01
--- =================================================================================================================================================
-
-
--- ========================================= CONTENTS (list partitioned IOT table) =========================================
--- Description: Table to store did contents
--- Estimated volume: 0.6 Billion
--- Access pattern: by "scope, name", by "child_scope, child_name"
-
-
-CREATE TABLE contents (
-        scope VARCHAR2(25 CHAR),
-        name VARCHAR2(255 CHAR),
-        child_scope VARCHAR2(25 CHAR),
-        child_name VARCHAR2(255 CHAR),
-        did_type CHAR(1 CHAR),
-        child_type CHAR(1 CHAR),
-        length NUMBER(22), -- or children ?
-        bytes NUMBER(22),
-        adler32 VARCHAR2(8 CHAR),
-        md5 VARCHAR2(32 CHAR),
-        guid RAW(16),
-        events NUMBER(19),
-        rule_evaluation NUMBER(1),
-        updated_at DATE,
-        created_at DATE,
-        CONSTRAINT "CONTENTS_PK" PRIMARY KEY (scope, name, child_scope, child_name),
-        CONSTRAINT "CONTENTS_ID_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
-        CONSTRAINT "CONTENTS_CHILD_ID_FK" FOREIGN KEY(child_scope, child_name) REFERENCES dids (scope, name),
-        CONSTRAINT "CONTENTS_DID_TYPE_NN" CHECK ("DID_TYPE" IS NOT NULL),
-        CONSTRAINT "CONTENTS_CHILD_TYPE_NN" CHECK ("CHILD_TYPE" IS NOT NULL),
-        CONSTRAINT "CONTENTS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-        CONSTRAINT "CONTENTS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-        CONSTRAINT "CONTENTS_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
-        CONSTRAINT "CONTENTS_CHILD_IS_TYPE_CHK" CHECK (child_type IN ('C', 'D', 'F')),
-        CONSTRAINT "CONTENTS_RULE_EVAL_CHK" CHECK (rule_evaluation IN (0, 1))
-)
-ORGANIZATION INDEX COMPRESS 2 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01
+-- 14) =============================  CONTENTS table (Index-Organised tables and List partitioned )======================
+
+  CREATE TABLE CONTENTS 
+   (	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	CHILD_SCOPE VARCHAR2(25), 
+	CHILD_NAME VARCHAR2(255), 
+	DID_TYPE CHAR(1), 
+	CHILD_TYPE CHAR(1), 
+	LENGTH NUMBER(22,0), 
+	BYTES NUMBER(22,0), 
+	ADLER32 VARCHAR2(8), 
+	MD5 VARCHAR2(32), 
+	RULE_EVALUATION NUMBER(1,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	GUID RAW(16), 
+	EVENTS NUMBER(19,0), 
+	 CONSTRAINT CONTENTS_PK PRIMARY KEY (SCOPE, NAME, CHILD_SCOPE, CHILD_NAME), 
+	 CONSTRAINT CONTENTS_ID_FK FOREIGN KEY(SCOPE, NAME)  REFERENCES DIDS(SCOPE, NAME), 
+	 CONSTRAINT CONTENTS_CHILD_ID_FK FOREIGN KEY(CHILD_SCOPE, CHILD_NAME) REFERENCES DIDS(SCOPE, NAME), 
+	 CONSTRAINT CONTENTS_DID_TYPE_NN CHECK (DID_TYPE        IS NOT NULL), 
+	 CONSTRAINT CONTENTS_CHILD_TYPE_NN CHECK (CHILD_TYPE    IS NOT NULL), 
+	 CONSTRAINT CONTENTS_CREATED_NN CHECK (CREATED_AT       IS NOT NULL), 
+	 CONSTRAINT CONTENTS_UPDATED_NN CHECK (UPDATED_AT       IS NOT NULL), 
+	 CONSTRAINT CONTENTS_TYPE_CHK CHECK (did_type             IN ('C', 'D', 'F')), 
+	 CONSTRAINT CONTENTS_CHILD_IS_TYPE_CHK CHECK (child_type  IN ('C', 'D', 'F')), 
+	 CONSTRAINT CONTENTS_RULE_EVAL_CHK CHECK (rule_evaluation IN (0, 1)) 
+   ) ORGANIZATION INDEX COMPRESS 2 
 PARTITION BY LIST (SCOPE)
 (
     PARTITION INITIAL_PARTITION VALUES ('Initial_partition')
 );
 
 
--- this index is equivalent to ("CHILD_SCOPE", "CHILD_NAME", "SCOPE", "NAME") as the columns of the PKs are added as logical address
-CREATE INDEX CONTENTS_CHILD_SCOPE_NAME_IDX ON CONTENTS (CHILD_SCOPE, CHILD_NAME) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+  CREATE INDEX CONTENTS_CHILD_SCOPE_NAME_IDX ON CONTENTS (CHILD_SCOPE, CHILD_NAME) COMPRESS 1;
+  CREATE INDEX CONTENTS_RULE_EVAL_FB_IDX ON CONTENTS (CASE RULE_EVALUATION WHEN 1 THEN RULE_EVALUATION ELSE NULL END );
 
 
--- ========================================= CONTENTS_HISTORY =========================================
--- Description: Table to store the history of contents
 
-CREATE TABLE ATLAS_RUCIO.CONTENTS_HISTORY (
-    scope VARCHAR2(25 CHAR) constraint CONTENTS_HIST_SCOPE_NN NOT NULL,
-    name VARCHAR2(255 CHAR) constraint CONTENTS_NAME_NN NOT NULL,
-    child_scope VARCHAR2(25 CHAR) constraint CONTENTS_HIST_CHILD_SCOPE_NN NOT NULL,
-    child_name VARCHAR2(255 CHAR) constraint CONTENTS_HIST_CHILD_NAME_NN NOT NULL,
-    did_type CHAR(1 CHAR),
-    child_type CHAR(1 CHAR),
-    length NUMBER(22),
-    bytes NUMBER(22),
-    adler32 VARCHAR2(8 CHAR),
-    md5 VARCHAR2(32 CHAR),
-    guid RAW(16),
-    events NUMBER(19),
-    rule_evaluation NUMBER(1),
-    updated_at DATE,
-    created_at DATE,
-    deleted_at DATE,
-    did_created_at DATE,
-    CONSTRAINT "CONTENTS_HIST_DID_TYPE_NN" CHECK ("DID_TYPE" IS NOT NULL),
-    CONSTRAINT "CONTENTS_HIST_CHILD_TYPE_NN" CHECK ("CHILD_TYPE" IS NOT NULL),
-    CONSTRAINT "CONTENTS_HIST_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "CONTENTS_HIST_DID_CREATED_NN" CHECK ("DID_CREATED_AT" IS NOT NULL),
-    CONSTRAINT "CONTENTS_HIST_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "CONTENTS_HIST_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
-    CONSTRAINT "CONTENTS_HIST_CHILD_ISTYPE_CHK" CHECK (child_type IN ('C', 'D', 'F')),
-    CONSTRAINT "CONTENTS_HIST_RULE_EVAL_CHK" CHECK (rule_evaluation IN (0, 1))
-) PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA02
+-- 15 ) =========================== CONTENTS_HISTORY table ( RANGE INTERVAL partitioned + OLTP compression ) =========================
+
+  CREATE TABLE CONTENTS_HISTORY 
+   (	SCOPE VARCHAR2(25) CONSTRAINT CONTENTS_HIST_SCOPE_NN NOT NULL, 
+	NAME VARCHAR2(255) CONSTRAINT CONTENTS_NAME_NN NOT NULL, 
+	CHILD_SCOPE VARCHAR2(25) CONSTRAINT CONTENTS_HIST_CHILD_SCOPE_NN NOT NULL, 
+	CHILD_NAME VARCHAR2(255) CONSTRAINT CONTENTS_HIST_CHILD_NAME_NN NOT NULL, 
+	DID_TYPE CHAR(1), 
+	CHILD_TYPE CHAR(1), 
+	LENGTH NUMBER(22,0), 
+	BYTES NUMBER(22,0), 
+	ADLER32 VARCHAR2(8), 
+	MD5 VARCHAR2(32), 
+	GUID RAW(16), 
+	EVENTS NUMBER(19,0), 
+	RULE_EVALUATION NUMBER(1,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	DID_CREATED_AT DATE, 
+	DELETED_AT DATE, 
+	 CONSTRAINT CONTENTS_HIST_DID_TYPE_NN CHECK (DID_TYPE IS NOT NULL), 
+	 CONSTRAINT CONTENTS_HIST_CHILD_TYPE_NN CHECK (CHILD_TYPE IS NOT NULL), 
+	 CONSTRAINT CONTENTS_HIST_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT CONTENTS_HIST_DID_CREATED_NN CHECK (DID_CREATED_AT IS NOT NULL), 
+	 CONSTRAINT CONTENTS_HIST_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT CONTENTS_HIST_TYPE_CHK CHECK (did_type IN ('C', 'D', 'F')), 
+	 CONSTRAINT CONTENTS_HIST_CHILD_ISTYPE_CHK CHECK (child_type IN ('C', 'D', 'F')), 
+	 CONSTRAINT CONTENTS_HIST_RULE_EVAL_CHK CHECK (rule_evaluation IN (0, 1)) 
+   )
+PCTFREE 0 
+COMPRESS FOR OLTP 
 PARTITION BY RANGE(did_created_at) INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') )
-( PARTITION "DATA_BEFORE_01052015" VALUES LESS THAN (TO_DATE('01-05-2015', 'DD-MM-YYYY')) )
-ENABLE ROW MOVEMENT ;
-
-CREATE INDEX ATLAS_RUCIO.CONTENTS_HISTORY_INDX on ATLAS_RUCIO.CONTENTS_HISTORY(scope, name) COMPRESS 2 LOCAL TABLESPACE ATLAS_RUCIO_HIST_DATA02;
-
--- ========================================= REQUESTS =========================================
--- Description: Table to store transfer requests
--- Estimated volume: 2 millions
--- When you add a new column here, don't forget to add it to requests_history table too
--- Also, add the corresponding variables in core/requests.py archive_request method to correct propagation.s
-
-CREATE TABLE REQUESTS
-   ("ID" RAW(16),
-    "STATE" CHAR(1 CHAR),
-    "REQUEST_TYPE" CHAR(1 CHAR),
-    "SCOPE" VARCHAR2(25 CHAR),
-    "NAME" VARCHAR2(255 CHAR),
-    "DID_TYPE" CHAR(1 CHAR) DEFAULT 'F',
-    "DEST_RSE_ID" RAW(16),
-    "SOURCE_RSE_ID" RAW(16),
-    "EXTERNAL_ID" VARCHAR2(64 CHAR),
-    "EXTERNAL_HOST" VARCHAR2(256 CHAR),
-    "RETRY_COUNT" NUMBER(3,0) DEFAULT '0',
-    "ATTRIBUTES" VARCHAR2(4000 CHAR),
-    "ERR_MSG" VARCHAR2(4000 CHAR),
-    "PREVIOUS_ATTEMPT_ID" RAW(16),
-    "RULE_ID" RAW(16),
-    "BYTES" NUMBER(19),
-    "MD5" VARCHAR2(32 CHAR),
-    "ADLER32" VARCHAR2(8 CHAR),
-    "DEST_URL" VARCHAR2(2048 CHAR),
-    "ACTIVITY" VARCHAR2(50 CHAR),
-    "UPDATED_AT" DATE,
-    "CREATED_AT" DATE,
-    "SUBMITTED_AT" DATE,
-    "STARTED_AT" DATE,
-    "TRANSFERRED_AT" DATE,
-    "ESTIMATED_AT" DATE,
-    "REQUESTED_AT" DATE,
-    "ESTIMATED_STARTED_AT" DATE,
-    "ESTIMATED_TRANSFERRED_AT" DATE,
-    "ACCOUNT" VARCHAR2(25 CHAR),
-    "SUBMITTER_ID" NUMBER(10),
-    "PRIORITY" NUMBER(1),
-     CONSTRAINT "REQUESTS_PK" PRIMARY KEY (ID),
-     CONSTRAINT "REQUESTS_RSES_FK" FOREIGN KEY ("DEST_RSE_ID") REFERENCES "RSES" ("ID") ,
-     CONSTRAINT "REQUESTS_DID_FK" FOREIGN KEY ("SCOPE", "NAME") REFERENCES "DIDS" ("SCOPE", "NAME"),
-     CONSTRAINT "REQUESTS_ACCOUNT_FK" FOREIGN KEY("account") REFERENCES accounts ("account"),
---     CONSTRAINT "REQUESTS_RULE_ID_FK" FOREIGN KEY ("RULE_ID") REFERENCES "RULES" ("ID"),
-     CONSTRAINT "REQUESTS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-     CONSTRAINT "REQUESTS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL) ,
-     CONSTRAINT "REQUESTS_RSE_ID_NN" CHECK (dest_rse_id IS NOT NULL) ,
-     CONSTRAINT "REQUESTS_TYPE_CHK" CHECK (request_type IN ('U', 'D', 'T','I','0')) ,
-     CONSTRAINT "REQUESTS_STATE_CHK" CHECK (state IN ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M')),
-     CONSTRAINT "REQUESTS_DIDTYPE_CHK" CHECK (did_type IN ('C', 'F', 'D'))
-       ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
-
--- commented out because PK is added instead
--- CREATE UNIQUE INDEX "REQUESTS_ID_IDX" ON "REQUESTS" ("ID") TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
---superseded
---CREATE INDEX "REQUESTS_SCOPE_NAME_RSE_IDX" ON "REQUESTS" ("SCOPE", "NAME", "DEST_RSE_ID") COMPRESS 2 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-CREATE UNIQUE INDEX "REQUESTS_SC_NA_RS_TY_UQ_IDX" ON "REQUESTS" ("SCOPE", "NAME", "DEST_RSE_ID", "REQUEST_TYPE") COMPRESS 2 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX "REQUESTS_TYP_STA_UPD_IDX_OLD" ON "REQUESTS" ("REQUEST_TYPE", "STATE", "UPDATED_AT") COMPRESS 2 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-CREATE INDEX "REQUESTS_TYP_STA_UPD_IDX" ON "REQUESTS" ("REQUEST_TYPE", "STATE", "ACTIVITY") COMPRESS 3 tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX "REQUESTS_RULEID_IDX" ON "REQUESTS" ("RULE_ID") COMPRESS 1 ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX "REQUESTS_EXTERNALID_UQ" ON "REQUESTS" ("EXTERNAL_ID") ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
-
-ALTER session set DDL_LOCK_TIMEOUT=300;
-
-
--- ========================================= SOURCES =========================================
--- Description: Table to store sources for transfers
--- Estimated volume: 2 millions * avg(sources) ~ 1.4
--- Access patterns:
---  by request_id (to get all sources for a transfer)
---  by scope,name, rse_id (to know if a file is used as a source)
---  by rse_id, dest_rse_id (to do some statistics of transfer activity between sites) by request_id
-
-CREATE TABLE ATLAS_RUCIO.SOURCES (
-	REQUEST_ID RAW(16) NOT NULL,
-	SCOPE VARCHAR2(25 CHAR) NOT NULL,
-	NAME VARCHAR2(255 CHAR) NOT NULL,
-	RSE_ID RAW(16) NOT NULL,
-	DEST_RSE_ID RAW(16) NOT NULL,
-	URL VARCHAR2(2048 CHAR),
-	bytes NUMBER(19),
-	RANKING INTEGER,
-        IS_USING NUMBER(1),
-	UPDATED_AT DATE,
-	CREATED_AT DATE,
-	CONSTRAINT "SOURCES_PK" PRIMARY KEY (REQUEST_ID, SCOPE, NAME, RSE_ID) USING INDEX COMPRESS 1,
-	CONSTRAINT "SOURCES_REQ_ID_FK" FOREIGN KEY(REQUEST_ID) REFERENCES ATLAS_RUCIO.REQUESTS (ID),
-	CONSTRAINT "SOURCES_REPLICAS_FK" FOREIGN KEY(SCOPE, NAME, RSE_ID) REFERENCES ATLAS_RUCIO.REPLICAS (SCOPE, NAME, RSE_ID),
-	CONSTRAINT "SOURCES_RSES_FK" FOREIGN KEY(RSE_ID) REFERENCES ATLAS_RUCIO.RSES (ID),
-	CONSTRAINT "SOURCES_DEST_RSES_FK" FOREIGN KEY(DEST_RSE_ID) REFERENCES ATLAS_RUCIO.RSES (ID),
-	CONSTRAINT "SOURCES_BYTES_NN" CHECK (BYTES IS NOT NULL),
-	CONSTRAINT "SOURCES_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
-	CONSTRAINT "SOURCES_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX ATLAS_RUCIO."SOURCES_SRC_DST_IDX" ON ATLAS_RUCIO.SOURCES (rse_id, dest_rse_id) COMPRESS 2 ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX ATLAS_RUCIO."SOURCES_SC_NM_DST_IDX" ON ATLAS_RUCIO.SOURCES (scope, rse_id, name) COMPRESS 2 ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX ATLAS_RUCIO."SOURCES_DEST_RSEID_IDX" ON ATLAS_RUCIO.SOURCES (dest_rse_id) COMPRESS 1 ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
--- ========================================= SOURCES_HISTORY ================================
-
-CREATE TABLE ATLAS_RUCIO.SOURCES_HISTORY (
-     REQUEST_ID RAW(16) NOT NULL,
-     SCOPE VARCHAR2(25 CHAR) NOT NULL,
-     NAME VARCHAR2(255 CHAR) NOT NULL,
-     RSE_ID RAW(16) NOT NULL,
-     DEST_RSE_ID RAW(16) NOT NULL,
-     URL VARCHAR2(2048 CHAR),
-     bytes NUMBER(19),
-     RANKING NUMBER(7,0),
-    IS_USING NUMBER(1),
-     UPDATED_AT DATE,
-     CREATED_AT DATE
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
-     COMPRESS FOR OLTP
-PARTITION BY RANGE(CREATED_AT)
-INTERVAL ( NUMTODSINTERVAL(1,'DAY') )
-(
-PARTITION "DATA_BEFORE_01112015" VALUES LESS THAN (TO_DATE('01-11-2015', 'DD-MM-YYYY'))
+( 
+PARTITION DATA_BEFORE_01012018 VALUES LESS THAN (TO_DATE('01-01-2018', 'DD-MM-YYYY')) 
 );
 
-CREATE INDEX "SOURCES_HIST_REQID_IDX" ON "SOURCES_HISTORY" (REQUEST_ID) LOCAL TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+
+ CREATE INDEX CONTENTS_HISTORY_INDX ON CONTENTS_HISTORY (SCOPE, NAME) LOCAL COMPRESS 2 ;
 
 
--- ========================================= DISTANCE =========================================
--- Description: Table to store distance between rses
--- Estimated volume: 400k
--- Access patterns:
---  by src_rse_id, dest_rse_id (to get distance between rses)
---  by dest_rse_id (to get all source rses distance)
+-- 16) ========================================= REPLICAS table ( List-type partitioned ) ========================================= 
 
-CREATE TABLE ATLAS_RUCIO.DISTANCES (
-        SRC_RSE_ID RAW(16) NOT NULL,
-        DEST_RSE_ID RAW(16) NOT NULL,
-        RANKING INTEGER,
-        AGIS_DISTANCE INTEGER,
-        GEOIP_DISTANCE INTEGER,
-        ACTIVE INTEGER,
-        SUBMITTED INTEGER,
-        FINISHED INTEGER,
-        FAILED INTEGER,
-        TRANSFER_SPEED INTEGER,
-        PACKET_LOSS = INTEGER,
-        LATENCY = INTEGER,
-        MBPS_FILE = INTEGER,
-        MBPS_LINK = INTEGER,
-        QUEUED_TOTAL = INTEGER,
-        DONE_1H = INTEGER,
-        DONE_6H = INTEGER,
-        UPDATED_AT DATE,
-        CREATED_AT DATE,
-        CONSTRAINT "DISTANCES_PK" PRIMARY KEY (SRC_RSE_ID, DEST_RSE_ID) USING INDEX COMPRESS 1,
-        CONSTRAINT "DISTANCES_SRC_RSES_FK" FOREIGN KEY(SRC_RSE_ID) REFERENCES ATLAS_RUCIO.RSES (ID),
-        CONSTRAINT "DISTANCES_DEST_RSES_FK" FOREIGN KEY(DEST_RSE_ID) REFERENCES ATLAS_RUCIO.RSES (ID),
-        CONSTRAINT "DISTANCES_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
-        CONSTRAINT "DISTANCES_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX ATLAS_RUCIO."DISTANCES_DEST_RSEID_IDX" ON ATLAS_RUCIO.DISTANCES (dest_rse_id) COMPRESS 1 ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
--- ========================================= MESSAGES =========================================
--- Previously called: CALLBACKS
--- Description: Table to store messages before sending them to a broker
--- Estimated volume: 20,000 rows per 10. min.
--- Access pattern: list the last messages by created date for the last n minutes
--- this table could be of IOT type but then an overflow segment would need to be defined because of the column definition lengths, the row
--- length can go over 4K
--- Is it really necessary EVENT_TYPE to be with max size of 1024?
-
-CREATE TABLE messages (
-    id RAW(16),
-    updated_at TIMESTAMP(6),
-    created_at TIMESTAMP(6),
-    event_type VARCHAR2(1024 CHAR),
-    payload VARCHAR2(4000 CHAR),
-    CONSTRAINT "MESSAGES_PK" PRIMARY KEY (id),
-    CONSTRAINT "MESSAGES_EVENT_TYPE_NN" CHECK ("EVENT_TYPE" IS NOT NULL),
-    CONSTRAINT "MESSAGES_PAYLOAD_NN" CHECK ("PAYLOAD" IS NOT NULL),
-    CONSTRAINT "MESSAGES_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "MESSAGES_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-)  PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
-
-
--- ========================================= TOKENS (physical structure IOT) =========================================
--- Description: Table to store auth tokens
--- Estimated volume: ~100,000
--- Access pattern: by token (frequently). Cleanup of expired token done by account (rarely)
---           DELETE FROM atlas_rucio.tokens WHERE atlas_rucio.tokens.expired_at < :expired_at_1 AND atlas_rucio.tokens.account = :account_1
---           SELECT atlas_rucio.tokens.account AS atlas_rucio_tokens_account, atlas_rucio.tokens.expired_at AS atlas_rucio_tokens_expired_at
---           FROM atlas_rucio.tokens
---           WHERE atlas_rucio.tokens.token = :token_1 AND atlas_rucio.tokens.expired_at > :expired_at_1
-
-CREATE TABLE tokens (
-    account VARCHAR2(25 CHAR),
-    expired_at DATE,
-    token VARCHAR2(352 CHAR),
-    identity VARCHAR2(2048 CHAR),
-    ip VARCHAR2(39 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "TOKENS_PK" PRIMARY KEY (token),
-    CONSTRAINT "TOKENS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "TOKENS_EXPIRED_AT_NN" CHECK ("EXPIRED_AT" IS NOT NULL),
-    CONSTRAINT "TOKENS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "TOKENS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-)  TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX "TOKENS_ACCOUNT_EXPIRED_AT_IDX" ON "TOKENS"(ACCOUNT, expired_at) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
-
-
--- ========================================= ACCOUNT_USAGE (physical structure IOT) =========================================
--- Description: Table to store incrementally the disk usage by account, rse
--- Estimated volume: ~700 RSEs *  ~2000 accounts
--- Access pattern: by account, by account/rse_id
-
-
-CREATE TABLE account_usage (
-    account VARCHAR2(25 CHAR),
-    rse_id RAW(16),
-    files NUMBER(19),
-    bytes NUMBER(19),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "ACCOUNT_USAGE_PK" PRIMARY KEY (account, rse_id),
-    CONSTRAINT "ACCOUNT_USAGE_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "ACCOUNT_USAGE_RSES_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "ACCOUNT_USAGE_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "ACCOUNT_USAGE_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
-
-
-
--- ========================================= RSE_USAGE (physical structure IOT) =========================================
--- Description: Table to store the disk usage of a RSE
--- Estimated volume: ~700 RSEs *  ~2 measures (rucio, srm): ~1.400
--- Access pattern: by rse_id, source
-
-CREATE TABLE rse_usage (
-    rse_id RAW(16),
-    source VARCHAR2(255 CHAR),
-    used NUMBER(19),
-    free NUMBER(19),
-    files NUMBER(19),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "RSE_USAGE_PK" PRIMARY KEY (rse_id, source),
-    CONSTRAINT "RSE_USAGE_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "RSE_USAGE_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "RSE_USAGE_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
-
-
-
-
-
--- ========================================= UPDATED_DIDS =========================================
-
-CREATE TABLE UPDATED_DIDS
+  CREATE TABLE REPLICAS 
+   (	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	RSE_ID RAW(16), 
+	BYTES NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	ADLER32 VARCHAR2(8), 
+	STATE CHAR(1), 
+	LOCK_CNT NUMBER(5,0), 
+	ACCESSED_AT DATE, 
+	TOMBSTONE DATE, 
+	PATH VARCHAR2(1024), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT REPLICAS_PK PRIMARY KEY (SCOPE, NAME, RSE_ID) USING INDEX LOCAL COMPRESS 1, 
+	 CONSTRAINT REPLICAS_LFN_FK FOREIGN KEY(SCOPE, NAME)  REFERENCES DIDS (SCOPE, NAME),
+ 	 CONSTRAINT REPLICAS_RSE_ID_FK FOREIGN KEY(RSE_ID)  REFERENCES RSES (ID), 
+	 CONSTRAINT REPLICAS_STATE_NN CHECK (STATE IS NOT NULL), 
+	 CONSTRAINT REPLICAS_BYTES_NN CHECK (bytes IS NOT NULL), 
+	 CONSTRAINT REPLICAS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT REPLICAS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT REPLICAS_LOCK_CNT_NN CHECK (LOCK_CNT IS NOT NULL), 
+	 CONSTRAINT REPLICAS_STATE_CHK CHECK (state IN ('A', 'C', 'B', 'U', 'D', 'S')) 
+   ) 
+PCTFREE 0 
+PARTITION BY LIST (SCOPE)
 (
-	ID RAW(16) NOT NULL,
-	SCOPE VARCHAR2(25 CHAR),
-	NAME VARCHAR2(255 CHAR),
-	RULE_EVALUATION_ACTION VARCHAR2(1 CHAR),
-	UPDATED_AT DATE,
-	CREATED_AT DATE,
-	CONSTRAINT UPDATED_DIDS_PK PRIMARY KEY (ID),
-	CONSTRAINT UPDATED_DIDS_SCOPE_NN CHECK ("SCOPE" IS NOT NULL),
-	CONSTRAINT UPDATED_DIDS_NAME_NN CHECK ("NAME" IS NOT NULL),
-	CONSTRAINT UPDATED_DIDS_CREATED_NN CHECK ("CREATED_AT" IS NOT NULL),
-	CONSTRAINT UPDATED_DIDS_UPDATED_NN CHECK ("UPDATED_AT" IS NOT NULL),
-	CONSTRAINT UPDATED_DIDS_RULE_EVAL_ACT_CHK CHECK (rule_evaluation_action IN ('A', 'B', 'D'))
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+    PARTITION INITIAL_PARTITION VALUES ('Initial_partition')
+);
 
-CREATE INDEX "UPDATED_DIDS_SCOPERULENAME_IDX" ON "UPDATED_DIDS"(SCOPE, RULE_EVALUATION_ACTION, NAME) COMPRESS 2 TABLESPACE  ATLAS_RUCIO_TRANSIENT_DATA01;
+
+  CREATE INDEX REPLICAS_TOMBSTONE_IDX ON REPLICAS (CASE  WHEN TOMBSTONE IS NOT NULL THEN RSE_ID END, TOMBSTONE) COMPRESS 1;
+  CREATE INDEX REPLICAS_STATE_IDX ON REPLICAS (CASE WHEN STATE<>'A' THEN RSE_ID END ) COMPRESS 1;
+  CREATE INDEX REPLICAS_PATH_IDX ON REPLICAS(PATH);
 
 
 
+-- 17) ======================== BAD_REPLICAS table (Range Interval partitioned + OLTP compression) ========================= 
 
--- ============================================== section HISTORICAL data =========================================================================
--- to reside in tablespace ATLAS_RUCIO_HIST_DATA01
--- =================================================================================================================================================
-
-
--- ========================================= DELETED_DIDS =========================================
-
-CREATE TABLE DELETED_DIDS
-   ("SCOPE" VARCHAR2(25 CHAR) NOT NULL ENABLE,
-    "NAME" VARCHAR2(255 CHAR) NOT NULL ENABLE,
-    "ACCOUNT" VARCHAR2(25 CHAR),
-    "DID_TYPE" CHAR(1 CHAR) NOT NULL ENABLE,
-    "IS_OPEN" NUMBER(1,0),
-    "MONOTONIC" NUMBER(1,0) DEFAULT 0,
-    "HIDDEN" NUMBER(1,0) DEFAULT 0,
-    "OBSOLETE" NUMBER(1,0) DEFAULT 0,
-    "COMPLETE" NUMBER(1,0),
-    "IS_NEW" NUMBER(1,0) DEFAULT 1,
-    "AVAILABILITY" CHAR(1 CHAR),
-    "SUPPRESSED" NUMBER(1,0) DEFAULT 0,
-    "BYTES" NUMBER(19,0),
-    "LENGTH" NUMBER(19,0),
-    "MD5" VARCHAR2(32 CHAR),
-    "ADLER32" VARCHAR2(8 CHAR),
-    "RULE_EVALUATION_REQUIRED" DATE,
-    "RULE_EVALUATION_ACTION" CHAR(1 CHAR),
-    "EXPIRED_AT" DATE,
-    "DELETED_AT" DATE,
-    "UPDATED_AT" DATE,
-    "CREATED_AT" DATE,
-    "EVENTS" NUMBER(22,0),
-    "GUID" RAW(16),
-    "PROJECT" VARCHAR2(50 CHAR),
-    "DATATYPE" VARCHAR2(50 CHAR),
-    "RUN_NUMBER" NUMBER(10,0),
-    "STREAM_NAME" VARCHAR2(70 CHAR),
-    "PROD_STEP" VARCHAR2(50 CHAR),
-    "VERSION" VARCHAR2(50 CHAR),
-    task_id NUMBER(11),
-    panda_id NUMBER(11),
-    purge_replicas NUMBER(1),
-    "CAMPAIGN" VARCHAR2(50 CHAR),
-    lumiblocknr NUMBER(10,0),
-    provenance VARCHAR2(2 CHAR),
-    phys_group VARCHAR2(25 CHAR),
-    transient NUMBER(1,0),
-    accessed_at DATE,
-    closed_at DATE,
-    eol_at DATE,
-    is_archive NUMBER(1),
-    constituent  NUMBER(1),
-    access_cnt NUMBER(11),
-    CONSTRAINT "DELETED_DIDS_PK" PRIMARY KEY ("SCOPE", "NAME") USING INDEX LOCAL COMPRESS 1
-   ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
-	 COMPRESS FOR OLTP
-  PARTITION BY LIST ("SCOPE")
- (
-    PARTITION "INITIAL_PARTITION"  VALUES ('INITIAL_PARTITION')
- );
+  CREATE TABLE BAD_REPLICAS 
+   (	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	RSE_ID RAW(16), 
+	REASON VARCHAR2(255), 
+	STATE CHAR(1), 
+	ACCOUNT VARCHAR2(25), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	BYTES NUMBER(19,0), 
+	 CONSTRAINT BAD_REPLICAS_PK PRIMARY KEY (SCOPE, NAME, RSE_ID, CREATED_AT) USING INDEX LOCAL COMPRESS 2, 
+	 CONSTRAINT BAD_REPLICAS_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS (ACCOUNT), 
+	 CONSTRAINT BAD_REPLICAS_SCOPE_NN CHECK (SCOPE IS NOT NULL), 
+	 CONSTRAINT BAD_REPLICAS_NAME_NN CHECK (NAME IS NOT NULL), 
+	 CONSTRAINT BAD_REPLICAS_RSE_ID_NN CHECK (RSE_ID IS NOT NULL), 
+	 CONSTRAINT BAD_REPLICAS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT BAD_REPLICAS_UPDATED_AT CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT BAD_REPLICAS_STATE_CHK CHECK (state in ('B', 'D', 'L', 'R', 'S'))
+   )
+PCTFREE 0 COMPRESS FOR OLTP 
+PARTITION BY RANGE(CREATED_AT)
+INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))
+(
+PARTITION DATA_BEFORE_01012018 VALUES LESS THAN (TO_DATE('01-01-2018', 'DD-MM-YYYY'))
+);
 
 
--- ========================================= REQUESTS_HISTORY (range partitioned, data sliding window of 180 days) =========================================
+  CREATE INDEX BAD_REPLICAS_STATE_IDX ON BAD_REPLICAS (RSE_ID, STATE) COMPRESS 1;
+  CREATE INDEX BAD_REPLICAS_ACCOUNT_IDX ON BAD_REPLICAS (ACCOUNT) COMPRESS 1;
 
--- Description: History table for requests, range partitioned by CREATED_AT + automatic interval partitioning and OLTP compression
--- Expected growth rate is about 3 million rows per day (and the idea is to move stuff that's older than a few months off to hadoop afterwards)
--- Typical queries on "scope, name, dest_rse_id", "state', "external_id", "id', "id, previous_attempt_id"
--- added NOT NULL constraint on the column on which we partition and on the SCOPE
--- The columns are re-ordered so that the ones that are not indexed are in the beginning of the row - this helps when filtering on them on full partition scan
 
-CREATE TABLE requests_history
-  (
-    "CREATED_AT" DATE CONSTRAINT CREATED_AT_NN NOT NULL,
-    "UPDATED_AT" DATE,
-    "STATE" CHAR(1 CHAR),
-    "REQUEST_TYPE" CHAR(1 CHAR),
-    "IS_TYPE" CHAR(1 CHAR),
-    "EXTERNAL_ID" VARCHAR2(64 CHAR),
-    "EXTERNAL_HOST" VARCHAR2(256 CHAR),
-    "SCOPE" VARCHAR2(25 CHAR) CONSTRAINT SCOPE_NN NOT NULL,
-    "NAME" VARCHAR2(255 CHAR),
-    "DEST_RSE_ID" RAW(16),
-    "SOURCE_RSE_ID" RAW(16),
-    "ID" RAW(16),
-    "PREVIOUS_ATTEMPT_ID" RAW(16),
-    "RETRY_COUNT" NUMBER(3,0),
-    "ATTRIBUTES" VARCHAR2(4000 CHAR),
-    "ERR_MSG" VARCHAR2(4000 CHAR),
-    "RULE_ID" RAW(16),
-    "BYTES" NUMBER(19),
-    "ACTIVITY" VARCHAR2(50 CHAR),
-    "MD5" VARCHAR2(32 CHAR),
-    "ADLER32" VARCHAR2(8 CHAR),
-    "DEST_URL" VARCHAR2(2048 CHAR),
-    "ESTIMATED_AT" DATE,
-    "REQUESTED_AT" DATE,
-    "SUBMITTED_AT" DATE,
-    "STARTED_AT" DATE,
-    "ESTIMATED_STARTED_AT" DATE,
-    "TRANSFERRED_AT" DATE,
-    "ESTIMATED_TRANSFERRED_AT" DATE,
-    "ACCOUNT" VARCHAR2(25 CHAR),
-    "SUBMITTER_ID" NUMBER(10),
-    "PRIORITY" NUMBER(1)
-  ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
-	COMPRESS FOR OLTP
+-- 18 ) ========================================= REPLICAS_HISTORY table ========================================= 
+
+  CREATE TABLE REPLICAS_HISTORY 
+   (	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	RSE_ID RAW(16), 
+	BYTES NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT REPLICAS_HIST_PK PRIMARY KEY (SCOPE, NAME, RSE_ID) USING INDEX COMPRESS 1, 
+	 CONSTRAINT REPLICAS_HIST_RSE_ID_FK FOREIGN KEY(RSE_ID) REFERENCES RSES (ID),
+	 CONSTRAINT REPLICAS_HIST_BYTES_NN CHECK (BYTES IS NOT NULL), 
+	 CONSTRAINT REPLICAS_HIST_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT REPLICAS_HIST_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL)
+   ) 
+PCTFREE 0 COMPRESS FOR OLTP 
+PARTITION BY RANGE(CREATED_AT)
+INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))
+(
+PARTITION DATA_BEFORE_01012018 VALUES LESS THAN (TO_DATE('01-01-2018', 'DD-MM-YYYY'))
+);
+
+
+
+
+-- 19 ) =========================================  RULES table ========================================= 
+
+  CREATE TABLE RULES 
+   (	ID RAW(16), 
+	SUBSCRIPTION_ID RAW(16), 
+	ACCOUNT VARCHAR2(25), 
+	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	DID_TYPE CHAR(1), 
+	STATE CHAR(1), 
+	RSE_EXPRESSION VARCHAR2(3000), 
+	COPIES NUMBER(4,0) DEFAULT 1, 
+	EXPIRES_AT DATE, 
+	WEIGHT VARCHAR2(255), 
+	LOCKED NUMBER(1,0) DEFAULT 0, 
+	GROUPING CHAR(1), 
+	ERROR VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	LOCKS_OK_CNT NUMBER(10,0) DEFAULT 0, 
+	LOCKS_REPLICATING_CNT NUMBER(10,0) DEFAULT 0, 
+	LOCKS_STUCK_CNT NUMBER(10,0) DEFAULT 0, 
+	SOURCE_REPLICA_EXPRESSION VARCHAR2(255), 
+	ACTIVITY VARCHAR2(50), 
+	NOTIFICATION VARCHAR2(1), 
+	STUCK_AT DATE, 
+	PURGE_REPLICAS NUMBER(1,0), 
+	IGNORE_AVAILABILITY NUMBER(1,0), 
+	COMMENTS VARCHAR2(255), 
+	IGNORE_ACCOUNT_LIMIT NUMBER(1,0), 
+	CHILD_RULE_ID RAW(16), 
+	PRIORITY NUMBER(1,0), 
+	EOL_AT DATE, 
+	SPLIT_CONTAINER NUMBER(1,0), 
+	META VARCHAR2(4000), 
+	 CONSTRAINT RULES_PK PRIMARY KEY(ID), 
+	 CONSTRAINT RULES_SCOPE_ACC_NAME_CO_RSE_UQ UNIQUE (SCOPE, ACCOUNT, NAME, COPIES, RSE_EXPRESSION), 
+	 CONSTRAINT RULES_SCOPE_NAME_FK FOREIGN KEY(SCOPE, NAME) REFERENCES DIDS(SCOPE, NAME), 
+	 CONSTRAINT RULES_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS(ACCOUNT), 
+	 CONSTRAINT RULES_SUBS_ID_FK FOREIGN KEY(SUBSCRIPTION_ID) REFERENCES SUBSCRIPTIONS(ID), 
+	 CONSTRAINT RULES_CHILD_RULE_ID_FK FOREIGN KEY(CHILD_RULE_ID) REFERENCES RULES(ID), 
+	 CONSTRAINT RULES_STATE_NN CHECK (STATE IS NOT NULL), 
+	 CONSTRAINT RULES_SCOPE_NN CHECK (SCOPE IS NOT NULL), 
+	 CONSTRAINT RULES_NAME_NN CHECK (NAME IS NOT NULL), 
+	 CONSTRAINT RULES_GROUPING_NN CHECK (GROUPING IS NOT NULL), 
+	 CONSTRAINT RULES_COPIES_NN CHECK (COPIES IS NOT NULL), 
+	 CONSTRAINT RULES_LOCKED_NN CHECK (LOCKED IS NOT NULL), 
+	 CONSTRAINT RULES_ACCOUNT_NN CHECK (ACCOUNT IS NOT NULL), 
+	 CONSTRAINT RULES_LOCKS_OK_CNT_NN CHECK (LOCKS_OK_CNT IS NOT NULL), 
+	 CONSTRAINT RULES_LOCKS_REPLICATING_CNT_NN CHECK (LOCKS_REPLICATING_CNT IS NOT NULL), 
+	 CONSTRAINT RULES_LOCKS_STUCK_CNT_NN CHECK (LOCKS_STUCK_CNT IS NOT NULL), 
+	 CONSTRAINT RULES_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT RULES_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT RULES_DID_TYPE_CHK CHECK (did_type IN ('C', 'D', 'F')), 
+	 CONSTRAINT RULES_LOCKED_CHK CHECK (locked IN (0, 1)), 
+	 CONSTRAINT RULES_GROUPING_CHK CHECK (grouping IN ('A', 'D', 'N')), 
+	 CONSTRAINT RULES_NOTIFICATION_CHK CHECK (notification IN ('Y', 'C', 'N')), 
+	 CONSTRAINT RULES_PURGE_REPLICAS_CHK CHECK (purge_replicas IN (0, 1)), 
+	 CONSTRAINT RULES_IGNORE_AVAILABILITY_CHK CHECK (ignore_availability IN (0, 1)), 
+	 CONSTRAINT RULES_IGNORE_ACCOUNT_LIMIT_CHK CHECK (ignore_account_limit IN (0, 1)) , 
+	 CONSTRAINT RULES_STATE_CHK CHECK (state IN ('S', 'R', 'U', 'O', 'W', 'I')) , 
+	 CONSTRAINT RULES_SPLIT_CONTAINER_CHK CHECK (split_container IN (0, 1)) 
+   ) PCTFREE 0;
+
+	/* ORA-01408: such column list already indexed by RULES_SCOPE_ACC_NAME_CO_RSE_UQ which is generated by UNIQUE constraint */
+  -- CREATE INDEX RULES_SC_ACC_NAME_CO_RSE_IDX ON RULES (SCOPE, ACCOUNT, NAME, COPIES, RSE_EXPRESSION);
+
+  CREATE INDEX RULES_SCOPE_NAME_IDX ON RULES (SCOPE, NAME) COMPRESS 2;
+  CREATE INDEX RULES_STUCKSTATE_IDX ON RULES (CASE  WHEN STATE='S' THEN STATE ELSE NULL END ) COMPRESS 1;
+  CREATE INDEX RULES_EXPIRES_AT_IDX ON RULES (EXPIRES_AT, NAME) COMPRESS 1;
+  CREATE INDEX RULES_INJECTSTATE_IDX ON RULES (CASE  WHEN STATE='I' THEN STATE ELSE NULL END ) COMPRESS 1;
+  CREATE INDEX RULES_APPROVALSTATE_IDX ON RULES (CASE  WHEN STATE='W' THEN STATE ELSE NULL END ) COMPRESS 1;
+  CREATE INDEX RULES_CHILD_RULE_ID_IDX ON RULES (CHILD_RULE_ID) ;
+
+
+
+
+-- 20) ========================================= RULES_HIST_RECENT table (Range Interval partitioned )========================================= 
+
+
+  CREATE TABLE RULES_HIST_RECENT 
+   (	HISTORY_ID RAW(16), 
+	ID RAW(16), 
+	SUBSCRIPTION_ID RAW(16), 
+	ACCOUNT VARCHAR2(25), 
+	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	DID_TYPE CHAR(1), 
+	STATE CHAR(1), 
+	RSE_EXPRESSION VARCHAR2(3000), 
+	COPIES NUMBER(4,0) DEFAULT 1, 
+	EXPIRES_AT DATE, 
+	WEIGHT VARCHAR2(255), 
+	LOCKED NUMBER(1,0) DEFAULT 0, 
+	GROUPING CHAR(1), 
+	ERROR VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	SOURCE_REPLICA_EXPRESSION VARCHAR2(255), 
+	ACTIVITY VARCHAR2(50), 
+	LOCKS_OK_CNT NUMBER(10,0) DEFAULT 0, 
+	LOCKS_REPLICATING_CNT NUMBER(10,0) DEFAULT 0, 
+	LOCKS_STUCK_CNT NUMBER(10,0) DEFAULT 0, 
+	NOTIFICATION CHAR(1), 
+	STUCK_AT DATE, 
+	PURGE_REPLICAS NUMBER(1,0) DEFAULT 0, 
+	IGNORE_AVAILABILITY NUMBER(1,0) DEFAULT 0, 
+	COMMENTS VARCHAR2(255), 
+	IGNORE_ACCOUNT_LIMIT NUMBER(1,0), 
+	CHILD_RULE_ID RAW(16), 
+	PRIORITY NUMBER(1,0), 
+	EOL_AT DATE, 
+	SPLIT_CONTAINER NUMBER(1,0), 
+	META VARCHAR2(4000)
+   )
+PCTFREE 0 
+PARTITION BY RANGE(updated_at)
+INTERVAL ( NUMTODSINTERVAL(7,'DAY') )
+(
+PARTITION DATA_BEFORE_01012015 VALUES LESS THAN (TO_DATE('01-01-2015', 'DD-MM-YYYY'))
+);
+
+
+  CREATE INDEX RULES_HIST_RECENT_ID_IDX ON RULES_HIST_RECENT (ID) LOCAL COMPRESS 1;
+  CREATE INDEX RULES_HIST_RECENT_SC_NA_IDX ON RULES_HIST_RECENT (SCOPE, NAME) LOCAL COMPRESS 1;
+
+-- 21) ========================================= RULES_HISTORY table (Range Interval partitioned) ========================================= 
+
+
+  CREATE TABLE RULES_HISTORY 
+   (	HISTORY_ID RAW(16), 
+	ID RAW(16), 
+	SUBSCRIPTION_ID RAW(16), 
+	ACCOUNT VARCHAR2(25), 
+	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	DID_TYPE CHAR(1), 
+	STATE CHAR(1), 
+	RSE_EXPRESSION VARCHAR2(3000), 
+	COPIES NUMBER(4,0) DEFAULT 1, 
+	EXPIRES_AT DATE, 
+	WEIGHT VARCHAR2(255), 
+	LOCKED NUMBER(1,0) DEFAULT 0, 
+	GROUPING CHAR(1), 
+	ERROR VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	SOURCE_REPLICA_EXPRESSION VARCHAR2(255), 
+	ACTIVITY VARCHAR2(50), 
+	LOCKS_OK_CNT NUMBER(10,0) DEFAULT 0, 
+	LOCKS_REPLICATING_CNT NUMBER(10,0) DEFAULT 0, 
+	LOCKS_STUCK_CNT NUMBER(10,0) DEFAULT 0, 
+	NOTIFICATION CHAR(1), 
+	STUCK_AT DATE, 
+	PURGE_REPLICAS NUMBER(1,0) DEFAULT 0, 
+	IGNORE_AVAILABILITY NUMBER(1,0) DEFAULT 0, 
+	COMMENTS VARCHAR2(255), 
+	IGNORE_ACCOUNT_LIMIT NUMBER(1,0), 
+	CHILD_RULE_ID RAW(16), 
+	PRIORITY NUMBER(1,0), 
+	EOL_AT DATE, 
+	SPLIT_CONTAINER NUMBER(1,0), 
+	META VARCHAR2(4000)
+   ) 
+PCTFREE 0 COMPRESS FOR OLTP 
+PARTITION BY RANGE(updated_at)
+INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') )
+( 
+PARTITION "DATA_BEFORE_01012015" VALUES LESS THAN (TO_DATE('01-01-2015', 'DD-MM-YYYY')) 
+);
+
+ CREATE INDEX RULES_HISTORY_SCOPENAME_IDX ON RULES_HISTORY (SCOPE, NAME) LOCAL COMPRESS 2;
+
+
+
+
+
+
+-- 22 ) ========================================= LOCKS table ( List-type partitioned ) ========================================= 
+
+  CREATE TABLE LOCKS 
+   (	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	RULE_ID RAW(16), 
+	RSE_ID RAW(16), 
+	ACCOUNT VARCHAR2(25), 
+	BYTES NUMBER(19,0), 
+	STATE CHAR(1), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	REPAIR_CNT NUMBER(19,0), 
+	 CONSTRAINT LOCKS_PK PRIMARY KEY (SCOPE, NAME, RULE_ID, RSE_ID) USING INDEX LOCAL COMPRESS 1, 
+	 CONSTRAINT LOCKS_RULE_ID_FK FOREIGN KEY(RULE_ID)  REFERENCES RULES (ID), 
+	 CONSTRAINT LOCKS_ACCOUNT_FK FOREIGN KEY(ACCOUNT)  REFERENCES ACCOUNTS (ACCOUNT),
+	 CONSTRAINT LOCKS_STATE_NN CHECK (STATE IS NOT NULL), 
+	 CONSTRAINT LOCKS_ACCOUNT_NN CHECK (ACCOUNT IS NOT NULL), 
+	 CONSTRAINT LOCKS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT LOCKS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT LOCKS_STATE_CHK CHECK (state IN ('S', 'R', 'O')) 
+   ) 
+PCTFREE 0 
+PARTITION BY LIST(SCOPE)
+(
+    PARTITION INITIAL_PARTITION VALUES ('Initial_partition')
+);
+
+
+  CREATE INDEX LOCKS_RULE_ID_IDX ON LOCKS(RULE_ID) COMPRESS 1;
+
+
+
+-- 23 ) =========================================  DATASET_LOCKS table ========================================= 
+
+  CREATE TABLE DATASET_LOCKS 
+   (	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	RULE_ID RAW(16), 
+	RSE_ID RAW(16), 
+	ACCOUNT VARCHAR2(25), 
+	STATE CHAR(1), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	LENGTH NUMBER(19,0), 
+	BYTES NUMBER(19,0), 
+	ACCESSED_AT DATE, 
+	 CONSTRAINT DATASET_LOCKS_PK PRIMARY KEY (SCOPE, NAME, RULE_ID, RSE_ID) USING INDEX COMPRESS 1, 
+	 CONSTRAINT DATASET_LOCKS_DID_FK FOREIGN KEY(SCOPE, NAME)  REFERENCES DIDS (SCOPE, NAME), 
+	 CONSTRAINT DATASET_LOCKS_RULE_ID_FK FOREIGN KEY(RULE_ID)  REFERENCES RULES (ID), 
+	 CONSTRAINT DATASET_LOCKS_ACCOUNT_FK FOREIGN KEY(ACCOUNT)  REFERENCES ACCOUNTS (ACCOUNT), 
+	 CONSTRAINT DATASET_LOCKS_STATE_NN CHECK (STATE IS NOT NULL), 
+	 CONSTRAINT DATASET_LOCKS_ACCOUNT_NN CHECK (ACCOUNT IS NOT NULL), 
+	 CONSTRAINT DATASET_LOCKS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT DATASET_LOCKS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT DATASET_LOCKS_STATE_CHK CHECK (STATE IN ('S', 'R', 'O')) 
+   ) PCTFREE 0; 
+
+  CREATE INDEX DATASET_LOCKS_RULE_ID_IDX ON DATASET_LOCKS(RULE_ID) COMPRESS 1; 
+  CREATE INDEX DATASET_LOCKS_RSE_ID_IDX ON DATASET_LOCKS(RSE_ID) COMPRESS 1; 
+
+
+-- 24 ) ========================================= RSE_LIMITS table ========================================= 
+
+  CREATE TABLE RSE_LIMITS 
+   (	RSE_ID RAW(16), 
+	NAME VARCHAR2(255), 
+	VALUE NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT RSE_LIMITS_PK PRIMARY KEY (RSE_ID, NAME), 
+	 CONSTRAINT RSE_LIMITS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT RSE_LIMITS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT RSE_LIMIT_RSE_ID_FK FOREIGN KEY(RSE_ID)  REFERENCES RSES (ID) 
+   ) ORGANIZATION INDEX COMPRESS 1;
+
+
+
+-- 25 ) ========================================= RSE_PROTOCOLS table ========================================= 
+
+  CREATE TABLE RSE_PROTOCOLS 
+   (	RSE_ID RAW(16), 
+	SCHEME VARCHAR2(255), 
+	HOSTNAME VARCHAR2(255), 
+	PORT NUMBER(6,0), 
+	PREFIX VARCHAR2(1024), 
+	IMPL VARCHAR2(255) NOT NULL, 
+	READ_LAN NUMBER(1,0), 
+	WRITE_LAN NUMBER(1,0), 
+	DELETE_LAN NUMBER(1,0), 
+	READ_WAN NUMBER(1,0), 
+	WRITE_WAN NUMBER(1,0), 
+	DELETE_WAN NUMBER(1,0), 
+	EXTENDED_ATTRIBUTES VARCHAR2(1024), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	THIRD_PARTY_COPY NUMBER(1,0), 
+	 CONSTRAINT RSE_PROTOCOLS_PK PRIMARY KEY (RSE_ID, SCHEME, HOSTNAME, PORT), 
+	 CONSTRAINT RSE_PROTOCOLS_IMPL_NN CHECK (IMPL IS NOT NULL), 
+	 CONSTRAINT RSE_PROTOCOLS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT RSE_PROTOCOLS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT RSE_PROTOCOL_RSE_ID_FK FOREIGN KEY(RSE_ID)  REFERENCES RSES (ID) 
+   ) ORGANIZATION INDEX COMPRESS 2 ;
+
+
+-- 26 ) ========================================= REQUESTS table ========================================= 
+
+  CREATE TABLE REQUESTS 
+   (	ID RAW(16), 
+	STATE CHAR(1), 
+	REQUEST_TYPE CHAR(1), 
+	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	DID_TYPE CHAR(1) DEFAULT 'F', 
+	DEST_RSE_ID RAW(16), 
+	EXTERNAL_ID VARCHAR2(64), 
+	RETRY_COUNT NUMBER(3,0) DEFAULT 0, 
+	ATTRIBUTES VARCHAR2(4000), 
+	ERR_MSG VARCHAR2(4000), 
+	PREVIOUS_ATTEMPT_ID RAW(16), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	RULE_ID RAW(16), 
+	BYTES NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	ADLER32 VARCHAR2(8), 
+	DEST_URL VARCHAR2(2048), 
+	EXTERNAL_HOST VARCHAR2(256), 
+	ACTIVITY VARCHAR2(50), 
+	SUBMITTED_AT DATE, 
+	TRANSFERRED_AT DATE, 
+	SUBMITTER_ID NUMBER(10,0), 
+	STARTED_AT DATE, 
+	ESTIMATED_AT DATE, 
+	SOURCE_RSE_ID RAW(16), 
+	ACCOUNT VARCHAR2(25), 
+	REQUESTED_AT DATE, 
+	PRIORITY NUMBER(1,0), 
+	ESTIMATED_STARTED_AT DATE, 
+	ESTIMATED_TRANSFERRED_AT DATE, 
+	 CONSTRAINT REQUESTS_PK PRIMARY KEY (ID), 
+	 CONSTRAINT REQUESTS_DID_FK FOREIGN KEY(SCOPE, NAME) REFERENCES DIDS (SCOPE, NAME), 
+	 CONSTRAINT REQUESTS_RSES_FK FOREIGN KEY(DEST_RSE_ID)  REFERENCES RSES (ID), 
+	 CONSTRAINT REQUESTS_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS (ACCOUNT), 
+	 CONSTRAINT REQUESTS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT REQUESTS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT REQUESTS_RSE_ID_NN CHECK (dest_rse_id IS NOT NULL), 
+	 CONSTRAINT REQUESTS_SCOPE_NN CHECK (SCOPE IS NOT NULL), 
+	 CONSTRAINT REQUESTS_NAME_NN CHECK (NAME IS NOT NULL), 
+	 CONSTRAINT REQUESTS_TYPE_CHK CHECK (request_type in ('U', 'D', 'T', 'I', 'O')), 
+	 CONSTRAINT REQUESTS_STATE_CHK CHECK (state IN ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M')) 
+   ) PCTFREE 0;
+
+
+  CREATE INDEX REQUESTS_DEST_RSE_ID_IDX ON REQUESTS (DEST_RSE_ID) COMPRESS 1;
+  CREATE INDEX REQUESTS_SCOPE_NAME_RSE_IDX ON REQUESTS (SCOPE, NAME, DEST_RSE_ID, REQUEST_TYPE) COMPRESS 1;
+  CREATE INDEX REQUESTS_RULEID_IDX ON REQUESTS (RULE_ID) COMPRESS 1;
+  CREATE INDEX REQUESTS_EXTERNALID_UQ ON REQUESTS (EXTERNAL_ID);
+  CREATE INDEX REQUESTS_TYP_STA_UPD_IDX ON REQUESTS (REQUEST_TYPE, STATE, ACTIVITY) COMPRESS 3;
+
+
+
+-- 27 ) ========================== REQUESTS_HISTORY table ( Range Interval partitioned + OLTP compression ) =========================
+
+  CREATE TABLE REQUESTS_HISTORY  
+   (	CREATED_AT DATE CONSTRAINT REQUESTS_HIST_CREATED_AT_NN NOT NULL, 
+	UPDATED_AT DATE, 
+	STATE CHAR(1), 
+	REQUEST_TYPE CHAR(1), 
+	DID_TYPE CHAR(1), 
+	EXTERNAL_ID VARCHAR2(64), 
+	SCOPE VARCHAR2(25) CONSTRAINT REQUESTS_HIST_SCOPE_NN NOT NULL, 
+	NAME VARCHAR2(255) CONSTRAINT REQUESTS_HIST_NAME_NN NOT NULL, 
+	DEST_RSE_ID RAW(16), 
+	ID RAW(16), 
+	PREVIOUS_ATTEMPT_ID RAW(16), 
+	RETRY_COUNT NUMBER(3,0), 
+	ATTRIBUTES VARCHAR2(4000), 
+	ERR_MSG VARCHAR2(4000), 
+	RULE_ID RAW(16), 
+	BYTES NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	ADLER32 VARCHAR2(8), 
+	DEST_URL VARCHAR2(2048), 
+	EXTERNAL_HOST VARCHAR2(256), 
+	ACTIVITY VARCHAR2(50), 
+	SUBMITTED_AT DATE, 
+	TRANSFERRED_AT DATE, 
+	SUBMITTER_ID NUMBER(10,0), 
+	STARTED_AT DATE, 
+	ESTIMATED_AT DATE, 
+	SOURCE_RSE_ID RAW(16), 
+	ACCOUNT VARCHAR2(25), 
+	REQUESTED_AT DATE, 
+	PRIORITY NUMBER(1,0), 
+	ESTIMATED_STARTED_AT DATE, 
+	ESTIMATED_TRANSFERRED_AT DATE
+   )
+PCTFREE 0 
+COMPRESS FOR OLTP
 PARTITION BY RANGE(CREATED_AT)
 INTERVAL ( NUMTODSINTERVAL(1,'DAY') )
 (
 PARTITION "DATA_BEFORE_01102013" VALUES LESS THAN (TO_DATE('01-10-2013', 'DD-MM-YYYY'))
 );
 
-CREATE INDEX "REQ_HIST_ID_IDX" ON "REQUESTS_HISTORY" (ID) LOCAL TABLESPACE ATLAS_RUCIO_HIST_DATA01;
-CREATE INDEX "REQ_HIST_EXTID_IDX" ON "REQUESTS_HISTORY" (EXTERNAL_ID) COMPRESS 1 LOCAL TABLESPACE ATLAS_RUCIO_HIST_DATA01;
-CREATE INDEX "REQ_HIST_SCOPE_NAME_RSE_IDX" ON "REQUESTS_HISTORY" ("SCOPE", "NAME", "DEST_RSE_ID") COMPRESS 1 LOCAL TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+
+CREATE INDEX REQ_HIST_SCOPE_NAME_RSE_IDX ON REQUESTS_HISTORY(SCOPE, NAME, DEST_RSE_ID) LOCAL COMPRESS 1;
 
 
--- ========================================= SUBSCRIPTIONS_HISTORY (range automatic partitioning with certain interval) =========================================
+-- 28 ) ========================================= ACCOUNT_USAGE table ========================================= 
 
--- Description: Table to store the history of subscriptions
--- to partition on UPDATED_AT column or on CREATED_AT column
+  CREATE TABLE ACCOUNT_USAGE 
+   (	ACCOUNT VARCHAR2(25), 
+	RSE_ID RAW(16), 
+	FILES NUMBER(19,0), 
+	BYTES NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT ACCOUNT_USAGE_PK PRIMARY KEY (ACCOUNT, RSE_ID), 
+	 CONSTRAINT ACCOUNT_USAGE_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT ACCOUNT_USAGE_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT ACCOUNT_USAGE_ACCOUNT_FK FOREIGN KEY(ACCOUNT)  REFERENCES ACCOUNTS(ACCOUNT), 
+	 CONSTRAINT ACCOUNT_USAGE_RSES_ID_FK FOREIGN KEY(RSE_ID)  REFERENCES RSES(ID) 
+   ) ORGANIZATION INDEX COMPRESS 1 ;
 
-CREATE TABLE subscriptions_history (
-    id RAW(16),
-    name VARCHAR2(64 CHAR),
-    filter VARCHAR2(2048 CHAR),
-    replication_rules VARCHAR2(1024 CHAR),
-    policyid NUMBER(2),
-    state CHAR(1 CHAR),
-    last_processed DATE,
-    account VARCHAR2(25 CHAR),
-    lifetime DATE,
-    retroactive NUMBER(1),
-    expired_at DATE,
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "SUBSCRIPTIONS_HISTORY_PK" PRIMARY KEY (id, updated_at) USING INDEX LOCAL ,
-    CHECK (state IN ('I', 'A', 'B', 'U', 'N')),
-    CONSTRAINT "SUBS_HISTORY_RETROACTIVE_CHK" CHECK (retroactive IN (0, 1))
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
-	COMPRESS FOR OLTP
- PARTITION BY RANGE (updated_at) INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))
-(
-PARTITION "DATA_BEFORE_01092013" VALUES LESS THAN (TO_DATE('01-09-2013', 'DD-MM-YYYY'))
+
+-- 29 ) ========================================= ACCOUNT_USAGE_HISTORY table ========================================= 
+
+  CREATE TABLE ACCOUNT_USAGE_HISTORY 
+   (	ACCOUNT VARCHAR2(25), 
+	RSE_ID RAW(16), 
+	FILES NUMBER(19,0), 
+	BYTES NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT ACCOUNT_USAGE_HISTORY_PK PRIMARY KEY (ACCOUNT, RSE_ID, UPDATED_AT) 
+   ) ORGANIZATION INDEX COMPRESS 1 ;
+
+-- 30 ) ========================================= RSE_USAGE table ========================================= 
+
+  CREATE TABLE RSE_USAGE 
+   (	RSE_ID RAW(16), 
+	SOURCE VARCHAR2(255), 
+	USED NUMBER(19,0), 
+	FREE NUMBER(19,0), 
+	FILES NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT RSE_USAGE_PK PRIMARY KEY (RSE_ID, SOURCE), 
+	 CONSTRAINT RSE_USAGE_RSE_ID_FK FOREIGN KEY(RSE_ID)  REFERENCES RSES (ID), 
+	 CONSTRAINT RSE_USAGE_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT RSE_USAGE_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL)
+   ) ORGANIZATION INDEX COMPRESS 1 ;
+
+
+
+-- 31 ) =========================================  RSE_USAGE_HISTORY table ========================================= 
+
+  CREATE TABLE RSE_USAGE_HISTORY 
+   (	RSE_ID RAW(16), 
+	SOURCE VARCHAR2(255), 
+	USED NUMBER(19,0), 
+	FREE NUMBER(19,0), 
+	FILES NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT RSE_USAGE_HISTORY_PK PRIMARY KEY (RSE_ID, SOURCE, UPDATED_AT) 
+   ) ORGANIZATION INDEX COMPRESS 2;
+
+
+-- 32 ) =========================================  UPDATED_DIDS table ========================================= 
+
+  CREATE TABLE UPDATED_DIDS 
+   (	ID RAW(16) NOT NULL, 
+	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	RULE_EVALUATION_ACTION CHAR(1), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT UPDATED_DIDS_PK PRIMARY KEY (ID), 
+	 CONSTRAINT UPDATED_DIDS_SCOPE_NN CHECK (SCOPE IS NOT NULL), 
+	 CONSTRAINT UPDATED_DIDS_NAME_NN CHECK (NAME IS NOT NULL), 
+	 CONSTRAINT UPDATED_DIDS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT UPDATED_DIDS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT UPDATED_DIDS_RULE_EVAL_ACT_CHK CHECK (rule_evaluation_action IN ('A', 'B', 'D')) 
+   ) ORGANIZATION INDEX;
+
+  CREATE INDEX UPDATED_DIDS_SCOPERULENAME_IDX ON UPDATED_DIDS (SCOPE, RULE_EVALUATION_ACTION, NAME) COMPRESS 2 ;
+
+
+-- 33 ) ========================================= UPDATED_ACCOUNT_COUNTERS table ========================================= 
+
+  CREATE TABLE UPDATED_ACCOUNT_COUNTERS 
+   (	ID RAW(16) NOT NULL, 
+	ACCOUNT VARCHAR2(25), 
+	RSE_ID RAW(16), 
+	FILES NUMBER(19,0), 
+	BYTES NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT UPDATED_ACCNT_CNTRS_PK PRIMARY KEY (ID), 
+	 CONSTRAINT UPDATED_ACCNT_CNTRS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT UPDATED_ACCNT_CNTRS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT UPDATED_ACCNT_CNTRS_RSE_ID_FK FOREIGN KEY(RSE_ID) REFERENCES RSES (ID), 
+	 CONSTRAINT UPDATED_ACCNT_CNTRS_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS (ACCOUNT) 
+   ) ORGANIZATION INDEX ;
+
+  CREATE INDEX UPDATED_ACCNT_CNTRS_RSE_IDX ON UPDATED_ACCOUNT_COUNTERS (ACCOUNT, RSE_ID) COMPRESS 1;
+
+
+
+-- 34 ) ========================================= UPDATED_RSE_COUNTERS table ========================================= 
+
+  CREATE TABLE UPDATED_RSE_COUNTERS 
+   (	ID RAW(16), 
+	RSE_ID RAW(16), 
+	FILES NUMBER(19,0), 
+	BYTES NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT UPDATED_RSE_CNTRS_PK PRIMARY KEY (ID), 
+	 CONSTRAINT UPDATED_RSE_CNTRS_RSE_FK FOREIGN KEY(RSE_ID) REFERENCES RSES (ID), 
+	 CONSTRAINT UPDATED_RSE_CNTRS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT UPDATED_RSE_CNTRS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL) 
+   ) ORGANIZATION INDEX ;
+
+  CREATE INDEX UPDATED_RSE_CNTRS_RSE_IDX ON UPDATED_RSE_COUNTERS (RSE_ID)  ;
+
+
+-- 35 ) =========================================  ALEMBIC_VERSION table ========================================= 
+
+  CREATE TABLE ALEMBIC_VERSION 
+   (	
+	VERSION_NUM VARCHAR2(32) CONSTRAINT ALEMBIC_VERSION_NN NOT NULL 
+   );
+
+
+-- 36 ) ========================================= ACCOUNT_LIMITS table ========================================= 
+
+  CREATE TABLE ACCOUNT_LIMITS 
+   (	ACCOUNT VARCHAR2(25), 
+	RSE_ID RAW(16), 
+	BYTES NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT ACCOUNT_LIMITS_PK PRIMARY KEY (ACCOUNT, RSE_ID), 
+	 CONSTRAINT ACCOUNT_LIMITS_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS(ACCOUNT), 
+	 CONSTRAINT ACCOUNT_LIMITS_RSE_ID_FK FOREIGN KEY(RSE_ID) REFERENCES RSES(ID),
+	 CONSTRAINT ACCOUNT_LIMITS_CREATED_NN CHECK (created_at is not null), 
+	 CONSTRAINT ACCOUNT_LIMITS_UPDATED_NN CHECK (updated_at is not null) 
+   ) ORGANIZATION INDEX COMPRESS 1;
+
+
+-- 37 ) ========================================= CONFIGS table ========================================= 
+
+  CREATE TABLE CONFIGS 
+   (	SECTION VARCHAR2(128), 
+	OPT VARCHAR2(128), 
+	VALUE VARCHAR2(4000), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT CONFIGS_PK PRIMARY KEY (SECTION, OPT) USING INDEX COMPRESS 1, 
+	 CONSTRAINT CONFIGS_CREATED_NN CHECK (created_at is not null), 
+	 CONSTRAINT CONFIGS_UPDATED_NN CHECK (updated_at is not null) 
+   ) PCTFREE 0;
+
+
+-- 38 ) ========================================= CONFIGS_HISTORY table ========================================= 
+
+  CREATE TABLE CONFIGS_HISTORY 
+   (	SECTION VARCHAR2(128), 
+	OPT VARCHAR2(128), 
+	VALUE VARCHAR2(4000), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT CONFIGS_HISTORY_PK PRIMARY KEY (SECTION, OPT, UPDATED_AT) USING INDEX COMPRESS 1
+   ) PCTFREE 0 ;
+
+
+-- 39 ) ========================================= MESSAGES table ========================================= 
+
+  CREATE TABLE MESSAGES 
+   (	ID RAW(16), 
+	UPDATED_AT TIMESTAMP(6), 
+	CREATED_AT TIMESTAMP(6), 
+	EVENT_TYPE VARCHAR2(1024), 
+	PAYLOAD VARCHAR2(4000), 
+	 CONSTRAINT MESSAGES_PK PRIMARY KEY(ID),
+	 CONSTRAINT MESSAGES_EVENT_TYPE_NN CHECK (EVENT_TYPE IS NOT NULL), 
+	 CONSTRAINT MESSAGES_PAYLOAD_NN CHECK (PAYLOAD IS NOT NULL), 
+	 CONSTRAINT MESSAGES_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT MESSAGES_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL) 
+   ) PCTFREE 0;
+
+
+
+-- 40 ) =========================================  MESSAGES_HISTORY table ( RANGE INTERVAL partitioned ) ========================================= 
+
+  CREATE TABLE MESSAGES_HISTORY 
+   (	ID RAW(16), 
+	UPDATED_AT TIMESTAMP(6), 
+	CREATED_AT TIMESTAMP(6), 
+	DELETED_AT TIMESTAMP(6), 
+	EVENT_TYPE VARCHAR2(1024), 
+	PAYLOAD VARCHAR2(4000)
+   ) 
+PCTFREE 0 
+PARTITION BY RANGE(created_at) INTERVAL ( NUMTODSINTERVAL(1,'DAY') )
+( 
+PARTITION DATA_BEFORE_01052015 VALUES LESS THAN (TO_DATE('01-05-2015', 'DD-MM-YYYY')) 
 );
 
 
--- ========================================= RSE_USAGE_HISTORY (List partitioned IOT table?  ) =========================================
--- Description: Table to store the usage history per RSE (time series)
--- Estimated volume: ~700 RSEs * with two records per 30 min. (e.g. rucio/srm)
--- Access pattern: By rse_id, source
-
--- QUESTION: Is partitioning necessary here? It might be better to offload the data dictionary and NOT partition this table
-
-CREATE TABLE rse_usage_history (
-    rse_id RAW(16),
-    source VARCHAR2(255 CHAR),
-    used NUMBER(19),
-    free NUMBER(19),
-    files NUMBER(19),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "RSE_USAGE_HISTORY_PK" PRIMARY KEY (rse_id, source, updated_at)
-) ORGANIZATION INDEX COMPRESS 2 TABLESPACE ATLAS_RUCIO_HIST_DATA01  ;
-
--- PARTITION BY LIST (RSE_ID) ( PARTITION INITIAL_PARTITION VALUES ('00000000000000000000000000000000') );
+ CREATE INDEX MESSAGES_HISTORY_ETYPE_INDX ON MESSAGES_HISTORY (EVENT_TYPE) LOCAL COMPRESS 1;
 
 
+-- 41 ) ========================================= TOKENS table ========================================= 
 
+  CREATE TABLE TOKENS 
+   (	ACCOUNT VARCHAR2(25), 
+	EXPIRED_AT DATE, 
+	TOKEN VARCHAR2(352), 
+	IP VARCHAR2(39), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	IDENTITY VARCHAR2(2048), 
+	 CONSTRAINT TOKENS_EXPIRED_AT_NN CHECK (EXPIRED_AT IS NOT NULL), 
+	 CONSTRAINT TOKENS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT TOKENS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT TOKENS_PK PRIMARY KEY (TOKEN), 
+	 CONSTRAINT TOKENS_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS (ACCOUNT) 
+   );
 
--- ========================================= ACCOUNT_USAGE_HISTORY (List partitioned IOT table ?) =========================================
--- Description: Table to store the usage history per account, RSE
--- Estimated volume: ~700 RSEs * 2000 accounts: one record every 30 min.
--- Access pattern: By account, by "account/rse_id"
-
--- QUESTION: Is partitioning necessary here? It might be better to offload the data dictionary and NOT partition this table
-
-
-CREATE TABLE account_usage_history (
-    account VARCHAR2(25 CHAR),
-    rse_id RAW(16),
-    files NUMBER(19),
-    bytes NUMBER(19),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "ACCOUNT_USAGE_HISTORY_PK" PRIMARY KEY (account, rse_id, updated_at)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_HIST_DATA01 ;
-
-
--- PARTITION BY LIST (account) ( PARTITION INITIAL_PARTITION VALUES ('INITIAL_PARTITION') );
+  CREATE INDEX TOKENS_ACCOUNT_EXPIRED_AT_IDX ON TOKENS (ACCOUNT, EXPIRED_AT) COMPRESS 1 ;
 
 
 
--- ========================================= LOGGING_TABPARTITIONS =========================================
--- Description: table in which logging information of the partition creation activity is stored
+-- 42 ) ========================================= COLLECTION_REPLICAS table ========================================= 
 
-CREATE TABLE LOGGING_TABPARTITIONS
-(   TABLE_NAME VARCHAR2(30) CONSTRAINT TABPART_TABLE_NN NOT NULL,
-    PARTITION_NAME VARCHAR2(30) CONSTRAINT TABPART_PART_NN NOT NULL,
-    PARTITION_VALUE VARCHAR2(30) CONSTRAINT TABPART_VALUE_NN NOT NULL,
-    ACTION_TYPE VARCHAR2(10),
-    ACTION_DATE TIMESTAMP(0),
-    PART_MARKED_FOR_REMOVAL CHAR(1) CONSTRAINT PART_MARKED_FOR_REMOVAL_YN_CHK CHECK (PART_MARKED_FOR_REMOVAL in ( 'Y', 'N' )),
-    MARKED_FOR_REMOVAL_ON DATE,
-    REMOVED_ON DATE,
-    EXECUTED_SQL_STMT VARCHAR2(1000),
-    MESSAGE VARCHAR2(1000)
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+  CREATE TABLE COLLECTION_REPLICAS 
+   (	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	RSE_ID RAW(16), 
+	DID_TYPE CHAR(1), 
+	BYTES NUMBER(19,0), 
+	STATE CHAR(1), 
+	ACCESSED_AT DATE, 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	AVAILABLE_REPLICAS_CNT NUMBER(19,0), 
+	LENGTH NUMBER(19,0), 
+	AVAILABLE_BYTES NUMBER(19,0), 
+	 CONSTRAINT COLLECTION_REPLICAS_PK PRIMARY KEY (SCOPE, NAME, RSE_ID), 
+	 CONSTRAINT COLLECTION_REPLICAS_LFN_FK FOREIGN KEY(SCOPE, NAME)  REFERENCES DIDS (SCOPE, NAME), 
+	 CONSTRAINT COLLECTION_REPLICAS_RSE_ID_FK FOREIGN KEY(RSE_ID)  REFERENCES RSES (ID), 
+	 CONSTRAINT COLLECTION_REPLICAS_TYPE_CHK CHECK (did_type IN ('C', 'D', 'F')), 
+	 CONSTRAINT COLLECTION_REPLICAS_STATE_NN CHECK (STATE IS NOT NULL), 
+	 CONSTRAINT COLLECTION_REPLICAS_BYTES_NN CHECK (bytes IS NOT NULL), 
+	 CONSTRAINT COLLECTION_REPLICAS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT COLLECTION_REPLICAS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT COLLECTION_REPLICAS_STATE_CHK CHECK (state IN ('A', 'C', 'B', 'U', 'D', 'S')) 
+   ) ORGANIZATION INDEX COMPRESS 1;
 
+  CREATE INDEX COLLECTION_REPLICAS_RSE_ID_IDX ON COLLECTION_REPLICAS (RSE_ID) COMPRESS 1;
 
+-- 43) ========================================= SOURCES table ========================================= 
 
-
--- ========================================= CONFIGS =========================================
--- Description: Table to store the shared configuration of Rucio
--- Estimated volume: ~100 key-value pairs
--- Access pattern: List by section (rarely), List by option (rarely), List by Section+Option (often), Insert (rarely)
-
-CREATE TABLE configs (
-  section VARCHAR2(128 CHAR),
-  opt VARCHAR2(128 CHAR),
-  value VARCHAR2(4000 CHAR),
-  updated_at DATE,
-  created_at DATE,
-  CONSTRAINT configs_pk PRIMARY KEY (section, opt),
-  CONSTRAINT configs_created_nn CHECK (created_at is not null),
-  CONSTRAINT configs_updated_nn CHECK (updated_at is not null)
-) PCTFREE 0 tablespace   ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
--- ========================================= CONFIGS_HISTORY =========================================
--- Description: Table to store the history of modifications to the shared configuration of Rucio
--- Estimated volume: ~1000
--- Access pattern: Insert (rarely), Select (rarely)
-
-CREATE TABLE configs_history (
-  section VARCHAR2(128 CHAR),
-  opt VARCHAR2(128 CHAR),
-  value VARCHAR2(4000 CHAR),
-  updated_at DATE,
-  created_at DATE,
-  CONSTRAINT configs_history_pk PRIMARY KEY (section, opt, updated_at) USING INDEX COMPRESS 1
-) PCTFREE 0 COMPRESS FOR OLTP tablespace ATLAS_RUCIO_HIST_DATA01;
-
-
--- ========================================= RULES_HIST_RECENT ==============================================
--- Description: Table of recent rule changes
--- Estimated volume:  ~10mio
--- Access pattern: -- By rule_id
--- Range partitioned on "updated_at" with interval of 7 days. Locally partitioned index on ID column.
-
-
-CREATE TABLE rules_hist_recent (
-    history_id RAW(16),
-    id RAW(16),
-    subscription_id RAW(16),
-    account VARCHAR2(25 CHAR),
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    did_type CHAR(1 CHAR),
-    state CHAR(1 CHAR),
-    rse_expression VARCHAR2(3000 CHAR),
-    copies NUMBER(4) DEFAULT 1,
-    expires_at DATE,
-    weight VARCHAR2(255 CHAR),
-    locked NUMBER(1) DEFAULT 0,
-    grouping CHAR(1 CHAR),
-    error VARCHAR2(255 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    source_replica_expression VARCHAR2(255 CHAR),
-    activity VARCHAR2(50 CHAR),
-    locks_ok_cnt NUMBER(10) DEFAULT 0,
-    locks_replicating_cnt NUMBER(10) DEFAULT 0,
-    locks_stuck_cnt NUMBER(10) DEFAULT 0,
-    notification CHAR(1 CHAR),
-    stuck_at DATE,
-    purge_replicas NUMBER(1) DEFAULT 0,
-    ignore_availability NUMBER(1) DEFAULT 0,
-    ignore_account_limit NUMBER(1) DEFAULT 0,
-    comments VARCHAR2(255 CHAR),
-    child_rule_id RAW(16),
-    priority NUMBER(1)
-    eol_at DATE,
-    split_container NUMBER(1) DEFAULT 0,
-    meta VARCHAR2(4000 CHAR),
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
-PARTITION BY RANGE(updated_at)
-INTERVAL ( NUMTODSINTERVAL(7,'DAY') )
-(
-PARTITION DATA_BEFORE_01012015 VALUES LESS THAN (TO_DATE('01-01-2015', 'DD-MM-YYYY'))
-) ENABLE ROW MOVEMENT ;
+  CREATE TABLE SOURCES 
+   (	REQUEST_ID RAW(16), 
+	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	RSE_ID RAW(16), 
+	DEST_RSE_ID RAW(16), 
+	URL VARCHAR2(2048), 
+	BYTES NUMBER(19,0), 
+	RANKING NUMBER(7,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	IS_USING NUMBER(1,0), 
+	 CONSTRAINT SOURCES_PK PRIMARY KEY (REQUEST_ID, SCOPE, NAME, RSE_ID)  USING INDEX COMPRESS 1, 
+	 CONSTRAINT SOURCES_REQ_ID_FK FOREIGN KEY(REQUEST_ID)  REFERENCES REQUESTS (ID), 
+	 CONSTRAINT SOURCES_REPLICAS_FK FOREIGN KEY(SCOPE, NAME, RSE_ID) REFERENCES REPLICAS (SCOPE, NAME, RSE_ID), 
+	 CONSTRAINT SOURCES_RSES_FK FOREIGN KEY(RSE_ID) REFERENCES RSES (ID), 
+	 CONSTRAINT SOURCES_DEST_RSES_FK FOREIGN KEY(DEST_RSE_ID) REFERENCES RSES (ID), 
+	 CONSTRAINT SOURCES_REQUEST_ID_NN CHECK (REQUEST_ID IS NOT NULL), 
+	 CONSTRAINT SOURCES_SCOPE_NN CHECK (SCOPE IS NOT NULL), 
+	 CONSTRAINT SOURCES_NAME_NN CHECK (NAME IS NOT NULL), 
+	 CONSTRAINT SOURCES_RSE_ID_NN CHECK (RSE_ID IS NOT NULL), 
+	 CONSTRAINT SOURCES_DEST_RSE_NN CHECK (DEST_RSE_ID IS NOT NULL), 
+  	 CONSTRAINT SOURCES_BYTES_NN CHECK (BYTES IS NOT NULL),
+	 CONSTRAINT SOURCES_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT SOURCES_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT SOURCES_IS_USING_CHK CHECK (is_using IN (0, 1))
+   ) PCTFREE 0;
 
 
-CREATE INDEX ATLAS_RUCIO.RULES_HIST_RECENT_ID_IDX ON ATLAS_RUCIO.rules_hist_recent(id) LOCAL COMPRESS 1 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
-CREATE INDEX ATLAS_RUCIO.RULES_HIST_RECENT_SC_NA_IDX ON ATLAS_RUCIO.rules_hist_recent(scope, name) LOCAL COMPRESS 1 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+  CREATE INDEX SOURCES_SC_NM_DST_IDX ON SOURCES (SCOPE, RSE_ID, NAME) COMPRESS 2;
+  CREATE INDEX SOURCES_SRC_DST_IDX ON SOURCES (RSE_ID, DEST_RSE_ID) COMPRESS 2;
+  CREATE INDEX SOURCES_DEST_RSEID_IDX ON SOURCES (DEST_RSE_ID) COMPRESS 1;
 
 
-COMMENT ON TABLE ATLAS_RUCIO.rules_hist_recent IS 'Recent history table (1 month) for rules';
-COMMENT ON COLUMN ATLAS_RUCIO.rules_hist_recent.history_id IS 'Fake id necessary for sqlalchemy';
+-- 44 ) ========================================= SOURCES_HISTORY table ========================================= 
+-- Exists in ADCR but has not been used! To be dropped ? 
 
-
--- ========================================= RULES_HISTORY ==============================================
--- Description: Table of longterm rules (deleted)
--- Estimated volume:  ?
--- Access pattern: -- Usually by scope, name - but very rare so full table scan is fine
--- Range partitioned on "updated_at" with interval of a month. OLTP compression on the data blocks.
-
-
-CREATE TABLE rules_history (
-    history_id RAW(16),
-    id RAW(16),
-    subscription_id RAW(16),
-    account VARCHAR2(25 CHAR),
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    did_type CHAR(1 CHAR),
-    state CHAR(1 CHAR),
-    rse_expression VARCHAR2(3000 CHAR),
-    copies NUMBER(4) DEFAULT 1,
-    expires_at DATE,
-    weight VARCHAR2(255 CHAR),
-    locked NUMBER(1) DEFAULT 0,
-    grouping CHAR(1 CHAR),
-    error VARCHAR2(255 CHAR),
-    updated_at DATE,
-    created_at DATE,
-    source_replica_expression VARCHAR2(255 CHAR),
-    activity VARCHAR2(50 CHAR),
-    locks_ok_cnt NUMBER(10) DEFAULT 0,
-    locks_replicating_cnt NUMBER(10) DEFAULT 0,
-    locks_stuck_cnt NUMBER(10) DEFAULT 0,
-    notification CHAR(1 CHAR),
-    stuck_at DATE,
-    purge_replicas NUMBER(1) DEFAULT 0,
-    ignore_availability NUMBER(1) DEFAULT 0,
-    ignore_account_limit NUMBER(1) DEFAULT 0,
-    comments VARCHAR2(255 CHAR),
-    child_rule_id RAW(16),
-    priority NUMBER(1)
-    eol_at DATE,
-    split_container NUMBER(1) DEFAULT 0,
-    meta VARCHAR2(4000 CHAR),
-) PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA01
-PARTITION BY RANGE(updated_at)
-INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') )
-( PARTITION "DATA_BEFORE_01012015" VALUES LESS THAN (TO_DATE('01-01-2015', 'DD-MM-YYYY')) )
- ENABLE ROW MOVEMENT ;
-
-CREATE INDEX ATLAS_RUCIO.RULES_HISTORY_SCOPENAME_IDX ON ATLAS_RUCIO.RULES_HISTORY(scope,name) LOCAL COMPRESS 2 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
-
-COMMENT ON TABLE ATLAS_RUCIO.rules_history IS 'Full history table for rules';
-COMMENT ON COLUMN ATLAS_RUCIO.rules_history.history_id IS 'Fake id necessary for sqlalchemy';
-
-
--- ========================================= BAD_REPLICAS ==============================================
--- Description: Table that stores the bad files
--- Estimated volume:  A few millions per year
--- Access pattern: -- By state, rse_id
-
-
-CREATE TABLE BAD_REPLICAS(
-   SCOPE VARCHAR2(25),
-   NAME VARCHAR2(255),
-   RSE_ID RAW(16),
-   REASON VARCHAR2(255),
-   STATE CHAR(1),
-   ACCOUNT VARCHAR2(25),
-   BYTES NUMBER(19),
-   UPDATED_AT DATE,
-   CREATED_AT DATE,
-   CONSTRAINT BAD_REPLICAS_PK PRIMARY KEY (SCOPE, NAME, RSE_ID, CREATED_AT) USING INDEX LOCAL COMPRESS 2,
-   CONSTRAINT BAD_REPLICAS_ACCOUNT_FK FOREIGN KEY(ACCOUNT) REFERENCES ACCOUNTS (ACCOUNT),
-   CONSTRAINT BAD_REPLICAS_SCOPE_NN CHECK (SCOPE IS NOT NULL),
-   CONSTRAINT BAD_REPLICAS_NAME_NN CHECK (NAME IS NOT NULL),
-   CONSTRAINT BAD_REPLICAS_RSE_ID_NN CHECK (RSE_ID IS NOT NULL),
-   CONSTRAINT BAD_REPLICAS_CREATED_NN CHECK (CREATED_AT IS NOT NULL),
-   CONSTRAINT BAD_REPLICAS_UPDATED_AT CHECK (UPDATED_AT IS NOT NULL),
-   CONSTRAINT BAD_REPLICAS_STATE_CHK CHECK (STATE IN ('R', 'L', 'S', 'B', 'D'))
-)
-PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA01
-PARTITION BY RANGE(CREATED_AT)
-INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))
-(
-PARTITION "DATA_BEFORE_02192015" VALUES LESS THAN (TO_DATE('19-02-2015', 'DD-MM-YYYY'))
-) ENABLE ROW MOVEMENT ;
-
-
-CREATE INDEX BAD_REPLICAS_STATE_IDX ON BAD_REPLICAS(RSE_ID, STATE) COMPRESS 1 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
-
-CREATE INDEX BAD_REPLICAS_ACCOUNT_IDX ON BAD_REPLICAS(ACCOUNT) COMPRESS 1 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
-
-COMMENT ON TABLE BAD_REPLICAS IS 'FULL HISTORY FOR BAD REPLICAS';
-
-
--- ========================================= HEARTBEATS =========================================
--- Description: Table to store the status and heartbeat of the running daemons and services
--- Estimated volume: ~1000
--- Access pattern: Insert/Select/Delete (frequent periodic)
-
-
-CREATE TABLE HEARTBEATS (
-EXECUTABLE VARCHAR2(256) NOT NULL,       -- hash of READABLE column
-READABLE VARCHAR2(4000) NOT NULL,
-HOSTNAME VARCHAR2(128) NOT NULL,
-PID NUMBER(10) NOT NULL,
-THREAD_ID NUMBER(16) NOT NULL,
-THREAD_NAME VARCHAR2(64) NOT NULL,
-UPDATED_AT DATE,
-CREATED_AT DATE,
-CONSTRAINT HEARTBEATS_PK PRIMARY KEY(EXECUTABLE, HOSTNAME, PID, THREAD_ID) using index COMPRESS 1
-) PCTFREE 0 TABLESPACE  ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
--- ========================================= NAMING_CONVENTIONS =========================================
--- Description: Table to regexp to valide name within scopes
--- Estimated volume: Same order of magnitude than scopes ~5000
--- Access pattern: By scope
-
-CREATE TABLE atlas_rucio.naming_conventions (
-   scope VARCHAR2(25 CHAR) NOT NULL,
-   regexp VARCHAR2(255 CHAR),
-   convention_type VARCHAR(10 CHAR),
-   updated_at DATE,
-   created_at DATE,
-   CONSTRAINT "NAMING_CONVENTIONS_PK" PRIMARY KEY (scope),
-   CONSTRAINT "NAMING_CONVENTIONS_SCOPE_FK" FOREIGN KEY(scope) REFERENCES atlas_rucio.scopes (scope),
-   CONSTRAINT "NAMING_CONVENTIONS_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
-   CONSTRAINT "NAMING_CONVENTIONS_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL),
-   CONSTRAINT "CVT_TYPE_CHK" CHECK (convention_type IN ('ALL', 'DATASET', 'CONTAINER', 'COLLECTION', 'FILE'))
-) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
-
--- ============================= MESSAGES_HISTORY =========================================
--- Description: Table to store history of messages sent to broker
--- Estimated volume: 20,000 rows per 10. min.
--- Access pattern: high throughput write, rare reads with search by created_at & event_type (low cardinality)
-
-CREATE TABLE messages_history (
-    id RAW(16),
-    updated_at TIMESTAMP(6),
-    created_at TIMESTAMP(6),
-    event_type VARCHAR2(1024 CHAR),
-    payload VARCHAR2(4000 CHAR),
-)  PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01
+  CREATE TABLE SOURCES_HISTORY 
+   (	REQUEST_ID RAW(16) NOT NULL, 
+	SCOPE VARCHAR2(25) NOT NULL, 
+	NAME VARCHAR2(255) NOT NULL, 
+	RSE_ID RAW(16) NOT NULL, 
+	DEST_RSE_ID RAW(16) NOT NULL, 
+	URL VARCHAR2(2048), 
+	BYTES NUMBER(19,0), 
+	RANKING NUMBER(7,0), 
+	IS_USING NUMBER(1,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE
+   )
+PCTFREE 0  
+COMPRESS FOR OLTP
 PARTITION BY RANGE(CREATED_AT)
 INTERVAL ( NUMTODSINTERVAL(1,'DAY') )
 (
-PARTITION "DATA_BEFORE_01062015" VALUES LESS THAN (TO_DATE('01-06-2015', 'DD-MM-YYYY'))
+PARTITION DATA_BEFORE_01112015 VALUES LESS THAN (TO_DATE('01-11-2015', 'DD-MM-YYYY'))
+);
+
+  CREATE INDEX SOURCES_HIST_REQID_IDX ON SOURCES_HISTORY(REQUEST_ID) LOCAL COMPRESS 1;
+
+
+
+
+-- 45 ) ========================================= AMICONVENTIONS table ========================================= 
+
+  CREATE TABLE AMICONVENTIONS 
+   (	PROJECT VARCHAR2(64) constraint AMICONVENTIONS_PROJ_NN NOT NULL, 
+	CONVENTION VARCHAR2(1024) constraint AMICONVENTIONS_CONV_NN NOT NULL, 
+	CREATIONDATE DATE DEFAULT sysdate constraint AMICONVENTIONS_CRDATE_NN NOT NULL, 
+	MODIFIEDDATE DATE DEFAULT sysdate constraint AMICONVENTIONS_MODIFDATE_NN NOT NULL, 
+	ENABLED NUMBER(1,0) DEFAULT 1 constraint AMICONVENTIONS_ENABLED_NN NOT NULL, 
+	 CONSTRAINT AMICONVENTIONS_PK PRIMARY KEY (PROJECT) 
+   ) ORGANIZATION INDEX;
+
+
+-- 46 ) ========================================= NAMING_CONVENTIONS table ========================================= 
+
+  CREATE TABLE NAMING_CONVENTIONS 
+   (	SCOPE VARCHAR2(25), 
+	REGEXP VARCHAR2(255), 
+	CONVENTION_TYPE VARCHAR2(10), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT NAMING_CONVENTIONS_PK PRIMARY KEY (SCOPE), 
+	 CONSTRAINT NAMING_CONVENTIONS_SCOPE_FK FOREIGN KEY(SCOPE)  REFERENCES SCOPES (SCOPE),
+	 CONSTRAINT NAMING_CONVENTIONS_SCOPE_NN CHECK (SCOPE IS NOT NULL), 
+	 CONSTRAINT NAMING_CONVENTIONS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT NAMING_CONVENTIONS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT CVT_TYPE_CHK CHECK (convention_type IN ('ALL', 'DATASET', 'CONTAINER', 'COLLECTION', 'FILE')) 
+   ) ORGANIZATION INDEX;
+
+
+-- 47 ) ========================================= HEARTBEATS table ========================================= 
+
+
+  CREATE TABLE HEARTBEATS 
+   (	EXECUTABLE VARCHAR2(256), 
+	READABLE VARCHAR2(4000), 
+	HOSTNAME VARCHAR2(128), 
+	PID NUMBER(10,0), 
+	THREAD_ID NUMBER(16,0), 
+	THREAD_NAME VARCHAR2(64), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT HEARTBEATS_PK PRIMARY KEY (EXECUTABLE, HOSTNAME, PID, THREAD_ID) USING INDEX COMPRESS 1, 
+	 CONSTRAINT HEARTBEATS_EXECUTABLE_NN CHECK (EXECUTABLE IS NOT NULL), 
+	 CONSTRAINT HEARTBEATS_READABLE_NN CHECK (READABLE IS NOT NULL), 
+	 CONSTRAINT HEARTBEATS_HOSTNAME_NN CHECK (HOSTNAME IS NOT NULL), 
+	 CONSTRAINT HEARTBEATS_PID_NN CHECK (PID IS NOT NULL), 
+	 CONSTRAINT HEARTBEATS_THREAD_ID_NN CHECK (THREAD_ID IS NOT NULL), 
+	 CONSTRAINT HEARTBEATS_THREAD_NAME_NN CHECK (THREAD_NAME IS NOT NULL) 
+   ) PCTFREE 0;
+
+
+
+-- 48 ) ========================================= DISTANCES table ========================================= 
+/*
+
+These constrain exist in GitHub, but not in ADCR setup. To be added? - YES 
+
+CONSTRAINT DISTANCES_SRC_RSES_FK FOREIGN KEY(SRC_RSE_ID) REFERENCES RSES (ID),
+CONSTRAINT DISTANCES_DEST_RSES_FK FOREIGN KEY(DEST_RSE_ID) REFERENCES RSES (ID),
+
+*/
+
+  CREATE TABLE DISTANCES 
+   (	SRC_RSE_ID RAW(16), 
+	DEST_RSE_ID RAW(16), 
+	RANKING NUMBER(7,0), 
+	AGIS_DISTANCE NUMBER(7,0), 
+	GEOIP_DISTANCE NUMBER(7,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	ACTIVE NUMBER(7,0), 
+	SUBMITTED NUMBER(7,0), 
+	FINISHED NUMBER(7,0), 
+	FAILED NUMBER(7,0), 
+	TRANSFER_SPEED NUMBER(7,0), 
+	PACKET_LOSS NUMBER(7,0), 
+	LATENCY NUMBER(7,0), 
+	MBPS_FILE NUMBER(7,0), 
+	MBPS_LINK NUMBER(7,0), 
+	QUEUED_TOTAL NUMBER(7,0), 
+	DONE_1H NUMBER(7,0), 
+	DONE_6H NUMBER(7,0), 
+	 CONSTRAINT DISTANCES_PK PRIMARY KEY (SRC_RSE_ID, DEST_RSE_ID) USING INDEX COMPRESS 1,  
+	 CONSTRAINT DISTANCES_SRC_RSES_FK FOREIGN KEY(SRC_RSE_ID) REFERENCES RSES(ID),
+	 CONSTRAINT DISTANCES_DEST_RSES_FK FOREIGN KEY(DEST_RSE_ID) REFERENCES RSES(ID),
+	 CONSTRAINT DISTANCES_SRC_RSE_ID_NN CHECK (SRC_RSE_ID IS NOT NULL), 
+	 CONSTRAINT DISTANCES_DEST_RSE_ID_NN CHECK (DEST_RSE_ID IS NOT NULL), 
+	 CONSTRAINT DISTANCES_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT DISTANCES_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL) 
+   ) PCTFREE 0;
+
+  CREATE INDEX DISTANCES_DEST_RSEID_IDX ON DISTANCES (DEST_RSE_ID) COMPRESS 1;
+ 
+
+
+-- 49 ) ========================================= RSE_TRANSFER_LIMITS table ========================================= 
+
+  CREATE TABLE RSE_TRANSFER_LIMITS 
+   (	RSE_ID RAW(16), 
+	ACTIVITY VARCHAR2(50), 
+	RSE_EXPRESSION VARCHAR2(3000), 
+	MAX_TRANSFERS NUMBER(19,0), 
+	TRANSFERS NUMBER(19,0), 
+	WAITINGS NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT RSE_TRANSFER_LIMITS_PK PRIMARY KEY (RSE_ID, ACTIVITY), 
+	 CONSTRAINT RSE_TRANSFER_LIMITS_RSE_ID_FK FOREIGN KEY(RSE_ID) REFERENCES RSES (ID),
+	 CONSTRAINT RSE_TRANSFER_LIMITS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT RSE_TRANSFER_LIMITS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL) 
+   ) ORGANIZATION INDEX COMPRESS 1;
+
+
+-- 50 ) ========================================= QUARANTINED_REPLICAS table ========================================= 
+
+  CREATE TABLE QUARANTINED_REPLICAS 
+   (	RSE_ID RAW(16), 
+	PATH VARCHAR2(1024), 
+	BYTES NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	ADLER32 VARCHAR2(8), 
+	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT QUARANTINED_REPLICAS_PK PRIMARY KEY (RSE_ID, PATH), 
+	 CONSTRAINT QURD_REPLICAS_RSE_ID_FK FOREIGN KEY(RSE_ID) REFERENCES RSES (ID), 
+	 CONSTRAINT QURD_REPLICAS_RSE_ID_NN CHECK (RSE_ID IS NOT NULL), 
+	 CONSTRAINT QURD_REPLICAS_PATH_NN CHECK (PATH IS NOT NULL), 
+	 CONSTRAINT QURD_REPLICAS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT QURD_REPLICAS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL) 
+   ) ORGANIZATION INDEX COMPRESS 1 ;
+
+
+  CREATE UNIQUE INDEX QUARANTINED_REPLICAS_PATH_IDX ON QUARANTINED_REPLICAS (PATH, RSE_ID);
+
+-- 51) ========================================= QUARANTINED_REPLICAS_HISTORY table ========================================= 
+
+  CREATE TABLE QUARANTINED_REPLICAS_HISTORY 
+   (	RSE_ID RAW(16), 
+	PATH VARCHAR2(1024), 
+	BYTES NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	ADLER32 VARCHAR2(8), 
+	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	DELETED_AT DATE, 
+	 CONSTRAINT QURD_REPLICAS_HIST_RSE_ID_NN CHECK (RSE_ID IS NOT NULL), 
+	 CONSTRAINT QURD_REPLICAS_HIST_PATH_NN CHECK (PATH IS NOT NULL), 
+	 CONSTRAINT QURD_REPLICAS_HIST_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT QURD_REPLICAS_HIST_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL)  
+   ) 
+PCTFREE 0 
+COMPRESS FOR OLTP 
+PARTITION BY RANGE(created_at) 
+INTERVAL ( NUMTOYMINTERVAL(3,'MONTH') ) 
+( 
+PARTITION DATA_BEFORE_01032016 VALUES LESS THAN (TO_DATE('01-03-2016', 'DD-MM-YYYY')) 
 );
 
 
--- ============================= QUARANTINED_REPLICAS =========================================
--- Description: Table to store quarantined replicas
--- Estimated volume: dark data
--- Access pattern: by rse_id
+-- 52) ========================================= TMP_DIDS table ========================================= 
 
-CREATE TABLE QUARANTINED_REPLICAS (
-   rse_id RAW(16) NOT NULL,
-   path VARCHAR2(1024 CHAR) NOT NULL,
-   md5 VARCHAR2(32 CHAR),
-   adler32 VARCHAR2(8 CHAR),
-   bytes NUMBER(19),
-   updated_at DATE,
-   created_at DATE,
-   CONSTRAINT "QUARANTINED_REPLICAS_PK" PRIMARY KEY (rse_id, path),
-   CONSTRAINT "QURD_REPLICAS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES atlas_rucio.rses (id),
-   CONSTRAINT "QURD_REPLICAS_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
-   CONSTRAINT "QURD_REPLICAS_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+  CREATE TABLE TMP_DIDS 
+   (	SCOPE VARCHAR2(25) , 
+	NAME VARCHAR2(255) , 
+	RSE_ID RAW(16), 
+	PATH VARCHAR2(1024), 
+	BYTES NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	ADLER32 VARCHAR2(8), 
+	EXPIRED_AT DATE, 
+	PARENT_SCOPE VARCHAR2(25), 
+	PARENT_NAME VARCHAR2(255), 
+	GUID RAW(16), 
+	EVENTS NUMBER(19,0), 
+	TASK_ID NUMBER(11,0), 
+	PANDA_ID NUMBER(11,0), 
+	OFFSET NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT TMP_DIDS_PK PRIMARY KEY (SCOPE, NAME) USING INDEX COMPRESS 1,  
+	 CONSTRAINT TMP_DIDS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT TMP_DIDS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL), 
+	 CONSTRAINT TMP_DIDS_SCOPE_NN CHECK (SCOPE IS NOT NULL), 
+	 CONSTRAINT TMP_DIDS_NAME_NN CHECK (SCOPE IS NOT NULL)
+   ) PCTFREE 0;
 
-
-COMMENT ON TABLE QUARANTINED_REPLICAS IS 'Table to store the list of inconsistent files at site not known to Rucio and delete ten from the sites.' ;
-CREATE UNIQUE INDEX QUARANTINED_REPLICAS_PATH_IDX on QUARANTINED_REPLICAS(PATH,RSE_ID) tablespace ATLAS_RUCIO_FACT_DATA01;
-
-
--- ============================= QUARANTINED_REPLICAS_HISTORY =========================================
--- Description: Table to store quarantined replicas
--- Estimated volume: dark data
--- Access pattern: by rse_id
-
-CREATE TABLE QUARANTINED_REPLICAS_HISTORY (
-   rse_id RAW(16) NOT NULL,
-   path VARCHAR2(1024 CHAR) NOT NULL,
-   md5 VARCHAR2(32 CHAR),
-   adler32 VARCHAR2(8 CHAR),
-   bytes NUMBER(19),
-   updated_at DATE,
-   created_at DATE,
-   deleted_at DATE
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
-PARTITION BY RANGE(created_at)
-INTERVAL ( NUMTOYMINTERVAL(3,'MONTH') )
-( PARTITION "DATA_BEFORE_01032016" VALUES LESS THAN (TO_DATE('01-03-2016', 'DD-MM-YYYY')) );
+  CREATE INDEX TMP_DIDS_EXPIRED_AT_IDX ON TMP_DIDS (CASE WHEN EXPIRED_AT IS NOT NULL THEN RSE_ID END ) COMPRESS 1;
 
 
-COMMENT ON TABLE QUARANTINED_REPLICAS_HISTORY IS 'Table of historical QUARANTINED_REPLICAS values of what dark data have been deleted from the sites.' ;
+-- 53) ========================================= LIFETIME_EXCEPT table ========================================= 
 
--- ============================= TMP_DIDS_HISTORY =========================================
--- Description: Table to store temporary dids
--- Estimated volume: ?
--- Access pattern: by scope, name,
-
-CREATE TABLE tmp_dids (
-    scope VARCHAR2(25 CHAR) NOT NULL,
-    name VARCHAR2(255 CHAR) NOT NULL,
-    rse_id RAW(16),
-    path VARCHAR2(1024 CHAR),
-    bytes NUMBER(19),
-    md5 VARCHAR2(32 CHAR),
-    adler32 VARCHAR2(8 CHAR),
-    expired_at DATE,
-    parent_scope VARCHAR2(25 CHAR),
-    parent_name VARCHAR2(255 CHAR),
-    guid RAW(16),
-    events NUMBER(19),
-    task_id INTEGER,
-    panda_id INTEGER,
-    offset NUMBER(19),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "TMP_DIDS_PK" PRIMARY KEY (scope, name)  using index COMPRESS 1,
-    CONSTRAINT "TMP_DIDS_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
-    CONSTRAINT "TMP_DIDS_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-CREATE INDEX "TMP_DIDS_EXPIRED_AT_IDX" ON tmp_dids (case when expired_at is not null then rse_id end) COMPRESS 1  TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+  CREATE TABLE LIFETIME_EXCEPT 
+   (	ID RAW(16), 
+	SCOPE VARCHAR2(25), 
+	NAME VARCHAR2(255), 
+	DID_TYPE CHAR(1), 
+	ACCOUNT VARCHAR2(25), 
+	COMMENTS VARCHAR2(4000), 
+	PATTERN VARCHAR2(255), 
+	STATE CHAR(1), 
+	UPDATED_AT DATE, 
+	EXPIRES_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT LIFETIME_EXCEPT_DID_TYPE_NN CHECK (did_type IN ('C', 'D', 'F', 'Y', 'X', 'Z')), 
+	 CONSTRAINT LIFETIME_EXCEPT_STATE_CHK CHECK (state IN ('A', 'R', 'W')) 
+   ) PCTFREE 0;
 
 
--- ============================= LIFETIME_EXCEPT =========================================
-CREATE TABLE lifetime_except (
-    id RAW(16),
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    did_type CHAR(1 CHAR),
-    account VARCHAR2(25 CHAR),
-    comments VARCHAR2(4000 CHAR),
-    pattern VARCHAR2(255 CHAR),
-    state CHAR(1 CHAR),
-    updated_at DATE,
-    expires_at DATE,
-    created_at DATE,
-    CONSTRAINT "LIFETIME_EXCEPT_DID_TYPE_NN" CHECK (did_type IN ('C', 'D', 'F', 'Y', 'X', 'Z')),
-    CONSTRAINT "LIFETIME_EXCEPT_STATE_CHK" CHECK (state IN ('A', 'R', 'W'))
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-COMMENT ON TABLE lifetime_except IS 'Table for exceptions of the lifetime model';
+-- 54 ) ========================================= ARCHIVE_CONTENTS table ========================================= 
+
+  CREATE TABLE ARCHIVE_CONTENTS 
+   (	CHILD_SCOPE VARCHAR2(25) constraint ARCH_CONTENTS_CHILD_SCOPE_NN NOT NULL, 
+	CHILD_NAME VARCHAR2(255) constraint ARCH_CONTENTS_CHILD_NAME_NN NOT NULL, 
+	SCOPE VARCHAR2(25) constraint ARCH_CONTENTS_SCOPE_NN NOT NULL, 
+	NAME VARCHAR2(255) constraint ARCH_CONTENTS_NAME_NN NOT NULL, 
+	BYTES NUMBER(19,0), 
+	ADLER32 VARCHAR2(8), 
+	OFFSET NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	GUID RAW(16), 
+	LENGTH NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT ARCH_CONTENTS_PK PRIMARY KEY (CHILD_SCOPE, CHILD_NAME, SCOPE, NAME), 
+	 CONSTRAINT ARCH_CONTENTS_PARENT_FK FOREIGN KEY(SCOPE, NAME) REFERENCES DIDS (SCOPE, NAME), 
+	 CONSTRAINT ARCH_CONTENTS_CHLD_FK FOREIGN KEY(CHILD_SCOPE, CHILD_NAME) REFERENCES DIDS (SCOPE, NAME), 
+	 CONSTRAINT ARCH_CONTENTS_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT ARCH_CONTENTS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL)
+   ) ORGANIZATION INDEX COMPRESS 1;
 
 
--- ============================= ARCHIVE_CONTENT =========================================
+  CREATE INDEX ARCH_CONT_SCOPE_NAME_IDX ON ARCHIVE_CONTENTS (SCOPE, NAME) COMPRESS 1;
 
--- IOT physical layout because of the foreseen high DML rate (inserts and deletes)
-CREATE TABLE atlas_rucio.ARCHIVE_CONTENTS
+
+
+-- 55 ) ========================================= ARCHIVE_CONTENTS_HISTORY table ========================================= 
+
+  CREATE TABLE ARCHIVE_CONTENTS_HISTORY 
+   (	SCOPE VARCHAR2(25) constraint ARCH_CONT_HIST_SCOPE_NN NOT NULL,
+	NAME VARCHAR2(255) constraint ARCH_CONT_HIST_NAME_NN NOT NULL, 
+	CHILD_SCOPE VARCHAR2(25) constraint ARCH_CONT_HIST_CHILD_SCOPE_NN NOT NULL, 
+	CHILD_NAME VARCHAR2(255) constraint ARCH_CONT_HIST_CHILD_NAME_NN NOT NULL, 
+	BYTES NUMBER(19,0), 
+	ADLER32 VARCHAR2(8), 
+	OFFSET NUMBER(19,0), 
+	MD5 VARCHAR2(32), 
+	GUID RAW(16), 
+	LENGTH NUMBER(19,0), 
+	UPDATED_AT DATE, 
+	CREATED_AT DATE, 
+	 CONSTRAINT ARCH_CONT_HIST_CREATED_NN CHECK (CREATED_AT IS NOT NULL), 
+	 CONSTRAINT ARCH_CONT_HIST_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL) 
+   ) 
+PCTFREE 0 
+COMPRESS FOR OLTP 
+PARTITION BY RANGE (created_at) 
+INTERVAL( NUMTOYMINTERVAL(1,'MONTH'))
 (
-  child_scope VARCHAR2(25 CHAR) NOT NULL,
-  child_name VARCHAR2(255 CHAR) NOT NULL,
-  scope VARCHAR2(25 CHAR) NOT NULL,
-  name VARCHAR2(255 CHAR) NOT NULL,
-  bytes NUMBER(19),
-  adler32 VARCHAR2(8 CHAR),
-  offset NUMBER(19),
-  md5 VARCHAR2(32 CHAR),
-  guid RAW(16),
-  length NUMBER(19),
-  updated_at DATE,
-  created_at DATE,
-CONSTRAINT "ARCH_CONTENTS_PK" PRIMARY KEY (child_scope, child_name, scope, name),
-CONSTRAINT "ARCH_CONTENTS_PARENT_FK" FOREIGN KEY(scope, name) REFERENCES atlas_rucio.dids (scope, name),
-CONSTRAINT "ARCH_CONTENTS_CHLD_FK" FOREIGN KEY(child_scope, child_name) REFERENCES atlas_rucio.dids (scope, name),
-CONSTRAINT "ARCH_CONTENTS_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
-CONSTRAINT "ARCH_CONTENTS_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
-) ORGANIZATION INDEX
-TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+   PARTITION DATA_BEFORE_01012017 VALUES LESS THAN (TO_DATE('01-01-2017', 'DD-MM-YYYY')) 
+);
 
--- Complementary index
-CREATE INDEX atlas_rucio.ARCH_CONT_SCOPE_NAME_IDX ON atlas_rucio.ARCHIVE_CONTENTS(SCOPE, NAME) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+CREATE INDEX ARCH_CONT_HIST_IDX ON ARCHIVE_CONTENTS_HISTORY (SCOPE, NAME) COMPRESS 2 LOCAL; 
 
 
-COMMENT ON TABLE atlas_rucio.ARCHIVE_CONTENTS is 'Content of archives (zip, tar files) in Rucio. Keeps the association about which files are in which zip files. Expected about 50-100K zip files per day. Most of them with a lifetime of one day but few of them can be permanent (archive on tape). The zips will have 8 to 40 constituent files ';
 
+-- 56 ) ======================== UPDATED_COL_REP table ( List partitioned table based on visual column ) ===================================
+-- In order to comply with the existing Rucio SW keep all the columns in. The only difference is the virtual column and the partitioning based on it
+-- Note: The table cannot be IOT as error "ORA-54008: expression column is not supported for an index organized table" is raised 
 
--- ============================= ARCHIVE_CONTENT_HISTORY =========================================
-
--- Normal table, monthly partitioned, with OLTP compression. Index is partitioned as well, but no partitioned PK as then Oracle raises
-"ORA-14039: partitioning columns must form a subset of key columns of a UNIQUE index" error.
-
-CREATE TABLE atlas_rucio.ARCHIVE_CONTENTS_HISTORY
+CREATE TABLE UPDATED_COL_REP 
 (
-scope VARCHAR2(25 CHAR) NOT NULL,
-name VARCHAR2(255 CHAR) NOT NULL,
-child_scope VARCHAR2(25 CHAR) NOT NULL,
-child_name VARCHAR2(255 CHAR) NOT NULL,
-bytes NUMBER(19),
-adler32 VARCHAR2(8 CHAR),
-offset NUMBER(19),
-md5 VARCHAR2(32 CHAR),
-guid RAW(16),
-length NUMBER(19),
-updated_at DATE,
-created_at DATE,
-CONSTRAINT "ARCH_CONT_HIST_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
-CONSTRAINT "ARCH_CONT_HIST_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
-)
-PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA02
-PARTITION BY RANGE (created_at)
- INTERVAL( NUMTOYMINTERVAL(1,'MONTH'))
- (
-   PARTITION DATA_BEFORE_01012017 VALUES LESS THAN (TO_DATE('2017-01-01', 'YYYY-MM-DD'))
- )
-;
+    ID           RAW(16),
+    SCOPE        VARCHAR2(25) constraint UPDATED_COLL_SCOPE_NN not null,
+    NAME         VARCHAR2(255) constraint UPDATED_COLL_NAME_NN not null,
+    DID_TYPE     CHAR(1),
+    RSE_ID       RAW(16),
+    UPDATED_AT   DATE,
+    CREATED_AT   DATE,
+    CONSTRAINT UPDATED_COLL_REP_PK PRIMARY KEY (ID),
+    CONSTRAINT UPDATED_COLL_REP_TYPE_CHK CHECK (did_type IN ('C','D','F')),
+    VIRT_SCOPE_GROUP VARCHAR2(6) GENERATED ALWAYS AS 
+			(DECODE
+				(
+				SUBSTR(scope,1,2), 
+				'mc', 'mc', 
+				'da', 'data', 
+				'pa', 'panda', 
+				'us', 'user',
+				'others'
+				)
+			) VIRTUAL 
+) 
+PCTFREE 5 
+PARTITION BY LIST (VIRT_SCOPE_GROUP)
+( 
+PARTITION MC_PART VALUES ('mc'), 
+PARTITION DATA_PART VALUES ('data'),
+PARTITION PANDA_PART VALUES ('panda'),
+PARTITION USER_PART VALUES ('user'),
+PARTITION OTHERS_PART VALUES ('others') 
+);
 
--- Index on SCOPE and NAME
-CREATE INDEX atlas_rucio.ARCH_CONT_HIST_IDX ON atlas_rucio.ARCHIVE_CONTENTS_HISTORY(SCOPE, NAME) COMPRESS 2 LOCAL TABLESPACE ATLAS_RUCIO_HIST_DATA02;
+
+-- Index on "SCOPE", "NAME"
+CREATE INDEX UPD_COLL_REP_SCOPE_NAME_IDX ON UPDATED_COL_REP (SCOPE, NAME) COMPRESS 1;
 
 
-COMMENT ON TABLE atlas_rucio.ARCHIVE_CONTENTS_HISTORY is 'Content of archives (zip, tar files) in Rucio. Keeps the association about which files are in which zip files. Second one to keep the history';
+
+-- 57 ) ========================================= LOGGING_TABPARTITIONS table ========================================= 
+-- Auxiliary table with logging information about the List-type table partitions creation
+
+  CREATE TABLE LOGGING_TABPARTITIONS 
+   (	TABLE_NAME VARCHAR2(30) CONSTRAINT TABPART_TABLE_NN NOT NULL, 
+	PARTITION_NAME VARCHAR2(30) CONSTRAINT TABPART_PART_NN NOT NULL, 
+	PARTITION_VALUE VARCHAR2(30) CONSTRAINT TABPART_VALUE_NN NOT NULL, 
+	ACTION_TYPE VARCHAR2(10), 
+	ACTION_DATE TIMESTAMP (0), 
+	PART_MARKED_FOR_REMOVAL CHAR(1), 
+	MARKED_FOR_REMOVAL_ON DATE, 
+	REMOVED_ON DATE, 
+	EXECUTED_SQL_STMT VARCHAR2(1000), 
+	MESSAGE VARCHAR2(1000), 
+	 CONSTRAINT PART_MARKED_FOR_REMOVAL_YN_CHK CHECK (PART_MARKED_FOR_REMOVAL in ( 'Y', 'N' )) 
+   ) PCTFREE 0;
+
+
+
+
+-- =================================================================================================================
+-- ======================================= ATLAS specific tables ===================================================
+-- =================================================================================================================
+
+
+-- 58 ) ========================================= RUCIO_ACCOUNTING_TAB table ========================================= 
+
+  CREATE TABLE RUCIO_ACCOUNTING_TAB 
+   (	CURRTIME DATE, 
+	RSE VARCHAR2(255), 
+	SCOPE VARCHAR2(25), 
+	STREAM_NAME VARCHAR2(70), 
+	DATATYPE VARCHAR2(50), 
+	TOMBSTONE VARCHAR2(30), 
+	HIDDEN NUMBER(1,0), 
+	ACCOUNT VARCHAR2(25), 
+	PROVENANCE VARCHAR2(5), 
+	CAMPAIGN VARCHAR2(50), 
+	PHYS_GROUP VARCHAR2(25), 
+	PROD_STEP VARCHAR2(50), 
+	GROUP_CNT NUMBER, 
+	BYTES NUMBER, 
+	CURR_SCOPE VARCHAR2(25), 
+	TIER VARCHAR2(5), 
+	SPACETOKEN VARCHAR2(255), 
+	GRP_DATATYPE VARCHAR2(50), 
+	SITE VARCHAR2(255)
+   ); 
+
+  CREATE INDEX ACCOUNTING_TAB_CURRTIME_IDX ON RUCIO_ACCOUNTING_TAB (CURRTIME) COMPRESS 1; 
+
+
+-- 59 ) ============== RUCIO_ACCOUNTING_HIST_TAB table (Range Interval partitioned + Basic compression )===================
+
+  CREATE TABLE RUCIO_ACCOUNTING_HIST_TAB 
+   (	CURRTIME DATE, 
+	RSE VARCHAR2(255), 
+	SCOPE VARCHAR2(25), 
+	STREAM_NAME VARCHAR2(70), 
+	DATATYPE VARCHAR2(50), 
+	TOMBSTONE VARCHAR2(30), 
+	HIDDEN NUMBER(1,0), 
+	ACCOUNT VARCHAR2(25), 
+	PROVENANCE VARCHAR2(5), 
+	CAMPAIGN VARCHAR2(50), 
+	PHYS_GROUP VARCHAR2(25), 
+	PROD_STEP VARCHAR2(50), 
+	GROUP_CNT NUMBER, 
+	BYTES NUMBER, 
+	CURR_SCOPE VARCHAR2(25), 
+	TIER VARCHAR2(5), 
+	SPACETOKEN VARCHAR2(255), 
+	GRP_DATATYPE VARCHAR2(50), 
+	SITE VARCHAR2(255)
+   )
+PCTFREE 0 
+COMPRESS BASIC 
+PARTITION BY RANGE (CURRTIME) INTERVAL (NUMTOYMINTERVAL(2,'MONTH')) 
+(
+PARTITION DATA_BEFORE_01082016  VALUES LESS THAN (TO_DATE('01-08-2016', 'DD-MM-YYYY'))
+);
+
+
+
+
+-- 60 ) ================ RUCIO_ACCOUNTING_LOGICAL_BYTES table (Range Interval partitioned + OLTP compression) ================
+
+  CREATE TABLE RUCIO_ACCOUNTING_LOGICAL_BYTES 
+   (	CURRTIME DATE DEFAULT sysdate, 
+	CURR_SCOPE VARCHAR2(25), 
+	COMMON_SCOPE VARCHAR2(25), 
+	STREAM_NAME VARCHAR2(70), 
+	DATATYPE VARCHAR2(50), 
+	HIDDEN NUMBER(1,0), 
+	ACCOUNT VARCHAR2(25), 
+	PROVENANCE VARCHAR2(5), 
+	CAMPAIGN VARCHAR2(50), 
+	PHYS_GROUP VARCHAR2(25), 
+	PROD_STEP VARCHAR2(50), 
+	GROUP_CNT NUMBER, 
+	BYTES NUMBER
+   ) 
+PCTFREE 0 
+COMPRESS for OLTP 
+PARTITION BY RANGE (CURRTIME) INTERVAL (NUMTODSINTERVAL(7,'DAY')) 
+(
+PARTITION DATA_BEFORE_01092017  VALUES LESS THAN (TO_DATE('01-09-2017', 'DD-MM-YYYY')
+) 
+);
+
+CREATE INDEX RUCIO_ACC_LOGICAL_BYTES_IDX ON RUCIO_ACCOUNTING_LOGICAL_BYTES (CURRTIME) LOCAL COMPRESS 1; 
+
+
