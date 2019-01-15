@@ -34,7 +34,7 @@ from rucio.common.exception import AccessDenied, DuplicateRule
 from rucio.common.exception import ReplicationRuleCreationTemporaryFailed
 from rucio.common.exception import RSEBlacklisted, RuleNotFound
 from rucio.client.client import Client
-from rucio.daemons.sonar_v3.sonar.get_current_traffic import get_link_traffic
+from rucio.daemons.sonar.sonar.get_current_traffic import get_link_traffic
 
 
 logging.basicConfig(stream=sys.stdout,

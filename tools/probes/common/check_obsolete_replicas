@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 
 '''
 Probe to check the backlog of obsolete replicas.
@@ -22,12 +23,42 @@ OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 if __name__ == "__main__":
     try:
-        session = get_session()
-        query = '''BEGIN
-        FOR u in (SELECT /*+  INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX) */  rse_id, count(1) as files, sum(bytes) as bytes, sys_extract_utc(localtimestamp) as updated_at
-                  FROM  atlas_rucio.replicas
-                  WHERE (case when tombstone is not null then rse_id END) is not null and tombstone=to_date('1-1-1970 00:00:00','MM-DD-YYYY HH24:Mi:SS')
-                  GROUP BY rse_id)
+        SESSION = get_session()
+        QUERY = '''BEGIN
+        FOR u in (SELECT
+                      a.rse_id                        AS rse_id,
+                      NVL(b.files, 0)                 AS files,
+                      NVL(b.bytes, 0)                 AS bytes,
+                      SYS_EXTRACT_UTC(localtimestamp) AS updated_at
+                  FROM
+                      (
+                          SELECT
+                              id AS rse_id
+                          FROM
+                              atlas_rucio.rses
+                          WHERE
+                              deleted=0) a
+                  LEFT OUTER JOIN
+                      (
+                          SELECT
+                              /*+  INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX) */
+                              rse_id,
+                              COUNT(1)   AS files,
+                              SUM(bytes) AS bytes
+                          FROM
+                              atlas_rucio.replicas
+                          WHERE
+                              (
+                                  CASE
+                                      WHEN tombstone IS NOT NULL
+                                      THEN rse_id
+                                  END) IS NOT NULL
+                          AND tombstone=to_date('1-1-1970 00:00:00','MM-DD-YYYY HH24:Mi:SS')
+                          GROUP BY
+                              rse_id) b
+                  ON
+                      a.rse_id=b.rse_id)
+
         LOOP
                 MERGE INTO atlas_rucio.RSE_USAGE
                 USING DUAL
@@ -46,8 +77,8 @@ if __name__ == "__main__":
         END LOOP;
 END;
 '''
-        result = session.execute(query)
-    except Exception, e:
-        print e
+        SESSION.execute(QUERY)
+    except Exception as error:
+        print error
         sys.exit(UNKNOWN)
     sys.exit(OK)

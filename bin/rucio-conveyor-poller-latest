@@ -17,6 +17,7 @@
 # - Wen Guan, <wguan.icedew@gmail.com>, 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -26,6 +27,7 @@ Conveyor is a daemon to manage file transfers.
 
 import argparse
 import signal
+import sys
 
 from rucio.daemons.conveyor.poller_latest import run, stop
 
@@ -45,6 +47,8 @@ def get_parser():
                         help='Poll control: wait seconds to poll FTS server in "latest" mode')
     parser.add_argument("--external-hosts", nargs='+', type=str,
                         help='Poll control: List of FTS hosts')
+    parser.add_argument("--allow", action="store_true", default=False,
+                        help='This daemon is deprecated and will be removed. Explicitly turn it on.')
     return parser
 
 
@@ -53,11 +57,19 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, stop)
     parser = get_parser()
     args = parser.parse_args()
-    try:
-        run(once=args.run_once,
-            last_nhours=args.last_nhours,
-            fts_wait=args.fts_wait,
-            total_threads=args.total_threads,
-            external_hosts=args.external_hosts)
-    except KeyboardInterrupt:
-        stop()
+
+    if args.allow:
+
+        try:
+            run(once=args.run_once,
+                last_nhours=args.last_nhours,
+                fts_wait=args.fts_wait,
+                total_threads=args.total_threads,
+                external_hosts=args.external_hosts)
+        except KeyboardInterrupt:
+            stop()
+
+    else:
+
+        print('This daemon is deprecated and will be removed. Explicitly turn it on with --allow.')
+        sys.exit(1)

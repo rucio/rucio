@@ -780,11 +780,13 @@ def stat(args):
     List attributes and statuses about data identifiers..
     """
     client = get_client(args)
-    for did in args.dids:
+    for i, did in enumerate(args.dids):
+        if i > 0:
+            print('------')
         scope, name = extract_scope(did)
         info = client.get_did(scope=scope, name=name)
-        for key, val in info.items():
-            print('%(key)s: %(val)s' % locals())
+        table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
+        print(tabulate.tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
@@ -858,6 +860,7 @@ def upload(args):
                       'pfn': args.pfn,
                       'no_register': args.no_register,
                       'lifetime': args.lifetime,
+                      'register_after_upload': args.register_after_upload,
                       'transfer_timeout': args.transfer_timeout,
                       'guid': args.guid})
 
@@ -1035,11 +1038,13 @@ def get_metadata(args):
     Get data identifier metadata
     """
     client = get_client(args)
-    for did in args.dids:
+    for i, did in enumerate(args.dids):
+        if i > 0:
+            print('------')
         scope, name = extract_scope(did)
         meta = client.get_metadata(scope=scope, name=name)
-        for k in meta:
-            print('%s: %s' % (k, meta[k]))
+        table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
+        print(tabulate.tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
@@ -1464,8 +1469,8 @@ def list_rse_attributes(args):
     """
     client = get_client(args)
     attributes = client.list_rse_attributes(rse=args.rse)
-    for k in attributes:
-        print('  ' + k + ': ' + str(attributes[k]))
+    table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]
+    print(tabulate.tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
@@ -1654,15 +1659,17 @@ def get_parser():
                                           epilog='''Usage example
 """""""""""""
 ::
+
     $ rucio whoami
     jdoe
-The returned value is the account currently used
+
+The returned value is the account currently used.
                                                  ''')
 
     whoami_parser.set_defaults(which='whoami_account')
 
     # The list-file-replicas command
-    list_file_replicas_parser = subparsers.add_parser('list-file-replicas', help='List the replicas of a DID and it\'s PFNs.', description='This method allows to list all the replicas of a given Data IDentifier (DID). \
+    list_file_replicas_parser = subparsers.add_parser('list-file-replicas', help='List the replicas of a DID and its PFNs.', description='This method allows to list all the replicas of a given Data IDentifier (DID). \
 The only mandatory parameter is the DID which can be a container/dataset/files. By default all the files replicas in state available are returned.', formatter_class=argparse.RawDescriptionHelpFormatter,
                                                       epilog='''Usage example
 ^^^^^^^^^^^^^
@@ -1672,11 +1679,11 @@ To list the file replicas for a given dataset::
     $ rucio list-file-replicas user.jdoe:user.jdoe.test.data.1234.1
     +-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
     | SCOPE     | NAME                            | FILESIZE   | ADLER32   | RSE: REPLICA                                                                      |
-    |-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
+    |-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------|
     | user.jdoe | user.jdoe.test.data.1234.file.1 | 94.835 MB  | 5d000974  | SITE1_DISK: srm://blahblih/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.1 |
     | user.jdoe | user.jdoe.test.data.1234.file.1 | 94.835 MB  | 5d000974  | SITE2_DISK: file://another/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.1 |
     | user.jdoe | user.jdoe.test.data.1234.file.2 | 82.173 MB  | 01e56f23  | SITE2_DISK: file://another/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.2 |
-    +------------+-----------------------------------+------------+-----------+--------------------------------------------------------------------------------+
+    +-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
 
 To list the missing replica of a dataset of a given RSE::
 
@@ -1790,7 +1797,7 @@ To list the missing replica of a dataset of a given RSE::
     detach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The list command
-    ls_parser = subparsers.add_parser('ls', help='List the data identifiers matching some metadata (synonym for list-dids).', description='List the Data IDentifiers matching certain pattern.\
+    ls_parser = subparsers.add_parser('ls', help='List the data identifiers matching some metadata (synonym for list-dids).', description='List the Data IDentifiers matching certain pattern. \
 Only the collections (i.e. dataset or container) are returned by default. With the filter option, you can specify a list of metadata that the Data IDentifier should match.',
                                       formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Usage example
 """""""""""""
@@ -1809,7 +1816,7 @@ You can query the DIDs matching a certain pattern. It always requires to specify
     | user.jdoe:test.file.1                     | FILE         |
     | user.jdoe:test.file.2                     | FILE         |
     | user.jdoe:test.file.3                     | FILE         |
-    |-------------------------------------------+--------------|
+    +-------------------------------------------+--------------+
 
 You can filter by key/value, e.g.::
 
@@ -1820,7 +1827,7 @@ You can filter by key/value, e.g.::
     | user.jdoe:user.jdoe.test.container.1234.1 | CONTAINER    |
     | user.jdoe:user.jdoe.test.container.1234.2 | CONTAINER    |
     | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
-    |-------------------------------------------+--------------|
+    +-------------------------------------------+--------------+
     ''')
 
     ls_parser.set_defaults(which='list_dids')
@@ -1848,7 +1855,7 @@ You can query the DIDs matching a certain pattern. It always requires to specify
     | user.jdoe:test.file.1                     | FILE         |
     | user.jdoe:test.file.2                     | FILE         |
     | user.jdoe:test.file.3                     | FILE         |
-    |-------------------------------------------+--------------|
+    +-------------------------------------------+--------------+
 
 You can filter by key/value, e.g.::
 
@@ -1859,7 +1866,7 @@ You can filter by key/value, e.g.::
     | user.jdoe:user.jdoe.test.container.1234.1 | CONTAINER    |
     | user.jdoe:user.jdoe.test.container.1234.2 | CONTAINER    |
     | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
-    |-------------------------------------------+--------------|''')
+    +-------------------------------------------+--------------+''')
 
     list_parser.set_defaults(which='list_dids')
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
@@ -1971,6 +1978,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
+    upload_parser.add_argument('--register-after-upload', dest='register_after_upload', action='store_true', default=False, help='Register the file only after successful upload.')
     upload_parser.add_argument('--summary', dest='summary', action='store_true', default=False, help='Create rucio_upload.json summary file')
     upload_parser.add_argument('--guid', dest='guid', action='store', help='Manually specify the GUID for the file.')
     upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')

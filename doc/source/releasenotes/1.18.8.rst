@@ -1,0 +1,22 @@
+======
+1.18.8
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Dataset deletion: Undertaker handling of very larger rules `#1909 <https://github.com/rucio/rucio/issues/1909>`_
+
+************
+Enhancements
+************
+
+- Clients: Option to register replica only after upload `#1599 <https://github.com/rucio/rucio/issues/1599>`_
+- Documentation: Enhance deamon documentation `#1848 <https://github.com/rucio/rucio/issues/1848>`_
+- Life time model: Option to unlock rules when applying the Lifetime Model `#1929 <https://github.com/rucio/rucio/issues/1929>`_
+- Probes & Alarms: ATLAS: Modify the quota setting for the SCRATCHDISK endpoint `#1918 <https://github.com/rucio/rucio/issues/1918>`_

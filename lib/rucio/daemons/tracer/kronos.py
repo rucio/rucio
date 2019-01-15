@@ -139,15 +139,22 @@ class AMQConsumer(object):
         for report in self.__reports:
             try:
                 # Identify suspicious files
-                if self.__bad_files_patterns and report['eventType'] in ['get_sm', 'get_sm_a', 'get'] and 'clientState' in report and report['clientState'] not in ['DONE', 'FOUND_ROOT', 'ALREADY_DONE']:
-                    for pattern in self.__bad_files_patterns:
-                        if 'stateReason' in report and pattern.match(report['stateReason']):
-                            reason = report['stateReason'][:255]
-                            try:
-                                declare_bad_file_replicas(report['url'], reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
-                                logging.info('Declare suspicious file %s with reason %s' % (report['url'], reason))
-                            except Exception as error:
-                                logging.error('Failed to declare suspicious file' + str(error))
+                try:
+                    if self.__bad_files_patterns and report['eventType'] in ['get_sm', 'get_sm_a', 'get'] and 'clientState' in report and report['clientState'] not in ['DONE', 'FOUND_ROOT', 'ALREADY_DONE']:
+                        for pattern in self.__bad_files_patterns:
+                            if 'stateReason' in report and report['stateReason'] and isinstance(report['stateReason'], str) and pattern.match(report['stateReason']):
+                                reason = report['stateReason'][:255]
+                                if 'url' not in report or not report['url']:
+                                    logging.error('Missing url in the following trace : ' + str(report))
+                                else:
+                                    try:
+                                        surl = report['url']
+                                        declare_bad_file_replicas([surl, ], reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
+                                        logging.info('Declare suspicious file %s with reason %s' % (report['url'], reason))
+                                    except Exception as error:
+                                        logging.error('Failed to declare suspicious file' + str(error))
+                except Exception as error:
+                    logging.error('Problem with bad trace : %s . Error %s' % (str(report), str(error)))
 
                 # check if scope in report. if not skip this one.
                 if 'scope' not in report:

@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
 
 '''
 Undertaker is a daemon to manage expired did.
@@ -73,7 +73,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
             for chunk in chunks(dids, chunk_size):
                 try:
                     logging.info('Undertaker(%s): Receive %s dids to delete', worker_number, len(chunk))
-                    delete_dids(dids=chunk, account='root')
+                    delete_dids(dids=chunk, account='root', expire_rules=True)
                     logging.info('Undertaker(%s): Delete %s dids', worker_number, len(chunk))
                     record_counter(counters='undertaker.delete_dids', delta=len(chunk))
                 except RuleNotFound, error:
