@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
@@ -47,7 +47,7 @@ import rucio.core.replica  # import add_replicas
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.utils import str_to_date, is_archive
+from rucio.common.utils import str_to_date, is_archive, chunks
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
@@ -314,9 +314,11 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
     try:
         new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
         if existing_files_condition:
-            session.query(models.DataIdentifier).\
-                filter(models.DataIdentifier.did_type == DIDType.FILE).\
-                filter(or_(*existing_files_condition)).update({'constituent': True})
+            for chunk in chunks(existing_files_condition, 50):
+                session.query(models.DataIdentifier).\
+                    with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+                    filter(models.DataIdentifier.did_type == DIDType.FILE).\
+                    filter(or_(*chunk)).update({'constituent': True})
         contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
         session.flush()
     except IntegrityError as error:
