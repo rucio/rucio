@@ -27,7 +27,7 @@ from rucio.client.uploadclient import UploadClient
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import get_account_usage, set_account_limit
 from rucio.core.rse import get_rse
-from rucio.daemons import undertaker
+from rucio.daemons.undertaker import undertaker
 from rucio.daemons.abacus import account
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
