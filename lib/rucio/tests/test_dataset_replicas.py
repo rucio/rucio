@@ -16,17 +16,12 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-<<<<<<< HEAD
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-=======
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
->>>>>>> Core & Internals: added python3 compatibility
 
 from nose.tools import assert_equal, assert_true
 
-from rucio.core.replica import list_datasets_per_rse
 from rucio.core.did import attach_dids, add_did, add_dids
 from rucio.core.replica import list_datasets_per_rse, update_collection_replica, get_cleaned_updated_collection_replicas, delete_replicas, add_replicas
 from rucio.core.rse import add_rse, del_rse, add_protocol, get_rse
@@ -152,7 +147,8 @@ class TestDatasetReplicaUpdate:
         """ REPLICA (CORE): Get cleaned update requests for collection replicas. """
         dataset_name_with_collection_replica = 'dataset_with_rse%s' % generate_uuid()
         dataset_name_without_collection_replica = 'dataset_without_rse%s' % generate_uuid()
-        add_dids(dids=[{'name': dataset_name_without_collection_replica, 'scope': self.scope, 'type': constants.DIDType.DATASET}, {'name': dataset_name_with_collection_replica, 'scope': self.scope, 'type': constants.DIDType.DATASET}], account=self.account, session=self.db_session)
+        add_dids(dids=[{'name': dataset_name_without_collection_replica, 'scope': self.scope, 'type': constants.DIDType.DATASET},
+                       {'name': dataset_name_with_collection_replica, 'scope': self.scope, 'type': constants.DIDType.DATASET}], account=self.account, session=self.db_session)
         self.db_session.query(models.UpdatedCollectionReplica).delete()
         self.db_session.commit()
 

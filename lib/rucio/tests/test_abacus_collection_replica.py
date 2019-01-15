@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -29,7 +29,7 @@ from rucio.client.uploadclient import UploadClient
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import delete_replicas
 from rucio.core.rse import get_rse
-from rucio.daemons import undertaker
+from rucio.daemons.undertaker import undertaker
 from rucio.daemons.abacus import collection_replica
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
