@@ -16,6 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 
 from datetime import datetime, timedelta
 
@@ -27,7 +28,7 @@ from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did
 from rucio.core.replica import get_replica
 from rucio.core.rule import add_rules, list_rules
 from rucio.core.rse import get_rse_id, add_rse
-from rucio.daemons.undertaker import undertaker
+from rucio.daemons.undertaker.undertaker import undertaker
 from rucio.tests.common import rse_name_generator
 
 

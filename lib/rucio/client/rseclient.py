@@ -196,7 +196,7 @@ class RSEClient(BaseClient):
 
         :param rse: The RSE name.
 
-        :return: True if RSE attribute was created successfully else False.
+        :return: A ``dict`` with the RSE attribute name/value pairs.
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr/'])
         url = build_url(choice(self.list_hosts), path=path)

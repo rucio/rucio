@@ -232,8 +232,23 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
             logging.info(prepend_str + 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
             resps = transfer_core.bulk_query_transfers(external_host, xfers, 'fts3', timeout)
             record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - tss) * 1000 / len(xfers))
-        except (TransferToolTimeout, TransferToolWrongAnswer) as error:
+        except TransferToolTimeout as error:
             logging.error(prepend_str + str(error))
+            return
+        except TransferToolWrongAnswer as error:
+            logging.error(prepend_str + str(error))
+            logging.error(prepend_str + 'Problem querying %s on %s. All jobs are being checked individually' % (str(xfers), external_host))
+            for xfer in xfers:
+                try:
+                    logging.debug(prepend_str + 'Checking %s on %s' % (xfer, external_host))
+                    status = transfer_core.bulk_query_transfers(external_host, [xfer, ], 'fts3', timeout)
+                    logging.debug(prepend_str + str(status))
+                    if xfer in status and isinstance(status[xfer], Exception):
+                        logging.error(prepend_str + 'Problem querying %s on %s . Error returned : %s' % (xfer, external_host, str(status[xfer])))
+                except Exception as err:
+                    logging.error(prepend_str + 'Problem querying %s on %s . Error returned : %s' % (xfer, external_host, str(err)))
+                    break
+            return
         except RequestException as error:
             logging.error(prepend_str + "Failed to contact FTS server: %s" % (str(error)))
             return

@@ -16,17 +16,17 @@
 # Authors:
 # - Vitjan Zavrtanik, <vitjan.zavrtanik@cern.ch>, 2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
 '''
-Sonar distribution daemon makes sure the datasets
-are at their respective RSE's.
+Sonar distribution daemon makes sure the datasets are at their respective RSE's.
 '''
 
 import signal
 
-from rucio.daemons.sonar_v3.distribution.distribution_daemon import run, stop
+from rucio.daemons.sonar.distribution.distribution_daemon import run, stop
 
 if __name__ == "__main__":
 

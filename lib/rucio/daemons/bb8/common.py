@@ -23,17 +23,22 @@ import sys
 
 from datetime import datetime, date, timedelta
 from string import Template
+from sqlalchemy.orm import aliased
+from sqlalchemy import func, and_, or_, cast, Integer
+from sqlalchemy.sql.expression import case, select
 
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rule import get_rule, add_rule, update_rule
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.rse import list_rse_attributes, get_rse_name
+from rucio.core.rse import list_rse_attributes, get_rse_id, get_rse_name
 from rucio.core.rse_selector import RSESelector
 from rucio.common.config import config_get
 from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, DuplicateRule,
                                     InsufficientAccountLimit)
-from rucio.db.sqla.constants import RuleGrouping
+
 from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import (DIDType, RuleState, RuleGrouping)
 from requests import get
 
 logging.basicConfig(stream=sys.stdout,
@@ -169,7 +174,7 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
         if r:
             success = True
     if not r or r is None:
-        print 'RSE dump not available.'
+        print 'RSE dump not available'
         return candidates
 
     # looping over the dump and selecting the rules
@@ -220,35 +225,51 @@ def list_rebalance_rule_candidates(rse, mode=None, session=None):
     :param session:      DB Session.
     """
 
-    if mode is None:
-        sql = """SELECT dsl.scope as scope, dsl.name as name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, d.bytes as bytes, d.length as length, (case when d.length < 1 then 0 else d.bytes/d.length end) as fsize FROM atlas_rucio.dataset_locks dsl JOIN atlas_rucio.rules r ON (dsl.rule_id = r.id) JOIN atlas_rucio.dids d ON (dsl.scope = d.scope and dsl.name = d.name)
-WHERE
-dsl.rse_id = atlas_rucio.rse2id(:rse) and
-(r.expires_at > sysdate+60 or r.expires_at is NULL) and
-r.created_at < sysdate-60 and
-r.account IN ('panda', 'root', 'ddmadmin') and
-r.state = 'O' and
-r.copies = 1 and
-r.did_type = 'D' and
-r.child_rule_id is NULL and
-d.bytes is not NULL and
-d.is_open = 0 and
-d.did_type = 'D' and
-r.grouping IN ('D', 'A') and
-(case when d.length < 1 then 0 else d.bytes/d.length end) > 1000*1000*1000 and
-1 = (SELECT count(*) FROM atlas_rucio.dataset_locks WHERE scope=dsl.scope and name=dsl.name and rse_id = dsl.rse_id)
-ORDER BY fsize DESC, dsl.accessed_at ASC NULLS FIRST, d.bytes DESC"""  # NOQA
-    elif mode == 'decommission':  # OBSOLETE
-        sql = """SELECT r.scope, r.name, rawtohex(r.id) as rule_id, r.rse_expression as rse_expression, r.subscription_id as subscription_id, 0 as bytes, 0 as length FROM atlas_rucio.rules r
-WHERE
-r.id IN (SELECT rule_id FROM atlas_rucio.locks WHERE rse_id = atlas_rucio.rse2id(:rse) GROUP BY rule_id) and
-r.state = 'O' and
-r.child_rule_id is NULL"""  # NOQA
+    rse_id = get_rse_id(rse)
 
-    if mode != 'decommission':
-        return session.execute(sql, {'rse': rse}).fetchall()
-    else:  # can be applied only for decommission since the dumps doesn't contain info from dids and rules tables.
+    # dumps can be applied only for decommission since the dumps doesn't contain info from dids
+    if mode == 'decommission':
         return _list_rebalance_rule_candidates_dump(rse, mode)
+
+    # the rest is done with sql query
+    from_date = datetime.utcnow() + timedelta(days=60)
+    to_date = datetime.now() - timedelta(days=60)
+    allowed_accounts = ['panda', 'root', 'ddmadmin']
+    allowed_grouping = [RuleGrouping.DATASET, RuleGrouping.ALL]
+    external_dsl = aliased(models.DatasetLock)
+    count_locks = select([func.count()]).where(and_(external_dsl.scope == models.DatasetLock.scope,
+                                                    external_dsl.name == models.DatasetLock.name,
+                                                    external_dsl.rse_id == models.DatasetLock.rse_id)).as_scalar()
+    query = session.query(models.DatasetLock.scope,
+                          models.DatasetLock.name,
+                          models.ReplicationRule.id,
+                          models.ReplicationRule.rse_expression,
+                          models.ReplicationRule.subscription_id,
+                          models.DataIdentifier.bytes,
+                          models.DataIdentifier.length,
+                          case([(or_(models.DatasetLock.length < 1, models.DatasetLock.length.is_(None)), 0)],
+                               else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, Integer))).\
+        join(models.ReplicationRule, models.ReplicationRule.id == models.DatasetLock.rule_id).\
+        join(models.DataIdentifier, and_(models.DatasetLock.scope == models.DataIdentifier.scope, models.DatasetLock.name == models.DataIdentifier.name)).\
+        filter(models.DatasetLock.rse_id == rse_id).\
+        filter(or_(models.ReplicationRule.expires_at > from_date, models.ReplicationRule.expires_at.is_(None))).\
+        filter(models.ReplicationRule.created_at < to_date).\
+        filter(models.ReplicationRule.account.in_(allowed_accounts)).\
+        filter(models.ReplicationRule.state == RuleState.OK).\
+        filter(models.ReplicationRule.did_type == DIDType.DATASET).\
+        filter(models.ReplicationRule.copies == 1).\
+        filter(models.ReplicationRule.child_rule_id.is_(None)).\
+        filter(models.ReplicationRule.grouping.in_(allowed_grouping)).\
+        filter(models.DataIdentifier.bytes.isnot(None)).\
+        filter(models.DataIdentifier.is_open == 0).\
+        filter(models.DataIdentifier.did_type == DIDType.DATASET).\
+        filter(case([(or_(models.DatasetLock.length < 1, models.DatasetLock.length.is_(None)), 0)],
+                    else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, Integer)) > 1000000000).\
+        filter(count_locks == 1)
+    summary = query.order_by(case([(or_(models.DatasetLock.length < 1, models.DatasetLock.length.is_(None)), 0)],
+                                  else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, Integer)),
+                             models.DatasetLock.accessed_at).all()
+    return summary
 
 
 @transactional_session

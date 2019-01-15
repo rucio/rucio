@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
@@ -44,7 +44,7 @@ import rucio.core.replica  # import add_replicas
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.utils import str_to_date, is_archive
+from rucio.common.utils import str_to_date, is_archive, chunks
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
@@ -311,9 +311,11 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
     try:
         new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
         if existing_files_condition:
-            session.query(models.DataIdentifier).\
-                filter(models.DataIdentifier.did_type == DIDType.FILE).\
-                filter(or_(*existing_files_condition)).update({'constituent': True})
+            for chunk in chunks(existing_files_condition, 50):
+                session.query(models.DataIdentifier).\
+                    with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+                    filter(models.DataIdentifier.did_type == DIDType.FILE).\
+                    filter(or_(*chunk)).update({'constituent': True})
         contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
         session.flush()
     except IntegrityError as error:
@@ -544,13 +546,16 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
 
 
 @transactional_session
-def delete_dids(dids, account, session=None):
+def delete_dids(dids, account, expire_rules=False, session=None):
     """
     Delete data identifiers
 
-    :param dids: The list of dids to delete.
-    :param account: The account.
-    :param session: The database session in use.
+    :param dids:          The list of dids to delete.
+    :param account:       The account.
+    :param expire_rules:  Expire large rules instead of deleting them right away. This should only be used in Undertaker mode, as it can be that
+                          the method returns normally, but a did was not deleted; This trusts in the fact that the undertaker will retry an
+                          expired did.
+    :param session:       The database session in use.
     """
     rule_id_clause, content_clause = [], []
     parent_content_clause, did_clause = [], []
@@ -613,19 +618,34 @@ def delete_dids(dids, account, session=None):
                               'name': did['name']},
                     session=session)
     # Delete rules on did
+    skip_deletion = False  # Skip deletion in case of expiration of a rule
     if rule_id_clause:
         with record_timer_block('undertaker.rules'):
-            for (rule_id, scope, name, rse_expression) in session.query(models.ReplicationRule.id,
-                                                                        models.ReplicationRule.scope,
-                                                                        models.ReplicationRule.name,
-                                                                        models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
+            for (rule_id, scope, name, rse_expression, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt) in session.query(models.ReplicationRule.id,
+                                                                                                                              models.ReplicationRule.scope,
+                                                                                                                              models.ReplicationRule.name,
+                                                                                                                              models.ReplicationRule.rse_expression,
+                                                                                                                              models.ReplicationRule.locks_ok_cnt,
+                                                                                                                              models.ReplicationRule.locks_replicating_cnt,
+                                                                                                                              models.ReplicationRule.locks_stuck_cnt).filter(or_(*rule_id_clause)):
                 logging.debug('Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
+
                 # Propagate purge_replicas from did to rules
                 if (scope, name) in not_purge_replicas:
                     purge_replicas = False
                 else:
                     purge_replicas = True
-                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
+                if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > 10000:
+                    # Expire the rule (soft=True)
+                    rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
+                    # Update expiration of did
+                    set_metadata(scope=scope, name=name, key='lifetime', value=3600 * 24, session=session)
+                    skip_deletion = True
+                else:
+                    rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
+
+    if skip_deletion:
+        return
 
     # Detach from parent dids:
     existing_parent_dids = False

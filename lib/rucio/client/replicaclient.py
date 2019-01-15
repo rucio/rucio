@@ -95,7 +95,7 @@ class ReplicaClient(BaseClient):
     def list_replicas(self, dids, schemes=None, unavailable=False,
                       all_states=False, metalink=False, rse_expression=None,
                       client_location=None, sort=None, domain=None,
-                      resolve_archives=True):
+                      resolve_archives=True, resolve_parents=False):
         """
         List file replicas for a list of data identifiers (DIDs).
 
@@ -112,6 +112,7 @@ class ReplicaClient(BaseClient):
                                         ``dynamic`` - Rucio Dynamic Smart Sort (tm)
         :param domain: Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
         :param resolve_archives: When set to True, find archives which contain the replicas.
+        :param resolve_parents: When set to True, find all parent datasets which contain the replicas.
 
         :returns: A list of dictionaries with replica information.
 
@@ -135,6 +136,8 @@ class ReplicaClient(BaseClient):
             data['sort'] = sort
 
         data['resolve_archives'] = resolve_archives
+
+        data['resolve_parents'] = resolve_parents
 
         url = build_url(choice(self.list_hosts),
                         path='/'.join([self.REPLICAS_BASEURL, 'list']))
