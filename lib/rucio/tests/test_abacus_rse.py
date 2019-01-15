@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -21,13 +21,12 @@ from nose.tools import assert_equal
 
 import os
 
-from rucio.db.sqla import models, constants
+from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 from rucio.client.uploadclient import UploadClient
 from rucio.common.utils import generate_uuid
-from rucio.core.replica import update_replica_state
 from rucio.core.rse import get_rse, get_rse_usage
-from rucio.daemons import undertaker
+from rucio.daemons.undertaker import undertaker
 from rucio.daemons.abacus import rse
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
@@ -68,16 +67,6 @@ class TestAbacusRSE():
         rse_usage_from_unavailable = get_rse_usage(rse=self.rse, source='unavailable')
         assert_equal(len(rse_usage_from_unavailable), 0)
 
-        # Update RSE usage from unavailable sources
-        update_replica_state(self.rse, self.scope, self.files[0]['did_name'], constants.ReplicaState.UNAVAILABLE)
-        rse.run(once=True)
-        rse_usage = get_rse_usage(rse=self.rse, source='unavailable')[0]
-        assert_equal(rse_usage['used'], self.file_sizes)
-        rse_usage_from_rucio = get_rse_usage(rse=self.rse, source='rucio')[0]
-        assert_equal(rse_usage_from_rucio['used'], len(self.files) * self.file_sizes)
-        rse_usage_from_unavailable = get_rse_usage(rse=self.rse, source='unavailable')[0]
-        assert_equal(rse_usage_from_unavailable['used'], self.file_sizes)
-
         # Delete files -> rse usage should decrease
         cleaner.run(once=True)
         reaper.run(once=True, rses=[self.rse], greedy=True)
@@ -86,5 +75,5 @@ class TestAbacusRSE():
         assert_equal(rse_usage['used'], 0)
         rse_usage_from_rucio = get_rse_usage(rse=self.rse, source='rucio')[0]
         assert_equal(rse_usage_from_rucio['used'], 0)
-        rse_usage_from_unavailable = get_rse_usage(rse=self.rse, source='unavailable')[0]
-        assert_equal(rse_usage_from_unavailable['used'], 2)
+        rse_usage_from_unavailable = get_rse_usage(rse=self.rse, source='unavailable')
+        assert_equal(len(rse_usage_from_unavailable), 0)
