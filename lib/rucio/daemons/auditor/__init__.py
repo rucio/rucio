@@ -17,7 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 
 import Queue
 import bz2
@@ -35,9 +35,11 @@ from rucio.common.dumper import mkdir
 from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
 from rucio.core.quarantined_replica import add_quarantined_replicas
+from rucio.core.replica import declare_bad_file_replicas, list_replicas
 from rucio.core.rse import get_rse_usage
 from rucio.daemons.auditor.hdfs import ReplicaFromHDFS
 from rucio.daemons.auditor import srmdumps
+from rucio.db.sqla.constants import BadFilesStatus
 
 
 def consistency(rse, delta, configuration, cache_dir, results_dir):
@@ -118,8 +120,8 @@ def process_output(output, sanity_check=True, compress=True):
     """Perform post-consistency-check actions.
 
     DARK files are put in the quarantined-replica table so that they
-    may be deleted by the Dark Reaper.  LOST files are currently
-    ignored.
+    may be deleted by the Dark Reaper.  LOST files are reported as
+    suspicious so that they may be further checked by the cloud squads.
 
     ``output`` should be an ``str`` with the absolute path to the file
     produced by ``consistency()``.  It must maintain its naming
@@ -133,18 +135,19 @@ def process_output(output, sanity_check=True, compress=True):
     """
     logger = logging.getLogger('auditor-worker')
     dark_replicas = []
+    lost_replicas = []
     try:
         with open(output) as f:
             for line in f:
                 label, path = line.rstrip().split(',', 1)
+                scope, name = guess_replica_info(path)
                 if label == 'DARK':
-                    scope, name = guess_replica_info(path)
                     dark_replicas.append({'path': path,
                                           'scope': scope,
                                           'name': name})
                 elif label == 'LOST':
-                    # TODO: Declare LOST files as suspicious.
-                    pass
+                    lost_replicas.append({'scope': scope,
+                                          'name': name})
                 else:
                     raise ValueError('unexpected label')
     # Since the file is read immediately after its creation, any error
@@ -160,11 +163,29 @@ def process_output(output, sanity_check=True, compress=True):
     # Perform a basic sanity check by comparing the number of entries
     # with the total number of files on the RSE.  If the percentage is
     # significant, there is most likely an issue with the site dump.
-    if sanity_check and len(dark_replicas) > threshold * usage['files']:
-        raise AssertionError('number of DARK files is exceeding threshold')
+    found_error = False
+    if len(dark_replicas) > threshold * usage['files']:
+        logger.warning('Number of DARK files is exceeding threshold: "%s"',
+                       output)
+        found_error = True
+    if len(lost_replicas) > threshold * usage['files']:
+        logger.warning('Number of LOST files is exceeding threshold: "%s"',
+                       output)
+        found_error = True
+    if found_error and sanity_check:
+        raise AssertionError('sanity check failed')
+
+    # While converting LOST replicas to PFNs, entries that do not
+    # correspond to a replica registered in Rucio are silently dropped.
+    lost_pfns = [r['rses'][rse][0] for r in list_replicas(lost_replicas)
+                 if rse in r['rses']]
 
     add_quarantined_replicas(rse, dark_replicas)
     logger.debug('Processed %d DARK files from "%s"', len(dark_replicas),
+                 output)
+    declare_bad_file_replicas(lost_pfns, reason='Reported by Auditor',
+                              issuer='root', status=BadFilesStatus.SUSPICIOUS)
+    logger.debug('Processed %d LOST files from "%s"', len(lost_replicas),
                  output)
 
     if compress:
