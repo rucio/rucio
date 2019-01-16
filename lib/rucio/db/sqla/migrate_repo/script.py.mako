@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,12 @@
 # limitations under the License.
 #
 # Authors:
-# - John Doe <john.doe@asdf.com>, 2017-2018
-# ${message}
+# - John Doe <john.doe@asdf.com>, 2019
 #
+# Topic: ${message}
 # Revision ID: ${up_revision}
 # Revises: ${down_revision}
-# Create Date: ${create_date}
+# Creation Date: ${create_date}
 
 from alembic.op import (create_primary_key, create_check_constraint,
                         drop_constraint, rename_table)
@@ -28,14 +28,14 @@ from alembic import context
 import sqlalchemy as sa
 ${imports if imports else ""}
 
-# revision identifiers, used by Alembic.
-revision = ${repr(up_revision)}  # pylint: disable=invalid-name
+# revision identifiers used by alembic
+revision = ${repr(up_revision)}       # pylint: disable=invalid-name
 down_revision = ${repr(down_revision)}  # pylint: disable=invalid-name
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
     if context.get_context().dialect.name != 'sqlite':
         ${upgrades if upgrades else "pass"}
@@ -43,7 +43,7 @@ def upgrade():
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
     if context.get_context().dialect.name != 'sqlite':
         ${downgrades if downgrades else "pass"}
