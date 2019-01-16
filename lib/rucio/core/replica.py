@@ -22,6 +22,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -418,7 +419,7 @@ def get_pfn_to_rse(pfns, session=None):
     se_condition = []
     dict_rse = {}
     surls = clean_surls(pfns)
-    scheme = surls[0].split(':')[0]
+    scheme = surls[0].split(':')[0] if surls else None
     for surl in surls:
         if surl.split(':')[0] != scheme:
             raise exception.InvalidType('The PFNs specified must have the same protocol')
