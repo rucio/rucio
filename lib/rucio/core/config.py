@@ -151,13 +151,15 @@ def get(section, option, default=None, use_cache=True, expiration_time=3600, ses
     if isinstance(value, NoValue):
         tmp = session.query(models.Config.value).filter_by(section=section, opt=option).first()
         if tmp is not None:
-            value = tmp[0]
-            REGION.set(value_key, value)
+            value = __convert_type(tmp[0])
+            REGION.set(value_key, tmp[0])
         elif default is None:
             raise ConfigNotFound
         else:
             value = default
-    return __convert_type(value)
+    else:
+        value = __convert_type(value)
+    return value
 
 
 @read_session
