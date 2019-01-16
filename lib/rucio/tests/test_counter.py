@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
 from nose.tools import assert_equal
 
