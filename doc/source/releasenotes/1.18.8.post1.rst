@@ -1,0 +1,13 @@
+============
+1.18.8.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Attaching files to archive extremely slow `#1977 <https://github.com/rucio/rucio/issues/1977>`_
