@@ -6,11 +6,43 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
-from nose.tools import assert_equal, assert_in, assert_is_instance, assert_true
+from nose.tools import assert_equal, assert_in, assert_is_instance, assert_true, assert_raises
 
 from rucio.client.configclient import ConfigClient
+import rucio.core.config as config_core
+from rucio.common import exception
 from rucio.common.utils import generate_uuid
+
+
+class TestConfigCore:
+
+    def test_get_config_sections(self):
+        """ CONFIG (CORE): Retreive configuration section only """
+        expected_sections = [str(generate_uuid()), str(generate_uuid())]
+        for section in expected_sections:
+            config_core.set(section, str(generate_uuid()), str(generate_uuid()))
+        sections = config_core.sections()
+        for section in expected_sections:
+            assert_in(section, sections)
+
+    def test_get_and_set_section_option(self):
+        """ CONFIG (CORE): Retreive configuration option only """
+        # get and set
+        section = str(generate_uuid())
+        option = str(generate_uuid())
+        expected_value = str(generate_uuid())
+        config_core.set(section=section, option=option, value=expected_value)
+        value = config_core.get(section, option)
+        assert_equal(value, expected_value)
+
+        # default value
+        section = str(generate_uuid())
+        config_core.set(section=section, option=str(generate_uuid()), value=str(generate_uuid()))
+        default_value = 'default'
+        value = config_core.get(section, 'new_option', default=default_value)
+        assert_equal(value, default_value)
 
 
 class TestConfigClients:
@@ -65,3 +97,6 @@ class TestConfigClients:
         """ CONFIG (CLIENT): Retrieve configuration option only """
         tmp = self.c.get_config(self.test_section_1, self.test_option_s)
         assert_equal(tmp, self.test_option_sv)
+
+        with assert_raises(exception.ConfigNotFound):
+            self.c.get_config(self.test_section_1, 'no_option')
