@@ -90,7 +90,6 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
             replicas = []
             bad_replicas = []
             for replica in expired_replicas:
-                print replica
                 replicas.append({'scope': replica[0], 'name': replica[1], 'rse_id': replica[2], 'state': ReplicaState.AVAILABLE})
                 bad_replicas.append({'scope': replica[0], 'name': replica[1], 'rse_id': replica[2], 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE})
             session = get_session()
@@ -102,13 +101,13 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
                 # Remove the replicas from bad_replicas table in chunks
                 bulk_delete_bad_replicas(chunk, session=session)
 
-            session.commit()
+            session.commit()  # pylint: disable=no-member
 
         except Exception as error:
             logging.error(prepend_str + '%s' % (str(error)))
 
         tottime = time.time() - start_time
-        if once is True:
+        if once:
             break
         if tottime < sleep_time:
             logging.info(prepend_str + 'Will sleep for %s seconds' % (sleep_time - tottime))
