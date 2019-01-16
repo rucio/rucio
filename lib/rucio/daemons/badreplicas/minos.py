@@ -162,7 +162,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
             logging.error(prepend_str + '%s' % (str(error)))
 
         tottime = time.time() - start_time
-        if once is True:
+        if once:
             break
         if tottime < sleep_time:
             logging.info(prepend_str + 'Will sleep for %s seconds' % (sleep_time - tottime))
