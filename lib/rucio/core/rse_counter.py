@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import bindparam, text
@@ -128,15 +129,19 @@ def update_rse_counter(rse_id, session=None):
     :param session:  Database session in use.
     """
 
-    updated_rse_counters = session.query(models.UpdatedRSECounter).\
-        filter_by(rse_id=rse_id).all()
+    updated_rse_counters = session.query(models.UpdatedRSECounter).filter_by(rse_id=rse_id).all()
+    sum_bytes = sum([updated_rse_counter.bytes for updated_rse_counter in updated_rse_counters])
+    sum_files = sum([updated_rse_counter.files for updated_rse_counter in updated_rse_counters])
 
     try:
         rse_counter = session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
-        rse_counter.used += sum([updated_rse_counter.bytes for updated_rse_counter in updated_rse_counters])
-        rse_counter.files += sum([updated_rse_counter.files for updated_rse_counter in updated_rse_counters])
+        rse_counter.used += sum_bytes
+        rse_counter.files += sum_files
     except NoResultFound:
-        pass
+        models.RSEUsage(rse_id=rse_id,
+                        used=sum_bytes,
+                        files=sum_files,
+                        source='rucio').save(session=session)
 
     for update in updated_rse_counters:
         update.delete(flush=False, session=session)

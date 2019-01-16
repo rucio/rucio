@@ -43,8 +43,6 @@ import sqlalchemy.orm
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
-from six import string_types
-
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
