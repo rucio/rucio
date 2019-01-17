@@ -50,7 +50,7 @@ def collection_replica_update(once=False):
 
     logging.info('collection_replica_update: started')
 
-    # Make an initial heartbeat so that all judge-cleaners have the correct worker number on the next try
+    # Make an initial heartbeat so that all abacus-collection-replica daemons have the correct worker number on the next try
     hostname = socket.gethostname()
     pid = os.getpid()
     current_thread = threading.current_thread()
