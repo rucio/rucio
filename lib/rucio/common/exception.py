@@ -819,7 +819,7 @@ class MissingModuleException(RucioException):
     RucioException
     """
     def __init__(self, *args, **kwargs):
-        super(MissingModuleException, self).__init__(args, kwargs)
+        super(MissingModuleException, self).__init__(*args, **kwargs)
         self._message = "The module is not installed."
         self.error_code = 77
 
@@ -829,7 +829,7 @@ class ServerConnectionException(RucioException):
     RucioException
     """
     def __init__(self, *args, **kwargs):
-        super(ServerConnectionException, self).__init__(args, kwargs)
+        super(ServerConnectionException, self).__init__(*args, **kwargs)
         self._message = "Cannot connect to the Rucio server."
         self.error_code = 78
 
@@ -839,7 +839,7 @@ class NoFilesUploaded(RucioException):
     RucioException
     """
     def __init__(self, *args, **kwargs):
-        super(NoFilesUploaded, self).__init__(args, kwargs)
+        super(NoFilesUploaded, self).__init__(*args, **kwargs)
         self._message = "None of the given files have been uploaded."
         self.error_code = 79
 
@@ -849,7 +849,7 @@ class NotAllFilesUploaded(RucioException):
     RucioException
     """
     def __init__(self, *args, **kwargs):
-        super(NotAllFilesUploaded, self).__init__(args, kwargs)
+        super(NotAllFilesUploaded, self).__init__(*args, **kwargs)
         self._message = "Not all of the given files have been uploaded."
         self.error_code = 80
 
@@ -869,7 +869,7 @@ class UndefinedPolicy(RucioException):
     Cannot find a defined policy in the Rucio config
     """
     def __init__(self, *args, **kwargs):
-        super(UndefinedPolicy, self).__init__(args, kwargs)
+        super(UndefinedPolicy, self).__init__(*args, **kwargs)
         self._message = "No policy is defined."
         self.error_code = 82
 
@@ -879,7 +879,7 @@ class TransferToolTimeout(RucioException):
     Timeout from the transfer tool
     """
     def __init__(self, *args, **kwargs):
-        super(TransferToolTimeout, self).__init__(args, kwargs)
+        super(TransferToolTimeout, self).__init__(*args, **kwargs)
         self._message = "Timeout from the transfer tool."
         self.error_code = 83
 
@@ -889,7 +889,7 @@ class TransferToolWrongAnswer(RucioException):
     Wrong answer returned by the transfer tool
     """
     def __init__(self, *args, **kwargs):
-        super(TransferToolWrongAnswer, self).__init__(args, kwargs)
+        super(TransferToolWrongAnswer, self).__init__(*args, **kwargs)
         self._message = "Wrong answer returned by the transfer tool."
         self.error_code = 84
 
@@ -912,3 +912,13 @@ class UnsupportedKeyType(RucioException):
         super(UnsupportedKeyType, self).__init__(*args, **kwargs)
         self._message = "Unsupported type for the key."
         self.error_code = 86
+
+
+class MetalinkJsonParsingError(RucioException):
+    """
+    Failed to parse input with metalink and json
+    """
+    def __init__(self, data, metalink_err, json_err, *args, **kwargs):
+        super(MetalinkJsonParsingError, self).__init__(*args, **kwargs)
+        self._message = 'Failed parsing of %s. MetalinkError: %s. JsonError: %s' % (data, metalink_err, json_err)
+        self.error_code = 87
