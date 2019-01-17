@@ -68,9 +68,7 @@ Check RSE usage again::
   ------
 ''')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--process", action="store", default=0, type=int, help='Concurrency control: current processes number')
-    parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')
-    parser.add_argument("--threads-per-process", action="store", default=1, type=int, help='Concurrency control: total number of threads per process')
+    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
     return parser
 
 
@@ -80,8 +78,6 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
     try:
-        run(once=args.run_once, process=args.process,
-            total_processes=args.total_processes,
-            threads_per_process=args.threads_per_process)
+        run(once=args.run_once, threads=args.threads)
     except KeyboardInterrupt:
         stop()

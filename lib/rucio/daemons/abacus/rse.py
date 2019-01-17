@@ -24,12 +24,15 @@ Abacus-RSE is a daemon to update RSE counters.
 """
 
 import logging
+import os
+import socket
 import sys
 import threading
 import time
 import traceback
 
 from rucio.common.config import config_get
+from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rse_counter import get_updated_rse_counters, update_rse_counter
 
 graceful_stop = threading.Event()
@@ -42,7 +45,7 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-def rse_update(once=False, process=0, total_processes=1, thread=0, threads_per_process=1):
+def rse_update(once=False):
     """
     Main loop to check and update the RSE Counters.
     """
@@ -51,17 +54,26 @@ def rse_update(once=False, process=0, total_processes=1, thread=0, threads_per_p
 
     logging.info('rse_update: started')
 
+    # Make an initial heartbeat so that all abacus-rse daemons have the correct worker number on the next try
+    hostname = socket.gethostname()
+    pid = os.getpid()
+    current_thread = threading.current_thread()
+    live(executable='rucio-abacus-rse', hostname=hostname, pid=pid, thread=current_thread)
+
     while not graceful_stop.is_set():
         try:
+            # Heartbeat
+            heartbeat = live(executable='rucio-abacus-rse', hostname=hostname, pid=pid, thread=current_thread)
+
             # Select a bunch of rses for to update for this worker
             start = time.time()  # NOQA
-            rse_ids = get_updated_rse_counters(total_workers=total_processes * threads_per_process - 1,
-                                               worker_number=process * threads_per_process + thread)
+            rse_ids = get_updated_rse_counters(total_workers=heartbeat['nr_threads'] - 1,
+                                               worker_number=heartbeat['assign_thread'])
             logging.debug('Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
 
             # If the list is empty, sent the worker to sleep
             if not rse_ids and not once:
-                logging.info('rse_update[%s/%s] did not get any work' % (process * threads_per_process + thread, total_processes * threads_per_process - 1))
+                logging.info('rse_update[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
                 time.sleep(10)
             else:
                 for rse_id in rse_ids:
@@ -69,14 +81,14 @@ def rse_update(once=False, process=0, total_processes=1, thread=0, threads_per_p
                         break
                     start_time = time.time()
                     update_rse_counter(rse_id=rse_id)
-                    logging.debug('rse_update[%s/%s]: update of rse "%s" took %f' % (process * threads_per_process + thread, total_processes * threads_per_process - 1, rse_id, time.time() - start_time))
+                    logging.debug('rse_update[%s/%s]: update of rse "%s" took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rse_id, time.time() - start_time))
         except Exception:
             logging.error(traceback.format_exc())
         if once:
             break
 
     logging.info('rse_update: graceful stop requested')
-
+    die(executable='rucio-abacus-rse', hostname=hostname, pid=pid, thread=current_thread)
     logging.info('rse_update: graceful stop done')
 
 
@@ -88,16 +100,19 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, threads_per_process=11):
+def run(once=False, threads=1):
     """
     Starts up the Abacus-RSE threads.
     """
+    hostname = socket.gethostname()
+    sanity_check(executable='rucio-abacus-rse', hostname=hostname)
+
     if once:
         logging.info('main: executing one iteration only')
         rse_update(once)
     else:
         logging.info('main: starting threads')
-        threads = [threading.Thread(target=rse_update, kwargs={'process': process, 'total_processes': total_processes, 'once': once, 'thread': i, 'threads_per_process': threads_per_process}) for i in range(0, threads_per_process)]
+        threads = [threading.Thread(target=rse_update, kwargs={'once': once}) for i in range(0, threads)]
         [t.start() for t in threads]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
