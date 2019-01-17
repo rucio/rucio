@@ -923,6 +923,10 @@ def download(args):
     result = None
     item_defaults = {}
     item_defaults['rse'] = args.rse
+    if args.allow_tape and args.rse:
+        item_defaults['rse'] += '&istape=True'
+    elif args.allow_tape and not args.rse:
+        item_defaults['rse'] = 'istape=True'
     item_defaults['base_dir'] = args.dir
     item_defaults['no_subdir'] = args.no_subdir
     item_defaults['transfer_timeout'] = args.transfer_timeout
@@ -1994,7 +1998,7 @@ You can filter by key/value, e.g.::
         selected_parser.set_defaults(which='download')
         selected_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
         selected_parser.add_argument(dest='dids', nargs='*', action='store', help='List of space separated data identifiers.')
-        selected_parser.add_argument('--allow-tape', action='store_true', default=False, help="Also consider tape endpoints as source of the download.")
+        selected_parser.add_argument('--allow-tape', dest='allow_tape', action='store_true', default=False, help="Also consider tape endpoints as source of the download.")
         selected_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')
         selected_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
         selected_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
