@@ -48,6 +48,9 @@ from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
 from six import string_types
+from xml.etree import ElementTree
+
+from rucio.common.exception import InputValidationError, MetalinkJsonParsingError
 
 try:
     # Python 2
@@ -814,3 +817,101 @@ def parse_did_filter_from_string(input_string):
                     value = '0'
                 filters[key] = value
     return filters, type
+
+
+def parse_replicas_from_file(path):
+    """
+    Parses the output of list_replicas from a json or metalink file
+    into a dictionary. Metalink parsing is tried first and if it fails
+    it tries to parse json.
+
+    :param path: the path to the input file
+
+    :returns: a list with a dictionary for each file
+    """
+    with open(path) as fp:
+        try:
+            root = ElementTree.parse(fp).getroot()
+            return parse_replicas_metalink(root)
+        except ElementTree.ParseError as xml_err:
+            try:
+                return json.load(fp)
+            except ValueError as json_err:
+                raise MetalinkJsonParsingError(path, xml_err, json_err)
+
+
+def parse_replicas_from_string(string):
+    """
+    Parses the output of list_replicas from a json or metalink string
+    into a dictionary. Metalink parsing is tried first and if it fails
+    it tries to parse json.
+
+    :param string: the string to parse
+
+    :returns: a list with a dictionary for each file
+    """
+    try:
+        root = ElementTree.fromstring(string)
+        return parse_replicas_metalink(root)
+    except ElementTree.ParseError as xml_err:
+        try:
+            return json.loads(string)
+        except ValueError as json_err:
+            raise MetalinkJsonParsingError(string, xml_err, json_err)
+
+
+def parse_replicas_metalink(root):
+    """
+    Transforms the metalink tree into a list of dictionaries where
+    each dictionary describes a file with its replicas.
+    Will be called by parse_replicas_from_file and parse_replicas_from_string.
+
+    :param root: root node of the metalink tree
+
+    :returns: a list with a dictionary for each file
+    """
+    files = []
+
+    # metalink namespace
+    ns = '{urn:ietf:params:xml:ns:metalink}'
+    str_to_bool = {'true': True, 'True': True, 'false': False, 'False': False}
+
+    # loop over all <file> tags of the metalink string
+    for file_tag_obj in root.findall(ns + 'file'):
+        # search for identity-tag
+        identity_tag_obj = file_tag_obj.find(ns + 'identity')
+        if not ElementTree.iselement(identity_tag_obj):
+            raise InputValidationError('Failed to locate identity-tag inside %s' % ElementTree.tostring(file_tag_obj))
+
+        cur_file = {'did': identity_tag_obj.text,
+                    'adler32': None,
+                    'md5': None,
+                    'sources': []}
+
+        parent_dids = set()
+        parent_dids_tag_obj = file_tag_obj.find(ns + 'parents')
+        if ElementTree.iselement(parent_dids_tag_obj):
+            for did_tag_obj in parent_dids_tag_obj.findall(ns + 'did'):
+                parent_dids.add(did_tag_obj.text)
+        cur_file['parent_dids'] = parent_dids
+
+        size_tag_obj = file_tag_obj.find(ns + 'size')
+        cur_file['bytes'] = int(size_tag_obj.text) if ElementTree.iselement(size_tag_obj) else None
+
+        for hash_tag_obj in file_tag_obj.findall(ns + 'hash'):
+            hash_type = hash_tag_obj.get('type')
+            if hash_type:
+                cur_file[hash_type] = hash_tag_obj.text
+
+        for url_tag_obj in file_tag_obj.findall(ns + 'url'):
+            key_rename_map = {'location': 'rse'}
+            src = {}
+            for k, v in url_tag_obj.items():
+                k = key_rename_map.get(k, k)
+                src[k] = str_to_bool.get(v, v)
+            src['pfn'] = url_tag_obj.text
+            cur_file['sources'].append(src)
+
+        files.append(cur_file)
+
+    return files
