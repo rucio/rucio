@@ -16,7 +16,9 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+
+memcached -u root -d
 
 noseopts="--exclude=test_dq2* --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor*"
 

@@ -23,7 +23,7 @@ class TestConfigCore:
         expected_sections = [str(generate_uuid()), str(generate_uuid())]
         for section in expected_sections:
             config_core.set(section, str(generate_uuid()), str(generate_uuid()))
-        sections = config_core.sections()
+        sections = config_core.sections(use_cache=False)
         for section in expected_sections:
             assert_in(section, sections)
 
@@ -34,14 +34,14 @@ class TestConfigCore:
         option = str(generate_uuid())
         expected_value = str(generate_uuid())
         config_core.set(section=section, option=option, value=expected_value)
-        value = config_core.get(section, option)
+        value = config_core.get(section, option, use_cache=False)
         assert_equal(value, expected_value)
 
         # default value
         section = str(generate_uuid())
         config_core.set(section=section, option=str(generate_uuid()), value=str(generate_uuid()))
         default_value = 'default'
-        value = config_core.get(section, 'new_option', default=default_value)
+        value = config_core.get(section, 'new_option', default=default_value, use_cache=False)
         assert_equal(value, default_value)
 
 
