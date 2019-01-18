@@ -11,6 +11,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Robert Illingworth, <illingwo@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -52,7 +53,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselec
     :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
     :returns:                  List of replicas to create, List of locks to create, List of transfers to create
-    :raises:                   InsufficientQuota, InsufficientTargetRSEs
+    :raises:                   InsufficientQuota, InsufficientTargetRSEs, RSEOverQuota
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
@@ -225,14 +226,17 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
             if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
                 # Nothing to do as the file already has the requested amount of locks
                 continue
+            rse_coverage = {replica.rse_id: file['bytes'] for replica in replicas[(file['scope'], file['name'])] if replica.state in (ReplicaState.AVAILABLE, ReplicaState.COPYING)}
             if len(preferred_rse_ids) == 0:
                 rse_tuples = rseselector.select_rse(size=file['bytes'],
-                                                    preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
-                                                    blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED])
+                                                    preferred_rse_ids=rse_coverage.keys(),
+                                                    blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED],
+                                                    existing_rse_size=rse_coverage)
             else:
                 rse_tuples = rseselector.select_rse(size=file['bytes'],
                                                     preferred_rse_ids=preferred_rse_ids,
-                                                    blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED])
+                                                    blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED],
+                                                    existing_rse_size=rse_coverage)
             for rse_tuple in rse_tuples:
                 if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.rse_id == rse_tuple[0]]) == 1:
                     # Due to a bug a lock could have been already submitted for this, in that case, skip it
@@ -317,11 +321,13 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
         rse_tuples = rseselector.select_rse(size=bytes,
                                             preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
                                             blacklist=list(blacklist),
-                                            prioritize_order_over_weight=True)
+                                            prioritize_order_over_weight=True,
+                                            existing_rse_size=rse_coverage)
     else:
         rse_tuples = rseselector.select_rse(size=bytes,
                                             preferred_rse_ids=preferred_rse_ids,
-                                            blacklist=list(blacklist))
+                                            blacklist=list(blacklist),
+                                            existing_rse_size=rse_coverage)
     for rse_tuple in rse_tuples:
         for dataset in datasetfiles:
             for file in dataset['files']:
@@ -433,11 +439,13 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
             rse_tuples = rseselector.select_rse(size=bytes,
                                                 preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
                                                 blacklist=list(blacklist),
-                                                prioritize_order_over_weight=True)
+                                                prioritize_order_over_weight=True,
+                                                existing_rse_size=rse_coverage)
         else:
             rse_tuples = rseselector.select_rse(size=bytes,
                                                 preferred_rse_ids=preferred_rse_ids,
-                                                blacklist=list(blacklist))
+                                                blacklist=list(blacklist),
+                                                existing_rse_size=rse_coverage)
         for rse_tuple in rse_tuples:
             for file in dataset['files']:
                 if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
@@ -572,10 +580,12 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                 else:
                     blacklist_rses = [bl_lock.rse_id for bl_lock in locks[(file['scope'], file['name'])] if bl_lock.rule_id == rule.id]
                     try:
+                        rse_coverage = {replica.rse_id: file['bytes'] for replica in replicas[(file['scope'], file['name'])] if replica.state in (ReplicaState.AVAILABLE, ReplicaState.COPYING)}
                         rse_tuples = rseselector.select_rse(size=file['bytes'],
-                                                            preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
+                                                            preferred_rse_ids=rse_coverage.keys(),
                                                             copies=1,
-                                                            blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
+                                                            blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id],
+                                                            existing_rse_size=rse_coverage)
                         for rse_tuple in rse_tuples:
                             __create_lock_and_replica(file=file,
                                                       dataset=dataset,
