@@ -314,7 +314,7 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
     try:
         new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
         if existing_files_condition:
-            for chunk in chunks(existing_files_condition, 50):
+            for chunk in chunks(existing_files_condition, 20):
                 session.query(models.DataIdentifier).\
                     with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                     filter(models.DataIdentifier.did_type == DIDType.FILE).\
