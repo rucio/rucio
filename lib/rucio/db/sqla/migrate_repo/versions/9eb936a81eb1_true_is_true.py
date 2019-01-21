@@ -37,10 +37,10 @@ def upgrade():
     '''
 
     # First, change all uppercase booleanstrings to lowercase booleanstrings
-    op.execute("UPDATE account_attr_map SET value='true' WHERE value='True'")
-    op.execute("UPDATE account_attr_map SET value='false' WHERE value='False'")
-    op.execute("UPDATE rse_attr_map SET value='true' WHERE value='True'")
-    op.execute("UPDATE rse_attr_map SET value='false' WHERE value='False'")
+    op.execute("UPDATE account_attr_map SET value='true' WHERE value='True'")    # pylint: disable=no-member
+    op.execute("UPDATE account_attr_map SET value='false' WHERE value='False'")  # pylint: disable=no-member
+    op.execute("UPDATE rse_attr_map SET value='true' WHERE value='True'")        # pylint: disable=no-member
+    op.execute("UPDATE rse_attr_map SET value='false' WHERE value='False'")      # pylint: disable=no-member
 
     # Second, change __all__ 0/1 to true/false. This cannot be done
     # automatically, as there might be 0/1 values which really are INT.
@@ -59,10 +59,10 @@ def downgrade():
     '''
 
     # First, change all lowercase booleanstrings to uppercase booleanstrings
-    op.execute("UPDATE account_attr_map SET value='True' WHERE value='true'")
-    op.execute("UPDATE account_attr_map SET value='False' WHERE value='false'")
-    op.execute("UPDATE rse_attr_map SET value='True' WHERE value='true'")
-    op.execute("UPDATE rse_attr_map SET value='False' WHERE value='false'")
+    op.execute("UPDATE account_attr_map SET value='True' WHERE value='true'")    # pylint: disable=no-member
+    op.execute("UPDATE account_attr_map SET value='False' WHERE value='false'")  # pylint: disable=no-member
+    op.execute("UPDATE rse_attr_map SET value='True' WHERE value='true'")        # pylint: disable=no-member
+    op.execute("UPDATE rse_attr_map SET value='False' WHERE value='false'")      # pylint: disable=no-member
 
     # Second, change __selected__ true/false to 0/1. This cannot be done
     # automatically, as we don't know which ones were previously stored as INT.
