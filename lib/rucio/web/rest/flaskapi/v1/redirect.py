@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
@@ -123,7 +123,7 @@ class MetaLinkRedirector(MethodView):
 
                 # sort the actual replicas if necessary
                 if select == 'geoip':
-                    replicas = sort_geoip(dictreplica, client_location['ip'])
+                    replicas = sort_geoip(dictreplica, client_location['ip'], ignore_error=True)
                 elif select == 'closeness':
                     replicas = sort_closeness(dictreplica, client_location)
                 elif select == 'dynamic':
