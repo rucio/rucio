@@ -1,0 +1,62 @@
+======
+1.18.9
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Accounting & Dumps: Decrease chunksize in add_constituents_to_archive from 50 to 20 `#1987 <https://github.com/rucio/rucio/issues/1987>`_
+- Consistency checks: Automatically report LOST files as suspicious `#1954 <https://github.com/rucio/rucio/issues/1954>`_
+- Core & Internals: Wrong cms RSE name pattern used when attaching dids `#1901 <https://github.com/rucio/rucio/issues/1901>`_
+- Core & Internals: add default value to config table `#1948 <https://github.com/rucio/rucio/issues/1948>`_
+- Core & Internals: Add caching (memcache) to config table methods `#1958 <https://github.com/rucio/rucio/issues/1958>`_
+- Core & Internals: Adapt thread handling of abbacus rse and account `#1985 <https://github.com/rucio/rucio/issues/1985>`_
+- Core & Internals: Add schema and construct surl method for Belle2 `#2007 <https://github.com/rucio/rucio/issues/2007>`_
+- Core & Internals: Porting oracle jobs/procedures to non-oracle backends `#524 <https://github.com/rucio/rucio/issues/524>`_
+- Dataset deletion: Make undertaker expire_rules size configurable `#1932 <https://github.com/rucio/rucio/issues/1932>`_
+- Documentation: Update Oracle schema/procedures/trigger definition `#1945 <https://github.com/rucio/rucio/issues/1945>`_
+- Probes & Alarms: ATLAS: Probe need to set quota for groups on SCRATCHDISK endpoints `#1973 <https://github.com/rucio/rucio/issues/1973>`_
+- Release management: Update docker README and docs `#1898 <https://github.com/rucio/rucio/issues/1898>`_
+- Release management: add new schema for DOMA TPC tests `#1942 <https://github.com/rucio/rucio/issues/1942>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Metalink redirector sort=geoip seems to remove all urls `#2001 <https://github.com/rucio/rucio/issues/2001>`_
+- Rules: Injector can crash when split_container option is enabled `#1976 <https://github.com/rucio/rucio/issues/1976>`_
+- Testing: fix caching problem in config core for running tests `#2000 <https://github.com/rucio/rucio/issues/2000>`_
+- Transfers: stager_area RSEs don't work with a non-deterministic source RSE `#1967 <https://github.com/rucio/rucio/issues/1967>`_
+- Transfers: Adding a rule for a staging area without a lifetime causes an internal server error `#1970 <https://github.com/rucio/rucio/issues/1970>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: client_extract=True replicas need to be extracted from the zip file `#1354 <https://github.com/rucio/rucio/issues/1354>`_
+- Clients: Call list_replicas in downloadclient only once `#1427 <https://github.com/rucio/rucio/issues/1427>`_
+
+****
+Bugs
+****
+
+- Clients: Erroneous rucio download summary info `#1512 <https://github.com/rucio/rucio/issues/1512>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Show users w/o quota but with used space on an RSE in the quota view `#1955 <https://github.com/rucio/rucio/issues/1955>`_
