@@ -468,11 +468,31 @@ def construct_surl_T0(dsn, filename):
         return '/other/other/other/other/%s' % (filename)
 
 
+def construct_surl_BelleII(dsn, filename):
+    """
+    Defines relative SURL for Belle II specific replicas.
+    This method contains the Belle II convention.
+    To be used for non-deterministic Belle II sites.
+    DSN (or datablock in the Belle II naming) contains /
+
+    """
+
+    fields = dsn.split("/")
+    nfields = len(fields)
+    if nfields == 0:
+        return '/other/%s' % (filename)
+    else:
+        return '%s/%s' % (dsn, filename)
+
+
 def construct_surl(dsn, filename, naming_convention=None):
     if naming_convention == 'T0':
         return construct_surl_T0(dsn, filename)
     elif naming_convention == 'DQ2':
         return construct_surl_DQ2(dsn, filename)
+    elif naming_convention == 'BelleII':
+        return construct_surl_BelleII(dsn, filename)
+
     return construct_surl_DQ2(dsn, filename)
 
 
