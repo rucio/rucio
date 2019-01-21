@@ -613,6 +613,9 @@ def inject_rule(rule_id, session=None):
         logging.debug("Creating dataset rules for Split Container rule %s" % (str(rule.id)))
         # Get all child datasets and put rules on them
         dids = [{'scope': dataset['scope'], 'name': dataset['name']} for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session)]
+        # Remove duplicates from the list of dictionaries
+        dids = [dict(t) for t in {tuple(d.items()) for d in dids}]
+        # Remove dids which already have a similar rule
         dids = [did for did in dids if session.query(models.ReplicationRule).filter_by(scope=did['scope'], name=did['name'], account=rule.account, rse_expression=rule.rse_expression).count() == 0]
         if rule.expires_at:
             lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
