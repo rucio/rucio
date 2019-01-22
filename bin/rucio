@@ -30,7 +30,7 @@
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -888,11 +888,19 @@ def download(args):
     Download files from Rucio using new threaded model and RSE expression support
     """
     # Input validation
-    if not args.dids and not args.filter:
+    if not args.dids and not args.filter and not args.metalink_file:
         logger.error('At least one did is mandatory')
         return FAILURE
     elif not args.dids and args.filter and not args.scope:
         logger.error('The argument scope is mandatory')
+        return FAILURE
+
+    if args.filter and args.metalink_file:
+        logger.error('Arguments filter and metalink cannot be used together.')
+        return FAILURE
+
+    if args.dids and args.metalink_file:
+        logger.error('Arguments dids and metalink cannot be used together.')
         return FAILURE
 
     trace_pattern = {}
@@ -924,6 +932,7 @@ def download(args):
     item_defaults['no_resolve_archives'] = args.no_resolve_archives
     archive_did = args.archive_did
 
+    # Get filters
     filters = {}
     type = 'all'
     if args.filter:
@@ -958,6 +967,8 @@ def download(args):
 
         if args.aria:
             result = download_client.download_aria2c(items, trace_pattern)
+        elif args.metalink_file:
+            result = download_client.download_from_metalink_file(items[0], args.metalink_file)
         else:
             result = download_client.download_dids(items, args.ndownloader, trace_pattern)
     elif archive_did:
@@ -2007,6 +2018,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--filter', dest='filter', action='store', help='Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.')
         selected_parser.add_argument('--scope', dest='scope', action='store', help='Scope if you are using the filter option and no full DID.')
+        selected_parser.add_argument('--metalink', dest='metalink_file', action='store', help='Path to a metalink file.')
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
