@@ -1151,7 +1151,7 @@ class DownloadClient:
             # extend RSE expression to exclude tape RSEs for non-admin accounts
             rse_expression = item.get('rse')
             if self.is_tape_excluded:
-                rse_expression = 'istape=False' if not rse_expression else '(%s)&istape=False' % rse_expression
+                rse_expression = '*\istape=true' if not rse_expression else '(%s)\istape=true' % rse_expression
             logger.debug('rse_expression: %s' % rse_expression)
 
             # get PFNs of files and datasets

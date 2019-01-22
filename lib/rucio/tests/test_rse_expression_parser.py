@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
 from random import choice
 from string import ascii_uppercase, digits, ascii_lowercase
@@ -96,6 +97,11 @@ class TestRSEExpressionParserCore(object):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE attribute reference """
         assert_equal([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s=uk" % self.attribute)], [self.rse4_id])
 
+    def test_all_rse(self):
+        """ RSE_EXPRESSION_PARSER (CORE) Test reference on all RSE """
+        all_rses = rse.list_rses()
+        assert_equal(sorted(rse_expression_parser.parse_expression("*")), sorted(all_rses))
+
     def test_tag_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE tag reference """
         assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression(self.tag1)]), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
@@ -129,6 +135,10 @@ class TestRSEExpressionParserCore(object):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 2"""
         assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" %
                                                                                              (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))]), sorted([self.rse1_id, self.rse2_id, self.rse5_id]))
+
+    def test_complicated_expression_3(self):
+        """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 3"""
+        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(*)&%s=at" % self.attribute)]), sorted([self.rse1_id]))
 
     @staticmethod
     def test_list_on_availability():
