@@ -8,7 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -58,7 +58,7 @@ def _sanity_check(executable, hostname, hash_executable=None, session=None):
     """
     if executable:
         if not hash_executable:
-            hash_executable = hashlib.sha256(executable).hexdigest()
+            hash_executable = calc_hash(executable)
 
         for pid, in session.query(distinct(Heartbeats.pid)).filter_by(executable=hash_executable, hostname=hostname):
             if not pid_exists(pid):
@@ -88,7 +88,7 @@ def live(executable, hostname, pid, thread, older_than=600, hash_executable=None
     :returns heartbeats: Dictionary {assign_thread, nr_threads}
     """
     if not hash_executable:
-        hash_executable = hashlib.sha256(executable).hexdigest()
+        hash_executable = calc_hash(executable)
 
     # upsert the heartbeat
     rowcount = session.query(Heartbeats)\
@@ -147,7 +147,7 @@ def die(executable, hostname, pid, thread, older_than=None, hash_executable=None
     :returns heartbeats: Dictionary {assign_thread, nr_threads}
     """
     if not hash_executable:
-        hash_executable = hashlib.sha256(executable).hexdigest()
+        hash_executable = calc_hash(executable)
 
     query = session.query(Heartbeats).filter_by(executable=hash_executable,
                                                 hostname=hostname,
@@ -194,3 +194,12 @@ def list_heartbeats(session=None):
                                                           Heartbeats.thread_name)
 
     return query.all()
+
+
+def calc_hash(executable):
+    """
+    Calculates a SHA256 hash.
+
+    return: String of hexadecimal hash
+    """
+    return hashlib.sha256(executable.encode('utf-8')).hexdigest()

@@ -8,10 +8,16 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
-from exceptions import NotImplementedError
+try:
+    # PY2
+    from exceptions import NotImplementedError
+except ImportError:
+    # PY3
+    pass
 
 from rucio.rse.protocols import protocol
 

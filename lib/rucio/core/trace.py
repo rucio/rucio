@@ -17,7 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -111,7 +111,7 @@ def trace(payload):
                     logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
                     conn.start()
                     conn.connect(USERNAME, PASSWORD)
-            except stomp.exception.NotConnectedException, error:
+            except stomp.exception.NotConnectedException as error:
                 logging.warn('Could not connect to broker %s, try another one' %
                              conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)
@@ -126,5 +126,5 @@ def trace(payload):
             conn.send(body=report, destination=TOPIC, headers={'persistent': 'true', 'appversion': 'rucio'})
         else:
             logging.error("Unable to connect to broker. Could not send trace: %s" % report)
-    except Exception, error:
+    except Exception as error:
         logging.error(error)

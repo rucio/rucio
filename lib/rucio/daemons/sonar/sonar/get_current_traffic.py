@@ -9,7 +9,7 @@
  Authors:
  - Tomas Javurek, <tomas.javurek@cern.ch>, 2017
  - Vitjan Zavrtanik, <vitjan.zavrtanik@gmail.com>, 2017
- - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 
  PY3K COMPATIBLE
 """
@@ -49,7 +49,7 @@ def get_traffic_from_db():
             link = {'bytes': row[0], 'src_rse': row[1], 'dst_rse': row[2]}
             collector.append(link)
 
-    except Exception, exception:
+    except Exception as exception:
         print(exception)
         sys.exit()
 

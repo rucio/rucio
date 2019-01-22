@@ -17,7 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
@@ -332,7 +332,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
             time.sleep(1)
 
-        except DatabaseException, error:
+        except DatabaseException as error:
             logging.warning('Reaper:  %s', str(error))
         except:
             logging.critical(traceback.format_exc())
