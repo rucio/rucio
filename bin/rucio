@@ -841,6 +841,10 @@ def upload(args):
         elif len(did) == 2:
             logger.warning('Ignoring input {} because dataset DID is already set {}:{}'.format(arg, dsscope, dsname))
 
+    force_scheme = args.protocol
+    if not force_scheme and 'RUCIO_PROTOCOL' in os.environ:
+        force_scheme = os.environ['RUCIO_PROTOCOL']
+
     items = []
     for arg in args.args:
         if arg.count(':') > 0:
@@ -851,7 +855,7 @@ def upload(args):
                       'did_name': args.name,
                       'dataset_scope': dsscope,
                       'dataset_name': dsname,
-                      'force_scheme': args.protocol,
+                      'force_scheme': force_scheme,
                       'pfn': args.pfn,
                       'no_register': args.no_register,
                       'lifetime': args.lifetime,
@@ -912,6 +916,10 @@ def download(args):
     if args.trace_usrdn:
         trace_pattern['usrdn'] = args.trace_usrdn
 
+    force_scheme = args.protocol
+    if not force_scheme and 'RUCIO_PROTOCOL' in os.environ:
+        force_scheme = os.environ['RUCIO_PROTOCOL']
+
     client = get_client(args)
     download_client = DownloadClient(client=client, logger=logger, check_admin=args.allow_tape)
 
@@ -944,7 +952,7 @@ def download(args):
         item_defaults['filters'] = filters
 
     if not args.pfn and not archive_did:
-        item_defaults['force_scheme'] = args.protocol
+        item_defaults['force_scheme'] = force_scheme
         item_defaults['nrandom'] = args.nrandom
 
         items = []
@@ -963,8 +971,8 @@ def download(args):
     elif archive_did:
         if args.aria:
             logger.warning('Ignoring --aria option because --archive_did option given')
-        if args.protocol:
-            logger.warning('Ignoring --protocol option because --archive_did option given')
+        if force_scheme:
+            logger.warning('Ignoring --protocol option or RUCIO_PROTOCOL environment variable because --archive_did option given')
 
         item_defaults['archive'] = archive_did
         items = []
@@ -976,8 +984,8 @@ def download(args):
     else:
         if args.aria:
             logger.warning('Ignoring --aria option because --pfn option given')
-        if args.protocol:
-            logger.warning('Ignoring --protocol option because --pfn option given')
+        if force_scheme:
+            logger.warning('Ignoring --protocol option or RUCIO_PROTOCOL environment variable because --pfn option given')
         num_dids = len(args.dids)
         did_str = args.dids[0]
         if num_dids > 1:
