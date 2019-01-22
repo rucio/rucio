@@ -16,7 +16,7 @@
 # - Fernando Lopez <felopez@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -83,7 +83,7 @@ def mkdir(dir):
     '''
     try:
         os.mkdir(dir)
-    except OSError, e:
+    except OSError as e:
         assert e.errno == 17
 
 
