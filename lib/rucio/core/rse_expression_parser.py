@@ -10,7 +10,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 
   PY3K COMPATIBLE
 '''
@@ -31,8 +31,7 @@ from rucio.db.sqla.session import transactional_session
 
 DEFAULT_RSE_ATTRIBUTE = schema.DEFAULT_RSE_ATTRIBUTE['pattern']
 RSE_ATTRIBUTE = schema.RSE_ATTRIBUTE['pattern']
-PRIMITIVE = r'(\(*(%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE)
-
+PRIMITIVE = r'(\(*(%s|%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE, '\*')
 UNION = r'(\|%s)' % (PRIMITIVE)
 INTERSECTION = r'(\&%s)' % (PRIMITIVE)
 COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
@@ -176,6 +175,8 @@ def __resolve_primitive_expression(expression):
     elif ('>' in primitiveexpression):
         keyvalue = primitiveexpression.split(">")
         return (RSEAttributeLargerCheck(keyvalue[0], keyvalue[1]), primitiveexpression)
+    elif ('*' in primitiveexpression):
+        return (RSEAll(), primitiveexpression)
     else:
         return (RSEAttributeEqualCheck(key=primitiveexpression), primitiveexpression)
 
@@ -212,6 +213,24 @@ class BaseExpressionElement:
         :rtype:          (Set of Strings, Dictionary of RSE dicts organized by rse_id)
         """
         pass
+
+
+class RSEAll(BaseExpressionElement):
+    """
+    Representation of all RSEs
+    """
+
+    def resolve_elements(self, session):
+        """
+        Inherited from :py:func:`BaseExpressionElement.resolve_elements`
+        """
+        output = list_rses(session=session)
+        if not output:
+            return (set(), {})
+        rse_dict = {}
+        for rse in output:
+            rse_dict[rse['id']] = rse
+        return (set([rse['id'] for rse in output]), rse_dict)
 
 
 class RSEAttributeEqualCheck(BaseExpressionElement):
