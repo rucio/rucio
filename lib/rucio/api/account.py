@@ -11,7 +11,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -21,6 +21,7 @@ import rucio.common.exception
 import rucio.core.identity
 
 from rucio.core import account as account_core
+from rucio.core.rse import get_rse_id
 from rucio.common.schema import validate_schema
 from rucio.db.sqla.constants import AccountType
 
@@ -156,3 +157,29 @@ def del_account_attribute(key, account, issuer):
     if not rucio.api.permission.has_permission(issuer=issuer, action='del_attribute', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not delete attribute' % (issuer))
     account_core.del_account_attribute(account, key)
+
+
+def get_usage(rse, account, issuer):
+    """
+    Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
+
+    :param rse:              The RSE.
+    :param account:          The account name.
+    :param issuer:           The issuer account.
+    :returns:                A dictionary with total and bytes.
+    """
+    rse_id = get_rse_id(rse=rse)
+    return account_core.get_usage(rse_id, account)
+
+
+def get_usage_history(rse, account, issuer):
+    """
+    Returns historical values of the specified counter, or raises CounterNotFound if the counter does not exist.
+
+    :param rse:              The RSE.
+    :param account:          The account name.
+    :param issuer:           The issuer account.
+    :returns:                A dictionary with total and bytes.
+    """
+    rse_id = get_rse_id(rse=rse)
+    return account_core.get_usage_history(rse_id, account)

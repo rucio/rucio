@@ -16,7 +16,7 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
@@ -33,12 +33,12 @@ from traceback import format_exc
 from flask import Flask, Blueprint, Response, request, redirect
 from flask.views import MethodView
 
-from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account
+from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
 from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
 from rucio.common.utils import generate_http_error_flask, APIEncoder, render_json
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 
@@ -551,6 +551,37 @@ class Rules(MethodView):
             return error, 500
 
 
+class UsageHistory(MethodView):
+
+    def get(self, account, rse):
+        """
+        Return the account usage of the account.
+
+        .. :quickref: UsageHistory; Get account usage history.
+
+        :param account: The account name.
+        :param rse: The RSE.
+        :resheader Content-Type: application/json
+        :status 200: OK.
+        :status 401: Invalid auth token.
+        :status 404: Account not found.
+        :status 500: Database exception.
+        :returns: Line separated list of account usages.
+        Return the account usage of the account.
+        """
+        try:
+            return get_usage_history(account=account, rse=None, issuer=request.environ.get('issuer'))
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except CounterNotFound as error:
+            return generate_http_error_flask(404, 'CounterNotFound', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+
+
 class Usage1(MethodView):
 
     def get(self, account):
@@ -639,6 +670,8 @@ identities_view = Identities.as_view('identities')
 bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=['get', 'post', 'delete'])
 rules_view = Rules.as_view('rules')
 bp.add_url_rule('/<account>/rules', view_func=rules_view, methods=['get', ])
+usagehistory_view = UsageHistory.as_view('usagehistory')
+bp.add_url_rule('/<account>/usage/history/<rse>', view_func=usagehistory_view, methods=['get', ])
 usage1_view = Usage1.as_view('usage1')
 bp.add_url_rule('/<account>/usage', view_func=usage1_view, methods=['get', ])
 usage2_view = Usage2.as_view('usage2')
