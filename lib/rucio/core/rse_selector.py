@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
@@ -15,7 +15,7 @@
 from random import uniform, shuffle
 
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
-from rucio.core.account import has_account_attribute
+from rucio.core.account import has_account_attribute, get_usage
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.core.account_limit import get_account_limit
 from rucio.core.rse import list_rse_attributes, has_rse_attribute, get_rse_limits
@@ -85,7 +85,7 @@ class RSESelector():
                     if quota_limit is None:
                         rse['quota_left'] = 0
                     else:
-                        rse['quota_left'] = quota_limit - get_account_counter(rse_id=rse['rse_id'], account=account, session=session)['bytes']
+                        rse['quota_left'] = quota_limit - get_usage(rse_id=rse['rse_id'], account=account, session=session)['bytes']
 
                     space_limit = get_rse_limits('', 'MaxSpaceAvailable', rse_id=rse['rse_id'], session=session).get('MaxSpaceAvailable')
                     if space_limit is None or space_limit < 0:
