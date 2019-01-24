@@ -17,6 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -360,11 +361,16 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     """
     logging.info('main: starting processes')
 
-    rses_list = rse_core.list_rses()
+    all_rses = rse_core.list_rses()
     if rses:
-        rses = [rse for rse in rses_list if rse['rse'] in rses]
+        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+        if invalid:
+            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                    ', '.join([repr(rse) for rse in invalid]))
+            raise RSENotFound(msg)
+        rses = [rse for rse in all_rses if rse['rse'] in rses]
     else:
-        rses = rses_list
+        rses = all_rses
 
     if exclude_rses:
         excluded_rses = parse_expression(exclude_rses)
