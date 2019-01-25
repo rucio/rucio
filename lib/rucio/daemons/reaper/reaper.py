@@ -380,6 +380,10 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
         included_rses = parse_expression(include_rses)
         rses = [rse for rse in rses if rse in included_rses]
 
+    if not rses:
+        logging.error('Reaper: No RSEs found. Exiting.')
+        return
+
     logging.info('Reaper: This instance will work on RSEs: ' + ', '.join([rse['rse'] for rse in rses]))
 
     threads = []
