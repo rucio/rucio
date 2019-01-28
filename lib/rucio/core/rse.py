@@ -22,7 +22,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -128,7 +128,7 @@ def rse_exists(rse, session=None):
 @read_session
 def sort_rses(rses, session=None):
     """
-    Sort a list of RSES by srm free space (ascending order).
+    Sort a list of RSES by free space (ascending order).
 
     :param rses: List of RSEs.
     :param session: The database session in use.
@@ -143,7 +143,7 @@ def sort_rses(rses, session=None):
 
     false_value = False
     query = session.query(models.RSE.rse, models.RSE.staging_area, models.RSEUsage.rse_id).\
-        filter(or_(models.RSEUsage.source == 'srm', models.RSEUsage.source == 'gsiftp')).\
+        filter(models.RSEUsage.source == 'storage').\
         filter(models.RSEUsage.rse_id == models.RSE.id).\
         filter(models.RSE.deleted == false_value)
     condition = []
