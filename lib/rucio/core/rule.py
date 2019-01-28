@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -161,7 +161,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
 
-        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE}.get(notify, RuleNotification.NO)
+        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE, 'P': RuleNotification.PROGRESS}.get(notify, RuleNotification.NO)
 
         for elem in dids:
             # 3. Get the did
@@ -330,7 +330,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     session.flush()
                 if new_rule.notification == RuleNotification.YES:
                     generate_email_for_rule_ok_notification(rule=new_rule, session=session)
-                generate_rule_notifications(rule=new_rule, session=session)
+                generate_rule_notifications(rule=new_rule, replicating_locks_before=0, session=session)
             else:
                 new_rule.state = RuleState.REPLICATING
                 if new_rule.grouping != RuleGrouping.NONE:
@@ -475,7 +475,7 @@ def add_rules(dids, rules, session=None):
 
                         expires_at = datetime.utcnow() + timedelta(seconds=rule.get('lifetime')) if rule.get('lifetime') is not None else None
 
-                        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE}.get(rule.get('notify'), RuleNotification.NO)
+                        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE, 'P': RuleNotification.PROGRESS}.get(rule.get('notify'), RuleNotification.NO)
 
                         if rule.get('meta') is not None:
                             try:
@@ -579,7 +579,7 @@ def add_rules(dids, rules, session=None):
                             session.flush()
                         if new_rule.notification == RuleNotification.YES:
                             generate_email_for_rule_ok_notification(rule=new_rule, session=session)
-                        generate_rule_notifications(rule=new_rule, session=session)
+                        generate_rule_notifications(rule=new_rule, replicating_locks_before=0, session=session)
                     else:
                         new_rule.state = RuleState.REPLICATING
                         if new_rule.grouping != RuleGrouping.NONE:
@@ -622,7 +622,7 @@ def inject_rule(rule_id, session=None):
         else:
             lifetime = None
 
-        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C'}.get(rule.notification, 'N')
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C', RuleNotification.PROGRESS: 'P'}.get(rule.notification, 'N')
 
         add_rule(dids=dids,
                  account=rule.account,
@@ -707,7 +707,7 @@ def inject_rule(rule_id, session=None):
                 session.flush()
             if rule.notification == RuleNotification.YES:
                 generate_email_for_rule_ok_notification(rule=rule, session=session)
-            generate_rule_notifications(rule=rule, session=session)
+            generate_rule_notifications(rule=rule, replicating_locks_before=0, session=session)
             # Try to release potential parent rules
             release_parent_rule(child_rule_id=rule.id, session=session)
         else:
@@ -1138,7 +1138,7 @@ def repair_rule(rule_id, session=None):
             session.flush()
         if rule.notification == RuleNotification.YES:
             generate_email_for_rule_ok_notification(rule=rule, session=session)
-        generate_rule_notifications(rule=rule, session=session)
+        generate_rule_notifications(rule=rule, replicating_locks_before=0, session=session)
         # Try to release potential parent rules
         rucio.core.rule.release_parent_rule(child_rule_id=rule.id, session=session)
 
@@ -1348,7 +1348,7 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
         else:
             lifetime = None
 
-        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C'}.get(rule.notification, 'N')
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C', RuleNotification.PROGRESS: 'P'}.get(rule.notification, 'N')
 
         new_rule_id = add_rule(dids=[{'scope': rule.scope, 'name': rule.name}],
                                account=rule.account,
@@ -1405,7 +1405,7 @@ def move_rule(rule_id, rse_expression, session=None):
         else:
             lifetime = None
 
-        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C'}.get(rule.notification, 'N')
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C', RuleNotification.PROGRESS: 'P'}.get(rule.notification, 'N')
 
         new_rule_id = add_rule(dids=[{'scope': rule.scope, 'name': rule.name}],
                                account=rule.account,
@@ -1849,27 +1849,29 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
 
 
 @transactional_session
-def generate_rule_notifications(rule, session=None):
+def generate_rule_notifications(rule, replicating_locks_before=None, session=None):
     """
-    Generate (If necessary) a callback for a rule (DATASETLOCK_OK, RULE_OK)
+    Generate (If necessary) a callback for a rule (DATASETLOCK_OK, RULE_OK, DATASETLOCK_PROGRESS)
 
-    :param rule:     The rule object.
-    :param session:  The Database session
+    :param rule:                       The rule object.
+    :param replicating_locks_before:   Amount of replicating locks before the current state change.
+    :param session:                    The Database session
     """
 
     session.flush()
+    total_locks = rule.locks_replicating_cnt + rule.locks_ok_cnt
 
     if rule.state == RuleState.OK:
         # Only notify when rule is in state OK
 
-        # RULE_OK NOTIFICATIONS:
+        # RULE_OK RULE_PROGRESS NOTIFICATIONS:
         if rule.notification == RuleNotification.YES:
             add_message(event_type='RULE_OK',
                         payload={'scope': rule.scope,
                                  'name': rule.name,
                                  'rule_id': rule.id},
                         session=session)
-        elif rule.notification == RuleNotification.CLOSE:
+        elif rule.notification in [RuleNotification.CLOSE, RuleNotification.PROGRESS]:
             try:
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
@@ -1878,6 +1880,14 @@ def generate_rule_notifications(rule, session=None):
                                          'name': rule.name,
                                          'rule_id': rule.id},
                                 session=session)
+                    if rule.notification == RuleNotification.PROGRESS:
+                        add_message(event_type='RULE_PROGRESS',
+                                    payload={'scope': rule.scope,
+                                             'name': rule.name,
+                                             'rule_id': rule.id,
+                                             'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
+                                    session=session)
+
             except DataIdentifierNotFound:
                 pass
 
@@ -1910,6 +1920,21 @@ def generate_rule_notifications(rule, session=None):
                                             session=session)
                     except DataIdentifierNotFound:
                         pass
+
+    elif rule.state == RuleState.REPLICATING and rule.notification == RuleNotification.PROGRESS and replicating_locks_before:
+        # For RuleNotification PROGRESS rules, also notifiy when REPLICATING thresholds are passed
+        if __progress_class(replicating_locks_before, total_locks) != __progress_class(rule.locks_replicating_cnt, total_locks):
+            try:
+                did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
+                if not did['open']:
+                    add_message(event_type='RULE_PROGRESS',
+                                payload={'scope': rule.scope,
+                                         'name': rule.name,
+                                         'rule_id': rule.id,
+                                         'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
+                                session=session)
+            except DataIdentifierNotFound:
+                pass
 
 
 @transactional_session
@@ -3005,6 +3030,20 @@ def __create_recipents_list(rse_expression, session=None):
         recipents = [('atlas-adc-ddm-support@cern.ch', 'ddmadmin')]
 
     return list(set(recipents))
+
+
+def __progress_class(replicating_locks, total_locks):
+    """
+    Returns the progress class (10%, 20%, ...) of currently replicating locks.
+
+    :param replicating_locks:   Currently replicating locks.
+    :param total_locks:         Total locks.
+    """
+
+    try:
+        return int(float(replicating_locks) / float(total_locks) * 10) * 10
+    except Exception:
+        return 0
 
 
 @policy_filter

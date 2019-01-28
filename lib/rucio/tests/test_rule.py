@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
@@ -84,6 +84,17 @@ def check_dataset_ok_callback(scope, name, rse, rule_id, session=None):
                                                                                               'rse': rse,
                                                                                               'rule_id': rule_id})).all()
     if len(callbacks) > 0:
+        return True
+    return False
+
+
+@transactional_session
+def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
+    callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps({'scope': scope,
+                                                                                              'name': name,
+                                                                                              'progress': progress,
+                                                                                              'rule_id': rule_id})).all()
+    if callbacks:
         return True
     return False
 
@@ -659,6 +670,32 @@ class TestReplicationRuleCore():
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
 
         assert(True is check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+
+    def test_rule_progress_callback_with_evaluator(self):
+        """ REPLICATION RULE (CORE): Test rule progress callback with judge evaluator"""
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='P')[0]
+
+        assert(False is check_rule_progress_callback(scope, dataset, 0, rule_id))
+
+        attach_dids(scope, dataset, files, 'jdoe')
+        set_status(scope=scope, name=dataset, open=False)
+        assert(False is check_rule_progress_callback(scope, dataset, 0, rule_id))
+
+        re_evaluator(once=True)
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
+        assert(False is check_rule_progress_callback(scope, dataset, 30, rule_id))
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
+        assert(False is check_rule_progress_callback(scope, dataset, 60, rule_id))
+        successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
+
+        assert(False is check_rule_progress_callback(scope, dataset, 100, rule_id))
 
     def test_add_rule_with_purge(self):
         """ REPLICATION RULE (CORE): Add a replication rule with purge setting"""
