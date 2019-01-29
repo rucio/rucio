@@ -1023,8 +1023,8 @@ class Pcache:
         now = time.time()
         link_to_mru = self.pcache_dst_dir + "mru"
         if os.path.exists(link_to_mru):
-            l = os.readlink(link_to_mru)
-            self.delete_file_and_parents(l)
+            link = os.readlink(link_to_mru)
+            self.delete_file_and_parents(link)
 
         try:
             os.unlink(link_to_mru)
