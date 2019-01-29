@@ -19,6 +19,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -296,6 +297,20 @@ class ReplicaClient(BaseClient):
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad/pfns']))
         headers = {}
         r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
+        if r.status_code == codes.created:
+            return True
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
+    def set_tombstone(self, replicas):
+        """
+        Set a tombstone on a list of replicas.
+
+        :param replicas: list of replicas.
+        """
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'tombstone']))
+        data = {'replicas': replicas}
+        r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
