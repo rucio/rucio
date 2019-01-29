@@ -17,6 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -242,3 +243,17 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None):
     :param nattempts: The number of time the replicas have been declared suspicious
     """
     return replica.get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
+
+
+def set_tombstone(rse, scope, name, issuer):
+    """
+    Sets a tombstone on one replica.
+
+    :param rse: name of the RSE.
+    :param scope: scope of the replica DID.
+    :param name: name of the replica DID.
+    :param issuer: The issuer account
+    """
+    if not permission.has_permission(issuer=issuer, action='set_tombstone', kwargs={}):
+        raise exception.AccessDenied('Account %s can not set tombstones' % (issuer))
+    replica.set_tombstone(rse, scope, name)

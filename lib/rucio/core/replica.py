@@ -21,7 +21,7 @@
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
@@ -2733,3 +2733,26 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, sess
             rses[rse_id] = rse
         result.append({'scope': scope, 'name': name, 'rse': rses[rse_id], 'cnt': cnt, 'created_at': created_at})
     return result
+
+
+@transactional_session
+def set_tombstone(rse, scope, name, rse_id=None, session=None):
+    """
+    Sets a tombstone on a replica.
+
+    :param rse: name of the RSE.
+    :param scope: scope of the replica DID.
+    :param name: name of the replica DID.
+    :param rse_id: optional ID of RSE.
+    :param session: database session in use.
+    """
+    if not rse_id:
+        rse_id = get_rse_id(rse)
+    replica = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, name=name, scope=scope).first()
+    if not replica:
+        raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, rse))
+    if not replica.lock_cnt:
+        replica.tombstone = OBSOLETE
+        replica.save(session=session)
+    else:
+        raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, rse))

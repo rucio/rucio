@@ -18,7 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -37,7 +37,8 @@ from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replica
                                get_did_from_pfns, update_replicas_states,
                                declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
-                               get_bad_replicas_summary, list_datasets_per_rse)
+                               get_bad_replicas_summary, list_datasets_per_rse,
+                               set_tombstone)
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
@@ -750,10 +751,6 @@ class BadPFNs(MethodView):
                 reason = params['state']
             if 'expires_at' in params:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
             add_bad_pfns(pfns=pfns, issuer=request.environ.get('issuer'), state=state, reason=reason, expires_at=expires_at)
         except (ValueError, InvalidType) as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
@@ -763,6 +760,45 @@ class BadPFNs(MethodView):
             return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
         except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+        return 'Created', 201
+
+
+class Tombstone(MethodView):
+
+    def post(self):
+        """
+        Set a tombstone on a list of replicas.
+
+        .. :quickref: Tombstone; Set a tombstone on a list of replicas.
+
+        :<json string replicas: list fo replicas
+        :resheader Content-Type: application/x-json-string
+        :status 201: Created.
+        :status 401: Invalid auth token.
+        :status 404: ReplicaNotFound.
+        :status 500: Internal Error.
+        """
+
+        json_data = request.data
+        replicas = []
+
+        try:
+            params = parse_response(json_data)
+            if 'replicas' in params:
+                replicas = params['replicas']
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            for replica in replicas:
+                set_tombstone(replica['rse'], replica['scope'], replica['name'], issuer=request.environ.get('issuer'))
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -794,6 +830,8 @@ replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
 bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
 suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')
 bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=['post', ])
+set_tombstone_view = Tombstone.as_view('set_tombstone')
+bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=['post', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

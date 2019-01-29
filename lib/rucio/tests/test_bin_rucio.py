@@ -39,6 +39,7 @@ from rucio.db.sqla import session, models
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
+from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get
 from rucio.common.utils import generate_uuid, md5
 from rucio.core.rse import add_rse_attribute
@@ -61,6 +62,7 @@ class TestBinRucio():
         self.def_rse = 'MOCK4'
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
+        self.rule_client = RuleClient()
         self.account_client = AccountLimitClient()
         self.account_client.set_account_limit('root', self.def_rse, -1)
 
@@ -1132,7 +1134,7 @@ class TestBinRucio():
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, files[-1]['name']), out), None)
 
     def test_attach_many_dids_twice(self):
-        """ CLIENT(USER) Attach many (>1000) DIDs twice """
+        """ CLIENT(USER): Attach many (>1000) DIDs twice """
         # Setup data for CLI check
         container_name = 'container' + generate_uuid()
         container = self.user + ':' + container_name
@@ -1187,3 +1189,28 @@ class TestBinRucio():
         print(re.search('Data successfully exported', out))
         nose.tools.assert_not_equal(re.search('Data successfully exported', out), None)
         remove(file_path)
+
+    def test_set_tombstone(self):
+        """ CLIENT(ADMIN): set a tombstone on a replica. """
+        # Set tombstone on one replica
+        rse = 'MOCK4'
+        scope = 'mock'
+        name = generate_uuid()
+        self.replica_client.add_replica(rse, scope, name, 4, 'aaaaaaaa')
+        cmd = 'rucio-admin replicas set-tombstone {0}:{1} --rse {2}'.format(scope, name, rse)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search('Set tombstone successfully', err), None)
+
+        # Set tombstone on locked replica
+        name = generate_uuid()
+        self.replica_client.add_replica(rse, scope, name, 4, 'aaaaaaaa')
+        self.rule_client.add_replication_rule([{'name': name, 'scope': scope}], 1, rse, locked=True)
+        cmd = 'rucio-admin replicas set-tombstone {0}:{1} --rse {2}'.format(scope, name, rse)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search('Replica is locked', err), None)
+
+        # Set tombstone on not found replica
+        name = generate_uuid()
+        cmd = 'rucio-admin replicas set-tombstone {0}:{1} --rse {2}'.format(scope, name, rse)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search('Replica not found', err), None)
