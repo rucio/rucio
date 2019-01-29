@@ -574,7 +574,8 @@ def get_rse_usage(rse, source=None, rse_id=None, session=None, per_account=False
             account_usages = []
             for row in query_account_usage:
                 if row.bytes != 0:
-                    account_usages.append({'used': row.bytes, 'account': row.account, 'percentage': round(float(row.bytes) / float(total) * 100, 2)})
+                    percentage = round(float(row.bytes) / float(total) * 100, 2) if total else 0
+                    account_usages.append({'used': row.bytes, 'account': row.account, 'percentage': percentage})
             account_usages.sort(key=lambda x: x['used'], reverse=True)
             rse_usage['account_usages'] = account_usages
         usage.append(rse_usage)
