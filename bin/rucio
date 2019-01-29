@@ -1502,16 +1502,17 @@ def list_rse_usage(args):
                 account_usages_title = '  per account:'
                 if not usage[elem]:
                     account_usages_title += ' no usage'
-                print(account_usages_title)
-                print('  ------')
-                col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 9
-                for account in usage[elem]:
-                    base_string = '    '
-                    used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
-                    account_string = 'account: {0}'.format(account['account'])
-                    percentage_string = 'percentage: {0}'.format(account['percentage'])
-                    print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
-                print('  ------')
+                else:
+                    print(account_usages_title)
+                    print('  ------')
+                    col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 16
+                    for account in usage[elem]:
+                        base_string = '    '
+                        used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
+                        account_string = 'account: {0}'.format(account['account'])
+                        percentage_string = 'percentage: {0}'.format(account['percentage'])
+                        print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
+                        print('  ------')
             else:
                 print('  {0}: {1}'.format(elem, usage[elem]))
     print('------')
