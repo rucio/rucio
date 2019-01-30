@@ -11,6 +11,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -40,7 +41,7 @@ def add_scope(scope, account, session=None):
     new_scope = models.Scope(scope=scope, account=account, status=ScopeStatus.OPEN)
     try:
         new_scope.save(session=session)
-    except IntegrityError, e:
+    except IntegrityError as e:
         if match('.*IntegrityError.*ORA-00001: unique constraint.*SCOPES_PK.*violated.*', e.args[0]) \
            or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', e.args[0]) \
            or match('.*IntegrityError.*UNIQUE constraint failed: scopes.scope.*', e.args[0]) \

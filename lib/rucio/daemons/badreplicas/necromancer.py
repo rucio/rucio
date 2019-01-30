@@ -17,7 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -87,7 +87,7 @@ def necromancer(thread=0, bulk=5, once=False):
                     try:
                         update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                         monitor.record_counter(counters='necromancer.badfiles.lostfile', delta=1)
-                    except DatabaseException, error:
+                    except DatabaseException as error:
                         logging.info(prepend_str + '%s' % (str(error)))
 
                 else:
@@ -97,7 +97,7 @@ def necromancer(thread=0, bulk=5, once=False):
                     try:
                         update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                         monitor.record_counter(counters='necromancer.badfiles.recovering', delta=1)
-                    except DatabaseException, error:
+                    except DatabaseException as error:
                         logging.info(prepend_str + '%s' % (str(error)))
 
             logging.info(prepend_str + 'It took %s seconds to process %s replicas' % (str(time.time() - stime), str(len(replicas))))

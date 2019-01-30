@@ -11,6 +11,7 @@
  - Sylvain Blunier, <sylvain.blunier@cern.ch>, 2016
  - Tomas Javurek, <Tomas.Javurek@cern.ch>, 2016
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2017
+ - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
 """
 
 import json
@@ -29,6 +30,21 @@ from rucio.api.rse import list_rse_attributes, get_rse
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 gfal2.set_verbose(gfal2.verbose_level.normal)
+
+
+def consume_atlas_json(data, key):
+    totalsize = int(data[key]['total_space'])
+    used = int(data[key]['used_space'])
+    unusedsize = totalsize - used
+    return totalsize, unusedsize
+
+
+def consume_wlcg_json(data, key):
+    index = {share['name']: share for share in data['storageservice']['storageshares'] if 'name' in share}
+    totalsize = index[key]['totalsize']
+    used = index[key]['usedsize']
+    unusedsize = totalsize - used
+    return totalsize, unusedsize
 
 
 def get_space_usage(rse_name):
@@ -59,13 +75,10 @@ def get_space_usage(rse_name):
         data_file = open(dest)
         data = json.load(data_file)
         data_file.close()
-        if agis_token not in data.keys():
-            print 'ERROR: space usage json has different token as key'
+        if 'storageservice' in data:
+            return consume_wlcg_json(data, agis_token)
         else:
-            totalsize = int(data[agis_token]['total_space'])
-            used = int(data[agis_token]['used_space'])
-            unusedsize = totalsize - used
-            return totalsize, unusedsize
+            return consume_atlas_json(data, agis_token)
 
 
 def get_space(rsename, protocol, client):

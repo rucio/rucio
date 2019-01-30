@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -148,7 +148,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                 logging.info('Dark Reaper %s-%s: Nothing to do. I will sleep for 60s', worker_number, total_workers)
                 time.sleep(60)
 
-        except DatabaseException, error:
+        except DatabaseException as error:
             logging.warning('Reaper:  %s', str(error))
         except:
             logging.critical(traceback.format_exc())
