@@ -10,6 +10,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2017
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
   PY3K COMPATIBLE
 '''
@@ -39,9 +40,9 @@ def add_message(event_type, payload, session=None):
 
     try:
         new_message = Message(event_type=event_type, payload=json.dumps(payload))
-    except TypeError, e:
+    except TypeError as e:
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
-    except DatabaseError, e:
+    except DatabaseError as e:
         if re.match('.*ORA-12899.*', e.args[0]) \
            or re.match('.*1406.*', e.args[0]):
             raise RucioException('Could not persist message, payload too large')
@@ -108,7 +109,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
                              'payload': json.loads(str(payload))})
         return messages
 
-    except IntegrityError, e:
+    except IntegrityError as e:
         raise RucioException(e.args)
 
 
@@ -131,7 +132,7 @@ def delete_messages(messages, session=None):
                 delete(synchronize_session=False)
 
             session.bulk_insert_mappings(MessageHistory, messages)
-    except IntegrityError, e:
+    except IntegrityError as e:
         raise RucioException(e.args)
 
 
@@ -145,5 +146,5 @@ def truncate_messages(session=None):
 
     try:
         session.query(Message).delete(synchronize_session=False)
-    except IntegrityError, e:
+    except IntegrityError as e:
         raise RucioException(e.args)
