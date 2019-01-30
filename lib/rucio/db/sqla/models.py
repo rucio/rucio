@@ -751,7 +751,7 @@ class RSEFileAssociation(BASE, ModelBase):
     accessed_at = Column(DateTime)
     tombstone = Column(DateTime)
     rse = relationship("RSE", backref=backref('replicas', order_by="RSE.id"))
-    _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='REPLICAS_PK'),
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', name='REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
                    CheckConstraint('STATE IS NOT NULL', name='REPLICAS_STATE_NN'),
