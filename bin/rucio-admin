@@ -188,12 +188,14 @@ def get_client(args):
         creds = None
 
     try:
+        auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.issuer,
-                        auth_type=args.auth_strategy, creds=creds,
+                        auth_type=auth_type, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout)
     except CannotAuthenticate as error:
         logger.error(error)
+        auth_type = ''
         if not args.auth_strategy:
             if 'RUCIO_AUTH_TYPE' in os.environ:
                 auth_type = os.environ['RUCIO_AUTH_TYPE']
@@ -203,7 +205,7 @@ def get_client(args):
                 except (NoOptionError, NoSectionError):
                     logger.error('Cannot get AUTH_TYPE')
                     sys.exit(FAILURE)
-        if auth_type == 'x509_proxy':
+        if auth_type.lower() == 'x509_proxy':
             logger.error('Please verify that your proxy is still valid and renew it if needed.')
         sys.exit(FAILURE)
     return client
