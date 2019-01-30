@@ -8,16 +8,18 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Robert Illingworth, <illingwo@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
 from random import uniform, shuffle
 
-from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight
+from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
 from rucio.core.account import has_account_attribute
-from rucio.core.account_counter import get_counter
+from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.core.account_limit import get_account_limit
-from rucio.core.rse import list_rse_attributes, has_rse_attribute
+from rucio.core.rse import list_rse_attributes, has_rse_attribute, get_rse_limits
+from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.db.sqla.session import read_session
 
 
@@ -72,24 +74,34 @@ class RSESelector():
         if has_account_attribute(account=account, key='admin', session=session) or ignore_account_limit:
             for rse in self.rses:
                 rse['quota_left'] = float('inf')
+                rse['space_left'] = float('inf')
         else:
             for rse in self.rses:
                 if rse['mock_rse']:
                     rse['quota_left'] = float('inf')
+                    rse['space_left'] = float('inf')
                 else:
-                    # TODO: Add RSE-space-left here!
-                    limit = get_account_limit(account=account, rse_id=rse['rse_id'], session=session)
-                    if limit is None:
+                    quota_limit = get_account_limit(account=account, rse_id=rse['rse_id'], session=session)
+                    if quota_limit is None:
                         rse['quota_left'] = 0
                     else:
-                        rse['quota_left'] = limit - get_counter(rse_id=rse['rse_id'], account=account, session=session)['bytes']
+                        rse['quota_left'] = quota_limit - get_account_counter(rse_id=rse['rse_id'], account=account, session=session)['bytes']
+
+                    space_limit = get_rse_limits('', 'MaxSpaceAvailable', rse_id=rse['rse_id'], session=session).get('MaxSpaceAvailable')
+                    if space_limit is None or space_limit < 0:
+                        rse['space_left'] = float('inf')
+                    else:
+                        rse['space_left'] = space_limit - get_rse_counter(rse_id=rse['rse_id'], session=session)['bytes']
 
         self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
 
         if len(self.rses) < self.copies:
             raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
 
-    def select_rse(self, size, preferred_rse_ids, copies=0, blacklist=[], prioritize_order_over_weight=False):
+        # don't consider removing rses based on the total space here - because files already on the RSE are taken into account
+        # it is possible to have no space but still be able to fulfil the rule
+
+    def select_rse(self, size, preferred_rse_ids, copies=0, blacklist=[], prioritize_order_over_weight=False, existing_rse_size=None):
         """
         Select n RSEs to replicate data to.
 
@@ -98,6 +110,7 @@ class RSESelector():
         :param copies:                       Select this amount of copies, if 0 use the pre-defined rule value.
         :param blacklist:                    List of blacklisted rses. (Do not put replicas on these sites)
         :param prioritze_order_over_weight:  Prioritize the order of the preferred_rse_ids list over the picking done by weight.
+        :existing_rse_size:                  Dictionary of size of files already present at each rse
         :returns:                            List of (RSE_id, staging_area, availability_write) tuples.
         :raises:                             InsufficientAccountLimit, InsufficientTargetRSEs
         """
@@ -111,6 +124,14 @@ class RSESelector():
             rses = [rse for rse in self.rses if rse['rse_id'] not in blacklist]
         if len(rses) < count:
             raise InsufficientTargetRSEs('There are not enough target RSEs to fulfil the request at this time.')
+
+        # Remove rses which do not have enough space, accounting for the files already at each rse
+        if existing_rse_size is None:
+            existing_rse_size = {}
+        rses = [rse for rse in rses if rse['space_left'] >= size - existing_rse_size.get(rse['rse_id'], 0)]
+        if len(rses) < count:
+            raise RSEOverQuota('There is insufficient space on any of the target RSE\'s to fullfill the operation.')
+
         # Remove rses which do not have enough quota
         rses = [rse for rse in rses if rse['quota_left'] > size]
         if len(rses) < count:

@@ -22,15 +22,13 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
 from __future__ import division
 
-from re import match
-from six import string_types
 try:
     from StringIO import StringIO
 except ImportError:
@@ -39,6 +37,9 @@ except ImportError:
 import json
 import sqlalchemy
 import sqlalchemy.orm
+
+from re import match
+from six import string_types
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
@@ -51,7 +52,6 @@ from sqlalchemy.sql.expression import or_, false
 import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter, get_counter
-
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.db.sqla import models
@@ -131,7 +131,7 @@ def rse_exists(rse, session=None):
 @read_session
 def sort_rses(rses, session=None):
     """
-    Sort a list of RSES by srm free space (ascending order).
+    Sort a list of RSES by free space (ascending order).
 
     :param rses: List of RSEs.
     :param session: The database session in use.
@@ -146,7 +146,7 @@ def sort_rses(rses, session=None):
 
     false_value = False
     query = session.query(models.RSE.rse, models.RSE.staging_area, models.RSEUsage.rse_id).\
-        filter(or_(models.RSEUsage.source == 'srm', models.RSEUsage.source == 'gsiftp')).\
+        filter(models.RSEUsage.source == 'storage').\
         filter(models.RSEUsage.rse_id == models.RSE.id).\
         filter(models.RSE.deleted == false_value)
     condition = []
@@ -297,7 +297,13 @@ def list_rses(filters={}, session=None):
                 t = aliased(models.RSEAttrAssociation)
                 query = query.join(t, t.rse_id == models.RSEAttrAssociation.rse_id)
                 query = query.filter(t.key == k)
-                query = query.filter(t.value == v)
+
+                # FIXME
+                # ATLAS RSE listing workaround (since booleans are capital 'True'/'False')
+                # remove elif branch after appropriate database fix has been applied
+                # see also db/types.py
+                query = query.filter(or_(t.value == v,
+                                         t.value == 'tmp_atlas_%s' % v))
 
         condition1, condition2 = [], []
         for i in range(0, 8):
@@ -568,7 +574,8 @@ def get_rse_usage(rse, source=None, rse_id=None, session=None, per_account=False
             account_usages = []
             for row in query_account_usage:
                 if row.bytes != 0:
-                    account_usages.append({'used': row.bytes, 'account': row.account, 'percentage': round(float(row.bytes) / float(total) * 100, 2)})
+                    percentage = round(float(row.bytes) / float(total) * 100, 2) if total else 0
+                    account_usages.append({'used': row.bytes, 'account': row.account, 'percentage': percentage})
             account_usages.sort(key=lambda x: x['used'], reverse=True)
             rse_usage['account_usages'] = account_usages
         usage.append(rse_usage)

@@ -18,6 +18,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -365,11 +366,16 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     """
     logging.info('main: starting processes')
 
-    rses_list = rse_core.list_rses()
+    all_rses = rse_core.list_rses()
     if rses:
-        rses = [rse for rse in rses_list if rse['rse'] in rses]
+        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+        if invalid:
+            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                    ', '.join([repr(rse) for rse in invalid]))
+            raise RSENotFound(msg)
+        rses = [rse for rse in all_rses if rse['rse'] in rses]
     else:
-        rses = rses_list
+        rses = all_rses
 
     if exclude_rses:
         excluded_rses = parse_expression(exclude_rses)
@@ -378,6 +384,10 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     if include_rses:
         included_rses = parse_expression(include_rses)
         rses = [rse for rse in rses if rse in included_rses]
+
+    if not rses:
+        logging.error('Reaper: No RSEs found. Exiting.')
+        return
 
     logging.info('Reaper: This instance will work on RSEs: ' + ', '.join([rse['rse'] for rse in rses]))
 

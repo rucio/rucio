@@ -6,11 +6,13 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2018
 #
 # PY3K COMPATIBLE
 
 import uuid
+
+from six import string_types
 
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.dialects.oracle import RAW, CLOB
@@ -82,10 +84,22 @@ class BooleanString(TypeDecorator):
         if value is None:
             return value
 
+        # handle booleans always as lowercase string 'true'/'false'
         if isinstance(value, bool):
             if value:
-                return '1'
-            return '0'
+                return 'true'
+            return 'false'
+        elif isinstance(value, string_types):
+            if value.lower() == 'true':
+                return 'true'
+            elif value.lower() == 'false':
+                return 'false'
+            # FIXME
+            # ATLAS RSE listing workaround (since booleans are capital 'True'/'False')
+            # remove elif branch after appropriate database fix has been applied
+            # see also core/rse.py
+            elif value.startswith('tmp_atlas_'):
+                return value[10:]
 
         return str(value)
 
@@ -93,9 +107,12 @@ class BooleanString(TypeDecorator):
         if value is None:
             return value
 
-        if value == '1':
+        # FIXME
+        # be backward compatible for now by still including 0/1 as acceptable booleans
+        # remove 0/1 after appropriate database fix has been applied
+        if value.lower() in ['1', 'true']:
             return True
-        elif value == '0':
+        elif value.lower() in ['0', 'false']:
             return False
         else:
             return value
