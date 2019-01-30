@@ -48,45 +48,45 @@ By default the output of the Apache web server is written directly to stdout and
 ```docker run --name=rucio-server -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -v /tmp/logs:/var/log/httpd -p 80:80 -e RUCIO_ENABLE_LOGFILE=True -d rucio/rucio-server```
 
 Environment Variables
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 As shown in the examples above the rucio-server image can be configured using environment variables that are passed with `docker run`. Below is a list of all available variables and their behaviour:
 
 `RUCIO_ENABLE_SSL`
-==================
+------------------
 By default the rucio server runs without SSL on port 80. If you want to enable SSL set this variable to `True`. If you enable SSL you will also have to provide the host certificate and key and the certificate authority file. The server will look for `hostcert.pem`, `hostkey.pem` and `ca.pem` under `/etc/grid-security` so you will have to mount them as volumes. Furthermore you will also have to expose port 443.
 
 `RUCIO_CA_PATH`
-===============
+---------------
 If you are using SSL and want use `SSLCACertificatePath` and `SSLCARevocationPath` you can do so by specifying the path in this variable.
 
 `RUCIO_DEFINE_ALIASES`
-======================
+----------------------
 By default the web server is configured with all common rest endpoints except the authentication endpoint. If you want to specify your own set of aliases you can set this variable to `True`. The web server then expects an alias file under `/opt/rucio/etc/aliases.conf`
 
 `RUCIO_ENABLE_LOGFILE`
-======================
+----------------------
 By default the log output of the web server is written to stdout and stderr. If you set this variable to `True` the output will be written to `access_log` and `error_log` under `/var/log/httpd`.
 
 `RUCIO_LOG_LEVEL`
-=================
+-----------------
 The default log level is `info`. You can change it using this variable.
 
 `RUCIO_LOG_FORMAT`
-=================
+------------------
 The default rucio log format is `%h\t%t\t%{X-Rucio-Forwarded-For}i\t%T\t%D\t\"%{X-Rucio-Auth-Token}i\"\t%{X-Rucio-RequestId}i\t%{X-Rucio-Client-Ref}i\t\"%r\"\t%>s\t%b`
 You can set your own format using this variable.
 
 `RUCIO_HOSTNAME`
-================
+----------------
 This variable sets the server name in the apache config.
 
 `RUCIO_SERVER_ADMIN`
-====================
+--------------------
 This variable sets the server admin in the apache config.
 
 `RUCIO_CFG` configuration parameters:
-=====================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Environment variables can be used to set values for the auto-generated rucio.cfg. The names are derived from the actual names in the configuration file prefixed by `RUCIO_CFG`, e.g., the `default` value in the `database` section becomes `RUCIO_CFG_DATABASE_DEFAULT`.
 All available environment variables are:
