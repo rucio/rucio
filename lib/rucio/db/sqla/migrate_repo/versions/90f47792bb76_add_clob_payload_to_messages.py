@@ -26,7 +26,7 @@ import sqlalchemy as sa
 
 # revision identifiers used by alembic
 revision = '90f47792bb76'       # pylint: disable=invalid-name
-down_revision = '1f46c5f240ac'  # pylint: disable=invalid-name
+down_revision = '9eb936a81eb1'  # pylint: disable=invalid-name
 
 
 def upgrade():
@@ -34,6 +34,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
     add_column('messages', sa.Column('payload_nolimit', sa.Text))
+    add_column('messages_history', sa.Column('payload_nolimit', sa.Text))
 
 
 def downgrade():
@@ -41,3 +42,4 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
     drop_column('messages', 'payload_nolimit')
+    drop_column('messages_history', 'payload_nolimit')
