@@ -27,7 +27,7 @@ puts them back into AVAILABLE state.
 import argparse
 import signal
 
-from rucio.daemons.badreplicas.minos_temporary_unavailable import run, stop
+from rucio.daemons.badreplicas.minos_temporary_expiration import run, stop
 
 
 def get_parser():
