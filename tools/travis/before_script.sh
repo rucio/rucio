@@ -15,11 +15,14 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2019
 
 if [[ $RDBMS == "oracle" ]]; then
-    docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true sath89/oracle-xe-11g
+    docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true wnameless/oracle-xe-11g
     docker run --name=activemq -d webcenter/activemq:latest
     sleep 100
+    docker cp tools/travis/oracle_setup.sh oracle:/
+    docker exec -it oracle /bin/bash -c "/oracle_setup.sh"
     docker run -d --link oracle:oracle --link activemq:activemq --name=rucio rucio/rucio
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
     docker exec -it rucio httpd -k start

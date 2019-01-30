@@ -52,7 +52,7 @@ from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
 
 from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
-                                    DataIdentifierNotFound, RuleNotFound, InputValidationError,
+                                    DataIdentifierNotFound, RuleNotFound, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
@@ -117,7 +117,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
-                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
+                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, RSEOverQuota
     """
     rule_ids = []
 
@@ -603,7 +603,7 @@ def inject_rule(rule_id, session=None):
     :param rule_id:    The id of the rule to inject.
     :param new_owner:  The new owner of the rule.
     :param session:    The database session in use.
-    :raises:           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataId
+    :raises:           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataId, RSEOverQuota
     """
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
@@ -615,6 +615,9 @@ def inject_rule(rule_id, session=None):
         logging.debug("Creating dataset rules for Split Container rule %s", str(rule.id))
         # Get all child datasets and put rules on them
         dids = [{'scope': dataset['scope'], 'name': dataset['name']} for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session)]
+        # Remove duplicates from the list of dictionaries
+        dids = [dict(t) for t in {tuple(d.items()) for d in dids}]
+        # Remove dids which already have a similar rule
         dids = [did for did in dids if session.query(models.ReplicationRule).filter_by(scope=did['scope'], name=did['name'], account=rule.account, rse_expression=rule.rse_expression).count() == 0]
         if rule.expires_at:
             lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
@@ -2504,7 +2507,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                       copies=rule.copies,
                                                       ignore_account_limit=rule.ignore_account_limit,
                                                       session=session)
-                        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as error:
+                        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit, RSEOverQuota) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)
@@ -2541,7 +2544,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                               preferred_rse_ids=preferred_rse_ids,
                                                               source_rses=[rse['id'] for rse in source_rses],
                                                               session=session)
-                        except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
+                        except (InsufficientAccountLimit, InsufficientTargetRSEs, RSEOverQuota) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)
@@ -2801,7 +2804,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_repl
     :param preferred_rse_ids:  Preferred RSE's to select.
     :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
-    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
+    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs, RSEOverQuota
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 

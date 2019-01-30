@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2019
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
@@ -23,13 +23,15 @@
 #
 # This product includes GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function, division
 
-import gzip
 import os
 import random
 import socket
+import tarfile
 import time
 
 from math import asin, cos, radians, sin, sqrt
@@ -37,7 +39,6 @@ from math import asin, cos, radians, sin, sqrt
 from dogpile.cache import make_region
 
 import requests
-import pygeoip
 import geoip2.database
 
 from rucio.common import utils
@@ -51,95 +52,85 @@ REGION = make_region(function_key_generator=utils.my_key_generator).configure(
 
 
 def __download_geoip_db(directory, filename):
-    path = 'http://geolite.maxmind.com/download/geoip/database/%s.gz' % (filename)
+    path = 'https://geolite.maxmind.com/download/geoip/database/%s.tar.gz' % (filename)
     try:
-        os.unlink('%s/%s.gz' % (directory, filename))
+        os.unlink('%s/%s.tar.gz' % (directory, filename))
     except OSError:
         pass
     result = requests.get(path, stream=True)
+    print(result)
     if result and result.status_code in [200, ]:
-        f = open('%s/%s.gz' % (directory, filename), 'wb')
+        file_object = open('%s/%s.tar.gz' % (directory, filename), 'wb')
         for chunk in result.iter_content(8192):
-            f.write(chunk)
-        f.close()
+            file_object.write(chunk)
+        file_object.close()
+        tarfile_name = '%s/%s.tar.gz' % (directory, filename)
+        with tarfile.open(name=tarfile_name, mode='r:gz') as tfile:
+            tfile.extractall(path=directory)
+            for entry in tfile:
+                if entry.name.find('%s.mmdb' % filename) > -1:
+                    print('Will move %s/%s to %s/%s' % (directory, entry.name, directory, entry.name.split('/')[-1]))
+                    os.rename('%s/%s' % (directory, entry.name), '%s/%s' % (directory, entry.name.split('/')[-1]))
+    else:
+        raise Exception('Cannot download geoip DB file. Status code %s' % result.status_code)
 
 
 def __get_geoip_db(directory, filename):
     if directory.endswith('/'):
         directory = directory[:-1]
-    if not os.path.isfile('%s/%s' % (directory, filename)):
+    if not os.path.isfile('%s/%s.mmdb' % (directory, filename)):
         print('%s does not exist. Downloading it.' % (filename))
         __download_geoip_db(directory, filename)
-    elif (time.time() - os.stat('%s/%s' % (directory, filename)).st_atime > 30 * 86400):
+    elif time.time() - os.stat('%s/%s.mmdb' % (directory, filename)).st_atime > 30 * 86400:
         print('%s is too old. Re-downloading it.' % (filename))
         __download_geoip_db(directory, filename)
-    else:
-        return
-    f = gzip.open('%s/%s.gz' % (directory, filename), 'rb')
-    file_content = f.read()
-    f.close()
-    g = open('%s/%s' % (directory, filename), 'wb')
-    g.write(file_content)
-    g.close()
-    os.unlink('%s/%s.gz' % (directory, filename))
     return
 
 
-def __get_lat_long(se, gi, gi2):
+def __get_lat_long(se, gi):
     """
     Get the latitude and longitude on one host using the GeoLite DB
     :param se  : A hostname or IP.
-    :param gi  : A GeoIP object (pygeoip API for IPv4).
-    :param gi2 : A Reader object (geoip2 API for IPv6).
+    :param gi : A Reader object (geoip2 API).
     """
     try:
-        ip = socket.gethostbyname(se)
-        d = gi.record_by_addr(ip)
-        return d['latitude'], d['longitude']
-    except socket.gaierror as e:
-        try:
-            # Host unknown. It might be IPv6. Trying with geoip2
-            print(e)
-            ip = socket.getaddrinfo(se, None)[0][4][0]
-            response = gi2.city(ip)
-            return response.location.latitude, response.location.longitude
-        except socket.gaierror as e:
-            # Host definitively unknown
-            print(e)
-            return None, None
+        ip = socket.getaddrinfo(se, None)[0][4][0]
+        response = gi.city(ip)
+        return response.location.latitude, response.location.longitude
+    except socket.gaierror as error:
+        # Host definitively unknown
+        print(error)
+    return None, None
 
 
 @REGION.cache_on_arguments(namespace='site_distance')
-def __get_distance(se1, se2):
+def __get_distance(se1, se2, ignore_error):
     """
     Get the distance between 2 host using the GeoLite DB
     :param se1 : A first hostname or IP.
     :param se2 : A second hostname or IP.
+    :ignore_error: Ignore exception when the GeoLite DB cannot be retrieved
     """
     directory = '/tmp'
-    filename = 'GeoLiteCity.dat'
-    __get_geoip_db(directory, filename)
+    ipv6_filename = 'GeoLite2-City'
+    try:
+        __get_geoip_db(directory, ipv6_filename)
 
-    directory = '/tmp'
-    ipv6_filename = 'GeoLite2-City.mmdb'
-    __get_geoip_db(directory, ipv6_filename)
+        gi = geoip2.database.Reader('%s/%s' % (directory, '%s.mmdb' % ipv6_filename))
 
-    gi = pygeoip.GeoIP('%s/%s' % (directory, filename))
-    gi2 = geoip2.database.Reader('%s/%s' % (directory, ipv6_filename))
+        lat1, long1 = __get_lat_long(se1, gi)
+        lat2, long2 = __get_lat_long(se2, gi)
 
-    lat1, long1 = __get_lat_long(se1, gi, gi2)
-    lat2, long2 = __get_lat_long(se2, gi, gi2)
-
-    if lat1 and lat2:
-        long1, lat1, long2, lat2 = map(radians, [long1, lat1, long2, lat2])
-        dlon = long2 - long1
-        dlat = lat2 - lat1
-        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-        c = 2 * asin(sqrt(a))
-        return 6378 * c
-    else:
-        # One host is on the Moon
-        return 360000
+        if lat1 and lat2:
+            long1, lat1, long2, lat2 = map(radians, [long1, lat1, long2, lat2])
+            dlon = long2 - long1
+            dlat = lat2 - lat1
+            return 6378 * 2 * asin(sqrt(sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2))
+    except Exception as error:
+        if not ignore_error:
+            raise error
+    # One host is on the Moon
+    return 360000
 
 
 def site_selector(replicas, site):
@@ -174,19 +165,20 @@ def sort_random(replicas):
     return list_replicas
 
 
-def sort_geoip(replicas, client_ip):
+def sort_geoip(replicas, client_ip, ignore_error=False):
     """
     Return a list of replicas sorted by geographical distance to the client IP.
     :param replicas : A dict with RSEs as values and replicas as keys (URIs).
     :param client_ip: The IP of the client.
+    :ignore_error: Ignore exception when the GeoLite DB cannot be retrieved
     """
 
     distances = {}
     for replica in replicas:
         se = replica.split('/')[2].split(':')[0]
-        distance = __get_distance(se, client_ip)
+        distance = __get_distance(se, client_ip, ignore_error)
         distances[replica] = distance
-    tmp = list(map(lambda x: x[0], sorted(list(distances.items()), key=lambda x: x[1])))
+    tmp = [x[0] for x in sorted(list(distances.items()), key=lambda x: x[1])]
 
     return tmp
 

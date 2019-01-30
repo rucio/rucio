@@ -14,13 +14,14 @@
 # limitations under the License.
 #
 # Authors:
-#  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2018
+#  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2019
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
 
 import json
+import os
 import sys
 
 import requests
@@ -40,6 +41,15 @@ DRYRUN = '-n' in sys.argv
 if __name__ == '__main__':
 
     STATUS = OK
+    try:
+        PROXY = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = PROXY
+        CERT, KEY = os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']
+    except Exception as error:
+        print(error)
+        print("Failed to get proxy from rucio.cfg")
+        sys.exit(CRITICAL)
+
     try:
         FTSHOSTS = config_get('conveyor', 'ftshosts')
         FTSHOSTS = FTSHOSTS.split(',')
@@ -80,6 +90,16 @@ if __name__ == '__main__':
                 try:
                     if not DRYRUN:
                         update_rse(site['rse'], {activity: False})
+                        if activity in ['availability_write']:
+                            for rse in BLACKLISTED_SITES[activity]:
+                                if rse in DOWNTIMES:
+                                    protocols = get_rse_protocols(rse)
+                                    for prot in protocols['protocols']:
+                                        if 'third_party_copy' in prot['domains']['wan']:
+                                            se = '%s://%s' % (prot['scheme'], prot['hostname'])
+                                            for fts_host in FTSHOSTS:
+                                                print("FTS3Transfertool(external_host='%s').set_se_status(storage_element='%s', message='%s', ban=True, timeout=60)" % (fts_host, se, DOWNTIMES[rse]))
+                                                FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=se, message=DOWNTIMES[rse], ban=True, timeout=60)
                 except Exception as error:
                     print(error)
                     if STATUS == OK:
@@ -97,6 +117,13 @@ if __name__ == '__main__':
                 try:
                     if not DRYRUN:
                         update_rse(rse, {activity: True})
+                        protocols = get_rse_protocols(rse)
+                        for prot in protocols['protocols']:
+                            if 'third_party_copy' in prot['domains']['wan']:
+                                se = '%s://%s' % (prot['scheme'], prot['hostname'])
+                                for fts_host in FTSHOSTS:
+                                    print("FTS3Transfertool(external_host='%s').set_se_status(storage_element='%s', message='%s', ban=False, timeout=60)" % (fts_host, se, DOWNTIMES[rse]))
+                                    FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=se, message=DOWNTIMES[rse], ban=False, timeout=60)
                 except Exception as error:
                     print(error)
                     if STATUS == OK:
@@ -109,8 +136,9 @@ if __name__ == '__main__':
             FTS_BAN_SES[fts_host] = ban_ses
         except Exception as error:
             print(error)
+            if STATUS == OK:
+                STATUS = WARNING
 
-    # Banning SEs in FTS
     SES = []
     for rse in DOWNTIMES:
         protocols = get_rse_protocols(rse)
@@ -121,24 +149,22 @@ if __name__ == '__main__':
                     SES.append(se)
                     for fts_host in FTS_BAN_SES:
                         if se not in [storage['se'] for storage in FTS_BAN_SES[fts_host]]:
-                            print("FTS3Transfertool(external_host='%s').set_se_status(storage_element='%s', message='%s', ban=True, timeout=60)" % (fts_host, se, DOWNTIMES[rse]))
                             try:
+                                print("FTS3Transfertool(external_host='%s').set_se_status(storage_element='%s', message='%s', ban=True, timeout=60)" % (fts_host, se, DOWNTIMES[rse]))
                                 FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=se, message=DOWNTIMES[rse], ban=True, timeout=60)
                             except Exception as error:
                                 print(error)
-                                if STATUS == OK:
-                                    STATUS = WARNING
-    # Unbanning SEs in FTS
-    FTS_BAN_SES = {}
+
     for fts_host in FTS_BAN_SES:
-        try:
-            ban_ses = FTS_BAN_SES[fts_host]
-            for banned_se in ban_ses:
-                if banned_se['se'] not in SES and banned_se['admin_dn'] == '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=ddmadmin/CN=531497/CN=Robot: ATLAS Data Management':
+        ban_ses = FTS_BAN_SES[fts_host]
+        for banned_se in ban_ses:
+            if banned_se['se'] not in SES and banned_se['admin_dn'].find('ddmadmin') > -1:
+                try:
                     print('%s is banned but is not in downtime. Removing the ban' % (banned_se))
                     FTS3Transfertool(external_host=fts_host).set_se_status(storage_element=banned_se['se'], message='', ban=False, timeout=60)
-        except Exception as error:
-            print(error)
-            if STATUS == OK:
-                STATUS = WARNING
+                except Exception as error:
+                    print(error)
+                    if STATUS == OK:
+                        STATUS = WARNING
+
     sys.exit(STATUS)

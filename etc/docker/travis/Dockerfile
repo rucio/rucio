@@ -17,6 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 FROM rucio/rucio-systemd-cc7
 
@@ -27,7 +28,7 @@ RUN yum install -y epel-release.noarch
 
 RUN yum install -y gcc
 RUN yum install -y httpd
-RUN yum install -y python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 gridsite which MySQL-python libaio
+RUN yum install -y python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 gridsite which MySQL-python libaio memcached
 RUN yum install -y python34 python34-pip python34-devel
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
 
