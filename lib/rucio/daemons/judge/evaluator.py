@@ -17,7 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -114,9 +114,9 @@ def re_evaluator(once=False):
                         logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name, time.time() - start_time))
                         delete_updated_did(id=did.id)
                         done_dids['%s:%s' % (did.scope, did.name)].append(did.rule_evaluation_action)
-                    except DataIdentifierNotFound, e:
+                    except DataIdentifierNotFound as e:
                         delete_updated_did(id=did.id)
-                    except (DatabaseException, DatabaseError), e:
+                    except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_dids[(did.scope, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                             logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name))
@@ -130,13 +130,13 @@ def re_evaluator(once=False):
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                    except ReplicationRuleCreationTemporaryFailed, e:
+                    except ReplicationRuleCreationTemporaryFailed as e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         logging.warning('re_evaluator[%s/%s]: Replica Creation temporary failed, retrying later for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name))
-                    except FlushError, e:
+                    except FlushError as e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         logging.warning('re_evaluator[%s/%s]: Flush error for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name))
-        except (DatabaseException, DatabaseError), e:
+        except (DatabaseException, DatabaseError) as e:
             if match('.*QueuePool.*', str(e.args[0])):
                 logging.warning(traceback.format_exc())
                 record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
@@ -146,7 +146,7 @@ def re_evaluator(once=False):
             else:
                 logging.critical(traceback.format_exc())
                 record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-        except Exception, e:
+        except Exception as e:
             logging.critical(traceback.format_exc())
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
 

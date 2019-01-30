@@ -15,7 +15,7 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -250,11 +250,11 @@ def place_replica(once=False,
                         # DO IT!
                         try:
                             add_rule(client, {'scope': did[0], 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
-                        except RucioException, e:
+                        except RucioException as e:
                             logging.debug(e)
 
             w = 0
-    except Exception, e:
+    except Exception as e:
         logging.critical(e)
 
 
