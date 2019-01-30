@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
 #
@@ -212,3 +212,13 @@ def list_datasets_per_rse(rse, filters=None, limit=None):
     :returns: A list of dict dataset replicas
     """
     return replica.list_datasets_per_rse(rse, filters=filters, limit=limit)
+
+
+def get_suspicious_files(rse_expression, younger_than=None, nattempts=None):
+    """
+    List the list of suspicious files on a list of RSEs
+    :param rse_expression: The RSE expression where the suspicious files are located
+    :param younger_than: datetime object to select the suspicious replicas younger than this date.
+    :param nattempts: The number of time the replicas have been declared suspicious
+    """
+    return replica.get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
