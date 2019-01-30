@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -79,9 +79,9 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
                     delete_dids(dids=chunk, account='root', expire_rules=True)
                     logging.info('Undertaker(%s): Delete %s dids', worker_number, len(chunk))
                     record_counter(counters='undertaker.delete_dids', delta=len(chunk))
-                except RuleNotFound, error:
+                except RuleNotFound as error:
                     logging.error(error)
-                except DatabaseException, error:
+                except DatabaseException as error:
                     logging.error('Undertaker(%s): Got database error %s.', worker_number, str(error))
         except:
             logging.critical(traceback.format_exc())
