@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2019
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2016
 # - Wen Guan, <wen.guan>, 2016
 #
@@ -166,6 +166,7 @@ class RuleNotification(DeclEnum):
     YES = 'Y', 'YES'
     NO = 'N', 'NO'
     CLOSE = 'C', 'CLOSE'
+    PROGRESS = 'P', 'PROGRESS'
 
 
 class RuleState(DeclEnum):
