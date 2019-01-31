@@ -26,6 +26,8 @@ Daemons CLIs
     rucio-judge-repairer
     rucio-kronos
     rucio-light-reaper
+    rucio-minos
+    rucio-minos-temporary-expiration
     rucio-necromancer
     rucio-reaper
     rucio-transmogrifier
