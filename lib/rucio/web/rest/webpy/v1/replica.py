@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
@@ -105,6 +105,10 @@ class Replicas(RucioController):
                 select = params['select'][0]
             if 'limit' in params:
                 limit = int(params['limit'][0])
+
+        # Resolve all reasonable protocols when doing metalink for maximum access possibilities
+        if metalink and schemes is None:
+            schemes = ['gsiftp', 'srm', 'root', 'davs', 'https', 'file']
 
         try:
             # first, set the appropriate content type, and stream the header
@@ -348,6 +352,10 @@ class ListReplicas(RucioController):
                 limit = params['limit'][0]
             if 'sort' in params:
                 select = params['sort']
+
+        # Resolve all reasonable protocols when doing metalink for maximum access possibilities
+        if metalink and schemes is None:
+            schemes = ['gsiftp', 'srm', 'root', 'davs', 'https', 'file']
 
         try:
             # first, set the appropriate content type, and stream the header
