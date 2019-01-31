@@ -1,30 +1,34 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
-  - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
-  - Wen Guan, <wen.guan@cern.ch>, 2015
-  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-
-  PY3K COMPATIBLE
-
-SQLAlchemy models for rucio data
-'''
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
+# - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 import datetime
 import uuid
 
 from builtins import object
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, SmallInteger, String as _String, event, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, SmallInteger, String as _String, Text, event, UniqueConstraint
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
@@ -1136,6 +1140,7 @@ class Message(BASE, ModelBase):
     id = Column(GUID(), default=utils.generate_uuid)
     event_type = Column(String(1024))
     payload = Column(String(4000))
+    payload_nolimit = Column(Text)
     _table_args = (PrimaryKeyConstraint('id', name='MESSAGES_ID_PK'),
                    CheckConstraint('EVENT_TYPE IS NOT NULL', name='MESSAGES_EVENT_TYPE_NN'),
                    CheckConstraint('PAYLOAD IS NOT NULL', name='MESSAGES_PAYLOAD_NN'),)
@@ -1147,6 +1152,7 @@ class MessageHistory(BASE, ModelBase):
     id = Column(GUID())
     event_type = Column(String(1024))
     payload = Column(String(4000))
+    payload_nolimit = Column(Text)
     __mapper_args__ = {
         'primary_key': [id]  # Fake primary key for SQLA
     }
