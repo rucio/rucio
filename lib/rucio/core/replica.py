@@ -299,6 +299,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
     if rse_info['deterministic']:
         parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
+            # WARNING : this part is ATLAS specific and must be changed
             path = parsed_pfn[pfn]['path']
             if path.startswith('/user') or path.startswith('/group'):
                 scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
@@ -413,6 +414,8 @@ def get_pfn_to_rse(pfns, session=None):
 
     :param pfns: The list of pfn.
     :param session: The database session in use.
+
+    :returns: a tuple : scheme, {rse1 : [pfn1, pfn2, ...], rse2: [pfn3, pfn4, ...]}, {'unknown': [pfn5, pfn6, ...]}.
     """
     unknown_replicas = {}
     storage_elements = []
@@ -532,6 +535,7 @@ def get_did_from_pfns(pfns, rse=None, session=None):
         proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
         if rse_info['deterministic']:
             parsed_pfn = proto.parse_pfns(pfns=pfns)
+            # WARNING : this part is ATLAS specific and must be changed
             for pfn in parsed_pfn:
                 path = parsed_pfn[pfn]['path']
                 if path.startswith('/user') or path.startswith('/group'):
@@ -1660,6 +1664,8 @@ def update_replicas_states(replicas, nowait=False, session=None):
                                             broken_rule_id=replica.get('broken_rule_id', None),
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
+        elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
+            query = query.filter_by(state=ReplicaState.AVAILABLE)
 
         if 'path' in replica and replica['path']:
             values['path'] = replica['path']
@@ -2480,3 +2486,192 @@ def update_collection_replica(update_request, session=None):
                 collection_replica.available_replicas_cnt = file_replica.available_replicas
                 collection_replica.available_bytes = file_replica.ds_available_bytes
     session.query(models.UpdatedCollectionReplica).filter_by(id=update_request['id']).delete()
+
+
+@read_session
+def get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None):
+    """
+    Returns a list of bad PFNs
+
+    :param limit: The maximum number of replicas returned.
+    :param thread: The assigned thread for this minos instance.
+    :param total_threads: The total number of minos threads.
+    :param session: The database session in use.
+
+    returns: list of PFNs {'pfn': pfn, 'state': state, 'reason': reason, 'account': account, 'expires_at': expires_at}
+    """
+    result = []
+    query = session.query(models.BadPFNs.path, models.BadPFNs.state, models.BadPFNs.reason, models.BadPFNs.account, models.BadPFNs.expires_at)
+
+    if total_threads and (total_threads - 1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
+            query = query.filter(text('ORA_HASH(path, :total_threads) = :thread_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter(text('mod(md5(path), %s) = %s' % (total_threads - 1, thread)))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter(text('mod(abs((\'x\'||md5(path))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+
+    query.order_by(models.BadPFNs.created_at)
+    query = query.limit(limit)
+    for path, state, reason, account, expires_at in query.yield_per(1000):
+        result.append({'pfn': clean_surls([str(path)])[0], 'state': state, 'reason': reason, 'account': account, 'expires_at': expires_at})
+    return result
+
+
+@transactional_session
+def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=None, expires_at=None, session=None):
+    """
+    Bulk add new bad replicas.
+
+    :param replicas: the list of bad replicas.
+    :param account: The account who declared the bad replicas.
+    :param state: The state of the file (SUSPICIOUS, BAD or TEMPORARY_UNAVAILABLE).
+    :param session: The database session in use.
+
+    :returns: True is successful.
+    """
+    for replica in replicas:
+        new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
+                                             state=state, account=account, bytes=None, expires_at=expires_at)
+        new_bad_replica.save(session=session, flush=False)
+    try:
+        session.flush()
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+    except DatabaseError as error:
+        raise exception.RucioException(error.args)
+    except FlushError as error:
+        if match('New instance .* with identity key .* conflicts with persistent instance', error.args[0]):
+            raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
+        raise exception.RucioException(error.args)
+    return True
+
+
+@transactional_session
+def bulk_delete_bad_pfns(pfns, session=None):
+    """
+    Bulk delete bad PFNs.
+
+    :param pfns: the list of new files.
+    :param session: The database session in use.
+
+    :returns: True is successful.
+    """
+    pfn_clause = []
+    for pfn in pfns:
+        pfn_clause.append(models.BadPFNs.path == pfn)
+
+    for chunk in chunks(pfn_clause, 100):
+        query = session.query(models.BadPFNs).filter(or_(*chunk))
+        query.delete(synchronize_session=False)
+
+    return True
+
+
+@transactional_session
+def bulk_delete_bad_replicas(bad_replicas, session=None):
+    """
+    Bulk delete bad replica.
+
+    :param bad_replicas:    The list of bad replicas to delete (Dictionaries).
+    :param session:         The database session in use.
+
+    :returns: True is successful.
+    """
+    replica_clause = []
+    for replica in bad_replicas:
+        replica_clause.append(and_(models.BadReplicas.scope == replica['scope'],
+                                   models.BadReplicas.name == replica['name'],
+                                   models.BadReplicas.rse_id == replica['rse_id'],
+                                   models.BadReplicas.state == replica['state']))
+
+    for chunk in chunks(replica_clause, 100):
+        session.query(models.BadReplicas).filter(or_(*chunk)).\
+            delete(synchronize_session=False)
+    return True
+
+
+@transactional_session
+def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=None):
+    """
+    Add bad PFNs.
+
+    :param pfns: the list of new files.
+    :param account: The account who declared the bad replicas.
+    :param state: One of the possible states : BAD, SUSPICIOUS, TEMPORARY_UNAVAILABLE.
+    :param reason: A string describing the reason of the loss.
+    :param expires_at: Specify a timeout for the TEMPORARY_UNAVAILABLE replicas. None for BAD files.
+    :param session: The database session in use.
+
+    :returns: True is successful.
+    """
+    if isinstance(state, str) or isinstance(state, unicode):
+        rep_state = ReplicaState.from_sym(state)
+
+    pfns = clean_surls(pfns)
+    for pfn in pfns:
+        new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
+        new_pfn.save(session=session, flush=False)
+    try:
+        session.flush()
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+    except DatabaseError as error:
+        raise exception.RucioException(error.args)
+    except FlushError as error:
+        if match('New instance .* with identity key .* conflicts with persistent instance', error.args[0]):
+            raise exception.Duplicate('One PFN already exists!')
+        raise exception.RucioException(error.args)
+    return True
+
+
+@read_session
+def list_expired_temporary_unavailable_replicas(total_workers, worker_number, limit=10000, session=None):
+    """
+    List the expired temporary unavailable replicas
+
+    :param total_workers:   Number of total workers.
+    :param worker_number:   id of the executing worker.
+    :param limit:           The maximum number of replicas returned.
+    :param session:         The database session in use.
+    """
+
+    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
+        filter(models.BadReplicas.state == BadFilesStatus.TEMPORARY_UNAVAILABLE).\
+        filter(models.BadReplicas.expires_at < datetime.utcnow()).\
+        with_hint(models.ReplicationRule, "index(bad_replicas BAD_REPLICAS_EXPIRES_AT_IDX)", 'oracle').\
+        order_by(models.BadReplicas.expires_at)
+
+    if session.bind.dialect.name == 'oracle':
+        bindparams = [bindparam('worker_number', worker_number),
+                      bindparam('total_workers', total_workers)]
+        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+    elif session.bind.dialect.name == 'mysql':
+        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
+    elif session.bind.dialect.name == 'postgresql':
+        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+
+    query = query.limit(limit)
+
+    return query.all()
+
+
+@read_session
+def get_replicas_state(scope=None, name=None, session=None):
+    """
+    Method used by the necromancer to get all the replicas of a DIDs
+    :param scope: The scope of the file.
+    :param name: The name of the file.
+
+    :param session: The database session in use.
+    """
+
+    query = session.query(models.RSEFileAssociation.rse_id, models.RSEFileAssociation.state).filter_by(scope=scope, name=name)
+    states = {}
+    for res in query.all():
+        rse_id, state = res
+        if state not in states:
+            states[state] = []
+        states[state].append(rse_id)
+    return states

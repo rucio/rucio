@@ -24,7 +24,7 @@ from alembic import op
 
 # revision identifiers used by alembic
 revision = '9eb936a81eb1'       # pylint: disable=invalid-name
-down_revision = '1f46c5f240ac'  # pylint: disable=invalid-name
+down_revision = 'b96a1c7e1cc4'  # pylint: disable=invalid-name
 
 
 # IMPORTANT: Only execute this after you're running the new release.

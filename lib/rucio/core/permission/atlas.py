@@ -28,7 +28,7 @@ from rucio.core.account import list_account_attributes, has_account_attribute
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rule
-from rucio.db.sqla.constants import IdentityType
+from rucio.db.sqla.constants import IdentityType, BadPFNStatus
 
 
 def has_permission(issuer, action, kwargs):
@@ -105,7 +105,8 @@ def has_permission(issuer, action, kwargs):
             'resurrect': perm_resurrect,
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
             'get_ssh_challenge_token': perm_get_ssh_challenge_token,
-            'get_signed_url': perm_get_signed_url}
+            'get_signed_url': perm_get_signed_url,
+            'add_bad_pfns': perm_add_bad_pfns}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -690,7 +691,7 @@ def perm_declare_bad_file_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    is_cloud_admin = bool(list(filter(lambda x: (x['key'].startswith('cloud-')) and (x['value'] == 'admin'), list_account_attributes(account=issuer))))
+    is_cloud_admin = bool([acc_attr for acc_attr in list_account_attributes(account=issuer) if (acc_attr['key'].startswith('cloud-')) and (acc_attr['value'] == 'admin')])
     return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
 
 
@@ -994,3 +995,19 @@ def perm_get_signed_url(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return issuer == 'root' or has_account_attribute(account=issuer, key='sign-gcs')
+
+
+def perm_add_bad_pfns(issuer, kwargs):
+    """
+    Checks if an account can declare bad PFNs.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if kwargs['state'] in [BadPFNStatus.BAD, BadPFNStatus.TEMPORARY_UNAVAILABLE]:
+        is_cloud_admin = bool([acc_attr for acc_attr in list_account_attributes(account=issuer) if (acc_attr['key'].startswith('cloud-')) and (acc_attr['value'] == 'admin')])
+        return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
+    elif kwargs['state'] == BadPFNStatus.SUSPICIOUS:
+        return True
+    return issuer == 'root'
