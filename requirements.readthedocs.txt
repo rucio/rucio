@@ -13,6 +13,7 @@ pysftp==0.2.9                                     # forces installation of param
 pycrypto==2.6.1                                   # Cryptographic modules
 s3cmd==2.0.2                                      # Package built from http://s3tools.org/download
 stomp.py==4.1.21                                  # ActiveMQ Messaging Protocol
+dnspython==1.15.0                                 # To resolve ActiveMQ broker alias
 pystatsd==0.1.10; python_version == '2.7'         # Needed to log into graphite with more than 1 Hz
 pygeoip==0.3.2                                    # GeoIP API
 geoip2==2.9.0                                     # GeoIP2 API (for IPv6 support)
@@ -40,7 +41,9 @@ paramiko==2.4.2                                   # SSH2 protocol library
 Flask==1.0.2                                      # Python web framework
 idna==2.8                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
 MyProxyClient==2.1.0                              # myproxy client bindings
+
 # All dependencies needed to run rucio client should be defined here
+
 setuptools>=36.8.0,<37.0.0                        # Python packaging utilities (36.8.0 last py2.6 compatible version)
 argparse>=1.4.0; python_version == '2.6'          # Command-line parsing library
 argcomplete>=1.9.0,<1.10.0                        # Bash tab completion for argparse
@@ -55,6 +58,7 @@ bz2file>=0.98,<0.99                               # Read and write bzip2-compres
 python-magic>=0.4.15,<0.5.0                       # File type identification using libmagic
 futures>=3.2.0; python_version < '3.0'            # Clean single-source support for Python 3 and 2
 six>=1.11.0                                       # Python 2 and 3 compatibility utilities
+
 # All dependencies needed to develop/test rucio should be defined here
 
 pinocchio==0.4.2            # Extensions for the 'nose' unit testing framework
