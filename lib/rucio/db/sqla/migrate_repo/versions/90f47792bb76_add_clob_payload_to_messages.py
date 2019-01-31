@@ -26,7 +26,7 @@ import sqlalchemy as sa
 
 # revision identifiers used by alembic
 revision = '90f47792bb76'       # pylint: disable=invalid-name
-down_revision = '9eb936a81eb1'  # pylint: disable=invalid-name
+down_revision = 'bf3baa1c1474'  # pylint: disable=invalid-name
 
 
 def upgrade():
