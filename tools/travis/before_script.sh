@@ -25,6 +25,7 @@ if [[ $RDBMS == "oracle" ]]; then
     docker exec -it oracle /bin/bash -c "/oracle_setup.sh"
     docker run -d --link oracle:oracle --link activemq:activemq --name=rucio rucio/rucio
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
+    docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_oracle.ini /opt/rucio/etc/alembic.ini
     docker exec -it rucio httpd -k start
 
 elif [[ $RDBMS == "mysql" ]]; then
@@ -33,6 +34,7 @@ elif [[ $RDBMS == "mysql" ]]; then
     sleep 100
     docker run -d --link mysql:mysql --link activemq:activemq --name=rucio rucio/rucio
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_mysql.cfg /opt/rucio/etc/rucio.cfg
+    docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_mysql.ini /opt/rucio/etc/alembic.ini
     docker exec -it rucio httpd -k start
 
 
@@ -42,12 +44,14 @@ elif [[ $RDBMS == "postgres" ]]; then
     sleep 100
     docker run -d --link postgres:postgres --link activemq:activemq --name=rucio rucio/rucio
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
+    docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_postgres.ini /opt/rucio/etc/alembic.ini
     docker exec -it rucio httpd -k start
 
 
 elif [[ $RDBMS == "sqlite" ]]; then
     docker run -d -p 443:443  --name=rucio rucio/rucio
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_sqlite.cfg /opt/rucio/etc/rucio.cfg
+    docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_sqlite.ini /opt/rucio/etc/alembic.ini
     docker exec -it rucio httpd -k start
 fi
 
