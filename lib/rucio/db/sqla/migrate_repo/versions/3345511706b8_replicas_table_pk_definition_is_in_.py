@@ -27,7 +27,7 @@ from alembic import context
 
 # revision identifiers used by alembic
 revision = '3345511706b8'       # pylint: disable=invalid-name
-down_revision = 'bf3baa1c1474'  # pylint: disable=invalid-name
+down_revision = '01eaf73ab656'  # pylint: disable=invalid-name
 
 
 def upgrade():
