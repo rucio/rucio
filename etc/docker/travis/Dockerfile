@@ -54,7 +54,6 @@ RUN pip install --upgrade setuptools
 # Install Rucio + dependencies
 RUN pip install .[oracle,postgresql,mysql,kerberos,dev]
 
-RUN cp etc/alembic.ini.template etc/alembic.ini
 RUN cp etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
 RUN cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 
