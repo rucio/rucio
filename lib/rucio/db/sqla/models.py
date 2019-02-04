@@ -228,10 +228,6 @@ class ModelBase(object):
         n = next(self._i).name
         return n, getattr(self, n)
 
-    def next(self):
-        n = next(self._i).name
-        return n, getattr(self, n)
-
     def keys(self):
         return list(self.__dict__.keys())
 
@@ -243,6 +239,8 @@ class ModelBase(object):
 
     def to_dict(self):
         return self.__dict__.copy()
+
+    next = __next__
 
 
 class SoftModelBase(ModelBase):
