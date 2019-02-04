@@ -17,7 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
@@ -42,7 +42,7 @@ from geoip2.errors import AddressNotFoundError
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
                                delete_replicas,
                                get_did_from_pfns, update_replicas_states,
-                               declare_bad_file_replicas, add_bad_pfns,
+                               declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
                                get_bad_replicas_summary, list_datasets_per_rse)
 from rucio.db.sqla.constants import BadFilesStatus
@@ -53,20 +53,20 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.schema import SCOPE_NAME_REGEXP
-from rucio.common.utils import generate_http_error, parse_response, APIEncoder
+from rucio.common.utils import generate_http_error, parse_response, APIEncoder, render_json_list
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
 
 URLS = ('/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
+        '/suspicious/?$', 'SuspiciousReplicas',
         '/bad/states/?$', 'BadReplicasStates',
         '/bad/summary/?$', 'BadReplicasSummary',
         '/bad/pfns/?$', 'BadPFNs',
         '/rse/(.*)/?$', 'ReplicasRSE',
-        '%s/datasets$' % SCOPE_NAME_REGEXP, 'DatasetReplicas',
-        '%s/?$' % SCOPE_NAME_REGEXP, 'Replicas',
         '/bad/?$', 'BadReplicas',
-        '/suspicious/?$', 'SuspiciousReplicas',
-        '/dids/?$', 'ReplicasDIDs')
+        '/dids/?$', 'ReplicasDIDs',
+        '%s/datasets$' % SCOPE_NAME_REGEXP, 'DatasetReplicas',
+        '%s/?$' % SCOPE_NAME_REGEXP, 'Replicas')
 
 
 class Replicas(RucioController):
@@ -555,6 +555,42 @@ class SuspiciousReplicas(RucioController):
             print(format_exc())
             raise InternalError(error)
         raise Created(dumps(not_declared_files))
+
+    def GET(self):
+        """
+        List the suspicious replicas on a lsit of RSEs.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            500 InternalError
+
+        """
+        header('Content-Type', 'application/json')
+        result = []
+        rse_expression, younger_than, nattempts = None, None, None
+        if ctx.query:
+            try:
+                params = loads(unquote(ctx.query[1:]))
+            except ValueError:
+                params = parse_qs(ctx.query[1:])
+            print(params)
+            if 'rse_expression' in params:
+                rse_expression = params['rse_expression'][0]
+            if 'younger_than' in params:
+                younger_than = datetime.strptime(params['younger_than'][0], "%Y-%m-%dT%H:%M:%S")
+            if 'nattempts' in params:
+                nattempts = int(params['nattempts'][0])
+
+        try:
+            result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+        return render_json_list(result)
 
 
 class BadReplicasStates(RucioController):
