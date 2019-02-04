@@ -2606,7 +2606,7 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
 
     :returns: True is successful.
     """
-    if isinstance(state, str) or isinstance(state, unicode):
+    if isinstance(state, string_types):
         rep_state = ReplicaState.from_sym(state)
 
     pfns = clean_surls(pfns)
