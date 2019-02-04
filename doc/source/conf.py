@@ -33,7 +33,7 @@ class Mock(MagicMock):
         return Mock()
 
 
-MOCK_MODULES = ['pycurl', 'M2Crypto']
+MOCK_MODULES = ['pycurl', 'M2Crypto', 'fts3', 'fts3.rest', 'fts3.rest.client', 'fts3.rest.client.easy', 'fts3.rest.client.exceptions']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- General configuration ------------------------------------------------
