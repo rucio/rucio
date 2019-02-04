@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
 #
@@ -232,3 +232,13 @@ def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None):
     if not permission.has_permission(issuer=issuer, action='add_bad_pfns', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not declare bad PFNs' % (issuer))
     return replica.add_bad_pfns(pfns=pfns, account=issuer, state=state, reason=reason, expires_at=expires_at)
+
+
+def get_suspicious_files(rse_expression, younger_than=None, nattempts=None):
+    """
+    List the list of suspicious files on a list of RSEs
+    :param rse_expression: The RSE expression where the suspicious files are located
+    :param younger_than: datetime object to select the suspicious replicas younger than this date.
+    :param nattempts: The number of time the replicas have been declared suspicious
+    """
+    return replica.get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
