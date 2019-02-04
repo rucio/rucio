@@ -52,9 +52,9 @@ class TestAbacusAccount():
 
     def test_abacus_account(self):
         """ ABACUS (ACCOUNT): Test update of account usage """
-        self.session.query(models.UpdatedAccountCounter).delete()
-        self.session.query(models.AccountUsage).delete()
-        self.session.commit()
+        self.session.query(models.UpdatedAccountCounter).delete()  # pylint: disable=no-member
+        self.session.query(models.AccountUsage).delete()  # pylint: disable=no-member
+        self.session.commit()  # pylint: disable=no-member
 
         # Upload files -> account usage should increase
         self.files = [{'did_scope': self.scope, 'did_name': 'file_' + generate_uuid(), 'path': file_generator(size=self.file_sizes), 'rse': self.rse, 'lifetime': -1} for i in range(0, 2)]

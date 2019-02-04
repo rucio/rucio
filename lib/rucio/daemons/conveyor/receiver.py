@@ -18,6 +18,8 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -25,18 +27,18 @@
 Conveyor is a daemon to manage file transfers.
 """
 
+from __future__ import division
+
 import datetime
 import json
 import logging
 import os
 import socket
-import ssl
 import sys
 import threading
 import time
 import traceback
 
-import dns.resolver
 import stomp
 
 from rucio.common.config import config_get, config_get_int
@@ -200,8 +202,8 @@ def receiver(id, total_threads=1, full_mode=False):
 
     brokers_resolved = []
     for broker in brokers_alias:
-        brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
-    brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+        brokers_resolved.extend(ai[4][0] for ai in addrinfos)
 
     logging.info('brokers resolved to %s', brokers_resolved)
 
@@ -211,7 +213,7 @@ def receiver(id, total_threads=1, full_mode=False):
                                       use_ssl=True,
                                       ssl_key_file=config_get('messaging-fts3', 'ssl_key_file'),
                                       ssl_cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
-                                      ssl_version=ssl.PROTOCOL_TLSv1,
+                                      vhost=config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False),
                                       reconnect_attempts_max=999))
 
     logging.info('receiver started')

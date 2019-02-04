@@ -7,10 +7,15 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 C3PO PanDA workload collector
 """
+
+from __future__ import division
 
 import logging
 from json import loads
@@ -93,7 +98,7 @@ class WorkloadCollector(object):
         return self.instance._cur_jobs[site]
 
     def get_sites(self):
-        return self.instance._avg_jobs.keys()
+        return list(self.instance._avg_jobs.keys())
 
     def get_job_info(self, site):
         return (self.get_cur_jobs(site), self.get_avg_jobs(site), self.get_max_jobs(site))

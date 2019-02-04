@@ -6,16 +6,20 @@
 #
 # Authors:
 # - Fernando Lopez, <felopez@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
+
 import logging
 
 logger = logging.getLogger('rucio_dumps')
 
 
 def prefix(agis_data, endpoint_name):
-    ddmendpoint_data = filter(
+    ddmendpoint_data = list(filter(
         lambda d: d['name'] == endpoint_name,
         agis_data,
-    )[0]
+    ))[0]
     return ddmendpoint_data['endpoint']
 
 

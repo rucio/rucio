@@ -9,6 +9,11 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
+
+from __future__ import division
 
 import datetime
 import json

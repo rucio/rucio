@@ -17,6 +17,9 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
 
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
@@ -33,6 +36,7 @@ import traceback
 from datetime import datetime, timedelta
 from re import match
 from random import randint
+from six import iteritems
 
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm.exc import FlushError
@@ -76,7 +80,7 @@ def re_evaluator(once=False):
             start = time.time()  # NOQA
 
             # Refresh paused dids
-            paused_dids = dict((k, v) for k, v in paused_dids.iteritems() if datetime.utcnow() < v)
+            paused_dids = dict((k, v) for k, v in iteritems(paused_dids) if datetime.utcnow() < v)
 
             # Select a bunch of dids for re evaluation for this worker
             dids = get_updated_dids(total_workers=heartbeat['nr_threads'] - 1,
@@ -110,9 +114,9 @@ def re_evaluator(once=False):
                         logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name, time.time() - start_time))
                         delete_updated_did(id=did.id)
                         done_dids['%s:%s' % (did.scope, did.name)].append(did.rule_evaluation_action)
-                    except DataIdentifierNotFound, e:
+                    except DataIdentifierNotFound as e:
                         delete_updated_did(id=did.id)
-                    except (DatabaseException, DatabaseError), e:
+                    except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_dids[(did.scope, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                             logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name))
@@ -126,13 +130,13 @@ def re_evaluator(once=False):
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                    except ReplicationRuleCreationTemporaryFailed, e:
+                    except ReplicationRuleCreationTemporaryFailed as e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         logging.warning('re_evaluator[%s/%s]: Replica Creation temporary failed, retrying later for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name))
-                    except FlushError, e:
+                    except FlushError as e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         logging.warning('re_evaluator[%s/%s]: Flush error for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name))
-        except (DatabaseException, DatabaseError), e:
+        except (DatabaseException, DatabaseError) as e:
             if match('.*QueuePool.*', str(e.args[0])):
                 logging.warning(traceback.format_exc())
                 record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
@@ -142,7 +146,7 @@ def re_evaluator(once=False):
             else:
                 logging.critical(traceback.format_exc())
                 record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-        except Exception, e:
+        except Exception as e:
             logging.critical(traceback.format_exc())
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
 
@@ -172,7 +176,7 @@ def run(once=False, threads=1):
         re_evaluator(once)
     else:
         logging.info('Evaluator starting %s threads' % str(threads))
-        threads = [threading.Thread(target=re_evaluator, kwargs={'once': once}) for i in xrange(0, threads)]
+        threads = [threading.Thread(target=re_evaluator, kwargs={'once': once}) for i in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

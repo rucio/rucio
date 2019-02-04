@@ -15,6 +15,9 @@ Authors:
 - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
 - Martin Barisits, <martin.barisits@cern.ch>, 2018
 - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+- Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+
+PY3K COMPATIBLE
 
 This module defines the base class for implementing a transfer protocol,
 along with some of the default methods for LFN2PFN translations.
@@ -22,8 +25,15 @@ along with some of the default methods for LFN2PFN translations.
 
 import hashlib
 
-from urlparse import urlparse
-from ConfigParser import NoOptionError, NoSectionError
+try:
+    # PY2
+    from ConfigParser import NoOptionError, NoSectionError
+    from urlparse import urlparse
+except ImportError:
+    # PY3
+    from configparser import NoOptionError, NoSectionError
+    from urllib.parse import urlparse
+from six import string_types
 
 from rucio.common import config, exception
 from rucio.rse import rsemanager
@@ -284,7 +294,7 @@ class RSEProtocol(object):
             :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
         ret = dict()
-        pfns = [pfns] if (isinstance(pfns, str) or isinstance(pfns, unicode)) else pfns
+        pfns = [pfns] if isinstance(pfns, string_types) else pfns
 
         for pfn in pfns:
             parsed = urlparse(pfn)

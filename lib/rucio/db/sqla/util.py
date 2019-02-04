@@ -8,7 +8,11 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017-2018
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
+from __future__ import print_function
 from datetime import datetime
 from traceback import format_exc
 
@@ -82,17 +86,17 @@ def drop_everything(echo=True):
 
     for fkc in all_fks:
         try:
-            print str(DropConstraint(fkc)) + ';'
+            print(str(DropConstraint(fkc)) + ';')
             conn.execute(DropConstraint(fkc))
         except:
-            print format_exc()
+            print(format_exc())
 
     for table in tbs:
         try:
-            print str(DropTable(table)).strip() + ';'
+            print(str(DropTable(table)).strip() + ';')
             conn.execute(DropTable(table))
         except:
-            print format_exc()
+            print(format_exc())
 
     trans.commit()
 

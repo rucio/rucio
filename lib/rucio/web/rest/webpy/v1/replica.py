@@ -42,12 +42,12 @@ from geoip2.errors import AddressNotFoundError
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
                                delete_replicas,
                                get_did_from_pfns, update_replicas_states,
-                               declare_bad_file_replicas, get_suspicious_files,
+                               declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
                                get_bad_replicas_summary, list_datasets_per_rse)
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.common.config import config_get
-from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
+from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
@@ -61,6 +61,7 @@ URLS = ('/list/?$', 'ListReplicas',
         '/suspicious/?$', 'SuspiciousReplicas',
         '/bad/states/?$', 'BadReplicasStates',
         '/bad/summary/?$', 'BadReplicasSummary',
+        '/bad/pfns/?$', 'BadPFNs',
         '/rse/(.*)/?$', 'ReplicasRSE',
         '/bad/?$', 'BadReplicas',
         '/dids/?$', 'ReplicasDIDs',
@@ -466,6 +467,8 @@ class ReplicasDIDs(RucioController):
         try:
             for pfn in get_did_from_pfns(pfns, rse):
                 yield dumps(pfn) + '\n'
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -484,6 +487,7 @@ class BadReplicas(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            404 Not Found
             500 InternalError
 
         """
@@ -502,6 +506,8 @@ class BadReplicas(RucioController):
         not_declared_files = {}
         try:
             not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=ctx.env.get('issuer'))
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
         except ReplicaNotFound as error:
             raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
         except RucioException as error:
@@ -541,8 +547,8 @@ class SuspiciousReplicas(RucioController):
         not_declared_files = {}
         try:
             not_declared_files = declare_suspicious_file_replicas(pfns=pfns, reason=reason, issuer=ctx.env.get('issuer'))
-        except ReplicaNotFound as error:
-            raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -731,6 +737,60 @@ class ReplicasRSE(RucioController):
         except Exception as error:
             print(format_exc())
             raise InternalError(error)
+
+
+class BadPFNs(RucioController):
+
+    def POST(self):
+        """
+        Declare a list of bad PFNs.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            400 BadRequest
+            401 Unauthorized
+            409 Conflict
+            500 InternalError
+
+        """
+        json_data = data()
+        pfns = []
+        reason = None
+        state = None
+        expires_at = None
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            params = parse_response(json_data)
+            if 'pfns' in params:
+                pfns = params['pfns']
+            if 'reason' in params:
+                reason = params['reason']
+            if 'state' in params:
+                state = params['state']
+            if 'expires_at' in params:
+                expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
+
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            add_bad_pfns(pfns=pfns, issuer=ctx.env.get('issuer'), state=state, reason=reason, expires_at=expires_at)
+        except (ValueError, InvalidType) as error:
+            raise generate_http_error(400, 'ValueError', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except ReplicaNotFound as error:
+            raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+        raise Created()
 
 
 """----------------------

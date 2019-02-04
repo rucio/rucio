@@ -18,6 +18,11 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
+
+from __future__ import division
 
 import logging
 import socket

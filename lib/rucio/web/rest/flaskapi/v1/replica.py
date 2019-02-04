@@ -35,11 +35,11 @@ from geoip2.errors import AddressNotFoundError
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
                                delete_replicas,
                                get_did_from_pfns, update_replicas_states,
-                               declare_bad_file_replicas, get_suspicious_files,
+                               declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
                                get_bad_replicas_summary, list_datasets_per_rse)
 from rucio.db.sqla.constants import BadFilesStatus
-from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
+from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
@@ -712,6 +712,65 @@ class ReplicasRSE(MethodView):
             return error, 500
 
 
+class BadPFNs(MethodView):
+
+    def post(self):
+        """
+        Declare a list of bad PFNs.
+
+        .. :quickref: BadPFNs; Declare bad replicas.
+
+        :<json string pfns: The list of PFNs.
+        :<json string reason: The reason of the loss.
+        :<json string state: The state is eiher BAD, SUSPICIOUS or TEMPORARY_UNAVAILABLE.
+        :<json string expires_at: The expiration date. Only apply to TEMPORARY_UNAVAILABLE.
+        :resheader Content-Type: application/x-json-string
+        :status 201: Created.
+        :status 400: Cannot decode json parameter list.
+        :status 401: Invalid auth token.
+        :status 404: Replica not found.
+        :status 500: Internal Error.
+        :returns: A list of not successfully declared files.
+        """
+
+        json_data = request.data
+        pfns = []
+        reason = None
+        state = None
+        expires_at = None
+        try:
+            params = parse_response(json_data)
+            if 'pfns' in params:
+                pfns = params['pfns']
+            if 'reason' in params:
+                reason = params['reason']
+            if 'reason' in params:
+                reason = params['reason']
+            if 'state' in params:
+                reason = params['state']
+            if 'expires_at' in params:
+                expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            add_bad_pfns(pfns=pfns, issuer=request.environ.get('issuer'), state=state, reason=reason, expires_at=expires_at)
+        except (ValueError, InvalidType) as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
+        except Duplicate as error:
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+        return 'Created', 201
+
+
 bp = Blueprint('did', __name__)
 
 list_replicas_view = ListReplicas.as_view('list_replicas')
@@ -725,6 +784,8 @@ bad_replicas_states_view = BadReplicasStates.as_view('bad_replicas_states')
 bp.add_url_rule('/bad/states', view_func=bad_replicas_states_view, methods=['get', ])
 bad_replicas_summary_view = BadReplicasSummary.as_view('bad_replicas_summary')
 bp.add_url_rule('/bad/summary', view_func=bad_replicas_summary_view, methods=['get', ])
+bad_replicas_pfn_view = BadPFNs.as_view('add_bad_pfns')
+bp.add_url_rule('/bad/pfns', view_func=bad_replicas_pfn_view, methods=['post', ])
 replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
 bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
 dataset_replicas_view = DatasetReplicas.as_view('dataset_replicas')

@@ -16,6 +16,10 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
 
 """
 Core tracer module
@@ -26,8 +30,8 @@ import logging
 import logging.handlers
 import random
 import sys
+import socket
 
-import dns.resolver
 import stomp
 
 from rucio.common.config import config_get, config_get_int
@@ -61,6 +65,7 @@ try:
     TOPIC = config_get('trace', 'topic')
     USERNAME = config_get('trace', 'username')
     PASSWORD = config_get('trace', 'password')
+    VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
 except:
     if 'sphinx' not in sys.modules:
         raise
@@ -69,15 +74,15 @@ logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 for broker in BROKERS_ALIAS:
     try:
-        BROKERS_RESOLVED.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
-        BROKERS_RESOLVED = [item for sublist in BROKERS_RESOLVED for item in sublist]
+        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+        BROKERS_RESOLVED = [ai[4][0] for ai in addrinfos]
     except:
         pass
 
 CONNS = []
 
 for broker in BROKERS_RESOLVED:
-    CONNS.append(stomp.Connection(host_and_ports=[(broker, PORT)], reconnect_attempts_max=3))
+    CONNS.append(stomp.Connection(host_and_ports=[(broker, PORT)], vhost=VHOST, reconnect_attempts_max=3))
 
 
 def date_handler(obj):
@@ -99,14 +104,14 @@ def trace(payload):
     t_conns = CONNS[:]
 
     try:
-        for i in xrange(len(t_conns)):
+        for i in range(len(t_conns)):
             try:
                 conn = random.sample(t_conns, 1)[0]
                 if not conn.is_connected():
                     logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
                     conn.start()
                     conn.connect(USERNAME, PASSWORD)
-            except stomp.exception.NotConnectedException, error:
+            except stomp.exception.NotConnectedException as error:
                 logging.warn('Could not connect to broker %s, try another one' %
                              conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)
@@ -121,5 +126,5 @@ def trace(payload):
             conn.send(body=report, destination=TOPIC, headers={'persistent': 'true', 'appversion': 'rucio'})
         else:
             logging.error("Unable to connect to broker. Could not send trace: %s" % report)
-    except Exception, error:
+    except Exception as error:
         logging.error(error)

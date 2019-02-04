@@ -11,11 +11,26 @@
 # - Wen Guan, <wguan@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2017
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
-import commands
 import os
 import re
-import urlparse
+try:
+    # PY2
+    import urlparse
+except ImportError:
+    # PY3
+    import urllib.parse as urlparse
+
+try:
+    # PY2
+    from commands import getstatusoutput
+except ImportError:
+    # PY3
+    from subprocess import getstatusoutput
+from six import string_types
 
 from rucio.common import exception
 from rucio.common.utils import execute
@@ -84,7 +99,7 @@ class Default(protocol.RSEProtocol):
         """
 
         ret = dict()
-        pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
+        pfns = [pfns] if isinstance(pfns, string_types) else pfns
         for pfn in pfns:
             parsed = urlparse.urlparse(pfn)
             if parsed.path.startswith('/srm/managerv2') or\
@@ -173,11 +188,11 @@ class Default(protocol.RSEProtocol):
         :raises RSEAccessDenied: Cannot connect.
         """
 
-        status, lcglscommand = commands.getstatusoutput('which lcg-ls')
+        status, lcglscommand = getstatusoutput('which lcg-ls')
         if status:
             raise exception.RSEAccessDenied('Cannot find lcg tools')
         endpoint_basepath = self.path2pfn(self.attributes['prefix'])
-        status, result = commands.getstatusoutput('%s -vv $LCGVO -b --srm-timeout 60 -D srmv2 -l %s' % (lcglscommand, endpoint_basepath))
+        status, result = getstatusoutput('%s -vv $LCGVO -b --srm-timeout 60 -D srmv2 -l %s' % (lcglscommand, endpoint_basepath))
         if status:
             if result == '':
                 raise exception.RSEAccessDenied('Endpoint not reachable. lcg-ls failed with status code %s but no further details.' % (str(status)))
@@ -257,7 +272,7 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
-        pfns = [path] if ((type(path) == str) or (type(path) == unicode)) else path
+        pfns = [path] if isinstance(path, string_types) else path
 
         try:
             pfn_chunks = [pfns[i:i + 20] for i in range(0, len(pfns), 20)]

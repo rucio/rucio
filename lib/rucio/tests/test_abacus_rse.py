@@ -51,9 +51,9 @@ class TestAbacusRSE():
     def test_abacus_rse(self):
         """ ABACUS (RSE): Test update of RSE usage. """
         # Get RSE usage of all sources
-        self.session.query(models.UpdatedRSECounter).delete()
-        self.session.query(models.RSEUsage).delete()
-        self.session.commit()
+        self.session.query(models.UpdatedRSECounter).delete()  # pylint: disable=no-member
+        self.session.query(models.RSEUsage).delete()  # pylint: disable=no-member
+        self.session.commit()  # pylint: disable=no-member
 
         # Upload files -> RSE usage should increase
         self.files = [{'did_scope': self.scope, 'did_name': 'file_' + generate_uuid(), 'path': file_generator(size=self.file_sizes), 'rse': self.rse, 'lifetime': -1} for i in range(0, 2)]

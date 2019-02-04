@@ -6,10 +6,15 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 OS injector is a daemon to inject OS files for deletion
 """
+
+from __future__ import division
 
 import datetime
 import dateutil.parser

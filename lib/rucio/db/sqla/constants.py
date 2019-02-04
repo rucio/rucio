@@ -7,8 +7,8 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2019
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2018
 # - Wen Guan, <wen.guan>, 2016
 #
 # PY3K COMPATIBLE
@@ -45,6 +45,14 @@ class BadFilesStatus(DeclEnum):
     LOST = 'L', 'LOST'
     RECOVERED = 'R', 'RECOVERED'
     SUSPICIOUS = 'S', 'SUSPICIOUS'
+    TEMPORARY_UNAVAILABLE = 'T', 'TEMPORARY_UNAVAILABLE'
+
+
+class BadPFNStatus(DeclEnum):
+    BAD = 'B', 'BAD'
+    SUSPICIOUS = 'S', 'SUSPICIOUS'
+    TEMPORARY_UNAVAILABLE = 'T', 'TEMPORARY_UNAVAILABLE'
+    AVAILABLE = 'A', 'AVAILABLE'
 
 
 class DIDAvailability(DeclEnum):
@@ -118,6 +126,7 @@ class ReplicaState(DeclEnum):
     BEING_DELETED = 'B', 'BEING_DELETED'
     BAD = 'D', 'BAD'
     SOURCE = 'S', 'SOURCE'
+    TEMPORARY_UNAVAILABLE = 'T', 'TEMPORARY_UNAVAILABLE'
 
 
 class RequestErrMsg(DeclEnum):
@@ -166,6 +175,7 @@ class RuleNotification(DeclEnum):
     YES = 'Y', 'YES'
     NO = 'N', 'NO'
     CLOSE = 'C', 'CLOSE'
+    PROGRESS = 'P', 'PROGRESS'
 
 
 class RuleState(DeclEnum):
