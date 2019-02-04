@@ -1,84 +1,83 @@
-# All dependencies needed to run rucio are defined here
+# All dependencies needed to run rucio should be defined here
 
-SQLAlchemy==1.2.7                                 # db backend
-alembic==0.9.9                                    # Lightweight database migration tool for SQLAlchemy
+SQLAlchemy==1.2.16                                # db backend
+alembic==1.0.6                                    # Lightweight database migration tool for SQLAlchemy
 Mako==1.0.7                                       # Templating language - Dependency of alembic
 python-editor==1.0.3                              # Programmatically open an editor, capture the result
 flup==1.0.3                                       # Needed to deploy web.py in lighthttpd
 web.py==0.39                                      # Python web framework
 python-memcached==1.59                            # Quick and small memcached client for Python
 jsonschema==2.6.0                                 # JSON Schema
-python-dateutil==2.7.2                            # Extensions to the standard datetime module
+python-dateutil==2.7.5                            # Extensions to the standard datetime module
 pysftp==0.2.9                                     # forces installation of paramikoi and pycrypto
 pycrypto==2.6.1                                   # Cryptographic modules
-s3cmd==2.0.1                                      # Package built from http://s3tools.org/download
-stomp.py==4.1.20                                  # ActiveMQ Messaging Protocol
-dnspython==1.15.0                                 # To resolve ActiveMQ broker alias
+s3cmd==2.0.2                                      # Package built from http://s3tools.org/download
+stomp.py==4.1.21                                  # ActiveMQ Messaging Protocol
 pystatsd==0.1.10; python_version == '2.7'         # Needed to log into graphite with more than 1 Hz
 pygeoip==0.3.2                                    # GeoIP API
-geoip2==2.8.0                                     # GeoIP2 API (for IPv6 support)
+geoip2==2.9.0                                     # GeoIP2 API (for IPv6 support)
 ipaddress==1.0.22                                 # IPv4/IPv6 manipulation library - Dependency of geoip2
-maxminddb==1.3.0                                  # extension for reading the MaxMind DB format - Dependency of geoip2
+maxminddb==1.4.1                                  # extension for reading the MaxMind DB format - Dependency of geoip2
 cffi==1.11.5                                      # Foreign Function Interface for Python calling C code
-pycparser==2.18                                   # C parser in Python - Dependency of cffi
+pycparser==2.19                                   # C parser in Python - Dependency of cffi
 gcloud==0.18.3                                    # API Client library for Google Cloud
-googleapis-common-protos==1.5.3                   # Common protobufs used in Google APIs - Dependency of gcloud
-httplib2==0.11.3                                  # A comprehensive HTTP client library
-pyOpenSSL==18.0.0                                 # Python wrapper module around the OpenSSL library - Dependency of MyProxyClient
-cryptography==2.3.1                               # Cryptographic recipes and primitives - Dependency of pyOpenSSL
-oauth2client==4.1.2                               # OAuth 2.0 client library
-protobuf==3.5.2.post1                             # Protocol Buffers - Dependency of gcloud
-grpcio==1.11.0                                    # Package for gRPC Python.
+googleapis-common-protos==1.5.6                   # Common protobufs used in Google APIs - Dependency of gcloud
+httplib2==0.12.0                                  # A comprehensive HTTP client library
+pyOpenSSL==19.0.0                                 # Python wrapper module around the OpenSSL library - Dependency of MyProxyClient
+cryptography==2.4.2                               # Cryptographic recipes and primitives - Dependency of pyOpenSSL
+oauth2client==4.1.3                               # OAuth 2.0 client library
+protobuf==3.6.1                                   # Protocol Buffers - Dependency of gcloud
+grpcio==1.18.0                                    # Package for gRPC Python.
 enum34==1.1.6                                     # Python 3.4 Enum backported - Dependency of grpcio
-pyasn1==0.4.2                                     # Dependency of oauth2client
-pyasn1-modules==0.2.1                             # A collection of ASN.1-based protocols modules - Dependency of oauth2client
-rsa==3.4.2                                        # Pure-Python RSA implementation
+pyasn1==0.4.5                                     # Dependency of oauth2client
+pyasn1-modules==0.2.3                             # A collection of ASN.1-based protocols modules - Dependency of oauth2client
+rsa==4.0                                          # Pure-Python RSA implementation
 retrying==1.3.3                                   # general-purpose retrying library to simplify the task of adding retry behavior to just about anything
 functools32==3.2.3.post2; python_version == '2.7'    # explicitly needed on CC7
-redis==2.10.6                                     # Python client for Redis key-value store
+redis==3.0.1                                      # Python client for Redis key-value store
 numpy==1.14.2                                     # Numpy for forecasting T3C
 paramiko==2.4.2                                   # SSH2 protocol library
-Flask==0.12.4                                     # Python web framework
-idna==2.6                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
-MyProxyClient==2.0.1                              # myproxy client bindings
+Flask==1.0.2                                      # Python web framework
+idna==2.8                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
+MyProxyClient==2.1.0                              # myproxy client bindings
 # All dependencies needed to run rucio client should be defined here
-setuptools>=36.8.0                                # Python packaging utilities (36.8.0 last py2.6 compatible version)
+setuptools>=36.8.0,<37.0.0                        # Python packaging utilities (36.8.0 last py2.6 compatible version)
 argparse>=1.4.0; python_version == '2.6'          # Command-line parsing library
-argcomplete>=1.9.4                                # Bash tab completion for argparse
+argcomplete>=1.9.0,<1.10.0                        # Bash tab completion for argparse
 requests>=2.6.0,<2.20.0                           # Python HTTP for Humans.
 urllib3>=1.23,<1.24                               # HTTP library with thread-safe connection pooling, file post, etc.
-dogpile.cache>=0.6.5                              # Caching API plugins
+dogpile.cache>=0.6.5,<0.7.0                       # Caching API plugins
 nose>=1.3.7                                       # For rucio test-server
 boto>=2.48.0; python_version >= '2.7'             # S3 boto protocol
-tabulate>=0.8.2                                   # Pretty-print tabular data
-progressbar2>=3.37.1                              # Text progress bar
-bz2file>=0.98                                     # Read and write bzip2-compressed files.
-python-magic>=0.4.15                              # File type identification using libmagic
+tabulate>=0.8.0,<0.9.0                            # Pretty-print tabular data
+progressbar2>=3.37.1,<3.39.0                      # Text progress bar
+bz2file>=0.98,<0.99                               # Read and write bzip2-compressed files.
+python-magic>=0.4.15,<0.5.0                       # File type identification using libmagic
 futures>=3.2.0; python_version < '3.0'            # Clean single-source support for Python 3 and 2
 six>=1.11.0                                       # Python 2 and 3 compatibility utilities
 # All dependencies needed to develop/test rucio should be defined here
 
 pinocchio==0.4.2            # Extensions for the 'nose' unit testing framework
-Paste==2.0.3                # Utilities for web development in pyton
+Paste==3.0.6                # Utilities for web development in pyton
 unittest2==1.1.0            # backport of unittest lib in python 2.7
-coverage==4.4.2             # Nose module for test coverage
-Sphinx==1.6.5               # required to build documentation
-sphinx-rtd-theme==0.2.4     # Read the Docs theme for Sphinx
+coverage==4.5.2             # Nose module for test coverage
+Sphinx==1.8.3               # required to build documentation
+sphinx-rtd-theme==0.4.2     # Read the Docs theme for Sphinx
 Jinja2==2.10                # template engine
-sphinxcontrib-httpdomain==1.6.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
+sphinxcontrib-httpdomain==1.7.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
 stub==0.2.1; python_version == '2.7' # Temporarily modify callable behaviour and object attributes
 Pygments==2.2.0             # Python Syntax highlighter
 docutils==0.14              # Needed for sphinx
-pyflakes==1.6.0             # Passive checker of Python programs
+pyflakes==2.0.0             # Passive checker of Python programs
 flake8==3.5.0               # Wrapper around PyFlakes&pep8
-pylint==1.7.4; python_version >= '2.7' # static code analysis. Last release compatible with python 2.6
-virtualenv==15.1.0          # Virtual Python Environment builder
-tox==2.9.1                  # Automate and standardize testing in Python
-pytest==3.2.5
-pytest-xdist==1.20.1        # py.test xdist plugin for distributed testing and loop-on-failing modes
+pylint==1.9.4; python_version >= '2.7' # static code analysis. 1.9.4 last 2.7 compatible release
+virtualenv==16.2.0          # Virtual Python Environment builder
+tox==3.7.0                  # Automate and standardize testing in Python
+pytest==4.1.1
+pytest-xdist==1.26.0        # py.test xdist plugin for distributed testing and loop-on-failing modes
 xmltodict==0.11.0           # Makes working with XML feel like you are working with JSON
-pytz==2017.3                # World timezone definitions, modern and historical
-Babel==2.5.1                # Internationalization utilities - Dependency of sphinx
-subprocess32==3.2.7; python_version <= '3.0' # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
+pytz==2018.9                # World timezone definitions, modern and historical
+Babel==2.6.0                # Internationalization utilities - Dependency of sphinx
+subprocess32==3.5.3; python_version <= '3.0' # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
 pycodestyle==2.3.1          # New package replacing pep8
 mock==2.0.0                 # Mock package needed for readthedocs build for mocking pycurls
