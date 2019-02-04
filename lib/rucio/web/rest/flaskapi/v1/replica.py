@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
@@ -35,7 +35,7 @@ from geoip2.errors import AddressNotFoundError
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
                                delete_replicas,
                                get_did_from_pfns, update_replicas_states,
-                               declare_bad_file_replicas,
+                               declare_bad_file_replicas, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
                                get_bad_replicas_summary, list_datasets_per_rse)
 from rucio.db.sqla.constants import BadFilesStatus
@@ -44,7 +44,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
-from rucio.common.utils import generate_http_error_flask, parse_response, APIEncoder
+from rucio.common.utils import generate_http_error_flask, parse_response, APIEncoder, render_json_list
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 
 
@@ -535,6 +535,33 @@ class SuspiciousReplicas(MethodView):
             print(format_exc())
             return error, 500
         return Response(dumps(not_declared_files), status=201, content_type='application/x-json-stream')
+
+    def get(self):
+        """
+        List the suspicious replicas on a list of RSEs.
+
+        .. :quickref: SuspiciousReplicas; Get suspicious replicas.
+
+        :resheader Content-Type: application/json
+        :status 200: OK.
+        :status 500: Internal Error.
+        :returns: List of suspicious file replicas.
+        """
+        result = []
+        rse_expression = request.args.get('rse_expression', None)
+        younger_than = request.args.get('younger_than', None)
+        nattempts = request.args.get('nattempts', None)
+        if younger_than:
+            younger_than = datetime.strptime(younger_than, "%Y-%m-%dT%H:%M:%S.%f")
+
+        try:
+            result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+        return render_json_list(result)
 
 
 class BadReplicasStates(MethodView):
