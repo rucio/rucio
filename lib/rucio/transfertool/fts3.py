@@ -13,10 +13,11 @@
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
 # - Diego Ciangottini <diego.ciangottini@pg.infn.it>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
-from __future__ import absolute_import
+from __future__ import absolute_import, division
 import datetime
 import json
 try:

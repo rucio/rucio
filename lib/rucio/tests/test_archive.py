@@ -17,7 +17,9 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
 
 from nose.tools import assert_equal, assert_in, assert_not_in
 
@@ -82,7 +84,7 @@ class TestArchive(object):
 
         # archived files with replicas
         files_with_replicas = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
-                                'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+                                'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
         add_replicas(rse=rse, files=files_with_replicas, account='root')
         self.dc.add_files_to_archive(scope=scope, name=archive['name'], files=files_with_replicas)
 
@@ -100,7 +102,7 @@ class TestArchive(object):
 
         # archived files without replicas
         files = [{'scope': scope, 'name': 'norep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
-                  'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+                  'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
         self.dc.add_files_to_archive(scope=scope, name=archive['name'], files=files)
         res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files],
                                                         resolve_archives=True)]
@@ -143,7 +145,7 @@ class TestArchive(object):
 
         # archived files with replicas
         archived_file = [{'scope': scope, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
-                          'bytes': 4322, 'adler32': 'beefbeef'} for i in xrange(2)]
+                          'bytes': 4322, 'adler32': 'beefbeef'} for i in range(2)]
         self.dc.add_files_to_archive(scope=scope, name=archive1['name'], files=archived_file)
         self.dc.add_files_to_archive(scope=scope, name=archive2['name'], files=archived_file)
 

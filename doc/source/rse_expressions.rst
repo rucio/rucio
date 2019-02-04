@@ -12,19 +12,37 @@ Simple RSE Expressions
 ^^^^^^^^^^^^^^^^^^^^^^
 Rucio allows to test RSE Expressions, using the command **list-rses**. The most simple RSE Expression is the one containing the name of a particular RSE.
 
-1) The following expression only return a set containing a single RSE::
+1) The following expression returns all RSEs::
+     jbogadog@lxplus0058:~$ rucio list-rses --expression '*'
+     IFIC-LCG2_LOCALGROUPDISK
+     IFAE_PRODDISK
+     PIC_SCRATCHDISK
+     EELA-UNLP_SCRATCHDISK
+     CERN-PROD_TZDISK
+     BNL-OSG2_MCTAPE
+     BNL-OSG2_DATADISK
+     IN2P3-CC_MCTAPE
+     CERN-PROD_DERIVED
+     CERN-PROD_DATADISK
+     EELA-UNLP_DATADISK
+     UAM-LCG2_SCRATCHDISK
+     IFIC-LCG2_DATADISK
+     LIP-COIMBRA_LOCALGROUPDISK
+     ...
+
+2) Whereas the next expression only returns a set containing a single RSE::
 
     jbogadog@lxplus0058:~$ rucio list-rses --expression EELA-UNLP_SCRATCHDISK
     EELA-UNLP_SCRATCHDISK
 
-2) Another simple RSE Expression allows to list the set of all the RSEs in a particular site::
+3) Another simple RSE Expression allows to list the set of all the RSEs in a particular site::
 
     jbogadog@lxplus0058:~$ rucio list-rses --expression site=EELA-UNLP
     EELA-UNLP_PRODDISK
     EELA-UNLP_DATADISK
     EELA-UNLP_SCRATCHDISK
 
-3) Or all the RSEs who's type is SCRATCHDISK::
+4) Or all the RSEs who's type is SCRATCHDISK::
 
     jbogadog@lxplus0058:~$ rucio list-rses --expression type=SCRATCHDISK
     UNI-SIEGEN-HEP_SCRATCHDISK
@@ -35,7 +53,7 @@ Rucio allows to test RSE Expressions, using the command **list-rses**. The most 
     FMPHI-UNIBA_SCRATCHDISK
     INFN-FRASCATI_SCRATCHDISK
 
-4) Or all the Spanish sites::
+5) Or all the Spanish sites::
 
     jbogadog@lxplus0058:~$ rucio list-rses --expression SPAINSITES
     IFIC-LCG2_LOCALGROUPDISK
@@ -48,7 +66,7 @@ Rucio allows to test RSE Expressions, using the command **list-rses**. The most 
     IFIC-LCG2_DATADISK
     LIP-COIMBRA_LOCALGROUPDISK
 
-5) Also numerical comparisons with < and > are possible::
+6) Also numerical comparisons with < and > are possible::
 
      jbogadog@lxplus0058:~$ rucio list-rses --expression "freespace>3000"
      CERN-PROD_TZDISK
@@ -60,8 +78,8 @@ Rucio allows to test RSE Expressions, using the command **list-rses**. The most 
 
 Note that if the RSE Expression returns an empty set, Rucio returns an error as an RSE Expression must resolve to at least one RSE. Thus, an error does not necessarily mean that the syntax of the expression is wrong, it might just result into an empty list.
 
-In 2) and 3), the RSE Expression refers to an attribute in the RSE that must be equal to a given value to match the expression.
-While in 1) and 4), the expression matches an RSE if the attribute is True. In 5) a numerical term is used to resolve all RSEs with more than 3000 TB free space.
+In 3) and 4), the RSE Expression refers to an attribute in the RSE that must be equal to a given value to match the expression.
+While in 2) and 5), the expression matches an RSE if the attribute is True. In 6) a numerical term is used to resolve all RSEs with more than 3000 TB free space.
 It is possible to see the list of attributes for a particular RSE with Rucio::
 
   jbogadog@lxplus0100:~$ rucio list-rse-attributes EELA-UNLP_SCRATCHDISK

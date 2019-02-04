@@ -22,13 +22,16 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
-
 
 """
 Methods common to different conveyor submitter daemons.
 """
+
+from __future__ import division
+
 import datetime
 import logging
 import time

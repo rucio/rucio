@@ -7,11 +7,13 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -95,7 +97,8 @@ def has_permission(issuer, action, kwargs):
             'resurrect': perm_resurrect,
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
             'get_ssh_challenge_token': perm_get_ssh_challenge_token,
-            'get_signed_url': perm_get_signed_url}
+            'get_signed_url': perm_get_signed_url,
+            'add_bad_pfns': perm_add_bad_pfns}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -544,8 +547,8 @@ def perm_declare_bad_file_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    is_cloud_admin = bool(filter(lambda x: (x['key'].startswith('cloud-')) and (x['value'] == 'admin'),
-                                 list_account_attributes(account=issuer)))
+    is_cloud_admin = bool(list(filter(lambda x: (x['key'].startswith('cloud-')) and (x['value'] == 'admin'),
+                                      list_account_attributes(account=issuer))))
     return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
 
 
@@ -829,5 +832,16 @@ def perm_get_signed_url(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_add_bad_pfns(issuer, kwargs):
+    """
+    Checks if an account can declare bad PFNs.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'

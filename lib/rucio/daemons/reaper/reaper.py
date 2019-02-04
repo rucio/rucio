@@ -17,11 +17,16 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 '''
 Reaper is a daemon to manage file deletion.
 '''
+
+from __future__ import print_function, division
 
 import datetime
 import hashlib
@@ -327,7 +332,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
             time.sleep(1)
 
-        except DatabaseException, error:
+        except DatabaseException as error:
             logging.warning('Reaper:  %s', str(error))
         except:
             logging.critical(traceback.format_exc())
@@ -389,8 +394,8 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     threads = []
     nb_rses_per_worker = int(math.ceil(len(rses) / float(total_workers))) or 1
     rses = random.sample(rses, len(rses))
-    for worker in xrange(total_workers):
-        for child in xrange(threads_per_worker or 1):
+    for worker in range(total_workers):
+        for child in range(threads_per_worker or 1):
             rses_list = rses[worker * nb_rses_per_worker: worker * nb_rses_per_worker + nb_rses_per_worker]
             if not rses_list:
                 logging.warning('Reaper: Empty RSEs list for worker %(worker)s' % locals())

@@ -9,7 +9,12 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+
+ PY3K COMPATIBLE
 '''
+
+from six import iteritems
 
 from sqlalchemy import Table, ForeignKeyConstraint
 from sqlalchemy import event
@@ -63,7 +68,7 @@ def _history_mapper(local_mapper):
                 polymorphic_on = col
 
         if super_fks:
-            cols.append(ForeignKeyConstraint(*zip(*super_fks)))
+            cols.append(ForeignKeyConstraint(*list(zip(*super_fks))))
 
         table = Table(local_mapper.local_table.name + '_history', local_mapper.local_table.metadata, *cols)
     else:
@@ -167,7 +172,7 @@ def create_version(obj, session, deleted=False):
     #    return
 
     hist = history_cls()
-    for key, value in attr.iteritems():
+    for key, value in iteritems(attr):
         setattr(hist, key, value)
     session.add(hist)
 

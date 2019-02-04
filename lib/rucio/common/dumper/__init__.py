@@ -17,6 +17,9 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 from rucio.common import config
 
@@ -85,7 +88,7 @@ def mkdir(dir):
     '''
     try:
         os.mkdir(dir)
-    except OSError, error:
+    except OSError as error:
         assert error.errno == 17
 
 
@@ -330,7 +333,7 @@ def gfal_download_to_file(url, file_):
     try:
         chunk = infile.read(CHUNK_SIZE)
     except GError as e:
-        if e[1] == 70:
+        if e.code == 70:
             logger.debug('GError(70) raised, using GRIDFTP PLUGIN:STAT_ON_OPEN=False workarround to download %s', url)
             ctx.set_opt_boolean('GRIDFTP PLUGIN', 'STAT_ON_OPEN', False)
             infile = ctx.open(url, 'r')

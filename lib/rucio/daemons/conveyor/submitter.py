@@ -21,12 +21,15 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
 """
 Conveyor transfer submitter is a daemon to manage non-tape file transfers.
 """
+
+from __future__ import division
 
 import logging
 import os
@@ -321,7 +324,7 @@ def __sort_link_ranking(sources):
         if link_ranking not in rank_sources:
             rank_sources[link_ranking] = []
         rank_sources[link_ranking].append(source)
-    rank_keys = rank_sources.keys()
+    rank_keys = list(rank_sources.keys())
     rank_keys.sort(reverse=True)
     for rank_key in rank_keys:
         sources_list = rank_sources[rank_key]
@@ -351,7 +354,7 @@ def __sort_ranking(sources):
         if ranking not in rank_sources:
             rank_sources[ranking] = []
         rank_sources[ranking].append(source)
-    rank_keys = rank_sources.keys()
+    rank_keys = list(rank_sources.keys())
     rank_keys.sort(reverse=True)
     for rank_key in rank_keys:
         sources_list = __sort_link_ranking(rank_sources[rank_key])

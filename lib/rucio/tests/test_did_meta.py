@@ -7,6 +7,9 @@
 #
 # Authors:
 # - Asket Agarwal, <asket.agarwal96@gmail.com>
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 from nose.tools import assert_equal, assert_is_instance, assert_in, assert_raises
 
@@ -38,7 +41,7 @@ class TestDidMetaClient():
 
             metadata = self.did_client.get_did_meta(scope=self.tmp_scope, name=self.tmp_name)
             assert_equal(len(metadata), 5)
-            assert_equal(metadata, dict(data1.items() + data2.items()))
+            assert_equal(metadata, dict(list(data1.items()) + list(data2.items())))
 
             with assert_raises(DataIdentifierNotFound):
                 self.did_client.add_did_meta(scope=self.tmp_scope, name='Nimportnawak', meta=data1)

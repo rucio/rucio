@@ -6,10 +6,17 @@
 
  Authors:
  - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+
+ PY3K COMPATIBLE
 '''
 
-from ConfigParser import NoOptionError, NoSectionError
-
+try:
+    # PY2
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    # PY3
+    from configparser import NoOptionError, NoSectionError
 from nose.tools import assert_equal
 
 from rucio.rse.protocols.protocol import RSEDeterministicTranslation

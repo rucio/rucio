@@ -8,8 +8,12 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Robert Illingworth, <illingwo@fnal.gov>, 2019
+#
+# PY3K COMPATIBLE
 
 import string
 import random
@@ -26,7 +30,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted,
+from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RSEOverQuota,
                                     RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError, UnsupportedOperation)
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
@@ -36,7 +40,7 @@ from rucio.core.account import add_account_attribute
 from rucio.core.account_limit import set_account_limit
 from rucio.core.request import get_request_by_did
 from rucio.core.replica import add_replica, get_replica
-from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse, get_rse_id, del_rse_attribute
+from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse, get_rse_id, del_rse_attribute, set_rse_limits
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule, list_rules
 from rucio.daemons.abacus.account import account_update
@@ -80,6 +84,17 @@ def check_dataset_ok_callback(scope, name, rse, rule_id, session=None):
                                                                                               'rse': rse,
                                                                                               'rule_id': rule_id})).all()
     if len(callbacks) > 0:
+        return True
+    return False
+
+
+@transactional_session
+def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
+    callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps({'scope': scope,
+                                                                                              'name': name,
+                                                                                              'progress': progress,
+                                                                                              'rule_id': rule_id})).all()
+    if callbacks:
         return True
     return False
 
@@ -556,6 +571,23 @@ class TestReplicationRuleCore():
         assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
         set_account_limit(account='jdoe', rse_id=self.rse3_id, bytes=-1)
 
+    def test_rule_add_fails_rse_limit(self):
+        """ REPLICATION RULE (CORE): Test if a rule fails correctly when rse limit set"""
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        set_rse_limits(self.rse3, 'MaxSpaceAvailable', 250)
+        try:
+            assert_raises(RSEOverQuota, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+            assert_raises(RSEOverQuota, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+            assert_raises(RSEOverQuota, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
+        finally:
+            set_rse_limits(self.rse3, 'MaxSpaceAvailable', -1)
+
     def test_dataset_callback(self):
         """ REPLICATION RULE (CORE): Test dataset callback"""
 
@@ -639,6 +671,32 @@ class TestReplicationRuleCore():
 
         assert(True is check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
 
+    def test_rule_progress_callback_with_evaluator(self):
+        """ REPLICATION RULE (CORE): Test rule progress callback with judge evaluator"""
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='P')[0]
+
+        assert(False is check_rule_progress_callback(scope, dataset, 0, rule_id))
+
+        attach_dids(scope, dataset, files, 'jdoe')
+        set_status(scope=scope, name=dataset, open=False)
+        assert(False is check_rule_progress_callback(scope, dataset, 0, rule_id))
+
+        re_evaluator(once=True)
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
+        assert(False is check_rule_progress_callback(scope, dataset, 30, rule_id))
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
+        assert(False is check_rule_progress_callback(scope, dataset, 60, rule_id))
+        successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
+
+        assert(False is check_rule_progress_callback(scope, dataset, 100, rule_id))
+
     def test_add_rule_with_purge(self):
         """ REPLICATION RULE (CORE): Add a replication rule with purge setting"""
         scope = 'mock'
@@ -675,7 +733,7 @@ class TestReplicationRuleCore():
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
         for file in files:
             for l in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
-                assert(lock['state'] == LockState.STUCK)
+                assert(l['state'] == LockState.STUCK)
 
     def test_delete_rule_country_admin(self):
         """ REPLICATION RULE (CORE): Delete a rule with a country admin account"""
@@ -876,7 +934,7 @@ class TestReplicationRuleCore():
                    'bytes': 2596, 'adler32': 'beefdead'}
         add_replica(rse=self.rse1, scope=scope, name=archive['name'], bytes=2596, account='jdoe')
         files_in_archive = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(uuid())), 'type': 'FILE',
-                             'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+                             'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
         attach_dids(scope, archive['name'], files_in_archive, 'jdoe')
 
         add_rule(dids=[{'scope': scope, 'name': files_in_archive[1]['name']}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='NONE',
@@ -889,7 +947,7 @@ class TestReplicationRuleCore():
                    'bytes': 2596, 'adler32': 'beefdead'}
         add_replica(rse=self.rse1, scope=scope, name=archive['name'], bytes=2596, account='jdoe')
         files_in_archive = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(uuid())), 'type': 'FILE',
-                             'bytes': 1234, 'adler32': 'deadbeef'} for i in xrange(2)]
+                             'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
         attach_dids(scope, archive['name'], files_in_archive, 'jdoe')
         add_replica(rse=self.rse1, scope=scope, name=files_in_archive[1]['name'], bytes=2596, account='jdoe')
 

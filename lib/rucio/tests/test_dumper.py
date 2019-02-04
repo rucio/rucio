@@ -9,13 +9,19 @@
 # - Fernando Lopez, <felopez@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
-
-import __builtin__
 import os
 import tempfile
 
-from StringIO import StringIO
+try:
+    # PY2
+    from StringIO import StringIO
+except ImportError:
+    # PY3
+    from io import StringIO
 from datetime import datetime
 from nose.tools import eq_
 from nose.tools import ok_
@@ -55,7 +61,7 @@ def test_cacert_config_returns_false_if_no_cert_configured():
 
 def test_smart_open_for_text_file():
     tmp = make_temp_file('/tmp', 'abcdef')
-    ok_(isinstance(dumper.smart_open(tmp), __builtin__.file))
+    ok_(hasattr(dumper.smart_open(tmp), 'read'))  # check if object is file - python2/3 compatibility
     os.unlink(tmp)
 
 

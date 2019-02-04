@@ -10,15 +10,18 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+
+  PY3K COMPATIBLE
 '''
 
 import abc
 import re
-import string
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from hashlib import sha256
+from six import add_metaclass
 
 from rucio.common import schema
 from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
@@ -28,8 +31,7 @@ from rucio.db.sqla.session import transactional_session
 
 DEFAULT_RSE_ATTRIBUTE = schema.DEFAULT_RSE_ATTRIBUTE['pattern']
 RSE_ATTRIBUTE = schema.RSE_ATTRIBUTE['pattern']
-PRIMITIVE = r'(\(*(%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE)
-
+PRIMITIVE = r'(\(*(%s|%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE, '\*')
 UNION = r'(\|%s)' % (PRIMITIVE)
 INTERSECTION = r'(\&%s)' % (PRIMITIVE)
 COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
@@ -165,14 +167,16 @@ def __resolve_primitive_expression(expression):
     """
     primitiveexpression = re.match(PRIMITIVE, expression).group()
     if ('=' in primitiveexpression):
-        keyvalue = string.split(primitiveexpression, "=")
+        keyvalue = primitiveexpression.split("=")
         return (RSEAttributeEqualCheck(keyvalue[0], keyvalue[1]), primitiveexpression)
     elif ('<' in primitiveexpression):
-        keyvalue = string.split(primitiveexpression, "<")
+        keyvalue = primitiveexpression.split("<")
         return (RSEAttributeSmallerCheck(keyvalue[0], keyvalue[1]), primitiveexpression)
     elif ('>' in primitiveexpression):
-        keyvalue = string.split(primitiveexpression, ">")
+        keyvalue = primitiveexpression.split(">")
         return (RSEAttributeLargerCheck(keyvalue[0], keyvalue[1]), primitiveexpression)
+    elif ('*' in primitiveexpression):
+        return (RSEAll(), primitiveexpression)
     else:
         return (RSEAttributeEqualCheck(key=primitiveexpression), primitiveexpression)
 
@@ -197,9 +201,8 @@ def __extract_term(expression):
     raise SystemError('This point in the code should not be reachable')
 
 
+@add_metaclass(abc.ABCMeta)
 class BaseExpressionElement:
-    __metaclass__ = abc.ABCMeta
-
     @abc.abstractmethod
     def resolve_elements(self, session):
         """
@@ -210,6 +213,24 @@ class BaseExpressionElement:
         :rtype:          (Set of Strings, Dictionary of RSE dicts organized by rse_id)
         """
         pass
+
+
+class RSEAll(BaseExpressionElement):
+    """
+    Representation of all RSEs
+    """
+
+    def resolve_elements(self, session):
+        """
+        Inherited from :py:func:`BaseExpressionElement.resolve_elements`
+        """
+        output = list_rses(session=session)
+        if not output:
+            return (set(), {})
+        rse_dict = {}
+        for rse in output:
+            rse_dict[rse['id']] = rse
+        return (set([rse['id'] for rse in output]), rse_dict)
 
 
 class RSEAttributeEqualCheck(BaseExpressionElement):
@@ -310,9 +331,8 @@ class RSEAttributeLargerCheck(BaseExpressionElement):
         return (set(output), rse_dict)
 
 
+@add_metaclass(abc.ABCMeta)
 class BaseRSEOperator(BaseExpressionElement):
-    __metaclass__ = abc.ABCMeta
-
     @abc.abstractmethod
     def set_left_term(self, left_term):
         """

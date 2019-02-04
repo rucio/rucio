@@ -8,14 +8,21 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 # - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
 import json
 import os
 import tempfile
-import urlparse
-
+try:
+    # PY2
+    import urlparse
+except ImportError:
+    # PY3
+    import urllib.parse as urlparse
 import boto
 import boto.s3.connection
 from boto.s3.key import Key

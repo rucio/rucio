@@ -16,17 +16,17 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 from __future__ import print_function
+from datetime import datetime, timedelta
+from json import dumps, loads
 
 import xmltodict
 
-from datetime import datetime, timedelta
-from json import dumps, loads
 from nose.tools import assert_equal, assert_in, assert_raises
 from paste.fixture import TestApp
 
@@ -36,16 +36,18 @@ from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get
-from rucio.common.exception import DataIdentifierNotFound, AccessDenied, UnsupportedOperation
-from rucio.common.utils import generate_uuid
+from rucio.common.exception import DataIdentifierNotFound, AccessDenied, UnsupportedOperation, RucioException
+from rucio.common.utils import generate_uuid, clean_surls
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
-from rucio.core.replica import (add_replica, add_replicas, delete_replicas,
+from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
                                 update_replica_lock_counter, get_replica, list_replicas,
                                 declare_bad_file_replicas, list_bad_replicas,
                                 update_replicas_paths, update_replica_state,
-                                get_replica_atime, touch_replica)
+                                get_replica_atime, touch_replica, get_bad_pfns)
 from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_attribute
-from rucio.daemons.necromancer import run
+from rucio.daemons.badreplicas.necromancer import run as necromancer_run
+from rucio.daemons.badreplicas.minos import run as minos_run
+from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, rse_name_generator
 from rucio.web.rest.authentication import APP as auth_app
@@ -66,7 +68,7 @@ class TestReplicaCore:
                   'adler32': '0cc737eb',
                   'meta': {'events': 10},
                   'rse_id': rse_info['id'],
-                  'path': '/does/not/really/matter/where'} for i in range(nbfiles)]
+                  'path': '/does/not/really/matter/where'} for _ in range(nbfiles)]
         add_replicas(rse='MOCK2', files=files, account='root', ignore_availability=True)
         update_replicas_paths(files)
         for replica in list_replicas(dids=[{'scope': f['scope'],
@@ -81,7 +83,7 @@ class TestReplicaCore:
         tmp_scope = 'mock'
         nbfiles = 5
         # Adding replicas to deterministic RSE
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         rse_info = rsemgr.get_rse_info('MOCK')
         rse_id1 = rse_info['id']
         add_replicas(rse='MOCK', files=files, account='root', ignore_availability=True)
@@ -105,7 +107,7 @@ class TestReplicaCore:
 
         # Adding replicas to non-deterministic RSE
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for i in range(nbfiles)]
+                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
         rse_info = rsemgr.get_rse_info('MOCK2')
         rse_id2 = rse_info['id']
         add_replicas(rse='MOCK2', files=files, account='root', ignore_availability=True)
@@ -137,13 +139,13 @@ class TestReplicaCore:
         """ REPLICA (CORE): Add and list file replicas """
         tmp_scope = 'mock'
         nbfiles = 13
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         rses = ['MOCK', 'MOCK3']
         for rse in rses:
             add_replicas(rse=rse, files=files, account='root', ignore_availability=True)
 
         replica_cpt = 0
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
+        for _ in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
             replica_cpt += 1
 
         assert_equal(nbfiles, replica_cpt)
@@ -152,10 +154,10 @@ class TestReplicaCore:
         """ REPLICA (CORE): Delete replicas """
         tmp_scope = 'mock'
         nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         add_replicas(rse='MOCK', files=files1, account='root', ignore_availability=True)
 
-        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         add_replicas(rse='MOCK', files=files2, account='root', ignore_availability=True)
         add_replicas(rse='MOCK3', files=files2, account='root', ignore_availability=True)
 
@@ -174,7 +176,7 @@ class TestReplicaCore:
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
         nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
 
         add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account='root')
         add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account='root')
@@ -214,8 +216,8 @@ class TestReplicaCore:
         """ REPLICA (CORE): Touch replicas accessed_at timestamp"""
         tmp_scope = 'mock'
         nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
-        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         files2.append(files1[0])
         add_replicas(rse='MOCK', files=files1, account='root', ignore_availability=True)
         add_replicas(rse='MOCK', files=files2, account='root', ignore_availability=True)
@@ -243,7 +245,7 @@ class TestReplicaCore:
         """ REPLICA (CORE): list file replicas with all_states"""
         tmp_scope = 'mock'
         nbfiles = 13
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         rses = ['MOCK', 'MOCK3']
         for rse in rses:
             add_replicas(rse=rse, files=files, account='root', ignore_availability=True)
@@ -298,7 +300,7 @@ class TestReplicaCore:
                   'name': 'file_%s' % generate_uuid(),
                   'bytes': 1234,
                   'adler32': '01234567',
-                  'meta': {'events': 1234}} for i in range(nbfiles)]
+                  'meta': {'events': 1234}} for _ in range(nbfiles)]
 
         add_replicas(rse=tmp_rse, files=files, account='root', ignore_availability=True)
 
@@ -316,7 +318,7 @@ class TestReplicaCore:
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
                                      schemes=['MOCK']):
             cmd = 'rucio list-file-replicas --pfns %s:%s' % (replica['scope'], replica['name'])
-            errno, stdout, stderr = execute(cmd)
+            _, stdout, _ = execute(cmd)
             assert_in('/i/prefer/the/wan', stdout)
 
         # # force all LAN
@@ -392,7 +394,7 @@ class TestReplicaClients:
         tmp_scope = 'mock'
         nbfiles = 5
         # Adding replicas to deterministic RSE
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         rse_info = rsemgr.get_rse_info('MOCK')
         rse_id1 = rse_info['id']
         self.replica_client.add_replicas(rse='MOCK', files=files)
@@ -414,7 +416,7 @@ class TestReplicaClients:
         assert_equal(len(replicas), nbbadrep)
 
         # Run necromancer once
-        run(threads=1, bulk=10000, once=True)
+        necromancer_run(threads=1, bulk=10000, once=True)
 
         # Try to attach a lost file
         tmp_dsn = 'dataset_%s' % generate_uuid()
@@ -424,7 +426,7 @@ class TestReplicaClients:
 
         # Adding replicas to non-deterministic RSE
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for i in range(nbfiles)]
+                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
         rse_info = rsemgr.get_rse_info('MOCK2')
         rse_id2 = rse_info['id']
         self.replica_client.add_replicas(rse='MOCK2', files=files)
@@ -458,7 +460,7 @@ class TestReplicaClients:
         tmp_scope = 'mock'
         nbfiles = 5
         # Adding replicas to deterministic RSE
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK', files=files)
 
         # Listing replicas on deterministic RSE
@@ -472,7 +474,7 @@ class TestReplicaClients:
 
         # Adding replicas to non-deterministic RSE
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for i in range(nbfiles)]
+                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK2', files=files)
 
         # Listing replicas on non-deterministic RSE
@@ -494,59 +496,68 @@ class TestReplicaClients:
         """ REPLICA (REST): Test the listing of bad and suspicious replicas """
         mw = []
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert_equal(r1.status, 200)
-        token = str(r1.header('X-Rucio-Auth-Token'))
+        result = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(result.status, 200)
+        token = str(result.header('X-Rucio-Auth-Token'))
         headers2 = {'X-Rucio-Auth-Token': str(token)}
 
         data = dumps({})
-        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
-        assert_equal(r2.status, 200)
+        result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
+        assert_equal(result.status, 200)
         tot_files = []
-        for line in r2.body.split('\n'):
+        for line in result.body.split('\n'):
             if line != '':
                 tot_files.append(dumps(line))
         nb_tot_files = len(tot_files)
 
         data = dumps({'state': 'B'})
-        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
-        assert_equal(r2.status, 200)
+        result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
+        assert_equal(result.status, 200)
         tot_bad_files = []
-        for line in r2.body.split('\n'):
+        for line in result.body.split('\n'):
             if line != '':
                 tot_bad_files.append(dumps(line))
         nb_tot_bad_files1 = len(tot_bad_files)
 
         data = dumps({'state': 'S', 'list_pfns': 'True'})
-        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
-        assert_equal(r2.status, 200)
+        result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
+        assert_equal(result.status, 200)
         tot_suspicious_files = []
-        for line in r2.body.split('\n'):
+        for line in result.body.split('\n'):
             if line != '':
                 tot_suspicious_files.append(dumps(line))
         nb_tot_suspicious_files = len(tot_suspicious_files)
 
-        assert_equal(nb_tot_files, nb_tot_bad_files1 + nb_tot_suspicious_files)
+        data = dumps({'state': 'T', 'list_pfns': 'True'})
+        result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
+        assert_equal(result.status, 200)
+        tot_temporary_unavailable_files = []
+        for line in result.body.split('\n'):
+            if line != '':
+                tot_temporary_unavailable_files.append(dumps(line))
+        nb_tot_temporary_unavailable_files = len(tot_temporary_unavailable_files)
+
+        assert_equal(nb_tot_files, nb_tot_bad_files1 + nb_tot_suspicious_files + nb_tot_temporary_unavailable_files)
 
         tomorrow = datetime.utcnow() + timedelta(days=1)
         data = dumps({'state': 'B', 'younger_than': tomorrow.isoformat()})
-        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
-        assert_equal(r2.status, 200)
+        result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
+        assert_equal(result.status, 200)
         tot_bad_files = []
-        for line in r2.body.split('\n'):
+        for line in result.body.split('\n'):
             if line != '':
                 tot_bad_files.append(dumps(line))
         nb_tot_bad_files = len(tot_bad_files)
         assert_equal(nb_tot_bad_files, 0)
 
         data = dumps({})
-        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/summary', headers=headers2, params=data, expect_errors=True)
-        assert_equal(r2.status, 200)
+        result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/summary', headers=headers2, params=data, expect_errors=True)
+        assert_equal(result.status, 200)
         nb_tot_bad_files2 = 0
-        for line in r2.body.split('\n'):
+        for line in result.body.split('\n'):
             if line != '':
                 line = loads(line)
-                nb_tot_bad_files2 += int(line['BAD'])
+                nb_tot_bad_files2 += int(line.get('BAD', 0))
         assert_equal(nb_tot_bad_files1, nb_tot_bad_files2)
 
     def test_add_list_replicas(self):
@@ -554,10 +565,10 @@ class TestReplicaClients:
         tmp_scope = 'mock'
         nbfiles = 5
 
-        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK', files=files1)
 
-        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK3', files=files2)
 
         replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files1])]
@@ -569,7 +580,7 @@ class TestReplicaClients:
         replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['srm'])]
         assert_equal(len(replicas), 5)
 
-        files3 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'state': 'U', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files3 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'state': 'U', 'meta': {'events': 10}} for _ in range(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK3', files=files3)
         replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files3], schemes=['file'])]
         for i in range(nbfiles):
@@ -588,13 +599,73 @@ class TestReplicaClients:
         """ REPLICA (CLIENT): Add and delete file replicas """
         tmp_scope = 'mock'
         nbfiles = 5
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK', files=files)
         with assert_raises(AccessDenied):
             self.replica_client.delete_replicas(rse='MOCK', files=files)
 
         # replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])]
         # assert_equal(len(replicas), 0)
+
+    def test_add_temporary_unavailable_pfns(self):
+        """ REPLICA (CLIENT): Add temporary unavailable PFNs"""
+        tmp_scope = 'mock'
+        nbfiles = 5
+        # Adding replicas to deterministic RSE
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        self.replica_client.add_replicas(rse='MOCK', files=files)
+
+        # Listing replicas on deterministic RSE
+        list_rep = []
+        for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+            pfn = replica['pfns'].keys()[0]
+            list_rep.append(pfn)
+
+        # Submit bad PFNs
+        now = datetime.utcnow()
+        reason_str = generate_uuid()
+        self.replica_client.add_bad_pfns(pfns=list_rep, reason=str(reason_str), state='TEMPORARY_UNAVAILABLE', expires_at=now.isoformat())
+        result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
+        bad_pfns = {}
+        for res in result:
+            bad_pfns[res['pfn']] = (res['state'], res['reason'], res['expires_at'])
+
+        for pfn in list_rep:
+            pfn = str(clean_surls([pfn])[0])
+            assert_in(pfn, bad_pfns)
+            assert_equal(str(bad_pfns[pfn][0]), 'TEMPORARY_UNAVAILABLE')
+            assert_equal(bad_pfns[pfn][1], reason_str)
+
+        # Submit with wrong state
+        with assert_raises(RucioException):
+            self.replica_client.add_bad_pfns(pfns=list_rep, reason=str(reason_str), state='BADSTATE', expires_at=now.isoformat())
+
+        # Run minos once
+        minos_run(threads=1, bulk=10000, once=True)
+        result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
+        pfns = [res['pfn'] for res in result]
+        res_pfns = []
+        for replica in list_rep:
+            if replica in pfns:
+                res_pfns.append(replica)
+        assert_equal(res_pfns, [])
+
+        # Check the state in the replica table
+        for did in files:
+            rep = get_replicas_state(scope=did['scope'], name=did['name'])
+            assert_equal(str(rep.keys()[0]), 'TEMPORARY_UNAVAILABLE')
+
+        rep = []
+        for did in files:
+            did['state'] = ReplicaState.from_sym('TEMPORARY_UNAVAILABLE')
+            rep.append(did)
+
+        # Run the minos expiration
+        minos_temp_run(threads=1, once=True)
+        # Check the state in the replica table
+        for did in files:
+            rep = get_replicas_state(scope=did['scope'], name=did['name'])
+            assert_equal(str(rep.keys()[0]), 'AVAILABLE')
 
 
 class TestReplicaMetalink:
@@ -637,7 +708,7 @@ class TestReplicaMetalink:
         rse_info = rsemgr.get_rse_info(rse)
         assert_equal(rse_info['deterministic'], False)
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for i in range(nbfiles)]
+                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
         for f in files:
             input[f['pfn']] = {'scope': f['scope'], 'name': f['name']}
         add_replicas(rse=rse, files=files, account='root', ignore_availability=True)
@@ -657,7 +728,7 @@ class TestReplicaMetalink:
         input = {}
         rse_info = rsemgr.get_rse_info(rse)
         assert_equal(rse_info['deterministic'], True)
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
         for f in files:
             pfn = p.lfns2pfns(lfns={'scope': f['scope'], 'name': f['name']}).values()[0]

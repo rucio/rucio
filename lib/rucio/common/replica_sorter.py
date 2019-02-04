@@ -17,12 +17,16 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
+#
 # This product includes GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
 #
 # PY3K COMPATIBLE
 
-from __future__ import print_function
+from __future__ import print_function, division
 
 import os
 import random

@@ -14,6 +14,7 @@ is defined by the provided source and destination
 RSE.
 """
 
+from __future__ import print_function
 
 import sys
 
@@ -32,7 +33,7 @@ def main():
         msg = """
     Usage: python send_sonar_tests.py <source_rse> <destination_rse> <scope> <dataset_prefix(optional)>
         """
-        print msg
+        print(msg)
         sys.exit(0)
 
     dataset_prefix = 'sonar.test.medium.'
@@ -48,28 +49,28 @@ def main():
     rses = list(client.list_rses())
     rse_names = [x['rse'] for x in rses]
     if source_rse not in rse_names:
-        print "Cannot find source RSE."
+        print("Cannot find source RSE.")
         sys.exit(0)
     if destination_rse not in rse_names:
-        print "Cannot find destination RSE."
+        print("Cannot find destination RSE.")
         sys.exit(0)
 
     if rses[rse_names.index(source_rse)]['availability'] < 1:
-        print "Source RSE not available for reading."
+        print("Source RSE not available for reading.")
         sys.exit(0)
 
     if rses[rse_names.index(destination_rse)]['availability'] < 7:
-        print "Destination RSE not available for writing."
+        print("Destination RSE not available for writing.")
         sys.exit(0)
 
     rep_gen = list(client.list_replicas([{'name': dataset_prefix + source_rse, 'scope': scope}]))
     if rep_gen == []:
         replica_sites = rep_gen[0]['rses'].keys()
         if destination_rse in replica_sites:
-            print "Dataset replica already located on the destination rse. Not setting rule."
+            print("Dataset replica already located on the destination rse. Not setting rule.")
             sys.exit(0)
         if source_rse not in replica_sites:
-            print "Dataset replica not contained on the source RSE. Not setting rule."
+            print("Dataset replica not contained on the source RSE. Not setting rule.")
             sys.exit(0)
     try:
         did = {'name': dataset_prefix + source_rse, 'scope': scope}
@@ -79,11 +80,11 @@ def main():
                                               source_replica_expression=source_rse,
                                               activity='Debug')
         msg = "Sonar test from %s to %s." % (source_rse, destination_rse)
-        print msg
+        print(msg)
         msg = "Set rule with rule_id %s." % (rule_id[0])
-        print msg
+        print(msg)
     except (DuplicateRule, RSEBlacklisted, ReplicationRuleCreationTemporaryFailed) as exception:
-        print str(exception)
+        print(str(exception))
 
 
 if __name__ == '__main__':
