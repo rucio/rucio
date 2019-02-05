@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
@@ -128,7 +128,7 @@ def psql_convert_decimal_to_float(dbapi_conn, connection_rec):
     try:
         import psycopg2.extensions  # pylint: disable=import-error
     except:
-        raise RucioException('Trying to use PostgreSQL without psycopg2 installed!')
+        raise RucioException('Trying to use PostgreSQL without psycopg2 or psycopg2-binary installed!')
 
     DEC2FLOAT = psycopg2.extensions.new_type(psycopg2.extensions.DECIMAL.values,
                                              'DEC2FLOAT',
