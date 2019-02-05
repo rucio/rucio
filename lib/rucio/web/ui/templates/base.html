@@ -9,7 +9,7 @@ $def with (token, account, rucio_ui_version, policy, content)
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2018
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2019
  - Martin Barisits, <martin.barisits@cern.ch>, 2014
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
@@ -31,6 +31,8 @@ $def with (token, account, rucio_ui_version, policy, content)
     <link rel="stylesheet" href="/static/foundation-icons.css">
     <link rel="stylesheet" href="//code.jquery.com/ui/1.11.3/themes/smoothness/jquery-ui.css">
     <link rel="stylesheet" href="/static/chosen.min.css">
+    $if policy == 'atlas': <script>var policy='atlas'</script>
+    $else: <script>var policy='generic'</script>
     <script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
     <script src="//code.jquery.com/ui/1.11.1/jquery-ui.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
