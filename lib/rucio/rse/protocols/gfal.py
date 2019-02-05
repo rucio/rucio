@@ -18,7 +18,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2017
 # - Tobias Wegner <twegner@cern.ch>, 2017
-# - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
+# - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
@@ -35,6 +35,9 @@ try:
 except ImportError:
     # PY3
     import urllib.parse as urlparse
+
+from threading import Timer
+
 from rucio.common import exception, config
 from rucio.common.constraints import STRING_TYPES
 from rucio.rse.protocols import protocol
@@ -356,6 +359,15 @@ class Default(protocol.RSEProtocol):
 
         return ret
 
+    def __gfal2_cancel(self):
+        """
+        Cancel all gfal operations in progress.
+        """
+
+        ctx = self.__ctx
+        if ctx:
+            ctx.cancel()
+
     def __gfal2_copy(self, src, dest, src_spacetoken=None, dest_spacetoken=None, transfer_timeout=None):
         """
         Uses gfal2 to copy file from src to dest.
@@ -380,6 +392,7 @@ class Default(protocol.RSEProtocol):
             params.dst_spacetoken = str(dest_spacetoken)
         if transfer_timeout:
             params.timeout = int(transfer_timeout)
+            watchdog = Timer(params.timeout + 60, self.__gfal2_cancel)
 
         dir_name = os.path.dirname(dest)
         # This function will be removed soon. gfal2 will create parent dir automatically.
@@ -389,9 +402,15 @@ class Default(protocol.RSEProtocol):
             pass
 
         try:
+            if transfer_timeout:
+                watchdog.start()
             ret = ctx.filecopy(params, str(src), str(dest))
+            if transfer_timeout:
+                watchdog.cancel()
             return ret
         except gfal2.GError as error:  # pylint: disable=no-member
+            if transfer_timeout:
+                watchdog.cancel()
             if error.code == errno.ENOENT or 'No such file' in str(error):
                 raise exception.SourceNotFound(error)
             raise exception.RucioException(error)
