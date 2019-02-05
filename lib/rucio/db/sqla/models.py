@@ -27,7 +27,6 @@
 import datetime
 import uuid
 
-from builtins import object
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, SmallInteger, String as _String, Text, event, UniqueConstraint
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
