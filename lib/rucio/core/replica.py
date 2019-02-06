@@ -36,7 +36,7 @@ from re import match
 from six import string_types
 from traceback import format_exc
 
-from sqlalchemy import func, and_, or_, exists, not_
+from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import label
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -55,7 +55,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
                                      BadFilesStatus, RuleState)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
-                                   DEFAULT_SCHEMA_NAME)
+                                   DEFAULT_SCHEMA_NAME, get_engine)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -2748,11 +2748,14 @@ def set_tombstone(rse, scope, name, rse_id=None, session=None):
     """
     if not rse_id:
         rse_id = get_rse_id(rse)
-    replica = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, name=name, scope=scope).first()
-    if not replica:
-        raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, rse))
-    if not replica.lock_cnt:
-        replica.tombstone = OBSOLETE
-        replica.save(session=session)
-    else:
-        raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, rse))
+    conn = get_engine().connect()
+    stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
+                                                        ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
+                                            .values(tombstone=OBSOLETE)
+    result = conn.execute(stmt)
+    if not result.rowcount:
+        try:
+            session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()
+            raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, rse))
+        except NoResultFound:
+            raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, rse))
