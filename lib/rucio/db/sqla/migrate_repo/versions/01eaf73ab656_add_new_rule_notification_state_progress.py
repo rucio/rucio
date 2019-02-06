@@ -36,7 +36,7 @@ def upgrade():
     if context.get_context().dialect.name not in ('sqlite'):  # pylint: disable=no-member
         drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
         create_check_constraint(name='RULES_NOTIFICATION_CHK', source='rules',
-                                condition="state in ('Y', 'N', 'C', 'P')")
+                                condition="notification in ('Y', 'N', 'C', 'P')")
 
 
 def downgrade():
@@ -46,4 +46,4 @@ def downgrade():
     if context.get_context().dialect.name not in ('sqlite'):  # pylint: disable=no-member
         drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
         create_check_constraint(name='RULES_NOTIFICATION_CHK', source='rules',
-                                condition="state in ('Y', 'N', 'C')")
+                                condition="notification in ('Y', 'N', 'C')")
