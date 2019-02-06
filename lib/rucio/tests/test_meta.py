@@ -7,7 +7,9 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
 
 from nose.tools import assert_in, assert_is_instance, assert_true, raises, assert_raises
 
@@ -52,7 +54,7 @@ class TestMetaClient():
         """ META (CLIENTS):  Add a new value to a key with a type constraint"""
         key = 'key_' + str(uuid())[:20]
         value = 'value_' + str(uuid())
-        self.meta_client.add_key(key=key, key_type='ALL', value_type=unicode)
+        self.meta_client.add_key(key=key, key_type='ALL', value_type=str)
         self.meta_client.add_value(key=key, value=value)
         values = self.meta_client.list_values(key=key)
         assert_in(value, values)

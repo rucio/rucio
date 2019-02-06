@@ -14,6 +14,9 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
 
 '''
 Light Reaper is a daemon to manage temporary object/file deletion.
@@ -142,7 +145,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                 logging.info('Light Reaper %s-%s: Nothing to do. I will sleep for 60s', worker_number, total_workers)
                 time.sleep(60)
 
-        except DatabaseException, error:
+        except DatabaseException as error:
             logging.warning('Reaper:  %s', str(error))
         except:
             logging.critical(traceback.format_exc())
@@ -181,7 +184,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
         rses = [rse['rse'] for rse in rse_core.list_rses()]
 
     threads = []
-    for worker in xrange(total_workers):
+    for worker in range(total_workers):
             kwargs = {'worker_number': worker,
                       'total_workers': total_workers,
                       'rses': rses,

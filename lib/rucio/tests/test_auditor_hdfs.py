@@ -7,6 +7,9 @@
 
  Authors:
  - Vincent Garonne,  <vincent.garonne@cern.ch> , 2017
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+
+ PY3K COMPATIBLE
 '''
 import os
 import shutil
@@ -59,7 +62,7 @@ class TestReplicaFromHDFS(object):
 
     def test_replica_from_hdfs_download_merges_the_file_parts_in_order(self):
         '''test_replica_from_hdfs_download_merges_the_file_parts_in_order'''
-        files = reversed(list(enumerate(string.lowercase[:5])))
+        files = reversed(list(enumerate(string.ascii_lowercase[:5])))
         with stubbed(hdfs._hdfs_get, FakeHDFSGet(files)):
             merged_file_path = hdfs.ReplicaFromHDFS.download(
                 'FAKE_RSE',

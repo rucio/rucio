@@ -23,6 +23,8 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import json
 import logging
@@ -32,6 +34,7 @@ import sys
 from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
+from six import string_types
 
 from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError, InvalidRequestError
@@ -45,7 +48,7 @@ import rucio.core.replica  # import add_replicas
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.utils import str_to_date, is_archive, chunks
-from rucio.core import account_counter, rse_counter
+from rucio.core import account_counter, rse_counter, config as config_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.naming_convention import validate_name
@@ -152,7 +155,7 @@ def add_dids(dids, account, session=None):
         for did in dids:
             try:
 
-                if isinstance(did['type'], str) or isinstance(did['type'], unicode):
+                if isinstance(did['type'], string_types):
                     did['type'] = DIDType.from_sym(did['type'])
 
                 if did['type'] == DIDType.FILE:
@@ -311,7 +314,7 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
     try:
         new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
         if existing_files_condition:
-            for chunk in chunks(existing_files_condition, 50):
+            for chunk in chunks(existing_files_condition, 20):
                 session.query(models.DataIdentifier).\
                     with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                     filter(models.DataIdentifier.did_type == DIDType.FILE).\
@@ -635,7 +638,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
                     purge_replicas = False
                 else:
                     purge_replicas = True
-                if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > 10000:
+                if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_core.get('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
                     # Expire the rule (soft=True)
                     rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
                     # Update expiration of did
@@ -800,7 +803,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
         filter(~exists(stmt))
 
     if did_type:
-        if isinstance(did_type, str) or isinstance(did_type, unicode):
+        if isinstance(did_type, string_types):
             query = query.filter_by(did_type=DIDType.from_sym(did_type))
         elif isinstance(did_type, EnumSymbol):
             query = query.filter_by(did_type=did_type)
@@ -1549,7 +1552,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
            and not hasattr(models.DataIdentifier, k):
             raise exception.KeyNotFound(k)
 
-        if (isinstance(v, unicode) or isinstance(v, str)) and ('*' in v or '%' in v):
+        if isinstance(v, string_types) and ('*' in v or '%' in v):
             if v in ('*', '%', u'*', u'%'):
                 continue
             if session.bind.dialect.name == 'postgresql':

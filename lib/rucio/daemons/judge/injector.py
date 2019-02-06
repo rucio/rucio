@@ -15,6 +15,9 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 """
 Judge-Injector is a daemon to asynchronously create replication rules
@@ -99,7 +102,7 @@ def rule_injector(once=False):
                         start = time.time()
                         inject_rule(rule_id=rule_id)
                         logging.debug('rule_injector[%s/%s]: injection of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id, time.time() - start))
-                    except (DatabaseException, DatabaseError), e:
+                    except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                             record_counter('rule.judge.exceptions.LocksDetected')
@@ -113,23 +116,23 @@ def rule_injector(once=False):
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                    except RSEBlacklisted, e:
+                    except RSEBlacklisted as e:
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                         logging.warning('rule_injector[%s/%s]: RSEBlacklisted for rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                    except ReplicationRuleCreationTemporaryFailed, e:
+                    except ReplicationRuleCreationTemporaryFailed as e:
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                         logging.warning('rule_injector[%s/%s]: ReplicationRuleCreationTemporaryFailed for rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                    except RuleNotFound, e:
+                    except RuleNotFound as e:
                         pass
-                    except InsufficientAccountLimit, e:
+                    except InsufficientAccountLimit as e:
                         # A rule with InsufficientAccountLimit on injection hangs there potentially forever
                         # It should be marked as SUSPENDED
                         logging.info('rule_injector[%s/%s]: Marking rule %s as SUSPENDED due to InsufficientAccountLimit' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
                         update_rule(rule_id=rule_id, options={'state': 'SUSPENDED'})
 
-        except (DatabaseException, DatabaseError), e:
+        except (DatabaseException, DatabaseError) as e:
             if match('.*QueuePool.*', str(e.args[0])):
                 logging.warning(traceback.format_exc())
                 record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
@@ -139,7 +142,7 @@ def rule_injector(once=False):
             else:
                 logging.critical(traceback.format_exc())
                 record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-        except Exception, e:
+        except Exception as e:
             logging.critical(traceback.format_exc())
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
         if once:
@@ -168,7 +171,7 @@ def run(once=False, threads=1):
         rule_injector(once)
     else:
         logging.info('Injector starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_injector, kwargs={'once': once}) for i in xrange(0, threads)]
+        threads = [threading.Thread(target=rule_injector, kwargs={'once': once}) for i in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

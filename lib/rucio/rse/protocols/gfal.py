@@ -21,13 +21,20 @@
 # - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 import errno
 import json
 import os
 import re
-import urlparse
-
+try:
+    # PY2
+    import urlparse
+except ImportError:
+    # PY3
+    import urllib.parse as urlparse
 from rucio.common import exception, config
 from rucio.common.constraints import STRING_TYPES
 from rucio.rse.protocols import protocol
@@ -385,7 +392,7 @@ class Default(protocol.RSEProtocol):
             ret = ctx.filecopy(params, str(src), str(dest))
             return ret
         except gfal2.GError as error:  # pylint: disable=no-member
-            if error.code == errno.ENOENT or 'No such file' in error.message:
+            if error.code == errno.ENOENT or 'No such file' in str(error):
                 raise exception.SourceNotFound(error)
             raise exception.RucioException(error)
 
@@ -410,7 +417,7 @@ class Default(protocol.RSEProtocol):
                     return ret
             return ret
         except gfal2.GError as error:  # pylint: disable=no-member
-            if error.code == errno.ENOENT or 'No such file' in error.message:
+            if error.code == errno.ENOENT or 'No such file' in str(error):
                 raise exception.SourceNotFound(error)
             raise exception.RucioException(error)
 
@@ -432,7 +439,7 @@ class Default(protocol.RSEProtocol):
                 return 0
             return -1
         except gfal2.GError as error:  # pylint: disable=no-member
-            if error.code == errno.ENOENT or 'No such file' in error.message:  # pylint: disable=no-member
+            if error.code == errno.ENOENT or 'No such file' in str(error):  # pylint: disable=no-member
                 return -1
             raise exception.RucioException(error)
 
@@ -460,7 +467,7 @@ class Default(protocol.RSEProtocol):
             ret = ctx.rename(str(path), str(new_path))
             return ret
         except gfal2.GError as error:  # pylint: disable=no-member
-            if error.code == errno.ENOENT or 'No such file' in error.message:
+            if error.code == errno.ENOENT or 'No such file' in str(error):
                 raise exception.SourceNotFound(error)
             raise exception.RucioException(error)
 

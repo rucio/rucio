@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2018
 # - David Cameron, <david.cameron@cern.ch>, 2015
+# - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -217,7 +218,10 @@ if __name__ == '__main__':
                         except Exception as error:
                             print(error)
                     else:
-                        print('ERROR getting info for %s' % (user._DN))
+                        try:
+                            print('ERROR getting info for %s' % (user._DN))
+                        except UnicodeEncodeError:
+                            print('ERROR getting info for %s' % (repr(user._DN)))
                         status = WARNING
             if scope and scope not in scopes and valid_nickname:
                 try:

@@ -1,24 +1,30 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2017
-  - Martin Barisits, <martin.barisits@cern.ch>, 2014
-
-  PY3K COMPATIBLE
-'''
+# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import json
-import re
 
 from sqlalchemy import or_
-from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import bindparam, text
 
 
@@ -32,19 +38,23 @@ def add_message(event_type, payload, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
 
+    In the case of nolimit, a placeholder string is written to the NOT NULL payload column.
+
     :param event_type: The type of the event as a string, e.g., NEW_DID.
     :param payload: The message payload. Will be persisted as JSON.
     :param session: The database session to use.
     """
 
     try:
-        new_message = Message(event_type=event_type, payload=json.dumps(payload))
-    except TypeError, e:
+        payload = json.dumps(payload)
+    except TypeError as e:
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
-    except DatabaseError, e:
-        if re.match('.*ORA-12899.*', e.args[0]) \
-           or re.match('.*1406.*', e.args[0]):
-            raise RucioException('Could not persist message, payload too large')
+
+    if len(payload) > 4000:
+        new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload)
+    else:
+        new_message = Message(event_type=event_type, payload=payload)
+
     new_message.save(session=session, flush=False)
 
 
@@ -101,14 +111,25 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
         if session.bind.dialect.name == 'mysql':
             query = query.limit(bulk)
 
+        # Step 3:
+        # Assemble message object
         for id, created_at, event_type, payload in query:
-            messages.append({'id': id,
-                             'created_at': created_at,
-                             'event_type': event_type,
-                             'payload': json.loads(str(payload))})
+            message = {'id': id,
+                       'created_at': created_at,
+                       'event_type': event_type}
+
+            # Only switch SQL context when necessary
+            if payload == 'nolimit':
+                nolimit_query = session.query(Message.payload_nolimit).filter(Message.id == id).one()[0]
+                message['payload'] = json.loads(str(nolimit_query))
+            else:
+                message['payload'] = json.loads(str(payload))
+
+            messages.append(message)
+
         return messages
 
-    except IntegrityError, e:
+    except IntegrityError as e:
         raise RucioException(e.args)
 
 
@@ -131,7 +152,7 @@ def delete_messages(messages, session=None):
                 delete(synchronize_session=False)
 
             session.bulk_insert_mappings(MessageHistory, messages)
-    except IntegrityError, e:
+    except IntegrityError as e:
         raise RucioException(e.args)
 
 
@@ -145,5 +166,5 @@ def truncate_messages(session=None):
 
     try:
         session.query(Message).delete(synchronize_session=False)
-    except IntegrityError, e:
+    except IntegrityError as e:
         raise RucioException(e.args)

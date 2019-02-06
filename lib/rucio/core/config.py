@@ -1,39 +1,59 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
+# - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
-
-  PY3K COMPATIBLE
-'''
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
 
 from rucio.common.exception import ConfigNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
 
 
+REGION = make_region().configure('dogpile.cache.memcached',
+                                 expiration_time=3600,
+                                 arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+
+
 @read_session
-def sections(session=None):
+def sections(use_cache=True, expiration_time=3600, session=None):
     """
     Return a list of the sections available.
 
+    :param use_cache: Boolean if the cache should be used.
+    :param expiration_time: Time after that the cached value gets ignored.
     :param session: The database session in use.
     :returns: ['section_name', ...]
     """
 
-    all_sections = session.query(models.Config.section).distinct().all()
+    sections_key = 'sections'
+    all_sections = NoValue()
+    if use_cache:
+        all_sections = REGION.get(sections_key, expiration_time=expiration_time)
+    if isinstance(all_sections, NoValue):
+        query = session.query(models.Config.section).distinct().all()
+        all_sections = [section[0] for section in query]
+        REGION.set(sections_key, all_sections)
 
-    res = []
-    for section in all_sections:
-        res.append(section[0])
-
-    return res
+    return all_sections
 
 
 @transactional_session
@@ -48,57 +68,74 @@ def add_section(section, session=None):
 
 
 @read_session
-def has_section(section, session=None):
+def has_section(section, use_cache=True, expiration_time=3600, session=None):
     """
     Indicates whether the named section is present in the configuration.
 
     :param section: The name of the section.
+    :param use_cache: Boolean if the cache should be used.
+    :param expiration_time: Time after that the cached value gets ignored.
     :param session: The database session in use.
     :returns: True/False
     """
-
-    query = session.query(models.Config).filter_by(section=section)
-
-    return True if query.first() else False
+    has_section_key = 'has_section_%s' % section
+    has_section = NoValue()
+    if use_cache:
+        has_section = REGION.get(has_section_key, expiration_time=expiration_time)
+    if isinstance(has_section, NoValue):
+        query = session.query(models.Config).filter_by(section=section)
+        has_section = True if query.first() else False
+        REGION.set(has_section_key, has_section)
+    return has_section
 
 
 @read_session
-def options(section, session=None):
+def options(section, use_cache=True, expiration_time=3600, session=None):
     """
     Returns a list of options available in the specified section.
 
     :param section: The name of the section.
+    :param use_cache: Boolean if the cache should be used.
+    :param expiration_time: Time after that the cached value gets ignored.
     :param session: The database session in use.
     :returns: ['option', ...]
     """
-
-    optns = session.query(models.Config.opt).filter_by(section=section).distinct().all()
-
-    res = []
-    for optn in optns:
-        res.append(optn[0])
-
-    return res
+    options_key = 'options'
+    options = NoValue()
+    if use_cache:
+        options = REGION.get(options_key, expiration_time=expiration_time)
+    if isinstance(options, NoValue):
+        query = session.query(models.Config.opt).filter_by(section=section).distinct().all()
+        options = [option[0] for option in query]
+        REGION.set(options_key, options)
+    return options
 
 
 @read_session
-def has_option(section, option, session=None):
+def has_option(section, option, use_cache=True, expiration_time=3600, session=None):
     """
     Check if the given section exists and contains the given option.
 
     :param section: The name of the section.
     :param option: The name of the option.
+    :param use_cache: Boolean if the cache should be used.
+    :param expiration_time: Time after that the cached value gets ignored.
     :param session: The database session in use.
     :returns: True/False
     """
-
-    query = session.query(models.Config).filter_by(section=section, opt=option)
-
-    return True if query.first() else False
+    has_option_key = 'has_option_%s_%s' % (section, option)
+    has_option = NoValue()
+    if use_cache:
+        has_option = REGION.get(has_option_key, expiration_time=expiration_time)
+    if isinstance(has_option, NoValue):
+        query = session.query(models.Config).filter_by(section=section, opt=option)
+        has_option = True if query.first() else False
+        REGION.set(has_option_key, has_option)
+    return has_option
 
 
 @read_session
-def get(section, option, session=None):
+def get(section, option, default=None, use_cache=True, expiration_time=3600, session=None):
     """
     Get an option value for the named section. Value can be auto-coerced to string, int, float, bool, None.
 
@@ -107,36 +144,49 @@ def get(section, option, session=None):
 
     :param section: The name of the section.
     :param option: The name of the option.
+    :param default: The default value if no value is found.
+    :param use_cache: Boolean if the cache should be used.
+    :param expiration_time: Time after that the cached value gets ignored.
     :param session: The database session in use.
     :returns: The auto-coerced value.
     """
-
-    tmp = session.query(models.Config.value).filter_by(section=section, opt=option).first()
-
-    if tmp is not None:
-        return __convert_type(tmp[0])
+    value_key = 'get_%s_%s' % (section, option)
+    value = NoValue()
+    if use_cache:
+        value = REGION.get(value_key, expiration_time=expiration_time)
+    if isinstance(value, NoValue):
+        tmp = session.query(models.Config.value).filter_by(section=section, opt=option).first()
+        if tmp is not None:
+            value = __convert_type(tmp[0])
+            REGION.set(value_key, tmp[0])
+        elif default is None:
+            raise ConfigNotFound
+        else:
+            value = default
     else:
-        raise ConfigNotFound()
+        value = __convert_type(value)
+    return value
 
 
 @read_session
-def items(section, session=None):
+def items(section, use_cache=True, expiration_time=3600, session=None):
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 
     :param section: The name of the section.
-    :param value: The content of the value.
+    :param use_cache: Boolean if the cache should be used.
+    :param expiration_time: Time after that the cached value gets ignored.
     :param session: The database session in use.
     :returns: [('option', auto-coerced value), ...]
     """
-
-    itms = session.query(models.Config.opt, models.Config.value).filter_by(section=section).all()
-
-    res = []
-    for itm in itms:
-        res.append((itm[0], __convert_type(itm[1])))
-
-    return res
+    items_key = 'items_%s' % section
+    items = NoValue()
+    if use_cache:
+        items = REGION.get(items_key, expiration_time=expiration_time)
+    if isinstance(items, NoValue):
+        items = session.query(models.Config.opt, models.Config.value).filter_by(section=section).all()
+        REGION.set(items_key, items)
+    return [(item[0], __convert_type(item[1])) for item in items]
 
 
 @transactional_session

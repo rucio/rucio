@@ -7,10 +7,15 @@
 #
 # Authors:
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 """
 Forecast library to predict the Transfers Time To Complete (T3C)
 """
+
+from __future__ import division
 
 import datetime as dt
 import json
@@ -70,7 +75,7 @@ class T3CModel():
                     self._rseid2site[rse['id']] = attribs['site']
                 except KeyError:
                     continue
-                if attribs['site'] not in self._site2rses.keys():
+                if attribs['site'] not in list(self._site2rses.keys()):
                     self._site2rses[attribs['site']] = []
                     self._site2rseids[attribs['site']] = []
                 self._site2rses[attribs['site']].append(rse['rse'])

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2018
@@ -337,7 +337,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                 for ds_lock in ds_locks:
                     ds_lock.state = LockState.OK
                 session.flush()
-            rucio.core.rule.generate_rule_notifications(rule=rule, session=session)
+            rucio.core.rule.generate_rule_notifications(rule=rule, replicating_locks_before=rule.locks_replicating_cnt - 1, session=session)
             if rule.notification == RuleNotification.YES:
                 rucio.core.rule.generate_email_for_rule_ok_notification(rule=rule, session=session)
             # Try to release potential parent rules

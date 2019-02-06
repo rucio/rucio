@@ -10,6 +10,9 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
   - Martin Barisits, <martin.barisits@cern.ch>, 2014
+  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+
+  PY3K COMPATIBLE
 '''
 
 from nose.tools import assert_equal, assert_in, assert_is_instance, assert_raises
@@ -49,7 +52,7 @@ class TestMessagesCore():
             assert_is_instance(i['payload'], dict)
             assert_equal(i['payload']['foo'], True)
             assert_equal(i['payload']['monty'], 'python')
-            assert_in(i['payload']['number'], range(100))
+            assert_in(i['payload']['number'], list(range(100)))
             to_delete.append({'id': i['id'],
                               'created_at': i['created_at'],
                               'updated_at': i['created_at'],

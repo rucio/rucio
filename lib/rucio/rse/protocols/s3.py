@@ -10,10 +10,19 @@
  - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
  - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+
+ PY3K COMPATIBLE
 '''
 
+from six import string_types
 from subprocess import call
-from urlparse import urlparse
+try:
+    # PY2
+    from urlparse import urlparse
+except ImportError:
+    # PY3
+    from urllib.parse import urlparse
 # IMPORTANT: If the order of the S3 imports is changed, they fail!
 from S3.Exceptions import S3Error, InvalidFileError
 from S3.S3 import S3
@@ -207,7 +216,7 @@ class Default(protocol.RSEProtocol):
         """
         # s3 URI: s3://[Bucket]/[path]/[name]; Bucket/path = scope/user
         ret = dict()
-        pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
+        pfns = [pfns] if isinstance(pfns, string_types) else pfns
 
         for pfn in pfns:
             parsed = urlparse(pfn)

@@ -8,6 +8,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 '''
 Class to handle enum type with sqlachelmy.
@@ -17,6 +20,7 @@ ref. http://techspot.zzzeek.org/2011/01/14/the-enum-recipe/
 
 import uuid
 
+from six import add_metaclass
 from sqlalchemy.types import SchemaType, TypeDecorator, Enum
 
 from rucio.common.exception import InvalidType
@@ -59,10 +63,10 @@ class EnumMeta(type):
         return iter(cls._reg.values())
 
 
+@add_metaclass(EnumMeta)
 class DeclEnum(object):
     """Declarative enumeration."""
 
-    __metaclass__ = EnumMeta
     _reg = {}
     _syms = {}
 
@@ -82,7 +86,7 @@ class DeclEnum(object):
 
     @classmethod
     def values(cls):
-        return cls._reg.keys()
+        return list(cls._reg.keys())
 
     @classmethod
     def db_type(cls, name=None, default=None):

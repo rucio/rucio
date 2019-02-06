@@ -17,8 +17,16 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K
 
-from ConfigParser import ConfigParser
+try:
+    # PY2
+    from ConfigParser import ConfigParser
+except ImportError:
+    # PY3
+    from configparser import ConfigParser
 from datetime import datetime
 from nose.tools import eq_
 from nose.tools import raises
