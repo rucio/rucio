@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -50,7 +51,7 @@ def add_identity(identity, type, email, password=None, session=None):
         new_id.update({'salt': salt, 'password': password, 'email': email})
     try:
         new_id.save(session=session)
-    except IntegrityError, e:
+    except IntegrityError as e:
         if match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
             raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
         raise exception.DatabaseException(str(e))

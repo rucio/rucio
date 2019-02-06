@@ -16,6 +16,9 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
 
 """
 Judge-Repairer is a daemon to repair stuck replication rules.
@@ -101,7 +104,7 @@ def rule_repairer(once=False):
                         start = time.time()
                         repair_rule(rule_id=rule_id)
                         logging.debug('rule_repairer[%s/%s]: repairing of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id, time.time() - start))
-                    except (DatabaseException, DatabaseError), e:
+                    except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
                             logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rule_id))
@@ -116,7 +119,7 @@ def rule_repairer(once=False):
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
 
-        except (DatabaseException, DatabaseError), e:
+        except (DatabaseException, DatabaseError) as e:
             if match('.*QueuePool.*', str(e.args[0])):
                 logging.warning(traceback.format_exc())
                 record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
@@ -126,7 +129,7 @@ def rule_repairer(once=False):
             else:
                 logging.critical(traceback.format_exc())
                 record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-        except Exception, e:
+        except Exception as e:
             logging.critical(traceback.format_exc())
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
         if once:
@@ -155,7 +158,7 @@ def run(once=False, threads=1):
         rule_repairer(once)
     else:
         logging.info('Repairer starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_repairer, kwargs={'once': once}) for i in xrange(0, threads)]
+        threads = [threading.Thread(target=rule_repairer, kwargs={'once': once}) for i in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

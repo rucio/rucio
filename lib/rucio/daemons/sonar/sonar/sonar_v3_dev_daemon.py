@@ -15,10 +15,15 @@
 # Authors:
 # - Vitjan Zavrtanik <vitjan.zavrtanik@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 """
 Daemon for sending Sonar tests to available RSE's.
 """
+
+from __future__ import division
 
 import itertools
 import logging
@@ -87,16 +92,16 @@ class SonarTest(object):
             replica_sites = rep_gen[0]['rses'].keys()
             for site in replica_sites:
                 site_name = site.split('_SCRATCHDISK')[0]
-                if endpoint not in self.rule_dict.keys():
+                if endpoint not in list(self.rule_dict.keys()):
                     self.rule_dict[endpoint] = {}
-                if site_name not in self.rule_dict[endpoint].keys():
+                if site_name not in list(self.rule_dict[endpoint].keys()):
                     self.rule_dict[endpoint][site_name] = {'rule_id': '', 'state': 'OK', 'created_at': 0, 'delay': time.time()}
                 else:
                     self.rule_dict[endpoint][site_name]['delay'] = time.time()
 
-                if endpoint not in self.rule_times.keys():
+                if endpoint not in list(self.rule_times.keys()):
                     self.rule_times[endpoint] = {}
-                if site_name not in self.rule_times[endpoint].keys():
+                if site_name not in list(self.rule_times[endpoint].keys()):
                     self.rule_times[endpoint][site_name] = {'start_times': [], 'end_times': [], 'times_required': []}
 
     def get_available_sites(self):
@@ -129,21 +134,21 @@ class SonarTest(object):
                       for x, y in itertools.product(self.endpoint_names, repeat=2) if x != y]
 
         for src, dst in self.pairs:
-            if src not in self.rule_dict.keys():
+            if src not in list(self.rule_dict.keys()):
                 self.rule_dict[src] = {}
                 self.traffic_weights[src] = {}
-            if dst not in self.rule_dict[src].keys():
+            if dst not in list(self.rule_dict[src].keys()):
                 self.rule_dict[src][dst] = {'rule_id': '', 'state': 'OK', 'created_at': 0, 'delay': 0}
                 self.traffic_weights[src][dst] = 0
 
-            if src not in self.rule_times.keys():
+            if src not in list(self.rule_times.keys()):
                 self.rule_times[src] = {}
-            if dst not in self.rule_times[src].keys():
+            if dst not in list(self.rule_times[src].keys()):
                 self.rule_times[src][dst] = {'start_times': [], 'end_times': [], 'times_required': []}
 
-            if src not in self.traffic_data.keys():
+            if src not in list(self.traffic_data.keys()):
                 self.traffic_data[src] = {}
-            if dst not in self.traffic_data[src].keys():
+            if dst not in list(self.traffic_data[src].keys()):
                 self.traffic_data[src][dst] = 0
 
     def get_traffic_data(self):
@@ -151,11 +156,11 @@ class SonarTest(object):
         Reads traffic data.
         """
         tmp_traffic_data = get_link_traffic()
-        sites = tmp_traffic_data.keys()
+        sites = list(tmp_traffic_data.keys())
         for src in sites:
-            if src not in self.traffic_data.keys():
+            if src not in list(self.traffic_data.keys()):
                 self.traffic_data[src] = {}
-            for dst in tmp_traffic_data[src].keys():
+            for dst in list(tmp_traffic_data[src].keys()):
                 self.traffic_data[src][dst] = tmp_traffic_data[src][dst]
 
     def get_rule_data(self):
@@ -170,13 +175,13 @@ class SonarTest(object):
                 src = rule['name'].split(DATASET_PREFIX)[1].split('_SCRATCHDISK')[0]
 
                 if src != dst:
-                    if src not in self.rule_dict.keys():
+                    if src not in list(self.rule_dict.keys()):
                         self.rule_dict[src] = {}
                         self.traffic_weights[src] = {}
 
-                    if src not in self.rule_times.keys():
+                    if src not in list(self.rule_times.keys()):
                         self.rule_times[src] = {}
-                    if dst not in self.rule_times[src].keys():
+                    if dst not in list(self.rule_times[src].keys()):
                         self.rule_times[src][dst] = {'start_times': [], 'end_times': [], 'times_required': []}
 
                     rule_timestamp = time.mktime(rule['created_at'].timetuple())
@@ -269,7 +274,7 @@ class SonarTest(object):
                 t_weights[src][dst] = t_weights[src][dst]**4
             else:
                 t_weights[src][dst] = byte_sum**4
-                if src not in self.traffic_data.keys():
+                if src not in list(self.traffic_data.keys()):
                     self.traffic_data[src] = {}
                 self.traffic_data[src][dst] = 0
             recently_deleted = (time.time() - self.rule_dict[src][dst]['delay']) < 10800

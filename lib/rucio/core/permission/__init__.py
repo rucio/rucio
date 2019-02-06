@@ -8,10 +8,15 @@
  Authors:
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+
+ PY3K COMPATIBLE
 """
 
-from ConfigParser import NoOptionError, NoSectionError
-
+try:
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    from configparser import NoOptionError, NoSectionError
 from rucio.common import config
 
 if config.config_has_section('permission'):

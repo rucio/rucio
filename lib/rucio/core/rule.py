@@ -15,20 +15,30 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
+
+from __future__ import division
 
 import json
 import logging
 import sys
 
-from ConfigParser import NoOptionError
+try:
+    from ConfigParser import NoOptionError
+except ImportError:
+    from configparser import NoOptionError
+
 from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
+from six import string_types
 from string import Template
 
 from sqlalchemy.exc import IntegrityError, StatementError
@@ -44,7 +54,7 @@ from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
 
 from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
-                                    DataIdentifierNotFound, RuleNotFound, InputValidationError,
+                                    DataIdentifierNotFound, RuleNotFound, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
@@ -109,7 +119,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
-                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
+                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, RSEOverQuota
     """
     rule_ids = []
 
@@ -123,7 +133,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
-                    raise StagingAreaRuleRequiresLifetime()
+                    raise StagingAreaRuleRequiresLifetime('Rules for a staging area must include a lifetime')
 
             # Check SCRATCHDISK Policy
             try:
@@ -153,7 +163,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
 
-        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE}.get(notify, RuleNotification.NO)
+        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE, 'P': RuleNotification.PROGRESS}.get(notify, RuleNotification.NO)
 
         for elem in dids:
             # 3. Get the did
@@ -172,7 +182,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
                     .filter(models.RSEFileAssociation.scope == did.scope,
                             models.RSEFileAssociation.name == did.name,
-                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                            or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE),
                             models.RSE.rse_type != RSEType.TAPE).count()
                 if replica_cnt == 0:  # Put the rule on the archive
                     archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
@@ -257,29 +268,29 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     elif did.length < int(rse_attr.get('auto_approve_files', -1)):
                         auto_approve = True
                     if auto_approve:
-                        logging.debug("Auto approving rule %s" % str(new_rule.id))
-                        logging.debug("Created rule %s for injection" % str(new_rule.id))
+                        logging.debug("Auto approving rule %s", str(new_rule.id))
+                        logging.debug("Created rule %s for injection", str(new_rule.id))
                         approve_rule(rule_id=new_rule.id, notify_approvers=False, session=session)
                         continue
-                logging.debug("Created rule %s in waiting for approval" % (str(new_rule.id)))
+                logging.debug("Created rule %s in waiting for approval", str(new_rule.id))
                 __create_rule_approval_email(rule=new_rule, session=session)
                 continue
 
             # Force ASYNC mode for large rules
             if did.length is not None and (did.length * copies) >= 10000:
                 asynchronous = True
-                logging.debug("Forced injection of rule %s" % (str(new_rule.id)))
+                logging.debug("Forced injection of rule %s", str(new_rule.id))
 
             if asynchronous:
                 # TODO: asynchronous mode only available for closed dids (on the whole tree?)
                 new_rule.state = RuleState.INJECT
-                logging.debug("Created rule %s for injection" % (str(new_rule.id)))
+                logging.debug("Created rule %s for injection", str(new_rule.id))
                 continue
 
             # If Split Container is chosen, the rule will be processed ASYNC
             if split_container and did.did_type == DIDType.CONTAINER:
                 new_rule.state = RuleState.INJECT
-                logging.debug("Created rule %s for injection due to Split Container mode" % (str(new_rule.id)))
+                logging.debug("Created rule %s for injection due to Split Container mode", str(new_rule.id))
                 continue
 
             # 5. Resolve the did to its contents
@@ -293,7 +304,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             sumfiles = sum([len(x['files']) for x in datasetfiles])
             if sumfiles > 30000:
-                logging.warning('Rule %s for %s:%s involves %d files' % (str(new_rule.id), new_rule.scope, new_rule.name, sumfiles))
+                logging.warning('Rule %s for %s:%s involves %d files', str(new_rule.id), new_rule.scope, new_rule.name, sumfiles)
 
             # 6. Apply the replication rule to create locks, replicas and transfers
             with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
@@ -322,7 +333,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     session.flush()
                 if new_rule.notification == RuleNotification.YES:
                     generate_email_for_rule_ok_notification(rule=new_rule, session=session)
-                generate_rule_notifications(rule=new_rule, session=session)
+                generate_rule_notifications(rule=new_rule, replicating_locks_before=0, session=session)
             else:
                 new_rule.state = RuleState.REPLICATING
                 if new_rule.grouping != RuleGrouping.NONE:
@@ -331,7 +342,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             # Add rule to History
             insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
 
-            logging.info("Created rule %s [%d/%d/%d] for did %s:%s in state %s" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state)))
+            logging.info("Created rule %s [%d/%d/%d] for did %s:%s in state %s", str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state))
 
     return rule_ids
 
@@ -386,7 +397,8 @@ def add_rules(dids, rules, session=None):
                 replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
                     .filter(models.RSEFileAssociation.scope == did.scope,
                             models.RSEFileAssociation.name == did.name,
-                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                            or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                models.RSEFileAssociation.state == ReplicaState.AVAILABLE),
                             models.RSE.rse_type != RSEType.TAPE).count()
                 if replica_cnt == 0:  # Put the rule on the archive
                     archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
@@ -467,7 +479,7 @@ def add_rules(dids, rules, session=None):
 
                         expires_at = datetime.utcnow() + timedelta(seconds=rule.get('lifetime')) if rule.get('lifetime') is not None else None
 
-                        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE}.get(rule.get('notify'), RuleNotification.NO)
+                        notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE, 'P': RuleNotification.PROGRESS}.get(rule.get('notify'), RuleNotification.NO)
 
                         if rule.get('meta') is not None:
                             try:
@@ -526,22 +538,22 @@ def add_rules(dids, rules, session=None):
                             elif did.length < int(rse_attr.get('auto_approve_files', -1)):
                                 auto_approve = True
                             if auto_approve:
-                                logging.debug("Auto approving rule %s" % str(new_rule.id))
-                                logging.debug("Created rule %s for injection" % str(new_rule.id))
+                                logging.debug("Auto approving rule %s", str(new_rule.id))
+                                logging.debug("Created rule %s for injection", str(new_rule.id))
                                 approve_rule(rule_id=new_rule.id, notify_approvers=False, session=session)
                                 continue
-                        logging.debug("Created rule %s in waiting for approval" % str(new_rule.id))
+                        logging.debug("Created rule %s in waiting for approval", str(new_rule.id))
                         __create_rule_approval_email(rule=new_rule, session=session)
                         continue
 
                     if rule.get('asynchronous', False):
                         new_rule.state = RuleState.INJECT
-                        logging.debug("Created rule %s for injection" % str(new_rule.id))
+                        logging.debug("Created rule %s for injection", str(new_rule.id))
                         continue
 
                     if rule.get('split_container', False) and did.did_type == DIDType.CONTAINER:
                         new_rule.state = RuleState.INJECT
-                        logging.debug("Created rule %s for injection due to Split Container mode" % str(new_rule.id))
+                        logging.debug("Created rule %s for injection due to Split Container mode", str(new_rule.id))
                         continue
 
                     # 5. Apply the replication rule to create locks, replicas and transfers
@@ -571,7 +583,7 @@ def add_rules(dids, rules, session=None):
                             session.flush()
                         if new_rule.notification == RuleNotification.YES:
                             generate_email_for_rule_ok_notification(rule=new_rule, session=session)
-                        generate_rule_notifications(rule=new_rule, session=session)
+                        generate_rule_notifications(rule=new_rule, replicating_locks_before=0, session=session)
                     else:
                         new_rule.state = RuleState.REPLICATING
                         if new_rule.grouping != RuleGrouping.NONE:
@@ -580,7 +592,7 @@ def add_rules(dids, rules, session=None):
                     # Add rule to History
                     insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
 
-                    logging.info("Created rule %s [%d/%d/%d] in state %s" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, str(new_rule.state)))
+                    logging.info("Created rule %s [%d/%d/%d] in state %s", str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, str(new_rule.state))
 
     return rule_ids
 
@@ -593,7 +605,7 @@ def inject_rule(rule_id, session=None):
     :param rule_id:    The id of the rule to inject.
     :param new_owner:  The new owner of the rule.
     :param session:    The database session in use.
-    :raises:           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataId
+    :raises:           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataId, RSEOverQuota
     """
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
@@ -602,16 +614,19 @@ def inject_rule(rule_id, session=None):
 
     # Special R2D2 container handling
     if (rule.did_type == DIDType.CONTAINER and '.r2d2_request.' in rule.name) or (rule.split_container and rule.did_type == DIDType.CONTAINER):
-        logging.debug("Creating dataset rules for Split Container rule %s" % (str(rule.id)))
+        logging.debug("Creating dataset rules for Split Container rule %s", str(rule.id))
         # Get all child datasets and put rules on them
         dids = [{'scope': dataset['scope'], 'name': dataset['name']} for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session)]
+        # Remove duplicates from the list of dictionaries
+        dids = [dict(t) for t in {tuple(d.items()) for d in dids}]
+        # Remove dids which already have a similar rule
         dids = [did for did in dids if session.query(models.ReplicationRule).filter_by(scope=did['scope'], name=did['name'], account=rule.account, rse_expression=rule.rse_expression).count() == 0]
         if rule.expires_at:
             lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
         else:
             lifetime = None
 
-        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C'}.get(rule.notification, 'N')
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C', RuleNotification.PROGRESS: 'P'}.get(rule.notification, 'N')
 
         add_rule(dids=dids,
                  account=rule.account,
@@ -696,7 +711,7 @@ def inject_rule(rule_id, session=None):
                 session.flush()
             if rule.notification == RuleNotification.YES:
                 generate_email_for_rule_ok_notification(rule=rule, session=session)
-            generate_rule_notifications(rule=rule, session=session)
+            generate_rule_notifications(rule=rule, replicating_locks_before=0, session=session)
             # Try to release potential parent rules
             release_parent_rule(child_rule_id=rule.id, session=session)
         else:
@@ -707,7 +722,7 @@ def inject_rule(rule_id, session=None):
         # Add rule to History
         insert_rule_history(rule=rule, recent=True, longterm=True, session=session)
 
-        logging.debug("Created rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+        logging.debug("Created rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
 
 @stream_session
@@ -736,16 +751,16 @@ def list_rules(filters={}, session=None):
                 query = query.filter(models.ReplicationRule.updated_at >= str_to_date(value))
                 continue
             elif key == 'state':
-                if isinstance(value, basestring):
+                if isinstance(value, string_types):
                     value = RuleState.from_string(value)
                 else:
                     try:
                         value = RuleState.from_sym(value)
                     except ValueError:
                         pass
-            elif key == 'did_type' and isinstance(value, basestring):
+            elif key == 'did_type' and isinstance(value, string_types):
                 value = DIDType.from_string(value)
-            elif key == 'grouping' and isinstance(value, basestring):
+            elif key == 'grouping' and isinstance(value, string_types):
                 value = RuleGrouping.from_string(value)
             query = query.filter(getattr(models.ReplicationRule, key) == value)
 
@@ -936,7 +951,7 @@ def repair_rule(rule_id, session=None):
         if rule.stuck_at < (datetime.utcnow() - timedelta(days=14)):
             rule.state = RuleState.SUSPENDED
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
-            logging.info('Replication rule %s has been SUSPENDED' % (rule_id))
+            logging.info('Replication rule %s has been SUSPENDED', rule_id)
             return
 
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
@@ -959,7 +974,7 @@ def repair_rule(rule_id, session=None):
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-            logging.debug('%s while repairing rule %s' % (str(error), rule_id))
+            logging.debug('%s while repairing rule %s', str(error), rule_id)
             return
 
         # Create the RSESelector
@@ -979,11 +994,11 @@ def repair_rule(rule_id, session=None):
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-            logging.debug('%s while repairing rule %s' % (type(error).__name__, rule_id))
+            logging.debug('%s while repairing rule %s', type(error).__name__, rule_id)
             return
 
         # Reset the counters
-        logging.debug("Resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+        logging.debug("Resetting counters for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
         rule.locks_ok_cnt = 0
         rule.locks_replicating_cnt = 0
         rule.locks_stuck_cnt = 0
@@ -995,7 +1010,7 @@ def repair_rule(rule_id, session=None):
                 rule.locks_replicating_cnt = count[1]
             elif count[0] == LockState.STUCK:
                 rule.locks_stuck_cnt = count[1]
-        logging.debug("Finished resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+        logging.debug("Finished resetting counters for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
         # Get the did
         did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == rule.scope,
@@ -1010,10 +1025,10 @@ def repair_rule(rule_id, session=None):
             nr_files = 1
         if nr_files * rule.copies != (rule.locks_ok_cnt + rule.locks_stuck_cnt + rule.locks_replicating_cnt):
             hard_repair = True
-            logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
+            logging.debug('Repairing rule %s in HARD mode', str(rule.id))
         elif rule.copies > 1 and rule.grouping == RuleGrouping.NONE:
             hard_repair = True
-            logging.debug('Repairing rule %s in HARD mode.' % str(rule.id))
+            logging.debug('Repairing rule %s in HARD mode', str(rule.id))
 
         # Resolve the did to its contents
         datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
@@ -1045,7 +1060,7 @@ def repair_rule(rule_id, session=None):
                 # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-                logging.debug('%s while repairing rule %s' % (type(error).__name__, rule_id))
+                logging.debug('%s while repairing rule %s', type(error).__name__, rule_id)
                 return
 
             session.flush()
@@ -1082,7 +1097,7 @@ def repair_rule(rule_id, session=None):
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-            logging.debug('%s while repairing rule %s' % (type(error).__name__, rule_id))
+            logging.debug('%s while repairing rule %s', type(error).__name__, rule_id)
             return
 
         # Delete Datasetlocks which are not relevant anymore
@@ -1093,7 +1108,7 @@ def repair_rule(rule_id, session=None):
                 dataset_lock.delete(session=session)
 
         if rule.locks_stuck_cnt != 0:
-            logging.info('Rule %s [%d/%d/%d] state=STUCK' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+            logging.info('Rule %s [%d/%d/%d] state=STUCK', str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
             rule.state = RuleState.STUCK
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -1106,7 +1121,7 @@ def repair_rule(rule_id, session=None):
         rule.stuck_at = None
 
         if rule.locks_replicating_cnt > 0:
-            logging.info('Rule %s [%d/%d/%d] state=REPLICATING' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+            logging.info('Rule %s [%d/%d/%d] state=REPLICATING', str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
             rule.state = RuleState.REPLICATING
             rule.error = None
             # Insert rule history
@@ -1120,14 +1135,14 @@ def repair_rule(rule_id, session=None):
         rule.error = None
         # Insert rule history
         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
-        logging.info('Rule %s [%d/%d/%d] state=OK' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+        logging.info('Rule %s [%d/%d/%d] state=OK', str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
         if rule.grouping != RuleGrouping.NONE:
             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
             session.flush()
         if rule.notification == RuleNotification.YES:
             generate_email_for_rule_ok_notification(rule=rule, session=session)
-        generate_rule_notifications(rule=rule, session=session)
+        generate_rule_notifications(rule=rule, replicating_locks_before=0, session=session)
         # Try to release potential parent rules
         rucio.core.rule.release_parent_rule(child_rule_id=rule.id, session=session)
 
@@ -1337,7 +1352,7 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
         else:
             lifetime = None
 
-        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C'}.get(rule.notification, 'N')
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C', RuleNotification.PROGRESS: 'P'}.get(rule.notification, 'N')
 
         new_rule_id = add_rule(dids=[{'scope': rule.scope, 'name': rule.name}],
                                account=rule.account,
@@ -1394,7 +1409,7 @@ def move_rule(rule_id, rse_expression, session=None):
         else:
             lifetime = None
 
-        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C'}.get(rule.notification, 'N')
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C', RuleNotification.PROGRESS: 'P'}.get(rule.notification, 'N')
 
         new_rule_id = add_rule(dids=[{'scope': rule.scope, 'name': rule.name}],
                                account=rule.account,
@@ -1494,7 +1509,7 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
     if limit:
         fetched_dids = query.order_by(models.UpdatedDID.created_at).limit(limit).all()
         filtered_dids = [did for did in fetched_dids if (did.scope, did.name) not in blacklisted_dids]
-        if len(fetched_dids) == limit and len(filtered_dids) == 0:
+        if len(fetched_dids) == limit and not filtered_dids:
             return get_updated_dids(total_workers=total_workers,
                                     worker_number=worker_number,
                                     limit=None,
@@ -1566,7 +1581,7 @@ def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules
     if limit:
         fetched_rules = query.limit(limit).all()
         filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
-        if len(fetched_rules) == limit and len(filtered_rules) == 0:
+        if len(fetched_rules) == limit and not filtered_rules:
             return get_expired_rules(total_workers=total_workers,
                                      worker_number=worker_number,
                                      limit=None,
@@ -1614,7 +1629,7 @@ def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rule
     if limit:
         fetched_rules = query.limit(limit).all()
         filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
-        if len(fetched_rules) == limit and len(filtered_rules) == 0:
+        if len(fetched_rules) == limit and not filtered_rules:
             return get_injected_rules(total_workers=total_workers,
                                       worker_number=worker_number,
                                       limit=None,
@@ -1670,7 +1685,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
     if limit:
         fetched_rules = query.limit(limit).all()
         filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
-        if len(fetched_rules) == limit and len(filtered_rules) == 0:
+        if len(fetched_rules) == limit and not filtered_rules:
             return get_stuck_rules(total_workers=total_workers,
                                    worker_number=worker_number,
                                    delta=delta,
@@ -1751,7 +1766,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
         replica.state = ReplicaState.UNAVAILABLE
         session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
         for dts in datasets:
-            logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached' % (scope, name, rse, dts['scope'], dts['name']))
+            logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached', scope, name, rse, dts['scope'], dts['name'])
             rucio.core.did.detach_dids(scope=dts['scope'], name=dts['name'], dids=[{'scope': scope, 'name': name}], session=session)
             add_message('LOST', {'scope': scope,
                                  'name': name,
@@ -1793,7 +1808,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         dataset = '%s:%s' % (ds_scope, ds_name)
         if dataset not in datasets:
             datasets.append(dataset)
-            logging.info('Recovering file %s:%s from dataset %s:%s at site %s' % (scope, name, ds_scope, ds_name, rse))
+            logging.info('Recovering file %s:%s from dataset %s:%s at site %s', scope, name, ds_scope, ds_name, rse)
         # Insert a new row in the UpdateCollectionReplica table
         models.UpdatedCollectionReplica(scope=ds_scope,
                                         name=ds_name,
@@ -1832,33 +1847,35 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
     if nlock:
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
     else:
-        logging.info('File %s:%s at site %s has no locks. Will be deleted now.' % (scope, name, rse))
+        logging.info('File %s:%s at site %s has no locks. Will be deleted now.', scope, name, rse)
         tombstone = OBSOLETE
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.UNAVAILABLE, 'tombstone': tombstone})
 
 
 @transactional_session
-def generate_rule_notifications(rule, session=None):
+def generate_rule_notifications(rule, replicating_locks_before=None, session=None):
     """
-    Generate (If necessary) a callback for a rule (DATASETLOCK_OK, RULE_OK)
+    Generate (If necessary) a callback for a rule (DATASETLOCK_OK, RULE_OK, DATASETLOCK_PROGRESS)
 
-    :param rule:     The rule object.
-    :param session:  The Database session
+    :param rule:                       The rule object.
+    :param replicating_locks_before:   Amount of replicating locks before the current state change.
+    :param session:                    The Database session
     """
 
     session.flush()
+    total_locks = rule.locks_replicating_cnt + rule.locks_ok_cnt
 
     if rule.state == RuleState.OK:
         # Only notify when rule is in state OK
 
-        # RULE_OK NOTIFICATIONS:
+        # RULE_OK RULE_PROGRESS NOTIFICATIONS:
         if rule.notification == RuleNotification.YES:
             add_message(event_type='RULE_OK',
                         payload={'scope': rule.scope,
                                  'name': rule.name,
                                  'rule_id': rule.id},
                         session=session)
-        elif rule.notification == RuleNotification.CLOSE:
+        elif rule.notification in [RuleNotification.CLOSE, RuleNotification.PROGRESS]:
             try:
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
@@ -1867,6 +1884,14 @@ def generate_rule_notifications(rule, session=None):
                                          'name': rule.name,
                                          'rule_id': rule.id},
                                 session=session)
+                    if rule.notification == RuleNotification.PROGRESS:
+                        add_message(event_type='RULE_PROGRESS',
+                                    payload={'scope': rule.scope,
+                                             'name': rule.name,
+                                             'rule_id': rule.id,
+                                             'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
+                                    session=session)
+
             except DataIdentifierNotFound:
                 pass
 
@@ -1899,6 +1924,21 @@ def generate_rule_notifications(rule, session=None):
                                             session=session)
                     except DataIdentifierNotFound:
                         pass
+
+    elif rule.state == RuleState.REPLICATING and rule.notification == RuleNotification.PROGRESS and replicating_locks_before:
+        # For RuleNotification PROGRESS rules, also notifiy when REPLICATING thresholds are passed
+        if __progress_class(replicating_locks_before, total_locks) != __progress_class(rule.locks_replicating_cnt, total_locks):
+            try:
+                did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
+                if not did['open']:
+                    add_message(event_type='RULE_PROGRESS',
+                                payload={'scope': rule.scope,
+                                         'name': rule.name,
+                                         'rule_id': rule.id,
+                                         'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
+                                session=session)
+            except DataIdentifierNotFound:
+                pass
 
 
 @transactional_session
@@ -2174,7 +2214,7 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_r
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
-    logging.debug("Finding missing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+    logging.debug("Finding missing locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
     mod_datasetfiles = []    # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
     # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
@@ -2187,8 +2227,8 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_r
                 mod_files.append(file)
             else:
                 preferred_rse_ids = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
-        if len(mod_files) > 0:
-            logging.debug('Found missing locks for rule %s, creating them now' % str(rule.id))
+        if mod_files:
+            logging.debug('Found missing locks for rule %s, creating them now', str(rule.id))
             mod_datasetfiles.append({'scope': dataset['scope'], 'name': dataset['name'], 'files': mod_files})
             __create_locks_replicas_transfers(datasetfiles=mod_datasetfiles,
                                               locks=locks,
@@ -2200,7 +2240,7 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_r
                                               source_rses=source_rses,
                                               session=session)
 
-    logging.debug("Finished finding missing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+    logging.debug("Finished finding missing locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
 
 @transactional_session
@@ -2220,7 +2260,7 @@ def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, source_r
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
-    logging.debug("Finding surplus locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+    logging.debug("Finding surplus locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
     account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
 
@@ -2247,7 +2287,7 @@ def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, source_r
                         rule.locks_stuck_cnt -= 1
                     locks[key].remove(lock)
 
-    logging.debug("Finished finding surplus locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+    logging.debug("Finished finding surplus locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
 
 @transactional_session
@@ -2267,7 +2307,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, source_rep
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
-    logging.debug("Finding and repairing stuck locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+    logging.debug("Finding and repairing stuck locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
     replicas_to_create, locks_to_create, transfers_to_create,\
         locks_to_delete = repair_stuck_locks_and_apply_rule_grouping(datasetfiles=datasetfiles,
@@ -2305,7 +2345,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, source_rep
     # Add the transfers
     request_core.queue_requests(requests=transfers_to_create, session=session)
     session.flush()
-    logging.debug("Finished finding and repairing stuck locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+    logging.debug("Finished finding and repairing stuck locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
 
 @transactional_session
@@ -2317,7 +2357,7 @@ def __evaluate_did_detach(eval_did, session=None):
     :param session:   The database session in use.
     """
 
-    logging.info("Re-Evaluating did %s:%s for DETACH" % (eval_did.scope, eval_did.name))
+    logging.info("Re-Evaluating did %s:%s for DETACH", eval_did.scope, eval_did.name)
 
     with record_timer_block('rule.evaluate_did_detach'):
         # Get all parent DID's
@@ -2336,7 +2376,7 @@ def __evaluate_did_detach(eval_did, session=None):
             files = {}
             for file in rucio.core.did.list_files(scope=rule.scope, name=rule.name, session=session):
                 files[(file['scope'], file['name'])] = True
-            logging.debug("Removing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+            logging.debug("Removing locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
             rule_locks_ok_cnt_before = rule.locks_ok_cnt
             query = session.query(models.ReplicaLock).filter_by(rule_id=rule.id)
             for lock in query:
@@ -2352,19 +2392,19 @@ def __evaluate_did_detach(eval_did, session=None):
                         rule.locks_replicating_cnt -= 1
                     elif lock.state == LockState.STUCK:
                         rule.locks_stuck_cnt -= 1
-            logging.debug("Finished removing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+            logging.debug("Finished removing locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
             if eval_did.did_type == DIDType.CONTAINER:
                 # Get all datasets of eval_did
                 child_datasets = {}
                 for ds in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session):
                     child_datasets[(ds['scope'], ds['name'])] = True
-                logging.debug("Removing dataset_locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+                logging.debug("Removing dataset_locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
                 query = session.query(models.DatasetLock).filter_by(rule_id=rule.id)
                 for ds_lock in query:
                     if (ds_lock.scope, ds_lock.name) not in child_datasets:
                         ds_lock.delete(flush=False, session=session)
-                logging.debug("Finished removing dataset_locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+                logging.debug("Finished removing dataset_locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
             if rule.state == RuleState.SUSPENDED:
                 pass
@@ -2404,7 +2444,7 @@ def __evaluate_did_attach(eval_did, session=None):
     :raises:          ReplicationRuleCreationTemporaryFailed
     """
 
-    logging.info("Re-Evaluating did %s:%s for ATTACH" % (eval_did.scope, eval_did.name))
+    logging.info("Re-Evaluating did %s:%s for ATTACH", eval_did.scope, eval_did.name)
 
     with record_timer_block('rule.evaluate_did_attach'):
         # Get all parent DID's
@@ -2494,7 +2534,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                       copies=rule.copies,
                                                       ignore_account_limit=rule.ignore_account_limit,
                                                       session=session)
-                        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as error:
+                        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit, RSEOverQuota) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)
@@ -2531,7 +2571,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                               preferred_rse_ids=preferred_rse_ids,
                                                               source_rses=[rse['id'] for rse in source_rses],
                                                               session=session)
-                        except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
+                        except (InsufficientAccountLimit, InsufficientTargetRSEs, RSEOverQuota) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)
@@ -2634,7 +2674,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
         for dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
             files = []
             tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, only_stuck=True, session=session)
-            locks = dict(locks.items() + tmp_locks.items())
+            locks = dict(list(locks.items()) + list(tmp_locks.items()))
             for file in tmp_locks:
                 file_did = rucio.core.did.get_did(scope=file[0], name=file[1], session=session)
                 files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32']})
@@ -2651,13 +2691,13 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
             files, tmp_replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             if source_rses:
                 tmp_source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], source_rses=source_rses, session=session)
-                source_replicas = dict(source_replicas.items() + tmp_source_replicas.items())
+                source_replicas = dict(list(source_replicas.items()) + list(tmp_source_replicas.items()))
             tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             datasetfiles.append({'scope': dataset['scope'],
                                  'name': dataset['name'],
                                  'files': files})
-            replicas = dict(replicas.items() + tmp_replicas.items())
-            locks = dict(locks.items() + tmp_locks.items())
+            replicas = dict(list(replicas.items()) + list(tmp_replicas.items()))
+            locks = dict(list(locks.items()) + list(tmp_locks.items()))
 
     else:
         raise InvalidReplicationRule('The did \"%s:%s\" has been deleted.' % (did.scope, did.name))
@@ -2707,8 +2747,8 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                                      models.ReplicaLock.name == did.child_name))
             replica_clauses.append(and_(models.RSEFileAssociation.scope == did.child_scope,
                                         models.RSEFileAssociation.name == did.child_name))
-        lock_clause_chunks = [lock_clauses[x:x + 10] for x in xrange(0, len(lock_clauses), 10)]
-        replica_clause_chunks = [replica_clauses[x:x + 10] for x in xrange(0, len(replica_clauses), 10)]
+        lock_clause_chunks = [lock_clauses[x:x + 10] for x in range(0, len(lock_clauses), 10)]
+        replica_clause_chunks = [replica_clauses[x:x + 10] for x in range(0, len(replica_clauses), 10)]
 
         replicas_rse_clause = []
         source_replicas_rse_clause = []
@@ -2771,9 +2811,9 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                                                                                                                  source_rses=source_rses,
                                                                                                                  session=session)
             datasetfiles.extend(tmp_datasetfiles)
-            locks = dict(locks.items() + tmp_locks.items())
-            replicas = dict(replicas.items() + tmp_replicas.items())
-            source_replicas = dict(source_replicas.items() + tmp_source_replicas.items())
+            locks = dict(list(locks.items()) + list(tmp_locks.items()))
+            replicas = dict(list(replicas.items()) + list(tmp_replicas.items()))
+            source_replicas = dict(list(source_replicas.items()) + list(tmp_source_replicas.items()))
     return datasetfiles, locks, replicas, source_replicas
 
 
@@ -2791,11 +2831,11 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_repl
     :param preferred_rse_ids:  Preferred RSE's to select.
     :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
-    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
+    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs, RSEOverQuota
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
-    logging.debug("Creating locks and replicas for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+    logging.debug("Creating locks and replicas for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
     replicas_to_create, locks_to_create, transfers_to_create = apply_rule_grouping(datasetfiles=datasetfiles,
                                                                                    locks=locks,
@@ -2823,10 +2863,10 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_repl
         account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
 
     # Add the transfers
-    logging.debug("Rule %s  [%d/%d/%d] queued %d transfers" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt, len(transfers_to_create)))
+    logging.debug("Rule %s  [%d/%d/%d] queued %d transfers", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt, len(transfers_to_create))
     request_core.queue_requests(requests=transfers_to_create, session=session)
     session.flush()
-    logging.debug("Finished creating locks and replicas for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+    logging.debug("Finished creating locks and replicas for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
 
 @transactional_session
@@ -2841,7 +2881,7 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
     :returns:               True, if the lock was replicating and the associated transfer should be canceled; False otherwise.
     """
 
-    logging.debug("Deleting lock %s:%s for rule %s" % (lock.scope, lock.name, str(lock.rule_id)))
+    logging.debug("Deleting lock %s:%s for rule %s", lock.scope, lock.name, str(lock.rule_id))
     lock.delete(session=session, flush=False)
     try:
         replica = session.query(models.RSEFileAssociation).filter(
@@ -2849,8 +2889,6 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
             models.RSEFileAssociation.name == lock.name,
             models.RSEFileAssociation.rse_id == lock.rse_id).with_for_update(nowait=nowait).one()
         replica.lock_cnt -= 1
-        if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
-            replica.state = ReplicaState.UNAVAILABLE
         if replica.lock_cnt == 0:
             if purge_replicas:
                 replica.tombstone = OBSOLETE
@@ -2860,10 +2898,11 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
                 replica.tombstone = replica.accessed_at
             else:
                 replica.tombstone = replica.created_at
-        if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
-            return True
+            if lock.state == LockState.REPLICATING:
+                replica.state = ReplicaState.UNAVAILABLE
+                return True
     except NoResultFound:
-        logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found" % (lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session)))
+        logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found", lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session))
     return False
 
 
@@ -2996,6 +3035,20 @@ def __create_recipents_list(rse_expression, session=None):
     return list(set(recipents))
 
 
+def __progress_class(replicating_locks, total_locks):
+    """
+    Returns the progress class (10%, 20%, ...) of currently replicating locks.
+
+    :param replicating_locks:   Currently replicating locks.
+    :param total_locks:         Total locks.
+    """
+
+    try:
+        return int(float(replicating_locks) / float(total_locks) * 10) * 10
+    except Exception:
+        return 0
+
+
 @policy_filter
 @transactional_session
 def archive_localgroupdisk_datasets(scope, name, session=None):
@@ -3026,7 +3079,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
     # There is at least one rule on LOCALGROUPDISK
     if rses_to_rebalance:
         content = [x for x in rucio.core.did.list_content(scope=scope, name=name, session=session)]
-        if len(content) > 0:
+        if content:
             # Create the archival dataset
             did = rucio.core.did.get_did(scope=scope, name=name, session=session)
             meta = rucio.core.did.get_metadata(scope=scope, name=name, session=session)
@@ -3059,7 +3112,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
                          ignore_account_limit=True,
                          ignore_availability=True,
                          session=session)
-            logging.debug('Re-Scoped %s:%s' % (scope, name))
+            logging.debug('Re-Scoped %s:%s', scope, name)
 
 
 @policy_filter

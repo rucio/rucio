@@ -23,7 +23,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -31,6 +31,7 @@ from __future__ import print_function
 
 from os import remove, unlink, listdir, rmdir, stat, path
 
+import json
 import nose.tools
 import re
 
@@ -623,6 +624,35 @@ class TestBinRucio():
         print(out, err)
         nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
 
+    def test_download_metalink_file(self):
+        """CLIENT(USER): Rucio download with metalink file"""
+        metalink_file_path = generate_uuid()
+        scope = self.user
+
+        # Use filter and metalink option
+        cmd = 'rucio download --scope mock --filter size=1 --metalink=test'
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_in('Arguments filter and metalink cannot be used together', err)
+
+        # Use did and metalink option
+        cmd = 'rucio download --metalink=test mock:test'
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_in('Arguments dids and metalink cannot be used together', err)
+
+        # Download only with metalink file
+        tmp_file = file_generator()
+        tmp_file_name = tmp_file[5:]
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, scope, tmp_file)
+        exitcode, out, err = execute(cmd)
+        replica_file = ReplicaClient().list_replicas([{'scope': scope, 'name': tmp_file_name}], metalink=True)
+        with open(metalink_file_path, 'w+') as metalink_file:
+            metalink_file.write(replica_file)
+        cmd = 'rucio download --dir /tmp --metalink {0}'.format(metalink_file_path)
+        exitcode, out, err = execute(cmd)
+        cmd = 'ls /tmp/{0}'.format(scope)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search(tmp_file_name, out), None)
+
     def test_download_succeeds_md5only(self):
         """CLIENT(USER): Rucio download succeeds MD5 only"""
         # user has a file to upload
@@ -1137,3 +1167,23 @@ class TestBinRucio():
         cmd = 'rucio list-content {0}'.format(container)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, new_dataset['name']), out), None)
+
+    def test_import_data(self):
+        """ CLIENT(ADMIN): Import data into rucio"""
+        file_path = 'data_import.json'
+        data = {'rses': [{'rse': rse_name_generator()}]}
+        with open(file_path, 'w+') as file:
+            file.write(json.dumps(data))
+        cmd = 'rucio-admin data import {0}'.format(file_path)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search('Data successfully imported', out), None)
+        remove(file_path)
+
+    def test_export_data(self):
+        """ CLIENT(ADMIN): Export data from rucio"""
+        file_path = 'data_export.json'
+        cmd = 'rucio-admin data export {0}'.format(file_path)
+        exitcode, out, err = execute(cmd)
+        print(re.search('Data successfully exported', out))
+        nose.tools.assert_not_equal(re.search('Data successfully exported', out), None)
+        remove(file_path)

@@ -18,9 +18,9 @@
 #
 import os
 import sys
-# sys.path.insert(0, os.path.abspath('.'))
-
 from mock import Mock as MagicMock
+
+sys.path.insert(len(sys.path), os.path.abspath('../../lib'))
 
 
 class Mock(MagicMock):

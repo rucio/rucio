@@ -16,158 +16,106 @@ Heads up: We recommend to use the docker-based install (see next section) as it 
 This will pull the latest release from `PyPi <https://pypi.python.org/pypi/rucio/>`_. The Rucio server also needs several Python dependencies. These are all listed in the file ``tools/pip-requires`` and will be pulled in as necessary.
 
 
-Install via docker
+Install via Docker
 ~~~~~~~~~~~~~~~~~~
 
-First, install the docker environment, e.g., for CentOS-based systems:
+A simple server without SSL can be started like this:
 
-``yum install docker``
+```docker run --name=rucio-server -p 80:80 -d rucio/rucio-server```
 
-Afterwards, if you require it, enable the Grid Certificate Authority by adding ``/etc/yum.repos.d/ca.repo`` with content:
+This will start up a simple server using sqlite based on an automatically generated configuration. You can check if the server is running with `curl http://localhost/ping`
 
-.. code-block:: none
+This should return the Rucio version used in the container. Any other curl requests will not work as the database backend is not initialized as this image is meant to be used with an already bootstraped database backend. I.e., that the container has to be configured to point to the correct database. There are two ways to manange the Rucio configuration: using environment variables or by mounting a full rucio.cfg.
 
-    [carepo]
-    name=IGTF CA Repository
-    baseurl=http://linuxsoft.cern.ch/mirror/repository.egi.eu/sw/production/cas/1/current/
-    enabled=1
-    gpgcheck=1
-    gpgkey=file:///etc/pki/rpm-gpg/GPG-KEY-EUGridPMA-RPM-3
+If you want to set the connection string for the database it can be done using the `RUCIO_CFG_DATABASE_DEFAULT` environment variable, e.g., to start a container connecting to a MySQL DB running at `mysql.db` you could use something like this:
 
-with the public key in file ``/etc/pki/rpm-gpg/GPG-KEY-EUGridPMA-RPM-3``:
+```docker run --name=rucio-server -e RUCIO_CFG_DATABASE_DEFAULT="mysql://rucio:rucio@mysql.db/rucio" -p 80:80 -d rucio/rucio-server```
 
-.. code-block:: none
+The are much more configuration parameters available that will be listed at the end of this readme.
 
-    -----BEGIN PGP PUBLIC KEY BLOCK-----
-    Version: GnuPG v1.2.1 (GNU/Linux)
+Another way to configure Rucio is to directly mount a complete rucio.cfg into the container. This will then be used instead of the auto-generated one, e.g., if you have a rucio.cfg ready on your host system under `/tmp/rucio.cfg` you could start a container like this:
 
-    mQGiBELTiyYRBAD8goP2vWdf46e/stZvzgkBgJIFTMkHqZOpLqlCKTRGf4VHUASh
-    hdaktDtPx44fVO4E3zmugc7FP6xz/Hj3SqrUKt98vzF1EMb3i4UMCOBif+jM6VFS
-    N5N3gDEukNpP2h46LkNPbRPgAEeUmUZy4kTyB9xC/VA7d1sFx6sJZpCHiwCg7DNX
-    bj4Wuk5b+FyyCOg9++xabokEAJwt4+iyDX3uYZrkzh9hOXgrbBiyGrorAz3jOpqM
-    4L9+OKs5q9UsBwVXs5Zjei/irgxNjHNZCPo/V4f7o2CHxa88rn4GvstftSK6Oeey
-    8PaV3vdb5C5SRSbRgvxoUOo6eGVBpv8bVpKm//tNkTboHVsEAKQ1rYzx/m89aCZj
-    VCw5A/0c3E0rH4ZCeNg7yvta9ur3U7n/aFhzbU3wFLhcIndrPaufz5Sy/SYhOaS9
-    RgH36GbsmOq6JskdtSpBLq0768BUmrjcosgWl3REpMAZc4vvtb55WRYsrNSrqmXZ
-    /jHLjQkFHFdObIEcvxl+yIIwUxybMkvdxPZxnpGjF2gg6AoP7rQ5RVVHcmlkUE1B
-    IERpc3RyaWJ1dGlvbiBTaWduaW5nIEtleSAzIDxpbmZvQGV1Z3JpZHBtYS5vcmc+
-    iFkEExECABkFAkLTiyYECwcDAgMVAgMDFgIBAh4BAheAAAoJEMMtmcg827xx5PQA
-    oON2EH0dqfwNjGr1GlGyt1o5bWkzAJ0Y4QOPWaCIJFABoluX5nifjKWV9w==
-    =qXx1
-    -----END PGP PUBLIC KEY BLOCK-----
+```docker run --name=rucio-server -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -p 80:80 -d rucio/rucio-server```
 
-You can now ``yum install lcg-CA``.
+The rucio.cfg is used to configure the database backend.
 
-The next step is to generate a host certificate, which will be used by the webserver:
+If you want to enable SSL you would need to set the `RUCIO_ENABLE_SSL` variable and also need to include the host certificate, key and the the CA certificate as volumes. E.g.,:
 
-.. code-block:: bash
+```docker run --name=rucio-server -v /tmp/ca.pem:/etc/grid-security/ca.pem -v /tmp/hostcert.pem:/etc/grid-security/hostcert.pem -v /tmp/hostkey.pem:/etc/grid-security/hostkey.pem -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -p 443:443 -e RUCIO_ENABLE_SSL=True -d rucio/rucio-server```
 
-    openssl pkcs12 -in hostCert.p12 -clcerts -nokeys -out /etc/grid-security/hostcert.pem
-    openssl pkcs12 -in hostCert.p12 -nocerts -nodes -out /etc/grid-security/hostkey.pem
-    chmod 0600 /etc/grid-security/hostkey.pem
+By default the output of the Apache web server is written directly to stdout and stderr. If you would rather direct them into separate files it can be done using the `RUCIO_ENABLE_LOGS` variable. The storage folder of the logs can be used as a volume:
 
-You can now start the docker service:
+```docker run --name=rucio-server -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -v /tmp/logs:/var/log/httpd -p 80:80 -e RUCIO_ENABLE_LOGFILE=True -d rucio/rucio-server```
 
-.. code-block:: bash
+Environment Variables
+~~~~~~~~~~~~~~~~~~~~~
 
-   service docker start
+As shown in the examples above the rucio-server image can be configured using environment variables that are passed with `docker run`. Below is a list of all available variables and their behaviour:
 
-And finally start up the Rucio server:
+`RUCIO_ENABLE_SSL`
+------------------
+By default the rucio server runs without SSL on port 80. If you want to enable SSL set this variable to `True`. If you enable SSL you will also have to provide the host certificate and key and the certificate authority file. The server will look for `hostcert.pem`, `hostkey.pem` and `ca.pem` under `/etc/grid-security` so you will have to mount them as volumes. Furthermore you will also have to expose port 443.
 
-.. code-block:: bash
+`RUCIO_CA_PATH`
+---------------
+If you are using SSL and want use `SSLCACertificatePath` and `SSLCARevocationPath` you can do so by specifying the path in this variable.
 
-    docker run --privileged --name rucio-server -v /etc/hostname:/etc/hostname -v /var/log/httpd:/var/log/httpd -v /etc/grid-security/hostcert.pem:/etc/grid-security/hostcert.pem -v /etc/grid-security/hostkey.pem:/etc/grid-security/hostkey.pem -v /sys/fs/cgroup:/sys/fs/cgroup:ro -v /opt/rucio/etc:/opt/rucio/etc -v /etc/grid-security:/etc/grid-security -v /etc/pki:/etc/pki -d -p 443:443  gitlab-registry.cern.ch/rucio01/rucio/mysql_server
+`RUCIO_DEFINE_ALIASES`
+----------------------
+By default the web server is configured with all common rest endpoints except the authentication endpoint. If you want to specify your own set of aliases you can set this variable to `True`. The web server then expects an alias file under `/opt/rucio/etc/aliases.conf`
 
-Voila. You have a Rucio server up and running.
+`RUCIO_ENABLE_LOGFILE`
+----------------------
+By default the log output of the web server is written to stdout and stderr. If you set this variable to `True` the output will be written to `access_log` and `error_log` under `/var/log/httpd`.
 
-Miscellaneous
-~~~~~~~~~~~~~
+`RUCIO_LOG_LEVEL`
+-----------------
+The default log level is `info`. You can change it using this variable.
 
-Creating alembic.ini
+`RUCIO_LOG_FORMAT`
+------------------
+The default rucio log format is `%h\t%t\t%{X-Rucio-Forwarded-For}i\t%T\t%D\t\"%{X-Rucio-Auth-Token}i\"\t%{X-Rucio-RequestId}i\t%{X-Rucio-Client-Ref}i\t\"%r\"\t%>s\t%b`
+You can set your own format using this variable.
+
+`RUCIO_HOSTNAME`
+----------------
+This variable sets the server name in the apache config.
+
+`RUCIO_SERVER_ADMIN`
 --------------------
+This variable sets the server admin in the apache config.
 
-The following is only needed if you didn’t bootstrap the database. First, enter the docker container:
+`RUCIO_CFG` configuration parameters:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``docker exec -i -t rucio-server /bin/bash``
+Environment variables can be used to set values for the auto-generated rucio.cfg. The names are derived from the actual names in the configuration file prefixed by `RUCIO_CFG`, e.g., the `default` value in the `database` section becomes `RUCIO_CFG_DATABASE_DEFAULT`.
+All available environment variables are:
 
-Now, you’re inside the container and you can put in the configuration file ``etc/rucio.cfg`` a new ``[alembic]`` section:
-
-.. code-block:: ini
-
-    [alembic]
-    cfg = alembic.ini
-
-And create a new file ``alembic.ini`` with content:
-
-.. code-block:: ini
-
-    # A generic, single database configuration.
-
-    [alembic]
-    # path to migration scripts
-    script_location =/usr/lib/python2.7/site-packages/rucio/db/sqla/migrate_repo
-    sqlalchemy.url = Replace by the DB string here
-
-    # Logging configuration
-    [loggers]
-    keys = root,sqlalchemy,alembic
-
-    [handlers]
-    keys = console
-
-    [formatters]
-    keys = generic
-
-    [logger_root]
-    level = WARN
-    handlers = console
-    qualname =
-
-    [logger_sqlalchemy]
-    level = WARN
-    handlers =
-    qualname = sqlalchemy.engine
-
-    [logger_alembic]
-    level = INFO
-    handlers =
-    qualname = alembic
-
-    [handler_console]
-    class = StreamHandler
-    args = (sys.stderr,)
-    level = NOTSET
-    formatter = generic
-
-    [formatter_generic]
-    format = %(levelname)-5.5s [%(name)s] %(message)s
-    datefmt = %H:%M:%S
-
-
-Eventually, bootstrap the database and restart the webserver:
-
-.. code-block:: bash
-
-    python /usr/rucio/tools/bootstrap.py
-    apachectl restart
-
-Special characters in DIDs
---------------------------
-
-To allow DIDs to contain the slash (/) character, one must add the directive
-
-.. code-block:: html
-
-    AllowEncodedSlashes on
-
-to the
-
-.. code-block:: html
-
-    <VirtualHost>
-    ...
-    </VirtualHost>
-
-section of ``/etc/httpd/conf.d/rucio.conf``
-
-
+* RUCIO_CFG_COMMON_LOGDIR
+* RUCIO_CFG_COMMON_LOGLEVEL
+* RUCIO_CFG_COMMON_MAILTEMPLATEDIR
+* RUCIO_CFG_DATABASE_DEFAULT
+* RUCIO_CFG_DATABASE_SCHEMA
+* RUCIO_CFG_DATABASE_POOL_RESET_ON_RETURN
+* RUCIO_CFG_DATABASE_ECHO
+* RUCIO_CFG_DATABASE_POLL_RECYCLE
+* RUCIO_CFG_DATABASE_POOL_SIZE
+* RUCIO_CFG_DATABASE_POOL_TIMEOUT
+* RUCIO_CFG_DATABASE_MAX_OVERFLOW
+* RUCIO_CFG_DATABASE_POWUSERACCOUNT
+* RUCIO_CFG_DATABASE_USERPASSWORD
+* RUCIO_CFG_MONITOR_CARBON_SERVER
+* RUCIO_CFG_MONITOR_CARBON_PORT
+* RUCIO_CFG_MONITOR_USER_SCOPE
+* RUCIO_CFG_TRACE_TRACEDIR
+* RUCIO_CFG_TRACE_BROKERS
+* RUCIO_CFG_TRACE_PORT
+* RUCIO_CFG_TRACE_USERNAME
+* RUCIO_CFG_TRACE_PASSWORD
+* RUCIO_CFG_TRACE_TOPIC
+* RUCIO_CFG_PERMISSION_POLICY
+* RUCIO_CFG_PERMISSION_SCHEMA
+* RUCIO_CFG_PERMISSION_LFN2PFN_ALGORITHM_DEFAULT
+* RUCIO_CFG_PERMISSION_SUPPORT
+* RUCIO_CFG_PERMISSION_SUPPORT_RUCIO
+* RUCIO_CFG_WEBUI_USERCERT

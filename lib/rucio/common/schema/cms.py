@@ -269,7 +269,7 @@ ATTACHMENT = {"description": "Attachement",
                              "name": NAME,
                              "rse": {"description": "RSE name",
                                      "type": ["string", "null"],
-                                     "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"},
+                                     "pattern": "^T[0-3]_[A-Z]{2}((_[A-Za-z0-9]+)+)$"},
                              "dids": DIDS},
               "required": ["dids"],
               "additionalProperties": False}
@@ -344,6 +344,36 @@ ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
 
 SCOPE_NAME_REGEXP = '/([^/]*)(?=/)(.*)'
 
+RSES = {"description": "list of RSEs",
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "rse": RSE
+            },
+            "required": ["rse"],
+            "additionalProperties": True
+        }}
+
+DISTANCE = {"description": "RSE distance",
+            "type": "object",
+            "properties": {
+                "src_rse_id": {"type": "string"},
+                "dest_rse_id": {"type": "string"},
+                "ranking": {"type": "integer"}
+            },
+            "required": ["src_rse_id", "dest_rse_id", "ranking"],
+            "additionalProperties": True}
+
+IMPORT = {"description": "import data into rucio.",
+          "type": "object",
+          "properties": {
+              "rses": RSES,
+              "distances": {
+                  "type": "object"
+              }
+          }}
+
 SCHEMAS = {'account': ACCOUNT,
            'account_type': ACCOUNT_TYPE,
            'activity': ACTIVITY,
@@ -366,7 +396,8 @@ SCHEMAS = {'account': ACCOUNT,
            'subscription_filter': SUBSCRIPTION_FILTER,
            'cache_add_replicas': CACHE_ADD_REPLICAS,
            'cache_delete_replicas': CACHE_DELETE_REPLICAS,
-           'account_attribute': ACCOUNT_ATTRIBUTE}
+           'account_attribute': ACCOUNT_ATTRIBUTE,
+           'import': IMPORT}
 
 
 def validate_schema(name, obj):

@@ -8,10 +8,13 @@
 
  Authors:
  - Vitjan Zavrtanik, <vitjan.zavrtanik@gmai.com>, 2017
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
+ PY3K COMPATIBLE
 Generates files filled with random data.
 """
 
+from __future__ import print_function
 
 import os
 import sys
@@ -25,7 +28,7 @@ def main():
         message = """
         Usage: python generate_dataset.py <dataset_name> <number of files> <size of each file in bytes>
         """
-        print message
+        print(message)
         sys.exit(0)
     dataset_name = sys.argv[1]
     file_number = int(sys.argv[2])

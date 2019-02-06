@@ -7,6 +7,11 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
+
+from __future__ import division
 
 import logging
 from operator import itemgetter

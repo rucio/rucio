@@ -14,16 +14,19 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 from abc import ABCMeta, abstractmethod
+from six import add_metaclass
 
 
+@add_metaclass(ABCMeta)
 class Transfertool(object):
     """
     Interface definition of the Rucio transfertool
     """
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, external_host):
         """

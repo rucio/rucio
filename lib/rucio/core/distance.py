@@ -14,9 +14,10 @@
 """
 
 from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.orm import aliased
 
 from rucio.common import exception
-from rucio.db.sqla.models import Distance
+from rucio.db.sqla.models import Distance, RSE
 from rucio.db.sqla.session import transactional_session, read_session
 
 
@@ -141,5 +142,45 @@ def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, session
         if dest_rse_id:
             query = query.filter(Distance.dest_rse_id == dest_rse_id)
         query.update(params)
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+
+
+@read_session
+def list_distances(filter={}, session=None):
+    """
+    Get distances between all the RSEs.
+
+    :param filter: dictionary to filter distances.
+    :param session: The database session in use.
+    """
+    return [distance.to_dict() for distance in session.query(Distance).all()]
+
+
+@read_session
+def export_distances(session=None):
+    """
+    Export distances between all the RSEs using RSE names.
+    :param session: The database session to use.
+    :returns distance: dictionary of dictionaries with all the distances.
+    """
+
+    distances = {}
+    try:
+        rse_src = aliased(RSE)
+        rse_dest = aliased(RSE)
+        query = session.query(Distance, rse_src.rse, rse_dest.rse)\
+                       .join(rse_src, rse_src.id == Distance.src_rse_id)\
+                       .join(rse_dest, rse_dest.id == Distance.dest_rse_id)
+        for result in query.all():
+            distance = result[0]
+            src_name = result[1]
+            dst_name = result[2]
+            if src_name not in distances:
+                distances[src_name] = {}
+            distances[src_name][dst_name] = {}
+            distances[src_name][dst_name] = distance.to_dict()
+            del distances[src_name][dst_name]['_sa_instance_state']
+        return distances
     except IntegrityError as error:
         raise exception.RucioException(error.args)

@@ -21,6 +21,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2018
 # - Stefan Prenner <stefan.prenner@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -429,13 +430,13 @@ class LoadLogfile():
                 jsonResponse[member.name] = member.size
             header('Content-Type', 'application/json')
             return dumps(jsonResponse)
-        except ConnectionError, err:
+        except ConnectionError as err:
             raise generate_http_error(503, str(type(err)), str(err))
-        except TarError, err:
+        except TarError as err:
             raise generate_http_error(415, str(type(err)), str(err))
-        except IOError, err:
+        except IOError as err:
             raise generate_http_error(422, str(type(err)), str(err))
-        except Exception, err:
+        except Exception as err:
             raise generate_http_error(500, str(type(err)), str(err))
 
 
@@ -469,13 +470,13 @@ class ExtractLogfile():
                         tar.close()
                         return jsonResponse
                     return "ok"
-        except ConnectionError, err:
+        except ConnectionError as err:
             raise generate_http_error(503, str(type(err)), str(err))
-        except TarError, err:
+        except TarError as err:
             raise generate_http_error(415, str(type(err)), str(err))
-        except IOError, err:
+        except IOError as err:
             raise generate_http_error(422, str(type(err)), str(err))
-        except Exception, err:
+        except Exception as err:
             raise generate_http_error(500, str(type(err)), str(err))
 
 

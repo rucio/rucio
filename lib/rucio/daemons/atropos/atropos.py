@@ -16,6 +16,9 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 import datetime
 import logging
@@ -187,7 +190,7 @@ def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
                                                             'date_check': date_check,
                                                             'dry_run': dry_run,
                                                             'grace_period': grace_period,
-                                                            'bulk': bulk}) for i in xrange(0, threads)]
+                                                            'bulk': bulk}) for i in range(0, threads)]
     [t.start() for t in thread_list]
 
     logging.info('waiting for interrupts')

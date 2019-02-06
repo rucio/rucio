@@ -1,26 +1,34 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
-  - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
-  - Wen Guan, <wen.guan@cern.ch>, 2015
-
-SQLAlchemy models for rucio data
-'''
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
+# - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 import datetime
 import uuid
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, SmallInteger, String as _String, event, UniqueConstraint
+from builtins import object
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, SmallInteger, String as _String, Text, event, UniqueConstraint
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
@@ -34,7 +42,8 @@ from rucio.common.schema import NAME_LENGTH, SCOPE_LENGTH
 from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
                                      KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
                                      RuleState, ReplicaState, RequestState, RequestType, RSEType,
-                                     ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState)
+                                     ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState,
+                                     BadPFNStatus)
 from rucio.db.sqla.history import Versioned
 from rucio.db.sqla.session import BASE
 from rucio.db.sqla.types import GUID, BooleanString, JSON
@@ -68,7 +77,10 @@ def _psql_rename_type(target, connection, **kw):
 @event.listens_for(Table, "before_create")
 def _oracle_json_constraint(target, connection, **kw):
     if connection.dialect.name == 'oracle' and target.name == 'did_meta':
-        oracle_version = int(connection.connection.version.split('.')[0])
+        try:
+            oracle_version = int(connection.connection.version.split('.')[0])
+        except Exception:
+            return
         if oracle_version >= 12:
             target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
 
@@ -212,21 +224,23 @@ class ModelBase(object):
         self._i = iter(object_mapper(self).columns)
         return self
 
-    def next(self):
-        n = self._i.next().name
+    def __next__(self):
+        n = next(self._i).name
         return n, getattr(self, n)
 
     def keys(self):
-        return self.__dict__.keys()
+        return list(self.__dict__.keys())
 
     def values(self):
-        return self.__dict__.values()
+        return list(self.__dict__.values())
 
     def items(self):
-        return self.__dict__.items()
+        return list(self.__dict__.items())
 
     def to_dict(self):
         return self.__dict__.copy()
+
+    next = __next__
 
 
 class SoftModelBase(ModelBase):
@@ -455,12 +469,26 @@ class BadReplicas(BASE, ModelBase):
     state = Column(BadFilesStatus.db_type(name='BAD_REPLICAS_STATE_CHK'), default=BadFilesStatus.SUSPICIOUS)
     account = Column(String(25))
     bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'created_at', name='BAD_REPLICAS_STATE_PK'),
+    expires_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'state', 'created_at', name='BAD_REPLICAS_STATE_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='BAD_REPLICAS_NAME_NN'),
                    CheckConstraint('RSE_ID IS NOT NULL', name='BAD_REPLICAS_RSE_ID_NN'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_REPLICAS_ACCOUNT_FK'),
-                   Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state'))
+                   Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state'),
+                   Index('BAD_REPLICAS_EXPIRES_AT_IDX', 'expires_at'))
+
+
+class BadPFNs(BASE, ModelBase):
+    """Represents bad, suspicious or temporary unavailable PFNs which have to be processed and added to BadReplicas Table"""
+    __tablename__ = 'bad_pfns'
+    path = Column(String(2048))  # PREFIX + PFN
+    state = Column(BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS)
+    reason = Column(String(255))
+    account = Column(String(25))
+    expires_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('path', 'state', name='BAD_PFNS_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_PFNS_ACCOUNT_FK'))
 
 
 class QuarantinedReplica(BASE, ModelBase, Versioned):
@@ -558,8 +586,12 @@ class ConstituentAssociationHistory(BASE, ModelBase):
     md5 = Column(String(32))
     guid = Column(GUID())
     length = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name',
-                                        name='ARCH_CONTENTS_HISOTRY_PK'), )
+    __mapper_args__ = {
+        'primary_key': [scope, name, child_scope, child_name]  # Fake primary key for SQLA
+    }
+    _table_args = (Index('ARCH_CONT_HIST_IDX', 'scope', 'name'), )
+    # _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name',
+    #                                     name='ARCH_CONTENTS_HISOTRY_PK'), )
 
 
 class DataIdentifierAssociationHistory(BASE, ModelBase):
@@ -580,7 +612,7 @@ class DataIdentifierAssociationHistory(BASE, ModelBase):
     did_created_at = Column(DateTime)
     deleted_at = Column(DateTime)
     __mapper_args__ = {
-        'primary_key': [scope, name, child_scope, child_name]
+        'primary_key': [scope, name, child_scope, child_name]  # Fake primary key for SQLA
     }
     # _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_HIST_PK'),
     _table_args = (CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_HIST_DID_TYPE_NN'),
@@ -736,7 +768,7 @@ class RSEFileAssociation(BASE, ModelBase):
     accessed_at = Column(DateTime)
     tombstone = Column(DateTime)
     rse = relationship("RSE", backref=backref('replicas', order_by="RSE.id"))
-    _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='REPLICAS_PK'),
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', name='REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
                    CheckConstraint('STATE IS NOT NULL', name='REPLICAS_STATE_NN'),
@@ -854,7 +886,6 @@ class ReplicationRule(BASE, ModelBase):
 class ReplicationRuleHistoryRecent(BASE, ModelBase):
     """Represents replication rules in the recent history"""
     __tablename__ = 'rules_hist_recent'
-    history_id = Column(GUID(), default=utils.generate_uuid)
     id = Column(GUID())
     subscription_id = Column(GUID())
     account = Column(String(25))
@@ -885,15 +916,16 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     eol_at = Column(DateTime)
     split_container = Column(Boolean())
     meta = Column(String(4000))
-    _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_RECENT_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
-                   Index('RULES_HIST_RECENT_ID_IDX', 'id'),
+    __mapper_args__ = {
+        'primary_key': [id, locks_replicating_cnt]  # Fake primary key for SQLA
+    }
+    _table_args = (Index('RULES_HIST_RECENT_ID_IDX', 'id'),
                    Index('RULES_HIST_RECENT_SC_NA_IDX', 'scope', 'name'))
 
 
 class ReplicationRuleHistory(BASE, ModelBase):
     """Represents replication rules in the longterm history"""
     __tablename__ = 'rules_history'
-    history_id = Column(GUID(), default=utils.generate_uuid)
     id = Column(GUID())
     subscription_id = Column(GUID())
     account = Column(String(25))
@@ -924,8 +956,10 @@ class ReplicationRuleHistory(BASE, ModelBase):
     eol_at = Column(DateTime)
     split_container = Column(Boolean())
     meta = Column(String(4000))
-    _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
-                   Index('RULES_HISTORY_SCOPENAME_IDX', 'scope', 'name'))
+    __mapper_args__ = {
+        'primary_key': [id, locks_replicating_cnt]  # Fake primary key for SQLA
+    }
+    _table_args = (Index('RULES_HISTORY_SCOPENAME_IDX', 'scope', 'name'), )
 
 
 class ReplicaLock(BASE, ModelBase):
@@ -1119,6 +1153,7 @@ class Message(BASE, ModelBase):
     id = Column(GUID(), default=utils.generate_uuid)
     event_type = Column(String(1024))
     payload = Column(String(4000))
+    payload_nolimit = Column(Text)
     _table_args = (PrimaryKeyConstraint('id', name='MESSAGES_ID_PK'),
                    CheckConstraint('EVENT_TYPE IS NOT NULL', name='MESSAGES_EVENT_TYPE_NN'),
                    CheckConstraint('PAYLOAD IS NOT NULL', name='MESSAGES_PAYLOAD_NN'),)
@@ -1130,7 +1165,11 @@ class MessageHistory(BASE, ModelBase):
     id = Column(GUID())
     event_type = Column(String(1024))
     payload = Column(String(4000))
-    _table_args = (PrimaryKeyConstraint('id', name='MESSAGES_HIST_ID_PK'),)  # PK needed for SQLA only
+    payload_nolimit = Column(Text)
+    __mapper_args__ = {
+        'primary_key': [id]  # Fake primary key for SQLA
+    }
+    _table_args = ()  # PrimaryKeyConstraint('id', name='MESSAGES_HIST_ID_PK'),)  # PK needed for SQLA only
 
 
 class AlembicVersion(BASE):

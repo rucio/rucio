@@ -30,7 +30,7 @@
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -66,8 +66,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
-                                    RucioException, DuplicateRule, NoFilesDownloaded, NotAllFilesDownloaded,
-                                    InvalidType)
+                                    RucioException, DuplicateRule, InvalidType)
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string
 
 SUCCESS = 0
@@ -201,10 +200,6 @@ def exception_handler(function):
             logger.error(error)
             logger.debug('This means one dependency is missing.')
             return error.error_code
-        except NoFilesDownloaded as error:
-            return error.error_code
-        except NotAllFilesDownloaded as error:
-            return error.error_code
         except KeyError as error:
             if 'x-rucio-auth-token' in error:
                 used_account = None
@@ -252,13 +247,15 @@ def get_client(args):
         creds = None
 
     try:
+        auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.account,
-                        auth_type=args.auth_strategy, creds=creds,
+                        auth_type=auth_type, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout,
                         user_agent=args.user_agent)
     except CannotAuthenticate as error:
         logger.error(error)
+        auth_type = ''
         if not args.auth_strategy:
             if 'RUCIO_AUTH_TYPE' in os.environ:
                 auth_type = os.environ['RUCIO_AUTH_TYPE']
@@ -270,7 +267,7 @@ def get_client(args):
                     sys.exit(FAILURE)
         if 'alert certificate expired' in error:
             logger.error('The server certificate expired.')
-        elif auth_type == 'x509_proxy':
+        elif auth_type.lower() == 'x509_proxy':
             logger.error('Please verify that your proxy is still valid and renew it if needed.')
         sys.exit(FAILURE)
     return client
@@ -893,11 +890,19 @@ def download(args):
     Download files from Rucio using new threaded model and RSE expression support
     """
     # Input validation
-    if not args.dids and not args.filter:
+    if not args.dids and not args.filter and not args.metalink_file:
         logger.error('At least one did is mandatory')
         return FAILURE
     elif not args.dids and args.filter and not args.scope:
         logger.error('The argument scope is mandatory')
+        return FAILURE
+
+    if args.filter and args.metalink_file:
+        logger.error('Arguments filter and metalink cannot be used together.')
+        return FAILURE
+
+    if args.dids and args.metalink_file:
+        logger.error('Arguments dids and metalink cannot be used together.')
         return FAILURE
 
     trace_pattern = {}
@@ -926,9 +931,10 @@ def download(args):
     item_defaults['base_dir'] = args.dir
     item_defaults['no_subdir'] = args.no_subdir
     item_defaults['transfer_timeout'] = args.transfer_timeout
-    item_defaults['resolve_archives'] = not args.no_resolve_archives
+    item_defaults['no_resolve_archives'] = args.no_resolve_archives
     archive_did = args.archive_did
 
+    # Get filters
     filters = {}
     type = 'all'
     if args.filter:
@@ -946,6 +952,7 @@ def download(args):
             logger.error(error)
             logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
             return FAILURE
+        item_defaults['filters'] = filters
 
     if not args.pfn and not archive_did:
         item_defaults['force_scheme'] = args.protocol
@@ -961,9 +968,11 @@ def download(args):
             items.append(item_defaults)
 
         if args.aria:
-            result = download_client.download_aria2c(items, trace_pattern, filters)
+            result = download_client.download_aria2c(items, trace_pattern)
+        elif args.metalink_file:
+            result = download_client.download_from_metalink_file(items[0], args.metalink_file)
         else:
-            result = download_client.download_dids(items, args.ndownloader, trace_pattern, filters)
+            result = download_client.download_dids(items, args.ndownloader, trace_pattern)
     elif archive_did:
         if args.aria:
             logger.warning('Ignoring --aria option because --archive_did option given')
@@ -996,12 +1005,9 @@ def download(args):
 
     summary = {}
     for item in result:
-        ds_scope = item.get('dataset_scope')
-        ds_name = item.get('dataset_name')
-        if ds_scope and ds_name:
-            summary_key = '%s:%s' % (ds_scope, ds_name)
-        else:
-            summary_key = item['did']
+        scope = item.get('dataset_scope', item['scope'])
+        name = item.get('dataset_name', item['name'])
+        summary_key = '%s:%s' % (scope, name)
 
         summary.setdefault(summary_key, {'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
         summary[summary_key]['_total'] += 1
@@ -1498,16 +1504,17 @@ def list_rse_usage(args):
                 account_usages_title = '  per account:'
                 if not usage[elem]:
                     account_usages_title += ' no usage'
-                print(account_usages_title)
-                print('  ------')
-                col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 9
-                for account in usage[elem]:
-                    base_string = '    '
-                    used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
-                    account_string = 'account: {0}'.format(account['account'])
-                    percentage_string = 'percentage: {0}'.format(account['percentage'])
-                    print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
-                print('  ------')
+                else:
+                    print(account_usages_title)
+                    print('  ------')
+                    col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 16
+                    for account in usage[elem]:
+                        base_string = '    '
+                        used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
+                        account_string = 'account: {0}'.format(account['account'])
+                        percentage_string = 'percentage: {0}'.format(account['percentage'])
+                        print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
+                        print('  ------')
             else:
                 print('  {0}: {1}'.format(elem, usage[elem]))
     print('------')
@@ -1836,7 +1843,7 @@ You can filter by key/value, e.g.::
     ls_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     ls_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern.')
 
-    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata (synonym for ls).', description='List the Data IDentifiers matching certain pattern. Only the collections (i.e. dataset or container) are returned by default. With the filter option, you can specify a list of metadata that the Data IDentifier should match. Please use the filter option `--filter type=all` to find all types of Data IDentifiers.',
+    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata (synonym for ls).', description='List the Data IDentifiers matching certain pattern. Only the collections (i.e. dataset or container) are returned by default. With the filter option, you can specify a list of metadata that the Data IDentifier should match. Please use the filter option `--filter type=all` to find all types of Data IDentifiers.',  # NOQA: E501
                                         formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Usage example
 """""""""""""
 
@@ -2014,6 +2021,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--filter', dest='filter', action='store', help='Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.')
         selected_parser.add_argument('--scope', dest='scope', action='store', help='Scope if you are using the filter option and no full DID.')
+        selected_parser.add_argument('--metalink', dest='metalink_file', action='store', help='Path to a metalink file.')
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
