@@ -22,10 +22,8 @@
 # PY3K COMPATIBLE
 
 import json
-import logging
 import os
 import re
-import sys
 
 from functools import wraps
 try:
@@ -42,14 +40,6 @@ from rucio.common.exception import UndefinedPolicy
 
 REGION = make_region().configure('dogpile.cache.memory',
                                  expiration_time=1800)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common',
-                                             'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def construct_surl_DQ2(dsn, filename):
