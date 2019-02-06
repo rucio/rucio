@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
@@ -302,8 +302,13 @@ def list_rses(filters={}, session=None):
                 # ATLAS RSE listing workaround (since booleans are capital 'True'/'False')
                 # remove elif branch after appropriate database fix has been applied
                 # see also db/types.py
-                query = query.filter(or_(t.value == v,
-                                         t.value == 'tmp_atlas_%s' % v))
+                if isinstance(v, bool):
+                    query = query.filter(or_(t.value == v,
+                                             t.value == 'tmp_atlas_%s' % v,
+                                             t.value == 'tmp_atlas_%s' % 1 if v else 0))
+                else:
+                    query = query.filter(or_(t.value == v,
+                                             t.value == 'tmp_atlas_%s' % v))
 
         condition1, condition2 = [], []
         for i in range(0, 8):
