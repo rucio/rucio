@@ -16,7 +16,6 @@ from random import uniform, shuffle
 
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
 from rucio.core.account import has_account_attribute, get_usage
-from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.core.account_limit import get_account_limit
 from rucio.core.rse import list_rse_attributes, has_rse_attribute, get_rse_limits
 from rucio.core.rse_counter import get_counter as get_rse_counter
