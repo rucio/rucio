@@ -19,7 +19,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
-FROM rucio/rucio-systemd-cc7
+FROM centos:7
 
 RUN yum -y update
 RUN yum clean all
@@ -74,4 +74,4 @@ RUN chmod 400 /etc/grid-security/hostkey.pem
 
 RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf
 
-CMD ["/usr/sbin/init"]
+CMD ["httpd","-D","FOREGROUND"]
