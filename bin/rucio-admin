@@ -909,13 +909,23 @@ def declare_bad_file_replicas(args):
     # Group file list in separate sublists for different schemes
     bad_files_pfns.sort()
     bad_files_pfns_grouped = groupby(bad_files_pfns, lambda f: f[:f.find('://')])
+    all_non_declared = {}
 
     for sublist in bad_files_pfns_grouped:
         for chunk in chunks(list(sublist[1]), 500):
             non_declared = client.declare_bad_file_replicas(pfns=chunk, reason=args.reason)
             for rse in non_declared:
-                for pfn in non_declared[rse]:
-                    print('%s : PFN %s cannot be declared.' % (rse, pfn))
+                if rse not in all_non_declared:
+                    all_non_declared[rse] = []
+                all_non_declared[rse] += non_declared[rse]
+
+    if non_declared:
+        for rse in non_declared:
+            for pfn in non_declared[rse]:
+                logger.error('%s : PFN %s cannot be declared.' % (rse, pfn))
+        return FAILURE
+
+    logger.info('PFNs got declared bad.')
     return SUCCESS
 
 
