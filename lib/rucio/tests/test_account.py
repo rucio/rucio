@@ -12,7 +12,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -308,6 +308,32 @@ class TestAccountRestApi():
         data = dumps({'authtype': 'USERPASS', 'identity': identity})
         res2 = TestApp(account_app.wsgifunc(*mw)).delete('/' + other_account + '/identities', headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 401)
+
+    def test_add_identity_to_account(self):
+        """ ACCOUNT (REST): send a POST to add an identity to an account."""
+        mw = []
+        account = 'root'
+        headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+        identity = uuid()
+
+        # normal addition
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'authtype': 'USERPASS', 'email': 'rucio@email.com', 'password': 'password', 'identity': identity})
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
+
+        # duplicate identity
+        res4 = TestApp(account_app.wsgifunc(*mw)).post('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res4.status, 409)
+
+        # missing password
+        identity = uuid()
+        data = dumps({'authtype': 'USERPASS', 'email': 'rucio@email.com', 'identity': identity})
+        res3 = TestApp(account_app.wsgifunc(*mw)).post('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res3.status, 400)
 
 
 class TestAccountClient():

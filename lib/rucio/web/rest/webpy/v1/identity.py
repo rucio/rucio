@@ -17,7 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -59,22 +59,25 @@ class UserPass(RucioController):
         :param Rucio-Auth-Token: as an 32 character hex string.
         :param Rucio-Username: the desired username.
         :param Rucio-Password: the desired password.
+        :param Rucio-Email: the desired email.
         :param account: the affected account via URL.
         """
         username = ctx.env.get('HTTP_X_RUCIO_USERNAME')
         password = ctx.env.get('HTTP_X_RUCIO_PASSWORD')
+        email = ctx.env.get('HTTP_X_RUCIO_EMAIL')
 
         if username is None or password is None:
             raise BadRequest('Username and Password must be set.')
 
         try:
-            add_identity(username, 'userpass', password)
+            add_identity(username, 'userpass', email, password)
         except Exception as error:
             raise InternalError(error)
 
         try:
             add_account_identity(username, 'userpass', account,
-                                 email=None, issuer=ctx.env.get('issuer'))
+                                 email=email, password=password,
+                                 issuer=ctx.env.get('issuer'))
         except Exception as error:
             raise InternalError(error)
 
@@ -98,17 +101,20 @@ class X509(RucioController):
 
         :param Rucio-Auth-Token: as an 32 character hex string.
         :param SSLStdEnv: Apache mod_ssl SSL Standard Env Variables.
+        :param Rucio-Email: the desired email.
         :param account: the affected account via URL.
         """
         dn = ctx.env.get('SSL_CLIENT_S_DN')
+        email = ctx.env.get('HTTP_X_RUCIO_EMAIL')
+
         try:
-            add_identity(dn, 'x509', email=None)
+            add_identity(dn, 'x509', email=email)
         except Exception as error:
             raise InternalError(error)
 
         try:
             add_account_identity(dn, 'x509', account,
-                                 email=None, issuer=ctx.env.get('issuer'))
+                                 email=email, issuer=ctx.env.get('issuer'))
         except Exception as error:
             raise InternalError(error)
 
@@ -132,17 +138,20 @@ class GSS(RucioController):
 
         :param Rucio-Auth-Token: as an 32 character hex string.
         :param SavedCredentials: Apache mod_auth_kerb SavedCredentials.
+        :param Rucio-Email: the desired email.
         :param account: the affected account via URL.
         """
         gsscred = ctx.env.get('REMOTE_USER')
+        email = ctx.env.get('HTTP_X_RUCIO_EMAIL')
+
         try:
-            add_identity(gsscred, 'gss', email=None)
+            add_identity(gsscred, 'gss', email=email)
         except Exception as error:
             raise InternalError(error)
 
         try:
             add_account_identity(gsscred, 'gss', account,
-                                 email=None, issuer=ctx.env.get('issuer'))
+                                 email=email, issuer=ctx.env.get('issuer'))
         except Exception as error:
             raise InternalError(error)
 
