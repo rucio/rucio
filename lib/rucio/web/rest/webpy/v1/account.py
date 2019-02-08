@@ -16,7 +16,7 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
@@ -36,12 +36,12 @@ except ImportError:
     from urllib.parse import parse_qsl
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, loadhook, redirect, seeother
 
-from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account
-from rucio.api.identity import add_account_identity, del_account_identity
+from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
 from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
+from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
@@ -60,6 +60,7 @@ URLS = (
     '/(.+)/limits', 'AccountLimits',
     '/(.+)/limits/(.+)', 'AccountLimits',
     '/(.+)/rules', 'Rules',
+    '/(.+)/usage/history/(.+)', 'UsageHistory',
     '/(.+)/usage/', 'Usage1',
     '/(.+)/usage/(.+)', 'Usage2',
     '/(.+)', 'AccountParameter',
@@ -518,7 +519,7 @@ class Identities(RucioController):
 
     def DELETE(self, account):
 
-        """ Delete an account's identity mAPPing.
+        """ Delete an account's identity mapping.
 
         HTTP Success:
             200 Created
@@ -596,6 +597,44 @@ class Rules(RucioController):
 
     def DELETE(self):
         raise BadRequest()
+
+
+class UsageHistory(RucioController):
+
+    def GET(self, account, rse):
+        """
+        Return the account usage of the account.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 Internal Error
+
+        :param account: The account name.
+        :param rse:     The rse.
+        """
+        header('Content-Type', 'application/json')
+        try:
+            usage = get_usage_history(account=account, rse=rse, issuer=ctx.env.get('issuer'))
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except CounterNotFound as error:
+            raise generate_http_error(404, 'CounterNotFound', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        for entry in usage:
+            for key, value in entry.items():
+                if isinstance(value, datetime):
+                    entry[key] = value.strftime('%Y-%m-%dT%H:%M:%S')
+
+        return dumps(usage)
 
 
 class Usage1(RucioController):

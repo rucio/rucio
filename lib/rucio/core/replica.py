@@ -2677,6 +2677,7 @@ def get_replicas_state(scope=None, name=None, session=None):
     return states
 
 
+@read_session
 def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, session=None):
     """
     List the list of suspicious files on a list of RSEs
@@ -2705,7 +2706,7 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, sess
         query = query.filter(models.BadReplicas.created_at > younger_than)
     query = query.group_by(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id)
     if nattempts:
-        query = query.having(func.count(models.RSEFileAssociation.scope) > nattempts)
+        query = query.having(func.count(models.RSEFileAssociation.scope) > int(nattempts))
 
     replicas_clause = []
     suspicious = {}
