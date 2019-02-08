@@ -21,9 +21,6 @@
 
 FROM centos:7
 
-WORKDIR /tmp
-ADD oic.rpm /tmp
-
 RUN yum -y update
 RUN yum clean all
 
@@ -44,7 +41,7 @@ COPY changed_files.txt /opt/rucio/
 
 WORKDIR /opt/rucio
 
-RUN rpm -i /tmp/oic.rpm; \
+RUN rpm -i /opt/rucio/etc/docker/travis/oic.rpm; \
     echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
     ldconfig
 
