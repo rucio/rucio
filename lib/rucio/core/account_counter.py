@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -16,6 +17,7 @@
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import bindparam, text
 
+from rucio.common.exception import CounterNotFound
 import rucio.core.account
 import rucio.core.rse
 
@@ -108,24 +110,6 @@ def del_counter(rse_id, account, session=None):
 
 
 @read_session
-def get_counter(rse_id, account, session=None):
-    """
-    Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
-
-    :param rse_id:           The id of the RSE.
-    :param account:          The account name.
-    :param session:          The database session in use.
-    :returns:                A dictionary with total and bytes.
-    """
-
-    try:
-        counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one()
-        return {'bytes': counter.bytes, 'files': counter.files, 'updated_at': counter.updated_at}
-    except NoResultFound:
-        return {'bytes': 0, 'files': 0, 'updated_at': None}
-
-
-@read_session
 def get_updated_account_counters(total_workers, worker_number, session=None):
     """
     Get updated rse_counters.
@@ -175,3 +159,20 @@ def update_account_counter(account, rse_id, session=None):
 
     for update in updated_account_counters:
         update.delete(flush=False, session=session)
+
+
+@transactional_session
+def update_account_counter_history(account, rse_id, session=None):
+    """
+    Read the AccountUsage and update the AccountUsageHistory.
+
+    :param account:  The account to update.
+    :param rse_id:   The rse_id to update.
+    :param session:  Database session in use.
+    """
+    AccountUsageHistory = models.AccountUsage.__history_mapper__.class_
+    try:
+        counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one()
+        AccountUsageHistory(rse_id=rse_id, account=account, files=counter.files, bytes=counter.bytes).save(session=session)
+    except NoResultFound:
+        raise CounterNotFound('No usage can be found for account %s on RSE with id %s' % (account, rse_id))

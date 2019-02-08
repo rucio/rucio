@@ -9,10 +9,12 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Cedric Serfon,<cedric.serfon@cern.ch>, 2019
 
 from nose.tools import assert_equal
 
 from rucio.core import account_counter, rse_counter
+from rucio.core.account import get_usage
 from rucio.core.rse import get_rse
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.abacus.account import account_update
@@ -77,7 +79,7 @@ class TestCoreAccountCounter():
         account = 'jdoe'
         account_counter.del_counter(rse_id=rse_id, account=account)
         account_counter.add_counter(rse_id=rse_id, account=account)
-        cnt = account_counter.get_counter(rse_id=rse_id, account=account)
+        cnt = get_usage(rse_id=rse_id, account=account)
         del cnt['updated_at']
         assert_equal(cnt, {'files': 0, 'bytes': 0})
 
@@ -87,7 +89,7 @@ class TestCoreAccountCounter():
             account_update(once=True)
             count += 1
             sum += 2.147e+9
-            cnt = account_counter.get_counter(rse_id=rse_id, account=account)
+            cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
@@ -96,7 +98,7 @@ class TestCoreAccountCounter():
             account_update(once=True)
             count -= 1
             sum -= 2.147e+9
-            cnt = account_counter.get_counter(rse_id=rse_id, account=account)
+            cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
@@ -105,7 +107,7 @@ class TestCoreAccountCounter():
             account_update(once=True)
             count += 1
             sum += 2.147e+9
-            cnt = account_counter.get_counter(rse_id=rse_id, account=account)
+            cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
@@ -114,6 +116,6 @@ class TestCoreAccountCounter():
             account_update(once=True)
             count -= 1
             sum -= 2.147e+9
-            cnt = account_counter.get_counter(rse_id=rse_id, account=account)
+            cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})

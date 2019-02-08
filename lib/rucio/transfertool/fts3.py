@@ -41,8 +41,11 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
-from fts3.rest.client.easy import Context, delegate  # pylint: disable=no-name-in-module,import-error
-from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError  # pylint: disable=no-name-in-module,import-error
+try:
+    from fts3.rest.client.easy import Context, delegate  # pylint: disable=no-name-in-module,import-error
+    from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError  # pylint: disable=no-name-in-module,import-error
+except ImportError:
+    pass
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer
 from rucio.core.monitor import record_counter, record_timer

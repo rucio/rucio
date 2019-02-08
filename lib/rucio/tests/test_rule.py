@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 #
@@ -32,11 +32,10 @@ from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RSEOverQuota,
                                     RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError, UnsupportedOperation)
-from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
-from rucio.core.account import add_account_attribute
+from rucio.core.account import add_account_attribute, get_usage
 from rucio.core.account_limit import set_account_limit
 from rucio.core.request import get_request_by_did
 from rucio.core.replica import add_replica, get_replica
@@ -475,7 +474,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when new rule is created"""
 
         account_update(once=True)
-        account_counter_before = get_account_counter(self.rse1_id, 'jdoe')
+        account_counter_before = get_usage(self.rse1_id, 'jdoe')
 
         scope = 'mock'
         files = create_files(3, scope, self.rse1, bytes=100)
@@ -487,7 +486,7 @@ class TestReplicationRuleCore():
 
         # Check if the counter has been updated correctly
         account_update(once=True)
-        account_counter_after = get_account_counter(self.rse1_id, 'jdoe')
+        account_counter_after = get_usage(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] + 3 == account_counter_after['files'])
 
@@ -503,13 +502,13 @@ class TestReplicationRuleCore():
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         account_update(once=True)
-        account_counter_before = get_account_counter(self.rse1_id, 'jdoe')
+        account_counter_before = get_usage(self.rse1_id, 'jdoe')
 
         delete_rule(rule_id)
         account_update(once=True)
 
         # Check if the counter has been updated correctly
-        account_counter_after = get_account_counter(self.rse1_id, 'jdoe')
+        account_counter_after = get_usage(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] - 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 3 == account_counter_after['files'])
 
@@ -525,15 +524,15 @@ class TestReplicationRuleCore():
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         account_update(once=True)
-        account_counter_before_1 = get_account_counter(self.rse1_id, 'jdoe')
-        account_counter_before_2 = get_account_counter(self.rse1_id, 'root')
+        account_counter_before_1 = get_usage(self.rse1_id, 'jdoe')
+        account_counter_before_2 = get_usage(self.rse1_id, 'root')
 
         update_rule(rule_id, {'account': 'root'})
         account_update(once=True)
 
         # Check if the counter has been updated correctly
-        account_counter_after_1 = get_account_counter(self.rse1_id, 'jdoe')
-        account_counter_after_2 = get_account_counter(self.rse1_id, 'root')
+        account_counter_after_1 = get_usage(self.rse1_id, 'jdoe')
+        account_counter_after_2 = get_usage(self.rse1_id, 'root')
         assert(account_counter_before_1['bytes'] - 3 * 100 == account_counter_after_1['bytes'])
         assert(account_counter_before_2['bytes'] + 3 * 100 == account_counter_after_2['bytes'])
 
