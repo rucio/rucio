@@ -1,6 +1,10 @@
 -- Definitions of Rucio database scheduler jobs
 -- Authors: Rucio team and Gancho Dimitrov 
 
+/*
+Note: 
+the Rucio jobs have to run on the Rucio services defined on the DB cluster (in order to take advantage of the already cached data/index blocks on the relevant DB nodes). RUCIO_JOB_CLASS and RUCIO_JOB_CLASS_2 have to be predefined on the database and execute privilege has to be granted to the DB user before creating the Rucio DB scheduler jobs.  
+*/
 
 
 --- 1 -------------------------------------------------------------------------------------------------------------------------------------------------
