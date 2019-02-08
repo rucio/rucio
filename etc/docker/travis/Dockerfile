@@ -13,13 +13,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 FROM centos:7
+
+WORKDIR /tmp
+ADD oic.rpm /tmp
 
 RUN yum -y update
 RUN yum clean all
@@ -41,8 +44,9 @@ COPY changed_files.txt /opt/rucio/
 
 WORKDIR /opt/rucio
 
-RUN echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf
-RUN ldconfig
+RUN rpm -i /tmp/oic.rpm; \
+    echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
+    ldconfig
 
 RUN pip install --upgrade pip
 
