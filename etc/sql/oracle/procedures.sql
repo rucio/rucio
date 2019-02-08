@@ -42,6 +42,7 @@ END;
 
 --------------------------------------------------------------------------------------------------------------------------------
 
+GRANT EXECUTE on DBMS_CRYPTO to ATLAS_RUCIO; 
 
 
 CREATE OR REPLACE FUNCTION LFN2PATH(scope varchar2, name varchar2) 
@@ -202,10 +203,10 @@ BEGIN
         VALUES (u.rse_id, 'rucio', u.bytes, u.files, u.updated_at, u.updated_at);
 
          FOR usage IN (SELECT /*+ INDEX(R REPLICAS_STATE_IDX ) */ rse_id, SUM(bytes) AS bytes , COUNT(*) AS files
-                FROM atlas_rucio.replicas r WHERE (CASE WHEN state != 'A' THEN rse_id END) IS NOT NULL
+                FROM replicas r WHERE (CASE WHEN state != 'A' THEN rse_id END) IS NOT NULL
                 AND (state='U' or state='C') AND tombstone IS NULL GROUP BY rse_id)
          LOOP
-              MERGE INTO atlas_rucio.rse_usage USING DUAL ON (RSE_USAGE.rse_id = usage.rse_id and source = 'unavailable')
+              MERGE INTO rse_usage USING DUAL ON (RSE_USAGE.rse_id = usage.rse_id and source = 'unavailable')
               WHEN MATCHED THEN UPDATE SET used=usage.bytes, files=usage.files, updated_at=sysdate
               WHEN NOT MATCHED THEN INSERT (rse_id, source, used, files, updated_at, created_at) VALUES (usage.rse_id, 'unavailable', usage.bytes, usage.files, sysdate, sysdate);
          END LOOP;
@@ -384,7 +385,7 @@ BEGIN
   -- Procedure for computing the logical bytes (based on the catalog only, not on the real file replicas on the Grid) based on the information in the DIDS table
 
   -- Special condition in the FOR query to get only the SCOPEs that have not been computed within the same day. This is for case when the job fails for some reason and is re-started again
-    FOR i IN ( SELECT scope FROM atlas_rucio.scopes WHERE scope not like 'mock%' AND scope NOT IN (SELECT DISTINCT curr_scope FROM RUCIO_ACCOUNTING_LOGICAL_BYTES where CURRTIME > TRUNC(sysdate) ) ORDER BY scope ) LOOP
+    FOR i IN ( SELECT scope FROM scopes WHERE scope not like 'mock%' AND scope NOT IN (SELECT DISTINCT curr_scope FROM RUCIO_ACCOUNTING_LOGICAL_BYTES where CURRTIME > TRUNC(sysdate) ) ORDER BY scope ) LOOP
 
       INSERT INTO RUCIO_ACCOUNTING_LOGICAL_BYTES
 	(
@@ -498,7 +499,7 @@ BEGIN
 
 
 -- Because the job that calls this proc is RESTARTABLE in case of error, the query in the FOR clause is as the following :
-FOR i IN ( SELECT scope FROM atlas_rucio.scopes WHERE scope NOT LIKE 'mock%' AND scope NOT IN (SELECT distinct curr_scope FROM RUCIO_ACCOUNTING_TAB) ORDER BY scope ) LOOP
+FOR i IN ( SELECT scope FROM scopes WHERE scope NOT LIKE 'mock%' AND scope NOT IN (SELECT distinct curr_scope FROM RUCIO_ACCOUNTING_TAB) ORDER BY scope ) LOOP
 
      --   curr_time := sysdate; -- single current time for each computed scope
 
@@ -654,10 +655,10 @@ BEGIN
                    dest.value AS dest_site,
                    transfer_speed
                FROM
-                   atlas_rucio.distances b,
-                   atlas_rucio.requests a,
-                   atlas_rucio.rse_attr_map src,
-                   atlas_rucio.rse_attr_map dest
+                   distances b,
+                   requests a,
+                   rse_attr_map src,
+                   rse_attr_map dest
                WHERE
                    state='S'
                AND a.source_rse_id=b.src_rse_id
@@ -671,7 +672,7 @@ BEGIN
 )
    LOOP
        UPDATE
-           atlas_rucio.requests
+           requests
        SET
            estimated_at=req.estimated_at
        WHERE
