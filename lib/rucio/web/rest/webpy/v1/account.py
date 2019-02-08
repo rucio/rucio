@@ -21,7 +21,7 @@
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -544,7 +544,7 @@ class Identities(RucioController):
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
         try:
-            del_account_identity(identity, authtype, account)
+            del_account_identity(identity, authtype, account, ctx.env.get('issuer'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
