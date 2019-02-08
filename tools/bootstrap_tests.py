@@ -11,6 +11,9 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 from rucio.client import Client
 from rucio.common.exception import Duplicate
@@ -22,28 +25,28 @@ if __name__ == '__main__':
     try:
         c.add_account('jdoe', 'SERVICE', 'jdoe@email.com')
     except Duplicate:
-        print 'Account jdoe already added' % locals()
+        print('Account jdoe already added' % locals())
 
     try:
         add_account_attribute(account='root', key='admin', value=True)
-    except Exception, e:
-        print e
+    except Exception as error:
+        print(error)
 
     try:
         c.add_account('panda', 'SERVICE', 'panda@email.com')
         add_account_attribute(account='panda', key='admin', value=True)
     except Duplicate:
-        print 'Account panda already added' % locals()
+        print('Account panda already added' % locals())
 
     try:
         c.add_scope('jdoe', 'mock')
     except Duplicate:
-        print 'Scope mock already added' % locals()
+        print('Scope mock already added' % locals())
 
     try:
         c.add_scope('root', 'archive')
     except Duplicate:
-        print 'Scope archive already added' % locals()
+        print('Scope archive already added' % locals())
 
     # add your accounts here, if you test against CERN authed nodes
     additional_test_accounts = [('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=mlassnig/CN=663551/CN=Mario Lassnig', 'x509', 'mario.lassnig@cern.ch'),
@@ -57,5 +60,5 @@ if __name__ == '__main__':
     for i in additional_test_accounts:
         try:
             c.add_identity(account='root', identity=i[0], authtype=i[1], email=i[2])
-        except:
-            print 'Already added: ', i
+        except Exception:
+            print('Already added: ', i)
