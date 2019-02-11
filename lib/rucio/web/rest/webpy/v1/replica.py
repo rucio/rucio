@@ -20,7 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -44,7 +44,8 @@ from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replica
                                get_did_from_pfns, update_replicas_states,
                                declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
-                               get_bad_replicas_summary, list_datasets_per_rse)
+                               get_bad_replicas_summary, list_datasets_per_rse,
+                               set_tombstone)
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.common.config import config_get
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
@@ -66,7 +67,8 @@ URLS = ('/list/?$', 'ListReplicas',
         '/bad/?$', 'BadReplicas',
         '/dids/?$', 'ReplicasDIDs',
         '%s/datasets$' % SCOPE_NAME_REGEXP, 'DatasetReplicas',
-        '%s/?$' % SCOPE_NAME_REGEXP, 'Replicas')
+        '%s/?$' % SCOPE_NAME_REGEXP, 'Replicas',
+        '/tombstone/?$', 'Tombstone')
 
 
 class Replicas(RucioController):
@@ -771,11 +773,6 @@ class BadPFNs(RucioController):
                 state = params['state']
             if 'expires_at' in params:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
-
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
             add_bad_pfns(pfns=pfns, issuer=ctx.env.get('issuer'), state=state, reason=reason, expires_at=expires_at)
         except (ValueError, InvalidType) as error:
             raise generate_http_error(400, 'ValueError', error.args[0])
@@ -785,6 +782,42 @@ class BadPFNs(RucioController):
             raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
         except Duplicate as error:
             raise generate_http_error(409, 'Duplicate', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+        raise Created()
+
+
+class Tombstone(RucioController):
+
+    def POST(self):
+        """
+        Set a tombstone on a list of replicas.
+
+        HTTP Success:
+            201 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 ReplicaNotFound
+            500 InternalError
+        """
+        json_data = data()
+        replicas = []
+        try:
+            params = parse_response(json_data)
+            if 'replicas' in params:
+                replicas = params['replicas']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            for replica in replicas:
+                set_tombstone(replica['rse'], replica['scope'], replica['name'], issuer=ctx.env.get('issuer'))
+        except ReplicaNotFound as error:
+            raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
