@@ -26,7 +26,7 @@
 # - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -56,7 +56,7 @@ from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate,
-                                    Duplicate)
+                                    Duplicate, ReplicaIsLocked)
 from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
@@ -170,6 +170,14 @@ def exception_handler(function):
             logger.error(error)
             logger.debug('This means that you are trying to add something that already exists.')
             return error.error_code
+        except ReplicaIsLocked as error:
+            logger.error(error)
+            logger.error('This means that the replica has a lock and is therefore protected.')
+            return FAILURE
+        except ReplicaNotFound as error:
+            logger.error(error)
+            logger.error('This means that the replica does not exist.')
+            return FAILURE
         except Exception as error:
             logger.error(error)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
@@ -1040,6 +1048,23 @@ def export_data(args):
         return FAILURE
 
 
+@exception_handler
+def set_tombstone(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    Set a tombstone on a list of replicas.
+    """
+    client = get_client(args)
+    dids = args.dids
+    rse = args.rse
+    dids = [dids] if ',' not in dids else dids.split(',')
+    dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1], 'rse': rse} for did in dids]
+    client.set_tombstone(dids)
+    logger.info('Set tombstone successfully on: %s' % args.dids)
+    return SUCCESS
+
+
 def get_parser():
     """
     Returns the argparse parser.
@@ -1892,6 +1917,20 @@ def get_parser():
     list_pfns_parser.add_argument(dest='rse', action='store', help='RSE')
     list_pfns_parser.add_argument(dest='protocol', action='store', default='srm', help='The protocol, by default srm, can be one of [root|srm|http(s)].')
 
+    # The set-tombstone command
+    set_tombstone_parser = rep_subparser.add_parser('set-tombstone',
+                                                    help='Set a tombstone on a replica manually to force deletion. Only works if there is no lock on the replica.',
+                                                    formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                    epilog='Usage example\n'
+                                                           '"""""""""""""\n'
+                                                           '::\n'
+                                                           '\n'
+                                                           '    $ rucio-admin replicas set-tombstone mock:file --rse MOCK'
+                                                           '\n')
+    set_tombstone_parser.add_argument('dids', action='store', help='One or multiple comma separated DIDs.')
+    set_tombstone_parser.add_argument('--rse', action='store', required=True, help='RSE')
+    set_tombstone_parser.set_defaults(which='set_tombstone')
+
     return oparser
 
 
@@ -1945,7 +1984,8 @@ if __name__ == '__main__':
                 'declare_bad_file_replicas': declare_bad_file_replicas,
                 'list_pfns': list_pfns,
                 'import': import_data,
-                'export': export_data}
+                'export': export_data,
+                'set_tombstone': set_tombstone}
 
     try:
         if args.verbose:
