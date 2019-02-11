@@ -37,7 +37,7 @@ def group_space(site):
     site_groupdisks = []
     group_total = 0
     try:
-        site_groupdisks = parse_expression('site=%s&type=GROUPDISK' % site)
+        site_groupdisks = parse_expression('site=%s&spacetoken=ATLASDATADISK&type=GROUPDISK' % site)
     except:
         return group_total
 
