@@ -21,7 +21,7 @@
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
@@ -36,7 +36,7 @@ from re import match
 from six import string_types
 from traceback import format_exc
 
-from sqlalchemy import func, and_, or_, exists, not_
+from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import label
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -55,7 +55,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
                                      BadFilesStatus, RuleState)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
-                                   DEFAULT_SCHEMA_NAME)
+                                   DEFAULT_SCHEMA_NAME, get_engine)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -2734,3 +2734,29 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, sess
             rses[rse_id] = rse
         result.append({'scope': scope, 'name': name, 'rse': rses[rse_id], 'cnt': cnt, 'created_at': created_at})
     return result
+
+
+@transactional_session
+def set_tombstone(rse, scope, name, rse_id=None, session=None):
+    """
+    Sets a tombstone on a replica.
+
+    :param rse: name of the RSE.
+    :param scope: scope of the replica DID.
+    :param name: name of the replica DID.
+    :param rse_id: optional ID of RSE.
+    :param session: database session in use.
+    """
+    if not rse_id:
+        rse_id = get_rse_id(rse)
+    conn = get_engine().connect()
+    stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
+                                                        ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
+                                            .values(tombstone=OBSOLETE)
+    result = conn.execute(stmt)
+    if not result.rowcount:
+        try:
+            session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()
+            raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, rse))
+        except NoResultFound:
+            raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, rse))
