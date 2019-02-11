@@ -12,13 +12,13 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
 from json import dumps, loads
 
-from nose.tools import assert_equal, assert_true, assert_raises, raises
+from nose.tools import assert_equal, assert_true, assert_raises, raises, assert_in
 from paste.fixture import TestApp
 
 from rucio.api.account import add_account, account_exists, del_account, update_account, get_account_info
@@ -26,6 +26,7 @@ from rucio.client.accountclient import AccountClient
 from rucio.common.config import config_get
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
+from rucio.core.account import list_identities
 from rucio.core.identity import add_account_identity, add_identity
 from rucio.db.sqla.constants import AccountStatus, IdentityType
 from rucio.tests.common import account_name_generator
@@ -57,6 +58,16 @@ class TestAccountCoreApi():
         email = get_account_info(account=usr)['email']
         assert_equal(email, 'test')
         del_account(usr, 'root')
+
+    def test_list_account_identities(self):
+        """ ACCOUNT (CORE): Test listing of account identities """
+        email = 'email'
+        identity = uuid()
+        identity_type = IdentityType.USERPASS
+        account = 'root'
+        add_account_identity(identity, identity_type, account, email)
+        identities = list_identities(account)
+        assert_in({'type': identity_type, 'identity': identity, 'email': email}, identities)
 
 
 class TestAccountRestApi():
