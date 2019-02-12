@@ -22,7 +22,7 @@ Rucio demo
 Starting a Rucio demo instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The instructions can be found in `Setting up a Rucio demo environment <http://rucio.readthedocs.io/installing_demo.html>`_
+The instructions can be found in `Setting up a Rucio demo environment <https://rucio.readthedocs.io/en/latest/installing_demo.html>`_
 
 Boostrap the Rucio demo
 ~~~~~~~~~~~~~~~~~~~~~~~
