@@ -16,6 +16,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Thomas Beermann, <thomas.beermann@cern.ch> 2019>
 
 if [[ $SUITE == "client" ]]; then
 
@@ -38,6 +39,13 @@ elif [[ $SUITE == "all" ]]; then
 
     cp etc/docker/travis/Dockerfile Dockerfile
     docker build -t rucio/rucio .
+    if [[ $RDBMS == "oracle" ]]; then
+        git clone https://github.com/wnameless/docker-oracle-xe-11g.git
+        cd docker-oracle-xe-11g/
+        docker build -t rucio/oraclexe .
+        cd ..
+    fi
+
 
 elif [[ $SUITE == 'python3' ]]; then 
     pip install -r tools/pip-requires-test
