@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -35,14 +36,19 @@ def add_identity(identity_key, id_type, email, password=None):
     return identity.add_identity(identity_key, IdentityType.from_sym(id_type), email, password=password)
 
 
-def del_identity(identity_key, id_type):
+def del_identity(identity_key, id_type, issuer):
     """
     Deletes a user identity.
-
     :param identity_key: The identity key name. For example x509 DN, or a username.
     :param id_type: The type of the authentication (x509, gss, userpass, ssh).
+    :param issuer: The issuer account.
     """
-    return identity.del_identity(identity_key, IdentityType.from_sym(id_type))
+    id_type = IdentityType.from_sym(id_type)
+    kwargs = {'accounts': identity.list_accounts_for_identity(identity_key, id_type)}
+    if not permission.has_permission(issuer=issuer, action='del_identity', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not delete identity' % (issuer))
+
+    return identity.del_identity(identity_key, id_type)
 
 
 def add_account_identity(identity_key, id_type, account, email, issuer, default=False):
@@ -63,14 +69,19 @@ def add_account_identity(identity_key, id_type, account, email, issuer, default=
     return identity.add_account_identity(identity=identity_key, type=IdentityType.from_sym(id_type), default=default, email=email, account=account)
 
 
-def del_account_identity(identity_key, id_type, account):
+def del_account_identity(identity_key, id_type, account, issuer):
     """
     Removes a membership association between identity and account.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
     :param id_type: The type of the authentication (x509, gss, userpass, ssh).
     :param account: The account name.
+    :param issuer: The issuer account.
     """
+    kwargs = {'account': account}
+    if not permission.has_permission(issuer=issuer, action='del_account_identity', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not delete account identity' % (issuer))
+
     return identity.del_account_identity(identity_key, IdentityType.from_sym(id_type), account)
 
 
