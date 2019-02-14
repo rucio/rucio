@@ -499,6 +499,11 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
+    query = query.join(models.DataIdentifier,
+                       and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
+                            models.DataIdentifier.name == models.RSEFileAssociation.name)).\
+        filter(models.DataIdentifier.availability != DIDAvailability.LOST)
+
     query = query.limit(limit)
     rows = []
     rse_map = {}
