@@ -18,7 +18,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2019
 
 if [[ $RDBMS == "oracle" ]]; then
-    docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true wnameless/oracle-xe-11g
+    docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true rucio/oraclexe
     docker run --name=activemq -d webcenter/activemq:latest
     sleep 100
     docker cp tools/travis/oracle_setup.sh oracle:/
