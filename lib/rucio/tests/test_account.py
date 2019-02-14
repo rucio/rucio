@@ -26,7 +26,8 @@ from rucio.client.accountclient import AccountClient
 from rucio.common.config import config_get
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
-from rucio.db.sqla.constants import AccountStatus
+from rucio.core.identity import add_account_identity, add_identity
+from rucio.db.sqla.constants import AccountStatus, IdentityType
 from rucio.tests.common import account_name_generator
 from rucio.web.rest.account import APP as account_app
 from rucio.web.rest.authentication import APP as auth_app
@@ -281,6 +282,32 @@ class TestAccountRestApi():
         assert_equal(body['status'], 'SUSPENDED')
         assert_equal(body['email'], 'test')
         assert_equal(res4.status, 200)
+
+    def test_delete_identity_of_account(self):
+        """ ACCOUNT (REST): send a DELETE to remove an identity of an account."""
+        mw = []
+        account = account_name_generator()
+        identity = uuid()
+        password = 'secret'
+        add_account(account, 'USER', 'rucio@email.com', 'root')
+        add_identity(identity, IdentityType.USERPASS, 'email@email.com', password)
+        add_account_identity(identity, IdentityType.USERPASS, account, 'email@email.com')
+        headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': identity, 'X-Rucio-Password': password}
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        # normal deletion
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'authtype': 'USERPASS', 'identity': identity})
+        res2 = TestApp(account_app.wsgifunc(*mw)).delete('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 200)
+
+        # unauthorized deletion
+        other_account = account_name_generator()
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'authtype': 'USERPASS', 'identity': identity})
+        res2 = TestApp(account_app.wsgifunc(*mw)).delete('/' + other_account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 401)
 
 
 class TestAccountClient():

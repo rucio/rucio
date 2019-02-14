@@ -17,7 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -103,7 +103,9 @@ def has_permission(issuer, action, kwargs):
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
             'get_ssh_challenge_token': perm_get_ssh_challenge_token,
             'get_signed_url': perm_get_signed_url,
-            'add_bad_pfns': perm_add_bad_pfns}
+            'add_bad_pfns': perm_add_bad_pfns,
+            'del_account_identity': perm_del_account_identity,
+            'del_identity': perm_del_identity}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -299,6 +301,30 @@ def perm_add_account_identity(issuer, kwargs):
     """
 
     return issuer == 'root' or issuer == kwargs.get('account')
+
+
+def perm_del_account_identity(issuer, kwargs):
+    """
+    Checks if an account can delete an identity to an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+
+    return issuer == 'root' or issuer == kwargs.get('account')
+
+
+def perm_del_identity(issuer, kwargs):
+    """
+    Checks if an account can delete an identity.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+
+    return issuer == 'root' or issuer in kwargs.get('accounts')
 
 
 def perm_add_did(issuer, kwargs):

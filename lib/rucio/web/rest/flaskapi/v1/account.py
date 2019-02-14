@@ -21,7 +21,7 @@
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -504,7 +504,7 @@ class Identities(MethodView):
         except TypeError:
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
         try:
-            del_account_identity(identity, authtype, account)
+            del_account_identity(identity, authtype, account, request.environ.get('issuer'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
