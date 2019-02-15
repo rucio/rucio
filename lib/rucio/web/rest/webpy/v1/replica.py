@@ -580,7 +580,7 @@ class SuspiciousReplicas(RucioController):
             print(params)
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression'][0]
-            if 'younger_than' in params:
+            if 'younger_than' in params and params['younger_than'][0]:
                 younger_than = datetime.strptime(params['younger_than'][0], "%Y-%m-%dT%H:%M:%S")
             if 'nattempts' in params:
                 nattempts = int(params['nattempts'][0])
@@ -624,7 +624,7 @@ class BadReplicasStates(RucioController):
                 rse = params['rse'][0]
             if 'younger_than' in params:
                 younger_than = datetime.strptime(params['younger_than'], "%Y-%m-%dT%H:%M:%S.%f")
-            if 'older_than' in params:
+            if 'older_than' in params and params['older_than']:
                 older_than = datetime.strptime(params['older_than'], "%Y-%m-%dT%H:%M:%S.%f")
             if 'limit' in params:
                 limit = int(params['limit'][0])
@@ -665,7 +665,7 @@ class BadReplicasSummary(RucioController):
                 params = parse_qs(ctx.query[1:])
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression'][0]
-            if 'from_date' in params:
+            if 'from_date' in params and params['from_date'][0]:
                 from_date = datetime.strptime(params['from_date'][0], "%Y-%m-%d")
             if 'to_date' in params:
                 to_date = datetime.strptime(params['to_date'][0], "%Y-%m-%d")
@@ -771,7 +771,7 @@ class BadPFNs(RucioController):
                 reason = params['reason']
             if 'state' in params:
                 state = params['state']
-            if 'expires_at' in params:
+            if 'expires_at' in params and params['expires_at']:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
             add_bad_pfns(pfns=pfns, issuer=ctx.env.get('issuer'), state=state, reason=reason, expires_at=expires_at)
         except (ValueError, InvalidType) as error:
