@@ -13,7 +13,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2019
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -22,6 +22,7 @@ from datetime import datetime
 from re import match
 from traceback import format_exc
 
+from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
 
@@ -176,9 +177,12 @@ def list_identities(account, session=None):
     except exc.NoResultFound:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
 
-    query = session.query(models.IdentityAccountAssociation).filter_by(account=account)
+    query = session.query(models.IdentityAccountAssociation, models.Identity)\
+                   .join(models.Identity, and_(models.Identity.identity == models.IdentityAccountAssociation.identity,
+                                               models.Identity.identity_type == models.IdentityAccountAssociation.identity_type))\
+                   .filter(models.IdentityAccountAssociation.account == account)
     for identity in query:
-        identity_list.append({'type': identity.identity_type, 'identity': identity.identity})
+        identity_list.append({'type': identity[0].identity_type, 'identity': identity[0].identity, 'email': identity[1].email})
 
     return identity_list
 
