@@ -51,7 +51,7 @@ def del_identity(identity_key, id_type, issuer):
     return identity.del_identity(identity_key, id_type)
 
 
-def add_account_identity(identity_key, id_type, account, email, issuer, default=False):
+def add_account_identity(identity_key, id_type, account, email, issuer, default=False, password=None):
     """
     Adds a membership association between identity and account.
 
@@ -61,12 +61,13 @@ def add_account_identity(identity_key, id_type, account, email, issuer, default=
     :param email: The Email address associated with the identity.
     :param issuer: The issuer account.
     :param default: If True, the account should be used by default with the provided identity.
+    :param password: Password if id_type is userpass.
     """
     kwargs = {'identity': identity_key, 'type': id_type, 'account': account}
     if not permission.has_permission(issuer=issuer, action='add_account_identity', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add account identity' % (issuer))
 
-    return identity.add_account_identity(identity=identity_key, type=IdentityType.from_sym(id_type), default=default, email=email, account=account)
+    return identity.add_account_identity(identity=identity_key, type=IdentityType.from_sym(id_type), default=default, email=email, account=account, password=password)
 
 
 def del_account_identity(identity_key, id_type, account, issuer):

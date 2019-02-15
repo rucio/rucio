@@ -477,11 +477,11 @@ class Identities(RucioController):
             parameter = loads(json_data)
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
-
         try:
             identity = parameter['identity']
             authtype = parameter['authtype']
             email = parameter['email']
+            password = parameter.get('password', None)
         except KeyError as error:
             if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(error))
@@ -489,13 +489,15 @@ class Identities(RucioController):
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, issuer=ctx.env.get('issuer'))
+            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, password=password, issuer=ctx.env.get('issuer'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
             raise generate_http_error(409, 'Duplicate', error.args[0])
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except IdentityError as error:
+            raise generate_http_error(400, 'IdentityError', error.args[0])
         except Exception as error:
             print(str(format_exc()))
             raise InternalError(error)
