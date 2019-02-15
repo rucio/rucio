@@ -65,7 +65,7 @@ class TestAccountCoreApi():
         identity = uuid()
         identity_type = IdentityType.USERPASS
         account = 'root'
-        add_account_identity(identity, identity_type, account, email)
+        add_account_identity(identity, identity_type, account, email, password='secret')
         identities = list_identities(account)
         assert_in({'type': identity_type, 'identity': identity, 'email': email}, identities)
 
