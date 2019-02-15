@@ -4,7 +4,7 @@ The Client API Reference
 Rucio includes a client class to remove some of the complexities of dealing with raw
 HTTP requests against the RESTful API.
 
-All client methods are accesible through the high level class Client. Below is one
+All client methods are accessible through the high-level class Client. Below is one
 example of using Rucio Client class::
 
    >>> from rucio.client import Client
