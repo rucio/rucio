@@ -94,15 +94,11 @@ matrix:
   - python: 3.5
     env:  SUITE=all RDBMS=mysql
   - python: 3.5
-    env:  SUITE=all RDBMS=postgres
-  - python: 3.5
     env:  SUITE=all RDBMS=sqlite
   - python: 3.5
     env:  SUITE=all RDBMS=oracle
   - python: 3.5
     env:  SUITE=all RDBMS=mysql
-  - python: 3.5
-    env:  SUITE=all RDBMS=postgres
   - python: 3.5
     env:  SUITE=all RDBMS=sqlite
   - python: 3.6
@@ -122,7 +118,8 @@ matrix:
     env: SUITE=syntax
   - python: 3.6
     env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
-
+  - python: 3.5
+    env:  SUITE=all RDBMS=postgres
 
 notifications:
   slack:
