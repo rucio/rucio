@@ -10,7 +10,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - David Cameron, <david.cameron@cern.ch>, 2014-2015
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2019
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -139,19 +141,21 @@ if __name__ == '__main__':
             space_used = get_rse_usage(rse=name, source='storage', session=session)
             unavailable_space = get_rse_usage(rse=name, source='unavailable', session=session)
             expired = get_rse_usage(rse=name, source='expired', session=session)
+            min_free_space = get_rse_usage(rse=name, source='min_free_space', session=session)
             expired = expired[0]['total'] if expired != [] else 0
             if unavailable_space and unavailable_space[0]['total']:
                 unavailable_space = unavailable_space[0]['total']
             else:
                 unavailable_space = 0
             if space_used:
+                min_free_space = min_free_space[0]['total'] if min_free_space else 0
                 if space_used[0]['used'] == -1:
                     total_space = space_used[0]['total']
                     space_used = get_rse_usage(rse=name, source='rucio', session=session)
                     freespace = total_space - space_used[0]['used']
                 else:
                     freespace = space_used[0]['free']
-                freespace = float(freespace - unavailable_space + expired) / 1000 / 1000 / 1000 / 1000
+                freespace = float(freespace - unavailable_space + expired - min_free_space) / 1000 / 1000 / 1000 / 1000
                 freespace = freespace if freespace > 0 else 0
                 add_rse_attribute(name, 'freespace', int(freespace), session=session)
 
