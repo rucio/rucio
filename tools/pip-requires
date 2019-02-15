@@ -5,8 +5,10 @@ alembic==1.0.6                                    # Lightweight database migrati
 Mako==1.0.7                                       # Templating language - Dependency of alembic
 python-editor==1.0.3                              # Programmatically open an editor, capture the result
 flup==1.0.3                                       # Needed to deploy web.py in lighthttpd
-web.py==0.39                                      # Python web framework
-python-memcached==1.59                            # Quick and small memcached client for Python
+web.py==0.39; python_version <= '2.7'             # Python web framework for Python2
+web.py==0.40.dev1; python_version > '2.7'         # Python web framework for Python3
+python-memcached==1.59                            # Quick and small memcached client for Python2
+python3-memcached==1.51; python_version > '2.7'   # Quick and small memcached client for Python3
 jsonschema==2.6.0                                 # JSON Schema
 python-dateutil==2.7.5                            # Extensions to the standard datetime module
 pysftp==0.2.9                                     # forces installation of paramikoi and pycrypto
@@ -33,12 +35,12 @@ pyasn1==0.4.5                                     # Dependency of oauth2client
 pyasn1-modules==0.2.3                             # A collection of ASN.1-based protocols modules - Dependency of oauth2client
 rsa==4.0                                          # Pure-Python RSA implementation
 retrying==1.3.3                                   # general-purpose retrying library to simplify the task of adding retry behavior to just about anything
-functools32==3.2.3.post2; python_version == '2.7'    # explicitly needed on CC7
+functools32==3.2.3.post2; python_version == '2.7' # explicitly needed on CC7
 redis==3.0.1                                      # Python client for Redis key-value store
 numpy==1.14.2                                     # Numpy for forecasting T3C
 paramiko==2.4.2                                   # SSH2 protocol library
 Flask==1.0.2                                      # Python web framework
 idna==2.7                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
-fts3-rest-API==3.7.1                              # FTS rest API
+fts3-rest-API==3.7.1; python_version == '2.7'     # FTS rest API
 M2Crypto<0.33                                     # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
 MyProxyClient==2.1.0                              # myproxy client bindings
