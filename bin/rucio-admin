@@ -418,9 +418,14 @@ def identity_add(args):
     """
     client = get_client(args)
     if args.email == "":
-        print('Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account')
+        logger.error('Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account')
         return FAILURE
-    client.add_identity(account=args.account, identity=args.identity, authtype=args.authtype, email=args.email)
+
+    if args.authtype == 'USERPASS' and not args.password:
+        logger.error('missing --password argument')
+        return FAILURE
+
+    client.add_identity(account=args.account, identity=args.identity, authtype=args.authtype, email=args.email, password=args.password)
     print('Added new identity to account: %s-%s' % (args.identity, args.account))
     return SUCCESS
 
@@ -1391,6 +1396,7 @@ def get_parser():
     identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
     identity_add_parser.add_argument('--email', dest='email', action='store', help='Email address associated with the identity', required=True)
+    identity_add_parser.add_argument('--password', dest='password', action='store', help='Password if authtype is USERPASS', required=False)
 
     # The identity_delete command
     identity_delete_parser = identity_subparser.add_parser('delete',
