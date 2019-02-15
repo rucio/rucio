@@ -47,7 +47,7 @@ def add_identity(identity, type, email, password=None, session=None):
 
     if type == IdentityType.USERPASS and password is not None:
         salt = os.urandom(255)  # make sure the salt has the length of the hash
-        password = hashlib.sha256('%s%s' % (salt, password)).hexdigest()  # hash it
+        password = hashlib.sha256('%s%s' % (salt, password.encode('utf-8'))).hexdigest()  # hash it
         new_id.update({'salt': salt, 'password': password, 'email': email})
     try:
         new_id.save(session=session)
@@ -74,7 +74,7 @@ def del_identity(identity, type, session=None):
 
 
 @transactional_session
-def add_account_identity(identity, type, account, email, default=False, session=None):
+def add_account_identity(identity, type, account, email, default=False, password=None, session=None):
     """
     Adds a membership association between identity and account.
 
@@ -83,6 +83,7 @@ def add_account_identity(identity, type, account, email, default=False, session=
     :param account: The account name.
     :param email: The Email address associated with the identity.
     :param default: If True, the account should be used by default with the provided identity.
+    :param password: Password if type is userpass.
     :param session: The database session in use.
     """
     if not account_exists(account, session=session):
@@ -90,8 +91,8 @@ def add_account_identity(identity, type, account, email, default=False, session=
 
     id = session.query(models.Identity).filter_by(identity=identity, identity_type=type).first()
     if id is None:
-        id = models.Identity(identity=identity, identity_type=type, email=email)
-        id.save(session=session)
+        add_identity(identity=identity, type=type, email=email, password=password, session=session)
+        id = session.query(models.Identity).filter_by(identity=identity, identity_type=type).first()
 
     iaa = models.IdentityAccountAssociation(identity=id.identity, identity_type=id.identity_type, account=account)
 
