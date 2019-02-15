@@ -25,7 +25,7 @@ General Information
 
 This section contains the general information related to Rucio which is common to
 all developers, users and operators.
-For documentation specific to the any of these three, please see the subsequent sections.
+For documentation specific to any of these three, please see the subsequent sections.
 
 .. toctree::
     :maxdepth: 1
