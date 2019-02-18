@@ -74,7 +74,7 @@ You can query the list of available RSEs::
   SITE3_TAPE
 
 
-If the RSEs are tagged with attributes you can build RSE expressions and query the sites matching these expression::
+If the RSEs are tagged with attributes you can build RSE expressions and query the sites matching these expressions::
 
   $ rucio list-rses --expression "tier=1&disk=1"
   SITE1_DISK
@@ -162,7 +162,7 @@ You can list the rules for a particular DID::
   b0fcde2acbdb489b874c3c4537595adc  janedoe    user.jdoe:user.jdoe.test.container.1234.1  REPLICATING[4/1/1]      tier=1&tape=1       2
   4a6bd85c13384bd6836fbc06e8b316d7  mc         user.jdoe:user.jdoe.test.container.1234.1  OK[3/0/0]               tier=1&tape=1       2
 
-The state indicate how many locks (physical replicas of the files) are OK, Replicating or Stuck
+The state indicates how many locks (physical replicas of the files) are OK, Replicating or Stuck
 
 Accessing files
 ===============
@@ -190,4 +190,3 @@ The command to download DIDs locally is called rucio download. It supports vario
   Downloaded files :                            3
   Files already found locally :                 0
   Files that cannot be downloaded :             0
-
