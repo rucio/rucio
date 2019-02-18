@@ -22,7 +22,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -34,7 +34,7 @@ import sys
 from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
-from six import string_types
+from six import string_types, iteritems
 
 from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError, InvalidRequestError
@@ -1360,7 +1360,7 @@ def add_did_meta(scope, name, meta, session=None):
         if existing_meta is None:
             existing_meta = {}
 
-        for k, v in meta.iteritems():
+        for k, v in iteritems(meta):
             existing_meta[k] = v
 
         row_did_meta.meta = None
@@ -1434,7 +1434,7 @@ def list_dids_by_meta(scope, select, session=None):
     if scope is not None:
         query = query.filter(models.DidMeta.scope == scope)
 
-    for k, v in select.iteritems():
+    for k, v in iteritems(select):
         if session.bind.dialect.name == 'oracle':
             query = query.filter(text("json_exists(meta,'$.%s?(@==''%s'')')" % (k, v)))
         else:
