@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # New bad_pfns table and bad_replicas changes
 #
 # Revision ID: b96a1c7e1cc4
@@ -25,7 +25,7 @@ from alembic.op import (create_primary_key, create_check_constraint,
                         add_column, create_index, drop_table, drop_column,
                         drop_index)
 
-from alembic import context
+from alembic import (context, op)
 
 import sqlalchemy as sa
 
@@ -55,8 +55,16 @@ def upgrade():
 
     # Add new state to bad_replicas table
     if context.get_context().dialect.name != 'sqlite':
-        drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
+        if context.get_context().dialect.name == 'postgresql':
+            # For Postgres the ENUM Type needs to be renamed first
+            op.execute("ALTER TYPE 'BAD_REPLICAS_STATE_CHK' RENAME TO 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
+        else:
+            drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
         create_check_constraint(name='BAD_REPLICAS_STATE_CHK', source='bad_replicas', condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
+        if context.get_context().dialect.name == 'postgresql':
+            # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
+            op.execute("ALTER TABLE bad_replicas ALTER COLUMN state TYPE 'BAD_REPLICAS_STATE_CHK'")  # pylint: disable=no-member
+            op.execute("DROP TYPE 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
 
     # Add new column to bad_replicas table
     add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()))
@@ -78,8 +86,16 @@ def downgrade():
     drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
     if context.get_context().dialect.name != 'sqlite':
-        drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
+        if context.get_context().dialect.name == 'postgresql':
+            # For Postgres the ENUM Type needs to be renamed first
+            op.execute("ALTER TYPE 'BAD_REPLICAS_STATE_CHK' RENAME TO 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
+        else:
+            drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
         create_check_constraint(name='BAD_REPLICAS_STATE_CHK', source='bad_replicas', condition="state in ('B', 'D', 'L', 'R', 'S')")
+        if context.get_context().dialect.name == 'postgresql':
+            # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
+            op.execute("ALTER TABLE bad_replicas ALTER COLUMN state TYPE 'BAD_REPLICAS_STATE_CHK'")  # pylint: disable=no-member
+            op.execute("DROP TYPE 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
         drop_column('bad_replicas', 'expires_at')
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
