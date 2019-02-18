@@ -16,7 +16,7 @@ Rucio with some mock data to play around with some Rucio commands.
 docker-compose
 ~~~~~~~~~~~~~~
 
-A YAML file for `docker-compose` has been provided to allow easily setup of the containers.
+A YAML file for `docker-compose` has been provided to allow easy setup of the containers.
 to have access to this `docker-compose.yml file <https://github.com/rucio/rucio/blob/master/etc/docker/demo/docker-compose.yml>`_,
 you can either:
 
@@ -51,6 +51,7 @@ have to simply run the following command::
     $ sudo docker exec -it demo_rucio_1 /setup_demo.sh
 
 You might see the following error message::
+
     ...
     sqlalchemy.exc.OperationalError: (_mysql_exceptions.OperationalError) (2003, "Can't connect to MySQL server on 'mysql' (111)") (Background on this error at: http://sqlalche.me/e/e3q8)
 
@@ -117,8 +118,8 @@ certificate under::
 
     etc/docker/demo/certs/rucio_demo_cert.p12
 
-The import password is `rucio-demo`.
+The import password is **rucio-demo**.
 
-Then you can access the WebUI using this url: ´https://<hostname>/ui/´
+Then you can access the WebUI using this URL: **https://<hostname>/ui/**
 
-Normally, it's https://localhost/ui/
+Normally, it's https://localhost/ui/.
