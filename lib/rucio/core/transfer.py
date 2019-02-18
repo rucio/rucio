@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Robert Illingworth, <illingwo@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -846,7 +847,6 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                                                    sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
         .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.staging_area == false(),
                                     models.RSE.deleted == false()))\
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
                                        models.RSE.id == models.Source.rse_id))\
