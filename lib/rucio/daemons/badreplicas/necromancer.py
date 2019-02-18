@@ -70,19 +70,20 @@ def necromancer(thread=0, bulk=5, once=False):
 
     while not graceful_stop.is_set():
 
-        hb = heartbeat.live(executable, hostname, pid, hb_thread)
-        prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
+        heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
+        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
 
         stime = time.time()
+        replicas = []
         try:
-            replicas = list_bad_replicas(limit=bulk, thread=hb['assign_thread'], total_threads=hb['nr_threads'])
+            replicas = list_bad_replicas(limit=bulk, thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'])
 
             for replica in replicas:
                 scope, name, rse_id, rse = replica['scope'], replica['name'], replica['rse_id'], replica['rse']
                 logging.info(prepend_str + 'Working on %s:%s on %s' % (scope, name, rse))
 
-                replicas = get_replicas_state(scope=scope, name=name)
-                if ReplicaState.AVAILABLE not in replicas and ReplicaState.TEMPORARY_UNAVAILABLE not in replicas:
+                list_replicas = get_replicas_state(scope=scope, name=name)
+                if ReplicaState.AVAILABLE not in list_replicas and ReplicaState.TEMPORARY_UNAVAILABLE not in list_replicas:
                     logging.info(prepend_str + 'File %s:%s has no other available or temporary available replicas, it will be marked as lost' % (scope, name))
                     try:
                         update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
@@ -91,8 +92,8 @@ def necromancer(thread=0, bulk=5, once=False):
                         logging.info(prepend_str + '%s' % (str(error)))
 
                 else:
-                    rep = replicas.get(ReplicaState.AVAILABLE, [])
-                    unavailable_rep = replicas.get(ReplicaState.TEMPORARY_UNAVAILABLE, [])
+                    rep = list_replicas.get(ReplicaState.AVAILABLE, [])
+                    unavailable_rep = list_replicas.get(ReplicaState.TEMPORARY_UNAVAILABLE, [])
                     logging.info(prepend_str + 'File %s:%s can be recovered. Available sources : %s + Unavailable sources : %s' % (scope, name, str(rep), str(unavailable_rep)))
                     try:
                         update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
@@ -112,15 +113,17 @@ def necromancer(thread=0, bulk=5, once=False):
             if (now - update_history_time) > update_history_threshold:
                 logging.info(prepend_str + 'Last update of history table %s seconds ago. Running update.' % (now - update_history_time))
                 bad_replicas = list_bad_replicas_history(limit=10000000,
-                                                         thread=hb['assign_thread'],
-                                                         total_threads=hb['nr_threads'])
+                                                         thread=heart_beat['assign_thread'],
+                                                         total_threads=heart_beat['nr_threads'])
                 for rse_id in bad_replicas:
                     update_bad_replicas_history(bad_replicas[rse_id], rse_id)
                 logging.info(prepend_str + 'History table updated in %s seconds' % (time.time() - now))
                 update_history_time = time.time()
 
             tottime = time.time() - stime
-            if tottime < sleep_time:
+            if len(replicas) == bulk:
+                logging.info(prepend_str + 'Processed maximum number of replicas according to the bulk size. Restart immediately next cycle')
+            elif tottime < sleep_time:
                 logging.info(prepend_str + 'Will sleep for %s seconds' % (str(sleep_time - tottime)))
                 time.sleep(sleep_time - tottime)
                 continue
