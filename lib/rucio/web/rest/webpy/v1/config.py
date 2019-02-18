@@ -16,6 +16,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -27,7 +28,7 @@ from web import application, ctx, Created, loadhook, header
 
 from rucio.api import config
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
+from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper, check_accept_header_wrapper
 
 
 LOGGER = getLogger("rucio.config")
@@ -45,6 +46,7 @@ class Config(RucioController):
     """ REST API for full configuration. """
 
     @exception_wrapper
+    @check_accept_header_wrapper(['application/json'])
     def GET(self):
         """
         List full configuration.
@@ -54,6 +56,7 @@ class Config(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
         """
 
         header('Content-Type', 'application/json')
@@ -71,6 +74,7 @@ class Section(RucioController):
     """ REST API for the sections in the configuration. """
 
     @exception_wrapper
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, section):
         """
         List configuration of a section
@@ -80,6 +84,7 @@ class Section(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             404 NotFound
         """
 
@@ -99,6 +104,7 @@ class OptionGetDel(RucioController):
     """ REST API for reading or deleting the options in the configuration. """
 
     @exception_wrapper
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, section, option):
         """
         Retrieve the value of an option.
@@ -109,6 +115,7 @@ class OptionGetDel(RucioController):
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
 
         :param Rucio-Auth-Account: Account identifier.
         :param Rucio-Auth-Token: 32 character hex string.

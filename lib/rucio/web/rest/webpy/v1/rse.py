@@ -20,7 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -48,7 +48,7 @@ from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioE
                                     RSEProtocolPriorityError, InvalidRSEExpression,
                                     RSEAttributeNotFound, CounterNotFound)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
-from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 from rucio.rse import rsemanager
 
 URLS = (
@@ -73,6 +73,7 @@ URLS = (
 class RSEs(RucioController):
     """ List all RSEs in the database. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self):
         """ List all RSEs.
 
@@ -83,6 +84,7 @@ class RSEs(RucioController):
             400 Bad request
             401 Unauthorized
             404 Resource not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: A list containing all RSEs.
@@ -199,6 +201,7 @@ class RSE(RucioController):
 
         raise Created()
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, rse):
         """ Details about a specific RSE.
 
@@ -208,6 +211,7 @@ class RSE(RucioController):
         HTTP Error:
             401 Unauthorized
             404 Resource not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: A list containing all RSEs.
@@ -288,6 +292,7 @@ class Attributes(RucioController):
 
         raise Created()
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, rse):
         """ list all RSE attributes for a RSE.
 
@@ -297,6 +302,7 @@ class Attributes(RucioController):
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :param rse: RSE name.
@@ -342,6 +348,7 @@ class Attributes(RucioController):
 class Protocols(RucioController):
     """ List supported protocols. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, rse):
         """ List all supported protocols of the given RSE.
 
@@ -350,6 +357,7 @@ class Protocols(RucioController):
 
         HTTP Error:
             404 Resource not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: A list containing all supported protocols and all their attributes.
@@ -379,6 +387,7 @@ class Protocols(RucioController):
 class LFNS2PFNS(RucioController):
     """ Translate one-or-more LFNs to corresponding PFNs. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, rse, scheme=None):
         """
         Return PFNs for a set of LFNs.  Formatted as a JSON object where the key is a LFN and the
@@ -399,6 +408,7 @@ class LFNS2PFNS(RucioController):
         HTTP Error:
             400 LFN parameter(s) malformed
             404 Resource not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: A list with detailed PFN information.
@@ -492,6 +502,7 @@ class Protocol(RucioController):
             raise InternalError(error)
         raise Created()
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, rse, scheme):
         """ List all references of the provided RSE for the given protocol.
 
@@ -500,6 +511,7 @@ class Protocol(RucioController):
 
         HTTP Error:
             404 Resource not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: A list with detailed protocol information.
@@ -593,6 +605,7 @@ class Protocol(RucioController):
 class Usage(RucioController):
     """ Update and read RSE space usage information. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, rse):
         """
         Get RSE usage information.
@@ -662,6 +675,7 @@ class Usage(RucioController):
 class UsageHistory(RucioController):
     """ Read RSE space usage history information. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, rse):
         """
         Get RSE usage information.
@@ -690,6 +704,7 @@ class UsageHistory(RucioController):
 class Limits(RucioController):
     """ Create, Update, Read and delete RSE limits. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, rse):
         """
         Get RSE limits.
@@ -747,6 +762,7 @@ class Limits(RucioController):
 class RSEAccountUsageLimit(RucioController):
     """ Read and delete RSE limits for accounts. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, rse):
         """
         Get account usage and limit for one RSE.
@@ -770,6 +786,7 @@ class RSEAccountUsageLimit(RucioController):
 class Distance(RucioController):
     """ Create/Update and read distances between RSEs. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, source, destination):
         """
         Get RSE distance between source and destination.
