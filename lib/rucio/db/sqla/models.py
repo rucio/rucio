@@ -27,6 +27,7 @@
 import datetime
 import uuid
 
+from six import iteritems
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, SmallInteger, String as _String, Text, event, UniqueConstraint
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
@@ -208,7 +209,7 @@ class ModelBase(object):
 
     def update(self, values, flush=True, session=None):
         """dict.update() behaviour."""
-        for k, v in values.iteritems():
+        for k, v in iteritems(values):
             self[k] = v
         if session and flush:
             session.flush()

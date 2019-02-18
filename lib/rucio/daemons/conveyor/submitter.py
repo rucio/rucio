@@ -45,6 +45,7 @@ try:
     from ConfigParser import NoOptionError  # py2
 except Exception:
     from configparser import NoOptionError  # py3
+from six import iteritems
 
 from rucio.common.config import config_get
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
@@ -180,7 +181,7 @@ def submitter(once=False, rses=None, mock=False,
                             submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
                                             logging_prepend_str=prepend_str, timeout=timeout)
                     else:
-                        for _, jobs in grouped_jobs[external_host].iteritems():
+                        for _, jobs in iteritems(grouped_jobs[external_host]):
                             # submit transfers
                             for job in jobs:
                                 submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',

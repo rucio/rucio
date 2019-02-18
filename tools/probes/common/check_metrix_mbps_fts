@@ -8,6 +8,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
 """
 Get the average megabytes per second per file on a link from ElasticSearch/FTS.
@@ -18,13 +19,14 @@ import json
 import time
 
 from elasticsearch import Elasticsearch
+from six import iteritems
 
 
 def dict_merge(dct, merge_dct):
 
     """ Merge two dictionaries. """
 
-    for k, v in merge_dct.iteritems():  # pylint: disable=invalid-name,unused-variable
+    for k, v in iteritems(merge_dct):  # pylint: disable=invalid-name,unused-variable
         if k in dct and isinstance(dct[k], dict and isinstance(merge_dct[k], dict)):
             dict_merge(dct[k], merge_dct[k])
         else:
