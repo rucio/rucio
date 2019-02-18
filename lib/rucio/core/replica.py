@@ -976,12 +976,11 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
                         # do we need to sign the URLs?
                         if sign_urls and protocol.attributes['scheme'] == 'https':
-                            sign = get_rse_attribute('sign_url',
-                                                     rse_id=rse_info[rse]['id'],
-                                                     value='gcs',
-                                                     session=session)
-                            if sign and isinstance(sign, list) and sign[0]:
-                                pfn = get_signed_url(service='gcs', operation='read', url=pfn, lifetime=signature_lifetime)
+                            service = get_rse_attribute('sign_url',
+                                                        rse_id=rse_info[rse]['id'],
+                                                        session=session)
+                            if service and isinstance(service, list):
+                                pfn = get_signed_url(service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
 
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')
