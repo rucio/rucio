@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
@@ -1031,9 +1031,9 @@ def perm_add_bad_pfns(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if kwargs['state'] in [BadPFNStatus.BAD, BadPFNStatus.TEMPORARY_UNAVAILABLE]:
+    if kwargs['state'] in [str(BadPFNStatus.BAD), str(BadPFNStatus.TEMPORARY_UNAVAILABLE)]:
         is_cloud_admin = bool([acc_attr for acc_attr in list_account_attributes(account=issuer) if (acc_attr['key'].startswith('cloud-')) and (acc_attr['value'] == 'admin')])
         return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
-    elif kwargs['state'] == BadPFNStatus.SUSPICIOUS:
+    elif kwargs['state'] == str(BadPFNStatus.SUSPICIOUS):
         return True
     return issuer == 'root'
