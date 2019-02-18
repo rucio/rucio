@@ -30,7 +30,7 @@ from web import application, ctx, BadRequest, Created, InternalError, loadhook
 
 from rucio.api.identity import (add_identity, add_account_identity,
                                 list_accounts_for_identity)
-from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
 
 URLS = (
@@ -161,6 +161,7 @@ class GSS(RucioController):
 class Accounts(RucioController):
     """ Retrieve list of accounts mAPPed to an identity. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, identity_key, type):
         """
         Return all identities mAPPed to an account.
@@ -171,6 +172,7 @@ class Accounts(RucioController):
         HTTP Error:
             400 Bad Reqeust
             401 Unauthorized
+            406 Not Acceptable
             500 Internal Error
 
         :param account: Identity string.

@@ -17,6 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -26,7 +27,7 @@ from flask import Flask, Blueprint, Response
 from flask.views import MethodView
 
 from rucio import version
-from rucio.web.rest.flaskapi.v1.common import after_request
+from rucio.web.rest.flaskapi.v1.common import after_request, check_accept_header_wrapper_flask
 
 LOGGER = getLogger("rucio.rucio")
 SH = StreamHandler()
@@ -39,6 +40,7 @@ class Ping(MethodView):
     Ping class
     '''
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
         Ping the server and retrieve the server version.
@@ -64,6 +66,7 @@ class Ping(MethodView):
             {"version": "1.15.0"}
 
         :status 200: OK.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: JSON dictionary with the version.
         """

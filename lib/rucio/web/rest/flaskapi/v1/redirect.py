@@ -18,7 +18,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -34,7 +34,7 @@ from rucio.common.objectstore import connect, get_signed_urls
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
 from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 LOGGER = getLogger("rucio.rucio")
 SH = StreamHandler()
@@ -44,6 +44,7 @@ LOGGER.addHandler(SH)
 
 class MetaLinkRedirector(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/metalink4+xml'])
     def get(self, scope, name):
         """
         Metalink redirect
@@ -65,6 +66,7 @@ class MetaLinkRedirector(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
         :status 404: DID Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: Metalink file
         """

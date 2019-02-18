@@ -17,7 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -29,7 +29,7 @@ from flask.views import MethodView
 from rucio.api.meta import add_key, add_value, list_keys, list_values
 from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException, UnsupportedKeyType
 from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 LOGGER = getLogger("rucio.meta")
@@ -46,6 +46,7 @@ URLS = ('/(.+)/(.+)', 'Values',
 class Meta(MethodView):
     """ REST APIs for data identifier attribute keys. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
         List all data identifier keys.
@@ -55,6 +56,7 @@ class Meta(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of all DID keys.
         """
@@ -105,6 +107,7 @@ class Meta(MethodView):
 class Values(MethodView):
     """ REST APIs for data identifier attribute values. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, key):
         """
         List all values for a key.
@@ -114,6 +117,7 @@ class Values(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of all key values.
         """

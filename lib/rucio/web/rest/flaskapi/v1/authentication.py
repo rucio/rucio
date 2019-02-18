@@ -19,7 +19,7 @@
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2012
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -31,6 +31,7 @@ from traceback import format_exc
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
 
 from flask import Flask, Blueprint, request, Response
 from flask.views import MethodView
@@ -61,6 +62,7 @@ class UserPass(MethodView):
         response.headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return response
 
+    @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
         Authenticate a Rucio account temporarily via username and password.
@@ -142,6 +144,7 @@ class GSS(MethodView):
         response.headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return response
 
+    @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
         Authenticate a Rucio account temporarily via a GSS token.
@@ -217,6 +220,7 @@ class x509(MethodView):
         response.headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return response
 
+    @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
         Authenticate a Rucio account temporarily via an x509 certificate.
@@ -316,6 +320,7 @@ class SSH(MethodView):
         response.headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return response
 
+    @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
         Authenticate a Rucio account temporarily via SSH key exchange.
@@ -401,6 +406,7 @@ class SSHChallengeToken(MethodView):
         response.headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return response
 
+    @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
         Request a challenge token for SSH authentication
@@ -476,6 +482,7 @@ class Validate(MethodView):
         response.headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return response
 
+    @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
         Validate a Rucio Auth Token.
@@ -483,6 +490,7 @@ class Validate(MethodView):
         .. :quickref: Validate; Validate a Rucio Auth Token.
 
         :reqheader Rucio-Auth-Token: as a variable-length string.
+        :status 406: Not Acceptable.
         :returns: Tuple(account name, token lifetime).
         """
 

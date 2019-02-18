@@ -46,11 +46,12 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import generate_http_error_flask, parse_response, APIEncoder, render_json_list
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 class Replicas(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json', 'application/metalink4+xml'])
     def get(self, scope, name):
         """
         List all replicas for data identifiers.
@@ -71,6 +72,7 @@ class Replicas(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: DID not found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
@@ -272,6 +274,7 @@ class Replicas(MethodView):
 
 class ListReplicas(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json', 'application/metalink4+xml'])
     def post(self):
         """
         List all replicas for data identifiers.
@@ -295,6 +298,7 @@ class ListReplicas(MethodView):
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid auth token.
         :status 404: DID not found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
@@ -415,6 +419,7 @@ class ListReplicas(MethodView):
 
 class ReplicasDIDs(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def post(self):
         """
         List the DIDs associated to a list of replicas.
@@ -426,6 +431,7 @@ class ReplicasDIDs(MethodView):
         :resheader Content-Type: application/x-json-string
         :status 200: OK.
         :status 400: Cannot decode json parameter list.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list of dictionaries containing the mapping PFNs to DIDs.
         """
@@ -537,6 +543,7 @@ class SuspiciousReplicas(MethodView):
             return error, 500
         return Response(dumps(not_declared_files), status=201, content_type='application/x-json-stream')
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
         List the suspicious replicas on a list of RSEs.
@@ -545,6 +552,7 @@ class SuspiciousReplicas(MethodView):
 
         :resheader Content-Type: application/json
         :status 200: OK.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of suspicious file replicas.
         """
@@ -567,6 +575,7 @@ class SuspiciousReplicas(MethodView):
 
 class BadReplicasStates(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
         List the bad or suspicious replicas by states.
@@ -582,6 +591,7 @@ class BadReplicasStates(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of dicts of bad file replicas.
         """
@@ -620,6 +630,7 @@ class BadReplicasStates(MethodView):
 
 class BadReplicasSummary(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
         Return a summary of the bad replicas by incident.
@@ -632,6 +643,7 @@ class BadReplicasSummary(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of bad replicas by incident.
         """
@@ -661,6 +673,7 @@ class BadReplicasSummary(MethodView):
 
 class DatasetReplicas(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope, name):
         """
         List dataset replicas.
@@ -671,6 +684,7 @@ class DatasetReplicas(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         """
@@ -689,6 +703,7 @@ class DatasetReplicas(MethodView):
 
 class ReplicasRSE(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
         List dataset replicas per RSE.
@@ -698,6 +713,7 @@ class ReplicasRSE(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A dictionary containing all replicas on the RSE.
         """

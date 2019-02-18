@@ -20,7 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -44,13 +44,14 @@ from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioE
                                     RSEProtocolPriorityError, InvalidRSEExpression,
                                     RSEAttributeNotFound, CounterNotFound)
 from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 from rucio.rse import rsemanager
 
 
 class RSEs(MethodView):
     """ List all RSEs in the database. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """ List all RSEs.
 
@@ -61,6 +62,7 @@ class RSEs(MethodView):
         :status 200: DIDs found.
         :status 400: Invalid RSE Expression.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list containing all RSEs.
 
@@ -195,6 +197,7 @@ class RSE(MethodView):
 
         return "Created", 201
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """ Details about a specific RSE.
 
@@ -205,6 +208,7 @@ class RSE(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list containing all RSEs.
 
@@ -284,6 +288,7 @@ class Attributes(MethodView):
 
         return "Created", 201
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
         list all RSE attributes for a RSE.
@@ -294,6 +299,7 @@ class Attributes(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list containing all RSE attributes.
 
@@ -338,6 +344,7 @@ class Attributes(MethodView):
 class Protocols(MethodView):
     """ List supported protocols. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """ List all supported protocols of the given RSE.
 
@@ -351,6 +358,7 @@ class Protocols(MethodView):
         :status 404: RSE Not Found.
         :status 404: RSE Protocol Domain Not Supported.
         :status 404: RSE Protocol Not Supported.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list containing all supported protocols and all their attributes.
 
@@ -379,6 +387,7 @@ class Protocols(MethodView):
 class LFNS2PFNS(MethodView):
     """ Translate one-or-more LFNs to corresponding PFNs. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse, scheme=None):
         """
         Return PFNs for a set of LFNs.  Formatted as a JSON object where the key is a LFN and the
@@ -398,6 +407,7 @@ class LFNS2PFNS(MethodView):
         :status 404: RSE Not Found.
         :status 404: RSE Protocol Not Supported.
         :status 404: RSE Protocol Domain Not Supported.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list with detailed PFN information.
 
@@ -484,6 +494,7 @@ class Protocol(MethodView):
             return error, 500
         return "Created", 201
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse, scheme):
         """ List all references of the provided RSE for the given protocol.
 
@@ -497,6 +508,7 @@ class Protocol(MethodView):
         :status 404: RSE Not Found.
         :status 404: RSE Protocol Not Supported.
         :status 404: RSE Protocol Domain Not Supported.
+        :status 406: Not Acceptable.
         :returns: A list with detailed protocol information.
 
         """
@@ -600,6 +612,7 @@ class Protocol(MethodView):
 class Usage(MethodView):
     """ Update and read RSE space usage information. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
         Get RSE usage information.
@@ -613,6 +626,7 @@ class Usage(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list of dictionaries with the usage information.
 
@@ -673,6 +687,7 @@ class Usage(MethodView):
 class UsageHistory(MethodView):
     """ Read RSE space usage history information. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
         Get RSE usage information.
@@ -684,6 +699,7 @@ class UsageHistory(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: Line separated list of dictionary with RSE usage information.
 
@@ -707,6 +723,7 @@ class UsageHistory(MethodView):
 class Limits(MethodView):
     """ Create, Update, Read and delete RSE limits. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
         Get RSE limits.
@@ -718,6 +735,7 @@ class Limits(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of dictionaries with RSE limits.
 
@@ -769,6 +787,7 @@ class Limits(MethodView):
 class RSEAccountUsageLimit(MethodView):
     """ Read and delete RSE limits for accounts. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
         Get account usage and limit for one RSE.
@@ -780,6 +799,7 @@ class RSEAccountUsageLimit(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: Line separated list of dict with account usage and limits.
 
@@ -802,6 +822,7 @@ class RSEAccountUsageLimit(MethodView):
 class Distance(MethodView):
     """ Create/Update and read distances between RSEs. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, source, destination):
         """
         Get RSE distance between source and destination.
@@ -813,6 +834,7 @@ class Distance(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of dictionaries with RSE distances.
 
