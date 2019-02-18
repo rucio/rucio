@@ -50,7 +50,7 @@ You can also list all the accounts matching a certain attribute using the filter
 Creating scope
 ==============
 
-One needs then to create some scopes associated to the accounts::
+One needs then to create some scopes associated with the accounts::
 
   $ rucio-admin scope add --account jdoe --scope user.jdoe
 
