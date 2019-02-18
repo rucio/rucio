@@ -53,7 +53,7 @@ from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
-                                     BadFilesStatus, RuleState)
+                                     BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, get_engine)
 from rucio.rse import rsemanager as rsemgr
@@ -311,7 +311,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
             __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None, session=session)
-            if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
+            if __exists and ((str(status) == str(BadFilesStatus.BAD) and not already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
@@ -329,7 +329,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                             break
                     if no_hidden_char:
                         unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
-        if status == BadFilesStatus.BAD:
+        if str(status) == str(BadFilesStatus.BAD):
             # For BAD file, we modify the replica state, not for suspicious
             try:
                 # there shouldn't be any exceptions since all replicas exist
@@ -498,6 +498,11 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
             query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+
+    query = query.join(models.DataIdentifier,
+                       and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
+                            models.DataIdentifier.name == models.RSEFileAssociation.name)).\
+        filter(models.DataIdentifier.availability != DIDAvailability.LOST)
 
     query = query.limit(limit)
     rows = []
@@ -1665,7 +1670,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
-            query = query.filter_by(state=ReplicaState.AVAILABLE)
+            query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
 
         if 'path' in replica and replica['path']:
             values['path'] = replica['path']
@@ -2532,9 +2537,16 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
     :returns: True is successful.
     """
     for replica in replicas:
-        new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
-                                             state=state, account=account, bytes=None, expires_at=expires_at)
-        new_bad_replica.save(session=session, flush=False)
+        insert_new_row = True
+        if state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
+            query = session.query(models.BadReplicas).filter_by(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], state=state)
+            if query.count():
+                query.update({'state': BadFilesStatus.TEMPORARY_UNAVAILABLE, 'updated_at': datetime.utcnow(), 'account': account, 'reason': reason, 'expires_at': expires_at}, synchronize_session=False)
+                insert_new_row = False
+        if insert_new_row:
+            new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
+                                                 state=state, account=account, bytes=None, expires_at=expires_at)
+            new_bad_replica.save(session=session, flush=False)
     try:
         session.flush()
     except IntegrityError as error:
@@ -2607,7 +2619,7 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     :returns: True is successful.
     """
     if isinstance(state, string_types):
-        rep_state = ReplicaState.from_sym(state)
+        rep_state = BadPFNStatus.from_sym(state)
 
     pfns = clean_surls(pfns)
     for pfn in pfns:
