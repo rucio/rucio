@@ -42,8 +42,6 @@ import requests
 import socket
 import subprocess
 import zlib
-import signal
-import multiprocessing
 import time
 
 from getpass import getuser
@@ -977,7 +975,7 @@ def run_cmd_process(cmd, timeout=3600):
         returncode = 1
     if returncode != 1 and 'Command time-out' in stdout:
         returncode = 1
-    if returncode == None:
+    if returncode is None:
         returncode = 0
 
     return returncode, stdout
