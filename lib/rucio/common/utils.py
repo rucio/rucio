@@ -42,6 +42,9 @@ import requests
 import socket
 import subprocess
 import zlib
+import signal
+import multiprocessing
+import time
 
 from getpass import getuser
 from logging import getLogger, Formatter
@@ -935,3 +938,46 @@ def parse_replicas_metalink(root):
         files.append(cur_file)
 
     return files
+
+
+def run_cmd_process(cmd, timeout=3600):
+    """
+    shell command parser with timeout
+
+    :param cmd: shell command as a string
+    :param timeout: in seconds
+
+    :return: stdout xor stderr, and errorcode
+    """
+
+    time_start = datetime.datetime.now().second
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+
+    running_time = 0
+    while process.poll() is None and running_time < timeout:
+        time_now = datetime.datetime.now().second
+        running_time = int(time_now - time_start)
+        time.sleep(1)
+    if process.poll() is None:
+        process.terminate()
+        time.sleep(1)
+    if process.poll() is None:
+        process.kill()
+
+    stdout, stderr = process.communicate()
+    if not stderr:
+        stderr = ''
+    if not stdout:
+        stdout = ''
+    if stderr and stderr != '':
+        stdout += " Error: " + stderr
+    if process:
+        returncode = process.returncode
+    else:
+        returncode = 1
+    if returncode != 1 and 'Command time-out' in stdout:
+        returncode = 1
+    if returncode == None:
+        returncode = 0
+
+    return returncode, stdout
