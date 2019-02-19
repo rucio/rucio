@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
 
@@ -131,7 +131,24 @@ def minos(bulk=1000, once=False, sleep_time=60):
                 logging.info(prepend_str + 'Declaring %s replicas temporary available with timeout %s and reason %s' % (len(pfns), str(expires_at), reason))
                 logging.debug(prepend_str + 'List of replicas : %s' % (str(pfns)))
                 logging.debug(prepend_str + 'Extracting RSEs')
-                _, dict_rse, unknown_replicas = get_pfn_to_rse(pfns)
+                schemes = {}
+                dict_rse = {}
+                unknown_replicas = []
+
+                # Splitting the PFNs by schemes
+                for pfn in pfns:
+                    scheme = pfn.split(':')[0]
+                    if scheme not in schemes:
+                        schemes[scheme] = []
+                    schemes[scheme].append(pfn)
+                for scheme in schemes:
+                    _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme])
+                    for rse in tmp_dict_rse:
+                        if rse not in dict_rse:
+                            dict_rse[rse] = []
+                        dict_rse[rse].extend(tmp_dict_rse[rse])
+                        unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
+
                 # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
                 if unknown_replicas:
                     logging.info(prepend_str + 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
