@@ -13,7 +13,7 @@ from exceptions import NotImplementedError
 from rucio.common import exception
 from rucio.rse.protocols import protocol
 
-from TimerCommand import TimerCommand
+from rucio.common.utils import run_cmd_process
 from xml.dom import minidom
 
 import os
@@ -96,8 +96,7 @@ class Default(protocol.RSEProtocol):
         # retrieve the TURL from the webdav etag
         cmd = 'davix-http --capath /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates --cert $X509_USER_PROXY -X PROPFIND %s' % pfn
         try:
-            timer = TimerCommand(cmd)
-            rcode, output = timer.run(timeout=10)
+            rcode, output = run_cmd_process(cmd, timeout=10)
         except Exception, e:
             raise exception.ServiceUnavailable('Could not retrieve STORM WebDAV ETag: %s' % str(e))
         p_output = minidom.parseString(output)
