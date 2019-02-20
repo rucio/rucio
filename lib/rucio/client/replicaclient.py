@@ -225,10 +225,18 @@ class ReplicaClient(BaseClient):
 
         :param rse: the RSE name.
         :param files: The list of files. This is a list of DIDs like :
-            [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+            [{'scope': <scope1>, 'name': <name1>, 'state': <state1>}, {'scope': <scope2>, 'name': <name2>, 'state': <state2>}, ...],
+	    where a state value can be either of: 
+	    'A' (available)
+	    'S' (suspicious)
+	    'U' (unavailable)
+	    'R' (recovered)
+	    'B' (bad)
+	    'L' (lost)
+	    'D' (deleted)
 
-        :return: True if files have been deleted successfully.
-
+        :return: True if replica states have been updated successfully, otherwise an exception is raised.
+	
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files}
