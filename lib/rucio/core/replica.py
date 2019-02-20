@@ -23,7 +23,6 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
-# - Robert Illingworth, <illingwo@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -40,6 +39,7 @@ from traceback import format_exc
 from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import label
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql.expression import case, bindparam, select, text, false, true
 
@@ -54,7 +54,7 @@ from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
-                                     BadFilesStatus, RuleState, BadPFNStatus)
+                                     BadFilesStatus, RuleState)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, get_engine)
 from rucio.rse import rsemanager as rsemgr
@@ -312,7 +312,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
             __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None, session=session)
-            if __exists and ((str(status) == str(BadFilesStatus.BAD) and not already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
+            if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
@@ -330,7 +330,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                             break
                     if no_hidden_char:
                         unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
-        if str(status) == str(BadFilesStatus.BAD):
+        if status == BadFilesStatus.BAD:
             # For BAD file, we modify the replica state, not for suspicious
             try:
                 # there shouldn't be any exceptions since all replicas exist
@@ -500,11 +500,6 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
-    query = query.join(models.DataIdentifier,
-                       and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
-                            models.DataIdentifier.name == models.RSEFileAssociation.name)).\
-        filter(models.DataIdentifier.availability != DIDAvailability.LOST)
-
     query = query.limit(limit)
     rows = []
     rse_map = {}
@@ -666,6 +661,7 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, sessio
                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).\
         join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id).\
         filter(models.RSE.deleted == false()).\
+        filter(models.RSE.staging_area == false()).\
         filter(or_(*dataset_clause)).\
         order_by(models.DataIdentifierAssociation.child_scope,
                  models.DataIdentifierAssociation.child_name)
@@ -692,21 +688,25 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
             if rse_clause is None:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
+                                   models.RSE.staging_area == false(),
                                    or_(*replica_condition))
             else:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
+                                   models.RSE.staging_area == false(),
                                    or_(*replica_condition),
                                    or_(*rse_clause))
         else:
             if rse_clause is None:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
+                                   models.RSE.staging_area == false(),
                                    state_clause,
                                    or_(*replica_condition))
             else:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
+                                   models.RSE.staging_area == false(),
                                    state_clause,
                                    or_(*replica_condition),
                                    or_(*rse_clause))
@@ -1666,7 +1666,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
-            query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
+            query = query.filter_by(state=ReplicaState.AVAILABLE)
 
         if 'path' in replica and replica['path']:
             values['path'] = replica['path']
@@ -2533,16 +2533,9 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
     :returns: True is successful.
     """
     for replica in replicas:
-        insert_new_row = True
-        if state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
-            query = session.query(models.BadReplicas).filter_by(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], state=state)
-            if query.count():
-                query.update({'state': BadFilesStatus.TEMPORARY_UNAVAILABLE, 'updated_at': datetime.utcnow(), 'account': account, 'reason': reason, 'expires_at': expires_at}, synchronize_session=False)
-                insert_new_row = False
-        if insert_new_row:
-            new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
-                                                 state=state, account=account, bytes=None, expires_at=expires_at)
-            new_bad_replica.save(session=session, flush=False)
+        new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
+                                             state=state, account=account, bytes=None, expires_at=expires_at)
+        new_bad_replica.save(session=session, flush=False)
     try:
         session.flush()
     except IntegrityError as error:
@@ -2615,7 +2608,7 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     :returns: True is successful.
     """
     if isinstance(state, string_types):
-        rep_state = BadPFNStatus.from_sym(state)
+        rep_state = ReplicaState.from_sym(state)
 
     pfns = clean_surls(pfns)
     for pfn in pfns:
@@ -2741,6 +2734,65 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, sess
             rse = get_rse_name(rse_id)
             rses[rse_id] = rse
         result.append({'scope': scope, 'name': name, 'rse': rses[rse_id], 'cnt': cnt, 'created_at': created_at})
+    return result
+
+
+@read_session
+def get_available_suspicious_replicas(rse_like='MOCK', younger_than=3, cnt_threshold=10, session=None):
+    """
+    Gets a list of replicas which are declared as suspicious (> cnt_threshold times),
+    present on the RSE specified by the 'rse_like' parameter, available on another RSE
+    and younger than the specified number of days.
+
+    :param younger_than: Searching bad replicas younger than a specified number of days.
+    :param cnt_threshold: The minimum number of replica appearances in the bad_replica DB table.
+    :param rse_like: Search for suspicious replicas on RSEs containing 'rse_like' string RSE.
+    :param session: The database session in use.
+
+    :returns: a list of suspicious replicas:
+    [{'scope': scope, 'name': name, 'rse': rse, 'cnt': cnt}, ...]
+    """
+    from_date = datetime.now() - timedelta(days=younger_than)
+
+    # selecting bad replicas on RSE like *rse_like* and that
+    # are younger than 'younger_than' days (from_date object used below)
+
+    bad_replicas_alias = aliased(models.BadReplicas, name='bad_replicas_alias')
+
+    query = session.query(func.count(), bad_replicas_alias.scope, bad_replicas_alias.name, models.RSE.rse)\
+                   .filter(models.RSE.id == bad_replicas_alias.rse_id,
+                           bad_replicas_alias.state == BadFilesStatus.SUSPICIOUS,
+                           bad_replicas_alias.created_at >= from_date, models.RSE.rse.like('%%%s%%' % rse_like))
+
+    # next, it is required that replicas from above query
+    # exist as available on other RSEs in the 'replicas DB' table
+
+    available_replica = exists(select([1]).where(and_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                                      models.RSEFileAssociation.scope == bad_replicas_alias.scope,
+                                                      models.RSEFileAssociation.name == bad_replicas_alias.name,
+                                                      models.RSEFileAssociation.rse_id != bad_replicas_alias.rse_id)))
+    query = query.filter(available_replica)
+
+    # furthermore, it is required that the selected suspicious replicas
+    # do not occur as BAD/DELETED/LOST/RECOVERED in the bad_replicas table during the same time window.
+
+    other_states_present = exists(select([1]).where(and_(models.BadReplicas.scope == bad_replicas_alias.scope,
+                                                         models.BadReplicas.name == bad_replicas_alias.name,
+                                                         models.BadReplicas.created_at >= from_date,
+                                                         models.BadReplicas.rse_id == bad_replicas_alias.rse_id,
+                                                         models.BadReplicas.state.in_((BadFilesStatus.BAD, BadFilesStatus.DELETED,
+                                                                                       BadFilesStatus.RECOVERED, BadFilesStatus.LOST)))))
+    query = query.filter(not_(other_states_present))
+
+    # finally, the results are grouped by RSE, scope, name and required to have
+    # at least 'cnt_threshold' occurrences must appear in the result of the query per replicas
+
+    query_result = query.group_by(models.RSE.rse, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() > cnt_threshold).all()
+
+    result = []
+    for cnt, scope, name, rse in query_result:
+        result.append({'scope': scope, 'name': name, 'rse': rse, 'cnt': cnt})
+
     return result
 
 
