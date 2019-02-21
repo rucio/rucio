@@ -36,7 +36,7 @@ from rucio.web.rest.flaskapi.v1.common import before_request, after_request, che
 class Subscription(MethodView):
     """ REST APIs for subscriptions. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account=None, name=None):
         """
         Retrieve a subscription.
@@ -155,7 +155,7 @@ class Subscription(MethodView):
 
 class Rules(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, name):
         """
         Return all rules of a given subscription id.
@@ -197,7 +197,7 @@ class Rules(MethodView):
 
 class States(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, name=None):
         """
         Return a summary of the states of all rules of a given subscription id.

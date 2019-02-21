@@ -51,7 +51,7 @@ from rucio.web.rest.flaskapi.v1.common import before_request, after_request, che
 
 class Scope(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope):
         """
         Return all data identifiers in the given scope.
@@ -109,7 +109,7 @@ class Scope(MethodView):
 
 class Search(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope):
         """
         List all data identifiers in a scope which match a given metadata.
@@ -484,7 +484,7 @@ class DIDs(MethodView):
 
 class Attachment(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         Returns the contents of a data identifier.
@@ -511,7 +511,7 @@ class Attachment(MethodView):
              "monotonic": False, "expired_at": null}
 
         :query dynamic: Flag to dynamically calculate size for open DIDs
-        :resheader Content-Type: application/json
+        :resheader Content-Type: application/x-json-stream
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: Scope not found
@@ -629,7 +629,7 @@ class Attachment(MethodView):
 
 class AttachmentHistory(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         Returns the contents history of a data identifier.
@@ -662,7 +662,7 @@ class AttachmentHistory(MethodView):
 
 class Files(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """ List all replicas of a data identifier.
 
@@ -699,7 +699,7 @@ class Files(MethodView):
 
 class Parents(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """ List all parents of a data identifier.
 
@@ -811,7 +811,7 @@ class Meta(MethodView):
 
 class Rules(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         Return all rules of a given DID.
@@ -844,7 +844,7 @@ class Rules(MethodView):
 
 class AssociatedRules(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         Return all associated rules of a file.
@@ -874,7 +874,7 @@ class AssociatedRules(MethodView):
 
 class GUIDLookup(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, guid):
         """
         Return the file associated to a GUID.
@@ -951,7 +951,7 @@ class Sample(MethodView):
 
 class NewDIDs(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         Returns list of recent identifiers.

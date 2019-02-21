@@ -51,7 +51,7 @@ from rucio.rse import rsemanager
 class RSEs(MethodView):
     """ List all RSEs in the database. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """ List all RSEs.
 
@@ -612,7 +612,7 @@ class Protocol(MethodView):
 class Usage(MethodView):
     """ Update and read RSE space usage information. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
         """
         Get RSE usage information.
@@ -687,7 +687,7 @@ class Usage(MethodView):
 class UsageHistory(MethodView):
     """ Read RSE space usage history information. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
         """
         Get RSE usage information.

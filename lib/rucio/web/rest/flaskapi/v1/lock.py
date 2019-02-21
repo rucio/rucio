@@ -40,7 +40,7 @@ LOGGER.addHandler(SH)
 class LockByRSE(MethodView):
     """ REST APIs for dataset locks. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
         """ get locks for a given rse.
 
@@ -74,7 +74,7 @@ class LockByRSE(MethodView):
 class LockByScopeName(MethodView):
     """ REST APIs for dataset locks. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def GET(self, scope, name):
         """ get locks for a given scope, name.
 

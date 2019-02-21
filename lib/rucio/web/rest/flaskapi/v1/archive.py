@@ -40,7 +40,7 @@ LOGGER.addHandler(SH)
 class Archive(MethodView):
     """ REST APIs for archive. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         List archive content keys.

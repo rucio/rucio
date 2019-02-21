@@ -387,7 +387,7 @@ class Protocols(RucioController):
 class LFNS2PFNS(RucioController):
     """ Translate one-or-more LFNs to corresponding PFNs. """
 
-    @check_accept_header_wrapper(['application/x-json-stream'])
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, rse, scheme=None):
         """
         Return PFNs for a set of LFNs.  Formatted as a JSON object where the key is a LFN and the

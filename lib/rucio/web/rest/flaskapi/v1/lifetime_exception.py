@@ -35,7 +35,7 @@ from rucio.web.rest.flaskapi.v1.common import before_request, after_request, che
 class LifetimeException(MethodView):
     """ REST APIs for Lifetime Model exception. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         Retrieve all exceptions.
@@ -112,7 +112,7 @@ class LifetimeException(MethodView):
 class LifetimeExceptionId(MethodView):
     """ REST APIs for Lifetime Model exception. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, exception_id):
         """
         Retrieve an exception.
