@@ -182,8 +182,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
                     .filter(models.RSEFileAssociation.scope == did.scope,
                             models.RSEFileAssociation.name == did.name,
-                            or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE),
+                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
                             models.RSE.rse_type != RSEType.TAPE).count()
                 if replica_cnt == 0:  # Put the rule on the archive
                     archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
@@ -397,8 +396,7 @@ def add_rules(dids, rules, session=None):
                 replica_cnt = session.query(models.RSEFileAssociation).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id)\
                     .filter(models.RSEFileAssociation.scope == did.scope,
                             models.RSEFileAssociation.name == did.name,
-                            or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                models.RSEFileAssociation.state == ReplicaState.AVAILABLE),
+                            models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
                             models.RSE.rse_type != RSEType.TAPE).count()
                 if replica_cnt == 0:  # Put the rule on the archive
                     archive = session.query(models.ConstituentAssociation).join(models.RSEFileAssociation,
