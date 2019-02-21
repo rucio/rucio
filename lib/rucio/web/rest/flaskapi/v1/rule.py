@@ -150,7 +150,7 @@ class Rule(MethodView):
 class AllRule(MethodView):
     """ REST APIs for all rules. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         Return all rules of a given account.
@@ -332,7 +332,7 @@ class AllRule(MethodView):
 class ReplicaLocks(MethodView):
     """ REST APIs for replica locks. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rule_id):
         """ get locks for a given rule_id.
 
@@ -447,7 +447,7 @@ class MoveRule(MethodView):
 class RuleHistory(MethodView):
     """ REST APIs for rule history. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rule_id):
         """ get history for a given rule_id.
 
@@ -475,7 +475,7 @@ class RuleHistory(MethodView):
 class RuleHistoryFull(MethodView):
     """ REST APIs for rule history for DIDs. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """ get history for a given DID.
 
@@ -503,7 +503,7 @@ class RuleHistoryFull(MethodView):
 class RuleAnalysis(MethodView):
     """ REST APIs for rule analysis. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rule_id):
         """ get analysis for given rule.
 

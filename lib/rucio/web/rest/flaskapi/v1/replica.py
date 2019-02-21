@@ -51,7 +51,7 @@ from rucio.web.rest.flaskapi.v1.common import before_request, after_request, che
 
 class Replicas(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json', 'application/metalink4+xml'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
     def get(self, scope, name):
         """
         List all replicas for data identifiers.
@@ -274,7 +274,7 @@ class Replicas(MethodView):
 
 class ListReplicas(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json', 'application/metalink4+xml'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
     def post(self):
         """
         List all replicas for data identifiers.
@@ -419,7 +419,7 @@ class ListReplicas(MethodView):
 
 class ReplicasDIDs(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def post(self):
         """
         List the DIDs associated to a list of replicas.
@@ -575,7 +575,7 @@ class SuspiciousReplicas(MethodView):
 
 class BadReplicasStates(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         List the bad or suspicious replicas by states.
@@ -630,7 +630,7 @@ class BadReplicasStates(MethodView):
 
 class BadReplicasSummary(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         Return a summary of the bad replicas by incident.
@@ -673,7 +673,7 @@ class BadReplicasSummary(MethodView):
 
 class DatasetReplicas(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         List dataset replicas.
@@ -703,7 +703,7 @@ class DatasetReplicas(MethodView):
 
 class ReplicasRSE(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
         """
         List dataset replicas per RSE.
