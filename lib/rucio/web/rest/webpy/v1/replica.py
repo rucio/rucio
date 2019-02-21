@@ -55,6 +55,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder, render_json_list
+from rucio.rse.protocols import supported_protocols
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
 
 URLS = ('/list/?$', 'ListReplicas',
@@ -355,7 +356,7 @@ class ListReplicas(RucioController):
 
         # Resolve all reasonable protocols when doing metalink for maximum access possibilities
         if metalink and schemes is None:
-            schemes = ['gsiftp', 'srm', 'root', 'davs', 'https', 'file']
+            schemes = rucio.rse.protocols.supported_protocols
 
         try:
             # first, set the appropriate content type, and stream the header
