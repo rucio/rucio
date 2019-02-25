@@ -356,7 +356,7 @@ class ListReplicas(RucioController):
 
         # Resolve all reasonable protocols when doing metalink for maximum access possibilities
         if metalink and schemes is None:
-            schemes = rucio.rse.protocols.supported_protocols
+            schemes = supported_protocols
 
         try:
             # first, set the appropriate content type, and stream the header
