@@ -1068,7 +1068,7 @@ class DownloadClient:
         while len(items) > 0:
             item = items.pop()
 
-            filters = item.get('filters')
+            filters = item.get('filters', {})
             item_dids = item.pop('did')
             if item_dids[0] is None:
                 logger.debug('Resolving DIDs by using filter options')
