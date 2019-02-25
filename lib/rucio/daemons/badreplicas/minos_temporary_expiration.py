@@ -75,7 +75,7 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
 
     logging.info(prepend_str + 'Minos Temporary Expiration started')
 
-    chunk_size = 500  # The chunk size used for the commits
+    chunk_size = 10  # The chunk size used for the commits
 
     while not graceful_stop.is_set():
         start_time = time.time()
