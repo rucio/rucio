@@ -22,7 +22,7 @@
 
 from alembic.op import (create_check_constraint, drop_constraint)
 
-from alembic import context
+from alembic import (context, op)
 
 # revision identifiers used by alembic
 revision = '01eaf73ab656'       # pylint: disable=invalid-name
@@ -34,9 +34,17 @@ def upgrade():
     Upgrade the database to this revision
     '''
     if context.get_context().dialect.name not in ('sqlite'):  # pylint: disable=no-member
-        drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
+        if context.get_context().dialect.name == 'postgresql':
+            # For Postgres the ENUM Type needs to be renamed first
+            op.execute("ALTER TYPE 'RULES_NOTIFICATION_CHK' RENAME TO 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
+        else:
+            drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
         create_check_constraint(name='RULES_NOTIFICATION_CHK', source='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
+        if context.get_context().dialect.name == 'postgresql':
+            # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
+            op.execute("ALTER TABLE rules ALTER COLUMN notification TYPE 'RULES_NOTIFICATION_CHK'")  # pylint: disable=no-member
+            op.execute("DROP TYPE 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
 
 
 def downgrade():
@@ -44,6 +52,14 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
     if context.get_context().dialect.name not in ('sqlite'):  # pylint: disable=no-member
-        drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
+        if context.get_context().dialect.name == 'postgresql':
+            # For Postgres the ENUM Type needs to be renamed first
+            op.execute("ALTER TYPE 'RULES_NOTIFICATION_CHK' RENAME TO 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
+        else:
+            drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
         create_check_constraint(name='RULES_NOTIFICATION_CHK', source='rules',
                                 condition="notification in ('Y', 'N', 'C')")
+        if context.get_context().dialect.name == 'postgresql':
+            # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
+            op.execute("ALTER TABLE rules ALTER COLUMN notification TYPE 'RULES_NOTIFICATION_CHK'")  # pylint: disable=no-member
+            op.execute("DROP TYPE 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
