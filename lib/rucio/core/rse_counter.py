@@ -145,3 +145,15 @@ def update_rse_counter(rse_id, session=None):
 
     for update in updated_rse_counters:
         update.delete(flush=False, session=session)
+
+
+@transactional_session
+def fill_rse_counter_history_table(session=None):
+    """
+    Fill the RSE usage history table with the current usage.
+
+    :param session: Database session in use.
+    """
+    RSEUsageHistory = models.RSEUsage.__history_mapper__.class_
+    for usage in session.query(models.RSEUsage).all():
+        RSEUsageHistory(rse_id=usage['rse_id'], used=usage['used'], files=usage['files'], source=usage['source']).save(session=session)
