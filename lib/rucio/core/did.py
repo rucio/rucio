@@ -23,6 +23,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Tobias Wegner <twegner@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1410,7 +1411,7 @@ def delete_did_meta(scope, name, key, session=None):
 
         row.meta = existing_meta
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound("Key not found for data identifier '%(scope)s:%(name)s'" % locals())
 
 
 @read_session
