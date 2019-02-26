@@ -1326,7 +1326,7 @@ def get_did_meta(scope, name, session=None):
         meta = getattr(row, 'meta')
         return json.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound("No generic metadata found for '%(scope)s:%(name)s'" % locals())
 
 
 @transactional_session
