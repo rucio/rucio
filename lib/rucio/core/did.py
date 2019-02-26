@@ -1339,7 +1339,7 @@ def add_did_meta(scope, name, meta, session=None):
     :param meta: the metadata to be added or updated
     """
     if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection.connection.version.split('.')[0])
+        oracle_version = int(session.connection().connection.version.split('.')[0])
         if oracle_version < 12:
             raise NotImplementedError
 
@@ -1385,7 +1385,7 @@ def delete_did_meta(scope, name, key, session=None):
     :param key: the key to be deleted
     """
     if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection.connection.version.split('.')[0])
+        oracle_version = int(session.connection().connection.version.split('.')[0])
         if oracle_version < 12:
             raise NotImplementedError
 
@@ -1426,7 +1426,7 @@ def list_dids_by_meta(scope, select, session=None):
     if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
     if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection.connection.version.split('.')[0])
+        oracle_version = int(session.connection().connection.version.split('.')[0])
         if oracle_version < 12:
             raise NotImplementedError
 
