@@ -17,6 +17,8 @@
 #
 # PY3K COMPATIBLE
 
+from __future__ import division
+
 import logging
 import math
 import os
@@ -142,7 +144,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                     for rse in dict_rse:
                         logging.debug(prepend_str + 'Running on RSE %s with %s replicas' % (rse, len(dict_rse[rse])))
                         nchunk = 0
-                        tot_chunk = int(math.ceil(len(dict_rse[rse]) / float(chunk_size)))
+                        tot_chunk = int(math.ceil(len(dict_rse[rse]) / chunk_size))
                         for chunk in chunks(dict_rse[rse], chunk_size):
                             nchunk += 1
                             logging.debug(prepend_str + 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
