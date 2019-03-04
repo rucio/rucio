@@ -34,6 +34,7 @@ Individual contributors to the source code
 - Shreyansh Khajanchi <shreyansh_k@live.com>, 2018
 - Robert Illingworth <illingwo@fnal.gov>, 2018
 - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+- James Perry <j.perry@epcc.ed.ac.uk>, 2019
 
 Organisations employing contributors
 ------------------------------------
@@ -50,3 +51,4 @@ Organisations employing contributors
 - Fermi National Accelerator Laboratory (USA)
 - Leopold-Franzens Universität Innsbruck (Austria)
 - Academia Sinica (Taiwan)
+- University of Edinburgh (UK)
