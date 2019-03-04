@@ -17,7 +17,10 @@
 #
 # PY3K COMPATIBLE
 
+from __future__ import division
+
 import logging
+import math
 import os
 import socket
 import traceback
@@ -31,9 +34,11 @@ from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
 from rucio.db.sqla.session import get_session
 from rucio.common.config import config_get
 from rucio.common.utils import chunks
+from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound
+from rucio.core.did import get_metadata
 from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
                                 get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,
-                                bulk_delete_bad_pfns)
+                                bulk_delete_bad_pfns, get_replicas_state)
 from rucio.core.rse import get_rse_id
 
 from rucio.core import heartbeat
@@ -80,7 +85,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                       BadPFNStatus.TEMPORARY_UNAVAILABLE: BadFilesStatus.TEMPORARY_UNAVAILABLE}
     logging.info(prepend_str + 'Minos started')
 
-    chunk_size = 500  # The chunk size used for the commits
+    chunk_size = 10  # The chunk size used for the commits
 
     while not graceful_stop.is_set():
         start_time = time.time()
@@ -113,14 +118,41 @@ def minos(bulk=1000, once=False, sleep_time=60):
             for account, reason, state in bad_replicas:
                 pfns = bad_replicas[(account, reason, state)]
                 logging.info(prepend_str + 'Declaring %s replicas with state %s and reason %s' % (len(pfns), str(state), reason))
-                logging.debug(prepend_str + 'List of replicas : %s' % (str(pfns)))
                 session = get_session()
+                schemes = {}
+                dict_rse = {}
+                unknown_replicas = []
                 try:
-                    for chunk in chunks(pfns, chunk_size):
-                        unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
-                        logging.debug(prepend_str + 'Unknown replicas : %s' % (str(unknown_replicas)))
-                        bulk_delete_bad_pfns(pfns=chunk, session=session)
-                        session.commit()  # pylint: disable=no-member
+                    # Splitting the PFNs by schemes
+                    for pfn in pfns:
+                        scheme = pfn.split(':')[0]
+                        if scheme not in schemes:
+                            schemes[scheme] = []
+                        schemes[scheme].append(pfn)
+                    for scheme in schemes:
+                        _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme])
+                        for rse in tmp_dict_rse:
+                            if rse not in dict_rse:
+                                dict_rse[rse] = []
+                            dict_rse[rse].extend(tmp_dict_rse[rse])
+                            unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
+                    # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
+                    if unknown_replicas:
+                        logging.info(prepend_str + 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
+                        bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
+
+                    for rse in dict_rse:
+                        logging.debug(prepend_str + 'Running on RSE %s with %s replicas' % (rse, len(dict_rse[rse])))
+                        nchunk = 0
+                        tot_chunk = int(math.ceil(len(dict_rse[rse]) / chunk_size))
+                        for chunk in chunks(dict_rse[rse], chunk_size):
+                            nchunk += 1
+                            logging.debug(prepend_str + 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
+                            unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
+                            if unknown_replicas:
+                                logging.debug(prepend_str + 'Unknown replicas : %s' % (str(unknown_replicas)))
+                            bulk_delete_bad_pfns(pfns=chunk, session=session)
+                            session.commit()  # pylint: disable=no-member
                 except Exception:
                     session.rollback()  # pylint: disable=no-member
                     logging.critical(traceback.format_exc())
@@ -129,9 +161,25 @@ def minos(bulk=1000, once=False, sleep_time=60):
             for account, reason, expires_at in temporary_unvailables:
                 pfns = temporary_unvailables[(account, reason, expires_at)]
                 logging.info(prepend_str + 'Declaring %s replicas temporary available with timeout %s and reason %s' % (len(pfns), str(expires_at), reason))
-                logging.debug(prepend_str + 'List of replicas : %s' % (str(pfns)))
                 logging.debug(prepend_str + 'Extracting RSEs')
-                _, dict_rse, unknown_replicas = get_pfn_to_rse(pfns)
+                schemes = {}
+                dict_rse = {}
+                unknown_replicas = []
+
+                # Splitting the PFNs by schemes
+                for pfn in pfns:
+                    scheme = pfn.split(':')[0]
+                    if scheme not in schemes:
+                        schemes[scheme] = []
+                    schemes[scheme].append(pfn)
+                for scheme in schemes:
+                    _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme])
+                    for rse in tmp_dict_rse:
+                        if rse not in dict_rse:
+                            dict_rse[rse] = []
+                        dict_rse[rse].extend(tmp_dict_rse[rse])
+                        unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
+
                 # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
                 if unknown_replicas:
                     logging.info(prepend_str + 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
@@ -150,17 +198,42 @@ def minos(bulk=1000, once=False, sleep_time=60):
                     # We update the replicas states to TEMPORARY_UNAVAILABLE
                     # then insert a row in the bad_replicas table. TODO Update the row if it already exists
                     # then delete the corresponding rows into the bad_pfns table
+                    logging.debug(prepend_str + 'Running on %s replicas on RSE %s' % (len(replicas), rse))
+                    nchunk = 0
+                    tot_chunk = int(math.ceil(len(replicas) / float(chunk_size)))
                     session = get_session()
-                    try:
-                        for chunk in chunks(replicas, chunk_size):
+                    for chunk in chunks(replicas, chunk_size):
+                        try:
+                            nchunk += 1
+                            logging.debug(prepend_str + 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
                             update_replicas_states(chunk, nowait=False, session=session)
                             bulk_add_bad_replicas(chunk, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=None, expires_at=expires_at, session=session)
                             pfns = [entry['pfn'] for entry in chunk]
                             bulk_delete_bad_pfns(pfns=pfns, session=session)
                             session.commit()  # pylint: disable=no-member
-                    except Exception:
-                        session.rollback()  # pylint: disable=no-member
-                        logging.critical(traceback.format_exc())
+                        except UnsupportedOperation as error:
+                            session.rollback()  # pylint: disable=no-member
+                            logging.error(prepend_str + 'Problem to bulk update PFNs. PFNs will be updated individually. Error : %s' % str(error))
+                            for rep in chunk:
+                                logging.debug(prepend_str + 'Working on %s' % (str(rep)))
+                                try:
+                                    get_metadata(rep['scope'], rep['name'])
+                                    unavailable_states = []
+                                    rep_state = get_replicas_state(rep['scope'], rep['name'])
+                                    unavailable_states.extend(rep_state.get(ReplicaState.TEMPORARY_UNAVAILABLE, []))
+                                    unavailable_states.extend(rep_state.get(ReplicaState.BEING_DELETED, []))
+                                    unavailable_states.extend(rep_state.get(ReplicaState.BAD, []))
+                                    if rep['rse_id'] in unavailable_states:
+                                        logging.info(prepend_str + '%s is in unavailable state. Will be removed from the list of bad PFNs' % str(rep['pfn']))
+                                        bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+                                except DataIdentifierNotFound as error:
+                                    logging.error(prepend_str + 'Will remove %s from the list of bad PFNs' % str(rep['pfn']))
+                                    bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+                            session = get_session()
+                        except Exception:
+                            session.rollback()  # pylint: disable=no-member
+                            logging.critical(traceback.format_exc())
+                            session = get_session()
 
         except Exception as error:
             logging.error(prepend_str + '%s' % (str(error)))
