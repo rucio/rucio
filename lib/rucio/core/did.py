@@ -23,6 +23,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Tobias Wegner <twegner@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1326,7 +1327,7 @@ def get_did_meta(scope, name, session=None):
         meta = getattr(row, 'meta')
         return json.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound("No generic metadata found for '%(scope)s:%(name)s'" % locals())
 
 
 @transactional_session
@@ -1339,7 +1340,7 @@ def add_did_meta(scope, name, meta, session=None):
     :param meta: the metadata to be added or updated
     """
     if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection.connection.version.split('.')[0])
+        oracle_version = int(session.connection().connection.version.split('.')[0])
         if oracle_version < 12:
             raise NotImplementedError
 
@@ -1385,7 +1386,7 @@ def delete_did_meta(scope, name, key, session=None):
     :param key: the key to be deleted
     """
     if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection.connection.version.split('.')[0])
+        oracle_version = int(session.connection().connection.version.split('.')[0])
         if oracle_version < 12:
             raise NotImplementedError
 
@@ -1410,7 +1411,7 @@ def delete_did_meta(scope, name, key, session=None):
 
         row.meta = existing_meta
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound("Key not found for data identifier '%(scope)s:%(name)s'" % locals())
 
 
 @read_session
@@ -1426,7 +1427,7 @@ def list_dids_by_meta(scope, select, session=None):
     if session.bind.dialect.name == 'sqlite':
         raise NotImplementedError
     if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection.connection.version.split('.')[0])
+        oracle_version = int(session.connection().connection.version.split('.')[0])
         if oracle_version < 12:
             raise NotImplementedError
 
