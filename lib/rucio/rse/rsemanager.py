@@ -22,7 +22,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2017-2018
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-# - Frank Berghaus <frank.berghaus@cern.ch>, 2018
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2018-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 #
@@ -36,10 +36,13 @@ import random
 
 try:
     from urlparse import urlparse
+    from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
     from urllib.parse import urlparse
+    from configparser import NoOptionError, NoSectionError
 
 from rucio.common import exception, utils, constants
+from rucio.common.config import config_get
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.utils import make_valid_did
 
@@ -715,13 +718,18 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
 
 def _retry_protocol_stat(protocol, pfn):
     """
-    try to stat file, on fail try again 1s, 2s, 4s, 8s, 16s, 32s later. Fail is all ail
+    try to stat file, on fail try again 1s, 2s, 4s, 8s, 16s, 32s later. Fail is all fail
 
     :param protocol     The protocol to use to reach this file
     :param pfn          Physical file name of the target for the protocol stat
     """
     from time import sleep
-    for attempt in range(6):
+    try:
+        retries = config_get('client', 'protocol_stat_retries')
+    except (NoOptionError, NoSectionError):
+        retries = 6
+
+    for attempt in range(retries):
         try:
             stats = protocol.stat(pfn)
             return stats
