@@ -36,6 +36,7 @@ def get_rse_client(rse, **kwarg):
     from rucio.client.rseclient import RSEClient
     return RSEClient().get_rse(rse)
 
+
 def get_signed_url_client(service, op, url):
     '''
     get_signed_url_client

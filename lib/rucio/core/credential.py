@@ -48,6 +48,7 @@ CREDS_GCS = None
 REGION = make_region().configure('dogpile.cache.memory',
                                  expiration_time=3600)
 
+
 def get_signed_url(service, operation, url, lifetime=600):
     """
     Get a signed URL for a particular service and operation.
@@ -150,8 +151,8 @@ def get_signed_url(service, operation, url, lifetime=600):
         else:
             s3op = 'put_object'
 
-        s3 = boto3.client('s3', aws_access_key_id = access_key, aws_secret_access_key = secret_key, config = Config(signature_version = signature_version, region_name = region_name))
+        s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
 
-        signed_url = s3.generate_presigned_url(s3op, Params = { 'Bucket': bucket, 'Key': key }, ExpiresIn = lifetime)
+        signed_url = s3.generate_presigned_url(s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
 
     return signed_url
