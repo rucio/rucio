@@ -239,6 +239,6 @@ class RuleClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            return next(self._load_json_data(r))
+            return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
