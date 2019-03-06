@@ -16,7 +16,7 @@
 # Authors:
 # - Wen Guan, <wguan.icedew@gmail.com>, 2015
 # - Vincent Garonne, <vgaronne@gmail.com>, 2015-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -48,8 +48,8 @@ def get_parser():
                         help='Group control: policy used to group. enum{rule, dest, src_dest, rule_src_dest}')
     parser.add_argument("--mock", action="store_true", default=False,
                         help='Fake source replicas for requests')
-    parser.add_argument('--fts-source-strategy', action="store", default='auto', type=str,
-                        help='FTS source strategy')
+    parser.add_argument('--source-strategy', action="store", default=None, type=str,
+                        help='Source strategy. Overload the strategy defined in config DB.')
     parser.add_argument('--exclude-rses', action="store", default=None, type=str,
                         help='RSE expression to exclude')
     parser.add_argument('--include-rses', action="store", default=None, type=str,
@@ -79,7 +79,7 @@ if __name__ == "__main__":
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,
             rses=args.rses,
-            fts_source_strategy=args.fts_source_strategy,
+            source_strategy=args.source_strategy,
             activities=args.activities,
             sleep_time=args.sleep_time,
             retry_other_fts=args.retry_other_fts)

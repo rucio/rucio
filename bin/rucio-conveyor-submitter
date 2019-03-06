@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2019
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014-2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2016-2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -79,8 +79,8 @@ A tranfer request got created by executing the transfer. Depending on the transf
                         help='Group control: policy used to group. enum{rule, dest, src_dest, rule_src_dest, activity_dest, activity_src_dest}')
     parser.add_argument("--mock", action="store_true", default=False,
                         help='Fake source replicas for requests')
-    parser.add_argument('--fts-source-strategy', action="store", default='auto', type=str,
-                        help='FTS source strategy')
+    parser.add_argument('--source-strategy', action="store", default=None, type=str,
+                        help='Source strategy. Overload the strategy defined in config DB.')
     parser.add_argument('--exclude-rses', action="store", default=None, type=str,
                         help='RSE expression to exclude')
     parser.add_argument('--include-rses', action="store", default=None, type=str,
@@ -112,7 +112,7 @@ if __name__ == "__main__":
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,
             rses=args.rses,
-            fts_source_strategy=args.fts_source_strategy,
+            source_strategy=args.source_strategy,
             activities=args.activities,
             sleep_time=args.sleep_time,
             max_sources=args.max_sources,
