@@ -17,6 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -28,12 +29,13 @@ from flask.views import MethodView
 from rucio.api.lifetime_exception import list_exceptions, add_exception, update_exception
 from rucio.common.exception import LifetimeExceptionNotFound, UnsupportedOperation, InvalidObject, RucioException, AccessDenied, LifetimeExceptionDuplicate
 from rucio.common.utils import generate_http_error_flask, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 class LifetimeException(MethodView):
     """ REST APIs for Lifetime Model exception. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         Retrieve all exceptions.
@@ -44,6 +46,7 @@ class LifetimeException(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: Lifetime Exception Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         """
         try:
@@ -109,6 +112,7 @@ class LifetimeException(MethodView):
 class LifetimeExceptionId(MethodView):
     """ REST APIs for Lifetime Model exception. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, exception_id):
         """
         Retrieve an exception.
@@ -120,6 +124,7 @@ class LifetimeExceptionId(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: Lifetime Exception Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of exceptions.
         """

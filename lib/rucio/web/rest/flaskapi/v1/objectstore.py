@@ -18,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -30,11 +30,12 @@ from flask.views import MethodView
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error_flask, parse_response, render_json
 from rucio.common import objectstore
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 class ObjectStoreGet(MethodView):
 
+    @check_accept_header_wrapper_flask(['text/plain'])
     def get(self, url, rse, operation):
         """
         Pass a url and return the signed url.
@@ -46,6 +47,7 @@ class ObjectStoreGet(MethodView):
         :param operation: the request operation (default: 'read').
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: the signed URL.
         get redirect URL.

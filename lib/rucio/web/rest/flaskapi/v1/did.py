@@ -46,10 +46,12 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
 from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 class Scope(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope):
         """
         Return all data identifiers in the given scope.
@@ -84,6 +86,7 @@ class Scope(MethodView):
         :status 200: DIDs found
         :status 401: Invalid Auth Token
         :status 404: no DIDs found in scope
+        :status 406: Not Acceptable
         :returns: Line separated dictionaries of DIDs
         """
 
@@ -106,6 +109,7 @@ class Scope(MethodView):
 
 class Search(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope):
         """
         List all data identifiers in a scope which match a given metadata.
@@ -147,6 +151,7 @@ class Search(MethodView):
         :status 200: DIDs found
         :status 401: Invalid Auth Token
         :status 404: Invalid key in filters
+        :status 406: Not Acceptable
         :status 409: Wrong DID type
         :returns: Line separated name of DIDs or dictionaries of DIDs for long option
         """
@@ -181,6 +186,7 @@ class Search(MethodView):
 
 class BulkDIDS(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def post(self):
         """
         Add new DIDs in bulk.
@@ -217,6 +223,7 @@ class BulkDIDS(MethodView):
         :<json string statuses: monotonic
         :status 201: new DIDs created
         :status 401: Invalid Auth Token
+        :status 406: Not Acceptable
         :status 409: DID already exists
         :status 500: Database Exception
         """
@@ -293,6 +300,7 @@ class Attachments(MethodView):
 
 class DIDs(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope, name):
         """
         Retrieve a single data identifier.
@@ -323,6 +331,7 @@ class DIDs(MethodView):
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: Scope not found
+        :status 406: Not Acceptable.
         :returns: Dictionary with DID metadata
         """
         try:
@@ -475,6 +484,7 @@ class DIDs(MethodView):
 
 class Attachment(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         Returns the contents of a data identifier.
@@ -501,10 +511,11 @@ class Attachment(MethodView):
              "monotonic": False, "expired_at": null}
 
         :query dynamic: Flag to dynamically calculate size for open DIDs
-        :resheader Content-Type: application/json
+        :resheader Content-Type: application/x-json-stream
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: Scope not found
+        :status 406: Not Acceptable
         :returns: Dictionary with DID metadata
         """
         try:
@@ -618,6 +629,7 @@ class Attachment(MethodView):
 
 class AttachmentHistory(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         Returns the contents history of a data identifier.
@@ -630,6 +642,7 @@ class AttachmentHistory(MethodView):
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: Stream of dictionarys with DIDs
         """
@@ -649,6 +662,7 @@ class AttachmentHistory(MethodView):
 
 class Files(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """ List all replicas of a data identifier.
 
@@ -661,6 +675,7 @@ class Files(MethodView):
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: A dictionary containing all replicas information.
         """
@@ -684,6 +699,7 @@ class Files(MethodView):
 
 class Parents(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """ List all parents of a data identifier.
 
@@ -695,6 +711,7 @@ class Parents(MethodView):
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
+        :status 406: Not Acceptable.
         :status 500: Database Exception
         :returns: A list of dictionary containing all dataset information.
         """
@@ -714,6 +731,7 @@ class Parents(MethodView):
 
 class Meta(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope, name):
         """
         List all meta of a data identifier.
@@ -726,6 +744,7 @@ class Meta(MethodView):
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: A dictionary containing all meta.
         """
@@ -792,6 +811,7 @@ class Meta(MethodView):
 
 class Rules(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         Return all rules of a given DID.
@@ -804,6 +824,7 @@ class Rules(MethodView):
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: List of replication rules.
         """
@@ -823,6 +844,7 @@ class Rules(MethodView):
 
 class AssociatedRules(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         Return all associated rules of a file.
@@ -835,6 +857,7 @@ class AssociatedRules(MethodView):
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: List of associated rules.
         """
@@ -851,6 +874,7 @@ class AssociatedRules(MethodView):
 
 class GUIDLookup(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, guid):
         """
         Return the file associated to a GUID.
@@ -862,6 +886,7 @@ class GUIDLookup(MethodView):
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: List of files for given GUID
         """
@@ -925,6 +950,8 @@ class Sample(MethodView):
 
 
 class NewDIDs(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         Returns list of recent identifiers.
@@ -935,6 +962,7 @@ class NewDIDs(MethodView):
         :query type: the DID type.
         :status 200: DIDs found
         :status 401: Invalid Auth Token
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: List recently created DIDs.
         """

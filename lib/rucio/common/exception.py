@@ -932,3 +932,13 @@ class ReplicaIsLocked(RucioException):
         super(ReplicaIsLocked, self).__init__(*args, **kwargs)
         self._message = 'Replica is locked'
         self.error_code = 88
+
+
+class UnsupportedRequestedContentType(RucioException):
+    """
+    The requested content type is not supported by the API endpoint.
+    """
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedRequestedContentType, self).__init__(*args, **kwargs)
+        self._message = 'The requested content type is not supported.'
+        self.error_code = 89

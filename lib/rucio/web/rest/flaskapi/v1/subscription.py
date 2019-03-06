@@ -17,7 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -30,12 +30,13 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, AccessDenied
 from rucio.common.utils import generate_http_error_flask, APIEncoder, render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 class Subscription(MethodView):
     """ REST APIs for subscriptions. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account=None, name=None):
         """
         Retrieve a subscription.
@@ -48,6 +49,7 @@ class Subscription(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: Subscription Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: Line separated list of dictionaries with subscription information.
         """
@@ -153,6 +155,7 @@ class Subscription(MethodView):
 
 class Rules(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, name):
         """
         Return all rules of a given subscription id.
@@ -166,6 +169,7 @@ class Rules(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: Rule Not Found.
         :status 404: Subscription Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: Line separated list of dictionaries with rule information.
         """
@@ -193,6 +197,7 @@ class Rules(MethodView):
 
 class States(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, name=None):
         """
         Return a summary of the states of all rules of a given subscription id.
@@ -204,6 +209,7 @@ class States(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: Line separated list of dictionaries with rule information.
         """
@@ -220,6 +226,7 @@ class States(MethodView):
 
 class SubscriptionId(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, subscription_id):
         """
         Retrieve a subscription matching the given subscription id
@@ -231,6 +238,7 @@ class SubscriptionId(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: Subscription Not Found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: dictionary with subscription information.
         """
