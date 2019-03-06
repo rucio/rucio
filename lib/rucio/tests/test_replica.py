@@ -587,6 +587,52 @@ class TestReplicaClients:
                 nb_tot_bad_files2 += int(line.get('BAD', 0))
         assert_equal(nb_tot_bad_files1, nb_tot_bad_files2)
 
+    def test_list_replicas_content_type(self):
+        """ REPLICA (REST): send a GET to list replicas with specific ACCEPT header."""
+        mw = []
+        account = 'root'
+        headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+        scope = 'mock'
+        name = 'file_%s' % generate_uuid()
+        files1 = [{'scope': scope, 'name': name, 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}}]
+        self.replica_client.add_replicas(rse='MOCK', files=files1)
+
+        # unsupported requested content type
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/unsupported'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal(res.status, 406)
+
+        # content type json stream
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/x-json-stream'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+
+        # content type metalink4
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/metalink4+xml'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/metalink4+xml')
+
+        # no requested content type
+        headers = {'X-Rucio-Auth-Token': str(token)}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+
+        # all content types
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': '*/*'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+
+        # multiple content types
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/unsupported, application/x-json-stream'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/unsupported, */*;q=0.8'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+
     def test_add_list_replicas(self):
         """ REPLICA (CLIENT): Add, change state and list file replicas """
         tmp_scope = 'mock'

@@ -21,7 +21,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -41,7 +41,7 @@ from rucio.api.authentication import (get_auth_token_user_pass,
                                       validate_auth_token)
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import generate_http_error, date_to_str
-from rucio.web.rest.common import RucioController
+from rucio.web.rest.common import RucioController, check_accept_header_wrapper
 
 
 URLS = (
@@ -75,6 +75,7 @@ class UserPass(RucioController):
         header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
+    @check_accept_header_wrapper(['application/octet-stream'])
     def GET(self):
         """
         HTTP Success:
@@ -149,6 +150,7 @@ class GSS(RucioController):
         header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
+    @check_accept_header_wrapper(['application/octet-stream'])
     def GET(self):
         """
         HTTP Success:
@@ -218,6 +220,7 @@ class x509(RucioController):
         header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
+    @check_accept_header_wrapper(['application/octet-stream'])
     def GET(self):
         """
         HTTP Success:
@@ -310,6 +313,7 @@ class SSH(RucioController):
         header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
+    @check_accept_header_wrapper(['application/octet-stream'])
     def GET(self):
         """
         HTTP Success:
@@ -388,6 +392,7 @@ class SSHChallengeToken(RucioController):
         header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
+    @check_accept_header_wrapper(['application/octet-stream'])
     def GET(self):
         """
         HTTP Success:
@@ -456,6 +461,7 @@ class Validate(RucioController):
         header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
+    @check_accept_header_wrapper(['application/octet-stream'])
     def GET(self):
         """
         HTTP Success:
@@ -463,6 +469,7 @@ class Validate(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
 
         :param Rucio-Auth-Token: as a variable-length string.
         :returns: Tuple(account name, token lifetime).

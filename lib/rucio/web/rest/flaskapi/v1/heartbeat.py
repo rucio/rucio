@@ -17,6 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -27,7 +28,7 @@ from flask.views import MethodView
 
 from rucio.api.heartbeat import list_heartbeats
 from rucio.common.utils import APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 LOGGER = getLogger("rucio.heartbeat")
@@ -39,6 +40,7 @@ LOGGER.addHandler(SH)
 class Heartbeat(MethodView):
     """ REST API for Heartbeats. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
         List all heartbeats.
@@ -48,6 +50,7 @@ class Heartbeat(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :returns: List of heartbeats.
         """
 

@@ -17,6 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -25,7 +26,7 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, header
 
 from rucio import version
-from rucio.web.rest.common import RucioController
+from rucio.web.rest.common import RucioController, check_accept_header_wrapper
 
 LOGGER = getLogger("rucio.rucio")
 SH = StreamHandler()
@@ -40,6 +41,7 @@ class Ping(RucioController):
     Ping class
     '''
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self):
         """
         .. http:get:: /ping
@@ -67,6 +69,7 @@ class Ping(RucioController):
               }
 
             :statuscode 200: no error
+            :statuscode 406: Not Acceptable
             :statuscode 500: InternalError
         """
         header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
