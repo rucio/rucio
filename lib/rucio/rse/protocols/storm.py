@@ -42,6 +42,10 @@ class Default(protocol.RSEProtocol):
         """
         return '%s/%s' % (scope, name)
 
+    def lfns2pfns(self, lfns):
+        """ In this case, just returns back lfn. """
+        return lfns
+
     def path2pfn(self, path):
         """
             Retruns a fully qualified PFN for the file referred by path.
@@ -77,11 +81,11 @@ class Default(protocol.RSEProtocol):
 
             :raise RSEAccessDenied
         """
-        raise NotImplementedError
+        pass
 
     def close(self):
         """ Closes the connection to RSE."""
-        raise NotImplementedError
+        pass
 
     def get(self, pfn, dest, transfer_timeout=None):
         """ Provides access to files stored inside connected the RSE.
@@ -92,6 +96,9 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
          """
+
+        # storm prefix needs to be replaced by davs in order to get etag
+        pfn = 'davs'+pfn[5:]
 
         # retrieve the TURL from the webdav etag
         cmd = 'davix-http --capath /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates --cert $X509_USER_PROXY -X PROPFIND %s' % pfn
