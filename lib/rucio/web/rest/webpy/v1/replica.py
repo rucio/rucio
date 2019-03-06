@@ -109,7 +109,7 @@ class Replicas(RucioController):
 
         # Resolve all reasonable protocols when doing metalink for maximum access possibilities
         if metalink and schemes is None:
-            schemes = ['gsiftp', 'srm', 'root', 'davs', 'https', 'file']
+            schemes = supported_protocols
 
         try:
             # first, set the appropriate content type, and stream the header
