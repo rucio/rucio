@@ -123,6 +123,7 @@ codes = {
     403: '403 Forbidden',
     404: '404 Not Found',
     405: '405 Method Not Allowed',
+    406: '406 Not Acceptable',
     408: '408 Request Timeout',
     409: '409 Conflict',
     410: '410 Gone',

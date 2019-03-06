@@ -30,7 +30,7 @@ from flask.views import MethodView
 
 from rucio.api.identity import (add_identity, add_account_identity,
                                 list_accounts_for_identity)
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 URLS = (
@@ -148,6 +148,7 @@ class GSS(MethodView):
 class Accounts(MethodView):
     """ Retrieve list of accounts mapped to an identity. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, identity_key, type):
         """
         Return all identities mapped to an account.
@@ -159,6 +160,7 @@ class Accounts(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of identities.
         """

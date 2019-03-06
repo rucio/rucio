@@ -17,6 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -27,7 +28,7 @@ from web import application, ctx, header, Created, InternalError, loadhook
 from rucio.api.scope import add_scope, get_scopes, list_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
 
 LOGGER = getLogger("rucio.scope")
@@ -46,12 +47,15 @@ URLS = (
 class Scope(RucioController):
     """ create new rucio scopes. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self):
         """
         List all scopes.
 
         HTTP Success:
             200 Success
+        HTTP Error:
+            406 Not Acceptable
         """
         return dumps(list_scopes())
 
@@ -89,6 +93,7 @@ class Scope(RucioController):
 class ScopeList(RucioController):
     """ list scopes """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, account):
         """
         List all scopes for an account.
@@ -99,6 +104,7 @@ class ScopeList(RucioController):
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :param Rucio-Account: Account identifier.

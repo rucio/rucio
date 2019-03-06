@@ -17,7 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -28,7 +28,7 @@ from web import application, ctx, data, Created, InternalError, loadhook, header
 from rucio.api.meta import add_key, add_value, list_keys, list_values
 from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException, UnsupportedKeyType
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
 
 LOGGER = getLogger("rucio.meta")
@@ -45,12 +45,16 @@ URLS = ('/(.+)/(.+)', 'Values',
 class Meta(RucioController):
     """ REST APIs for data identifier attribute keys. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self):
         """
         List all keys.
 
         HTTP Success:
             200 Success
+
+        HTTP Error:
+            406 Not Acceptable
         """
         header('Content-Type', 'application/json')
         return dumps(list_keys())
@@ -103,12 +107,15 @@ class Meta(RucioController):
 class Values(RucioController):
     """ REST APIs for data identifier attribute values. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, key):
         """
         List all values for a key.
 
         HTTP Success:
             200 Success
+        HTTP Error:
+            406 Not Acceptable
         """
         header('Content-Type', 'application/json')
         return dumps(list_values(key=key))

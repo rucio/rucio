@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -29,6 +29,7 @@ from rucio.api.authentication import validate_auth_token
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import AccessDenied, RucioException
 from rucio.common.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
 
 from flask import Flask, Blueprint, request, Response
 from flask.views import MethodView
@@ -59,6 +60,7 @@ class SignURL(MethodView):
         response.headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return response
 
+    @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
         Sign a URL for a limited lifetime for a particular service.
@@ -74,6 +76,7 @@ class SignURL(MethodView):
         :status 200: Successfully signed URL
         :status 400: Bad Request
         :status 401: Unauthorized
+        :status 406: Not Acceptable
         :status 500: Internal Server Error
         """
 
