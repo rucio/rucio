@@ -2616,6 +2616,8 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     """
     if isinstance(state, string_types):
         rep_state = BadPFNStatus.from_sym(state)
+    else:
+        rep_state = state
 
     pfns = clean_surls(pfns)
     for pfn in pfns:
