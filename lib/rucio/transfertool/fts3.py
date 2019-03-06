@@ -459,7 +459,7 @@ class FTS3Transfertool(Transfertool):
     def get_se_config(self, storage_element):
         """
         Get the Json response for the configuration of a storage element.
-        returns a Json result for the configuration of a storage element.
+        :returns: a Json result for the configuration of a storage element.
         :param storage_element: the storage element you want the configuration for.
         """
 
@@ -480,7 +480,7 @@ class FTS3Transfertool(Transfertool):
     def set_se_config(self, storage_element, inbound_max_active=None, outbound_max_active=None, inbound_max_throughput=None, outbound_max_throughput=None, staging=None):
         """
         Set the configuration for a storage element. Used for alleviating transfer failures due to timeout.
-        returns: JSON post response in case of success, otherwise raise Exception.
+        :returns: JSON post response in case of success, otherwise raise Exception.
         :param storage_element: The storage element to be configured
         :param inbound_max_active: the integer to set the inbound_max_active for the SE.
         :param outbound_max_active: the integer to set the outbound_max_active for the SE.
