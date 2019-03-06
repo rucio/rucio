@@ -20,7 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -42,7 +42,7 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 LOGGER = getLogger("rucio.rule")
 SH = StreamHandler()
@@ -53,6 +53,7 @@ LOGGER.addHandler(SH)
 class Rule(MethodView):
     """ REST APIs for replication rules. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rule_id):
         """ get rule information for given rule id.
 
@@ -60,6 +61,7 @@ class Rule(MethodView):
 
         :returns: JSON dict containing informations about the requested user.
         :status 200: Rule found
+        :status 406: Not Acceptable
         :status 410: Invalid Auth Token
         :status 404: no rule found for id
         """
@@ -148,6 +150,7 @@ class Rule(MethodView):
 class AllRule(MethodView):
     """ REST APIs for all rules. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         Return all rules of a given account.
@@ -158,6 +161,7 @@ class AllRule(MethodView):
         :status 200: Rule found
         :status 401: Invalid Auth Token
         :status 404: no rule found for id
+        :status 406: Not Acceptable
         :query scope: The scope name.
         """
         filters = {}
@@ -328,12 +332,14 @@ class AllRule(MethodView):
 class ReplicaLocks(MethodView):
     """ REST APIs for replica locks. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rule_id):
         """ get locks for a given rule_id.
 
         .. :quickref: ReplicaLocks; get locks by rule id
 
         :status 200: Rule found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: JSON dict containing informations about the requested user.
         """
@@ -441,6 +447,7 @@ class MoveRule(MethodView):
 class RuleHistory(MethodView):
     """ REST APIs for rule history. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rule_id):
         """ get history for a given rule_id.
 
@@ -448,6 +455,7 @@ class RuleHistory(MethodView):
 
         :resheader Content-Type: application/x-json-stream
         :status 200: Rule found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: JSON dict containing informations about the requested user.
         """
@@ -467,6 +475,7 @@ class RuleHistory(MethodView):
 class RuleHistoryFull(MethodView):
     """ REST APIs for rule history for DIDs. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """ get history for a given DID.
 
@@ -474,6 +483,7 @@ class RuleHistoryFull(MethodView):
 
         :resheader Content-Type: application/x-json-stream
         :status 200: Rule found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: JSON dict containing informations about the requested user.
         """
@@ -493,6 +503,7 @@ class RuleHistoryFull(MethodView):
 class RuleAnalysis(MethodView):
     """ REST APIs for rule analysis. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rule_id):
         """ get analysis for given rule.
 
@@ -500,6 +511,7 @@ class RuleAnalysis(MethodView):
 
         :resheader Content-Type: application/x-json-stream
         :status 200: Rule found
+        :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: JSON dict containing informations about the requested user.
         """

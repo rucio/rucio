@@ -17,7 +17,7 @@
 # - Wen Guan <wen.guan@cern.ch>, 2016
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -29,7 +29,7 @@ from web import application, header, data, loadhook, unloadhook, InternalError, 
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error, parse_response, render_json
 from rucio.common import objectstore
-from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
 
 
 URLS = ('/info/(.+)$', 'ObjectStoreInfo',
@@ -40,6 +40,7 @@ URLS = ('/info/(.+)$', 'ObjectStoreInfo',
 
 class ObjectStoreGet(RucioController):
 
+    @check_accept_header_wrapper(['text/plain'])
     def GET(self, url, rse, operation):
         """
         GET redirect URL.
@@ -49,6 +50,7 @@ class ObjectStoreGet(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :returns: A URL refering to the file.

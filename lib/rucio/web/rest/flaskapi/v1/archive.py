@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -30,7 +30,7 @@ from flask import Flask, Blueprint, Response
 from flask.views import MethodView
 
 from rucio.api.did import list_archive_content
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 LOGGER, SH = getLogger("rucio.meta"), StreamHandler()
 SH.setLevel(DEBUG)
@@ -40,6 +40,7 @@ LOGGER.addHandler(SH)
 class Archive(MethodView):
     """ REST APIs for archive. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         List archive content keys.
@@ -50,6 +51,7 @@ class Archive(MethodView):
         :param name: data identifier name.
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         """
         try:

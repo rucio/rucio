@@ -40,7 +40,7 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
 from rucio.common.utils import generate_http_error_flask, APIEncoder, render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 LOGGER = getLogger("rucio.account")
@@ -51,6 +51,7 @@ LOGGER.addHandler(SH)
 
 class Attributes(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """ list all attributes for an account.
 
@@ -61,6 +62,7 @@ class Attributes(MethodView):
         :status 200: OK
         :status 401: Invalid auth token.
         :status 404: Account not found.
+        :status 406: Not Acceptable
         :status 500: Database Exception.
         :returns: JSON dict containing informations about the requested account.
         """
@@ -144,6 +146,7 @@ class Attributes(MethodView):
 
 
 class Scopes(MethodView):
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """ list all scopes for an account.
 
@@ -155,6 +158,7 @@ class Scopes(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :status 404: Scope not found.
+        :statsu 406: Not Acceptable
         :status 500: Database exception.
         :returns: A list containing all scope names for an account.
         """
@@ -206,6 +210,7 @@ class Scopes(MethodView):
 class AccountParameter(MethodView):
     """ create, update, get and disable rucio accounts. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """ get account parameters for given account name.
 
@@ -215,6 +220,7 @@ class AccountParameter(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Account not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception.
         :returns: JSON dict containing informations about the requested user.
         """
@@ -352,6 +358,7 @@ class AccountParameter(MethodView):
 
 
 class Account(MethodView):
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """ list all rucio accounts.
 
@@ -360,6 +367,7 @@ class Account(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable
         :status 500: Database exception
         :returns: A list containing all account names as dict.
         """
@@ -376,6 +384,7 @@ class Account(MethodView):
 
 
 class AccountLimits(MethodView):
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse=None):
         """ get the current limits for an account on a specific RSE
 
@@ -387,6 +396,7 @@ class AccountLimits(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: RSE not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception
         :returns: JSON dict containing informations about the requested user.
         """
@@ -450,6 +460,7 @@ class Identities(MethodView):
 
         return "Created", 201
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """
         Get all identities mapped to an account.
@@ -461,6 +472,7 @@ class Identities(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Account not found.
+        :statsu 406: Not Acceptable.
         :status 500: Database exception
         :returns: Line separated dicts of identities.
         """
@@ -521,6 +533,7 @@ class Identities(MethodView):
 
 class Rules(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """
         Return all rules of a given account.
@@ -532,6 +545,7 @@ class Rules(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Rule not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception.
         :returns: Line separated list of rules.
         """
@@ -554,6 +568,7 @@ class Rules(MethodView):
 
 class UsageHistory(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse):
         """
         Return the account usage of the account.
@@ -566,6 +581,7 @@ class UsageHistory(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Account not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception.
         :returns: Line separated list of account usages.
         Return the account usage of the account.
@@ -585,6 +601,7 @@ class UsageHistory(MethodView):
 
 class Usage1(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """
         Return the account usage of the account.
@@ -596,6 +613,7 @@ class Usage1(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Account not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception.
         :returns: Line separated list of account usages.
         """
@@ -616,6 +634,7 @@ class Usage1(MethodView):
 
 class Usage2(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse):
         """
         Return the account usage of the account.
@@ -629,6 +648,7 @@ class Usage2(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :status 404: RSE not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception.
         :returns: Line separated list of account usages.
         """

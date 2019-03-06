@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -31,7 +31,7 @@ from rucio.api.authentication import validate_auth_token
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import RucioController
+from rucio.web.rest.common import RucioController, check_accept_header_wrapper
 
 URLS = (
     '/signurl?$', 'SignURL',
@@ -58,6 +58,7 @@ class SignURL(RucioController):
         header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
+    @check_accept_header_wrapper(['application/octet-stream'])
     def GET(self):
         """
         HTTP Success:
@@ -66,6 +67,7 @@ class SignURL(RucioController):
         HTTP Error:
             400 Bad Request
             401 Unauthorized
+            406 Not Acceptable
             500 Internal Server Error
 
         :param Rucio-Account: Account identifier as a string.

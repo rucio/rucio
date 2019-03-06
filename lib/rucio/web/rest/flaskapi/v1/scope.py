@@ -17,6 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -25,13 +26,15 @@ from json import dumps
 from rucio.api.scope import add_scope, list_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
 
 class Scope(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """List all scopes.
 
@@ -56,6 +59,7 @@ class Scope(MethodView):
 
         :resheader Content-Type: application/json
         :status 200: scopes found
+        :status 406: Not Acceptable
         :returns: :class:`String`
         """
         return dumps(list_scopes())
