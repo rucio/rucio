@@ -17,7 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -61,7 +61,7 @@ graceful_stop = threading.Event()
 
 
 def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_policy='rule',
-           fts_source_strategy='auto', activities=None, sleep_time=600, retry_other_fts=False):
+           source_strategy=None, activities=None, sleep_time=600, retry_other_fts=False):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -147,7 +147,7 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
                 # group transfers
                 logging.info(prepend_str + 'Starting to group transfers for %s' % (activity))
                 start_time = time.time()
-                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy, max_time_in_queue)
+                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue)
                 record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
                 logging.info(prepend_str + 'Starting to submit transfers for %s' % (activity))
@@ -183,7 +183,7 @@ def stop(signum=None, frame=None):
 
 
 def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
-        mock=False, rses=None, include_rses=None, exclude_rses=None, bulk=100, fts_source_strategy='auto',
+        mock=False, rses=None, include_rses=None, exclude_rses=None, bulk=100, source_strategy=None,
         activities=[], sleep_time=600, retry_other_fts=False):
     """
     Starts up the conveyer threads.
@@ -209,7 +209,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
                bulk=bulk,
                group_bulk=group_bulk,
                group_policy=group_policy,
-               fts_source_strategy=fts_source_strategy,
+               source_strategy=source_strategy,
                activities=activities,
                retry_other_fts=retry_other_fts)
 
@@ -222,7 +222,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
                                                            'activities': activities,
                                                            'mock': mock,
                                                            'sleep_time': sleep_time,
-                                                           'fts_source_strategy': fts_source_strategy,
+                                                           'source_strategy': source_strategy,
                                                            'retry_other_fts': retry_other_fts}) for _ in range(0, total_threads)]
 
         [thread.start() for thread in threads]
