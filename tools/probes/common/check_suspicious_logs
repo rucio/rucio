@@ -24,7 +24,7 @@ import sys
 
 from datetime import datetime, timedelta
 from rucio.core.replica import get_suspicious_files, list_replicas, add_bad_pfns
-from rucio.db.sqla.constants import  BadPFNStatus
+from rucio.db.sqla.constants import BadPFNStatus
 
 
 UNKNOWN = 3
