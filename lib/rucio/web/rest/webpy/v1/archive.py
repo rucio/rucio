@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -28,7 +28,7 @@ from web import application, loadhook, header, InternalError
 
 from rucio.api.did import list_archive_content
 from rucio.common.schema import SCOPE_NAME_REGEXP
-from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
 LOGGER, SH = getLogger("rucio.meta"), StreamHandler()
 SH.setLevel(DEBUG)
@@ -40,12 +40,15 @@ URLS = ('%s/files' % SCOPE_NAME_REGEXP, 'Archive')
 class Archive(RucioController):
     """ REST APIs for archive. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """
         List archive content keys.
 
         HTTP Success:
             200 Success
+        HTTP Error:
+            406 Not Acceptable
         """
         header('Content-Type', 'application/x-json-stream')
         try:

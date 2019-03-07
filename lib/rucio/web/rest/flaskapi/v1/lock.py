@@ -18,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -29,7 +29,7 @@ from flask.views import MethodView
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException, RSENotFound
 from rucio.common.utils import generate_http_error_flask, render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 LOGGER = getLogger("rucio.lock")
 SH = StreamHandler()
@@ -40,6 +40,7 @@ LOGGER.addHandler(SH)
 class LockByRSE(MethodView):
     """ REST APIs for dataset locks. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
         """ get locks for a given rse.
 
@@ -48,6 +49,7 @@ class LockByRSE(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: Line separated list of dictionaries with lock information.
         """
@@ -72,6 +74,7 @@ class LockByRSE(MethodView):
 class LockByScopeName(MethodView):
     """ REST APIs for dataset locks. """
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def GET(self, scope, name):
         """ get locks for a given scope, name.
 
@@ -81,6 +84,7 @@ class LockByScopeName(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: Line separated list of dictionary with lock information.
         """

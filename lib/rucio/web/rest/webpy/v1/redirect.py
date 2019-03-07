@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -37,7 +37,7 @@ from rucio.common.exception import RucioException, DataIdentifierNotFound, Repli
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import RucioController
+from rucio.web.rest.common import RucioController, check_accept_header_wrapper
 
 
 LOGGER = getLogger("rucio.rucio")
@@ -51,6 +51,7 @@ URLS = ('%s/metalink?$' % SCOPE_NAME_REGEXP, 'MetaLinkRedirector',
 
 class MetaLinkRedirector(RucioController):
 
+    @check_accept_header_wrapper(['application/metalink4+xml'])
     def GET(self, scope, name):
         """
         Metalink redirect
@@ -62,6 +63,7 @@ class MetaLinkRedirector(RucioController):
             401 Unauthorized
             500 InternalError
             404 Notfound
+            406 Not Acceptable
 
         :param scope: The scope name of the file.
         :param name: The name of the file.

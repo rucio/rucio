@@ -14,10 +14,14 @@ $var title: Suspiciousreplicas
 $var script: <script src="/static/suspicious_replicas.js"></script>
 
 
+<div id="alert_box">
 <div id="result" class="row" data-equalizer>
     <div id="State" class="columns panel">
         <h4>Suspicious Replicas</h4>
         <div id="loader"></div>
+        <div id="dialogform" title="Declare bad replica">
+        </div>
+
             <div class="row">
                  <div class="large-6 columns">
                     <table id="datepicker" style="table-layout:fixed; width:auto;">
@@ -52,8 +56,14 @@ $var script: <script src="/static/suspicious_replicas.js"></script>
                        </div>
                        <br>
                     </div>
-
-                    <input id="submit_button" type="button" value="Retrieve results">
+                    <div class="row">
+                    <div class="large-3 column">
+                        <input id="submit_button" type="button" value="Retrieve results">
+                    </div>
+                    <div class="large-3 column">
+                        <div id="declare_bad"></div>
+                    </div>
+                    </div>
 
                  </div>
                  <div class="large-6 columns">

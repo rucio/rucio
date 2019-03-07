@@ -20,7 +20,7 @@
 # Revises: 9eb936a81eb1
 # Creation Date: 2019-01-30 14:20:35.058889
 
-from alembic.op import (create_primary_key, drop_constraint)
+from alembic.op import (create_primary_key, drop_constraint, create_foreign_key)
 
 from alembic import context
 
@@ -34,15 +34,27 @@ def upgrade():
     '''
     Upgrade the database to this revision
     '''
+    if context.get_context().dialect.name == 'postgresql':
+        # For PostgreSQL we need to drop the SOURCES_REPLICA_FK first too
+        drop_constraint('SOURCES_REPLICA_FK', 'sources')
     if context.get_context().dialect.name != 'sqlite':
         drop_constraint('REPLICAS_PK', 'replicas')
         create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
+    if context.get_context().dialect.name == 'postgresql':
+        # For PostgreSQL we need to add the SOURCES_REPLICA_FK again
+        create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
 
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+    if context.get_context().dialect.name == 'postgresql':
+        # For PostgreSQL we need to drop the SOURCES_REPLICA_FK first too
+        drop_constraint('SOURCES_REPLICA_FK', 'sources')
     if context.get_context().dialect.name != 'sqlite':
         drop_constraint('REPLICAS_PK', 'replicas')
         create_primary_key('REPLICAS_PK', 'replicas', ['rse_id', 'scope', 'name'])
+    if context.get_context().dialect.name == 'postgresql':
+        # For PostgreSQL we need to add the SOURCES_REPLICA_FK again
+        create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])

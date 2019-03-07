@@ -15,7 +15,7 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -64,3 +64,28 @@ def after_request(response):
         response.headers['Pragma'] = 'no-cache'
 
     return response
+
+
+def check_accept_header_wrapper_flask(supported_content_types):
+    """ Decorator to check if an endpoint supports the requested content type. """
+    def wrapper(f):
+        def decorated(*args, **kwargs):
+            requested_content_type = request.environ.get('HTTP_ACCEPT')
+            request_type_allowed = True
+            if requested_content_type:
+                if ',' in requested_content_type:
+                    for content_type in requested_content_type.replace(' ', '').split(','):
+                        if content_type in supported_content_types or '*/*' in content_type:
+                            request_type_allowed = True
+                            break
+                        else:
+                            request_type_allowed = False
+                else:
+                    if requested_content_type not in supported_content_types and '*/*' not in requested_content_type:
+                        request_type_allowed = False
+
+            if not request_type_allowed:
+                return generate_http_error_flask(406, 'UnsupportedRequestedContentType', 'The requested content type %s is not supported. Use %s.' % (requested_content_type, ','.join(supported_content_types)))
+            return f(*args, **kwargs)
+        return decorated
+    return wrapper

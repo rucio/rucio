@@ -43,7 +43,7 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
-from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
 
 LOGGER = getLogger("rucio.account")
@@ -70,6 +70,7 @@ URLS = (
 
 class Attributes(RucioController):
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, account):
         """ list all attributes for an account.
 
@@ -79,6 +80,7 @@ class Attributes(RucioController):
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :param Rucio-Account: Account identifier.
@@ -167,6 +169,8 @@ class Attributes(RucioController):
 
 
 class Scopes(RucioController):
+
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, account):
         """ list all scopes for an account.
 
@@ -176,6 +180,7 @@ class Scopes(RucioController):
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :param Rucio-Account: Account identifier.
@@ -235,6 +240,7 @@ class Scopes(RucioController):
 class AccountParameter(RucioController):
     """ create, update, get and disable rucio accounts. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, account):
         """ get account information for given account name.
 
@@ -244,6 +250,7 @@ class AccountParameter(RucioController):
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :param Rucio-Account: Account identifier.
@@ -392,6 +399,8 @@ class AccountParameter(RucioController):
 
 
 class Account(RucioController):
+
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self):
         """ list all rucio accounts.
 
@@ -400,6 +409,7 @@ class Account(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :param Rucio-Account: Account identifier.
@@ -416,6 +426,8 @@ class Account(RucioController):
 
 
 class AccountLimits(RucioController):
+
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, account, rse=None):
         """ get the current limits for an account on a specific RSE
 
@@ -424,6 +436,7 @@ class AccountLimits(RucioController):
 
         HTTP Error:
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :param X-Rucio-Account: Account identifier.
@@ -504,6 +517,7 @@ class Identities(RucioController):
 
         raise Created()
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, account):
         header('Content-Type', 'application/x-json-stream')
         try:
@@ -563,6 +577,7 @@ class Identities(RucioController):
 
 class Rules(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, account):
         """
         Return all rules of a given account.
@@ -572,6 +587,7 @@ class Rules(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             404 Not Found
 
         :param scope: The scope name.
@@ -603,6 +619,7 @@ class Rules(RucioController):
 
 class UsageHistory(RucioController):
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, account, rse):
         """
         Return the account usage of the account.
@@ -613,6 +630,7 @@ class UsageHistory(RucioController):
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
             500 Internal Error
 
         :param account: The account name.
@@ -641,6 +659,7 @@ class UsageHistory(RucioController):
 
 class Usage1(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, account):
         """
         Return the account usage of the account.
@@ -650,6 +669,7 @@ class Usage1(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             404 Not Found
 
         :param account: The account name.
@@ -678,6 +698,7 @@ class Usage1(RucioController):
 
 class Usage2(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, account, rse):
         """
         Return the account usage of the account.
@@ -687,6 +708,7 @@ class Usage2(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             404 Not Found
 
         :param account: The account name.

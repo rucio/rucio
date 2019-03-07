@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
@@ -123,6 +123,7 @@ codes = {
     403: '403 Forbidden',
     404: '404 Not Found',
     405: '405 Method Not Allowed',
+    406: '406 Not Acceptable',
     408: '408 Request Timeout',
     409: '409 Conflict',
     410: '410 Gone',
@@ -656,8 +657,8 @@ class Color:
 
 def detect_client_location():
     """
-    Open a UDP socket to a machine on the internet, to get the local IP address
-    of the requesting client.
+    Open a UDP socket to a machine on the internet, to get the local IPv4 and IPv6
+    addresses of the requesting client.
 
     Try to determine the sitename automatically from common environment variables,
     in this order: SITE_NAME, ATLAS_SITE_NAME, OSG_SITE_NAME. If none of these exist
@@ -672,12 +673,21 @@ def detect_client_location():
     except Exception:
         pass
 
+    ip6 = '::'
+    try:
+        s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        s.connect(("2001:4860:4860:0:0:0:0:8888", 80))
+        ip6 = s.getsockname()[0]
+    except Exception:
+        pass
+
     site = os.environ.get('SITE_NAME',
                           os.environ.get('ATLAS_SITE_NAME',
                                          os.environ.get('OSG_SITE_NAME',
                                                         'ROAMING')))
 
     return {'ip': ip,
+            'ip6': ip6,
             'fqdn': socket.getfqdn(),
             'site': site}
 

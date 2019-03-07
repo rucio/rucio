@@ -369,9 +369,18 @@ def get_bad_files(session):
  where a.state='L' and a.updated_at>sysdate-7 and b.did_type='D'and a.scope=b.child_scope and a.name=b.child_name '''
 
         result = session.execute(query)
+        processed_files = []
         for row in result:
             if row[3].startswith('panda.'):
                 continue
+            if '_sub' in row[3]:
+                continue
+            f_did = row[0] + ':' + row[1]
+            if f_did in processed_files:
+                print 'double counted:', f_did
+                continue
+            else:
+                processed_files.append(f_did)
             for col in row:
                 f.write('%s ' % col)
             f.write('\n')
@@ -396,6 +405,7 @@ def get_bad_files_from_dump(session):
 
     f = open(tmpdata_path, 'w')
     line_counter = 0
+    processed_files = []
     for l in dump7.text.split('\n'):
         line_counter += 1
         data = l.split('\t')
@@ -404,6 +414,14 @@ def get_bad_files_from_dump(session):
             continue
         if data[3].startswith('panda.'):
             continue
+        if '_sub' in data[3]:
+            continue
+        f_did = data[0] + ':' + data[1]
+        if f_did in processed_files:
+            print 'double counted:', f_did
+            continue
+        else:
+            processed_files.append(f_did)
         updated_at = time.strftime('%Y-%m-%d', time.localtime(float(data[6])))
         f.write('%s %s %s %s %s %s %s\n' % (data[0], data[1], data[2], data[3], data[4], data[5], updated_at))
     flog.write('INFO: dump contains %i lines\n' % line_counter)
@@ -431,6 +449,7 @@ def main():
     # get input
     get_input = get_bad_files_from_dump(session)
     if not get_input:
+        print 'WARNING: the dump is not accessible'
         get_input = get_bad_files(session)
         if not get_input:
             sys.exit(CRITICAL)
