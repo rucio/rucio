@@ -33,13 +33,12 @@ from __future__ import print_function
 import copy
 import os
 import random
+from time import sleep
 
 try:
     from urlparse import urlparse
-    from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
     from urllib.parse import urlparse
-    from configparser import NoOptionError, NoSectionError
 
 from rucio.common import exception, utils, constants
 from rucio.common.config import config_get
@@ -723,11 +722,7 @@ def _retry_protocol_stat(protocol, pfn):
     :param protocol     The protocol to use to reach this file
     :param pfn          Physical file name of the target for the protocol stat
     """
-    from time import sleep
-    try:
-        retries = config_get('client', 'protocol_stat_retries')
-    except (NoOptionError, NoSectionError):
-        retries = 6
+    retries = config_get('client', 'protocol_stat_retries', raise_exception=False, default=6)
 
     for attempt in range(retries):
         try:
