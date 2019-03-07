@@ -23,6 +23,7 @@ from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url
 
+
 class CredentialClient(BaseClient):
     """Credential client class for working with URL signing"""
 
@@ -36,12 +37,12 @@ class CredentialClient(BaseClient):
     def get_signed_url(self, service, operation, url, lifetime=3600):
         """
         Return a signed version of the given URL for the given operation.
-        
+
         :param service: The service the URL points to (gcs, s3)
         :param operation: The desired operation (read, write, delete)
         :param url: The URL to sign
         :param lifetime: The desired lifetime of the URL in seconds
-        
+
         :return: The signed URL string
         """
         path = '/'.join([self.CREDENTIAL_BASEURL, 'signurl'])
@@ -52,7 +53,7 @@ class CredentialClient(BaseClient):
         params['url'] = url
         rurl = build_url(choice(self.list_hosts), path=path, params=params)
         r = self._send_request(rurl, type='GET')
-        
+
         if r.status_code == codes.ok:
             return r.text
 
