@@ -130,7 +130,6 @@ def get_signed_url(service, operation, url, lifetime=600):
             raise UnsupportedOperation('Not a valid S3 URL')
         bucket = pathcomponents[1]
         key = '/'.join(pathcomponents[2:])
-        print("Host:", host, ", bucket:", bucket, ", key:", key)
 
         # remove port number from host if present
         colon = host.find(':')
