@@ -228,9 +228,9 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
 
-    def examine_replication_locks(self, rule_id):
+    def list_replica_locks(self, rule_id):
         """
-        Examine a replication rule for errors during transfer.
+        List details of all replica locks for a rule.
 
         :param rule_id:             Rule to be denied.
         :raises:                    RuleNotFound
