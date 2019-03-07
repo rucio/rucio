@@ -56,7 +56,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder, render_json_list
-from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
 
 URLS = ('/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
@@ -74,6 +74,7 @@ URLS = ('/list/?$', 'ListReplicas',
 
 class Replicas(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream', 'application/metalink4+xml'])
     def GET(self, scope, name):
         """
         List all replicas for data identifiers.
@@ -83,6 +84,7 @@ class Replicas(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :returns: A dictionary containing all replicas information.
@@ -275,6 +277,7 @@ class Replicas(RucioController):
 
 class ListReplicas(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream', 'application/metalink4+xml'])
     def POST(self):
         """
         List all replicas for data identifiers.
@@ -284,6 +287,7 @@ class ListReplicas(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :returns: A dictionary containing all replicas information, either as JSON stream or metalink4.
@@ -441,6 +445,7 @@ class ListReplicas(RucioController):
 
 class ReplicasDIDs(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def POST(self):
         """
         List the DIDs associated to a list of replicas.
@@ -450,6 +455,7 @@ class ReplicasDIDs(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :returns: A list of dictionaries containing the mAPPing PFNs to DIDs.
@@ -481,6 +487,7 @@ class ReplicasDIDs(RucioController):
 
 class BadReplicas(RucioController):
 
+    @check_accept_header_wrapper(['application/json'])
     def POST(self):
         """
         Declare a list of bad replicas.
@@ -491,12 +498,13 @@ class BadReplicas(RucioController):
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         """
         json_data = data()
         pfns = []
-        header('Content-Type', 'application/x-json-stream')
+        header('Content-Type', 'application/json')
         try:
             params = parse_response(json_data)
             if 'pfns' in params:
@@ -523,6 +531,7 @@ class BadReplicas(RucioController):
 
 class SuspiciousReplicas(RucioController):
 
+    @check_accept_header_wrapper(['application/json'])
     def POST(self):
         """
         Declare a list of suspicious replicas.
@@ -532,12 +541,13 @@ class SuspiciousReplicas(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         """
         json_data = data()
         pfns = []
-        header('Content-Type', 'application/x-json-stream')
+        header('Content-Type', 'application/json')
         try:
             params = parse_response(json_data)
             if 'pfns' in params:
@@ -559,6 +569,7 @@ class SuspiciousReplicas(RucioController):
             raise InternalError(error)
         raise Created(dumps(not_declared_files))
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self):
         """
         List the suspicious replicas on a lsit of RSEs.
@@ -567,6 +578,7 @@ class SuspiciousReplicas(RucioController):
             200 OK
 
         HTTP Error:
+            406 Not Acceptable
             500 InternalError
 
         """
@@ -581,7 +593,7 @@ class SuspiciousReplicas(RucioController):
             print(params)
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression'][0]
-            if 'younger_than' in params:
+            if 'younger_than' in params and params['younger_than'][0]:
                 younger_than = datetime.strptime(params['younger_than'][0], "%Y-%m-%dT%H:%M:%S")
             if 'nattempts' in params:
                 nattempts = int(params['nattempts'][0])
@@ -598,6 +610,7 @@ class SuspiciousReplicas(RucioController):
 
 class BadReplicasStates(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self):
         """
         List the bad or suspicious replicas by states.
@@ -606,6 +619,7 @@ class BadReplicasStates(RucioController):
             200 OK
 
         HTTP Error:
+            406 Not Acceptable
             500 InternalError
 
         """
@@ -625,7 +639,7 @@ class BadReplicasStates(RucioController):
                 rse = params['rse'][0]
             if 'younger_than' in params:
                 younger_than = datetime.strptime(params['younger_than'], "%Y-%m-%dT%H:%M:%S.%f")
-            if 'older_than' in params:
+            if 'older_than' in params and params['older_than']:
                 older_than = datetime.strptime(params['older_than'], "%Y-%m-%dT%H:%M:%S.%f")
             if 'limit' in params:
                 limit = int(params['limit'][0])
@@ -645,6 +659,7 @@ class BadReplicasStates(RucioController):
 
 class BadReplicasSummary(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self):
         """
         Return a summary of the bad replicas by incident.
@@ -653,6 +668,7 @@ class BadReplicasSummary(RucioController):
             200 OK
 
         HTTP Error:
+            406 Not Acceptable
             500 InternalError
 
         """
@@ -666,7 +682,7 @@ class BadReplicasSummary(RucioController):
                 params = parse_qs(ctx.query[1:])
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression'][0]
-            if 'from_date' in params:
+            if 'from_date' in params and params['from_date'][0]:
                 from_date = datetime.strptime(params['from_date'][0], "%Y-%m-%d")
             if 'to_date' in params:
                 to_date = datetime.strptime(params['to_date'][0], "%Y-%m-%d")
@@ -684,6 +700,7 @@ class BadReplicasSummary(RucioController):
 
 class DatasetReplicas(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """
         List dataset replicas replicas.
@@ -693,6 +710,7 @@ class DatasetReplicas(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :returns: A dictionary containing all replicas information.
@@ -718,6 +736,7 @@ class DatasetReplicas(RucioController):
 
 class ReplicasRSE(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, rse):
         """
         List dataset replicas replicas.
@@ -727,6 +746,7 @@ class ReplicasRSE(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :returns: A dictionary containing all replicas on the RSE.
@@ -772,7 +792,7 @@ class BadPFNs(RucioController):
                 reason = params['reason']
             if 'state' in params:
                 state = params['state']
-            if 'expires_at' in params:
+            if 'expires_at' in params and params['expires_at']:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
             add_bad_pfns(pfns=pfns, issuer=ctx.env.get('issuer'), state=state, reason=reason, expires_at=expires_at)
         except (ValueError, InvalidType) as error:

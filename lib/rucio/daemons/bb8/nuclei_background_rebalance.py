@@ -19,7 +19,7 @@ from __future__ import print_function, division
 from sqlalchemy import or_
 
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.rse import get_rse_usage
+from rucio.core.rse import get_rse_usage, get_rse_attribute
 from rucio.daemons.bb8.common import rebalance_rse
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
@@ -32,6 +32,27 @@ max_rse_rebalance_volume = 20 * 1E12
 min_total = 50 * 1E12
 total_rebalance_volume = 0
 
+
+# groupdisks
+def group_space(site):
+    """
+    groupdisks of given site
+    contributing to primaries
+    """
+    site_groupdisks = []
+    group_total = 0
+    try:
+        site_groupdisks = parse_expression('site=%s&spacetoken=ATLASDATADISK&type=GROUPDISK' % site)
+    except:
+        return group_total
+
+    for rse in site_groupdisks:
+        used = get_rse_usage(rse=rse['rse'], source='rucio')[0]['used']
+        group_total += used
+
+    return group_total
+
+
 # Calculate the current ratios
 rses = parse_expression("(datapolicynucleus=1|tier=1)&type=DATADISK\\bb8-enabled=0")
 total_primary = 0
@@ -39,7 +60,10 @@ total_secondary = 0
 total_total = 0
 global_ratio = float(0)
 for rse in rses:
+    site_name = get_rse_attribute(key='site', rse_id=rse['id'])[0]
+    rse['groupdisk'] = group_space(site_name)
     rse['primary'] = get_rse_usage(rse=None, rse_id=rse['id'], source='rucio')[0]['used'] - get_rse_usage(rse=None, rse_id=rse['id'], source='expired')[0]['used']
+    rse['primary'] += rse['groupdisk']
     rse['secondary'] = get_rse_usage(rse=None, rse_id=rse['id'], source='expired')[0]['used']
     rse['total'] = get_rse_usage(rse=None, rse_id=rse['id'], source='storage')[0]['total'] - get_rse_usage(rse=None, rse_id=rse['id'], source='min_free_space')[0]['used']
     rse['ratio'] = float(rse['primary']) / float(rse['total'])

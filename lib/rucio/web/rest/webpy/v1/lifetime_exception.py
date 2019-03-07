@@ -16,6 +16,7 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -26,7 +27,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 from rucio.api.lifetime_exception import list_exceptions, add_exception, update_exception
 from rucio.common.exception import LifetimeExceptionNotFound, UnsupportedOperation, InvalidObject, RucioException, AccessDenied, LifetimeExceptionDuplicate
 from rucio.common.utils import generate_http_error, APIEncoder
-from rucio.web.rest.common import rucio_loadhook
+from rucio.web.rest.common import rucio_loadhook, check_accept_header_wrapper
 
 
 URLS = ('/', 'LifetimeException',
@@ -36,6 +37,7 @@ URLS = ('/', 'LifetimeException',
 class LifetimeException:
     """ REST APIs for Lifetime Model exception. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self):
         """
         Retrieve all exceptions.
@@ -45,6 +47,7 @@ class LifetimeException:
 
         HTTP Error:
             404 Not Found
+            406 Not Acceptable
             500 Internal Error
 
         """
@@ -105,6 +108,7 @@ class LifetimeException:
 class LifetimeExceptionId:
     """ REST APIs for Lifetime Model exception. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, exception_id):
         """
         Retrieve an exception.
@@ -114,10 +118,11 @@ class LifetimeExceptionId:
 
         HTTP Error:
             404 Not Found
+            406 Not Acceptable
             500 Internal Error
 
         """
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
         try:
             for exception in list_exceptions(exception_id):
                 yield dumps(exception, cls=APIEncoder) + '\n'

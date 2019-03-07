@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
+
+from __future__ import print_function
+
+import sys
+
+from datetime import datetime, timedelta
+from rucio.core.replica import get_suspicious_files, list_replicas, add_bad_pfns
+from rucio.db.sqla.constants import BadPFNStatus
+
+
+UNKNOWN = 3
+CRITICAL = 2
+WARNING = 1
+OK = 0
+
+if __name__ == '__main__':
+
+    try:
+        CNT_THRESHOLD = sys.argv[1]
+    except IndexError:
+        print('No threshold value defined for CNT_THRESHOLD, will use the default one : 10')
+        CNT_THRESHOLD = 10
+    try:
+        NB_DAYS = sys.argv[2]
+    except IndexError:
+        print('No threshold value defined for NB_DAYS, will use the default one : 3')
+        NB_DAYS = 3
+
+    BAD_PFNS = []
+
+    try:
+        for bad_rep in get_suspicious_files(rse_expression='type=DATADISK', younger_than=datetime.now() - timedelta(days=NB_DAYS), nattempts=CNT_THRESHOLD, session=None):
+            scope, name, rse, cnt = bad_rep['scope'], bad_rep['name'], bad_rep['rse'], bad_rep['cnt']
+            if bad_rep['name'].startswith('log'):
+                print('%s:%s declared %s times suspicious on %s' % (scope, name, cnt, rse))
+                for rep in list_replicas([{'scope': scope, 'name': name}], rse_expression=rse):
+                    pfn = rep['rses'][rse][0]
+                    BAD_PFNS.append(pfn)
+        add_bad_pfns(pfns=BAD_PFNS, account='root', state=BadPFNStatus.BAD, reason='Lost log files', expires_at=None, session=None)
+    except Exception as error:
+        print(error)
+        sys.exit(CRITICAL)
+    sys.exit(OK)

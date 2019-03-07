@@ -1,0 +1,32 @@
+======
+1.19.3
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: remove leftovers of dict.iteritems for python3 compatibility `#2207 <https://github.com/rucio/rucio/issues/2207>`_
+- Rules: Relay of constituent rule to archive rule should not consider temporary unavailable replicas `#2233 <https://github.com/rucio/rucio/issues/2233>`_
+
+****
+Bugs
+****
+
+- Core & Internals: generic metadata problems `#2141 <https://github.com/rucio/rucio/issues/2141>`_
+- Core & Internals: Detection of client location fails on IPv6-only node `#2245 <https://github.com/rucio/rucio/issues/2245>`_
+- Recovery: Minos is not able to handle PFNs with different schemes `#2221 <https://github.com/rucio/rucio/issues/2221>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: missing default value for filter options in downloadclient `#2249 <https://github.com/rucio/rucio/issues/2249>`_

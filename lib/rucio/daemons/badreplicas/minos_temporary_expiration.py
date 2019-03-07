@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -75,7 +75,7 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
 
     logging.info(prepend_str + 'Minos Temporary Expiration started')
 
-    chunk_size = 500  # The chunk size used for the commits
+    chunk_size = 10  # The chunk size used for the commits
 
     while not graceful_stop.is_set():
         start_time = time.time()
@@ -83,10 +83,12 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
         prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
         try:
             # Get list of expired TU replicas
+            logging.info(prepend_str + 'Getting list of expired replicas')
             expired_replicas = list_expired_temporary_unavailable_replicas(total_workers=heart_beat['nr_threads'] - 1,
                                                                            worker_number=heart_beat['assign_thread'],
                                                                            limit=1000)
-
+            logging.info(prepend_str + '%s expired replicas returned' % len(expired_replicas))
+            logging.debug(prepend_str + 'List of expired replicas returned %s' % str(expired_replicas))
             replicas = []
             bad_replicas = []
             for replica in expired_replicas:

@@ -27,6 +27,7 @@
 import datetime
 import uuid
 
+from six import iteritems
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, SmallInteger, String as _String, Text, event, UniqueConstraint
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
@@ -208,7 +209,7 @@ class ModelBase(object):
 
     def update(self, values, flush=True, session=None):
         """dict.update() behaviour."""
-        for k, v in values.iteritems():
+        for k, v in iteritems(values):
             self[k] = v
         if session and flush:
             session.flush()
@@ -722,7 +723,7 @@ class RSEProtocols(BASE, ModelBase):
     write_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     delete_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     third_party_copy = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
-    extended_attributes = Column(String(1024), nullable=True)
+    extended_attributes = Column(String(4000), nullable=True)
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_PROTOCOL_RSE_ID_FK'),
