@@ -34,6 +34,7 @@ except ImportError:
 
 from rucio.common.config import config_get, get_rse_credentials
 from rucio.common.exception import UnsupportedOperation
+from rucio.core.monitor import record_timer_block
 
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -122,12 +123,14 @@ def get_signed_url(service, operation, url, lifetime=600):
             raise UnsupportedOperation('Delete operation not supported for S3 signed URLs')
 
         # split URL to get hostname, bucket and key
-        components = url.split('/')
-        if len(components) < 5:
+        components = urlparse(url)
+        host = components.netloc
+        pathcomponents = components.path.split('/')
+        if len(pathcomponents) < 3:
             raise UnsupportedOperation('Not a valid S3 URL')
-        host = components[2]
-        bucket = components[3]
-        key = '/'.join(components[4:])
+        bucket = pathcomponents[1]
+        key = '/'.join(pathcomponents[2:])
+        print("Host:", host, ", bucket:", bucket, ", key:", key)
 
         # remove port number from host if present
         colon = host.find(':')
@@ -151,8 +154,9 @@ def get_signed_url(service, operation, url, lifetime=600):
         else:
             s3op = 'put_object'
 
-        s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
+        with record_timer_block('credential.signs3'):
+            s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
 
-        signed_url = s3.generate_presigned_url(s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
+            signed_url = s3.generate_presigned_url(s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
 
     return signed_url
