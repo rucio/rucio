@@ -1,61 +1,77 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-"""Create sources table
+''' create sources table '''
 
-Revision ID: 22d887e4ec0a
-Revises: 1a80adff031a
-Create Date: 2015-03-30 11:37:20.737582
+import datetime
 
-"""
+import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key,
                         create_check_constraint, create_index, drop_table)
-import sqlalchemy as sa
 
 from rucio.db.sqla.types import GUID
 
-# revision identifiers, used by Alembic.
+
+# Alembic revision identifiers
 revision = '22d887e4ec0a'
 down_revision = '1a80adff031a'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    create_table('sources',
-                 sa.Column('request_id', GUID()),
-                 sa.Column('scope', sa.String(25)),
-                 sa.Column('name', sa.String(255)),
-                 sa.Column('rse_id', GUID()),
-                 sa.Column('dest_rse_id', GUID()),
-                 sa.Column('url', sa.String(2048)),
-                 sa.Column('ranking', sa.Integer),
-                 sa.Column('bytes', sa.BigInteger),
-                 sa.Column('updated_at', sa.DateTime),
-                 sa.Column('created_at', sa.DateTime))
 
-    if context.get_context().dialect.name != 'sqlite':
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
+        create_table('sources',
+                     sa.Column('request_id', GUID()),
+                     sa.Column('scope', sa.String(25)),
+                     sa.Column('name', sa.String(255)),
+                     sa.Column('rse_id', GUID()),
+                     sa.Column('dest_rse_id', GUID()),
+                     sa.Column('url', sa.String(2048)),
+                     sa.Column('ranking', sa.Integer),
+                     sa.Column('bytes', sa.BigInteger),
+                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+                     sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
+
         create_primary_key('SOURCES_PK', 'sources', ['request_id', 'rse_id', 'scope', 'name'])
         create_foreign_key('SOURCES_REQ_ID_FK', 'sources', 'requests', ['request_id'], ['id'])
-        create_foreign_key('SOURCES_REPLICAS_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
+        create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
         create_foreign_key('SOURCES_RSES_FK', 'sources', 'rses', ['rse_id'], ['id'])
         create_foreign_key('SOURCES_DST_RSES_FK', 'sources', 'rses', ['dest_rse_id'], ['id'])
         create_check_constraint('SOURCES_CREATED_NN', 'sources', 'created_at is not null')
         create_check_constraint('SOURCES_UPDATED_NN', 'sources', 'updated_at is not null')
         create_index('SOURCES_SRC_DST_IDX', 'sources', ['rse_id', 'dest_rse_id'])
 
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
+
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    drop_table('sources')
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
+        drop_table('sources')
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass

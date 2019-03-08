@@ -1,54 +1,67 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-"""Added replicas history table
+''' added replicas history table '''
 
-Revision ID: 2af3291ec4c
-Revises: 32c7d2783f7e
-Create Date: 2015-02-18 11:47:12.455156
+import sqlalchemy as sa
 
-"""
 from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key,
                         create_check_constraint, drop_constraint, drop_table)
-import sqlalchemy as sa
 
 from rucio.db.sqla.types import GUID
 
-# revision identifiers, used by Alembic.
+
+# Alembic revision identifiers
 revision = '2af3291ec4c'
 down_revision = '32c7d2783f7e'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    create_table('replicas_history',
-                 sa.Column('rse_id', GUID()),
-                 sa.Column('scope', sa.String(25)),
-                 sa.Column('name', sa.String(255)),
-                 sa.Column('bytes', sa.BigInteger))
-    if context.get_context().dialect.name != 'sqlite':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
+        create_table('replicas_history',
+                     sa.Column('rse_id', GUID()),
+                     sa.Column('scope', sa.String(25)),
+                     sa.Column('name', sa.String(255)),
+                     sa.Column('bytes', sa.BigInteger))
+
         create_primary_key('REPLICAS_HIST_PK', 'replicas_history', ['rse_id', 'scope', 'name'])
-        # create_foreign_key('REPLICAS_HIST_LFN_FK', 'replicas_history', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_foreign_key('REPLICAS_HIST_RSE_ID_FK', 'replicas_history', 'rses', ['rse_id'], ['id'])
         create_check_constraint('REPLICAS_HIST_SIZE_NN', 'replicas_history', 'bytes IS NOT NULL')
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
 
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name == 'postgresql':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
+        drop_table('replicas_history')
+
+    elif context.get_context().dialect.name == 'postgresql':
         drop_constraint('REPLICAS_HIST_PK', 'replicas_history', type_='primary')
-        # drop_constraint('REPLICAS_HIST_LFN_FK', 'replicas_history')
         drop_constraint('REPLICAS_HIST_RSE_ID_FK', 'replicas_history')
         drop_constraint('REPLICAS_HIST_SIZE_NN', 'replicas_history')
-    drop_table('replicas_history')
+        drop_table('replicas_history')
