@@ -19,7 +19,7 @@
 ''' replicas table PK definition is in wrong order '''
 
 from alembic import context
-from alembic.op import create_primary_key, drop_index, drop_constraint, create_foreign_key
+from alembic.op import create_primary_key, drop_constraint, create_foreign_key
 
 
 # revision identifiers used by alembic

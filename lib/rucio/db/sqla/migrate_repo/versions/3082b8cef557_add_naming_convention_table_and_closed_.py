@@ -16,7 +16,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-''' add naming convention table and closed to dids table '''
+''' add convention table and closed_at to dids '''
 
 import datetime
 
