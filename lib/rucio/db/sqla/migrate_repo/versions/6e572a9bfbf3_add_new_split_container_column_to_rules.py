@@ -1,46 +1,58 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2016
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-"""add new split_container column to rules
+''' add new split_container column to rules '''
 
-Revision ID: 6e572a9bfbf3
-Revises: 914b8f02df38
-Create Date: 2016-10-31 16:20:50.973761
-
-"""
+import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import add_column, drop_column
-import sqlalchemy as sa
 
 
-# revision identifiers, used by Alembic.
+# Alembic revision identifiers
 revision = '6e572a9bfbf3'
 down_revision = '914b8f02df38'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         add_column('rules', sa.Column('split_container', sa.Boolean(name='RULES_SPLIT_CONTAINER_CHK'), default=False))
         add_column('rules_hist_recent', sa.Column('split_container', sa.Boolean()))
         add_column('rules_history', sa.Column('split_container', sa.Boolean()))
 
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
+
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         drop_column('rules', 'split_container')
         drop_column('rules_hist_recent', 'split_container')
         drop_column('rules_history', 'split_container')
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass

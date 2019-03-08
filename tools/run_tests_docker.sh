@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
 memcached -u root -d
 
@@ -27,39 +28,15 @@ function usage {
   echo 'Run Rucio test suite'
   echo ''
   echo '  -h    Show usage.'
-  echo '  -r    Do not skip RSE tests.'
-  echo '  -c    Include only named class.'
-  echo '  -t    Do not include mock tables.'
   echo '  -i    Do only the initialization.'
-  echo '  -d    Delete the sqlite db file.'
-  echo '  -k    Keep database.'
-  echo '  -1    Only run once.'
-  echo '  -a    Run alembic tests at the end'
-  echo '  -u    Update pip dependencies only'
-  echo '  -x    Stop running tests after the first error or failure'
   exit
 }
 
-seq_tool=`which seq`
-if [ $? != 0 ]; then
-    range=$(jot - 1 2)  #  For mac
-else
-    range=$(seq 1 2)
-fi
-
-while getopts hrcid1kqaux opt
+while getopts hi opt
 do
   case "$opt" in
     h) usage;;
-    r) noseopts="";;
-    c) noseopts="$OPTARG";;
     i) init_only="true";;
-    d) delete_sqlite="true";;
-    k) keep_db="true";;
-    1) range=1;;
-    a) alembic="true";;
-    u) pip_only="true";;
-    x) stop_on_failure="--stop";;
   esac
 done
 
@@ -69,26 +46,18 @@ rm -rf /tmp/.rucio_*/
 echo 'Cleaning RSEs'
 rm -rf /tmp/rucio_rse/*
 
-if test ${delete_sqlite+defined}; then
-    echo 'Removing old sqlite databases'
-    rm -f /tmp/rucio.db
-fi
+echo 'Removing old SQLite databases'
+rm -f /tmp/rucio.db
 
-if test ${keep_db}; then
-    echo 'Keep database tables'
-else
-    echo 'Resetting database tables'
-
-    tools/reset_database.py
-
-    if [ $? != 0 ]; then
-        echo 'Failed to reset the database!'
-        exit 1
-    fi
+echo 'Resetting database tables'
+tools/reset_database.py
+if [ $? != 0 ]; then
+    echo 'Failed to reset the database!'
+    exit 1
 fi
 
 if [ -f /tmp/rucio.db ]; then
-    echo 'Disable sqlite database access restriction'
+    echo 'Disable SQLite database access restriction'
     chmod 777 /tmp/rucio.db
 fi
 
@@ -105,8 +74,19 @@ if test ${init_only}; then
     exit
 fi
 
-echo 'Running tests with nose - Iteration' $i
-echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
+echo 'Running full alembic migration'
+alembic downgrade base
+if [ $? != 0 ]; then
+    echo 'Failed to downgrade the database!'
+    exit
+fi
+alembic upgrade head
+if [ $? != 0 ]; then
+    echo 'Failed to upgrade the database!'
+    exit
+fi
+
+echo 'Running tests'
 nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
 
 exit $?

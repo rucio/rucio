@@ -1,42 +1,54 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+''' adding transient metadata '''
 
- Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2017
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
-
-Adding transient metadata
-
-Revision ID: 4cf0a2e127d4
-Revises: 271a46ea6244
-Create Date: 2015-01-16 16:42:37.039637
-
-'''
+import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import add_column, drop_column
-import sqlalchemy as sa
 
-# revision identifiers, used by Alembic.
-revision = '4cf0a2e127d4'  # pylint: disable=invalid-name
-down_revision = '271a46ea6244'  # pylint: disable=invalid-name
+
+# Alembic revision identifiers
+revision = '4cf0a2e127d4'
+down_revision = '271a46ea6244'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         add_column('dids', sa.Column('transient', sa.Boolean(name='DID_TRANSIENT_CHK'), server_default='0'))
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
 
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         drop_column('dids', 'transient')
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass

@@ -1,36 +1,42 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+''' added source history table '''
 
- Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+import sqlalchemy as sa
 
-added source history table
-
-Revision ID: 575767d9f89
-Revises: 379a19b5332d
-Create Date: 2015-10-29 11:56:09.820585
-
-"""
 from alembic.op import create_table, add_column, drop_column, drop_table
 from alembic import context
-import sqlalchemy as sa
 
 from rucio.db.sqla.types import GUID
 
-# revision identifiers, used by Alembic.
-revision = '575767d9f89'  # pylint:disable=invalid-name
-down_revision = '379a19b5332d'  # pylint:disable=invalid-name
+
+# Alembic revision identifiers
+revision = '575767d9f89'
+down_revision = '379a19b5332d'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name not in ['sqlite']:
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         create_table('sources_history',
                      sa.Column('request_id', GUID()),
                      sa.Column('scope', sa.String(25)),
@@ -44,12 +50,19 @@ def upgrade():
         add_column('requests', sa.Column('estimated_at', sa.DateTime))
         add_column('requests_history', sa.Column('estimated_at', sa.DateTime))
 
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
+
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name not in ['sqlite']:
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         drop_column('requests', 'estimated_at')
         drop_column('requests_history', 'estimated_at')
         drop_table('sources_history')
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass

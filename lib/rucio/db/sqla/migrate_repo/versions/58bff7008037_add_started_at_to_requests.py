@@ -1,42 +1,55 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-"""Add started_at to requests
+''' add started_at to requests '''
 
-Revision ID: 58bff7008037
-Revises: 2edee4a83846
-Create Date: 2015-10-23 12:35:19.658347
-
-"""
+import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import add_column, drop_column
-import sqlalchemy as sa
 
-# revision identifiers, used by Alembic.
+
+# Alembic revision identifiers
 revision = '58bff7008037'
 down_revision = '3c9df354071b'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         add_column('requests', sa.Column('started_at', sa.DateTime))
         add_column('requests_history', sa.Column('started_at', sa.DateTime))
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
 
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         drop_column('requests', 'started_at')
         drop_column('requests_history', 'started_at')
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass

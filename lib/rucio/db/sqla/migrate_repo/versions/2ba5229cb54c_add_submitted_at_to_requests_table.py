@@ -1,42 +1,53 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+''' add_submitted_at_to_requests_table '''
 
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
-
-add_submitted_at_to_requests_table
-
-Revision ID: 2ba5229cb54c
-Revises: 22d887e4ec0a
-Create Date: 2015-04-14 15:56:22.772281
-
-'''
+import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import add_column, drop_column
 
-import sqlalchemy as sa
 
-# revision identifiers, used by Alembic.
-revision = '2ba5229cb54c'  # pylint:disable=invalid-name
-down_revision = '22d887e4ec0a'   # pylint:disable=invalid-name
+# Alembic revision identifiers
+revision = '2ba5229cb54c'
+down_revision = '22d887e4ec0a'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name not in ['sqlite']:
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         add_column('requests', sa.Column('submitted_at', sa.DateTime()))
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
 
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name not in ['sqlite']:
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
         drop_column('requests', 'submitted_at')
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass

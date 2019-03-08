@@ -1,51 +1,60 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-"""Create collection replica table
+''' create collection replica table '''
 
-Revision ID: 45378a1e76a8
-Revises: a93e4e47bda
-Create Date: 2015-03-03 13:57:31.258138
+import datetime
 
-"""
+import sqlalchemy as sa
 
+from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key,
                         create_check_constraint, create_index,
                         drop_constraint, drop_index, drop_table)
-from alembic import context
-import sqlalchemy as sa
 
 from rucio.db.sqla.constants import ReplicaState, DIDType
 from rucio.db.sqla.types import GUID
 
-# revision identifiers, used by Alembic.
+
+# Alembic revision identifiers
 revision = '45378a1e76a8'
 down_revision = 'a93e4e47bda'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    create_table('collection_replicas',
-                 sa.Column('scope', sa.String(25)),
-                 sa.Column('name', sa.String(255)),
-                 sa.Column('did_type', DIDType.db_type(name='COLLECTION_REPLICAS_TYPE_CHK')),
-                 sa.Column('rse_id', GUID()),
-                 sa.Column('bytes', sa.BigInteger),
-                 sa.Column('length', sa.BigInteger),
-                 sa.Column('state', ReplicaState.db_type(name='COLLECTION_REPLICAS_STATE_CHK'), default=ReplicaState.UNAVAILABLE),
-                 sa.Column('accessed_at', sa.DateTime),
-                 sa.Column('updated_at', sa.DateTime),
-                 sa.Column('created_at', sa.DateTime))
-    if context.get_context().dialect.name != 'sqlite':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
+        create_table('collection_replicas',
+                     sa.Column('scope', sa.String(25)),
+                     sa.Column('name', sa.String(255)),
+                     sa.Column('did_type', DIDType.db_type(name='COLLECTION_REPLICAS_TYPE_CHK')),
+                     sa.Column('rse_id', GUID()),
+                     sa.Column('bytes', sa.BigInteger),
+                     sa.Column('length', sa.BigInteger),
+                     sa.Column('state', ReplicaState.db_type(name='COLLECTION_REPLICAS_STATE_CHK'), default=ReplicaState.UNAVAILABLE),
+                     sa.Column('accessed_at', sa.DateTime),
+                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+                     sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
+
         create_primary_key('COLLECTION_REPLICAS_PK', 'collection_replicas', ['scope', 'name', 'rse_id'])
         create_foreign_key('COLLECTION_REPLICAS_LFN_FK', 'collection_replicas', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_foreign_key('COLLECTION_REPLICAS_RSE_ID_FK', 'collection_replicas', 'rses', ['rse_id'], ['id'])
@@ -53,12 +62,19 @@ def upgrade():
         create_check_constraint('COLLECTION_REPLICAS_STATE_NN', 'collection_replicas', 'state IS NOT NULL')
         create_index('COLLECTION_REPLICAS_RSE_ID_IDX', 'collection_replicas', ['rse_id'])
 
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
+
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name == 'postgresql':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:
+        drop_table('collection_replicas')
+
+    elif context.get_context().dialect.name == 'postgresql':
         drop_constraint('COLLECTION_REPLICAS_PK', 'collection_replicas', type_='primary')
         drop_constraint('COLLECTION_REPLICAS_TYPE_CHK', 'collection_replicas')
         drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas')
@@ -67,4 +83,4 @@ def downgrade():
         drop_constraint('COLLECTION_REPLICAS_SIZE_NN', 'collection_replicas')
         drop_constraint('COLLECTION_REPLICAS_STATE_NN', 'collection_replicas')
         drop_index('COLLECTION_REPLICAS_RSE_ID_IDX', 'collection_replicas')
-    drop_table('collection_replicas')
+        drop_table('collection_replicas')

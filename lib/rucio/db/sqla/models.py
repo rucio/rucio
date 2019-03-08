@@ -49,7 +49,7 @@ from rucio.db.sqla.session import BASE
 from rucio.db.sqla.types import GUID, BooleanString, JSON
 
 
-# Recipe to for str instead if unicode
+# Recipe to force str instead if unicode
 # https://groups.google.com/forum/#!msg/sqlalchemy/8Xn31vBfGKU/bAGLNKapvSMJ
 def String(*arg, **kw):
     kw['convert_unicode'] = 'force'
@@ -419,7 +419,6 @@ class DeletedDataIdentifier(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
-    purge_replicas = Column(Boolean(name='DELETED_DIDS_PURGE_RPLCS_CHK'), default=True)
     deleted_at = Column(DateTime)
     events = Column(BigInteger)
     guid = Column(GUID())
