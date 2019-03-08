@@ -19,7 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2019
 # - Stefan Prenner <stefan.prenner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
@@ -83,6 +83,7 @@ if POLICY == 'atlas':
     ATLAS_URLS = (
         '/', 'AtlasIndex',
         '/account_usage', 'AccountUsage',
+        '/account_usage_history', 'AccountUsageHistory',
         '/dumps', 'Dumps',
         '/accounting', 'Accounting',
         '/conditions_summary', 'Cond',
@@ -110,6 +111,14 @@ class AccountUsage(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.account_usage())
+
+
+class AccountUsageHistory(object):
+    """ Group Account Usage overview """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.account_usage_history())
 
 
 class AccountRSEUsage(object):
