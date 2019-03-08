@@ -59,6 +59,18 @@ if [ -f /tmp/rucio.db ]; then
     chmod 777 /tmp/rucio.db
 fi
 
+echo 'Running full alembic migration'
+alembic -c /opt/rucio/etc/alembic.ini downgrade base
+if [ $? != 0 ]; then
+    echo 'Failed to downgrade the database!'
+    exit 1
+fi
+alembic -c /opt/rucio/etc/alembic.ini upgrade head
+if [ $? != 0 ]; then
+    echo 'Failed to upgrade the database!'
+    exit 1
+fi
+
 echo 'Sync rse_repository'
 tools/sync_rses.py
 if [ $? != 0 ]; then
@@ -82,18 +94,6 @@ fi
 
 if test ${init_only}; then
     exit
-fi
-
-echo 'Running full alembic migration'
-alembic -c /opt/rucio/etc/alembic.ini downgrade base
-if [ $? != 0 ]; then
-    echo 'Failed to downgrade the database!'
-    exit 1
-fi
-alembic -c /opt/rucio/etc/alembic.ini upgrade head
-if [ $? != 0 ]; then
-    echo 'Failed to upgrade the database!'
-    exit 1
 fi
 
 echo 'Running tests'
