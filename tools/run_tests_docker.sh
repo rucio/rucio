@@ -21,8 +21,6 @@
 
 memcached -u root -d
 
-noseopts="--exclude=test_dq2* --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor*"
-
 function usage {
   echo "Usage: $0 [OPTION]..."
   echo 'Run Rucio test suite'
@@ -63,30 +61,44 @@ fi
 
 echo 'Sync rse_repository'
 tools/sync_rses.py
+if [ $? != 0 ]; then
+    echo 'Failed to sync!'
+    exit 1
+fi
 
 echo 'Sync metadata keys'
 tools/sync_meta.py
+if [ $? != 0 ]; then
+    echo 'Failed to sync!'
+    exit 1
+fi
 
 echo 'Bootstrap tests: Create jdoe account/mock scope'
 tools/bootstrap_tests.py
+if [ $? != 0 ]; then
+    echo 'Failed to bootstrap!'
+    exit 1
+fi
 
 if test ${init_only}; then
     exit
 fi
 
 echo 'Running full alembic migration'
-alembic downgrade base
+alembic -c /opt/rucio/etc/alembic.ini downgrade base
 if [ $? != 0 ]; then
     echo 'Failed to downgrade the database!'
-    exit
+    exit 1
 fi
-alembic upgrade head
+alembic -c /opt/rucio/etc/alembic.ini upgrade head
 if [ $? != 0 ]; then
     echo 'Failed to upgrade the database!'
-    exit
+    exit 1
 fi
 
 echo 'Running tests'
-nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $stop_on_failure
+noseopts="--exclude=test_dq2* --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor*"
+
+nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
 
 exit $?
