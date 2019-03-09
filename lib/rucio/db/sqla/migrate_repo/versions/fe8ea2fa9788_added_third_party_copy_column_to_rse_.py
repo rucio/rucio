@@ -34,7 +34,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('rse_protocols', sa.Column('third_party_copy', sa.Integer, server_default='0'))
 
     elif context.get_context().dialect.name == 'postgresql':
@@ -46,7 +46,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_column('rse_protocols', 'third_party_copy')
 
     elif context.get_context().dialect.name == 'postgresql':

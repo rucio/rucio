@@ -34,7 +34,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('dataset_locks', sa.Column('length', sa.BigInteger()))
         add_column('dataset_locks', sa.Column('bytes', sa.BigInteger()))
         add_column('dataset_locks', sa.Column('accessed_at', sa.DateTime()))
@@ -49,7 +49,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_column('dataset_locks', 'length')
         drop_column('dataset_locks', 'bytes')
         drop_column('dataset_locks', 'accessed_at')

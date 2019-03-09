@@ -19,7 +19,7 @@
 ''' replicas table PK definition is in wrong order '''
 
 from alembic import context
-from alembic.op import create_primary_key, drop_constraint, create_foreign_key
+from alembic.op import create_primary_key, drop_constraint, create_foreign_key, drop_index
 
 
 # revision identifiers used by alembic
@@ -32,9 +32,22 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('SOURCES_REPLICA_FK', 'sources', type_='foreignkey')
         drop_constraint('REPLICAS_PK', 'replicas', type_='primary')
+        create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
+        create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
+
+    elif context.get_context().dialect.name == 'mysql':
+        drop_constraint('SOURCES_REPLICA_FK', 'sources', type_='foreignkey')
+        # The constraint has an internal index which is not automatically dropped,
+        # we have to do that manually
+        drop_index('SOURCES_REPLICA_FK', 'sources')
+        drop_constraint(constraint_name='REPLICAS_LFN_FK', table_name='replicas', type_='foreignkey')
+        drop_constraint(constraint_name='REPLICAS_RSE_ID_FK', table_name='replicas', type_='foreignkey')
+        drop_constraint('REPLICAS_PK', 'replicas', type_='primary')
+        create_foreign_key('REPLICAS_LFN_FK', 'replicas', 'dids', ['scope', 'name'], ['scope', 'name'])
+        create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])
         create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
         create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
 
@@ -47,7 +60,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint(constraint_name='SOURCES_REPLICA_FK', table_name='sources', type_='foreignkey')
         drop_constraint(constraint_name='REPLICAS_PK', table_name='replicas', type_='primary')
         create_primary_key('REPLICAS_PK', 'replicas', ['rse_id', 'scope', 'name'])
@@ -55,6 +68,9 @@ def downgrade():
 
     elif context.get_context().dialect.name == 'mysql':
         drop_constraint(constraint_name='SOURCES_REPLICA_FK', table_name='sources', type_='foreignkey')
+        # The constraint has an internal index which is not automatically dropped,
+        # we have to do that manually
+        drop_index('SOURCES_REPLICA_FK', 'sources')
         drop_constraint(constraint_name='REPLICAS_LFN_FK', table_name='replicas', type_='foreignkey')
         drop_constraint(constraint_name='REPLICAS_RSE_ID_FK', table_name='replicas', type_='foreignkey')
         drop_constraint(constraint_name='REPLICAS_PK', table_name='replicas', type_='primary')

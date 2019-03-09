@@ -32,7 +32,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
         drop_constraint('tokens_pk', 'tokens', type_='primary')
         create_primary_key('tokens_pk', 'tokens', ['token'])
@@ -47,7 +47,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
         drop_constraint('tokens_pk', 'tokens', type_='primary')
         create_primary_key('tokens_pk', 'tokens', ['account', 'token'])

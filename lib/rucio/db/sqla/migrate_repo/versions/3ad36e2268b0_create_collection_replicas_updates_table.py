@@ -42,7 +42,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('collection_replicas', sa.Column('available_replicas_cnt', sa.BigInteger()))
         add_column('collection_replicas', sa.Column('available_bytes', sa.BigInteger()))
 
@@ -69,7 +69,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_column('collection_replicas', 'available_replicas_cnt')
         drop_column('collection_replicas', 'available_bytes')
         drop_constraint('UPDATED_COL_REP_PK', 'updated_col_rep', type_='primary')

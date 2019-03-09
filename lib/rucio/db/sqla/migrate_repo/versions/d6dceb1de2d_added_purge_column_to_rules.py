@@ -34,7 +34,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('rules', sa.Column('purge_replicas', sa.Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False))
         create_check_constraint('RULES_PURGE_REPLICAS_NN', 'rules', "PURGE_REPLICAS IS NOT NULL")
 
@@ -47,7 +47,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_column('rules', 'purge_replicas')
 
     elif context.get_context().dialect.name == 'postgresql':

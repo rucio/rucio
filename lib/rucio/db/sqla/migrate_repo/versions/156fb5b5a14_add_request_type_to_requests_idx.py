@@ -33,7 +33,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
         drop_constraint('REQUESTS_DID_FK', 'requests', type_='foreignkey')
         drop_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests')
@@ -44,16 +44,13 @@ def upgrade():
     elif context.get_context().dialect.name == 'postgresql':
         pass
 
-    elif context.get_context().dialect.name == 'mysql':
-        pass
-
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
         drop_constraint('REQUESTS_DID_FK', 'requests', type_='foreignkey')
         drop_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', type_='unique')

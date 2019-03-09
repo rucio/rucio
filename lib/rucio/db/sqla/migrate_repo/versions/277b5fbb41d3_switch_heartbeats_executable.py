@@ -36,7 +36,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
         drop_column('heartbeats', 'executable')
         add_column('heartbeats', sa.Column('executable', String(64)))
@@ -52,7 +52,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
         drop_column('heartbeats', 'executable')
         drop_column('heartbeats', 'readable')

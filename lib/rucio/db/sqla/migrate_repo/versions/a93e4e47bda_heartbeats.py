@@ -38,7 +38,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         create_table('heartbeats',
                      sa.Column('executable', sa.String(512)),
                      sa.Column('hostname', sa.String(128)),
@@ -62,13 +62,14 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('heartbeats_pk', 'configs', type_='primary')
         drop_table('heartbeats')
 
     elif context.get_context().dialect.name == 'postgresql':
-        drop_constraint('heartbeats_pk', 'configs', type_='primary')
-        drop_index('heartbeats_updated_at', 'heartbeats')
-        drop_constraint('heartbeats_created_nn', 'heartbeats', type_='check')
-        drop_constraint('heartbeats_updated_nn', 'heartbeats', type_='check')
-        drop_table('heartbeats')
+        # drop_constraint('heartbeats_pk', 'configs', type_='primary')
+        # drop_index('heartbeats_updated_at', 'heartbeats')
+        # drop_constraint('heartbeats_created_nn', 'heartbeats', type_='check')
+        # drop_constraint('heartbeats_updated_nn', 'heartbeats', type_='check')
+        # drop_table('heartbeats')
+        pass

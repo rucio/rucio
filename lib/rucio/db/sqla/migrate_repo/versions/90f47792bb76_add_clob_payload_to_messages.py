@@ -33,7 +33,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('messages', sa.Column('payload_nolimit', sa.Text))
         add_column('messages_history', sa.Column('payload_nolimit', sa.Text))
 
@@ -46,7 +46,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_column('messages', 'payload_nolimit')
         drop_column('messages_history', 'payload_nolimit')
 

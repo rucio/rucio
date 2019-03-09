@@ -33,7 +33,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         create_index('REQUESTS_RULEID_IDX', 'requests', ['rule_id'])
 
     elif context.get_context().dialect.name == 'postgresql':
@@ -45,7 +45,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_index('REQUESTS_RULEID_IDX', 'requests')
 
     elif context.get_context().dialect.name == 'postgresql':

@@ -39,7 +39,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         create_table('sources',
                      sa.Column('request_id', GUID()),
                      sa.Column('scope', sa.String(25)),
@@ -70,7 +70,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('sources')
 
     elif context.get_context().dialect.name == 'postgresql':

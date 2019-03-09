@@ -63,8 +63,10 @@ def run_migrations_offline():
     version_table_schema = config.get_main_option("version_table_schema")
 
     context.configure(
-        url=url, target_metadata=target_metadata,
-        version_table_schema=version_table_schema, literal_binds=True)
+        url=url,
+        target_metadata=target_metadata,
+        version_table_schema=version_table_schema,
+        literal_binds=True)
 
     with context.begin_transaction():
         context.run_migrations()
@@ -86,8 +88,14 @@ def run_migrations_online():
         poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
+
+        # Forcing the default is needed for PostgreSQL installations with named schemas.
+        # For other databases it doesn't matter.
+        # https://github.com/sqlalchemy/alembic/issues/409
+        conn = connection.execution_options(schema_translate_map={None: params.get('version_table_schema', None)})
+
         context.configure(
-            connection=connection,
+            connection=conn,
             target_metadata=target_metadata,
             version_table_schema=params.get('version_table_schema', None))
 

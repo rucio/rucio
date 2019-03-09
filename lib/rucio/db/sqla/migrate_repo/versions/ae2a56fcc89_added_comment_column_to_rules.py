@@ -37,7 +37,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('rules', sa.Column('comments', String(255)))
         add_column('rules_hist_recent', sa.Column('comments', String(255)))
         add_column('rules_history', sa.Column('comments', String(255)))
@@ -51,7 +51,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_column('rules', 'comments')
         drop_column('rules_hist_recent', 'comments')
         drop_column('rules_history', 'comments')

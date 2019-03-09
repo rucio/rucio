@@ -39,7 +39,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         create_table('quarantined_replicas',
                      sa.Column('rse_id', GUID()),
                      sa.Column('path', sa.String(1024)),
@@ -77,7 +77,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('quarantined_replicas')
         drop_table('quarantined_replicas_history')
 
