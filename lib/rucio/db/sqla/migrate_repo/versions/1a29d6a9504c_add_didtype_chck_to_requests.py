@@ -36,14 +36,12 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema
         add_column('requests', sa.Column('did_type',
                                          DIDType.db_type(name='REQUESTS_DIDTYPE_CHK'),
-                                         default=DIDType.FILE))
+                                         default=DIDType.FILE), schema=schema)
         # we don't want checks on the history table, fake the DID type
-        add_column('requests_history', sa.Column('did_type', sa.String(1)))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        add_column('requests_history', sa.Column('did_type', sa.String(1)), schema=schema)
 
 
 def downgrade():
@@ -52,8 +50,6 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('requests', 'did_type')
-        drop_column('requests_history', 'did_type')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('requests', 'did_type', schema=schema)
+        drop_column('requests_history', 'did_type', schema=schema)

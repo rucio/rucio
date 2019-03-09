@@ -34,12 +34,9 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
+        drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
         create_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens', ['account', 'expired_at'])
-        create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])
 
 
 def downgrade():
@@ -48,9 +45,6 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
+        drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
         drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens')
-        create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])

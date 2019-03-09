@@ -34,11 +34,9 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('messages', sa.Column('payload_nolimit', sa.Text))
-        add_column('messages_history', sa.Column('payload_nolimit', sa.Text))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('messages', sa.Column('payload_nolimit', sa.Text), schema=schema)
+        add_column('messages_history', sa.Column('payload_nolimit', sa.Text), schema=schema)
 
 
 def downgrade():
@@ -47,8 +45,6 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('messages', 'payload_nolimit')
-        drop_column('messages_history', 'payload_nolimit')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('messages', 'payload_nolimit', schema=schema)
+        drop_column('messages_history', 'payload_nolimit', schema=schema)

@@ -35,9 +35,6 @@ def upgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         create_index('REQUESTS_EXTERNALID_UQ', 'requests', ['external_id'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -46,6 +43,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_index('REQUESTS_EXTERNALID_UQ', 'requests')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

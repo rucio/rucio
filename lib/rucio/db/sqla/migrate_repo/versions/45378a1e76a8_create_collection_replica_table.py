@@ -62,9 +62,6 @@ def upgrade():
         create_check_constraint('COLLECTION_REPLICAS_STATE_NN', 'collection_replicas', 'state IS NOT NULL')
         create_index('COLLECTION_REPLICAS_RSE_ID_IDX', 'collection_replicas', ['rse_id'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''

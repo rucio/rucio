@@ -56,9 +56,6 @@ def upgrade():
         create_check_constraint('RSE_TRANSFER_LIMITS_UPDATED_NN', 'rse_transfer_limits', 'updated_at is not null')
         create_foreign_key('RSE_TRANSFER_LIMITS_RSE_ID_FK', 'rse_transfer_limits', 'rses', ['rse_id'], ['id'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''

@@ -37,11 +37,9 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('requests', sa.Column('rule_id', GUID()))
-        add_column('requests_history', sa.Column('rule_id', GUID()))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('requests', sa.Column('rule_id', GUID()), schema=schema)
+        add_column('requests_history', sa.Column('rule_id', GUID()), schema=schema)
 
 
 def downgrade():
@@ -50,8 +48,6 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('requests', 'rule_id')
-        drop_column('requests_history', 'rule_id')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('requests', 'rule_id', schema=schema)
+        drop_column('requests_history', 'rule_id', schema=schema)

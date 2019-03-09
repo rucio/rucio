@@ -35,11 +35,9 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('requests', sa.Column('estimated_started_at', sa.DateTime()))
-        add_column('requests', sa.Column('estimated_transferred_at', sa.DateTime()))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('requests', sa.Column('estimated_started_at', sa.DateTime()), schema=schema)
+        add_column('requests', sa.Column('estimated_transferred_at', sa.DateTime()), schema=schema)
 
 
 def downgrade():
@@ -48,8 +46,6 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('requests', 'estimated_started_at')
-        drop_column('requests', 'estimated_transferred_at')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('requests', 'estimated_started_at', schema=schema)
+        drop_column('requests', 'estimated_transferred_at', schema=schema)

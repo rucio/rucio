@@ -21,7 +21,7 @@
 
 import sqlalchemy as sa
 
-from alembic import context
+from alembic import context, op
 from alembic.op import (add_column, create_check_constraint,
                         drop_constraint, drop_column)
 
@@ -36,13 +36,16 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if context.get_context().dialect.name == 'oracle':
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
         drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema)
+        drop_constraint('RULES_STATE_CHK', 'rules')
+        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
     elif context.get_context().dialect.name == 'mysql':
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
@@ -54,13 +57,16 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_column('rules', 'ignore_account_limit')
         drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema + '.'
+        drop_column('rules', 'ignore_account_limit', schema=schema[:-1])
+        op.execute('ALTER TABLE ' + schema + 'rules ALTER COLUMN state TYPE CHAR')
+        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
 
     elif context.get_context().dialect.name == 'mysql':
         drop_column('rules', 'ignore_account_limit')

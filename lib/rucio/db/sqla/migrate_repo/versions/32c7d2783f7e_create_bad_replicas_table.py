@@ -58,9 +58,6 @@ def upgrade():
         create_foreign_key('BAD_REPLICAS_ACCOUNT_FK', 'bad_replicas', 'accounts', ['account'], ['account'])
         create_index('BAD_REPLICAS_STATE_IDX', 'bad_replicas', ['rse_id', 'state'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -69,6 +66,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('bad_replicas')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

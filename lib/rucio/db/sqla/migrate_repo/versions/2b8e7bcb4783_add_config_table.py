@@ -58,9 +58,6 @@ def upgrade():
 
         create_primary_key('configs_history_pk', 'configs_history', ['section', 'opt', 'updated_at'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''

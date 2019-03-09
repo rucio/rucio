@@ -46,9 +46,6 @@ def upgrade():
         create_foreign_key('DID_META_FK', 'did_meta', 'dids',
                            ['scope', 'name'], ['scope', 'name'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -57,6 +54,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('did_meta')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

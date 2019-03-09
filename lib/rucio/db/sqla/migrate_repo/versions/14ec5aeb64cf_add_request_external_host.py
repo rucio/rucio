@@ -35,10 +35,8 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('requests', sa.Column('external_host', sa.String(256)))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('requests', sa.Column('external_host', sa.String(256)), schema=schema)
 
 
 def downgrade():
@@ -47,7 +45,5 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('requests', 'external_host')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('requests', 'external_host', schema=schema)

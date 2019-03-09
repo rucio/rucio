@@ -21,7 +21,7 @@
 
 import sqlalchemy as sa
 
-from alembic import context
+from alembic import context, op
 from alembic.op import (add_column, create_check_constraint,
                         drop_constraint, drop_column)
 
@@ -40,11 +40,9 @@ def upgrade():
         drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
-        add_column('requests', sa.Column('submitter_id', sa.Integer()))
-        add_column('sources', sa.Column('is_using', sa.Boolean()))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('requests', sa.Column('submitter_id', sa.Integer()), schema=schema)
+        add_column('sources', sa.Column('is_using', sa.Boolean()), schema=schema)
 
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
@@ -58,7 +56,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
@@ -66,7 +64,12 @@ def downgrade():
         drop_column('sources', 'is_using')
 
     elif context.get_context().dialect.name == 'postgresql':
-        pass
+        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
+                                condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
+        schema = context.get_context().version_table_schema
+        drop_column('requests', 'submitter_id', schema=schema)
+        drop_column('sources', 'is_using', schema=schema)
 
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',

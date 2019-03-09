@@ -42,26 +42,24 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        create_table('lifetime_except',
-                     sa.Column('id', GUID()),
-                     sa.Column('scope', sa.String(25)),
-                     sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', DIDType.db_type(name='LIFETIME_EXCEPT_DID_TYPE_CHK')),
-                     sa.Column('account', sa.String(25)),
-                     sa.Column('comments', sa.String(4000)),
-                     sa.Column('pattern', sa.String(255)),
-                     sa.Column('state', LifetimeExceptionsState.db_type(name='LIFETIME_EXCEPT_STATE_CHK')),
-                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
-                     sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
-                     sa.Column('expires_at', sa.DateTime))
+        # create_table('lifetime_except',
+        #              sa.Column('id', GUID()),
+        #              sa.Column('scope', sa.String(25)),
+        #              sa.Column('name', sa.String(255)),
+        #              sa.Column('did_type', DIDType.db_type(name='LIFETIME_EXCEPT_DID_TYPE_CHK')),
+        #              sa.Column('account', sa.String(25)),
+        #              sa.Column('comments', sa.String(4000)),
+        #              sa.Column('pattern', sa.String(255)),
+        #              sa.Column('state', LifetimeExceptionsState.db_type(name='LIFETIME_EXCEPT_STATE_CHK')),
+        #              sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+        #              sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
+        #              sa.Column('expires_at', sa.DateTime))
 
-        create_primary_key('LIFETIME_EXCEPT_PK', 'lifetime_except', ['id', 'scope', 'name', 'did_type', 'account'])
-        create_check_constraint('LIFETIME_EXCEPT_SCOPE_NN', 'lifetime_except', 'scope is not null')
-        create_check_constraint('LIFETIME_EXCEPT_NAME_NN', 'lifetime_except', 'name is not null')
-        create_check_constraint('LIFETIME_EXCEPT_DID_TYPE_NN', 'lifetime_except', 'did_type is not null')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        # create_primary_key('LIFETIME_EXCEPT_PK', 'lifetime_except', ['id', 'scope', 'name', 'did_type', 'account'])
+        # create_check_constraint('LIFETIME_EXCEPT_SCOPE_NN', 'lifetime_except', 'scope is not null')
+        # create_check_constraint('LIFETIME_EXCEPT_NAME_NN', 'lifetime_except', 'name is not null')
+        # create_check_constraint('LIFETIME_EXCEPT_DID_TYPE_NN', 'lifetime_except', 'did_type is not null')
+        pass  # FIXME
 
 
 def downgrade():
@@ -71,6 +69,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('lifetime_except')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

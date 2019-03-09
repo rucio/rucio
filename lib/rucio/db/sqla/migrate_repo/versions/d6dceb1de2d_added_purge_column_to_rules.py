@@ -35,11 +35,9 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('rules', sa.Column('purge_replicas', sa.Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False))
+        schema = context.get_context().version_table_schema
+        add_column('rules', sa.Column('purge_replicas', sa.Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False), schema=schema)
         create_check_constraint('RULES_PURGE_REPLICAS_NN', 'rules', "PURGE_REPLICAS IS NOT NULL")
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
 
 
 def downgrade():
@@ -48,7 +46,5 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('rules', 'purge_replicas')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('rules', 'purge_replicas', schema=schema)

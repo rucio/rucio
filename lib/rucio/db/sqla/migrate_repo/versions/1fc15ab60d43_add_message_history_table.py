@@ -45,9 +45,6 @@ def upgrade():
                      sa.Column('event_type', sa.String(1024)),
                      sa.Column('payload', sa.String(4000)))
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -56,6 +53,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('messages_history')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

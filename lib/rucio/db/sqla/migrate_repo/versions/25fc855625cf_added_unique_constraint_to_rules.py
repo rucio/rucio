@@ -37,9 +37,6 @@ def upgrade():
         create_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules', ['scope', 'name', 'account', 'rse_expression', 'copies'],
                      unique=True, mysql_length={'rse_expression': 767})
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -48,6 +45,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

@@ -19,7 +19,7 @@
 
 ''' add mismatch scheme state to requests '''
 
-from alembic import context
+from alembic import context, op
 from alembic.op import create_check_constraint, drop_constraint
 
 
@@ -38,9 +38,6 @@ def upgrade():
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M')")
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M')")
@@ -51,13 +48,16 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema + '.'
+        op.execute('ALTER TABLE ' + schema + 'requests ALTER COLUMN state TYPE CHAR')
+        create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
+                                condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W')")
 
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',

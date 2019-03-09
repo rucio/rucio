@@ -57,9 +57,6 @@ def upgrade():
         create_check_constraint('DISTANCES_UPDATED_NN', 'distances', 'updated_at is not null')
         create_index('DISTANCES_DEST_RSEID_IDX', 'distances', ['dest_rse_id'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -68,6 +65,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('distances')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

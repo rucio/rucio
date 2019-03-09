@@ -43,8 +43,9 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('collection_replicas', sa.Column('available_replicas_cnt', sa.BigInteger()))
-        add_column('collection_replicas', sa.Column('available_bytes', sa.BigInteger()))
+        schema = context.get_context().version_table_schema
+        add_column('collection_replicas', sa.Column('available_replicas_cnt', sa.BigInteger()), schema=schema)
+        add_column('collection_replicas', sa.Column('available_bytes', sa.BigInteger()), schema=schema)
 
         create_table('updated_col_rep',
                      sa.Column('id', GUID()),
@@ -60,9 +61,6 @@ def upgrade():
         create_check_constraint('UPDATED_COL_REP_NAME_NN', 'updated_col_rep', 'name IS NOT NULL')
         create_index('UPDATED_COL_REP_SNR_IDX', 'updated_col_rep', ['scope', 'name', 'rse_id'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -70,17 +68,10 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        drop_column('collection_replicas', 'available_replicas_cnt')
-        drop_column('collection_replicas', 'available_bytes')
-        drop_constraint('UPDATED_COL_REP_PK', 'updated_col_rep', type_='primary')
-        drop_constraint('UPDATED_COL_REP_SCOPE_NN', 'updated_col_rep')
-        drop_constraint('UPDATED_COL_REP_NAME_NN', 'updated_col_rep')
-        drop_constraint('UPDATED_COL_REP_TYPE_CHK', 'updated_col_rep')
-        drop_index('UPDATED_COL_REP_SNR_IDX', 'updated_col_rep')
+        schema = context.get_context().version_table_schema
+        drop_column('collection_replicas', 'available_replicas_cnt', schema=schema)
+        drop_column('collection_replicas', 'available_bytes', schema=schema)
         drop_table('updated_col_rep')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
 
     elif context.get_context().dialect.name == 'mysql':
         drop_column('collection_replicas', 'available_replicas_cnt')

@@ -38,13 +38,11 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-        drop_column('heartbeats', 'executable')
-        add_column('heartbeats', sa.Column('executable', String(64)))
-        add_column('heartbeats', sa.Column('readable', String(4000)))
+        schema = context.get_context().version_table_schema
+        drop_column('heartbeats', 'executable', schema=schema)
+        add_column('heartbeats', sa.Column('executable', String(64)), schema=schema)
+        add_column('heartbeats', sa.Column('readable', String(4000)), schema=schema)
         create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
 
 
 def downgrade():
@@ -54,10 +52,8 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-        drop_column('heartbeats', 'executable')
-        drop_column('heartbeats', 'readable')
-        add_column('heartbeats', sa.Column('executable', String(767)))
+        schema = context.get_context().version_table_schema
+        drop_column('heartbeats', 'executable', schema=schema)
+        drop_column('heartbeats', 'readable', schema=schema)
+        add_column('heartbeats', sa.Column('executable', String(767)), schema=schema)
         create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

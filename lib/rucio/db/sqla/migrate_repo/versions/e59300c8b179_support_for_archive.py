@@ -84,16 +84,13 @@ def upgrade():
         create_index('ARCH_CONT_HIST_IDX', 'archive_contents_history',
                      ['scope', 'name'])
 
+        schema = context.get_context().version_table_schema
         add_column('dids', sa.Column('is_archive',
-                                     sa.Boolean(name='DIDS_ARCHIVE_CHK')))
+                                     sa.Boolean(name='DIDS_ARCHIVE_CHK')), schema=schema)
         add_column('dids', sa.Column('constituent',
-                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK')))
-
-        add_column('deleted_dids', sa.Column('is_archive', sa.Boolean()))
-        add_column('deleted_dids', sa.Column('constituent', sa.Boolean()))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK')), schema=schema)
+        add_column('deleted_dids', sa.Column('is_archive', sa.Boolean()), schema=schema)
+        add_column('deleted_dids', sa.Column('constituent', sa.Boolean()), schema=schema)
 
 
 def downgrade():
@@ -105,10 +102,8 @@ def downgrade():
         drop_table('archive_contents')
         drop_table('archive_contents_history')
 
-        drop_column('dids', 'is_archive')
-        drop_column('dids', 'constituent')
-        drop_column('deleted_dids', 'is_archive')
-        drop_column('deleted_dids', 'constituent')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('dids', 'is_archive', schema=schema)
+        drop_column('dids', 'constituent', schema=schema)
+        drop_column('deleted_dids', 'is_archive', schema=schema)
+        drop_column('deleted_dids', 'constituent', schema=schema)

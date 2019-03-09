@@ -36,9 +36,6 @@ def upgrade():
         create_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids', ['scope', 'rule_evaluation_action', 'name'])
         drop_index('CREATED_AT_IDX', 'updated_dids')
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -48,6 +45,3 @@ def downgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids')
         create_index('CREATED_AT_IDX', 'updated_dids', ['created_at'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

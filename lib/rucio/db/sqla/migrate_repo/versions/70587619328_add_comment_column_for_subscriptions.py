@@ -36,10 +36,8 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('subscriptions', sa.Column('comments', sa.String(4000)))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('subscriptions', sa.Column('comments', sa.String(4000)), schema=schema)
 
 
 def downgrade():
@@ -48,7 +46,5 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('subscriptions', 'comments')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('subscriptions', 'comments', schema=schema)

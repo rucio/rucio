@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +46,8 @@ target_metadata = None
 
 
 def run_migrations_offline():
-    """Run migrations in 'offline' mode.
+    """
+    Run migrations in 'offline' mode.
 
     This configures the context with just a URL
     and not an Engine, though an Engine is acceptable
@@ -55,7 +56,6 @@ def run_migrations_offline():
 
     Calls to context.execute() here emit the given string to the
     script output.
-
     """
 
     url = config.get_main_option("sqlalchemy.url")
@@ -66,18 +66,19 @@ def run_migrations_offline():
         url=url,
         target_metadata=target_metadata,
         version_table_schema=version_table_schema,
-        literal_binds=True)
+        literal_binds=True,
+        include_schemas=True)
 
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online():
-    """Run migrations in 'online' mode.
+    """
+    Run migrations in 'online' mode.
 
     In this scenario we need to create an Engine
     and associate a connection with the context.
-
     """
 
     params = config.get_section(config.config_ini_section)
@@ -88,7 +89,6 @@ def run_migrations_online():
         poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
-
         # Forcing the default is needed for PostgreSQL installations with named schemas.
         # For other databases it doesn't matter.
         # https://github.com/sqlalchemy/alembic/issues/409
@@ -97,7 +97,8 @@ def run_migrations_online():
         context.configure(
             connection=conn,
             target_metadata=target_metadata,
-            version_table_schema=params.get('version_table_schema', None))
+            version_table_schema=params.get('version_table_schema', None),
+            include_schemas=True)
 
         with context.begin_transaction():
             context.run_migrations()
