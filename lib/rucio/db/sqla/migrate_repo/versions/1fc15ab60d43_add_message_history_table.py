@@ -37,7 +37,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         create_table('messages_history',
                      sa.Column('id', GUID()),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
@@ -54,7 +54,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('messages_history')
 
     elif context.get_context().dialect.name == 'postgresql':

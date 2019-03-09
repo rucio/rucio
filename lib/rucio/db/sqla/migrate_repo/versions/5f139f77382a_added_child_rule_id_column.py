@@ -38,7 +38,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('rules', sa.Column('child_rule_id', GUID()))
         add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()))
         add_column('rules_history', sa.Column('child_rule_id', GUID()))
@@ -54,7 +54,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules', type_='foreignkey')
         drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
         drop_column('rules', 'child_rule_id')

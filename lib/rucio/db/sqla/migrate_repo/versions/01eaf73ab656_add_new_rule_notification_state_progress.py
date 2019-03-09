@@ -32,19 +32,20 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        # For Postgres the ENUM Type needs to be renamed first
-        op.execute("ALTER TYPE 'RULES_NOTIFICATION_CHK' RENAME TO 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C', 'P')")
-        # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
-        op.execute("ALTER TABLE rules ALTER COLUMN notification TYPE 'RULES_NOTIFICATION_CHK'")  # pylint: disable=no-member
-        op.execute("DROP TYPE 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
+        # # For Postgres the ENUM Type needs to be renamed first
+        # op.execute("ALTER TYPE 'RULES_NOTIFICATION_CHK' RENAME TO 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
+        # create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
+        #                         condition="notification in ('Y', 'N', 'C', 'P')")
+        # # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
+        # op.execute("ALTER TABLE rules ALTER COLUMN notification TYPE 'RULES_NOTIFICATION_CHK'")  # pylint: disable=no-member
+        # op.execute("DROP TYPE 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
+        pass
 
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
@@ -56,19 +57,20 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules', type_='check')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        op.execute("ALTER TYPE 'RULES_NOTIFICATION_CHK' RENAME TO 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
-        drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C')")
-        # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
-        op.execute("ALTER TABLE rules ALTER COLUMN notification TYPE 'RULES_NOTIFICATION_CHK'")  # pylint: disable=no-member
-        op.execute("DROP TYPE 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
+        # op.execute("ALTER TYPE 'RULES_NOTIFICATION_CHK' RENAME TO 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
+        # drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
+        # create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
+        #                         condition="notification in ('Y', 'N', 'C')")
+        # # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
+        # op.execute("ALTER TABLE rules ALTER COLUMN notification TYPE 'RULES_NOTIFICATION_CHK'")  # pylint: disable=no-member
+        # op.execute("DROP TYPE 'RULES_NOTIFICATION_CHK_OLD'")  # pylint: disable=no-member
+        pass
 
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',

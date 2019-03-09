@@ -35,7 +35,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False))
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
@@ -55,7 +55,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('RSE_STAGING_AREA_CHK', 'rses', type_='check')
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',

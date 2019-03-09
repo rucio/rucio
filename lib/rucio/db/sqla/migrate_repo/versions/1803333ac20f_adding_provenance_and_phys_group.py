@@ -35,7 +35,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('dids', sa.Column('provenance', sa.String(2)))
         add_column('dids', sa.Column('phys_group', sa.String(25)))
 
@@ -48,7 +48,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_column('dids', 'provenance')
         drop_column('dids', 'phys_group')
 

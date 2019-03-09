@@ -21,7 +21,7 @@
 import sqlalchemy as sa
 
 from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, add_column, drop_column
+from alembic.op import create_check_constraint, create_foreign_key, add_column, drop_column, drop_constraint
 
 
 # Alembic revision identifiers
@@ -34,7 +34,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('dids', sa.Column('purge_replicas',
                                      sa.Boolean(name='DIDS_PURGE_RPLCS_CHK'),
                                      server_default='1'))
@@ -75,7 +75,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_column('dids', 'purge_replicas')
         drop_column('dids', 'eol_at')
 
@@ -110,6 +110,7 @@ def downgrade():
         drop_column('deleted_dids', 'purge_replicas')
         drop_column('deleted_dids', 'eol_at')
 
+        drop_constraint(constraint_name='REQUESTS_ACCOUNT_FK', table_name='requests', type_='foreignkey')
         drop_column('requests', 'account')
         drop_column('requests', 'requested_at')
         drop_column('requests', 'priority')

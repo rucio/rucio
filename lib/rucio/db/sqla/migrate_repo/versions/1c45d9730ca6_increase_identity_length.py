@@ -32,7 +32,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
 
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
         alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
@@ -76,7 +76,7 @@ def downgrade():
     # Attention!
     # This automatically removes all SSH keys to accommodate the column size and check constraint.
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         execute("DELETE FROM account_map WHERE identity_type='SSH'")
         execute("DELETE FROM identities WHERE identity_type='SSH'")
 

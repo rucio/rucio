@@ -35,7 +35,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('distances', sa.Column('packet_loss', sa.Integer))
         add_column('distances', sa.Column('latency', sa.Integer))
         add_column('distances', sa.Column('mbps_file', sa.Integer))
@@ -53,7 +53,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_column('distances', 'packet_loss')
         drop_column('distances', 'latency')
         drop_column('distances', 'mbps_file')

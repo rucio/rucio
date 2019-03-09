@@ -33,7 +33,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U','W')")
@@ -51,7 +51,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")

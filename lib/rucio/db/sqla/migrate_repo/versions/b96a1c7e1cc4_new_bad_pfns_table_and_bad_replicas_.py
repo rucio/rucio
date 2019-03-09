@@ -41,7 +41,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
@@ -70,12 +70,13 @@ def upgrade():
         create_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas', ['expires_at'])
 
     elif context.get_context().dialect.name == 'postgresql':
+        pass
         # For Postgres the ENUM Type needs to be renamed first
-        op.execute("ALTER TYPE 'BAD_REPLICAS_STATE_CHK' RENAME TO 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
+        #op.execute("ALTER TYPE 'BAD_REPLICAS_STATE_CHK' RENAME TO 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
 
         # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
-        op.execute("ALTER TABLE bad_replicas ALTER COLUMN state TYPE 'BAD_REPLICAS_STATE_CHK'")  # pylint: disable=no-member
-        op.execute("DROP TYPE 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
+        #op.execute("ALTER TABLE bad_replicas ALTER COLUMN state TYPE 'BAD_REPLICAS_STATE_CHK'")  # pylint: disable=no-member
+        #op.execute("DROP TYPE 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
 
     elif context.get_context().dialect.name == 'mysql':
         # Create new bad_pfns table
@@ -110,7 +111,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
@@ -123,11 +124,11 @@ def downgrade():
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
     elif context.get_context().dialect.name == 'postgresql':
-
         # For Postgres the ENUM Type needs to be renamed first
-        op.execute("ALTER TYPE 'BAD_REPLICAS_STATE_CHK' RENAME TO 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
-        op.execute("ALTER TABLE bad_replicas ALTER COLUMN state TYPE 'BAD_REPLICAS_STATE_CHK'")  # pylint: disable=no-member
-        op.execute("DROP TYPE 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
+        #op.execute("ALTER TYPE 'BAD_REPLICAS_STATE_CHK' RENAME TO 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
+        #op.execute("ALTER TABLE bad_replicas ALTER COLUMN state TYPE 'BAD_REPLICAS_STATE_CHK'")  # pylint: disable=no-member
+        #op.execute("DROP TYPE 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
+        pass
 
     elif context.get_context().dialect.name == 'mysql':
         drop_table('bad_pfns')

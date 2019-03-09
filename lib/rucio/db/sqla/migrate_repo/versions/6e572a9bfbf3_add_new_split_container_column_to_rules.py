@@ -35,7 +35,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         add_column('rules', sa.Column('split_container', sa.Boolean(name='RULES_SPLIT_CONTAINER_CHK'), default=False))
         add_column('rules_hist_recent', sa.Column('split_container', sa.Boolean()))
         add_column('rules_history', sa.Column('split_container', sa.Boolean()))
@@ -49,7 +49,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_column('rules', 'split_container')
         drop_column('rules_hist_recent', 'split_container')
         drop_column('rules_history', 'split_container')

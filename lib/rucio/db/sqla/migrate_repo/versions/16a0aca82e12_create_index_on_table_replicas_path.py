@@ -32,7 +32,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         create_index('REPLICAS_PATH_IDX', 'replicas', ['path'])
 
     elif context.get_context().dialect.name == 'postgresql':
@@ -44,7 +44,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_index('REPLICAS_PATH_IDX', 'replicas')
 
     elif context.get_context().dialect.name == 'postgresql':
