@@ -36,10 +36,8 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('locks', sa.Column('repair_cnt', sa.BigInteger()))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('locks', sa.Column('repair_cnt', sa.BigInteger()), schema=schema)
 
 
 def downgrade():
@@ -48,7 +46,5 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('locks', 'repair_cnt')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('locks', 'repair_cnt', schema=schema)

@@ -33,13 +33,10 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
-        drop_constraint('tokens_pk', 'tokens', type_='primary')
-        create_primary_key('tokens_pk', 'tokens', ['token'])
-        create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
+        drop_constraint('TOKENS_PK', 'tokens', type_='primary')
+        create_primary_key('TOKENS_PK', 'tokens', ['token'])
+        create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])
 
 
 def downgrade():
@@ -48,10 +45,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
-        drop_constraint('tokens_pk', 'tokens', type_='primary')
-        create_primary_key('tokens_pk', 'tokens', ['account', 'token'])
-        create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
+        drop_constraint('TOKENS_PK', 'tokens', type_='primary')
+        create_primary_key('TOKENS_PK', 'tokens', ['account', 'token'])
+        create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])

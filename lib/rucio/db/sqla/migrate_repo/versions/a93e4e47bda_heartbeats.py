@@ -25,7 +25,7 @@ import sqlalchemy as sa
 from alembic import context
 from alembic.op import (create_table, create_primary_key,
                         create_check_constraint, create_index,
-                        drop_constraint, drop_index, drop_table)
+                        drop_constraint, drop_table)
 
 
 # Alembic revision identifiers
@@ -52,9 +52,6 @@ def upgrade():
         create_index('heartbeats_updated_at', 'heartbeats', ['updated_at'])
         create_check_constraint('heartbeats_created_nn', 'heartbeats', 'created_at is not null')
         create_check_constraint('heartbeats_updated_nn', 'heartbeats', 'updated_at is not null')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
 
 
 def downgrade():

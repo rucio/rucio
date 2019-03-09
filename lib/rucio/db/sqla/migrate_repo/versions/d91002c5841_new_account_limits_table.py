@@ -25,7 +25,7 @@ import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import (create_check_constraint, create_table, create_primary_key,
-                        create_foreign_key, drop_constraint, drop_table)
+                        create_foreign_key, drop_table)
 
 from rucio.db.sqla.types import GUID
 
@@ -55,27 +55,6 @@ def upgrade():
         create_check_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits', 'updated_at is not null')
         create_foreign_key('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits', 'accounts', ['account'], ['account'])
         create_foreign_key('ACCOUNT_LIMITS_RSE_ID_FK', 'account_limits', 'rses', ['rse_id'], ['id'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        # drop_constraint('ACCOUNT_LIMITS_PK', 'account_limits', type_='primary')
-        # drop_constraint('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits')
-        # drop_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits')
-        # drop_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits')
-        # drop_table('account_limits')
-
-        # create_table('account_limits',
-        #              sa.Column('account', sa.String(25)),
-        #              sa.Column('rse_id', GUID()),
-        #              sa.Column('bytes', sa.BigInteger),
-        #              sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
-        #              sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
-
-        # create_primary_key('ACCOUNT_LIMITS_PK', 'account_limits', ['account', 'rse_id'])
-        # create_check_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits', 'created_at is not null')
-        # create_check_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits', 'updated_at is not null')
-        # create_foreign_key('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits', 'accounts', ['account'], ['account'])
-        # create_foreign_key('ACCOUNT_LIMITS_RSE_ID_FK', 'account_limits', 'rses', ['rse_id'], ['id'])
-        pass
 
     elif context.get_context().dialect.name == 'mysql':
         drop_table('account_limits')
@@ -114,28 +93,6 @@ def downgrade():
         create_check_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits', 'created_at is not null')
         create_check_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits', 'updated_at is not null')
         create_foreign_key('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits', 'accounts', ['account'], ['account'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        # drop_constraint('ACCOUNT_LIMITS_PK', 'account_limits', type_='primary')
-        # drop_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits')
-        # drop_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits')
-        # drop_constraint('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits')
-        # drop_constraint('ACCOUNT_LIMITS_RSE_ID_FK', 'account_limits')
-        # drop_table('account_limits')
-
-        # create_table('account_limits',
-        #              sa.Column('account', sa.String(25)),
-        #              sa.Column('rse_expression', sa.String(255)),
-        #              sa.Column('name', sa.String(255)),
-        #              sa.Column('value', sa.BigInteger),
-        #              sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
-        #              sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
-
-        # create_primary_key('ACCOUNT_LIMITS_PK', 'account_limits', ['account', 'rse_expression', 'name'])
-        # create_check_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits', 'created_at is not null')
-        # create_check_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits', 'updated_at is not null')
-        # create_foreign_key('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits', 'accounts', ['account'], ['account'])
-        pass
 
     elif context.get_context().dialect.name == 'mysql':
         drop_table('account_limits')

@@ -37,9 +37,6 @@ def upgrade():
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
 
@@ -49,6 +46,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
-
-    elif context.get_context().dialect.name == 'mysql':
-        pass

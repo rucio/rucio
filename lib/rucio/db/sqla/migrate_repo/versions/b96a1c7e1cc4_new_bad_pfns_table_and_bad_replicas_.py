@@ -60,7 +60,8 @@ def upgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
         # Add new column to bad_replicas table
-        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()))
+        schema = context.get_context().version_table_schema
+        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema)
 
         # Change PK
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
@@ -68,15 +69,6 @@ def upgrade():
 
         # Add new Index to Table
         create_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas', ['expires_at'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-        # For Postgres the ENUM Type needs to be renamed first
-        #op.execute("ALTER TYPE 'BAD_REPLICAS_STATE_CHK' RENAME TO 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
-
-        # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
-        #op.execute("ALTER TABLE bad_replicas ALTER COLUMN state TYPE 'BAD_REPLICAS_STATE_CHK'")  # pylint: disable=no-member
-        #op.execute("DROP TYPE 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
 
     elif context.get_context().dialect.name == 'mysql':
         # Create new bad_pfns table
@@ -111,7 +103,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
@@ -124,11 +116,17 @@ def downgrade():
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
     elif context.get_context().dialect.name == 'postgresql':
-        # For Postgres the ENUM Type needs to be renamed first
-        #op.execute("ALTER TYPE 'BAD_REPLICAS_STATE_CHK' RENAME TO 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
-        #op.execute("ALTER TABLE bad_replicas ALTER COLUMN state TYPE 'BAD_REPLICAS_STATE_CHK'")  # pylint: disable=no-member
-        #op.execute("DROP TYPE 'BAD_REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
-        pass
+        drop_table('bad_pfns')
+        drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
+
+        schema = context.get_context().version_table_schema + '.'
+        op.execute('ALTER TABLE ' + schema + 'bad_replicas ALTER COLUMN state TYPE CHAR')
+        create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
+                                condition="state in ('B', 'D', 'L', 'R', 'S')")
+
+        drop_column('bad_replicas', 'expires_at', schema=schema[:-1])
+        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
     elif context.get_context().dialect.name == 'mysql':
         drop_table('bad_pfns')

@@ -36,16 +36,14 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('distances', sa.Column('packet_loss', sa.Integer))
-        add_column('distances', sa.Column('latency', sa.Integer))
-        add_column('distances', sa.Column('mbps_file', sa.Integer))
-        add_column('distances', sa.Column('mbps_link', sa.Integer))
-        add_column('distances', sa.Column('queued_total', sa.Integer))
-        add_column('distances', sa.Column('done_1h', sa.Integer))
-        add_column('distances', sa.Column('done_6h', sa.Integer))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('distances', sa.Column('packet_loss', sa.Integer), schema=schema)
+        add_column('distances', sa.Column('latency', sa.Integer), schema=schema)
+        add_column('distances', sa.Column('mbps_file', sa.Integer), schema=schema)
+        add_column('distances', sa.Column('mbps_link', sa.Integer), schema=schema)
+        add_column('distances', sa.Column('queued_total', sa.Integer), schema=schema)
+        add_column('distances', sa.Column('done_1h', sa.Integer), schema=schema)
+        add_column('distances', sa.Column('done_6h', sa.Integer), schema=schema)
 
 
 def downgrade():
@@ -54,13 +52,11 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('distances', 'packet_loss')
-        drop_column('distances', 'latency')
-        drop_column('distances', 'mbps_file')
-        drop_column('distances', 'mbps_link')
-        drop_column('distances', 'queued_total')
-        drop_column('distances', 'done_1h')
-        drop_column('distances', 'done_6h')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('distances', 'packet_loss', schema=schema)
+        drop_column('distances', 'latency', schema=schema)
+        drop_column('distances', 'mbps_file', schema=schema)
+        drop_column('distances', 'mbps_link', schema=schema)
+        drop_column('distances', 'queued_total', schema=schema)
+        drop_column('distances', 'done_1h', schema=schema)
+        drop_column('distances', 'done_6h', schema=schema)

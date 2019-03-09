@@ -36,9 +36,6 @@ def upgrade():
         create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ["request_type", "state", "updated_at"])
         drop_index('REQUESTS_TYP_STA_CRE_IDX', 'requests')
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -48,6 +45,3 @@ def downgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         create_index('REQUESTS_TYP_STA_CRE_IDX', 'requests', ["request_type", "state", "created_at"])
         drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

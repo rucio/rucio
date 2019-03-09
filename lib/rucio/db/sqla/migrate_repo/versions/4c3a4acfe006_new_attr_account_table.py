@@ -24,8 +24,7 @@ import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key,
-                        create_check_constraint, create_index,
-                        drop_constraint, drop_table, drop_index)
+                        create_check_constraint, create_index, drop_table)
 
 
 # Alembic revision identifiers
@@ -51,9 +50,6 @@ def upgrade():
         create_check_constraint('ACCOUNT_ATTR_MAP_UPDATED_NN', 'account_attr_map', 'updated_at is not null')
         create_foreign_key('ACCOUNT_ATTR_MAP_ACCOUNT_FK', 'account_attr_map', 'accounts', ['account'], ['account'])
         create_index('ACCOUNT_ATTR_MAP_KEY_VALUE_IDX', 'account_attr_map', ['key', 'value'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
 
 
 def downgrade():

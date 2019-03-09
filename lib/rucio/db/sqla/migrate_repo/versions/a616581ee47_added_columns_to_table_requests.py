@@ -37,17 +37,15 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('requests', sa.Column('bytes', sa.BigInteger))
-        add_column('requests', sa.Column('md5', String(32)))
-        add_column('requests', sa.Column('adler32', String(8)))
-        add_column('requests', sa.Column('dest_url', String(2048)))
-        add_column('requests_history', sa.Column('bytes', sa.BigInteger))
-        add_column('requests_history', sa.Column('md5', String(32)))
-        add_column('requests_history', sa.Column('adler32', String(8)))
-        add_column('requests_history', sa.Column('dest_url', String(2048)))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('requests', sa.Column('bytes', sa.BigInteger), schema=schema)
+        add_column('requests', sa.Column('md5', String(32)), schema=schema)
+        add_column('requests', sa.Column('adler32', String(8)), schema=schema)
+        add_column('requests', sa.Column('dest_url', String(2048)), schema=schema)
+        add_column('requests_history', sa.Column('bytes', sa.BigInteger), schema=schema)
+        add_column('requests_history', sa.Column('md5', String(32)), schema=schema)
+        add_column('requests_history', sa.Column('adler32', String(8)), schema=schema)
+        add_column('requests_history', sa.Column('dest_url', String(2048)), schema=schema)
 
 
 def downgrade():
@@ -56,14 +54,12 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('requests', 'bytes')
-        drop_column('requests', 'md5')
-        drop_column('requests', 'adler32')
-        drop_column('requests', 'dest_url')
-        drop_column('requests_history', 'bytes')
-        drop_column('requests_history', 'md5')
-        drop_column('requests_history', 'adler32')
-        drop_column('requests_history', 'dest_url')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('requests', 'bytes', schema=schema)
+        drop_column('requests', 'md5', schema=schema)
+        drop_column('requests', 'adler32', schema=schema)
+        drop_column('requests', 'dest_url', schema=schema)
+        drop_column('requests_history', 'bytes', schema=schema)
+        drop_column('requests_history', 'md5', schema=schema)
+        drop_column('requests_history', 'adler32', schema=schema)
+        drop_column('requests_history', 'dest_url', schema=schema)

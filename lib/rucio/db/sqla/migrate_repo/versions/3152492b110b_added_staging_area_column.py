@@ -21,7 +21,7 @@
 
 import sqlalchemy as sa
 
-from alembic import context
+from alembic import context, op
 from alembic.op import add_column, create_check_constraint, drop_constraint, drop_column
 
 
@@ -35,14 +35,18 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if context.get_context().dialect.name == 'oracle':
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False))
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False), schema=schema)
+        drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
+        create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
+                                condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif context.get_context().dialect.name == 'mysql':
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False))
@@ -55,7 +59,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint('RSE_STAGING_AREA_CHK', 'rses', type_='check')
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
@@ -63,7 +67,11 @@ def downgrade():
         drop_column('rses', 'staging_area')
 
     elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema + '.'
+        op.execute('ALTER TABLE ' + schema + 'requests ALTER COLUMN request_type TYPE CHAR')
+        create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
+                                condition="request_type in ('U', 'D', 'T')")
+        drop_column('rses', 'staging_area', schema=schema[:-1])
 
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',

@@ -39,14 +39,13 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('rules', sa.Column('child_rule_id', GUID()))
-        add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()))
-        add_column('rules_history', sa.Column('child_rule_id', GUID()))
+        schema = context.get_context().version_table_schema
+        add_column('rules', sa.Column('child_rule_id', GUID()), schema=schema)
+        # add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()), schema=schema)
+        # add_column('rules_history', sa.Column('child_rule_id', GUID()), schema=schema)
+        # FIXME
         create_foreign_key('RULES_CHILD_RULE_ID_FK', 'rules', 'rules', ['child_rule_id'], ['id'])
         create_index('RULES_CHILD_RULE_ID_IDX', 'rules', ['child_rule_id'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
 
 
 def downgrade():
@@ -57,9 +56,8 @@ def downgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules', type_='foreignkey')
         drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
-        drop_column('rules', 'child_rule_id')
-        drop_column('rules_hist_recent', 'child_rule_id')
-        drop_column('rules_history', 'child_rule_id')
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('rules', 'child_rule_id', schema=schema)
+        drop_column('rules_hist_recent', 'child_rule_id', schema=schema)
+        drop_column('rules_history', 'child_rule_id', schema=schema)

@@ -19,7 +19,7 @@
 
 import sqlalchemy as sa
 
-from alembic import context
+from alembic import context, op
 from alembic.op import alter_column, create_check_constraint, create_foreign_key, drop_constraint, execute
 
 # Alembic revision identifiers
@@ -34,9 +34,10 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
 
-        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
-        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
-        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
+        schema = context.get_context().version_table_schema
+        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
+        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
+        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
 
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -46,9 +47,6 @@ def upgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
 
     elif context.get_context().dialect.name == 'mysql':
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
@@ -76,7 +74,7 @@ def downgrade():
     # Attention!
     # This automatically removes all SSH keys to accommodate the column size and check constraint.
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if context.get_context().dialect.name == 'oracle':
         execute("DELETE FROM account_map WHERE identity_type='SSH'")
         execute("DELETE FROM identities WHERE identity_type='SSH'")
 
@@ -96,7 +94,25 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
     elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema + '.'
+        execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")
+        execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")
+
+        drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
+        op.execute('ALTER TABLE ' + schema + 'identities ALTER COLUMN identity_type TYPE VARCHAR')
+        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
+                                table_name='identities',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+
+        op.execute('ALTER TABLE ' + schema + 'account_map ALTER COLUMN identity_type TYPE VARCHAR')
+        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                table_name='account_map',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+        create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
+
+        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
+        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
+        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
 
     elif context.get_context().dialect.name == 'mysql':
         execute("DELETE FROM account_map WHERE identity_type='SSH'")

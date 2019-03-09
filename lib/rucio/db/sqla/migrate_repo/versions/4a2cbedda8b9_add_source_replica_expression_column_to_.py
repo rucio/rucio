@@ -22,10 +22,8 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('rules', sa.Column('source_replica_expression', sa.String(255)))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('rules', sa.Column('source_replica_expression', sa.String(255)), schema=schema)
 
 
 def downgrade():
@@ -34,7 +32,5 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('rules', 'source_replica_expression')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('rules', 'source_replica_expression', schema=schema)

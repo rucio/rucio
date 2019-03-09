@@ -38,10 +38,9 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('rules', sa.Column('notification', RuleNotification.db_type(name='RULES_NOTIFICATION_CHK'), default=RuleNotification.NO))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('rules', sa.Column('notification', RuleNotification.db_type(name='RULES_NOTIFICATION_CHK'),
+                                      default=RuleNotification.NO), schema=schema)
 
 
 def downgrade():
@@ -51,10 +50,8 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
-        drop_column('rules', 'notification')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('rules', 'notification', schema=schema)
 
     elif context.get_context().dialect.name == 'mysql':
         drop_column('rules', 'notification')

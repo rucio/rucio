@@ -36,12 +36,11 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('rules', sa.Column('split_container', sa.Boolean(name='RULES_SPLIT_CONTAINER_CHK'), default=False))
-        add_column('rules_hist_recent', sa.Column('split_container', sa.Boolean()))
-        add_column('rules_history', sa.Column('split_container', sa.Boolean()))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('rules', sa.Column('split_container', sa.Boolean(name='RULES_SPLIT_CONTAINER_CHK'), default=False), schema=schema)
+        # add_column('rules_hist_recent', sa.Column('split_container', sa.Boolean()), schema=schema)
+        # add_column('rules_history', sa.Column('split_container', sa.Boolean()), schema=schema)
+        # FIXME
 
 
 def downgrade():
@@ -50,9 +49,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('rules', 'split_container')
-        drop_column('rules_hist_recent', 'split_container')
-        drop_column('rules_history', 'split_container')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('rules', 'split_container', schema=schema)
+        drop_column('rules_hist_recent', 'split_container', schema=schema)
+        drop_column('rules_history', 'split_container', schema=schema)

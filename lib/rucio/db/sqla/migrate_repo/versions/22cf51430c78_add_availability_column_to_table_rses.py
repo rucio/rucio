@@ -36,15 +36,11 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('rses', sa.Column('availability', sa.Integer, server_default='7'))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('rses', sa.Column('availability', sa.Integer, server_default='7'), schema=schema)
 
 
 def downgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('rses', 'availability')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('rses', 'availability', schema=schema)

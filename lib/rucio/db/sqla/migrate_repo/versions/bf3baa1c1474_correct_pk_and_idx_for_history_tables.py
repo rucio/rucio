@@ -45,14 +45,12 @@ def upgrade():
         drop_constraint(constraint_name='ARCH_CONT_HIST_PK', table_name='archive_contents_history', type_='primary')
 
         # RULES_HIST_RECENT
-        drop_constraint(constraint_name='RULES_HIST_RECENT_PK', table_name='rules_hist_recent', type_='primary')
-        drop_column('rules_hist_recent', 'history_id')
-
+        schema = context.get_context().version_table_schema
+        # drop_constraint(constraint_name='RULES_HIST_RECENT_PK', table_name='rules_hist_recent', type_='primary')
+        # drop_column('rules_hist_recent', 'history_id', schema=schema)
+        # FIXME
         # RULES_HISTORY
-        drop_column('rules_history', 'history_id')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        # drop_column('rules_history', 'history_id', schema=schema)
 
 
 def downgrade():
@@ -69,15 +67,13 @@ def downgrade():
         drop_index('ARCH_CONT_HIST_IDX', 'archive_contents_history')
 
         # RULES_HIST_RECENT
-        add_column('rules_hist_recent', sa.Column('history_id', GUID()))
+        schema = context.get_context().version_table_schema
+        add_column('rules_hist_recent', sa.Column('history_id', GUID()), schema=schema)
         create_primary_key('RULES_HIST_RECENT_PK', 'rules_hist_recent', ['history_id'])
 
         # RULES_HISTORY
-        add_column('rules_history', sa.Column('history_id', GUID()))
+        add_column('rules_history', sa.Column('history_id', GUID()), schema=schema)
         create_primary_key('RULES_HIST_LONGTERM_PK', 'rules_history', ['history_id'])
 
         # MESSAGES_HISTORY
         create_primary_key('MESSAGES_HIST_ID_PK', 'messages_history', ['id'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

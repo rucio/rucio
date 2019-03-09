@@ -38,9 +38,6 @@ def upgrade():
         create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ['request_type', 'state', 'activity'])
         create_index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'requests', ['request_type', 'state', 'updated_at'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -51,6 +48,3 @@ def downgrade():
         drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
         drop_index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'requests')
         create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ['request_type', 'state', 'updated_at'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

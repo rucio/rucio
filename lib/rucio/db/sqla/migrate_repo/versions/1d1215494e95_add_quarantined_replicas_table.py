@@ -68,9 +68,6 @@ def upgrade():
         create_check_constraint('QURD_REPLICAS_UPDATED_NN', 'quarantined_replicas', 'updated_at is not null')
         create_foreign_key('QURD_REPLICAS_RSE_ID_FK', 'quarantined_replicas', 'rses', ['rse_id'], ['id'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -80,6 +77,3 @@ def downgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('quarantined_replicas')
         drop_table('quarantined_replicas_history')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

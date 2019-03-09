@@ -61,9 +61,6 @@ def upgrade():
         create_check_constraint('SOURCES_UPDATED_NN', 'sources', 'updated_at is not null')
         create_index('SOURCES_SRC_DST_IDX', 'sources', ['rse_id', 'dest_rse_id'])
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -72,6 +69,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('sources')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

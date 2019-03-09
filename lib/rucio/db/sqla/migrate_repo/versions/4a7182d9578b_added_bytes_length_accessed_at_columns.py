@@ -35,13 +35,11 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('dataset_locks', sa.Column('length', sa.BigInteger()))
-        add_column('dataset_locks', sa.Column('bytes', sa.BigInteger()))
-        add_column('dataset_locks', sa.Column('accessed_at', sa.DateTime()))
-        add_column('dids', sa.Column('accessed_at', sa.DateTime()))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('dataset_locks', sa.Column('length', sa.BigInteger()), schema=schema)
+        add_column('dataset_locks', sa.Column('bytes', sa.BigInteger()), schema=schema)
+        add_column('dataset_locks', sa.Column('accessed_at', sa.DateTime()), schema=schema)
+        add_column('dids', sa.Column('accessed_at', sa.DateTime()), schema=schema)
 
 
 def downgrade():
@@ -50,10 +48,8 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('dataset_locks', 'length')
-        drop_column('dataset_locks', 'bytes')
-        drop_column('dataset_locks', 'accessed_at')
-        drop_column('dids', 'accessed_at')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('dataset_locks', 'length', schema=schema)
+        drop_column('dataset_locks', 'bytes', schema=schema)
+        drop_column('dataset_locks', 'accessed_at', schema=schema)
+        drop_column('dids', 'accessed_at', schema=schema)

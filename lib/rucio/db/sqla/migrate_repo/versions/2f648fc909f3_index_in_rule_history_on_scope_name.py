@@ -34,10 +34,8 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        create_index('RULES_HISTORY_SCOPENAME_IDX', 'rules_history', ['scope', 'name'])
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        # create_index('RULES_HISTORY_SCOPENAME_IDX', 'rules_history', ['scope', 'name'])
+        pass  # FIXME
 
 
 def downgrade():
@@ -47,6 +45,3 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_index('RULES_HISTORY_SCOPENAME_IDX', 'rules_history')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass

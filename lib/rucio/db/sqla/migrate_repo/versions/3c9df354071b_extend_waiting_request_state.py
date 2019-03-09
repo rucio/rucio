@@ -38,9 +38,6 @@ def upgrade():
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U','W')")
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U','W')")
@@ -55,9 +52,6 @@ def downgrade():
         drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
 
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',

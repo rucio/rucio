@@ -41,8 +41,9 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('dids', sa.Column('closed_at', sa.DateTime))
-        add_column('contents_history', sa.Column('deleted_at', sa.DateTime))
+        schema = context.get_context().version_table_schema
+        add_column('dids', sa.Column('closed_at', sa.DateTime), schema=schema)
+        add_column('contents_history', sa.Column('deleted_at', sa.DateTime), schema=schema)
         create_table('naming_conventions',
                      sa.Column('scope', sa.String(SCOPE_LENGTH)),
                      sa.Column('regexp', sa.String(255)),
@@ -57,9 +58,6 @@ def upgrade():
         create_check_constraint('NAMING_CONVENTIONS_UPDATED_NN', 'naming_conventions',
                                 'updated_at is not null')
 
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
 
 def downgrade():
     '''
@@ -67,9 +65,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('dids', 'closed_at')
-        drop_column('contents_history', 'deleted_at')
-        drop_table('naming_conventions')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('dids', 'closed_at', schema=schema)
+        drop_column('contents_history', 'deleted_at', schema=schema)
+        drop_table('naming_conventions', schema=schema)

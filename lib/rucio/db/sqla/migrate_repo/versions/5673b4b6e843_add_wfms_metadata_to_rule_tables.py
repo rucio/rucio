@@ -35,12 +35,11 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('rules', sa.Column('meta', sa.String(4000)))
-        add_column('rules_history', sa.Column('meta', sa.String(4000)))
-        add_column('rules_hist_recent', sa.Column('meta', sa.String(4000)))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('rules', sa.Column('meta', sa.String(4000)), schema=schema)
+        # add_column('rules_history', sa.Column('meta', sa.String(4000)), schema=schema)
+        # add_column('rules_hist_recent', sa.Column('meta', sa.String(4000)), schema=schema)
+        # FIXME
 
 
 def downgrade():
@@ -49,9 +48,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('rules', 'meta')
-        drop_column('rules_history', 'meta')
-        drop_column('rules_hist_recent', 'meta')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('rules', 'meta', schema=schema)
+        drop_column('rules_history', 'meta', schema=schema)
+        drop_column('rules_hist_recent', 'meta', schema=schema)

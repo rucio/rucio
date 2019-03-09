@@ -36,11 +36,9 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        add_column('dids', sa.Column('provenance', sa.String(2)))
-        add_column('dids', sa.Column('phys_group', sa.String(25)))
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        add_column('dids', sa.Column('provenance', sa.String(2)), schema=schema)
+        add_column('dids', sa.Column('phys_group', sa.String(25)), schema=schema)
 
 
 def downgrade():
@@ -49,8 +47,6 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_column('dids', 'provenance')
-        drop_column('dids', 'phys_group')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
+        schema = context.get_context().version_table_schema
+        drop_column('dids', 'provenance', schema=schema)
+        drop_column('dids', 'phys_group', schema=schema)
