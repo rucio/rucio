@@ -75,8 +75,8 @@ def downgrade():
     # This automatically removes all SSH keys to accommodate the column size and check constraint.
 
     if context.get_context().dialect.name == 'oracle':
-        execute("DELETE FROM account_map WHERE identity_type='SSH'")
-        execute("DELETE FROM identities WHERE identity_type='SSH'")
+        execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -95,16 +95,16 @@ def downgrade():
 
     elif context.get_context().dialect.name == 'postgresql':
         schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-        execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")
-        execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")
+        execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        op.execute('ALTER TABLE ' + schema + 'identities ALTER COLUMN identity_type TYPE VARCHAR')
+        op.execute('ALTER TABLE ' + schema + 'identities ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        op.execute('ALTER TABLE ' + schema + 'account_map ALTER COLUMN identity_type TYPE VARCHAR')
+        op.execute('ALTER TABLE ' + schema + 'account_map ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
@@ -115,8 +115,8 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
 
     elif context.get_context().dialect.name == 'mysql':
-        execute("DELETE FROM account_map WHERE identity_type='SSH'")
-        execute("DELETE FROM identities WHERE identity_type='SSH'")
+        execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
