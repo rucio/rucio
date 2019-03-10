@@ -46,11 +46,11 @@ def upgrade():
 
         # RULES_HIST_RECENT
         schema = context.get_context().version_table_schema
-        # drop_constraint(constraint_name='RULES_HIST_RECENT_PK', table_name='rules_hist_recent', type_='primary')
-        # drop_column('rules_hist_recent', 'history_id', schema=schema)
-        # FIXME
+        drop_constraint(constraint_name='RULES_HIST_RECENT_PK', table_name='rules_hist_recent', type_='primary')
+        drop_column('rules_hist_recent', 'history_id', schema=schema)
+
         # RULES_HISTORY
-        # drop_column('rules_history', 'history_id', schema=schema)
+        drop_column('rules_history', 'history_id', schema=schema)
 
 
 def downgrade():

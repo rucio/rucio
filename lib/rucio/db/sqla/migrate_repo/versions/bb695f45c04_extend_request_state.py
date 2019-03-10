@@ -21,7 +21,7 @@
 
 import sqlalchemy as sa
 
-from alembic import context, op
+from alembic import context
 from alembic.op import (add_column, create_check_constraint,
                         drop_constraint, drop_column)
 

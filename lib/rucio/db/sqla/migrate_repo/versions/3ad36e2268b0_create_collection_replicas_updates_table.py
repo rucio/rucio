@@ -51,7 +51,7 @@ def upgrade():
                      sa.Column('id', GUID()),
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', DIDType.db_type(name='UPDATED_COL_REP_TYPE_CHK')),
+                     sa.Column('did_type', DIDType.db_type()),
                      sa.Column('rse_id', GUID()),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
