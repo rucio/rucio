@@ -37,7 +37,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('requests', sa.Column('bytes', sa.BigInteger), schema=schema)
         add_column('requests', sa.Column('md5', String(32)), schema=schema)
         add_column('requests', sa.Column('adler32', String(8)), schema=schema)
@@ -54,7 +54,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('requests', 'bytes', schema=schema)
         drop_column('requests', 'md5', schema=schema)
         drop_column('requests', 'adler32', schema=schema)

@@ -35,7 +35,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('rules', sa.Column('meta', sa.String(4000)), schema=schema)
         add_column('rules_history', sa.Column('meta', sa.String(4000)), schema=schema)
         add_column('rules_hist_recent', sa.Column('meta', sa.String(4000)), schema=schema)
@@ -47,7 +47,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('rules', 'meta', schema=schema)
         drop_column('rules_history', 'meta', schema=schema)
         drop_column('rules_hist_recent', 'meta', schema=schema)

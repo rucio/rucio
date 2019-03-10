@@ -38,7 +38,7 @@ def upgrade():
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.'
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         op.execute('ALTER TABLE ' + schema + 'rules ALTER COLUMN notification TYPE CHAR')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
@@ -61,7 +61,7 @@ def downgrade():
     elif context.get_context().dialect.name == 'postgresql':
         # PostgreSQL does not support reducing check types, so we must work around
         # by changing it to the internal string type
-        schema = context.get_context().version_table_schema + '.'
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         op.execute('ALTER TABLE ' + schema + 'rules ALTER COLUMN notification TYPE CHAR')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")

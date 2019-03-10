@@ -37,7 +37,7 @@ def upgrade():
 
     # First, change all uppercase booleanstrings to lowercase booleanstrings
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema + '.'
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         op.execute("UPDATE " + schema + "account_attr_map SET value='true' WHERE value='True'")  # pylint: disable=no-member
         op.execute("UPDATE " + schema + "account_attr_map SET value='false' WHERE value='False'")  # pylint: disable=no-member
         op.execute("UPDATE " + schema + "rse_attr_map SET value='true' WHERE value='True'")  # pylint: disable=no-member
@@ -60,7 +60,7 @@ def downgrade():
 
     # First, change all lowercase booleanstrings to uppercase booleanstrings
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema + '.'
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         op.execute("UPDATE " + schema + "account_attr_map SET value='True' WHERE value='true'")  # pylint: disable=no-member
         op.execute("UPDATE " + schema + "account_attr_map SET value='False' WHERE value='false'")  # pylint: disable=no-member
         op.execute("UPDATE " + schema + "rse_attr_map SET value='True' WHERE value='true'")  # pylint: disable=no-member

@@ -39,7 +39,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('rules', sa.Column('child_rule_id', GUID()), schema=schema)
         add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()), schema=schema)
         add_column('rules_history', sa.Column('child_rule_id', GUID()), schema=schema)
@@ -57,7 +57,7 @@ def downgrade():
         drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules', type_='foreignkey')
         drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
 
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('rules', 'child_rule_id', schema=schema)
         drop_column('rules_hist_recent', 'child_rule_id', schema=schema)
         drop_column('rules_history', 'child_rule_id', schema=schema)
