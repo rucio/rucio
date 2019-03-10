@@ -58,9 +58,8 @@ def upgrade():
         add_column('requests_history', sa.Column('priority', sa.Integer), schema=schema)
 
         add_column('rules', sa.Column('priority', sa.Integer), schema=schema)
-        # add_column('rules_hist_recent', sa.Column('priority', sa.Integer), schema=schema)
-        # add_column('rules_history', sa.Column('priority', sa.Integer), schema=schema)
-        # FIXME
+        add_column('rules_hist_recent', sa.Column('priority', sa.Integer), schema=schema)
+        add_column('rules_history', sa.Column('priority', sa.Integer), schema=schema)
 
         add_column('distances', sa.Column('active', sa.Integer), schema=schema)
         add_column('distances', sa.Column('submitted', sa.Integer), schema=schema)

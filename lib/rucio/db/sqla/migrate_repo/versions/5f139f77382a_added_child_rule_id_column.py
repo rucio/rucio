@@ -41,9 +41,9 @@ def upgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema
         add_column('rules', sa.Column('child_rule_id', GUID()), schema=schema)
-        # add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()), schema=schema)
-        # add_column('rules_history', sa.Column('child_rule_id', GUID()), schema=schema)
-        # FIXME
+        add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()), schema=schema)
+        add_column('rules_history', sa.Column('child_rule_id', GUID()), schema=schema)
+
         create_foreign_key('RULES_CHILD_RULE_ID_FK', 'rules', 'rules', ['child_rule_id'], ['id'])
         create_index('RULES_CHILD_RULE_ID_IDX', 'rules', ['child_rule_id'])
 

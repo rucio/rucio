@@ -25,8 +25,7 @@ import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key,
-                        create_check_constraint, create_index,
-                        drop_constraint, drop_index, drop_table)
+                        create_check_constraint, create_index, drop_table)
 
 from rucio.db.sqla.constants import ReplicaState, DIDType
 from rucio.db.sqla.types import GUID
@@ -46,11 +45,11 @@ def upgrade():
         create_table('collection_replicas',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', DIDType.db_type(name='COLLECTION_REPLICAS_TYPE_CHK')),
+                     sa.Column('did_type', DIDType.db_type()),
                      sa.Column('rse_id', GUID()),
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('length', sa.BigInteger),
-                     sa.Column('state', ReplicaState.db_type(name='COLLECTION_REPLICAS_STATE_CHK'), default=ReplicaState.UNAVAILABLE),
+                     sa.Column('state', ReplicaState.db_type(), default=ReplicaState.UNAVAILABLE),
                      sa.Column('accessed_at', sa.DateTime),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
@@ -69,15 +68,4 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_table('collection_replicas')
-
-    elif context.get_context().dialect.name == 'postgresql':
-        drop_constraint('COLLECTION_REPLICAS_PK', 'collection_replicas', type_='primary')
-        drop_constraint('COLLECTION_REPLICAS_TYPE_CHK', 'collection_replicas')
-        drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas')
-        drop_constraint('COLLECTION_REPLICAS_LFN_FK', 'collection_replicas')
-        drop_constraint('COLLECTION_REPLICAS_RSE_ID_FK', 'collection_replicas')
-        drop_constraint('COLLECTION_REPLICAS_SIZE_NN', 'collection_replicas')
-        drop_constraint('COLLECTION_REPLICAS_STATE_NN', 'collection_replicas')
-        drop_index('COLLECTION_REPLICAS_RSE_ID_IDX', 'collection_replicas')
         drop_table('collection_replicas')

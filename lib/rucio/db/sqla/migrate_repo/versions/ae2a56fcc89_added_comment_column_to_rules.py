@@ -40,9 +40,8 @@ def upgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema
         add_column('rules', sa.Column('comments', String(255)), schema=schema)
-        # add_column('rules_hist_recent', sa.Column('comments', String(255)), schema=schema)
-        # add_column('rules_history', sa.Column('comments', String(255)), schema=schema)
-        # FIXME
+        add_column('rules_hist_recent', sa.Column('comments', String(255)), schema=schema)
+        add_column('rules_history', sa.Column('comments', String(255)), schema=schema)
 
 
 def downgrade():

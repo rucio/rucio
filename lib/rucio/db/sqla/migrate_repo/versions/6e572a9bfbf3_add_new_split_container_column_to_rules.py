@@ -38,9 +38,8 @@ def upgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema
         add_column('rules', sa.Column('split_container', sa.Boolean(name='RULES_SPLIT_CONTAINER_CHK'), default=False), schema=schema)
-        # add_column('rules_hist_recent', sa.Column('split_container', sa.Boolean()), schema=schema)
-        # add_column('rules_history', sa.Column('split_container', sa.Boolean()), schema=schema)
-        # FIXME
+        add_column('rules_hist_recent', sa.Column('split_container', sa.Boolean()), schema=schema)
+        add_column('rules_history', sa.Column('split_container', sa.Boolean()), schema=schema)
 
 
 def downgrade():

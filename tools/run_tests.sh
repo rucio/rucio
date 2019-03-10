@@ -61,9 +61,9 @@ do
 done
 
 echo 'Update dependencies with pip'
-#pip install -r tools/pip-requires
-#pip install -r tools/pip-requires-client
-#pip install -r tools/pip-requires-test
+pip install -r tools/pip-requires
+pip install -r tools/pip-requires-client
+pip install -r tools/pip-requires-test
 
 if test ${pip_only}; then
     exit
@@ -79,7 +79,7 @@ echo 'Cleaning storage for local test RSEs'
 rm -rf /tmp/rucio_rse/*
 
 echo 'Running flake8 code style checker'
-#flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/*
+flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/*
 if [ $? != 0 ]; then
     echo 'Checker failed, aborting.'
     exit

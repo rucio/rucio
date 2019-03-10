@@ -47,7 +47,7 @@ def upgrade():
         create_table('naming_conventions',
                      sa.Column('scope', sa.String(SCOPE_LENGTH)),
                      sa.Column('regexp', sa.String(255)),
-                     sa.Column('convention_type', KeyType.db_type(name='CVT_TYPE_CHK')),
+                     sa.Column('convention_type', KeyType.db_type()),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
         create_primary_key('NAMING_CONVENTIONS_PK', 'naming_conventions', ['scope'])
