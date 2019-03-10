@@ -38,7 +38,7 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('heartbeats', 'executable', schema=schema)
         add_column('heartbeats', sa.Column('executable', String(64)), schema=schema)
         add_column('heartbeats', sa.Column('readable', String(4000)), schema=schema)
@@ -52,7 +52,7 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('heartbeats', 'executable', schema=schema)
         drop_column('heartbeats', 'readable', schema=schema)
         add_column('heartbeats', sa.Column('executable', String(767)), schema=schema)

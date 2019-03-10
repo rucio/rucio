@@ -36,7 +36,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('dids', sa.Column('provenance', sa.String(2)), schema=schema)
         add_column('dids', sa.Column('phys_group', sa.String(25)), schema=schema)
 
@@ -47,6 +47,6 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('dids', 'provenance', schema=schema)
         drop_column('dids', 'phys_group', schema=schema)

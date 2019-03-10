@@ -45,7 +45,7 @@ def upgrade():
         drop_constraint(constraint_name='ARCH_CONT_HIST_PK', table_name='archive_contents_history', type_='primary')
 
         # RULES_HIST_RECENT
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_constraint(constraint_name='RULES_HIST_RECENT_PK', table_name='rules_hist_recent', type_='primary')
         drop_column('rules_hist_recent', 'history_id', schema=schema)
 
@@ -67,7 +67,7 @@ def downgrade():
         drop_index('ARCH_CONT_HIST_IDX', 'archive_contents_history')
 
         # RULES_HIST_RECENT
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('rules_hist_recent', sa.Column('history_id', GUID()), schema=schema)
         create_primary_key('RULES_HIST_RECENT_PK', 'rules_hist_recent', ['history_id'])
 

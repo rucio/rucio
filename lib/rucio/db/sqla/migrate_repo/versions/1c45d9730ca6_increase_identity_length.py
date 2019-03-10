@@ -34,7 +34,7 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
 
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
         alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
         alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
@@ -94,7 +94,7 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.'
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")
         execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")
 

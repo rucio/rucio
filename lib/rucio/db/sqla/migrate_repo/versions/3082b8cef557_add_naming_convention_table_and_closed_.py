@@ -41,7 +41,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('dids', sa.Column('closed_at', sa.DateTime), schema=schema)
         add_column('contents_history', sa.Column('deleted_at', sa.DateTime), schema=schema)
         create_table('naming_conventions',
@@ -65,7 +65,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('dids', 'closed_at', schema=schema)
         drop_column('contents_history', 'deleted_at', schema=schema)
         drop_table('naming_conventions', schema=schema)

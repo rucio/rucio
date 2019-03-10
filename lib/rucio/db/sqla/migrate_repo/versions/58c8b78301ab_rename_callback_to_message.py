@@ -44,7 +44,7 @@ def upgrade():
 
     elif context.get_context().dialect.name == 'postgresql':
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         rename_table('callbacks', 'messages', schema=schema)
         create_primary_key('messages_pk', 'messages', ['id'])
         create_check_constraint('messages_event_type_nn', 'messages', 'event_type is not null')
@@ -86,7 +86,7 @@ def downgrade():
         drop_constraint('MESSAGES_CREATED_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_UPDATED_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_PK', 'messages', type_='primary')
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         rename_table('messages', 'callbacks', schema=schema)
         create_primary_key('CALLBACKS_PK', 'callbacks', ['id'])
         create_check_constraint('CALLBACKS_EVENT_TYPE_NN', 'callbacks', 'event_type is not null')

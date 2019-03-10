@@ -47,7 +47,7 @@ def upgrade():
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('ranking', sa.Integer()),
                      sa.Column('is_using', sa.Boolean(), default=False))
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('requests', sa.Column('estimated_at', sa.DateTime), schema=schema)
         add_column('requests_history', sa.Column('estimated_at', sa.DateTime), schema=schema)
 
@@ -58,7 +58,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('requests', 'estimated_at', schema=schema)
         drop_column('requests_history', 'estimated_at', schema=schema)
         drop_table('sources_history')

@@ -84,7 +84,7 @@ def upgrade():
         create_index('ARCH_CONT_HIST_IDX', 'archive_contents_history',
                      ['scope', 'name'])
 
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('dids', sa.Column('is_archive',
                                      sa.Boolean(name='DIDS_ARCHIVE_CHK')), schema=schema)
         add_column('dids', sa.Column('constituent',
@@ -102,7 +102,7 @@ def downgrade():
         drop_table('archive_contents')
         drop_table('archive_contents_history')
 
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('dids', 'is_archive', schema=schema)
         drop_column('dids', 'constituent', schema=schema)
         drop_column('deleted_dids', 'is_archive', schema=schema)

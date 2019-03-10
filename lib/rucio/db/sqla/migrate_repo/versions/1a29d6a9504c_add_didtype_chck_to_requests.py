@@ -36,7 +36,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('requests', sa.Column('did_type',
                                          DIDType.db_type(name='REQUESTS_DIDTYPE_CHK'),
                                          default=DIDType.FILE), schema=schema)
@@ -50,6 +50,6 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('requests', 'did_type', schema=schema)
         drop_column('requests_history', 'did_type', schema=schema)
