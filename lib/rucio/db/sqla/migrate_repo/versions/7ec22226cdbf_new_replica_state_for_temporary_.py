@@ -14,52 +14,50 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-#
-# Topic: New replica state for temporary unavailable replicas
-# Revision ID: 7ec22226cdbf
-# Revises: 3345511706b8
-# Creation Date: 2019-02-14 17:47:38.995814
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-from alembic.op import (create_check_constraint,
-                        drop_constraint)
+''' new replica state for temporary unavailable replicas '''
 
-from alembic import (context, op)
+from alembic import context, op
+from alembic.op import create_check_constraint, drop_constraint
 
 
-# revision identifiers used by alembic
-revision = '7ec22226cdbf'       # pylint: disable=invalid-name
-down_revision = '3345511706b8'  # pylint: disable=invalid-name
+# Alembic revision identifiers
+revision = '7ec22226cdbf'
+down_revision = '3345511706b8'
 
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
-        if context.get_context().dialect.name == 'postgresql':
-            # For Postgres the ENUM Type needs to be renamed first
-            op.execute("ALTER TYPE 'REPLICAS_STATE_CHK' RENAME TO 'REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
-        else:
-            drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
-        create_check_constraint(name='REPLICAS_STATE_CHK', source='replicas', condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
-        if context.get_context().dialect.name == 'postgresql':
-            # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
-            op.execute("ALTER TABLE replicas ALTER COLUMN state TYPE 'REPLICAS_STATE_CHK'")  # pylint: disable=no-member
-            op.execute("DROP TYPE 'REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
+
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+        drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
+        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+
+    elif context.get_context().dialect.name == 'mysql':
+        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
 
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
-        if context.get_context().dialect.name == 'postgresql':
-            # For Postgres the ENUM Type needs to be renamed first
-            op.execute("ALTER TYPE 'REPLICAS_STATE_CHK' RENAME TO 'REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
-        else:
-            drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
-        create_check_constraint(name='REPLICAS_STATE_CHK', source='replicas', condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
-        if context.get_context().dialect.name == 'postgresql':
-            # For Postgres the ENUM Type needs to be changed to the new one and the old one needs to be dropped
-            op.execute("ALTER TABLE replicas ALTER COLUMN state TYPE 'REPLICAS_STATE_CHK'")  # pylint: disable=no-member
-            op.execute("DROP TYPE 'REPLICAS_STATE_CHK_OLD'")  # pylint: disable=no-member
+
+    if context.get_context().dialect.name == 'oracle':
+        drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
+        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
+
+    elif context.get_context().dialect.name == 'postgresql':
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+        op.execute('ALTER TABLE ' + schema + 'replicas ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
+
+    elif context.get_context().dialect.name == 'postgresql':
+        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
