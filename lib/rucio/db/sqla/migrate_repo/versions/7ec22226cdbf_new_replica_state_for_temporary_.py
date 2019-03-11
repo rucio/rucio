@@ -58,6 +58,6 @@ def downgrade():
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
 
-    elif context.get_context().dialect.name == 'postgresql':
+    elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
