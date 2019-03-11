@@ -14,31 +14,34 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-#
-# Topic: Increase size of extended_attributes column
-# Revision ID: 8523998e2e76
-# Revises: 3345511706b8
-# Creation Date: 2019-02-15 15:45:17.171346
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-from alembic.op import (alter_column)
+''' increase size of extended_attributes column '''
 
 import sqlalchemy as sa
 
+from alembic import context
+from alembic.op import alter_column
 
-# revision identifiers used by alembic
-revision = '8523998e2e76'       # pylint: disable=invalid-name
-down_revision = '7ec22226cdbf'  # pylint: disable=invalid-name
+
+# Alembic revision identifiers
+revision = '8523998e2e76'
+down_revision = '7ec22226cdbf'
 
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
-    alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(1024), type_=sa.String(4000))
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(1024), type_=sa.String(4000))
 
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-    alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(4000), type_=sa.String(1024))
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(4000), type_=sa.String(1024))
