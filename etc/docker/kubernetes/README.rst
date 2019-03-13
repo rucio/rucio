@@ -5,7 +5,7 @@ Setting up Rucio in a Kubernetes cluster
 
 Ingress configuration
 ---------------------
-Depending on the platform hosting the Kubernetes cluster a variety of ingress controllers are available. The cluster currently used only supports Traefik so this readme only describes this but any other ingress controllers should work as well.
+Depending on the platform hosting the Kubernetes cluster, a variety of ingress controllers are available. The cluster currently used only supports Traefik so this readme only describes this but any other ingress controllers should work as well.
 
 First, to be able to serve https request a valid certificate/key is needed. Those have to be added to the cluster as a secret::
 
@@ -19,7 +19,7 @@ Then the daemonset configuration can be applied to the cluster::
 
     $ kubectl apply -f ingress/traefik-ds.yaml
 
-This will create the traefik daemonset and mount the certificate and configuration file. The daemonset works with a node selector, i.e., the ingress controller will only be run on nodes that are labeled. You can label a node with::
+This will create the traefik daemonset and mount the certificate along with the configuration file. The daemonset works with a node selector, i.e., the ingress controller will only be run on nodes that are labeled. You can label a node with::
 
     $ kubectl label node <node-name> role=ingress
 
