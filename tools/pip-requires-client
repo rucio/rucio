@@ -13,3 +13,4 @@ bz2file>=0.98,<0.99                               # Read and write bzip2-compres
 python-magic>=0.4.15,<0.5.0                       # File type identification using libmagic
 futures>=3.2.0; python_version < '3.0'            # Clean single-source support for Python 3 and 2
 six>=1.11.0                                       # Python 2 and 3 compatibility utilities
+boto3>=1.9.86					  # S3 boto protocol (new version)
