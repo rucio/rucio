@@ -11,6 +11,7 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014, 2017
  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+ - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
 """
 
 import os
@@ -71,8 +72,14 @@ if __name__ == '__main__':
                 sys.exit(CRITICAL)
         print('%i users extracted from VOMS with %s' % (NBUSERS, account))
 
-    ACCOUNT_LIST = ['calib-muon', 'det-alfa', 'det-ibl', 'det-indet', 'det-larg', 'det-muon', 'det-slhc', 'det-tile', 'proj-sit', 'trig-daq', 'trig-hlt', 'perf-egamma', 'perf-flavtag', 'perf-idtracking', 'perf-jets', 'perf-muons', 'perf-tau',
-                    'phys-beauty', 'phys-exotics', 'phys-gener', 'phys-hi', 'phys-higgs', 'phys-sm', 'phys-susy', 'phys-top', 'phys-valid', 'dataprep', 'trig-l1calo']
+    ACCOUNT_LIST = [
+        'calib-muon', 'dataprep', 'det-alfa', 'det-ibl', 'det-indet',
+        'det-larg', 'det-muon', 'det-slhc', 'det-tile', 'perf-egamma',
+        'perf-flavtag', 'perf-idtracking', 'perf-jets', 'perf-muons',
+        'perf-tau', 'phys-beauty', 'phys-exotics', 'phys-gener', 'phys-hdbs',
+        'phys-hi', 'phys-higgs', 'phys-sm', 'phys-susy', 'phys-top',
+        'phys-valid', 'proj-sit', 'trig-daq', 'trig-hlt', 'trig-l1calo'
+    ]
     for account in ACCOUNT_LIST:
         NBUSERS = 0
         attempts = 0
