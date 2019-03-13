@@ -2712,7 +2712,8 @@ def get_available_suspicious_replicas(rse_like='MOCK', younger_than=3, cnt_thres
     query = session.query(func.count(), bad_replicas_alias.scope, bad_replicas_alias.name, models.RSE.rse)\
                    .filter(models.RSE.id == bad_replicas_alias.rse_id,
                            bad_replicas_alias.state == BadFilesStatus.SUSPICIOUS,
-                           bad_replicas_alias.created_at >= from_date, models.RSE.rse.like('%%%s%%' % rse_like))
+                           bad_replicas_alias.created_at >= from_date, 
+                           models.RSE.rse.like('%%%s%%' % rse_like))
 
     # next, it is required that replicas from above query
     # exist as available on other RSEs in the 'replicas DB' table
