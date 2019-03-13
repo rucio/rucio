@@ -17,7 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015

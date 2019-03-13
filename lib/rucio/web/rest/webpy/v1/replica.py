@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
@@ -55,6 +55,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder, render_json_list
+from rucio.rse.protocols import supported_protocols
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
 
 URLS = ('/list/?$', 'ListReplicas',
@@ -105,6 +106,10 @@ class Replicas(RucioController):
                 select = params['select'][0]
             if 'limit' in params:
                 limit = int(params['limit'][0])
+
+        # Resolve all reasonable protocols when doing metalink for maximum access possibilities
+        if metalink and schemes is None:
+            schemes = supported_protocols
 
         try:
             # first, set the appropriate content type, and stream the header
@@ -348,6 +353,10 @@ class ListReplicas(RucioController):
                 limit = params['limit'][0]
             if 'sort' in params:
                 select = params['sort']
+
+        # Resolve all reasonable protocols when doing metalink for maximum access possibilities
+        if metalink and schemes is None:
+            schemes = supported_protocols
 
         try:
             # first, set the appropriate content type, and stream the header
