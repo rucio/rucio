@@ -27,6 +27,7 @@
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1209,7 +1210,7 @@ def get_parser():
                                                              '\n')
     add_account_parser.set_defaults(which='add_account')
     add_account_parser.add_argument('account', action='store', help='Account name')
-    add_account_parser.add_argument('--type', dest='accounttype', default='USER', help='Account Type')
+    add_account_parser.add_argument('--type', dest='accounttype', default='USER', help='Account Type (USER, GROUP, SERVICE)')
     add_account_parser.add_argument('--email', dest='accountemail', action='store',
                                     help='Email address associated with the account')
 
