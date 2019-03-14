@@ -54,7 +54,7 @@ def group_space(site):
 
 
 # Calculate the current ratios
-rses = parse_expression("(datapolicynucleus=1|tier=1)&type=DATADISK\\bb8-enabled=0")
+rses = parse_expression("(datapolicynucleus=true|tier=1)&type=DATADISK\\bb8-enabled=false")
 total_primary = 0
 total_secondary = 0
 total_total = 0
