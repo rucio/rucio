@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -789,6 +789,16 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
             # if the file is a constituent, find the available archives and add them to the list of possible PFNs
             # taking into account the original rse_expression
             if '%s:%s' % (scope, name) in constituents:
+
+                # special protocol handling for constituents
+                # force the use of root if client didn't specify
+                if not schemes:
+                    schemes = ['root']
+                else:
+                    # always add root for archives
+                    schemes.append('root')
+                    schemes = list(set(schemes))
+
                 archive_result = list_replicas(dids=constituents['%s:%s' % (scope, name)],
                                                schemes=schemes, client_location=client_location,
                                                domain=domain, sign_urls=sign_urls,
@@ -828,6 +838,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 new_pfn = add_url_query(tmp_archive, {'xrdcl.unzip': name})
                                 archive['pfns'][new_pfn] = archive['pfns'].pop(tmp_archive)
                                 tmp_archive = new_pfn
+                                # any number larger than the number of availabe protocols is fine
+                                archive['pfns'][tmp_archive]['priority'] -= 99
                             if 'xrdcl.unzip' not in tmp_archive:
                                 archive['pfns'][tmp_archive]['client_extract'] = True
 
@@ -846,16 +858,20 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         if archive_pfn.startswith('root://'):
                             # use direct addressable path for root
                             pfn = add_url_query(archive_pfn, {'xrdcl.unzip': name})
+                            # any number larger than the number of availabe protocols is fine
+                            archive[archive_pfn]['priority'] -= 99
+                            priority = archive[archive_pfn]['priority']
                             client_extract = False
                         else:
                             # otherwise just use the zip and tell the client to extract
                             pfn = archive_pfn
+                            priority = archive[archive_pfn]['priority']
                             client_extract = True
 
                         # use zip domain for sorting, and pass through all the information
                         # we need it later to reconstruct the final PFNS
                         # ('pfn', 'domain', 'priority', 'client_extract', archive-passthrough)
-                        pfns.append((pfn, 'zip', archive[archive_pfn]['priority'], client_extract, archive[archive_pfn]))
+                        pfns.append((pfn, 'zip', priority, client_extract, archive[archive_pfn]))
 
             if show_pfns and rse:
                 if rse not in rse_info:
@@ -997,6 +1013,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
                     # and use 1-indexing to be compatible with metalink
                     tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
+
                     for i in range(0, len(tmp)):
                         file['pfns'][tmp[i][2]]['priority'] = i + 1
                         file['rses'] = {}
