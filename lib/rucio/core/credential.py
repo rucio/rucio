@@ -22,6 +22,8 @@
 import base64
 import datetime
 import time
+import hmac
+from hashlib import sha1
 
 from six import integer_types
 try:
@@ -56,7 +58,7 @@ def get_signed_url(service, operation, url, lifetime=600):
 
     The signed URL will be valid for 1 hour but can be overriden.
 
-    :param service: The service to authorise, either 'gcs' or 's3'.
+    :param service: The service to authorise, either 'gcs', 's3' or 'swift'.
     :param operation: The operation to sign, either 'read', 'write', or 'delete'.
     :param url: The URL to sign.
     :param lifetime: Lifetime of the signed URL in seconds.
@@ -65,8 +67,8 @@ def get_signed_url(service, operation, url, lifetime=600):
 
     global CREDS_GCS
 
-    if service not in ['gcs', 's3']:
-        raise UnsupportedOperation('Service must be "gcs" or "s3"')
+    if service not in ['gcs', 's3', 'swift']:
+        raise UnsupportedOperation('Service must be "gcs", "s3" or "swift"')
 
     if operation not in ['read', 'write', 'delete']:
         raise UnsupportedOperation('Operation must be "read", "write", or "delete"')
@@ -157,5 +159,45 @@ def get_signed_url(service, operation, url, lifetime=600):
             s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
 
             signed_url = s3.generate_presigned_url(s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
+
+    elif service == 'swift':
+        # split URL to get hostname and path
+        components = urlparse(url)
+        host = components.netloc
+
+        # remove port number from host if present
+        colon = host.find(':')
+        if colon >= 0:
+            host = host[:colon]
+
+        # use hostname plus first three components of path to look up key
+        pathcomponents = components.path.split('/')
+        if len(pathcomponents) < 4:
+            raise UnsupportedOperation('Not a valid Swift URL')
+        cred_name = host + '-' + '-'.join(pathcomponents[1:4])
+
+        # look up tempurl signing key
+        cred = REGION.get('swift-%s' % cred_name)
+        if cred is NO_VALUE:
+            rse_cred = get_rse_credentials()
+            cred = rse_cred.get(cred_name)
+            REGION.set('swift-%s' % cred_name, cred)
+        tempurl_key = cred['tempurl_key']
+
+        if operation == 'read':
+            swiftop = 'GET'
+        elif operation == 'write':
+            swiftop = 'PUT'
+        else:
+            swiftop = 'DELETE'
+
+        expires = int(time.time() + lifetime)
+
+        # create signed URL
+        with record_timer_block('credential.signswift'):
+            hmac_body = u'%s\n%s\n%s' % (swiftop, expires, components.path)
+            # Python 3 hmac only accepts bytes or bytearray
+            sig = hmac.new(bytearray(tempurl_key, 'utf-8'), bytearray(hmac_body, 'utf-8'), sha1).hexdigest()
+            signed_url = 'https://' + host + components.path + '?temp_url_sig=' + sig + '&temp_url_expires=' + str(expires)
 
     return signed_url

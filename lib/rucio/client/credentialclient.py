@@ -38,7 +38,7 @@ class CredentialClient(BaseClient):
         """
         Return a signed version of the given URL for the given operation.
 
-        :param service: The service the URL points to (gcs, s3)
+        :param service: The service the URL points to (gcs, s3, swift)
         :param operation: The desired operation (read, write, delete)
         :param url: The URL to sign
         :param lifetime: The desired lifetime of the URL in seconds
