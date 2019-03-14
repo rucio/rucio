@@ -120,8 +120,8 @@ class SignURL(MethodView):
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
-        if service not in ['gcs', 's3']:
-            return generate_http_error_flask(400, 'ValueError', 'Parameter "svc" must be either empty(=gcs), gcs or s3')
+        if service not in ['gcs', 's3', 'swift']:
+            return generate_http_error_flask(400, 'ValueError', 'Parameter "svc" must be either empty(=gcs), gcs, s3 or swift')
 
         if url is None:
             return generate_http_error_flask(400, 'ValueError', 'Parameter "url" not found')
