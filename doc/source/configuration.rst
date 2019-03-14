@@ -18,7 +18,7 @@ The first step is to create new accounts::
 
   $ rucio-admin account add --type USER --email jdoe@blahblih.com jdoe
 
-You can choose different types in the list USER, GROUP, SERVICE. Different policies/permissions can be set depending on the account type.  Once the account is created, you need to create and attach an identity to this account::
+You can choose among different types in the list USER, GROUP, SERVICE. Different policies/permissions can be set depending on the account type.  Once the account is created, you need to create and attach an identity to this account::
 
   $ rucio-admin identity add --type X509 --id "/DC=blah/DC=blih/OU=Organic Units/OU=Users/CN=jdoe" --email jdoe@blahblih.com --account jdoe
 
@@ -138,7 +138,7 @@ Let's check that everything is properly defined::
 Setting quota and permissions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The root account has all privileges. You can define other admin accounts by setting the account attribute admin::
+The root account has all the privileges. You can define other admin accounts by setting the account attribute admin::
 
   $ rucio-admin account add-attribute --key admin --value 1 jdoe
   $ rucio-admin account list --filter "admin=1"
