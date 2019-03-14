@@ -18,7 +18,7 @@ The first step is to create new accounts::
 
   $ rucio-admin account add --type USER --email jdoe@blahblih.com jdoe
 
-You can choose from different types in the list USER, GROUP, SERVICE. Different policies/permissions can be set depending on the account type.  Once the account is created, you need to create and attach an identity to this account::
+You can choose different types in the list USER, GROUP, SERVICE. Different policies/permissions can be set depending on the account type.  Once the account is created, you need to create and attach an identity to this account::
 
   $ rucio-admin identity add --type X509 --id "/DC=blah/DC=blih/OU=Organic Units/OU=Users/CN=jdoe" --email jdoe@blahblih.com --account jdoe
 
