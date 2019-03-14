@@ -35,6 +35,7 @@ Individual contributors to the source code
 - Robert Illingworth <illingwo@fnal.gov>, 2018
 - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2019
+- James Perry <j.perry@epcc.ed.ac.uk>, 2019
 
 Organisations employing contributors
 ------------------------------------
@@ -52,3 +53,4 @@ Organisations employing contributors
 - Leopold-Franzens Universität Innsbruck (Austria)
 - Academia Sinica (Taiwan)
 - Birla Institute of Technology, Mesra (India)
+- University of Edinburgh (UK)

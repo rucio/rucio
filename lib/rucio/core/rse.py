@@ -847,6 +847,9 @@ def get_rse_protocols(rse, schemes=None, session=None):
     # Copy verify_checksum from the attributes, later: assume True if not specified
     verify_checksum = get_rse_attribute('verify_checksum', rse_id=_rse.id, session=session)
 
+    # Copy sign_url from the attributes
+    sign_url = get_rse_attribute('sign_url', rse_id=_rse.id, session=session)
+
     read = True if _rse.availability & 4 else False
     write = True if _rse.availability & 2 else False
     delete = True if _rse.availability & 1 else False
@@ -864,6 +867,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
             'credentials': None,
             'volatile': _rse.volatile,
             'verify_checksum': verify_checksum[0] if verify_checksum else True,
+            'sign_url': sign_url[0] if sign_url else None,
             'staging_area': _rse.staging_area}
 
     for op in utils.rse_supported_protocol_operations():
