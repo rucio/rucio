@@ -367,7 +367,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
         :param force_scheme: use the given protocol scheme, overriding the protocol priority in the RSE description
         :param transfer_timeout: set this timeout (in seconds) for the transfers, for protocols that support it
-        :param sign_service: use the given service (e.g. gcs, s3) to sign the URL
+        :param sign_service: use the given service (e.g. gcs, s3, swift) to sign the URL
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
