@@ -14,34 +14,36 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-#
-# Topic: Add comments column for subscriptions_history
-# Revision ID: b8caac94d7f0
-# Revises: 3345511706b8
-# Creation Date: 2019-02-20 16:52:28.549840
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-from alembic.op import (add_column, drop_column)
-
-from alembic import context
+''' add comments column for subscriptions_history '''
 
 import sqlalchemy as sa
 
+from alembic import context
+from alembic.op import add_column, drop_column
 
-# revision identifiers used by alembic
-revision = 'b8caac94d7f0'       # pylint: disable=invalid-name
-down_revision = '8523998e2e76'  # pylint: disable=invalid-name
+
+# Alembic revision identifiers
+revision = 'b8caac94d7f0'
+down_revision = '8523998e2e76'
 
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
-    add_column('subscriptions_history', sa.Column('comments', sa.String(4000)))
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        add_column('subscriptions_history', sa.Column('comments', sa.String(4000)), schema=schema)
 
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
-        drop_column('subscriptions_history', 'comments')
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        drop_column('subscriptions_history', 'comments', schema=schema)
