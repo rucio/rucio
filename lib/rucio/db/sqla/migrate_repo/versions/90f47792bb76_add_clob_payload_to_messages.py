@@ -14,32 +14,37 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-#
-# Topic: True is true
-# Revision ID: 90f47792bb76
-# Revises: 1f46c5f240ac
-# Creation Date: 2019-01-21 15:35:22.732801
 
-from alembic.op import add_column, drop_column
+''' add clob payload to messages '''
 
 import sqlalchemy as sa
 
-# revision identifiers used by alembic
-revision = '90f47792bb76'       # pylint: disable=invalid-name
-down_revision = 'bf3baa1c1474'  # pylint: disable=invalid-name
+from alembic import context
+from alembic.op import add_column, drop_column
+
+
+# Alembic revision identifiers
+revision = '90f47792bb76'
+down_revision = 'bf3baa1c1474'
 
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
-    add_column('messages', sa.Column('payload_nolimit', sa.Text))
-    add_column('messages_history', sa.Column('payload_nolimit', sa.Text))
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        add_column('messages', sa.Column('payload_nolimit', sa.Text), schema=schema)
+        add_column('messages_history', sa.Column('payload_nolimit', sa.Text), schema=schema)
 
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-    drop_column('messages', 'payload_nolimit')
-    drop_column('messages_history', 'payload_nolimit')
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        drop_column('messages', 'payload_nolimit', schema=schema)
+        drop_column('messages_history', 'payload_nolimit', schema=schema)
