@@ -41,8 +41,8 @@ import re
 import requests
 import socket
 import subprocess
-import zlib
 import time
+import zlib
 
 from getpass import getuser
 from logging import getLogger, Formatter
@@ -955,10 +955,10 @@ def run_cmd_process(cmd, timeout=3600):
     while process.poll() is None and running_time < timeout:
         time_now = datetime.datetime.now().second
         running_time = int(time_now - time_start)
-        time.sleep(1)
+        time.sleep(3)
     if process.poll() is None:
         process.terminate()
-        time.sleep(1)
+        time.sleep(3)
     if process.poll() is None:
         process.kill()
 

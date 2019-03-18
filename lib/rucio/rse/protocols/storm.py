@@ -9,14 +9,14 @@
 # - Tomas Javor Javurek, <tomas.javurek@cern.ch>, 2019
 
 
-from exceptions import NotImplementedError
-from rucio.common import exception
-from rucio.rse.protocols import protocol
+import os
 
-from rucio.common.utils import run_cmd_process
+from exceptions import NotImplementedError
 from xml.dom import minidom
 
-import os
+from rucio.common import exception
+from rucio.common.utils import run_cmd_process
+from rucio.rse.protocols import protocol
 
 
 class Default(protocol.RSEProtocol):
@@ -98,9 +98,9 @@ class Default(protocol.RSEProtocol):
          """
 
         # storm prefix needs to be replaced by davs in order to get etag
-        pfn = 'davs'+pfn[5:]
+        pfn = 'davs' + pfn[5:]
 
-        # retrieve the TURL from the webdav etag
+        # retrieve the TURL from the webdav etag, TODO: make it configurable
         cmd = 'davix-http --capath /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates --cert $X509_USER_PROXY -X PROPFIND %s' % pfn
         try:
             rcode, output = run_cmd_process(cmd, timeout=10)
