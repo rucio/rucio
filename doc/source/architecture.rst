@@ -12,7 +12,7 @@ The Rucio server is a passive component listening to incoming queries. It connec
 Rucio core components together and offers a common interface for external interaction.
 This abstraction layer is responsible for the interactions with different
 middleware tools and storage systems. It effectively hides the complexity of these tools
-and combines them into one interface used by Rucio.  The persistence layer keeps all the
+and combines them into one interface used by Rucio. The persistence layer keeps all the
 logical data and the application states.
 
 The Rucio daemons are active components that orchestrate the collaborative work of the
