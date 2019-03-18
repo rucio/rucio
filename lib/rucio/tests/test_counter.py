@@ -8,11 +8,12 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon,<cedric.serfon@cern.ch>, 2019
 
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_in
 
+from rucio.db.sqla import session, models
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
 from rucio.core.rse import get_rse
@@ -69,6 +70,17 @@ class TestCoreRSECounter():
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
+    def test_fill_counter_history(self):
+        """RSE COUNTER (CORE): Fill the usage history with the current value."""
+        db_session = session.get_session()
+        db_session.query(models.RSEUsage.__history_mapper__.class_).delete()
+        db_session.commit()
+        rse_counter.fill_rse_counter_history_table()
+        history_usage = [(usage['rse_id'], usage['files'], usage['source'], usage['used']) for usage in db_session.query(models.RSEUsage.__history_mapper__.class_)]
+        current_usage = [(usage['rse_id'], usage['files'], usage['source'], usage['used']) for usage in db_session.query(models.RSEUsage)]
+        for usage in history_usage:
+            assert_in(usage, current_usage)
+
 
 class TestCoreAccountCounter():
 
@@ -119,3 +131,14 @@ class TestCoreAccountCounter():
             cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
             assert_equal(cnt, {'files': count, 'bytes': sum})
+
+    def test_fill_counter_history(self):
+        """ACCOUNT COUNTER (CORE): Fill the usage history with the current value."""
+        db_session = session.get_session()
+        db_session.query(models.AccountUsage.__history_mapper__.class_).delete()
+        db_session.commit()
+        account_counter.fill_account_counter_history_table()
+        history_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsage.__history_mapper__.class_)]
+        current_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsage)]
+        for usage in history_usage:
+            assert_in(usage, current_usage)

@@ -176,3 +176,15 @@ def update_account_counter_history(account, rse_id, session=None):
         AccountUsageHistory(rse_id=rse_id, account=account, files=counter.files, bytes=counter.bytes).save(session=session)
     except NoResultFound:
         raise CounterNotFound('No usage can be found for account %s on RSE with id %s' % (account, rse_id))
+
+
+@transactional_session
+def fill_account_counter_history_table(session=None):
+    """
+    Fill the account usage history table with the current usage.
+
+    :param session:  Database session in use.
+    """
+    AccountUsageHistory = models.AccountUsage.__history_mapper__.class_
+    for usage in session.query(models.AccountUsage).all():
+        AccountUsageHistory(rse_id=usage['rse_id'], account=usage['account'], files=usage['files'], bytes=usage['bytes']).save(session=session)
