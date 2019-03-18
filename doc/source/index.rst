@@ -11,7 +11,7 @@ collaborations to manage large volumes of data spread across facilities at
 multiple institutions and organisations. Rucio has been developed by
 `the ATLAS experiment <https://atlas.cern/>`_.
 
-Rucio offers advanced features, is highly scalable and modular. It is a data management
+Rucio offers advanced features, is highly scalable, and modular. It is a data management
 solution that could cover the needs of different communities in the scientific
 domain (e.g., HEP, astronomy, biology).
 
@@ -24,7 +24,7 @@ General Information
 ===================
 
 This section contains the general information related to Rucio which is common to
-all developers, users and operators.
+all developers, users, and operators.
 For documentation specific to any of these three, please see the subsequent sections.
 
 .. toctree::
