@@ -1,43 +1,49 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
-
-added column identity to table tokens
-
-Revision ID: b4293a99f344
-Revises: 3ac1660a1a72
-Create Date: 2017-08-29 10:06:07.184267
-
-'''
-from alembic.op import add_column, drop_column
-
-from alembic import context
+''' added column identity to table tokens '''
 
 import sqlalchemy as sa
 
+from alembic import context
+from alembic.op import add_column, drop_column
 
-# revision identifiers, used by Alembic.
-revision = 'b4293a99f344'  # pylint: disable=invalid-name
-down_revision = '3ac1660a1a72'  # pylint: disable=invalid-name
+
+# Alembic revision identifiers
+revision = 'b4293a99f344'
+down_revision = '3ac1660a1a72'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
-        add_column('tokens', sa.Column('identity', sa.String(255)))
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        add_column('tokens', sa.Column('identity', sa.String(255)), schema=schema)
 
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
-        drop_column('tokens', 'identity')
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        drop_column('tokens', 'identity', schema=schema)

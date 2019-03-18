@@ -1,41 +1,50 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-"""new attr account table
+''' new attr account table '''
 
-Revision ID: 4c3a4acfe006
-Revises: 25fc855625cf
-Create Date: 2015-01-06 15:10:17.976558
-"""
+import datetime
+
+import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key,
-                        create_check_constraint, create_index,
-                        drop_constraint, drop_table, drop_index)
-import sqlalchemy as sa
+                        create_check_constraint, create_index, drop_table)
 
-# revision identifiers, used by Alembic.
+
+# Alembic revision identifiers
 revision = '4c3a4acfe006'
 down_revision = '25fc855625cf'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    create_table('account_attr_map',
-                 sa.Column('account', sa.String(25)),
-                 sa.Column('key', sa.String(255)),
-                 sa.Column('value', sa.String(255)),
-                 sa.Column('updated_at', sa.DateTime),
-                 sa.Column('created_at', sa.DateTime))
-    if context.get_context().dialect.name != 'sqlite':
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        create_table('account_attr_map',
+                     sa.Column('account', sa.String(25)),
+                     sa.Column('key', sa.String(255)),
+                     sa.Column('value', sa.String(255)),
+                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+                     sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
+
         create_primary_key('ACCOUNT_ATTR_MAP_PK', 'account_attr_map', ['account', 'key'])
         create_check_constraint('ACCOUNT_ATTR_MAP_CREATED_NN', 'account_attr_map', 'created_at is not null')
         create_check_constraint('ACCOUNT_ATTR_MAP_UPDATED_NN', 'account_attr_map', 'updated_at is not null')
@@ -45,13 +54,17 @@ def upgrade():
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name == 'postgresql':
-        drop_constraint('ACCOUNT_ATTR_MAP_PK', 'account_attr_map', type_='primary')
-        drop_constraint('ACCOUNT_ATTR_MAP_CREATED_NN', 'account_attr_map')
-        drop_constraint('ACCOUNT_ATTR_MAP_UPDATED_NN', 'account_attr_map')
-        drop_constraint('ACCOUNT_ATTR_MAP_ACCOUNT_FK', 'account_attr_map')
-        drop_constraint('ACCOUNT_ATTR_MAP_RSE_ID_FK', 'account_attr_map')
-        drop_index('ACCOUNT_ATTR_MAP_KEY_VALUE_IDX', 'account_attr_map')
-    drop_table('account_attr_map')
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        drop_table('account_attr_map')
+
+    elif context.get_context().dialect.name == 'postgresql':
+        # drop_constraint('ACCOUNT_ATTR_MAP_PK', 'account_attr_map', type_='primary')
+        # drop_constraint('ACCOUNT_ATTR_MAP_CREATED_NN', 'account_attr_map')
+        # drop_constraint('ACCOUNT_ATTR_MAP_UPDATED_NN', 'account_attr_map')
+        # drop_constraint('ACCOUNT_ATTR_MAP_ACCOUNT_FK', 'account_attr_map')
+        # drop_index('ACCOUNT_ATTR_MAP_KEY_VALUE_IDX', 'account_attr_map')
+        # drop_table('account_attr_map')
+        pass

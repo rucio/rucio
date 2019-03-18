@@ -14,36 +14,46 @@
 #
 # Authors:
 # - John Doe <john.doe@asdf.com>, 2019
-#
-# Topic: ${message}
-# Revision ID: ${up_revision}
-# Revises: ${down_revision}
-# Creation Date: ${create_date}
 
+''' ${message} '''
+
+import sqlalchemy as sa
+
+from alembic import context
 from alembic.op import (create_primary_key, create_check_constraint,
                         drop_constraint, rename_table)
 
-from alembic import context
 
-import sqlalchemy as sa
-${imports if imports else ""}
-
-# revision identifiers used by alembic
-revision = ${repr(up_revision)}       # pylint: disable=invalid-name
-down_revision = ${repr(down_revision)}  # pylint: disable=invalid-name
+# Alembic revision identifiers
+revision = ${repr(up_revision)}
+down_revision = ${repr(down_revision)}
 
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
-        ${upgrades if upgrades else "pass"}
+
+    if context.get_context().dialect.name == 'oracle':
+        pass
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
+
+    elif context.get_context().dialect.name == 'mysql':
+        pass
 
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name != 'sqlite':
-        ${downgrades if downgrades else "pass"}
+
+    if context.get_context().dialect.name == 'oracle':
+        pass
+
+    elif context.get_context().dialect.name == 'postgresql':
+        pass
+
+    elif context.get_context().dialect.name == 'mysql':
+        pass

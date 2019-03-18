@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,33 +14,36 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
-# Add bytes column to bad_replicas
-#
-# Revision ID: 1f46c5f240ac
-# Revises: 688ef1840840
-# Create Date: 2018-07-26 15:28:04.243520
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-from alembic.op import add_column, drop_column
-from alembic import context
+''' add bytes column to bad_replicas '''
 
 import sqlalchemy as sa
 
-# revision identifiers, used by Alembic.
-revision = '1f46c5f240ac'  # pylint: disable=invalid-name
-down_revision = '688ef1840840'  # pylint: disable=invalid-name
+from alembic import context
+from alembic.op import add_column, drop_column
+
+
+# Alembic revision identifiers
+revision = '1f46c5f240ac'
+down_revision = '688ef1840840'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name != 'sqlite':  # pylint: disable=no-member
-        add_column('bad_replicas', sa.Column('bytes', sa.BigInteger))
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        add_column('bad_replicas', sa.Column('bytes', sa.BigInteger), schema=schema)
 
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name != 'sqlite':  # pylint: disable=no-member
-        drop_column('bad_replicas', 'bytes')
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        drop_column('bad_replicas', 'bytes', schema=schema)
