@@ -23,7 +23,7 @@
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -41,6 +41,8 @@ import re
 import requests
 import socket
 import subprocess
+import threading
+import time
 import zlib
 
 from getpass import getuser
@@ -945,3 +947,20 @@ def parse_replicas_metalink(root):
         files.append(cur_file)
 
     return files
+
+
+def get_thread_with_periodic_running_function(interval, action, graceful_stop):
+    """
+    Get a thread where a function runs periodically.
+
+    :param interval: Interval in seconds when the action fucntion should run.
+    :param action: Function, that should run periodically.
+    :param graceful_stop: Threading event used to check for graceful stop.
+    """
+    def start():
+        while not graceful_stop.is_set():
+            starttime = time.time()
+            action()
+            time.sleep(interval - ((time.time() - starttime)))
+    t = threading.Thread(target=start)
+    return t
