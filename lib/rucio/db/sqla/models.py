@@ -49,7 +49,7 @@ from rucio.db.sqla.session import BASE
 from rucio.db.sqla.types import GUID, BooleanString, JSON
 
 
-# Recipe to for str instead if unicode
+# Recipe to force str instead if unicode
 # https://groups.google.com/forum/#!msg/sqlalchemy/8Xn31vBfGKU/bAGLNKapvSMJ
 def String(*arg, **kw):
     kw['convert_unicode'] = 'force'
@@ -419,7 +419,6 @@ class DeletedDataIdentifier(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
-    purge_replicas = Column(Boolean(name='DELETED_DIDS_PURGE_RPLCS_CHK'), default=True)
     deleted_at = Column(DateTime)
     events = Column(BigInteger)
     guid = Column(GUID())
@@ -891,8 +890,8 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     account = Column(String(25))
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    did_type = Column(DIDType.db_type())
-    state = Column(RuleState.db_type())
+    did_type = Column(DIDType.db_type(name='RULES_HIST_RECENT_DIDTYPE_CHK'))
+    state = Column(RuleState.db_type(name='RULES_HIST_RECENT_STATE_CHK'))
     error = Column(String(255))
     rse_expression = Column(String(3000))
     copies = Column(SmallInteger)
@@ -904,8 +903,8 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     locks_stuck_cnt = Column(BigInteger)
     source_replica_expression = Column(String(255))
     activity = Column(String(50))
-    grouping = Column(RuleGrouping.db_type())
-    notification = Column(RuleNotification.db_type())
+    grouping = Column(RuleGrouping.db_type(name='RULES_HIST_RECENT_GROUPING_CHK'))
+    notification = Column(RuleNotification.db_type(name='RULES_HIST_RECENT_NOTIFY_CHK'))
     stuck_at = Column(DateTime)
     purge_replicas = Column(Boolean())
     ignore_availability = Column(Boolean())
@@ -931,8 +930,8 @@ class ReplicationRuleHistory(BASE, ModelBase):
     account = Column(String(25))
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    did_type = Column(DIDType.db_type())
-    state = Column(RuleState.db_type())
+    did_type = Column(DIDType.db_type(name='RULES_HISTORY_DIDTYPE_CHK'))
+    state = Column(RuleState.db_type(name='RULES_HISTORY_STATE_CHK'))
     error = Column(String(255))
     rse_expression = Column(String(3000))
     copies = Column(SmallInteger)
@@ -944,8 +943,8 @@ class ReplicationRuleHistory(BASE, ModelBase):
     locks_stuck_cnt = Column(BigInteger)
     source_replica_expression = Column(String(255))
     activity = Column(String(50))
-    grouping = Column(RuleGrouping.db_type())
-    notification = Column(RuleNotification.db_type())
+    grouping = Column(RuleGrouping.db_type(name='RULES_HISTORY_GROUPING_CHK'))
+    notification = Column(RuleNotification.db_type(name='RULES_HISTORY_NOTIFY_CHK'))
     stuck_at = Column(DateTime)
     priority = Column(Integer)
     purge_replicas = Column(Boolean())
