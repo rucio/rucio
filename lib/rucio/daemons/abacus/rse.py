@@ -32,8 +32,9 @@ import time
 import traceback
 
 from rucio.common.config import config_get
+from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.rse_counter import get_updated_rse_counters, update_rse_counter
+from rucio.core.rse_counter import get_updated_rse_counters, update_rse_counter, fill_rse_counter_history_table
 
 graceful_stop = threading.Event()
 
@@ -100,7 +101,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1):
+def run(once=False, threads=1, fill_history_table=False):
     """
     Starts up the Abacus-RSE threads.
     """
@@ -113,6 +114,8 @@ def run(once=False, threads=1):
     else:
         logging.info('main: starting threads')
         threads = [threading.Thread(target=rse_update, kwargs={'once': once}) for i in range(0, threads)]
+        if fill_history_table:
+            threads.append(get_thread_with_periodic_running_function(3600, fill_rse_counter_history_table, graceful_stop))
         [t.start() for t in threads]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
