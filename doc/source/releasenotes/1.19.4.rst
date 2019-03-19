@@ -1,0 +1,61 @@
+======
+1.19.4
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: list_replicas with metalink should resolve all schemes, if no schemes are given `#1262 <https://github.com/rucio/rucio/issues/1262>`_
+- Core & Internals: RSE Abacus needs to fill rse_usage_history `#2253 <https://github.com/rucio/rucio/issues/2253>`_
+- Core & Internals: Automated alembic downgrade/upgrade on all databases `#2257 <https://github.com/rucio/rucio/issues/2257>`_
+- Core & Internals: list_replicas should prioritise root protocol for zips `#2313 <https://github.com/rucio/rucio/issues/2313>`_
+- Documentation: Fix grammatical errors and typos  `#2291 <https://github.com/rucio/rucio/issues/2291>`_
+- Documentation: Improve rucio-admin documentation `#2322 <https://github.com/rucio/rucio/issues/2322>`_
+- Documentation: Documentation: Fix grammatical errors in documentation `#2336 <https://github.com/rucio/rucio/issues/2336>`_
+- Probes & Alarms: Update probe for new physics group `#2319 <https://github.com/rucio/rucio/issues/2319>`_
+- Rebalancing: bb8 - several optimizations `#2080 <https://github.com/rucio/rucio/issues/2080>`_
+- Rebalancing: bb8 - several optimisations `#2327 <https://github.com/rucio/rucio/issues/2327>`_
+- Testing: increase postgres amount of max connections `#2285 <https://github.com/rucio/rucio/issues/2285>`_
+- Transfers: fts-source-strategy configurable by activity `#2161 <https://github.com/rucio/rucio/issues/2161>`_
+- Transfers: Create config/se method in fts transfer tool `#2227 <https://github.com/rucio/rucio/issues/2227>`_
+
+****
+Bugs
+****
+
+- Core & Internals: REST API not returning full JSON `#1730 <https://github.com/rucio/rucio/issues/1730>`_
+- Core & Internals: Memcached problem with space character `#2128 <https://github.com/rucio/rucio/issues/2128>`_
+- Documentation: Demo docs pointing to wrong location `#2288 <https://github.com/rucio/rucio/issues/2288>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- RSE Manager: rsemgr: retries of protocol.stat `#1833 <https://github.com/rucio/rucio/issues/1833>`_
+
+****
+Bugs
+****
+
+- Clients: summary in upload `#2290 <https://github.com/rucio/rucio/issues/2290>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Historical view for used space by account and RSE `#2299 <https://github.com/rucio/rucio/issues/2299>`_
+- WebUI: Add history plot on account_rse_usage `#2305 <https://github.com/rucio/rucio/issues/2305>`_
+
