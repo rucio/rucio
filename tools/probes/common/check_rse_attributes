@@ -11,6 +11,7 @@
 # - David Cameron, <david.cameron@cern.ch>, 2014-2015
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2019
+# - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -75,6 +76,7 @@ if __name__ == '__main__':
         sys.exit(WARNING)
 
     SPACE_USAGE = [rse['rse'] for rse in get_rses_with_attribute('space_usage_method')]
+    SOURCE_USED_SPACE = [rse['rse'] for rse in get_rses_with_attribute('sourceForUsedSpace')]
     HAS_PROXY = [rse['rse'] for rse in get_rses_with_attribute('root-proxy-internal')]
     NOT_FOR_EXTRA_COPY = [rse['rse'] for rse in get_rses_with_attribute('notforextracopy')]
     SCRATCHDISK_WITHOUT_SPACE = [rse['rse'] for rse in parse_expression(expression='type=SCRATCHDISK&freespace<50')]
@@ -111,10 +113,14 @@ if __name__ == '__main__':
             add_rse_attribute(name, 'spacetoken', str(rse['token']), session=session)
             add_rse_attribute(name, 'site', str(rse['site']), session=session)
             add_rse_attribute(name, 'type', str(rse['type']), session=session)
-            if str(rse['space_method']) == 'other':
+            if rse['space_usage_url']:
                 add_rse_attribute(name, 'space_usage_method', 'json', session=session)
             elif name in SPACE_USAGE:
                 del_rse_attribute(name, 'space_usage_method', session=session)
+            if rse['space_method'] == 'rucio':
+                add_rse_attribute(name, 'sourceForUsedSpace', 'rucio', session=session)
+            elif name in SOURCE_USED_SPACE:
+                del_rse_attribute(name, 'sourceForUsedSpace', session=session)
             if rse['type'] == 'LOCALGROUPDISK' or rse['type'] == 'LOCALGROUPTAPE':
                 country = COUNTRYCODES[str(rse['country'])]
                 if name.startswith('CERN'):
