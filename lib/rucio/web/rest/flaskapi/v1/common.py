@@ -20,6 +20,7 @@
 # PY3K COMPATIBLE
 
 from __future__ import print_function
+from functools import wraps
 from flask import request
 from time import time
 from traceback import format_exc
@@ -69,6 +70,7 @@ def after_request(response):
 def check_accept_header_wrapper_flask(supported_content_types):
     """ Decorator to check if an endpoint supports the requested content type. """
     def wrapper(f):
+        @wraps(f)
         def decorated(*args, **kwargs):
             requested_content_type = request.environ.get('HTTP_ACCEPT')
             request_type_allowed = True
