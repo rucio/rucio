@@ -25,7 +25,7 @@ you can either:
 
 To run the multi-container Rucio Docker applications, do::
 
-    > $ sudo docker-compose --file etc/docker/demo/docker-compose.yml up -d
+    > $ sudo -E docker-compose --file etc/docker/demo/docker-compose.yml up -d
 
 Here we assume that the command is executed at the root of the Rucio cloned repository.
 

@@ -10,7 +10,12 @@
 version: "2"
 services:
   rucio:
-    build: .
+    build:
+      context: .
+      args:
+        - http_proxy
+        - https_proxy
+        - no_proxy
     ports:
       - "443:443"
     links:
